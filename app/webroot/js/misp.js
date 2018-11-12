@@ -4,7 +4,7 @@ String.prototype.ucfirst = function() {
 
 function deleteObject(type, action, id, event) {
 	var destination = 'attributes';
-	var alternateDestinations = ['shadow_attributes', 'template_elements', 'taxonomies', 'objects', 'object_references'];
+	var alternateDestinations = ['shadow_attributes', 'template_elements', 'taxonomies', 'galaxy_clusters', 'objects', 'object_references'];
 	if (alternateDestinations.indexOf(type) > -1) destination = type;
 	else destination = type;
 	url = "/" + destination + "/" + action + "/" + id;
@@ -16,6 +16,35 @@ function deleteObject(type, action, id, event) {
 
 function quickDeleteSighting(id, rawId, context) {
 	url = "/sightings/quickDelete/" + id + "/" + rawId + "/" + context;
+	$.get(url, function(data) {
+		$("#confirmation_box").html(data);
+		openPopup("#confirmation_box");
+	});
+}
+
+function quickAddSighting(clicked, id, value) {
+    var btn = $(clicked);
+    var html = '<div>'
+        + '<button class="btn btn-primary" onclick="fetchAddSightingForm(\''+id+'\', false)">'+'id'+'</button>'
+        + '<button class="btn btn-primary" style="margin-left:5px;" onclick="fetchAddSightingForm(\''+id+'\', true)">'+value+'</button>'
+        + '</div>';
+    if (!btn.data('popover')) {
+        btn.popover({
+        	content: html,
+        	placement: 'left',
+        	html: true,
+        	trigger: 'click',
+        	container: 'body'
+        }).popover('show');
+    }
+}
+function fetchAddSightingForm(id, onvalue) {
+	var url = "/sightings/quickAdd/" + id;
+    if (onvalue) {
+        url = url + "/1";
+    } else {
+        url = url + "/0";
+    }
 	$.get(url, function(data) {
 		$("#confirmation_box").html(data);
 		openPopup("#confirmation_box");
@@ -405,6 +434,7 @@ function activateField(type, id, field, event) {
 		url:"/" + objectType + "/fetchEditForm/" + id + "/" + field,
 	});
 }
+
 
 function submitQuickTag(form) {
 	$('#' + form).submit();
@@ -1367,11 +1397,11 @@ function choicePopup(legend, list) {
 		popupHtml += '<div class="popover_choice_main" id ="popover_choice_main">';
 			popupHtml += '<table style="width:100%;" id="MainTable">';
 				popupHtml += '<tbody>';
-					for (var item in list) {
+					list.forEach(function(item) {
 						popupHtml += '<tr style="border-bottom:1px solid black;" class="templateChoiceButton">';
 							popupHtml += '<td role="button" tabindex="0" aria-label="All meta-categories" title="'+item.text+'" style="padding-left:10px;padding-right:10px; text-align:center;width:100%;" onClick="'+item.onclick+';">'+item.text+'</td>';
 						popupHtml += '</tr>';
-					}
+					});
 				popupHtml += '</tbody>';
 			popupHtml += '</table>';
 		popupHtml += '</div>';
@@ -1506,7 +1536,7 @@ function indexEvaluateFiltering() {
 		} else {
 			$('#value_hasproposal').html("");
 		}
-		if (filtering.date.from != null || filtering.date.from != null) {
+		if (filtering.date.from != null) {
 			var text = "";
 			if (filtering.date.from != "") text = "From: " + $('<span>').text(filtering.date.from).html();
 			if (filtering.date.until != "") {
@@ -1714,7 +1744,7 @@ function indexAddRule(param) {
 			var operator = operators[escape($('#EventSearchbool').val())];
 			if (value != "" && filtering[param.data.param1][operator].indexOf(value) < 0) filtering[param.data.param1][operator].push(value);
 		}
-	} else if (filterContext = 'user') {
+	} else if (filterContext == 'user') {
 		if (differentFilters.indexOf(param.data.param1) != -1) {
 			var value = escape($('#UserSearch' + param.data.param1).val());
 			if (value != "") filtering[param.data.param1] = value;
@@ -2739,12 +2769,14 @@ function pivotObjectReferences(url, uuid) {
 	});
 }
 
-function toggleDeletedAttributes(url) {
+function toggleBoolFilter(url, param) {
 	url = url.replace(/view\//i, 'viewEventAttributes/');
-	if (url.indexOf('deleted:') > -1) {
-		url = url.replace(/\/deleted:[^\/]*/i, '');
+	if (url.indexOf(param) > -1) {
+		var replace = '\/' + param + ".+1";
+		var re = new RegExp(replace,"i");
+		url = url.replace(re, '');
 	} else {
-		url = url + '/deleted:true'
+		url = url + '/' + param + ':1'
 	}
 	$.ajax({
 		type:"get",
@@ -2818,7 +2850,7 @@ function toggleSettingSubGroup(group) {
 function runHoverLookup(type, id) {
 	$.ajax({
 		success:function (html) {
-			ajaxResults[type + "_" + id] = html;
+			ajaxResults["hover"][type + "_" + id] = html;
 			$('.popover').remove();
 			$('#' + type + '_' + id + '_container').popover({
 				title: 'Lookup results:',
@@ -2834,14 +2866,54 @@ function runHoverLookup(type, id) {
 	});
 }
 
+$(".cortex-json").click(function() {
+	var cortex_data = $(this).data('cortex-json');
+	cortex_data = htmlEncode(JSON.stringify(cortex_data, null, 2));
+	var popupHtml = '<pre class="simplepre">' + cortex_data + '</pre>';
+	popupHtml += '<div class="close-icon useCursorPointer" onClick="closeScreenshot();"></div>';
+
+});
+
+
+// add the same as below for click popup
+$(".eventViewAttributePopup").click(function() {
+	$('#screenshot_box').empty();
+	type = $(this).attr('data-object-type');
+	id = $(this).attr('data-object-id');
+	if (!(type + "_" + id in ajaxResults["persistent"])) {
+		$.ajax({
+			success:function (html) {
+				ajaxResults["persistent"][type + "_" + id] = html;
+			},
+			async: false,
+			cache: false,
+			url:"/attributes/hoverEnrichment/" + id + "/1",
+		});
+	}
+	if (type + "_" + id in ajaxResults["persistent"]) {
+		var enrichment_popover = ajaxResults["persistent"][type + "_" + id];
+		enrichment_popover += '<div class="close-icon useCursorPointer" onClick="closeScreenshot();"></div>';
+		$('#screenshot_box').html('<div class="screenshot_content">' + enrichment_popover + '</div>');
+		$('#screenshot_box').show();
+		$("#gray_out").fadeIn();
+		$('#screenshot_box').css('top', '50px');
+		$('#screenshot_box').css('padding', '5px');
+		$('#screenshot_box').css("maxWidth", ( $( window ).width() * 0.9 | 0 ) + "px" );
+		$('.screenshot_content').css("maxHeight", ( $( window ).height() - 120 | 0 ) + "px" );
+		$('.screenshot_content').css("overflow-y", "auto");
+		var left = ($(window).width() / 2) - ($('#screenshot_box').width() / 2);
+		$('#screenshot_box').css({'left': left + 'px'});
+	}
+});
+
 $(".eventViewAttributeHover").mouseenter(function() {
 	$('.popover').remove();
 	type = $(this).attr('data-object-type');
 	id = $(this).attr('data-object-id');
-	if (type + "_" + id in ajaxResults) {
+	if (type + "_" + id in ajaxResults["hover"]) {
 		$('#' + type + '_' + id + '_container').popover({
 			title: 'Lookup results:',
-			content: ajaxResults[type + "_" + id],
+			content: ajaxResults["hover"][type + "_" + id],
 			placement: 'top',
 			html: true,
 			trigger: 'hover',
@@ -3458,11 +3530,19 @@ $(document).ready(function() {
 
 function queryEventLock(event_id, user_org_id) {
 	if (tabIsActive) {
-		$.get( "/events/checkLocks/" + event_id, function(data) {
-			if ($('#event_lock_warning').length != 0) {
-				$('#event_lock_warning').remove();
+		$.ajax({
+			url: "/events/checkLocks/" + event_id,
+			type: "get",
+			success: function(data, statusText, xhr) {
+				 if (xhr.status == 200) {
+					 if ($('#event_lock_warning').length != 0) {
+ 						$('#event_lock_warning').remove();
+ 					}
+ 					if (data.startsWith('Warning:')) {
+ 						$('#main-view-container').append(data);
+ 					}
+				 }
 			}
-			$('#main-view-container').append(data);
 		});
 	}
 	setTimeout(function() { queryEventLock(event_id, user_org_id); }, 5000);
@@ -3477,6 +3557,46 @@ function checkIfLoggedIn() {
 		});
 	}
 	setTimeout(function() { checkIfLoggedIn(); }, 5000);
+}
+
+function insertRawRestResponse() {
+	$('#rest-response-container').append('<pre id="raw-response-container" />');
+	$('#raw-response-container').text($('#rest-response-hidden-container').text());
+}
+
+function insertHTMLRestResponse() {
+	$('#rest-response-container').append('<div id="html-response-container" style="border: 1px solid blue; padding:5px;" />');
+	$('#html-response-container').html($('#rest-response-hidden-container').text());
+}
+
+function insertJSONRestResponse() {
+	$('#rest-response-container').append('<p id="json-response-container" style="border: 1px solid blue; padding:5px;" />');
+	var parsedJson = syntaxHighlightJson($('#rest-response-hidden-container').text());
+	console.log(parsedJson);
+	$('#json-response-container').html(parsedJson);
+}
+
+function syntaxHighlightJson(json) {
+	if (typeof json == 'string') {
+		json = JSON.parse(json);
+	}
+	json = JSON.stringify(json, undefined, 2);
+	json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/(?:\r\n|\r|\n)/g, '<br>').replace(/ /g, '&nbsp;');
+	return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+			var cls = 'json_number';
+			if (/^"/.test(match)) {
+					if (/:$/.test(match)) {
+							cls = 'json_key';
+					} else {
+							cls = 'json_string';
+					}
+			} else if (/true|false/.test(match)) {
+					cls = 'json_boolean';
+			} else if (/null/.test(match)) {
+					cls = 'json_null';
+			}
+			return '<span class="' + cls + '">' + match + '</span>';
+	});
 }
 
 (function(){
