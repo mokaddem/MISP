@@ -1260,6 +1260,38 @@ a.pill-pre-picker {
 	margin-top:3px;
 }
 
+.dragPanel-container {
+	width: 60%;
+	position: absolute;
+	left: 20%;
+	top: 10%;
+}
+
+.dragPanel {
+	background-color: #fff;
+	border: 1px solid #ddd;
+	box-shadow: 0 3px 10px #00000088;
+	border-radius: 4px;
+}
+
+.dragPanelHeading::before {
+	content: "\00a0";
+}
+.dragPanelHeading {
+	color: #333;
+	background-color: #f5f5f5;
+	border-top-left-radius: 3px;
+	border-top-right-radius: 3px;
+	padding: 10px 15px;
+	border-bottom: 1px solid transparent;
+	font-size: 16px;
+}
+
+.dragPanelBody {
+	padding: 5px;
+	display: inline-block;
+}
+
 .tabMenuActive {
 	color:white;
 	background-color: #0088cc;

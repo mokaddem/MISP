@@ -1080,6 +1080,7 @@ function submitPopoverForm(context_id, referer, update_context_id) {
 				if (closePopover) {
 					$("#gray_out").fadeOut();
 					$("#popover_form").fadeOut();
+					$("#floatingPanel").remove();
 				}
 			},
 			data: $("#submitButton").closest("form").serialize(),
@@ -1221,6 +1222,7 @@ function cancelPopoverForm(id) {
 	if (id !== undefined && id !== '') {
 		$(id).fadeOut();
 	}
+	$("#floatingPanel").remove();
 }
 
 function activateTagField() {
@@ -3766,6 +3768,49 @@ $(document).ready(function() {
 		$(this).parent().children(".correlation-expanded-area").hide();
 		$(this).parent().children(".correlation-expand-button").show();
 		$(this).hide();
+	});
+
+	var btnClose = '<button type="button" class="close" style="margin-left: 5px;">×</button>'
+	var panelHTML = '<div id="floatingPanel" data-toggle="resizable" class="dragPanel-container"><div class="dragPanel">'
+	+ '<div class="dragPanelHeading">' + btnClose + '</div>'
+	+ '<div class="dragPanelBody"></div>'
+	+ '</div></div>';
+	// $("*").click(function(e) {
+	$(document).on('click', '*', function(e) {
+		var $clicked = $(this);
+		if (e.ctrlKey && e.altKey) {
+			var url = $clicked.attr('href');
+			if (url !== undefined && url !== "" && url !== "#") {
+				var $panel = $(panelHTML);
+				$('body').append($panel);
+				e.preventDefault();
+				var $panelContainer = $panel.find('.dragPanelBody');
+				$.ajax({
+			        dataType:"html",
+			        async: true,
+			        cache: false,
+			        beforeSend: function() {
+			            var loadingHtml = '<div style="height: 40px; width: 40px; left: 50%; position: relative;"><div class="spinner" style="height: 30px; width: 30px;"></div></div>';
+						$panelContainer.html(loadingHtml);
+			        },
+			        success:function (data, textStatus) {
+						$panelContainer.html(data);
+						$panel.draggable({
+							handle: ".dragPanelHeading"
+						})
+						.find('.dragPanel').resizable();
+						$panelContainer.find('form').on('submit', function(e) {
+							e.preventDefault();
+
+						});
+			        },
+			        error:function() {
+			            $panel.html('<div class="alert alert-error" style="margin-bottom: 0px;">Something went wrong - the queried function returned an exception. Contact your administrator for further details (the exception has been logged).</div>');
+			        },
+			        url: url
+			    });
+			}
+		}
 	});
 });
 
