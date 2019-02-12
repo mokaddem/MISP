@@ -1291,6 +1291,7 @@ a.pill-pre-picker {
 	position: absolute;
 	left: 20%;
 	top: 10%;
+	z-index: 3;
 }
 
 .dragPanel {

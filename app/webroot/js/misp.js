@@ -3788,7 +3788,7 @@ $(document).ready(function() {
 		$(this).hide();
 	});
 
-	var btnClose = '<button type="button" class="close" style="margin-left: 5px;">×</button>'
+	var btnClose = '<button type="button" class="close" style="margin-left: 5px;" onclick="$(this).closest(\'.dragPanel-container\').remove();">×</button>'
 	var panelHTML = '<div id="floatingPanel" data-toggle="resizable" class="dragPanel-container"><div class="dragPanel">'
 	+ '<div class="dragPanelHeading">' + btnClose + '</div>'
 	+ '<div class="dragPanelBody"></div>'
@@ -3814,7 +3814,27 @@ $(document).ready(function() {
 			        success:function (data, textStatus) {
 						$panelContainer.html(data);
 						$panel.draggable({
-							handle: ".dragPanelHeading"
+							handle: ".dragPanelHeading",
+							stack: ".dragPanel-container",
+							stop: function(event, posObject) {
+								var $panel = posObject.helper;
+								if (posObject.position.left < 0) {
+									$panel.css({ left: '0px' });
+								}
+								if (posObject.position.top < 0) {
+									$panel.css({ top: '0px' });
+								}
+								// var maxWidth = $(window).width();
+								// var maxHeight = $(window).height();
+								// var curWidth = $panel.clientWidth;
+								// var curHeight = $panel.clientHeight;
+								// if (posObject.position.right + curWidth > maxWidth) {
+								// 	$panel.css({ left: '0px' });
+								// }
+								// if (posObject.position.bottom + curHeight > maxHeight) {
+								// 	$panel.css({ left: '0px' });
+								// }
+							}
 						})
 						.find('.dragPanel').resizable();
 						$panelContainer.find('form').on('submit', function(e) {
