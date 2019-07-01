@@ -128,44 +128,44 @@ class AppModel extends Model
     {
         switch ($command) {
             case '2.4.20':
-                $this->updateDatabase($command);
+                $res = $this->updateDatabase($command);
                 $this->ShadowAttribute = ClassRegistry::init('ShadowAttribute');
                 $this->ShadowAttribute->upgradeToProposalCorrelation();
-                break;
+                return $res;
             case '2.4.25':
-                $this->updateDatabase($command);
+                $res = $this->updateDatabase($command);
                 $newFeeds = array(
                     array('provider' => 'CIRCL', 'name' => 'CIRCL OSINT Feed', 'url' => 'https://www.circl.lu/doc/misp/feed-osint', 'enabled' => 0),
                 );
                 $this->__addNewFeeds($newFeeds);
-                break;
+                return $res;
             case '2.4.27':
                 $newFeeds = array(
                     array('provider' => 'Botvrij.eu', 'name' => 'The Botvrij.eu Data','url' => 'http://www.botvrij.eu/data/feed-osint', 'enabled' => 0)
                 );
                 $this->__addNewFeeds($newFeeds);
-                break;
+                return true;
             case '2.4.49':
-                $this->updateDatabase($command);
+                $res = $this->updateDatabase($command);
                 $this->SharingGroup = ClassRegistry::init('SharingGroup');
                 $this->SharingGroup->correctSyncedSharingGroups();
                 $this->SharingGroup->updateRoaming();
-                break;
+                return $res;
             case '2.4.55':
-                $this->updateDatabase('addSightings');
-                break;
+                $res = $this->updateDatabase('addSightings');
+                return $res;
             case '2.4.66':
-                $this->updateDatabase('2.4.66');
+                $res = $this->updateDatabase('2.4.66');
                 $this->cleanCacheFiles();
                 $this->Sighting = Classregistry::init('Sighting');
                 $this->Sighting->addUuids();
-                break;
+                return $res;
             case '2.4.67':
-                $this->updateDatabase('2.4.67');
+                $res = $this->updateDatabase('2.4.67');
                 $this->Sighting = Classregistry::init('Sighting');
                 $this->Sighting->addUuids();
                 $this->Sighting->deleteAll(array('NOT' => array('Sighting.type' => array(0, 1, 2))));
-                break;
+                return $res;
             case '2.4.71':
                 $this->OrgBlacklist = Classregistry::init('OrgBlacklist');
                 $values = array(
@@ -179,42 +179,42 @@ class AppModel extends Model
                         $this->OrgBlacklist->save($value);
                     }
                 }
-                $this->updateDatabase($command);
-                break;
+                $res = $this->updateDatabase($command);
+                return $res;
             case '2.4.86':
                 $this->MispObject = Classregistry::init('MispObject');
                 $this->MispObject->removeOrphanedObjects();
-                $this->updateDatabase($command);
-                break;
+                $res = $this->updateDatabase($command);
+                return $res;
             case 5:
-                $this->updateDatabase($command);
+                $res = $this->updateDatabase($command);
                 $this->Feed = Classregistry::init('Feed');
                 $this->Feed->setEnableFeedCachingDefaults();
-                break;
+                return $res;
             case 8:
                 $this->Server = Classregistry::init('Server');
                 $this->Server->restartWorkers();
-                break;
+                return true;
             case 10:
-                $this->updateDatabase($command);
+                $res = $this->updateDatabase($command);
                 $this->Role = Classregistry::init('Role');
                 $this->Role->setPublishZmq();
-                break;
+                return $res;
             case 12:
                 $this->__forceSettings();
-                break;
+                return true;
             case 23:
                 $this->__bumpReferences();
-                break;
+                return true;
             case 34:
                 $this->__fixServerPullPushRules();
-                break;
+                return true;
             case 36:
-                $this->updateDatabase('seenOnAttributeAndObject', true);
-                break;
+                $res = $this->updateDatabase('seenOnAttributeAndObject', true);
+                return $res;
             default:
-                $this->updateDatabase($command);
-                break;
+                $res = $this->updateDatabase($command);
+                return $res;
         }
     }
 
@@ -251,7 +251,7 @@ class AppModel extends Model
     {
         // Exit if updates are locked
         if ($this->isUpdateLocked()) {
-            return false;
+            return __('Update locked');
         }
         $this->__resetUpdateProgress();
         // restart this function by a worker
@@ -1387,7 +1387,7 @@ class AppModel extends Model
                  }
              }
              $this->__setUpdateProgress(count($sqlArray)+count($indexArray), false);
-         }
+        }
         if ($clean) {
             $this->cleanCacheFiles();
         }
@@ -1399,7 +1399,7 @@ class AppModel extends Model
             $this->__postUpdate($command);
         }
         $this->__changeLockState(false);
-        return true;
+        return !$flag_stop;
     }
 
     // check whether the adminSetting should be updated after the update
@@ -1612,9 +1612,12 @@ class AppModel extends Model
                     if ($verbose) {
                         echo str_pad('Executing ' . $update, 30, '.');
                     }
-                    $this->updateMISP($update);
+                    $update_result = $this->updateMISP($update);
                     if ($temp) {
                         $requiresLogout = true;
+                    }
+                    if (!$update_result) {
+                        throw new Exception(sprintf('Error when updating MISP to version %s. Check the logs for more information', h($update)));
                     }
                     $db_version['AdminSetting']['value'] = $update;
                     $this->AdminSetting->save($db_version);
