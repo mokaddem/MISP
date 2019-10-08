@@ -216,10 +216,10 @@ class AppModel extends Model
                 $this->__addServerPriority();
                 break;
             case 42:
-                $this->updateDatabase('seenOnAttributeAndObject', true);
+                $db_update_success = $this->updateDatabase('seenOnAttributeAndObject', true);
                 break;
             default:
-                $db_update_success = $this->updateDatabase($command);
+                $db_update_success = $db_update_success = $this->updateDatabase($command);
                 break;
         }
         return $db_update_success;
@@ -1288,8 +1288,6 @@ class AppModel extends Model
                         DROP INDEX sharing_group_id,
                         DROP INDEX type,
                         DROP INDEX category,
-                        DROP INDEX value1,
-                        DROP INDEX value2,
                         DROP INDEX object_id,
                         DROP INDEX object_relation;
                     ";
@@ -1308,8 +1306,6 @@ class AppModel extends Model
                 $indexArray[] = array('attributes', 'sharing_group_id');
                 $indexArray[] = array('attributes', 'type');
                 $indexArray[] = array('attributes', 'category');
-                $indexArray[] = array('attributes', 'value1');
-                $indexArray[] = array('attributes', 'value2');
                 $indexArray[] = array('attributes', 'object_id');
                 $indexArray[] = array('attributes', 'object_relation');
                 $indexArray[] = array('attributes', 'deleted');
