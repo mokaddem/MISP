@@ -1913,7 +1913,7 @@ class AppModel extends Model
 
     public function getLockRemainingTime()
     {
-        $lockState = $this->__getUpdateLockState();
+        $lockState = $this->getUpdateLockState();
         if ($lockState !== false && $lockState !== '') {
             // if lock is old, still allows the update
             // This can be useful if the update process crashes
