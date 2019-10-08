@@ -24,8 +24,8 @@
     if (!empty($data['html'])) {
         echo sprintf('<p>%s</p>', $data['html']);
     }
-    $skipPagination = isset($data['skip_pagination']) && $data['skip_pagination'];
-    if (!$skipPagination) {
+    $skip_pagination = isset($data['skip_pagination']) ? $data['skip_pagination'] : 0;
+    if (!$skip_pagination) {
         $paginationData = array();
         if (!empty($data['paginationBaseurl'])) {
             $paginationData['paginationBaseurl'] = $data['paginationBaseurl'];
@@ -55,14 +55,19 @@
             )
         );
     }
-
+    $tbody = '<tbody>' . $rows . '</tbody>';
     echo sprintf(
-        '<table class="table table-striped table-hover table-condensed">%s%s</table>',
-        $this->element('/genericElements/IndexTable/headers', array('fields' => $data['fields'], 'paginator' => $this->Paginator, 'actions' => empty($data['actions']) ? false : true)),
-        $rows
+        '<div style="%s">',
+        isset($data['max_height']) ? sprintf('max-height: %s; overflow-y: auto; resize: both', $data['max_height']) : ''
     );
-
-    if (!$skipPagination) {
+        echo sprintf(
+            '<table class="table table-striped table-hover table-condensed">%s%s</table>',
+            $this->element('/genericElements/IndexTable/headers', array('fields' => $data['fields'], 'paginator' => $this->Paginator, 'actions' => empty($data['actions']) ? false : true)),
+            $tbody
+        );
+    echo '</div>';
+    if (!$skip_pagination) {
         echo $this->element('/genericElements/IndexTable/pagination_counter', $paginationData);
         echo $this->element('/genericElements/IndexTable/pagination', $paginationData);
     }
+?>

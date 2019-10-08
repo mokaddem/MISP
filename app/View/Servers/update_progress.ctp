@@ -1,5 +1,6 @@
 <?php
 if (!$isSiteAdmin) exit();
+$completeUpdateRemaining = $updateProgress['complete_update_remaining'];
 if ($updateProgress['total'] !== 0 ) {
     $percentageFail = floor(count($updateProgress['failed_num']) / $updateProgress['total']*100);
     $percentage = floor(($updateProgress['current']) / $updateProgress['total']*100);
@@ -13,10 +14,22 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
     $percentageFail = 100;
 }
 ?>
+
+<?php if (!$ajaxHtml): ?>
 <div class="servers form">
-    <div style="width: 50%;margin: 0 auto;">
+<?php endif; ?>
+<?php if ($completeUpdateRemaining != 0): ?>
+    <div style="width: 55%;margin: 20px auto;background-color: white;" class="panel-container completeUpdateRemainingContainer">
+        <h3>
+            <?php echo(__('Complete update progression'));?>
+            <span style="float: right;font-size: smaller;"><?php echo(sprintf(__('%s remaining'), $completeUpdateRemaining));?></span>
+        </h3>
+    </div>
+<?php endif; ?>
+
+    <div style="width: 55%;margin: 0 auto;">
         <?php if (count($updateProgress['commands']) > 0): ?>
-            <h2><?php echo(__('Database Update progress'));?></h2>
+            <h3><?php echo(sprintf(__('Database Update progress for update %s'), h($updateProgress['toward_db_version'])));?></h3>
             <div class="" style="max-width: 1000px;">
 
                 <div>
@@ -32,11 +45,15 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
                     <div id="pb-fail" class="bar" style="width: <?php echo h($percentageFail);?>%; background-color: #ee5f5b;"></div>
                 </div>
 
-                <table class="table table-bordered table-stripped updateProgressTable">
+                <table class="table table-bordered table-stripped updateProgressTable" data-towarddbversion="<?php echo h($updateProgress['toward_db_version']); ?>">
                     <thead>
                         <tr>
                             <th></th>
-                            <th>Update command</th>
+                            <th>
+                                Update command
+                                <span id="followUpdateSwitchContainer" style="float:right; display:flex; align-items:center;">
+                                </span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -130,7 +147,7 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
 
                                     <div id="single-update-progress-<?php echo $i;?>" class="single-update-progress hidden">
                                         <div class="small-pb-in-td">
-                                            <div id="single-update-pb-<?php echo $i;?>" style="height: 100%; background: #149bdf; transition: width 0.6s ease;"></div>
+                                            <div id="single-update-pb-<?php echo $i;?>" class="single-update-pb"></div>
                                         </div>
 
                                         <div id="small-state-text-<?php echo $i;?>" class="small-state-text-in-td badge" class="badge">Filling schema table</div>
@@ -145,16 +162,33 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
             <h2><?php echo __('No update in progress'); ?></h2>
         <?php endif; ?>
     </div>
+<?php if (!$ajaxHtml): ?>
 </div>
-<?php echo $this->element('/genericElements/SideMenu/side_menu', array('menuList' => 'admin', 'menuItem' => 'updateProgress')); ?>
+<?php 
+    echo $this->element('/genericElements/SideMenu/side_menu', array('menuList' => 'admin', 'menuItem' => 'updateProgress'));
+    echo $this->element('genericElements/assetLoader', array(
+        'css' => array('update_progress', 'taskScheduler'),
+        'js' => array('update_progress', 'taskScheduler')
+    ));
+endif; ?>
+
+<?php
+if (!$ajaxHtml) {
+}
+?>
 
 <script>
     var updateProgress = <?php echo json_encode($updateProgress); ?>;
     var urlGetProgress = "<?php echo $baseurl; ?>/servers/updateProgress";
+    var checkboxLabel = "<?php echo __('Follow updates'); ?>";
+    // pooler = new TaskScheduler(update_state, { container: 'followUpdateSwitchContainer', checkboxLabel: checkboxLabel});
+    // pooler.start();
+    // if (pooler !== undefined) {
+
+    //     // Need to fix this! redraw probably?
+    //     // Also, animation is not playing with fast timer 
+    //     pooler.stop();
+    //     pooler = new TaskScheduler(update_state, { container: 'followUpdateSwitchContainer', checkboxLabel: checkboxLabel});
+    //     pooler.start();
+    // }
 </script>
-<?php
-    echo $this->element('genericElements/assetLoader', array(
-        'css' => array('update_progress'),
-        'js' => array('update_progress')
-    ));
-?>
