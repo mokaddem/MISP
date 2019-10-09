@@ -85,7 +85,7 @@ class AppModel extends Model
             'description' => 'Update the Attribute table to support first_seen and last_seen feature, with a microsecond resolution.',
             'liveOff' => true, # should the instance be offline for users other than site_admin
             'recommendBackup' => true, # should the update recommend backup
-            'exitOnError' => false, # should the update exit on error
+            'exitOnError' => true, # should the update exit on error
             'requirements' => 'MySQL version must be >= 5.6', # message stating the requirements necessary for the update
             'record' => false, # should the update success be saved in the admin_table
             // 'preUpdate' => 'seenOnAttributeAndObjectPreUpdate', # Function to execute before the update. If it throws an error, it cancels the update
@@ -1410,9 +1410,11 @@ class AppModel extends Model
                     $this->__setUpdateResMessages($i, sprintf(__('Issues executing the SQL query for `%s`. The returned error is: ' . PHP_EOL . '%s'), $command, $error_message));
                     $error_duplicate_column = 'SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name';
                     $error_duplicate_index = 'SQLSTATE[42000]: Syntax error or access violation: 1061 Duplicate key name';
+                    $error_drop_index = "/SQLSTATE\[42000\]: Syntax error or access violation: 1091 Can't DROP '[\w]+'; check that column\/key exists/";
                     if (
                         substr($error_message, 0, strlen($error_duplicate_column)) !== $error_duplicate_column &&
-                        substr($error_message, 0, strlen($error_duplicate_index)) !== $error_duplicate_index
+                        substr($error_message, 0, strlen($error_duplicate_index)) !== $error_duplicate_index &&
+                        preg_match($error_drop_index, $error_message) === 0
                     ) {
                         $this->__setUpdateError($i);
                         $error_count++;
