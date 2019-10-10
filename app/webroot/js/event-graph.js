@@ -766,11 +766,16 @@ class EventGraph {
                     group: group,
                     mass: 5,
                 };
+                var labelSplit = node.label.split('.');
                 if (node.type == 'attachment') {
-                    // fetch picture via attributes/viewPicture
-                    node_conf.group = 'attribute_image';
-                    node_conf.size = $('#slider_display_picture_size').val();
-                    node_conf.image = baseurl + '/attributes/viewPicture/' + node.id + '/1';
+                    if (['jpg', 'png', 'jpeg', 'gif'].indexOf(labelSplit[labelSplit.length-1]) === -1) {
+                        node_conf.group = 'attribute_attachment';
+                    } else {
+                        node_conf.group = 'attribute_image';
+                        node_conf.size = $('#slider_display_picture_size').val();
+                        // fetch picture via attributes/viewPicture
+                        node_conf.image = baseurl + '/attributes/viewPicture/' + node.id + '/1';
+                    }
                 }
                 dataHandler.mapping_value_to_nodeID.set(label, node.id);
             }
@@ -1018,11 +1023,16 @@ class EventGraph {
                             color: getTextColour(parent_color)
                         }
                     };
+                    var labelSplit = attr.object_relation.split('.');
                     if (attr.type == 'attachment') {
-                        // fetch picture via attributes/viewPicture
-                        node.group = 'obj_relation_image';
-                        node.size = $('#slider_display_picture_size').val();
-                        node.image = baseurl + '/attributes/viewPicture/' + attr.id + '/1';
+                        if (['jpg', 'png', 'jpeg', 'gif'].indexOf(labelSplit[labelSplit.length-1]) === -1) {
+                            node_conf.group = 'obj_relation_attachment';
+                        } else {
+                            node_conf.group = 'obj_relation_image';
+                            node.size = $('#slider_display_picture_size').val();
+                            // fetch picture via attributes/viewPicture
+                            node.image = baseurl + '/attributes/viewPicture/' + attr.id + '/1';
+                        }
                     }
                     newNodes.push(node);
                     dataHandler.mapping_obj_relation_value_to_nodeID.set(attr.value, node.id);
@@ -2333,6 +2343,22 @@ var network_options = {
             shape: 'image',
             borderWidth: 4,
             mass: 15
+        },
+        attribute_attachment: {
+            shape: 'box',
+            color: {
+                background:'violet',
+                border:'black'
+            },
+            size: 15
+        },
+        obj_relation_attachment: {
+            shape: 'box',
+            color: {
+                background:'violet',
+                border:'black'
+            },
+            size: 15
         },
         tag: {
             shape: 'box',
