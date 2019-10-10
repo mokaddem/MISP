@@ -1586,6 +1586,22 @@ class MispInteraction {
         if (!that.can_create_reference(edgeData.from) || !that.can_be_referenced(edgeData.to)) {
             return;
         }
+        that.register_callback(function() {
+            // var nodeFrom = this.nodes.get(edgeData.from);
+            // var nodeTo = this.nodes.get(edgeData.to);
+            var connected_nodes = this.network.getConnectedNodes(edgeData.from).concat(this.network.getConnectedNodes(edgeData.to));
+            for (var node of connected_nodes) {
+                if (["rootNode:attribute", "rootNode:object", "rootNode:tag", "rootNode:keyType"].indexOf(node.id) > 0) {
+                    console.log('uncluster');
+                    console.log(node);
+                    clusterize(node.id)
+                }
+            }
+            // if ()
+            // clusterize(rootID)
+            // this.network.openCluster(parent_id);
+        });
+
         var edgeFromId = edgeData.from.startsWith('o-') ? edgeData.from.substr(2) : edgeData.from;
         genericPopup('/objectReferences/add/'+edgeFromId, '#popover_form', function() {
             $('#ObjectReferenceReferencedUuid').val(uuid);
@@ -1877,8 +1893,8 @@ function getTextColour(hex) {
 function genericPopupCallback(result) {
     // sucess and eventgraph is enabled
     if (result == "success" && dataHandler !== undefined) {
-        mispInteraction.apply_callback();
-        dataHandler.fetch_data_and_update(false, true);
+        // mispInteraction.apply_callback();
+        dataHandler.fetch_data_and_update(false, true, mispInteraction.apply_callback());
     }
 }
 
