@@ -35,7 +35,7 @@ class Attribute extends AppModel
     );
 
     public $defaultFields = array(
-        'id', 'event_id', 'object_id', 'object_relation', 'category', 'type', 'value', 'to_ids', 'uuid', 'timestamp', 'distribution', 'sharing_group_id', 'comment', 'deleted', 'disable_correlation'
+        'id', 'event_id', 'object_id', 'object_relation', 'category', 'type', 'value', 'to_ids', 'uuid', 'timestamp', 'distribution', 'sharing_group_id', 'comment', 'deleted', 'disable_correlation', 'first_seen', 'last_seen'
     );
 
     public $distributionDescriptions = array(
@@ -373,7 +373,9 @@ class Attribute extends AppModel
         'deleted',
         'disable_correlation',
         'object_id',
-        'object_relation'
+        'object_relation',
+        'first_seen',
+        'last_seen'
     );
 
     public $searchResponseTypes = array(
@@ -523,6 +525,16 @@ class Attribute extends AppModel
                 'rule' => array('inList', array('0', '1', '2', '3', '4', '5')),
                 'message' => 'Options: Your organisation only, This community only, Connected communities, All communities, Sharing group, Inherit event',
                 'required' => true
+        ),
+        'first_seen' => array(
+            'rule' => array('datetimeOrNull'),
+            'required' => false,
+            'message' => array('Invalid ISO 8601 format')
+        ),
+        'last_seen' => array(
+            'rule' => array('datetimeOrNull'),
+            'required' => false,
+            'message' => array('Invalid ISO 8601 format')
         )
     );
 
@@ -601,6 +613,22 @@ class Attribute extends AppModel
             if (isset($v['Attribute']['object_relation']) && $v['Attribute']['object_relation'] === null) {
                 $results[$k]['Attribute']['object_relation'] = '';
             }
+            if (!empty($v['Attribute']['first_seen'])) {
+                $fs = $results[$k]['Attribute']['first_seen'];
+                $fs_sec = intval($fs / 1000000); // $fs is in micro (10^6)
+                $fs_micro = $fs % 1000000;
+                $fs_micro = str_pad($fs_micro, 6, "0", STR_PAD_LEFT);
+                $fs = $fs_sec . '.' . $fs_micro;
+                $results[$k]['Attribute']['first_seen'] = DateTime::createFromFormat('U.u', $fs)->format('Y-m-d\TH:i:s.uP');
+            }
+            if (!empty($v['Attribute']['last_seen'])) {
+                $ls = $results[$k]['Attribute']['last_seen'];
+                $ls_sec = intval($ls / 1000000); // $ls is in micro (10^6)
+                $ls_micro = $ls % 1000000;
+                $ls_micro = str_pad($ls_micro, 6, "0", STR_PAD_LEFT);
+                $ls = $ls_sec . '.' . $ls_micro;
+                $results[$k]['Attribute']['last_seen'] = DateTime::createFromFormat('U.u', $ls)->format('Y-m-d\TH:i:s.uP');
+            }
         }
         return $results;
     }
@@ -631,6 +659,32 @@ class Attribute extends AppModel
                 $this->data['Attribute']['value1'] = $this->data['Attribute']['value'];
                 $this->data['Attribute']['value2'] = '';
             }
+        }
+
+        // convert into utc and micro sec
+        if (!empty($this->data['Attribute']['first_seen'])) {
+            $d = new DateTime($this->data['Attribute']['first_seen']);
+            $d->setTimezone(new DateTimeZone('GMT'));
+            $fs_sec = $d->format('U');
+            $fs_micro = $d->format('u');
+            $fs_micro = str_pad($fs_micro, 6, "0", STR_PAD_LEFT);
+            $fs = $fs_sec . $fs_micro;
+            $this->data['Attribute']['first_seen'] = $fs;
+        }
+        if (!empty($this->data['Attribute']['last_seen'])) {
+            $d = new DateTime($this->data['Attribute']['last_seen']);
+            $d->setTimezone(new DateTimeZone('GMT'));
+            $ls_sec = $d->format('U');
+            $ls_micro = $d->format('u');
+            $ls_micro = str_pad($ls_micro, 6, "0", STR_PAD_LEFT);
+            $ls = $ls_sec . $ls_micro;
+            $this->data['Attribute']['last_seen'] = $ls;
+        }
+
+
+        // update correlation... (only needed here if there's an update)
+        if ($this->id || !empty($this->data['Attribute']['id'])) {
+            $this->__beforeSaveCorrelation($this->data['Attribute']);
         }
         // always return true after a beforeSave()
         return true;
@@ -847,6 +901,16 @@ class Attribute extends AppModel
             $date = new DateTime();
             $this->data['Attribute']['timestamp'] = $date->getTimestamp();
         }
+
+        // parse first_seen different formats
+        if (isset($this->data['Attribute']['first_seen'])) {
+            $this->data['Attribute']['first_seen'] = $this->data['Attribute']['first_seen'] === '' ? null : $this->data['Attribute']['first_seen'];
+        }
+        // parse last_seen different formats
+        if (isset($this->data['Attribute']['last_seen'])) {
+            $this->data['Attribute']['last_seen'] = $this->data['Attribute']['last_seen'] === '' ? null : $this->data['Attribute']['last_seen'];
+        }
+
         // TODO: add explanatory comment
         // TODO: i18n?
         $result = $this->runRegexp($this->data['Attribute']['type'], $this->data['Attribute']['value']);
@@ -977,6 +1041,20 @@ class Attribute extends AppModel
     {
         $value = $fields['value'];
         return $this->runValidation($value, $this->data['Attribute']['type']);
+    }
+
+    // check whether the variable is null or datetime
+    public function datetimeOrNull($fields)
+    {
+        $k = array_keys($fields)[0];
+        $seen = $fields[$k];
+        try {
+            new DateTime($seen);
+            $returnValue = true;
+        } catch (Exception $e) {
+            $returnValue = false;
+        }
+        return $returnValue || is_null($seen);
     }
 
     private $__hexHashLengths = array(
@@ -3516,6 +3594,7 @@ class Attribute extends AppModel
                 $defaultDistribution = Configure::read('MISP.default_attribute_distribution');
             }
         }
+        $saveResult = true;
         foreach ($attributes as $k => $attribute) {
             if (!empty($attribute['encrypt']) && $attribute['encrypt']) {
                 $attribute = $this->onDemandEncrypt($attribute);
@@ -3525,9 +3604,9 @@ class Attribute extends AppModel
             }
             unset($attribute['Attachment']);
             $this->create();
-            $this->save($attribute);
+            $saveResult = $saveResult && $this->save($attribute);
         }
-        return true;
+        return $saveResult;
     }
 
     public function onDemandEncrypt($attribute)
@@ -3643,6 +3722,32 @@ class Attribute extends AppModel
         } else {
             $timestamp = intval($this->Event->resolveTimeDelta($timestamp));
             $conditions['AND'][] = array($scope . ' >=' => $timestamp);
+        }
+        if ($returnRaw) {
+            return $timestamp;
+        }
+        return $conditions;
+    }
+
+    public function setTimestampSeenConditions($timestamp, $conditions, $scope = 'Attribute.first_seen', $returnRaw = false)
+    {
+        if (is_array($timestamp)) {
+            $timestamp[0] = intval($this->Event->resolveTimeDelta($timestamp[0])) * 1000000; // seen in stored in micro-seconds in the DB
+            $timestamp[1] = intval($this->Event->resolveTimeDelta($timestamp[1])) * 1000000; // seen in stored in micro-seconds in the DB
+            if ($timestamp[0] > $timestamp[1]) {
+                $temp = $timestamp[0];
+                $timestamp[0] = $timestamp[1];
+                $timestamp[1] = $temp;
+            }
+            $conditions['AND'][] = array($scope . ' >=' => $timestamp[0]);
+            $conditions['AND'][] = array($scope . ' <=' => $timestamp[1]);
+        } else {
+            $timestamp = intval($this->Event->resolveTimeDelta($timestamp)) * 1000000; // seen in stored in micro-seconds in the DB
+            if ($scope == 'Attribute.first_seen') {
+                $conditions['AND'][] = array($scope . ' >=' => $timestamp);
+            } else {
+                $conditions['AND'][] = array($scope . ' <=' => $timestamp);
+            }
         }
         if ($returnRaw) {
             return $timestamp;
@@ -3977,7 +4082,7 @@ class Attribute extends AppModel
                     return true;
                 }
                 // If a field is not set in the request, just reuse the old value
-                $recoverFields = array('value', 'to_ids', 'distribution', 'category', 'type', 'comment', 'sharing_group_id', 'object_id', 'object_relation');
+                $recoverFields = array('value', 'to_ids', 'distribution', 'category', 'type', 'comment', 'sharing_group_id', 'object_id', 'object_relation', 'first_seen', 'last_seen');
                 foreach ($recoverFields as $rF) {
                     if (!isset($attribute[$rF])) {
                         $attribute[$rF] = $existingAttribute['Attribute'][$rF];
@@ -4047,7 +4152,9 @@ class Attribute extends AppModel
             'comment',
             'sharing_group_id',
             'deleted',
-            'disable_correlation'
+            'disable_correlation',
+            'first_seen',
+            'last_seen'
         );
         if ($objectId) {
             $fieldList[] = 'object_id';
@@ -4207,6 +4314,8 @@ class Attribute extends AppModel
                     'uuid' => array('function' => 'set_filter_uuid'),
                     'deleted' => array('function' => 'set_filter_deleted'),
                     'timestamp' => array('function' => 'set_filter_timestamp'),
+                    'first_seen' => array('function' => 'set_filter_seen'),
+                    'last_seen' => array('function' => 'set_filter_seen'),
                     'to_ids' => array('function' => 'set_filter_to_ids'),
                     'comment' => array('function' => 'set_filter_comment')
                 ),

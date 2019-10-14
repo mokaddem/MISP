@@ -49,6 +49,9 @@
   <td class="short context hidden">
     <?php echo $object['objectType'] == 0 ? h($object['uuid']) : '&nbsp;'; ?>
   </td>
+  <td class="short context hidden">
+      <?php echo $this->element('/Events/View/seen_field', array('object' => $object)); ?>
+  </td>
   <td class="short">
     <div id = "<?php echo $currentType . '_' . $object['id'] . '_timestamp_solid'; ?>">
       <?php
@@ -188,7 +191,7 @@
         }
         if (($event['Orgc']['id'] == $me['org_id'] && $mayModify) || $isSiteAdmin || ($object['org_id'] == $me['org_id'])) {
         ?>
-          <span class="fa fa-trash icon-white useCursorPointer" title="<?php echo __('Discard proposal');?>" role="button" tabindex="0" aria-label="<?php echo __('Discard proposal');?>" onClick="deleteObject('shadow_attributes', 'discard' ,'<?php echo $object['id']; ?>', '<?php echo $event['Event']['id']; ?>');"></span>
+          <span style="color: white" class="fa fa-trash useCursorPointer" title="<?php echo __('Discard proposal');?>" role="button" tabindex="0" aria-label="<?php echo __('Discard proposal');?>" onClick="deleteObject('shadow_attributes', 'discard' ,'<?php echo $object['id']; ?>', '<?php echo $event['Event']['id']; ?>');"></span>
         <?php
         }
     ?>
