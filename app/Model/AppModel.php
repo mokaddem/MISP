@@ -1801,7 +1801,7 @@ class AppModel extends Model
                     if ($db_update_success) {
                         $db_version['AdminSetting']['value'] = $update;
                         $this->AdminSetting->save($db_version);
-                        $this->__resetUpdateFailNumber();
+                        $this->resetUpdateFailNumber();
                     } else {
                         $this->__increaseUpdateFailNumber();
                     }
@@ -1972,7 +1972,7 @@ class AppModel extends Model
         return ($update_fail_number !== false && $update_fail_number !== '') ? $update_fail_number : 0;
     }
 
-    public function __resetUpdateFailNumber()
+    public function resetUpdateFailNumber()
     {
         $this->AdminSetting = ClassRegistry::init('AdminSetting');
         $this->AdminSetting->changeSetting('update_fail_number', 0);
