@@ -23,16 +23,21 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
 <div class="servers form">
 <?php endif; ?>
 
-<?php if ($updateLocked && $updateFailNumberReached): ?>
-    <div style="width: 55%;margin: 20px auto" class="alert alert-danger">
+<?php if ($updateLocked): ?>
+    <div style="width: 55%;margin: 20px auto;max-width: 1000px;" class="alert alert-danger">
         <button type="button" class="close" data-dismiss="alert">&times;</button>
         <div style="display:flex;flex-direction: row;justify-content: space-between;">
             <span>
-                <h5 style="margin: 5px 0px; display: inline-block"><?php echo __('Update are locked due to to many update fails'); ?></h5>
-                <i>(<?php echo sprintf(__('unlock in %smin %ssec'), '<span id="unlock_remaining_time_min">-</span>', '<span id="unlock_remaining_time_sec">-</span>'); ?>)</i>
+                <?php if ($updateFailNumberReached): ?>
+                    <h5 style="margin: 5px 0px; display: inline-block"><?php echo __('Update are locked due to to many update fails'); ?></h5>
+                    <i>(<?php echo sprintf(__('unlock in %smin %ssec'), '<span id="unlock_remaining_time_min">-</span>', '<span id="unlock_remaining_time_sec">-</span>'); ?>)</i>
+                <?php else: ?>
+                    <h5 style="margin: 5px 0px; display: inline-block"><?php echo __('Update are locked due to an ongoing update process. Release lock only if you know what you are doing'); ?></h5>
+                    <i>(<?php echo sprintf(__('automatically unlock in %smin %ssec'), '<span id="unlock_remaining_time_min">-</span>', '<span id="unlock_remaining_time_sec">-</span>'); ?>)</i>
+                <?php endif; ?>
             </span>
             <span>
-                <?php 
+                <?php
                     echo $this->Form->postButton('<i class="fa fa-lock-open"></i> ' . __('Release update lock'), $baseurl . '/servers/releaseUpdateLock', array(
                         'style' => 'margin: 0px 0px;',
                         'class' => 'btn btn-danger',
@@ -45,7 +50,7 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
 <?php endif; ?>
 
 <?php if ($completeUpdateRemaining != 0): ?>
-    <div style="width: 55%;margin: 20px auto;background-color: white;" class="panel-container completeUpdateRemainingContainer">
+    <div style="width: 55%;margin: 20px auto;background-color: white;max-width: 1000px;" class="panel-container completeUpdateRemainingContainer">
         <h3>
             <?php echo(__('Complete update progression'));?>
             <span style="float: right;font-size: smaller;"><?php echo(sprintf(__('%s remaining'), $completeUpdateRemaining));?></span>
@@ -53,7 +58,7 @@ if (isset($updateProgress['preTestSuccess']) && $updateProgress['preTestSuccess'
     </div>
 <?php endif; ?>
 
-    <div style="width: 55%;margin: 0 auto;">
+    <div style="width: 55%;margin: 0 auto;max-width: 1000px;">
         <?php if (count($updateProgress['commands']) > 0): ?>
             <h3><?php echo(sprintf(__('Database Update progress for update %s'), h($towardDbVersion)));?></h3>
             <div class="" style="max-width: 1000px;">
@@ -223,6 +228,6 @@ if (!$ajaxHtml) {
             hours: Math.floor((seconds % (60 * 60 * 24)) / (60 * 60)),
             mins : Math.floor((seconds % (60 * 60)) / (60)),
             secs : Math.floor((seconds % (60))),
-        }
+        };
     }
 </script>
