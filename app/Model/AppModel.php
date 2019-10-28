@@ -243,7 +243,7 @@ class AppModel extends Model
                 $this->__addServerPriority();
                 break;
             case 42:
-                $this->updateDatabase('seenOnAttributeAndObject', true);
+                $db_update_success = $this->updateDatabase('seenOnAttributeAndObject', true);
                 break;
             default:
                 $db_update_success = $this->updateDatabase($command);
