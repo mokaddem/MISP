@@ -2671,11 +2671,11 @@ class Server extends AppModel
         } elseif ("incremental" == $technique) {
             $eventid_conditions_key = 'Event.id >';
             $eventid_conditions_value = $this->data['Server']['lastpushedid'];
-        } elseif (true == $technique) {
+        } elseif (intval($technique) !== 0) {
             $eventid_conditions_key = 'Event.id';
             $eventid_conditions_value = intval($technique);
         } else {
-            $this->redirect(array('action' => 'index'));
+            throw new InvalidArgumentException("Technique parameter must be 'full', 'incremental' or event ID.");
         }
         $sgs = $this->Event->SharingGroup->find('all', array(
             'recursive' => -1,
@@ -2683,13 +2683,11 @@ class Server extends AppModel
         ));
         $sgIds = array();
         foreach ($sgs as $k => $sg) {
-            if (!$this->Event->SharingGroup->checkIfServerInSG($sg, $this->data)) {
-                unset($sgs[$k]);
-                continue;
+            if ($this->Event->SharingGroup->checkIfServerInSG($sg, $this->data)) {
+                $sgIds[] = $sg['SharingGroup']['id'];
             }
-            $sgIds[] = $sg['SharingGroup']['id'];
         }
-        if (!isset($sgIds) || empty($sgIds)) {
+        if (empty($sgIds)) {
             $sgIds = array(-1);
         }
         $findParams = array(
@@ -4496,7 +4494,7 @@ class Server extends AppModel
     public function stixDiagnostics(&$diagnostic_errors, &$stixVersion, &$cyboxVersion, &$mixboxVersion, &$maecVersion, &$stix2Version, &$pymispVersion)
     {
         $result = array();
-        $expected = array('stix' => '>1.2.0.6', 'cybox' => '>2.1.0.18.dev0', 'mixbox' => '1.0.3', 'maec' => '>4.1.0.14', 'stix2' => '1.1.3', 'pymisp' => '>2.4.93');
+        $expected = array('stix' => '>1.2.0.6', 'cybox' => '>2.1.0.18.dev0', 'mixbox' => '1.0.3', 'maec' => '>4.1.0.14', 'stix2' => '>1.2.0', 'pymisp' => '>2.4.93');
         // check if the STIX and Cybox libraries are working using the test script stixtest.py
         $scriptResult = shell_exec($this->getPythonVersion() . ' ' . APP . 'files' . DS . 'scripts' . DS . 'stixtest.py');
         $scriptResult = json_decode($scriptResult, true);
