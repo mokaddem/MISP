@@ -418,6 +418,11 @@ function updateIndex(id, context, newPage) {
             } else {
                 console.log("genericPopupCallback function not defined");
             }
+            if (typeof timelinePopupCallback !== "undefined") {
+                timelinePopupCallback("success");
+            } else {
+                console.log("timelinepopupcallback function not defined");
+            }
         },
         url: url,
     });
@@ -446,15 +451,42 @@ function updateAttributeFieldOnSuccess(name, type, id, field, event) {
     });
 }
 
+function updateObjectFieldOnSuccess(name, type, id, field, event) {
+    $.ajax({
+        beforeSend: function (XMLHttpRequest) {
+            if (field != 'timestamp') {
+                $(".loading").show();
+            }
+        },
+        dataType:"html",
+        cache: false,
+        success:function (data, textStatus) {
+            if (field != 'timestamp') {
+                $(".loading").hide();
+                $(name + '_solid').html(data);
+                $(name + '_placeholder').empty();
+                $(name + '_solid').show();
+            } else {
+                $('#' + type + '_' + id + '_' + 'timestamp_solid').html(data);
+            }
+        },
+        url:"/objects/fetchViewValue/" + id + "/" + field,
+    });
+}
+
 function activateField(type, id, field, event) {
     resetForms();
     if (type == 'denyForm') return;
     var objectType = 'attributes';
+    var containerName = 'Attribute';
     if (type == 'ShadowAttribute') {
         objectType = 'shadow_attributes';
+    } else if (type == 'Object') {
+        objectType = 'objects';
+        containerName = 'Object';
     }
     var name = '#' + type + '_' + id + '_' + field;
-    var container_name = '#Attribute_' + id + '_' + field;
+    var container_name = '#' + containerName + '_' + id + '_' + field;
     $.ajax({
         beforeSend: function (XMLHttpRequest) {
             $(".loading").show();
@@ -592,6 +624,8 @@ function submitForm(type, id, field, context) {
     var name = '#' + type + '_' + id + '_' + field;
     if (type == 'ShadowAttribute') {
         object_type = 'shadow_attributes';
+    } else if (type == 'Object') {
+        object_type = 'objects';
     }
     $.ajax({
         data: $(name + '_field').closest("form").serialize(),
@@ -747,7 +781,8 @@ function handleAjaxEditResponse(data, name, type, id, field, event) {
     responseArray = data;
     if (type == 'Attribute') {
         if (responseArray.saved) {
-            showMessage('success', responseArray.success);
+            var msg = responseArray.success !== undefined ? responseArray.success : responseArray.message;
+            showMessage('success', msg);
             updateAttributeFieldOnSuccess(name, type, id, field, event);
             updateAttributeFieldOnSuccess(name, type, id, 'timestamp', event);
             eventUnpublish();
@@ -758,6 +793,17 @@ function handleAjaxEditResponse(data, name, type, id, field, event) {
     }
     if (type == 'ShadowAttribute') {
         updateIndex(event, 'event');
+    } else if (type == 'Object') {
+        if (responseArray.saved) {
+            var msg = responseArray.success !== undefined ? responseArray.success : responseArray.message;
+            showMessage('success', msg);
+            updateObjectFieldOnSuccess(name, type, id, field, event);
+            updateObjectFieldOnSuccess(name, type, id, 'timestamp', event);
+            eventUnpublish();
+        } else {
+            showMessage('fail', 'Validation failed: ' + responseArray.errors.value);
+            updateObjectFieldOnSuccess(name, type, id, field, event);
+        }
     }
     if (responseArray.hasOwnProperty('check_publish')) {
         checkAndSetPublishedInfo();
@@ -1123,7 +1169,7 @@ function clickCreateButton(event, type) {
     simplePopup("/" + destination + "/add/" + event);
 }
 
-function submitPopoverForm(context_id, referer, update_context_id) {
+function submitPopoverForm(context_id, referer, update_context_id, popover_dissmis_id_to_close) {
     var url = null;
     var context = 'event';
     var contextNamingConvention = 'Attribute';
@@ -1184,6 +1230,9 @@ function submitPopoverForm(context_id, referer, update_context_id) {
         case 'addObjectReference':
             url = "/objectReferences/add/" + context_id;
             break;
+        case 'quickAddAttributeForm':
+           url = "/objects/quickAddAttributeForm/" + context_id;
+           break;
     }
     if (url !== null) {
         url = baseurl + url;
@@ -1193,6 +1242,9 @@ function submitPopoverForm(context_id, referer, update_context_id) {
                 if (closePopover) {
                     $("#gray_out").fadeOut();
                     $("#popover_form").fadeOut();
+                    if (popover_dissmis_id_to_close !== undefined) {
+                        $('[data-dismissid="' + popover_dissmis_id_to_close + '"]').popover('destroy');
+                    }
                 }
             },
             data: $("#submitButton").closest("form").serialize(),
@@ -1211,7 +1263,15 @@ function submitPopoverForm(context_id, referer, update_context_id) {
                     $('#sightingsListAllToggle').removeClass('btn-inverse');
                     $('#sightingsListAllToggle').addClass('btn-primary');
                 }
-                if (context == 'event' && (referer == 'add' || referer == 'massEdit' || referer == 'replaceAttributes' || referer == 'addObjectReference')) eventUnpublish();
+                if (
+                    (
+                        context == 'event' &&
+                        (referer == 'add' || referer == 'massEdit' || referer == 'replaceAttributes' || referer == 'addObjectReference')
+                    ) || 
+                    referer == 'quickAddAttributeForm'
+                ){
+                    eventUnpublish();
+                }
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 showMessage('fail', textStatus + ": " + errorThrown);
