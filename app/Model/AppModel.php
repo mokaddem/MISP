@@ -91,15 +91,6 @@ class AppModel extends Model
             // 'preUpdate' => 'seenOnAttributeAndObjectPreUpdate', # Function to execute before the update. If it throws an error, it cancels the update
             'url' => '/servers/updateDatabase/seenOnAttributeAndObject/' # url pointing to the funcion performing the update
         ),
-        'testUpdate' => array(
-            'title' => 'Test Update',
-            'description' => 'Runs a test update',
-            'liveOff' => true,
-            'recommendBackup' => true,
-            'exitOnError' => true,
-            'preUpdate' => 'failingPreUpdate', # Function to execute before the update. If it returns false, cancel the update
-            'url' => '/servers/updateDatabase/testUpdate/'
-        )
     );
     public $actions_description = array(
         'verifyGnuPGkeys' => array(
@@ -1361,11 +1352,6 @@ class AppModel extends Model
                 $indexArray[] = array('shadow_attributes', 'first_seen');
                 $indexArray[] = array('shadow_attributes', 'last_seen');
                 $indexArray[] = array('shadow_attributes', 'comment', 767);
-                break;
-            case 'testUpdate':
-                $sqlArray[] = "SELECT SLEEP(10);";
-                $sqlArray[] = "SELECT SLEEP(4);";
-                $sqlArray[] = "SELECT SLEEP(12);";
                 break;
             default:
                 return false;
