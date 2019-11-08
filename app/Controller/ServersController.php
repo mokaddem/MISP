@@ -1215,6 +1215,32 @@ class ServersController extends AppController
         $this->render('ajax/submoduleStatus');
     }
 
+    public function checkSubmoduleSynchronisation($model)
+    {
+        $acceptedModels = array(
+            // 'Galaxy',
+            'taxonomy' => 'Taxonomy',
+            // 'MispObject',
+            // 'Noticelist',
+            // 'Warninglists',
+            // 'DecayingModels'
+        );
+        // $syncResults = array();
+        // foreach ($acceptedModels as $model) {
+        //     $this->{$model} = ClassRegistry::init($model);
+        //     $syncResult = $this->{$model}->verifyDatabaseAndJSONSynchronisation();
+        //     $syncResults[$model] = $syncResult;
+        // }
+        if (!in_array($model, array_keys($acceptedModels))) {
+            throw new NotFoundException('Submodule not found');
+        }
+        $model = $acceptedModels[$model];
+        $this->{$model} = ClassRegistry::init($model);
+        $syncResult = $this->{$model}->verifyDatabaseAndJSONSynchronisation();
+        $this->set('syncResult', $syncResult);
+        $this->render('ajax/submodule_synchronisation');
+    }
+
     public function getSetting($setting_name)
     {
         $setting = $this->Server->getSettingData($setting_name);

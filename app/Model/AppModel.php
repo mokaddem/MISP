@@ -91,6 +91,18 @@ class AppModel extends Model
             'title' => 'Database Cleanup Scripts',
             'description' => 'If you run into an issue with an infinite upgrade loop (when upgrading from version ~2.4.50) that ends up filling your database with upgrade script log messages, run the following script.',
             'url' => '/logs/pruneUpdateLogs/'
+        ),
+        'releaseUpdateLock' => array(
+            'title' => 'Release update lock',
+            'description' => 'If your your database is locked and is not updating, unlock it here.',
+            'ignore_disabled' => true,
+            'url' => '/servers/releaseUpdateLock/'
+        ),
+        'checkSubmoduleSynchronisation' => array(
+            'title' => 'Verify submodules synchronisation',
+            'description' => 'Run a full validation of all JSON submodules (galaxies, taxonomies, ...) within this instance',
+            'ignore_disabled' => true,
+            'url' => '/servers/checkSubmoduleSynchronisation/'
         )
     );
 

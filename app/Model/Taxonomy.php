@@ -35,9 +35,25 @@ class Taxonomy extends AppModel
         return true;
     }
 
+    private function getTaxonomyDirectories()
+    {
+        return glob(APP . 'files' . DS . 'taxonomies' . DS . '*', GLOB_ONLYDIR);
+    }
+
+    private function getTaxonomyFromDisk($dir)
+    {
+        $file = new File(APP . 'files' . DS . 'taxonomies' . DS . $dir . DS . 'machinetag.json');
+        if (!$file->exists()) {
+            return null;
+        }
+        $vocab = json_decode($file->read(), true);
+        $file->close();
+        return $vocab;
+    }
+
     public function update()
     {
-        $directories = glob(APP . 'files' . DS . 'taxonomies' . DS . '*', GLOB_ONLYDIR);
+        $directories = $this->getTaxonomyDirectories();
         $updated = array();
         foreach ($directories as $dir) {
             $dir = basename($dir);
@@ -45,12 +61,7 @@ class Taxonomy extends AppModel
                 continue;
             }
 
-            $file = new File(APP . 'files' . DS . 'taxonomies' . DS . $dir . DS . 'machinetag.json');
-            if (!$file->exists()) {
-                continue;
-            }
-            $vocab = json_decode($file->read(), true);
-            $file->close();
+            $vocab = $this->getTaxonomyFromDisk($dir);
             if ($vocab === null) {
                 $updated['fails'][] = array('namespace' => $dir, 'fail' => "File machinetag.json is not valid JSON.");
                 continue;
@@ -122,6 +133,205 @@ class Taxonomy extends AppModel
             return $this->id;
         }
         return $this->validationErrors;
+    }
+
+    public function verifyDatabaseAndJSONSynchronisation()
+    {
+        $syncResult = array();
+        $directories = $this->getTaxonomyDirectories();
+        foreach ($directories as $dir) {
+            $dir = basename($dir);
+            if ($dir === 'tools') {
+                continue;
+            }
+            $diskTaxonomy = $this->getTaxonomyFromDisk($dir);
+            $namespace = $diskTaxonomy['namespace'];
+            $databaseTaxonomy = $this->find('first', array(
+                'recursive' => 2,
+                'conditions' => array(
+                    'namespace' => $namespace
+                )
+            ));
+            $syncResult[$namespace] = $this->compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy);
+        }
+        return $syncResult;
+    }
+
+    private function compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy)
+    {
+        $comparisonResult = array();
+        if (empty($databaseTaxonomy)) {
+            $comparisonResult['Taxonomy']['_exist_'] = array(
+                'disk' => $diskTaxonomy['namespace'],
+                'database' => ''
+            );
+            return $comparisonResult;
+        }
+
+        $taxonomyFields = array(
+            'namespace' => null,
+            'description' => null,
+            'exclusive' => false,
+            'version' => null
+        );
+        $predicateFields = array(
+            'value' => null,
+            'expanded' => null,
+            'colour' => '',
+            // 'description' => null,
+            'exclusive' => false,
+            'numerical_value' => ''
+        );
+        $entryFields = array(
+            'value' => false,
+            'expanded' => false,
+            // 'description' => false
+        );
+        $harmonizedDiskTaxonomy = array(
+            'Taxonomy' => array(),
+            'Predicates' => array()
+        );
+        $harmonizedDatabaseTaxonomy = array(
+            'Taxonomy' => array(),
+            'Predicates' => array()
+        );
+
+        // construct same format for disk taxonomy
+        foreach ($diskTaxonomy as $key => $value) {
+            foreach ($taxonomyFields as $field => $defaultValue) {
+                if (isset($diskTaxonomy[$field])) {
+                    $diskValue = $diskTaxonomy[$field];
+                } else {
+                    $diskValue = $defaultValue;
+                }
+                $harmonizedDiskTaxonomy['Taxonomy'][$field] = $diskValue;
+            }
+        }
+        foreach ($diskTaxonomy['predicates'] as $predicate) {
+            $predicateValue = $predicate['value'];
+            foreach ($predicateFields as $field => $defaultValue) {
+                if (isset($predicate[$field])) {
+                    $diskValue = $predicate[$field];
+                } else {
+                    $diskValue = $defaultValue;
+                }
+                $harmonizedDiskTaxonomy['Predicates'][$predicateValue][$field] = $diskValue;
+            }
+            $harmonizedDiskTaxonomy['Predicates'][$predicateValue]['Entries'] = array();
+        }
+        if (isset($diskTaxonomy['values'])) {
+            foreach ($diskTaxonomy['values'] as $predicateEntry) {
+                $predicateValue = $predicateEntry['predicate'];
+                foreach($predicateEntry['entry'] as $entry) {
+                    $entryValue = $entry['value'];
+                    foreach ($entryFields as $field => $defaultValue) {
+                        if (isset($entry[$field])) {
+                            $diskValue = $entry[$field];
+                        } else {
+                            $diskValue = $defaultValue;
+                        }
+                        $harmonizedDiskTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue][$field] = $diskValue;
+                    }
+                }
+            }
+        }
+
+        // construct same format for database taxonomy
+         foreach ($databaseTaxonomy['Taxonomy'] as $key => $value) {
+            foreach ($taxonomyFields as $field => $defaultValue) {
+                if (isset($databaseTaxonomy['Taxonomy'][$field])) {
+                    $diskValue = $databaseTaxonomy['Taxonomy'][$field];
+                } else {
+                    $diskValue = $defaultValue;
+                }
+                $harmonizedDatabaseTaxonomy['Taxonomy'][$field] = $diskValue;
+            }
+        }
+        foreach ($databaseTaxonomy['TaxonomyPredicate'] as $predicate) {
+            $predicateValue = $predicate['value'];
+            debug($predicateValue);
+            $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue] = array();
+            foreach ($predicateFields as $field => $defaultValue) {
+                if (isset($entry[$field])) {
+                    $databaseValue = $predicate[$field];
+                } else {
+                    $databaseValue = $defaultValue;
+                }
+                $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue][$field] = $databaseValue;
+            }
+            $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'] = array();
+            foreach($predicate['TaxonomyEntry'] as $entry) {
+                $entryValue = $entry['value'];
+                $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue] = array();
+                foreach ($entryFields as $field => $defaultValue) {
+                    if (isset($entry[$field])) {
+                        $databaseValue = $entry[$field];
+                    } else {
+                        $databaseValue = $defaultValue;
+                    }
+                    $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue][$field] = $databaseValue;
+                }
+            }
+        }
+
+        if ($diskTaxonomy['namespace'] == 'DML') {
+            // debug($harmonizedDiskTaxonomy);
+            debug($harmonizedDatabaseTaxonomy);
+        }
+
+        // compare database and disk
+        foreach ($taxonomyFields as $field => $defaultValue) {
+            $diskValue = $harmonizedDiskTaxonomy['Taxonomy'][$field];
+            $databaseValue = $harmonizedDatabaseTaxonomy['Taxonomy'][$field];
+            if ($diskValue != $databaseValue) {
+                $comparisonResult['Taxonomy'][$field] = array(
+                    'disk' => $diskValue,
+                    'database' => $databaseValue
+                );
+            }
+        }
+        foreach($harmonizedDiskTaxonomy['Predicates'] as $predicateValue => $diskPredicate) {
+            if (!isset($harmonizedDatabaseTaxonomy['Predicates'][$predicateValue])) {
+                $comparisonResult['Predicate'][$predicateValue]['_exist_'] = array(
+                    'disk' => $predicateValue,
+                    'database' => ''
+                );
+            } else {
+                foreach ($predicateFields as $field => $defaultValue) {
+                    $diskValue = $harmonizedDiskTaxonomy['Predicates'][$predicateValue][$field];
+                    $databaseValue = $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue][$field];
+                    if ($diskValue != $databaseValue) {
+                        $comparisonResult['Predicate'][$predicateValue][$field] = array(
+                            'disk' => $diskValue,
+                            'database' => $databaseValue
+                        );
+                    }
+                }
+            }
+
+            foreach($diskPredicate['Entries'] as $entryValue => $diskEntry) {
+                $entryValue = $diskEntry['value'];
+                if (!isset($harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue])) {
+                    $comparisonResult['Predicate'][$predicateValue]['Entry'][$entryValue]['_exist_'] = array(
+                        'disk' => $entryValue,
+                        'database' => ''
+                    );
+                } else {
+                    foreach ($entryFields as $field => $defaultValue) {
+                        $diskValue = $harmonizedDiskTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue][$field];
+                        $databaseValue = $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue][$field];
+                        if ($diskValue != $databaseValue) {
+                            $comparisonResult['Predicate'][$predicateValue]['Entry'][$entryValue][$field] = array(
+                                'disk' => $diskValue,
+                                'database' => $databaseValue
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        $comparisonResult['same'] = empty($comparisonResult['Taxonomy']) && empty($comparisonResult['Predicate']);
+        return $comparisonResult;
     }
 
     private function __getTaxonomy($id, $options = array('full' => false, 'filter' => false))
