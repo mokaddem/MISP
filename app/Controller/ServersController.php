@@ -1236,8 +1236,16 @@ class ServersController extends AppController
         }
         $model = $acceptedModels[$model];
         $this->{$model} = ClassRegistry::init($model);
-        $syncResult = $this->{$model}->verifyDatabaseAndJSONSynchronisation();
-        $this->set('syncResult', $syncResult);
+        $diagnostics = $this->{$model}->verifyDatabaseAndJSONSynchronisation();
+        foreach ($diagnostics as $k => $diagnostic) {
+            if ($diagnostic['same']) {
+                unset($diagnostics[$k]);
+            } else {
+                unset($diagnostics[$k]['same']);
+            }
+        }
+        $this->set('scope', $model);
+        $this->set('diagnostics', $diagnostics);
         $this->render('ajax/submodule_synchronisation');
     }
 

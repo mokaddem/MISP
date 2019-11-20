@@ -145,14 +145,16 @@ class Taxonomy extends AppModel
                 continue;
             }
             $diskTaxonomy = $this->getTaxonomyFromDisk($dir);
-            $namespace = $diskTaxonomy['namespace'];
-            $databaseTaxonomy = $this->find('first', array(
-                'recursive' => 2,
-                'conditions' => array(
-                    'namespace' => $namespace
-                )
-            ));
-            $syncResult[$namespace] = $this->compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy);
+            if (!is_null($diskTaxonomy)) {
+                $namespace = $diskTaxonomy['namespace'];
+                $databaseTaxonomy = $this->find('first', array(
+                    'recursive' => 2,
+                    'conditions' => array(
+                        'namespace' => $namespace
+                    )
+                ));
+                $syncResult[$namespace] = $this->compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy);
+            }
         }
         return $syncResult;
     }
@@ -163,8 +165,10 @@ class Taxonomy extends AppModel
         if (empty($databaseTaxonomy)) {
             $comparisonResult['Taxonomy']['_exist_'] = array(
                 'disk' => $diskTaxonomy['namespace'],
-                'database' => ''
+                'db' => ''
             );
+            $comparisonResult['same'] = false;
+            $comparisonResult['diagnosticMessage'] = sprintf(__('The Taxonomy `%s` does not exists in the database despite the fact that it exists on the disk.'), $diskTaxonomy['namespace']);
             return $comparisonResult;
         }
 
@@ -249,10 +253,9 @@ class Taxonomy extends AppModel
         }
         foreach ($databaseTaxonomy['TaxonomyPredicate'] as $predicate) {
             $predicateValue = $predicate['value'];
-            debug($predicateValue);
             $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue] = array();
             foreach ($predicateFields as $field => $defaultValue) {
-                if (isset($entry[$field])) {
+                if (isset($predicate[$field])) {
                     $databaseValue = $predicate[$field];
                 } else {
                     $databaseValue = $defaultValue;
@@ -274,11 +277,6 @@ class Taxonomy extends AppModel
             }
         }
 
-        if ($diskTaxonomy['namespace'] == 'DML') {
-            // debug($harmonizedDiskTaxonomy);
-            debug($harmonizedDatabaseTaxonomy);
-        }
-
         // compare database and disk
         foreach ($taxonomyFields as $field => $defaultValue) {
             $diskValue = $harmonizedDiskTaxonomy['Taxonomy'][$field];
@@ -286,25 +284,31 @@ class Taxonomy extends AppModel
             if ($diskValue != $databaseValue) {
                 $comparisonResult['Taxonomy'][$field] = array(
                     'disk' => $diskValue,
-                    'database' => $databaseValue
+                    'db' => $databaseValue
                 );
+                $comparisonResult['diagnosticMessage'] = sprintf(__('Value for field `%s` is different'), $field);
             }
         }
         foreach($harmonizedDiskTaxonomy['Predicates'] as $predicateValue => $diskPredicate) {
             if (!isset($harmonizedDatabaseTaxonomy['Predicates'][$predicateValue])) {
                 $comparisonResult['Predicate'][$predicateValue]['_exist_'] = array(
                     'disk' => $predicateValue,
-                    'database' => ''
+                    'db' => ''
                 );
+                $comparisonResult['diagnosticMessage'] = sprintf(__('Predicate `%s` does not exists in the database despite that it exists on the disk'), $predicateValue);
             } else {
                 foreach ($predicateFields as $field => $defaultValue) {
                     $diskValue = $harmonizedDiskTaxonomy['Predicates'][$predicateValue][$field];
                     $databaseValue = $harmonizedDatabaseTaxonomy['Predicates'][$predicateValue][$field];
-                    if ($diskValue != $databaseValue) {
+                    if (
+                        $diskValue != $databaseValue &&
+                        !(!is_null($databaseValue) && is_null($diskValue)) // some keys may be ignore in the schema
+                    ) {
                         $comparisonResult['Predicate'][$predicateValue][$field] = array(
                             'disk' => $diskValue,
-                            'database' => $databaseValue
+                            'db' => $databaseValue
                         );
+                        $comparisonResult['diagnosticMessage'] = sprintf(__('Predicate value field `%s` is different'), $field);
                     }
                 }
             }
@@ -314,8 +318,9 @@ class Taxonomy extends AppModel
                 if (!isset($harmonizedDatabaseTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue])) {
                     $comparisonResult['Predicate'][$predicateValue]['Entry'][$entryValue]['_exist_'] = array(
                         'disk' => $entryValue,
-                        'database' => ''
+                        'db' => ''
                     );
+                    $comparisonResult['diagnosticMessage'] = sprintf(__('Entry field `%s` does not exists in the database despite that it exists on the disk'), $entryValue);
                 } else {
                     foreach ($entryFields as $field => $defaultValue) {
                         $diskValue = $harmonizedDiskTaxonomy['Predicates'][$predicateValue]['Entries'][$entryValue][$field];
@@ -323,8 +328,9 @@ class Taxonomy extends AppModel
                         if ($diskValue != $databaseValue) {
                             $comparisonResult['Predicate'][$predicateValue]['Entry'][$entryValue][$field] = array(
                                 'disk' => $diskValue,
-                                'database' => $databaseValue
+                                'db' => $databaseValue
                             );
+                            $comparisonResult['diagnosticMessage'] = sprintf(__('Predicate `%s`\'s entry value field `%s` is different'), $predicateValue, $field);
                         }
                     }
                 }
