@@ -137,7 +137,7 @@ class Taxonomy extends AppModel
 
     public function verifyDatabaseAndJSONSynchronisation()
     {
-        $syncResult = array();
+        $diagnostic = array();
         $directories = $this->getTaxonomyDirectories();
         foreach ($directories as $dir) {
             $dir = basename($dir);
@@ -153,10 +153,10 @@ class Taxonomy extends AppModel
                         'namespace' => $namespace
                     )
                 ));
-                $syncResult[$namespace] = $this->compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy);
+                $diagnostic[$namespace] = $this->compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy);
             }
         }
-        return $syncResult;
+        return $diagnostic;
     }
 
     private function compareDiskAndDatabaseTaxonomy($diskTaxonomy, $databaseTaxonomy)
@@ -182,14 +182,15 @@ class Taxonomy extends AppModel
             'value' => null,
             'expanded' => null,
             'colour' => '',
-            // 'description' => null,
+            'description' => null,
             'exclusive' => false,
             'numerical_value' => ''
         );
         $entryFields = array(
             'value' => false,
             'expanded' => false,
-            // 'description' => false
+            'description' => false,
+            'numerical_value' => ''
         );
         $harmonizedDiskTaxonomy = array(
             'Taxonomy' => array(),
@@ -201,15 +202,13 @@ class Taxonomy extends AppModel
         );
 
         // construct same format for disk taxonomy
-        foreach ($diskTaxonomy as $key => $value) {
-            foreach ($taxonomyFields as $field => $defaultValue) {
-                if (isset($diskTaxonomy[$field])) {
-                    $diskValue = $diskTaxonomy[$field];
-                } else {
-                    $diskValue = $defaultValue;
-                }
-                $harmonizedDiskTaxonomy['Taxonomy'][$field] = $diskValue;
+        foreach ($taxonomyFields as $field => $defaultValue) {
+            if (isset($diskTaxonomy[$field])) {
+                $diskValue = $diskTaxonomy[$field];
+            } else {
+                $diskValue = $defaultValue;
             }
+            $harmonizedDiskTaxonomy['Taxonomy'][$field] = $diskValue;
         }
         foreach ($diskTaxonomy['predicates'] as $predicate) {
             $predicateValue = $predicate['value'];

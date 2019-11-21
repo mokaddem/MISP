@@ -10,10 +10,16 @@
         <?php foreach ($diagnostics as $key => $diagnostic): ?>
             <tr>
                 <td><kbd><?php echo h($key) ?></kbd></td>
-                <td><?php echo h($diagnostic['diagnosticMessage']) ?></td>
+                <td>
+                    <ul>
+                        <?php foreach ($diagnostic['diagnosticMessage'] as $message): ?>
+                            <li><?php echo h($message) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                </td>
                 <?php unset($diagnostic['diagnosticMessage']) ?>
                 <td>
-                    <div class="well toHighlight"><?php echo json_encode(h($diagnostic)) ?></div>
+                    <div class="well toHighlight"><?php echo json_encode($diagnostic) ?></div>
                 </td>
             </tr>
         <?php endforeach; ?>

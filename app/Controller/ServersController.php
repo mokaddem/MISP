@@ -1218,8 +1218,8 @@ class ServersController extends AppController
     public function checkSubmoduleSynchronisation($model)
     {
         $acceptedModels = array(
-            // 'Galaxy',
-            'taxonomy' => 'Taxonomy',
+            'galaxy' => 'Galaxy',
+            // 'taxonomy' => 'Taxonomy',
             // 'MispObject',
             // 'Noticelist',
             // 'Warninglists',

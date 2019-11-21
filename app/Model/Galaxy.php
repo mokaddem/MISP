@@ -199,6 +199,233 @@ class Galaxy extends AppModel
         return true;
     }
 
+    public function verifyDatabaseAndJSONSynchronisation()
+    {
+        $diagnostic = array();
+        $dir = new Folder(APP . 'files' . DS . 'misp-galaxy' . DS . 'galaxies');
+        $files = $dir->find('.*\.json');
+        $diskGalaxies = array();
+        foreach ($files as $file) {
+            $file = new File($dir->pwd() . DS . $file);
+            $galaxy = json_decode($file->read(), true);
+            $file->close();
+            if (!is_null($galaxy)) {
+                $connector = $galaxy['type'];
+                // $connector = $galaxy['uuid'];
+                $diskGalaxies[$connector] = $galaxy;
+            }
+        }
+        $dir = new Folder(APP . 'files' . DS . 'misp-galaxy' . DS . 'clusters');
+        $files = $dir->find('.*\.json');
+        foreach ($files as $file) {
+            $file = new File($dir->pwd() . DS . $file);
+            $cluster = json_decode($file->read(), true);
+            $file->close();
+            $connector = $cluster['type'];
+            // $connector = $cluster['uuid'];
+            $diskGalaxies[$connector]['clusters'] = array();
+            if (!is_null($cluster)) {
+                $diskGalaxies[$connector]['clusters'] = $cluster;
+            }
+        }
+        foreach ($diskGalaxies as $galaxyType => $galaxy) {
+            if ($galaxyType != 'regions') {
+                continue;
+            }
+            $databaseGalaxy = $this->find('first', array(
+            'recursive' => 2,
+            'conditions' => array(
+                'type' => $galaxyType
+                )
+            ));
+            $diagnostic[$galaxyType] = $this->compareDiskAndDatabaseGalaxy($galaxy, $databaseGalaxy);
+        }
+        return $diagnostic;
+    }
+
+    private function compareDiskAndDatabaseGalaxy($diskGalaxy, $databaseGalaxy)
+    {
+        debug($diskGalaxy);
+        $comparisonResult = array();
+        if (empty($databaseGalaxy)) {
+            $comparisonResult['Galaxy']['_exist_'] = array(
+                'disk' => $diskGalaxy['type'],
+                'db' => ''
+            );
+            $comparisonResult['same'] = false;
+            $comparisonResult['diagnosticMessage'] = sprintf(__('The Galaxy `%s` does not exists in the database despite the fact that it exists on the disk.'), $diskGalaxies['type']);
+            return $comparisonResult;
+        }
+
+        $galaxyFields = array(
+            'description' => null,
+            'icon' => null,
+            'name' => false,
+            'namespace' => null,
+            'type' => null,
+            'uuid' => null,
+            'version' => null,
+        );
+        $galaxyAtClusterFields = array(
+            'description' => null,
+            'type' => null,
+            'version' => null,
+            'name' => false,
+            'uuid' => null,
+            'source' => null,
+            'category' => null,
+            'authors' => array(),
+        );
+        $clusterFields = array(
+            'description' => null,
+            'value' => null,
+            'uuid' => '',
+            'related' => null,
+        );
+        $harmonizedDiskGalaxy = array(
+            'Galaxy' => array(),
+            'Clusters' => array()
+        );
+        $harmonizedDatabaseGalaxy = array(
+            'Galaxy' => array(),
+            'Clusters' => array()
+        );
+        // construct same format for disk taxonomy
+        foreach ($galaxyFields as $field => $defaultValue) {
+            if (isset($diskGalaxy[$field])) {
+                $diskValue = $diskGalaxy[$field];
+            } else {
+                $diskValue = $defaultValue;
+            }
+            $harmonizedDiskGalaxy['Galaxy'][$field] = $diskValue;
+        }
+        $galaxyAtCluster = $diskGalaxy['clusters'];
+        $galaxyValue = $galaxyAtCluster['type'];
+        foreach ($galaxyAtClusterFields as $field => $defaultValue) {
+            if (isset($galaxyAtCluster[$field])) {
+                $diskValue = $galaxyAtCluster[$field];
+            } else {
+                $diskValue = $defaultValue;
+            }
+            $harmonizedDiskGalaxy['Galaxy']['GalaxyAtCluster'][$field] = $diskValue;
+        }
+
+        $clusters = $diskGalaxy['clusters']['values'];
+        foreach($clusters as $cluster) {
+            $clusterValue = $cluster['value'];
+            foreach ($clusterFields as $field => $defaultValue) {
+                if (isset($cluster[$field])) {
+                    $diskValue = $cluster[$field];
+                } else {
+                    $diskValue = $defaultValue;
+                }
+                $harmonizedDiskGalaxy['Clusters'][$clusterValue][$field] = $diskValue;
+            }
+            $harmonizedDiskGalaxy['Clusters'][$clusterValue]['GalaxyElements'] = array();
+            if (isset($cluster['meta'])) {
+                $elements = $cluster['meta'];
+                $harmonizedDiskGalaxy['Clusters'][$clusterValue]['GalaxyElements'] = $elements;
+            }
+        }
+
+        // construct same format for database taxonomy
+        foreach ($galaxyFields as $field => $defaultValue) {
+            if (isset($databaseGalaxy['Galaxy'][$field])) {
+                $databaseValue = $databaseGalaxy['Galaxy'][$field];
+            } else {
+                $databaseValue = $defaultValue;
+            }
+            $harmonizedDatabaseGalaxy['Galaxy'][$field] = $databaseValue;
+        }
+        $harmonizedDatabaseGalaxy['Galaxy']['GalaxyAtCluster'] = array();
+
+        $clusters = $databaseGalaxy['GalaxyCluster'];
+        foreach($clusters as $cluster) {
+            $clusterValue = $cluster['value'];
+            foreach ($clusterFields as $field => $defaultValue) {
+                if (isset($cluster[$field])) {
+                    $diskValue = $cluster[$field];
+                } else {
+                    $diskValue = $defaultValue;
+                }
+                $harmonizedDatabaseGalaxy['Clusters'][$clusterValue][$field] = $diskValue;
+            }
+            $harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'] = array();
+            if (isset($cluster['GalaxyElement'])) {
+                foreach($cluster['GalaxyElement'] as $element) {
+                    $harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$element['key']][] = $element['value'];
+                }
+            }
+        }
+        
+        // compare database and disk
+        foreach ($galaxyFields as $field => $defaultValue) {
+            $diskValue = $harmonizedDiskGalaxy['Galaxy'][$field];
+            $databaseValue = $harmonizedDatabaseGalaxy['Galaxy'][$field];
+            if ($diskValue != $databaseValue) {
+                $comparisonResult['Galaxy'][$field] = array(
+                    'disk' => $diskValue,
+                    'db' => $databaseValue
+                );
+                $comparisonResult['diagnosticMessage'][] = sprintf(__('Galaxy Value for field `%s` is different'), $field);
+            }
+        }
+        foreach($harmonizedDiskGalaxy['Clusters'] as $clusterValue => $diskCluster) {
+            if (!isset($harmonizedDatabaseGalaxy['Clusters'][$clusterValue])) {
+                $comparisonResult['Clusters'][$clusterValue]['_exist_'] = array(
+                    'disk' => $clusterValue,
+                    'db' => ''
+                );
+                $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster `%s` does not exists in the database despite that it exists on the disk'), $clusterValue);
+            } else {
+                foreach ($clusterFields as $field => $defaultValue) {
+                    $diskValue = $harmonizedDiskGalaxy['Clusters'][$clusterValue][$field];
+                    $databaseValue = $harmonizedDatabaseGalaxy['Clusters'][$clusterValue][$field];
+                    if ($diskValue != $databaseValue) {
+                        if (!(!is_null($databaseValue) && is_null($diskValue))) {
+                            $comparisonResult['Clusters'][$clusterValue][$field]['_exist_'] = array(
+                                'disk' => $diskValue,
+                                'db' => $databaseValue
+                            );
+                            $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster\'s `%s`\'s value field `%s` does not exist'), $clusterValue, $field);
+                        } else {
+                            $comparisonResult['Clusters'][$clusterValue][$field] = array(
+                                'disk' => $diskValue,
+                                'db' => $databaseValue
+                            );
+                            $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster\'s `%s`\'s value field `%s` is different'), $clusterValue, $field);
+                        }
+                    }
+                }
+            }
+
+            foreach($diskCluster['GalaxyElements'] as $elementValue => $diskElement) {
+                if (!isset($harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue])) {
+                    $comparisonResult['Clusters'][$clusterValue]['GalaxyElement'][$elementValue]['_exist_'] = array(
+                        'disk' => $elementValue,
+                        'db' => ''
+                    );
+                    $comparisonResult['diagnosticMessage'][] = sprintf(__('GalaxyElement `%s` does not exists in the database despite that it exists on the disk'), $entryValue);
+                } else {
+                    $diskValue = $harmonizedDiskGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue];
+                    $databaseValue = $harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue];
+                    if (
+                        $diskValue != $databaseValue &&
+                        !(count($databaseValue) == 1 && $databaseValue[0] == $diskValue)
+                    ) {
+                        $comparisonResult['Clusters'][$clusterValue]['GalaxyElement'][$elementValue] = array(
+                            'disk' => $diskValue,
+                            'db' => $databaseValue
+                        );
+                        $comparisonResult['diagnosticMessage'][] = sprintf(__('Clusters `%s`\'s GalaxyElement value `%s` is different'), $clusterValue, $elementValue);
+                    }
+                }
+            }
+        }
+        $comparisonResult['same'] = empty($comparisonResult['Galaxy']) && empty($comparisonResult['Clusters']);
+        return $comparisonResult;
+    }
+
     public function attachCluster($user, $target_type, $target_id, $cluster_id, $local = false)
     {
         $connectorModel = Inflector::camelize($target_type) . 'Tag';
