@@ -46,7 +46,7 @@ class AppController extends Controller
 
     public $helpers = array('Utility', 'OrgImg', 'FontAwesome', 'UserName');
 
-    private $__queryVersion = '90';
+    private $__queryVersion = '92';
     public $pyMispVersion = '2.4.117';
     public $phpmin = '7.0';
     public $phprec = '7.2';
@@ -91,7 +91,8 @@ class AppController extends Controller
             'Flash',
             'Toolbox',
             'RateLimit',
-            'IndexFilter'
+            'IndexFilter',
+            'Deprecation'
             //,'DebugKit.Toolbar'
     );
 
@@ -124,7 +125,7 @@ class AppController extends Controller
         }
 
         if (!empty($this->params['named']['sql'])) {
-            $this->sql_dump = 1;
+            $this->sql_dump = intval($this->params['named']['sql']);
         }
 
         $this->_setupDatabaseConnection();
@@ -165,10 +166,10 @@ class AppController extends Controller
         } else {
             $this->Auth->authenticate['Form']['userFields'] = $auth_user_fields;
         }
-        $versionArray = $this->{$this->modelClass}->checkMISPVersion();
         if (!empty($this->params['named']['disable_background_processing'])) {
             Configure::write('MISP.background_jobs', 0);
         }
+        $versionArray = $this->{$this->modelClass}->checkMISPVersion();
         $this->mispVersion = implode('.', array_values($versionArray));
         $this->Security->blackHoleCallback = 'blackHole';
         $this->_setupBaseurl();
@@ -351,7 +352,7 @@ class AppController extends Controller
                 $this->Auth->logout();
                 throw new MethodNotAllowedException($message);//todo this should pb be removed?
             } else {
-                $this->Flash->error('Warning: MISP is currently disabled for all users. Enable it in Server Settings (Administration -> Server Settings -> MISP tab -> live). An update might also be in progress, you can see the progress in ' , array('params' => array('url' => $this->baseurl . '/servers/updateProgress/', 'urlName' => __('Update Progress')), 'clear' => 1));
+                $this->Flash->error(__('Warning: MISP is currently disabled for all users. Enable it in Server Settings (Administration -> Server Settings -> MISP tab -> live). An update might also be in progress, you can see the progress in ') , array('params' => array('url' => $this->baseurl . '/servers/updateProgress/', 'urlName' => __('Update Progress')), 'clear' => 1));
             }
         }
         if ($this->Session->check(AuthComponent::$sessionKey)) {
@@ -395,10 +396,8 @@ class AppController extends Controller
         // instead of using checkAction(), like we normally do from controllers when trying to find out about a permission flag, we can use getActions()
         // getActions returns all the flags in a single SQL query
         if ($this->Auth->user()) {
-            $versionArray = $this->{$this->modelClass}->checkMISPVersion();
-            $this->mispVersionFull = implode('.', array_values($versionArray));
             $this->set('mispVersion', implode('.', array($versionArray['major'], $versionArray['minor'], 0)));
-            $this->set('mispVersionFull', $this->mispVersionFull);
+            $this->set('mispVersionFull', $this->mispVersion);
             $role = $this->getActions();
             $this->set('me', $this->Auth->user());
             $this->set('isAdmin', $role['perm_admin']);
@@ -475,6 +474,19 @@ class AppController extends Controller
         if ($this->_isRest()) {
             $this->__rateLimitCheck();
         }
+        if ($this->modelClass !== 'CakeError') {
+            $deprecationWarnings = $this->Deprecation->checkDeprecation($this->request->params['controller'], $this->action, $this->{$this->modelClass}, $this->Auth->user('id'));
+            if ($deprecationWarnings) {
+                $deprecationWarnings = __('WARNING: This functionality is deprecated and will be removed in the near future. ') . $deprecationWarnings;
+                if ($this->_isRest()) {
+                    $this->response->header('X-Deprecation-Warning', $deprecationWarnings);
+                    $this->components['RestResponse']['deprecationWarnings'] = $deprecationWarnings;
+                } else {
+                    $this->Flash->warning($deprecationWarnings);
+                }
+            }
+        }
+        $this->components['RestResponse']['sql_dump'] = $this->sql_dump;
     }
 
     private function __rateLimitCheck()
@@ -507,10 +519,6 @@ class AppController extends Controller
 
     public function afterFilter()
     {
-        if (Configure::read('debug') > 1 && !empty($this->sql_dump) && $this->_isRest()) {
-            $this->Log = ClassRegistry::init('Log');
-            echo json_encode($this->Log->getDataSource()->getLog(false, false), JSON_PRETTY_PRINT);
-        }
         if ($this->isApiAuthed && $this->_isRest()) {
             $this->Session->destroy();
         }

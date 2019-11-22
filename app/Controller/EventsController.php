@@ -1535,9 +1535,11 @@ class EventsController extends AppController
                 $delegationConditions['OR'] = array('EventDelegation.org_id' => $this->Auth->user('org_id'),
                                                     'EventDelegation.requester_org_id' => $this->Auth->user('org_id'));
             }
-            $this->set('delegationRequest', $this->EventDelegation->find('first', array('conditions' => $delegationConditions,
-                                                                                        'recursive' => -1,
-                                                                                        'contain' => array('Org', 'RequesterOrg'))));
+            $this->set('delegationRequest', $this->EventDelegation->find('first', array(
+                'conditions' => $delegationConditions,
+                'recursive' => -1,
+                'contain' => array('Org', 'RequesterOrg')
+            )));
         }
         if (Configure::read('Plugin.Enrichment_services_enable')) {
             $this->loadModel('Module');
@@ -2035,41 +2037,48 @@ class EventsController extends AppController
         }
 
         $this->request->data['Event']['date'] = date('Y-m-d');
+        if (isset($this->request->data['Event']['distribution'])) {
+            $initialDistribution = $this->request->data['Event']['distribution'];
+        } else {
+            $initialDistribution = 3;
+            if (Configure::read('MISP.default_event_distribution') != null) {
+                $initialDistribution = Configure::read('MISP.default_event_distribution');
+            }
+        }
+        $this->set('initialDistribution', $initialDistribution);
 
         // combobox for distribution
         $distributions = array_keys($this->Event->distributionDescriptions);
         $distributions = $this->_arrayToValuesIndexArray($distributions);
         $this->set('distributions', $distributions);
         // tooltip for distribution
-        $info = array();
+        $fieldDesc = array();
         $distributionLevels = $this->Event->distributionLevels;
         if (empty($sgs)) {
             unset($distributionLevels[4]);
         }
         $this->set('distributionLevels', $distributionLevels);
         foreach ($distributionLevels as $key => $value) {
-            $info['distribution'][$key] = array('key' => $value, 'desc' => $this->Event->distributionDescriptions[$key]['formdesc']);
+            $fieldDesc['distribution'][$key] = $this->Event->distributionDescriptions[$key]['formdesc'];
         }
 
         // combobox for risks
         $threat_levels = $this->Event->ThreatLevel->find('all');
         $this->set('threatLevels', Set::combine($threat_levels, '{n}.ThreatLevel.id', '{n}.ThreatLevel.name'));
-        foreach ($threat_levels as $key => $threat_level) {
-            $info['threat_level'][$threat_level['ThreatLevel']['id']] = array('key' => $threat_level['ThreatLevel']['name'], 'desc' => $threat_level['ThreatLevel']['form_description']);
-        }
+        $fieldDesc['threat_level_id'] = Set::combine($threat_levels, '{n}.ThreatLevel.id', '{n}.ThreatLevel.description');
 
         // combobox for analysis
         $this->set('sharingGroups', $sgs);
         // tooltip for analysis
-        foreach ($this->Event->analysisLevels as $key => $value) {
-            $info['analysis'][$key] = array('key' => $value, 'desc' => $this->Event->analysisDescriptions[$key]['formdesc']);
+        $analysisLevels = $this->Event->analysisLevels;
+        $this->set('analysisLevels', $analysisLevels);
+        foreach ($analysisLevels as $key => $value) {
+            $fieldDesc['analysis'][$key] = $this->Event->analysisDescriptions[$key]['formdesc'];
         }
         if (!$this->_isRest()) {
             $this->Flash->info(__('The event created will be visible to the organisations having an account on this platform, but not synchronised to other MISP instances until it is published.'));
         }
-        $this->set('info', $info);
-        $this->set('analysisDescriptions', $this->Event->analysisDescriptions);
-        $this->set('analysisLevels', $this->Event->analysisLevels);
+        $this->set('fieldDesc', $fieldDesc);
         if (isset($this->params['named']['extends'])) {
             $this->set('extends_uuid', $this->params['named']['extends']);
         }
@@ -2387,34 +2396,34 @@ class EventsController extends AppController
         $this->set('sharingGroups', $sgs);
 
         // tooltip for distribution
-        $info = array();
+        $fieldDesc = array();
         $distributionLevels = $this->Event->distributionLevels;
         if (empty($sgs)) {
             unset($distributionLevels[4]);
         }
         $this->set('distributionLevels', $distributionLevels);
         foreach ($distributionLevels as $key => $value) {
-            $info['distribution'][$key] = array('key' => $value, 'desc' => $this->Event->distributionDescriptions[$key]['formdesc']);
+            $fieldDesc['distribution'][$key] = $this->Event->distributionDescriptions[$key]['formdesc'];
         }
 
         // combobox for risks
         $threat_levels = $this->Event->ThreatLevel->find('all');
         $this->set('threatLevels', Set::combine($threat_levels, '{n}.ThreatLevel.id', '{n}.ThreatLevel.name'));
-        foreach ($threat_levels as $key => $threat_level) {
-            $info['threat_level'][$threat_level['ThreatLevel']['id']] = array('key' => $threat_level['ThreatLevel']['name'], 'desc' => $threat_level['ThreatLevel']['form_description']);
-        }
+        $fieldDesc['threat_level_id'] = Set::combine($threat_levels, '{n}.ThreatLevel.id', '{n}.ThreatLevel.description');
 
         // combobox for analysis
         $this->set('sharingGroups', $sgs);
         // tooltip for analysis
-        foreach ($this->Event->analysisLevels as $key => $value) {
-            $info['analysis'][$key] = array('key' => $value, 'desc' => $this->Event->analysisDescriptions[$key]['formdesc']);
+        $analysisLevels = $this->Event->analysisLevels;
+        foreach ($analysisLevels as $key => $value) {
+            $fieldDesc['analysis'][$key] = $this->Event->analysisDescriptions[$key]['formdesc'];
         }
-        $this->set('analysisLevels', $this->Event->analysisLevels);
+        $this->set('analysisLevels', $analysisLevels);
 
-        $this->set('info', $info);
+        $this->set('fieldDesc', $fieldDesc);
         $this->set('eventDescriptions', $this->Event->fieldDescriptions);
         $this->set('event', $this->Event->data);
+        $this->render('add');
     }
 
     public function delete($id = null)
@@ -3196,7 +3205,7 @@ class EventsController extends AppController
             'request' => $this->request,
             'named_params' => $this->params['named'],
             'paramArray' => $paramArray,
-            'ordered_url_params' => compact($paramArray)
+            'ordered_url_params' => @compact($paramArray)
         );
         $exception = false;
         $filters = $this->_harvestParameters($filterData, $exception);
@@ -3488,7 +3497,7 @@ class EventsController extends AppController
             'request' => $this->request,
             'named_params' => $this->params['named'],
             'paramArray' => $paramArray,
-            'ordered_url_params' => compact($paramArray)
+            'ordered_url_params' => @compact($paramArray)
         );
         $exception = false;
         $filters = $this->_harvestParameters($filterData, $exception);
@@ -3534,7 +3543,6 @@ class EventsController extends AppController
             $filename .= '.' . $responseType;
             return $this->RestResponse->viewData($final, $responseType, false, true, $filename, array('X-Result-Count' => $elementCounter, 'X-Export-Module-Used' => $returnFormat, 'X-Response-Format' => $responseType));
         }
-
     }
 
     public function downloadOpenIOCEvent($key, $eventid, $enforceWarninglist = false)
@@ -4025,13 +4033,15 @@ class EventsController extends AppController
                 'fields' => array('Tag.name')
             ));
             if ($this->Event->EventTag->delete($eventTag['EventTag']['id'])) {
-                $event['Event']['published'] = 0;
-                $date = new DateTime();
-                $event['Event']['timestamp'] = $date->getTimestamp();
-                $this->Event->save($event);
+                if (empty($eventTag['EventTag']['local'])) {
+                    $event['Event']['published'] = 0;
+                    $date = new DateTime();
+                    $event['Event']['timestamp'] = $date->getTimestamp();
+                    $this->Event->save($event);
+                }
                 $log = ClassRegistry::init('Log');
                 $log->createLogEntry($this->Auth->user(), 'tag', 'Event', $id, 'Removed tag (' . $tag_id . ') "' . $tag['Tag']['name'] . '" from event (' . $id . ')', 'Event (' . $id . ') untagged of Tag (' . $tag_id . ')');
-                return new CakeResponse(array('body'=> json_encode(array('saved' => true, 'success' => ($galaxy ? 'Galaxy' : 'Tag') . ' removed.', 'check_publish' => true)), 'status'=>200, 'type' => 'json'));
+                return new CakeResponse(array('body'=> json_encode(array('saved' => true, 'success' => ($galaxy ? 'Galaxy' : 'Tag') . ' removed.', 'check_publish' => empty($eventTag['EventTag']['local']))), 'status'=>200, 'type' => 'json'));
             } else {
                 return new CakeResponse(array('body'=> json_encode(array('saved' => false, 'errors' => ($galaxy ? 'Galaxy' : 'Tag') . ' could not be removed.')), 'status'=>200, 'type' => 'json'));
             }

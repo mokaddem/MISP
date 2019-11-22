@@ -356,9 +356,11 @@ class ACLComponent extends Component
             ),
             'servers' => array(
                     'add' => array(),
+                    'dbSchemaDiagnostic' => array(),
                     'cache' => array(),
                     'changePriority' => array(),
                     'checkout' => array(),
+                    'clearWorkerQueue' => array(),
                     'createSync' => array('perm_sync'),
                     'delete' => array(),
                     'deleteFile' => array(),
@@ -369,6 +371,7 @@ class ACLComponent extends Component
                     'getGit' => array(),
                     'getInstanceUUID' => array('perm_sync'),
                     'getPyMISPVersion' => array('*'),
+                    'getRemoteUser' => array(),
                     'getSetting' => array(),
                     'getSubmodulesStatus' => array(),
                     'getSubmoduleQuickUpdateForm' => array(),
@@ -383,6 +386,7 @@ class ACLComponent extends Component
                     'pull' => array(),
                     'purgeSessions' => array(),
                     'push' => array(),
+                    'releaseUpdateLock' => array(),
                     'resetRemoteAuthKey' => array(),
                     'rest' => array('perm_auth'),
                     'restartWorkers' => array(),
@@ -400,7 +404,7 @@ class ACLComponent extends Component
                     'updateProgress' => array(),
                     'updateSubmodule' => array(),
                     'uploadFile' => array(),
-                    'clearWorkerQueue' => array()
+                    'viewDeprecatedFunctionUse' => array()
             ),
             'shadowAttributes' => array(
                     'accept' => array('perm_add'),

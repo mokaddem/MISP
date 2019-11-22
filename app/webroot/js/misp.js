@@ -3052,6 +3052,49 @@ function runOnDemandAction(element, url, target, postFormField) {
     })
 }
 
+function getRemoteSyncUser(id) {
+    var resultContainer = $("#sync_user_test_" + id);
+    $.ajax({
+        url: '/servers/getRemoteUser/' + id,
+        type:'GET',
+        beforeSend: function (XMLHttpRequest) {
+            resultContainer.html('Running test...');
+        },
+        error: function(){
+            resultContainer.html('Internal error.');
+        },
+        success: function(response) {
+            if (typeof(response.message) != 'undefined') {
+                resultContainer.empty();
+                resultContainer.append(
+                    $('<span>')
+                    .attr('class', 'red bold')
+                    .text('Error')
+                ).append(
+                    $('<span>')
+                    .text(': #' + response.message)
+                );
+            } else {
+                resultContainer.empty();
+                Object.keys(response).forEach(function(key) {
+                    var value = response[key];
+                    resultContainer.append(
+                        $('<span>')
+                        .attr('class', 'blue bold')
+                        .text(key)
+                    ).append(
+                        $('<span>')
+                        .text(': ' + value)
+                    ).append(
+                        $('<br>')
+                    );
+                });
+            }
+            var result = response;
+        }
+    });
+}
+
 function testConnection(id) {
     $.ajax({
         url: '/servers/testConnection/' + id,
@@ -3649,6 +3692,16 @@ function initPopoverContent(context) {
                 content: getFormInfoContent(property, '#' + context + formInfoFields[property])
             });
         }
+    }
+}
+
+function checkSharingGroup(context) {
+    if ($('#' + context + 'Distribution').val() == 4) {
+        $('#' + context + 'SharingGroupId').show();
+        $('#' + context + 'SharingGroupId').closest("div").show();
+    } else {
+        $('#' + context + 'SharingGroupId').hide();
+        $('#' + context + 'SharingGroupId').closest("div").hide();
     }
 }
 
@@ -4319,13 +4372,16 @@ function queryEventLock(event_id, user_org_id) {
 
 function checkIfLoggedIn() {
     if (tabIsActive) {
-        $.get("/users/checkIfLoggedIn.json", function(data) {
-            if (data.slice(-2) !== 'OK') {
-                window.location.replace(baseurl + "/users/login");
-            }
-        });
+        $.get("/users/checkIfLoggedIn.json")
+            .fail(function (xhr) {
+                if (xhr.status === 403) {
+                    window.location.replace(baseurl + "/users/login");
+                }
+            });
     }
-    setTimeout(function() { checkIfLoggedIn(); }, 5000);
+    setTimeout(function () {
+        checkIfLoggedIn();
+    }, 5000);
 }
 
 function insertRawRestResponse() {
@@ -4386,7 +4442,7 @@ function jsonToNestedTable(json, header, table_classes) {
     if (header.length > 0) {
         var $header = $('<thead><tr></tr></thead>');
         header.forEach(function(col) {
-            $header.child().append($('<td></td>').text(col));
+            $header.children().append($('<th></th>').text(col));
         });
         $table.append($header);
     }
@@ -4401,6 +4457,33 @@ function jsonToNestedTable(json, header, table_classes) {
                 .append($('<td></td>').text(k))
                 .append($('<td></td>').text(value))
         );
+    });
+    $table.append($body);
+    return $table[0].outerHTML;
+}
+
+function arrayToNestedTable(header, data, table_classes) {
+    header = header === undefined ? [] : header;
+    table_classes = table_classes === undefined ? ['table', 'table-condensed', 'table-bordered'] : table_classes;
+    var $table = $('<table></table>');
+    table_classes.forEach(function(classname) {
+        $table.addClass(classname);
+    });
+    if (header.length > 0) {
+        var $header = $('<thead><tr></tr></thead>');
+        header.forEach(function(col) {
+            $header.children().append($('<th></th>').text(col));
+        });
+        $table.append($header);
+    }
+    var $body = $('<tbody></tbody>');
+    data.forEach(function(row, i) {
+        var $tr = $('<tr></tr>');
+        row.forEach(function(cell, j) {
+            var $td = $('<td></td>').text(cell);
+            $tr.append($td);
+        });
+        $body.append($tr);
     });
     $table.append($body);
     return $table[0].outerHTML;
@@ -4571,6 +4654,19 @@ function checkRoleEnforceRateLimit() {
     } else {
         $('#rateLimitCountContainer').hide();
     }
+}
+
+function queryDeprecatedEndpointUsage() {
+    $.ajax({
+        url: baseurl + '/servers/viewDeprecatedFunctionUse',
+        type: 'GET',
+        success: function(data) {
+            $('#deprecationResults').html(data);
+        },
+        error: function(data) {
+            handleGenericAjaxResponse({'saved':false, 'errors':['Could not query the deprecation statistics.']});
+        }
+    });
 }
 
 (function(){

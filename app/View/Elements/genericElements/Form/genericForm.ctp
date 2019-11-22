@@ -22,6 +22,18 @@
     if (!empty($data['fields'])) {
         foreach ($data['fields'] as $fieldData) {
             if (is_array($fieldData)) {
+                if (empty($fieldData['label'])) {
+                    $fieldData['label'] = Inflector::humanize($fieldData['field']);
+                }
+                if (!empty($fieldDesc[$fieldData['field']])) {
+                    $fieldData['label'] .= $this->element(
+                        'genericElements/Form/formInfo', array(
+                            'field' => $fieldData,
+                            'fieldDesc' => $fieldDesc[$fieldData['field']],
+                            'modelForForm' => $modelForForm
+                        )
+                    );
+                }
                 $params = array();
                 if (!empty($fieldData['class'])) {
                     if (is_array($fieldData['class'])) {
@@ -46,7 +58,9 @@
             } else {
                 $fieldsString .= $fieldData;
             }
-            $fieldsString .= '<div class="clear"></div>';
+            if (empty($fieldData['stayInLine'])) {
+                $fieldsString .= '<div class="clear"></div>';
+            }
         }
     }
     $metaFieldString = '';
@@ -70,3 +84,8 @@
         $this->element('genericElements/Form/submitButton', $submitButtonData)
     );
 ?>
+<script type="text/javascript">
+    $(document).ready(function() {
+        popoverStartup();
+    });
+</script>

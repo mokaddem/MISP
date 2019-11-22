@@ -200,6 +200,7 @@
             'data' => array(
                 'data' => $dbDiagnostics,
                 'skip_pagination' => 1,
+                'max_height' => '400px',
                 'fields' => array(
                     array(
                         'name' => __('Table'),
@@ -225,6 +226,19 @@
         ));
         echo '</div>';
     ?>
+        <h4><?php echo __('Schema status');?></h4>
+        <div style="width: 70vw; padding-left: 10px;">
+            <?php echo $this->element('/healthElements/db_schema_status', array(
+                'checkedTableColumn' => $dbSchemaDiagnostics['checked_table_column'],
+                'dbSchemaDiagnostics' => $dbSchemaDiagnostics['diagnostic'],
+                'expectedDbVersion' => $dbSchemaDiagnostics['expected_db_version'],
+                'actualDbVersion' => $dbSchemaDiagnostics['actual_db_version'],
+                'error' => $dbSchemaDiagnostics['error'],
+                'remainingLockTime' => $dbSchemaDiagnostics['remaining_lock_time'],
+                'updateFailNumberReached' => $dbSchemaDiagnostics['update_fail_number_reached'],
+                'updateLocked' => $dbSchemaDiagnostics['update_locked']
+            )); ?>
+        </div>
     <h3><?= __("Redis info") ?></h3>
     <div style="background-color:#f7f7f9;width:400px;">
         <b><?= __('PHP extension version') ?>:</b> <?= $redisInfo['extensionVersion'] ?: ('<span class="red bold">' . __('Not installed.') . '</span>') ?><br>
@@ -403,9 +417,20 @@
     <h3><?php echo __('Clean model cache');?></h3>
     <p><?php echo __('If you ever run into issues with missing database fields / tables, please run the following script to clean the model cache.');?></p>
     <?php echo $this->Form->postLink('<span class="btn btn-inverse" style="padding-top:1px;padding-bottom:1px;">' . __('Clean cache') . '</span>', $baseurl . '/events/cleanModelCaches', array('escape' => false));?>
-    <h3><?php echo __('Overwritten objects');?></h3>
-    <p><?php echo __('Prior to 2.4.89, due to a bug a situation could occur where objects got overwritten on a sync pull. This tool allows you to inspect whether you are affected and if yes, remedy the issue.');?></p>
-    <a href="<?php echo $baseurl; ?>/objects/orphanedObjectDiagnostics"><span class="btn btn-inverse"><?php echo __('Reconstruct overwritten objects');?></span></a>
+    <?php
+        echo sprintf(
+            '<h3>%s</h3><p>%s</p><div id="deprecationResults"></div>%s',
+            __('Check for deprecated function usage'),
+            __('In an effort to identify the usage of deprecated functionalities, MISP has started aggregating the count of access requests to these endpoints. Check the frequency of their use below along with the users to potentially warn about better ways of achieving their goals.'),
+            sprintf(
+                '<span class="btn btn-inverse" role="button" tabindex="0" aria-label="%s" title="%s" onClick="%s">%s</span>',
+                __('View deprecated endpoint usage'),
+                __('View deprecated endpoint usage'),
+                'queryDeprecatedEndpointUsage();',
+                __('View deprecated endpoint usage')
+            )
+        );
+    ?>
     <h3><?php echo __('Orphaned attributes');?></h3>
     <p><?php echo __('In some rare cases attributes can remain in the database after an event is deleted becoming orphaned attributes. This means that they do not belong to any event, which can cause issues with the correlation engine (known cases include event deletion directly in the database without cleaning up the attributes and situations involving a race condition with an event deletion happening before all attributes are synchronised over).');?></p>
     <div style="background-color:#f7f7f9;width:400px;">

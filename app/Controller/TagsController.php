@@ -944,7 +944,10 @@ class TagsController extends AppController
                     throw new MethodNotAllowedException('Tag not found and insufficient privileges to create it.');
                 }
                 $this->Tag->create();
-                $this->Tag->save(array('Tag' => array('name' => $tag, 'colour' => $this->Tag->random_color())));
+                $result = $this->Tag->save(array('Tag' => array('name' => $tag, 'colour' => $this->Tag->random_color())));
+                if (!$result) {
+                    return $this->RestResponse->saveFailResponse('Tags', 'attachTagToObject', false, __('Unable to create tag. Reason: ' . json_encode($this->Tag->validationErrors)), $this->response->type());
+                }
                 $existingTag = $this->Tag->find('first', array('recursive' => -1, 'conditions' => array('Tag.id' => $this->Tag->id)));
             } else {
                 throw new NotFoundException('Invalid Tag.');
@@ -952,10 +955,10 @@ class TagsController extends AppController
         }
         if (!$this->_isSiteAdmin()) {
             if (!in_array($existingTag['Tag']['org_id'], array(0, $this->Auth->user('org_id')))) {
-                throw new MethodNotAllowedException('Invalid Tag.');
+                throw new MethodNotAllowedException('Invalid Tag. This tag can only be set by a fixed organisation.');
             }
             if (!in_array($existingTag['Tag']['user_id'], array(0, $this->Auth->user('id')))) {
-                throw new MethodNotAllowedException('Invalid Tag.');
+                throw new MethodNotAllowedException('Invalid Tag. This tag can only be set by a fixed user.');
             }
         }
         $this->loadModel($objectType);
