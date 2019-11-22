@@ -229,9 +229,9 @@ class Galaxy extends AppModel
             }
         }
         foreach ($diskGalaxies as $galaxyType => $galaxy) {
-            if ($galaxyType != 'regions') {
-                continue;
-            }
+            // if ($galaxyType != 'threat-actor') {
+            //     continue;
+            // }
             $databaseGalaxy = $this->find('first', array(
             'recursive' => 2,
             'conditions' => array(
@@ -245,7 +245,6 @@ class Galaxy extends AppModel
 
     private function compareDiskAndDatabaseGalaxy($diskGalaxy, $databaseGalaxy)
     {
-        debug($diskGalaxy);
         $comparisonResult = array();
         if (empty($databaseGalaxy)) {
             $comparisonResult['Galaxy']['_exist_'] = array(
@@ -258,29 +257,29 @@ class Galaxy extends AppModel
         }
 
         $galaxyFields = array(
-            'description' => null,
-            'icon' => null,
-            'name' => false,
-            'namespace' => null,
-            'type' => null,
-            'uuid' => null,
-            'version' => null,
+            'description' => array('default' => null, 'required' => true),
+            'icon' => array('default' => null, 'required' => true),
+            'name' => array('default' => false, 'required' => true),
+            'namespace' => array('default' => null, 'required' => true),
+            'type' => array('default' => null, 'required' => true),
+            'uuid' => array('default' => null, 'required' => true),
+            'version' => array('default' => null, 'required' => true),
         );
         $galaxyAtClusterFields = array(
-            'description' => null,
-            'type' => null,
-            'version' => null,
-            'name' => false,
-            'uuid' => null,
-            'source' => null,
-            'category' => null,
-            'authors' => array(),
+            'description' => array('default' => null, 'required' => true),
+            'type' => array('default' => null, 'required' => true),
+            'version' => array('default' => null, 'required' => true),
+            'name' => array('default' => false, 'required' => true),
+            'uuid' => array('default' => null, 'required' => true),
+            'source' => array('default' => null, 'required' => true),
+            'category' => array('default' => null, 'required' => true),
+            'authors' => array('default' => array(), 'required' => true),
         );
         $clusterFields = array(
-            'description' => null,
-            'value' => null,
-            'uuid' => '',
-            'related' => null,
+            'description' => array('default' => null, 'required' => true),
+            'value' => array('default' => null, 'required' => true),
+            'uuid' => array('default' => '', 'required' => true),
+            'related' => array('default' => null, 'required' => false),
         );
         $harmonizedDiskGalaxy = array(
             'Galaxy' => array(),
@@ -291,21 +290,21 @@ class Galaxy extends AppModel
             'Clusters' => array()
         );
         // construct same format for disk taxonomy
-        foreach ($galaxyFields as $field => $defaultValue) {
+        foreach ($galaxyFields as $field => $fieldConfig) {
             if (isset($diskGalaxy[$field])) {
                 $diskValue = $diskGalaxy[$field];
             } else {
-                $diskValue = $defaultValue;
+                $diskValue = $fieldConfig['default'];
             }
             $harmonizedDiskGalaxy['Galaxy'][$field] = $diskValue;
         }
         $galaxyAtCluster = $diskGalaxy['clusters'];
         $galaxyValue = $galaxyAtCluster['type'];
-        foreach ($galaxyAtClusterFields as $field => $defaultValue) {
+        foreach ($galaxyAtClusterFields as $field => $fieldConfig) {
             if (isset($galaxyAtCluster[$field])) {
                 $diskValue = $galaxyAtCluster[$field];
             } else {
-                $diskValue = $defaultValue;
+                $diskValue = $fieldConfig['default'];
             }
             $harmonizedDiskGalaxy['Galaxy']['GalaxyAtCluster'][$field] = $diskValue;
         }
@@ -313,11 +312,11 @@ class Galaxy extends AppModel
         $clusters = $diskGalaxy['clusters']['values'];
         foreach($clusters as $cluster) {
             $clusterValue = $cluster['value'];
-            foreach ($clusterFields as $field => $defaultValue) {
+            foreach ($clusterFields as $field => $fieldConfig) {
                 if (isset($cluster[$field])) {
                     $diskValue = $cluster[$field];
                 } else {
-                    $diskValue = $defaultValue;
+                    $diskValue = $fieldConfig['default'];
                 }
                 $harmonizedDiskGalaxy['Clusters'][$clusterValue][$field] = $diskValue;
             }
@@ -329,11 +328,11 @@ class Galaxy extends AppModel
         }
 
         // construct same format for database taxonomy
-        foreach ($galaxyFields as $field => $defaultValue) {
+        foreach ($galaxyFields as $field => $fieldConfig) {
             if (isset($databaseGalaxy['Galaxy'][$field])) {
                 $databaseValue = $databaseGalaxy['Galaxy'][$field];
             } else {
-                $databaseValue = $defaultValue;
+                $databaseValue = $fieldConfig['default'];
             }
             $harmonizedDatabaseGalaxy['Galaxy'][$field] = $databaseValue;
         }
@@ -342,13 +341,13 @@ class Galaxy extends AppModel
         $clusters = $databaseGalaxy['GalaxyCluster'];
         foreach($clusters as $cluster) {
             $clusterValue = $cluster['value'];
-            foreach ($clusterFields as $field => $defaultValue) {
+            foreach ($clusterFields as $field => $fieldConfig) {
                 if (isset($cluster[$field])) {
-                    $diskValue = $cluster[$field];
+                    $databaseValue = $cluster[$field];
                 } else {
-                    $diskValue = $defaultValue;
+                    $databaseValue = $fieldConfig['default'];
                 }
-                $harmonizedDatabaseGalaxy['Clusters'][$clusterValue][$field] = $diskValue;
+                $harmonizedDatabaseGalaxy['Clusters'][$clusterValue][$field] = $databaseValue;
             }
             $harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'] = array();
             if (isset($cluster['GalaxyElement'])) {
@@ -359,7 +358,7 @@ class Galaxy extends AppModel
         }
         
         // compare database and disk
-        foreach ($galaxyFields as $field => $defaultValue) {
+        foreach ($galaxyFields as $field => $fieldConfig) {
             $diskValue = $harmonizedDiskGalaxy['Galaxy'][$field];
             $databaseValue = $harmonizedDatabaseGalaxy['Galaxy'][$field];
             if ($diskValue != $databaseValue) {
@@ -374,20 +373,25 @@ class Galaxy extends AppModel
             if (!isset($harmonizedDatabaseGalaxy['Clusters'][$clusterValue])) {
                 $comparisonResult['Clusters'][$clusterValue]['_exist_'] = array(
                     'disk' => $clusterValue,
-                    'db' => ''
+                    'db' => null
                 );
                 $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster `%s` does not exists in the database despite that it exists on the disk'), $clusterValue);
             } else {
-                foreach ($clusterFields as $field => $defaultValue) {
+                foreach ($clusterFields as $field => $fieldConfig) {
                     $diskValue = $harmonizedDiskGalaxy['Clusters'][$clusterValue][$field];
                     $databaseValue = $harmonizedDatabaseGalaxy['Clusters'][$clusterValue][$field];
                     if ($diskValue != $databaseValue) {
                         if (!(!is_null($databaseValue) && is_null($diskValue))) {
-                            $comparisonResult['Clusters'][$clusterValue][$field]['_exist_'] = array(
-                                'disk' => $diskValue,
-                                'db' => $databaseValue
-                            );
-                            $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster\'s `%s`\'s value field `%s` does not exist'), $clusterValue, $field);
+                            if ($fieldConfig['required']) {
+                                $comparisonResult['Clusters'][$clusterValue][$field]['_exist_'] = array(
+                                    'disk' => count($diskValue) < 2 ? $diskValue : array(
+                                        $diskValue[0],
+                                        sprintf(__('%s more values'), count($diskValue)-1)
+                                    ),
+                                    'db' => $databaseValue
+                                );
+                                $comparisonResult['diagnosticMessage'][] = sprintf(__('Cluster\'s `%s`\'s value field `%s` does not exist'), $clusterValue, $field);
+                            }
                         } else {
                             $comparisonResult['Clusters'][$clusterValue][$field] = array(
                                 'disk' => $diskValue,
@@ -401,11 +405,13 @@ class Galaxy extends AppModel
 
             foreach($diskCluster['GalaxyElements'] as $elementValue => $diskElement) {
                 if (!isset($harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue])) {
-                    $comparisonResult['Clusters'][$clusterValue]['GalaxyElement'][$elementValue]['_exist_'] = array(
-                        'disk' => $elementValue,
-                        'db' => ''
-                    );
-                    $comparisonResult['diagnosticMessage'][] = sprintf(__('GalaxyElement `%s` does not exists in the database despite that it exists on the disk'), $entryValue);
+                    if (!empty($diskElement)) {
+                        $comparisonResult['Clusters'][$clusterValue]['GalaxyElement'][$elementValue]['_exist_'] = array(
+                            'disk' => $diskElement,
+                            'db' => null
+                        );
+                        $comparisonResult['diagnosticMessage'][] = sprintf(__('[%s] GalaxyElement `%s` does not exists in the database despite that it exists on the disk'), $clusterValue, $elementValue);
+                    }
                 } else {
                     $diskValue = $harmonizedDiskGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue];
                     $databaseValue = $harmonizedDatabaseGalaxy['Clusters'][$clusterValue]['GalaxyElements'][$elementValue];

@@ -11,15 +11,21 @@
             <tr>
                 <td><kbd><?php echo h($key) ?></kbd></td>
                 <td>
-                    <ul>
-                        <?php foreach ($diagnostic['diagnosticMessage'] as $message): ?>
-                            <li><?php echo h($message) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <div style="max-height: 500px; overflow: auto;">
+                        <ul>
+                            <?php foreach ($diagnostic['diagnosticMessage'] as $message): ?>
+                                <li><?php echo h($message) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
                 </td>
                 <?php unset($diagnostic['diagnosticMessage']) ?>
                 <td>
-                    <div class="well toHighlight"><?php echo json_encode($diagnostic) ?></div>
+                    <div class="well">
+                        <div style="max-height: 500px; overflow: auto;">
+                            <div class="toHighlight"><?php echo json_encode($diagnostic) ?></div>
+                        </div>
+                    </div>
                 </td>
             </tr>
         <?php endforeach; ?>
