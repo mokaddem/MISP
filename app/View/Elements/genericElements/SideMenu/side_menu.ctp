@@ -1086,12 +1086,18 @@
                         'text' => __('List Galaxies')
                     ));
                     if ($hostOrgUser) {
+                        echo $this->element('/genericElements/SideMenu/side_menu_divider');
+                        echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                            'url' => '/galaxies/import',
+                            'text' => __('Import Galaxy')
+                        ));
                         echo $this->element('/genericElements/SideMenu/side_menu_link', array(
                             'url' => '/galaxies/add',
                             'text' => __('Create Galaxies')
                         ));
                     }
                     if ($isSiteAdmin) {
+                        echo $this->element('/genericElements/SideMenu/side_menu_divider');
                         echo $this->element('/genericElements/SideMenu/side_menu_post_link', array(
                             'element_id' => 'update',
                             'url' => '/galaxies/update',

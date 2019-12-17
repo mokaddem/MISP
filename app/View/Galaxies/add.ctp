@@ -3,7 +3,7 @@
     echo $this->element('genericElements/Form/genericForm', array(
         'form' => $this->Form,
         'data' => array(
-            'title' => $action === 'add' ? __('Add Galaxy') : __('Edit Galaxy'),
+            'title' => $action == 'add' ? __('Add Galaxy') : __('Edit Galaxy'),
             'model' => $modelForForm,
             'fields' => array(
                 array(
@@ -21,21 +21,14 @@
                     'type' => 'text'
                 ),
                 array(
-                    'field' => 'extends_existing',
-                    'type' => 'checkbox',
-                    'default' => false,
-                ),
-                array(
-                    'field' => 'extends_id',
+                    'field' => 'fork_id',
+                    'label' => 'Forked Galaxy',
                     'class' => 'large-left-margin',
-                    'options' => $galaxyNames
+                    'options' => $galaxyNames,
+                    'empty' => array(-1 => '-- No fork --'),
+                    'default' => isset($forkId) ? $forkId : -1
                 ),
-                '<div id="extended_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block;"></div>',
-                array(
-                    'field' => 'kill_chain_order',
-                    'type' => 'textarea',
-                    'rows' => 1
-                ),
+                '<div id="fork_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block;"></div>',
                 array(
                     'field' => 'description',
                     'type' => 'textarea'
@@ -51,10 +44,20 @@
                     'options' => $sharingGroups,
                     'label' => __("Sharing Group")
                 ),
+                array(
+                    'field' => 'kill_chain_order',
+                    'type' => 'textarea',
+                    'rows' => 1
+                ),
+                array(
+                    'field' => 'values',
+                    'label' => __("Cluster values"),
+                    'type' => 'textarea',
+                ),
             )
         )
     ));
-    echo $this->element('/genericElements/SideMenu/side_menu', array('menuList' => 'event-collection', 'menuItem' => $this->action === 'add' ? 'add' : 'editEvent'));
+    echo $this->element('/genericElements/SideMenu/side_menu', array('menuList' => 'galaxies', 'menuItem' => $this->action === 'add' ? 'add' : 'edit'));
 ?>
 
 <script type="text/javascript">
@@ -63,48 +66,41 @@
         checkSharingGroup('Galaxy');
     });
 
-    $('#GalaxyExtendsExisting').change(function() {
-        checkExtends();
-    });
-
-    $('#GalaxyExtendsId').change(function() {
+    $('#GalaxyForkId').change(function() {
+        checkFork();
         previewGalaxyBasedOnUuids();
     });
 
     $(document).ready(function() {
         checkSharingGroup('Galaxy');
         previewGalaxyBasedOnUuids();
-        checkExtends();
+        checkFork();
     });
 
-    function checkExtends() {
-        if ($('#GalaxyExtendsExisting').prop('checked')) {
-            $('#GalaxyExtendsId').show();
-            $('#GalaxyExtendsId').closest("div").show();
-            $('#extended_galaxy_preview').show();
+    function checkFork() {
+        if ($('#GalaxyForkId').val() != -1) {
+            $('#fork_galaxy_preview').show();
         } else {
-            $('#GalaxyExtendsId').hide();
-            $('#GalaxyExtendsId').closest("div").hide();
-            $('#extended_galaxy_preview').hide();
+            $('#fork_galaxy_preview').hide();
         }
     }
 
 
     function previewGalaxyBasedOnUuids() {
-        var currentValue = $("#GalaxyExtendsId").val();
-        var galaxyExtendContainer = $("#extended_galaxy_preview");
-        if (currentValue == '') {
-            galaxyExtendContainer.hide();
+        var currentValue = $("#GalaxyForkId").val();
+        var galaxyForkContainer = $("#fork_galaxy_preview");
+        if (currentValue == -1) {
+            galaxyForkContainer.hide();
         } else {
             var selectedGalaxy = galaxies[currentValue]['Galaxy'];
             if (selectedGalaxy === undefined) {
-                galaxyExtendContainer.hide();
+                galaxyForkContainer.hide();
             } else {
-                galaxyExtendContainer.empty();
+                galaxyForkContainer.empty();
                 var toAdd = [];
                 Object.keys(selectedGalaxy).forEach(function(k) {
                     var value = selectedGalaxy[k];
-                    galaxyExtendContainer.append(
+                    galaxyForkContainer.append(
                         $('<div/>')
                             .append($('<strong/>').text(k + ': '))
                             .append($('<span/>').text(value))

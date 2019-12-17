@@ -18,12 +18,33 @@ class GalaxiesController extends AppController
 
     public function index()
     {
+        $filters = $this->IndexFilter->harvestParameters(array('context', 'value'));
+        if (empty($filters['context'])) {
+            $filters['context'] = 'all';
+        }
+        if (empty($filters['value'])) {
+            $filters['value'] = '';
+        } else {
+            $searchall = '%' . strtolower($filters['value']) . '%';
+            $this->paginate['conditions']['AND'][] = array(
+                'OR' => array(
+                    'LOWER(Galaxy.name) LIKE' => $searchall,
+                    'LOWER(Galaxy.namespace) LIKE' => $searchall,
+                    'LOWER(Galaxy.description) LIKE' => $searchall,
+                    'LOWER(Galaxy.kill_chain_order) LIKE' => $searchall,
+                    'Galaxy.uuid LIKE' => $searchall
+                )
+            );
+        }
+        $galaxies = $this->Galaxy->find('all', array('recursive' => -1));
         if ($this->_isRest()) {
-            $galaxies = $this->Galaxy->find('all', array('recursive' => -1));
             return $this->RestResponse->viewData($galaxies, $this->response->type());
         } else {
             $galaxies = $this->paginate();
+            $this->set('galaxyList', $galaxies);
             $this->set('list', $galaxies);
+            $this->set('context', $filters['context']);
+            $this->set('searchall', $filters['value']);
         }
     }
 
@@ -59,6 +80,7 @@ class GalaxiesController extends AppController
         }
         $this->loadModel('SharingGroup');
         $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
+        
         $galaxiesTmp =  $this->Galaxy->find('all', array('recursive' => -1));
         $galaxies = array();
         $galaxyNames = array();
@@ -66,15 +88,84 @@ class GalaxiesController extends AppController
             $galaxies[$galaxy['Galaxy']['id']] = $galaxy;
             $galaxyNames[$galaxy['Galaxy']['id']] = $galaxy['Galaxy']['name'];
         }
-
+        if (isset($this->params['named']['forkId'])) {
+            $forkExists = $this->Galaxy->find('count', array('recursive' => -1, 'conditions' => array('id' => $this->params['named']['forkId']))) > 0;
+            if ($forkExists) {
+                $this->set('forkId', $this->params['named']['forkId']);
+            }
+        }
         if ($this->request->is('post') || $this->request->is('put')) {
-        } else {
-            $this->set('distributionLevels', $distributionLevels);
-            $this->set('initialDistribution', $initialDistribution);
-            $this->set('sharingGroups', $sgs);
-            $this->set('galaxies', $galaxies);
-            $this->set('galaxyNames', $galaxyNames);
-            $this->set('action', 'add');
+            $galaxy = $this->request->data['Galaxy'];
+            $errors = array();
+
+            if (!empty($galaxy['fork_id'])) {
+                $galaxy = $this->Galaxy->find('first', array(
+                    'conditions' => array('Galaxy.id' => $galaxy['fork_id'])
+                ));
+                if (!empty($galaxy)) {
+                    $errors[] = sprintf(__('Forked Galaxy `%s` not found.'), $galaxy['fork_id']);
+                }
+            }
+
+            $flashErrorMessage = implode(', ', $errors);
+            $this->Flash->error($flashErrorMessage);
+        }
+        $this->set('distributionLevels', $distributionLevels);
+        $this->set('initialDistribution', $initialDistribution);
+        $this->set('sharingGroups', $sgs);
+        $this->set('galaxies', $galaxies);
+        $this->set('galaxyNames', $galaxyNames);
+        $action = 'add';
+        $this->set('action', $action);
+    }
+
+    public function import()
+    {
+        if ($this->request->is('post') || $this->request->is('put')) {
+            $data = $this->request->data['Galaxy'];
+            if ($data['submittedjson']['name'] != '' && $data['json'] != '') {
+                throw new MethodNotAllowedException(__('Only one import field can be used at a time'));
+            }
+            if ($data['submittedjson']['size'] > 0) {
+                $filename = basename($data['submittedjson']['name']);
+                $file_content = file_get_contents($data['submittedjson']['tmp_name']);
+                if ((isset($data['submittedjson']['error']) && $data['submittedjson']['error'] == 0) ||
+                    (!empty($data['submittedjson']['tmp_name']) && $data['submittedjson']['tmp_name'] != '')
+                ) {
+                    if (!$file_content) {
+                        throw new InternalErrorException(__('PHP says file was not uploaded. Are you attacking me?'));
+                    }
+                }
+                $text = $file_content;
+            } else {
+                $text = $data['json'];
+            }
+            $json = json_decode($text, true);
+            if ($json === null) {
+                throw new MethodNotAllowedException(__('Error while decoding JSON'));
+            }
+            
+            // perfom clean up here
+
+            // $saveResult = $this->Galaxy->save($json);
+            $saveResult = true;
+            if ($saveResult) {
+                $message = __('Galaxy imported');
+                if ($this->_isRest()) {
+                    return $this->RestResponse->saveSuccessResponse('Galaxy', 'import', false, $this->response->type(), $message);
+                } else {
+                    $this->Flash->success($message);
+                    $this->redirect(array('controller' => 'galaxies', 'action' => 'index'));
+                }
+            } else {
+                $message = __('Could not import Galaxy');
+                if ($this->_isRest()) {
+                    return $this->RestResponse->saveFailResponse('Galaxy', 'import', false, $message);
+                } else {
+                    $this->Flash->error($message);
+                    $this->redirect($this->referer());
+                }
+            }
         }
     }
 
@@ -120,7 +211,7 @@ class GalaxiesController extends AppController
         }
         $result = $this->Galaxy->delete($id);
         if ($result) {
-            $message = 'Galaxy deleted';
+            $message = __('Galaxy deleted');
             if ($this->_isRest()) {
                 return $this->RestResponse->saveSuccessResponse('Galaxy', 'delete', false, $this->response->type(), $message);
             } else {
@@ -128,11 +219,11 @@ class GalaxiesController extends AppController
                 $this->redirect(array('controller' => 'galaxies', 'action' => 'index'));
             }
         } else {
-            $message = 'Could not delete Galaxy.';
+            $message = __('Could not delete Galaxy.');
             if ($this->_isRest()) {
                 return $this->RestResponse->saveFailResponse('Galaxy', 'delete', false, $message);
             } else {
-                $this->Flash->success($message);
+                $this->Flash->error($message);
                 $this->redirect($this->referer());
             }
         }

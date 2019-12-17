@@ -27,6 +27,16 @@
             }
             $url .= '/' . $url_param_data_paths;
         }
+        if (!empty($action['url_named_params_data_paths'])) {
+            if (is_array($action['url_named_params_data_paths'])) {
+                $temp = array();
+                foreach ($action['url_named_params_data_paths'] as $namedParam => $path) {
+                    $temp[] = sprintf('%s:%s', h($namedParam), h(Hash::extract($row, $path)[0]));
+                }
+                $url_param_data_paths = implode('/', $temp);
+            }
+            $url .= '/' . $url_param_data_paths;
+        }
         if (isset($action['postLink'])) {
             echo $this->Form->postLink(
                 '',
