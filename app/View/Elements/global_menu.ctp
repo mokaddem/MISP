@@ -97,6 +97,11 @@
                     array(
                         'text' => __('List Galaxies'),
                         'url' => '/galaxies/index'
+                    ),
+                    array(
+                        'text' => __('Create Galaxies'),
+                        'url' => '/galaxies/add',
+                        'requirement' => $hostOrgUser
                     )
                 )
             ),

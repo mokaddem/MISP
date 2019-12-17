@@ -1085,6 +1085,12 @@
                         'url' => '/galaxies/index',
                         'text' => __('List Galaxies')
                     ));
+                    if ($hostOrgUser) {
+                        echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                            'url' => '/galaxies/add',
+                            'text' => __('Create Galaxies')
+                        ));
+                    }
                     if ($isSiteAdmin) {
                         echo $this->element('/genericElements/SideMenu/side_menu_post_link', array(
                             'element_id' => 'update',

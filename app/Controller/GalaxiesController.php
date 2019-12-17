@@ -47,6 +47,37 @@ class GalaxiesController extends AppController
         }
     }
 
+    public function add()
+    {
+        $this->loadModel('Attribute');
+        $distributionLevels = $this->Attribute->distributionLevels;
+        unset($distributionLevels[5]);
+        $initialDistribution = 3;
+        $configuredDistribution = Configure::check('MISP.default_attribute_distribution');
+        if ($configuredDistribution != null && $configuredDistribution != 'event') {
+            $initialDistribution = $configuredDistribution;
+        }
+        $this->loadModel('SharingGroup');
+        $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
+        $galaxiesTmp =  $this->Galaxy->find('all', array('recursive' => -1));
+        $galaxies = array();
+        $galaxyNames = array();
+        foreach ($galaxiesTmp as $galaxy) {
+            $galaxies[$galaxy['Galaxy']['id']] = $galaxy;
+            $galaxyNames[$galaxy['Galaxy']['id']] = $galaxy['Galaxy']['name'];
+        }
+
+        if ($this->request->is('post') || $this->request->is('put')) {
+        } else {
+            $this->set('distributionLevels', $distributionLevels);
+            $this->set('initialDistribution', $initialDistribution);
+            $this->set('sharingGroups', $sgs);
+            $this->set('galaxies', $galaxies);
+            $this->set('galaxyNames', $galaxyNames);
+            $this->set('action', 'add');
+        }
+    }
+
     public function view($id)
     {
         $id = $this->Toolbox->findIdByUuid($this->Galaxy, $id);
