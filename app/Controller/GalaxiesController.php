@@ -80,41 +80,52 @@ class GalaxiesController extends AppController
         }
         $this->loadModel('SharingGroup');
         $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
-        
-        $galaxiesTmp =  $this->Galaxy->find('all', array('recursive' => -1));
-        $galaxies = array();
-        $galaxyNames = array();
-        foreach ($galaxiesTmp as $galaxy) {
-            $galaxies[$galaxy['Galaxy']['id']] = $galaxy;
-            $galaxyNames[$galaxy['Galaxy']['id']] = $galaxy['Galaxy']['name'];
-        }
+
         if (isset($this->params['named']['forkId'])) {
-            $forkExists = $this->Galaxy->find('count', array('recursive' => -1, 'conditions' => array('id' => $this->params['named']['forkId']))) > 0;
-            if ($forkExists) {
+            $origGalaxy = $this->Galaxy->find('first', array(
+                'recursive' => -1,
+                'conditions' => array('id' => $this->params['named']['forkId']),
+                'contain' => array('GalaxyCluster' => array('GalaxyElement')),
+            ));
+            if (!empty($origGalaxy)) {
                 $this->set('forkId', $this->params['named']['forkId']);
+                $origGalaxyMeta = $origGalaxy['Galaxy'];
+                if (empty($this->request->data)) {
+                    $this->request->data = $origGalaxy;
+                    unset($this->request->data['Galaxy']['id']);
+                    unset($this->request->data['Galaxy']['uuid']);
+                    unset($this->request->data['Galaxy']['type']);
+                    unset($this->request->data['Galaxy']['version']);
+                    unset($this->request->data['Galaxy']['org_id']);
+                    unset($this->request->data['Galaxy']['orgc_id']);
+                    $this->request->data['Galaxy']['kill_chain_order'] = json_encode($origGalaxy['Galaxy']['kill_chain_order']);
+                    $this->request->data['Galaxy']['values'] = json_encode($origGalaxy['GalaxyCluster']);
+                }
+                $this->set('origGalaxy', $origGalaxy);
+                $this->set('origGalaxyMeta', $origGalaxyMeta);
             }
         }
         if ($this->request->is('post') || $this->request->is('put')) {
             $galaxy = $this->request->data['Galaxy'];
             $errors = array();
 
-            if (!empty($galaxy['fork_id'])) {
-                $galaxy = $this->Galaxy->find('first', array(
-                    'conditions' => array('Galaxy.id' => $galaxy['fork_id'])
-                ));
-                if (!empty($galaxy)) {
-                    $errors[] = sprintf(__('Forked Galaxy `%s` not found.'), $galaxy['fork_id']);
-                }
-            }
+            // if (!empty($galaxy['fork_id'])) {
+            //     $galaxy = $this->Galaxy->find('first', array(
+            //         'conditions' => array('Galaxy.id' => $galaxy['fork_id'])
+            //     ));
+            //     if (!empty($galaxy)) {
+            //         $errors[] = sprintf(__('Forked Galaxy `%s` not found.'), $galaxy['fork_id']);
+            //     }
+            // }
 
-            $flashErrorMessage = implode(', ', $errors);
-            $this->Flash->error($flashErrorMessage);
+            // $flashErrorMessage = implode(', ', $errors);
+            // $this->Flash->error($flashErrorMessage);
         }
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
         $this->set('sharingGroups', $sgs);
-        $this->set('galaxies', $galaxies);
-        $this->set('galaxyNames', $galaxyNames);
+        // $this->set('galaxies', $galaxies);
+        // $this->set('galaxyNames', $galaxyNames);
         $action = 'add';
         $this->set('action', $action);
     }

@@ -1,5 +1,15 @@
 <?php
     $modelForForm = 'Galaxy';
+    $origGalaxyHtmlPreview = '';
+    if (isset($origGalaxyMeta)) {
+        foreach ($origGalaxyMeta as $key => $value) {
+            if (is_array($value)) {
+                $origGalaxyHtmlPreview .= sprintf('<div><b>%s: </b><div data-toggle="json" class="large-left-margin">%s</div></div>', h($key), json_encode($value));
+            } else {
+                $origGalaxyHtmlPreview .= sprintf('<div><b>%s: </b>%s</div>', h($key), h($value));
+            }
+        }
+    }
     echo $this->element('genericElements/Form/genericForm', array(
         'form' => $this->Form,
         'data' => array(
@@ -20,15 +30,10 @@
                     'field' => 'icon',
                     'type' => 'text'
                 ),
-                array(
-                    'field' => 'fork_id',
-                    'label' => 'Forked Galaxy',
-                    'class' => 'large-left-margin',
-                    'options' => $galaxyNames,
-                    'empty' => array(-1 => '-- No fork --'),
-                    'default' => isset($forkId) ? $forkId : -1
+                !isset($origGalaxyMeta) ? '' : sprintf('<div id="fork_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block; position: absolute; right: 0px; top: 100px;"><h5>%s</h5>%s</div>',
+                    __('Forked Galaxy data'),
+                    $origGalaxyHtmlPreview
                 ),
-                '<div id="fork_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block;"></div>',
                 array(
                     'field' => 'description',
                     'type' => 'textarea'
@@ -61,53 +66,17 @@
 ?>
 
 <script type="text/javascript">
-    var galaxies = <?php echo json_encode($galaxies); ?>;
+    var origGalaxy = <?php echo json_encode($origGalaxy); ?>;
     $('#GalaxyDistribution').change(function() {
         checkSharingGroup('Galaxy');
     });
 
-    $('#GalaxyForkId').change(function() {
-        checkFork();
-        previewGalaxyBasedOnUuids();
-    });
-
     $(document).ready(function() {
         checkSharingGroup('Galaxy');
-        previewGalaxyBasedOnUuids();
-        checkFork();
+        $('[data-toggle=\"json\"]').each(function() {
+        $(this).attr('data-toggle', '')
+            .html(syntaxHighlightJson($(this).text().trim()));
+        });
     });
-
-    function checkFork() {
-        if ($('#GalaxyForkId').val() != -1) {
-            $('#fork_galaxy_preview').show();
-        } else {
-            $('#fork_galaxy_preview').hide();
-        }
-    }
-
-
-    function previewGalaxyBasedOnUuids() {
-        var currentValue = $("#GalaxyForkId").val();
-        var galaxyForkContainer = $("#fork_galaxy_preview");
-        if (currentValue == -1) {
-            galaxyForkContainer.hide();
-        } else {
-            var selectedGalaxy = galaxies[currentValue]['Galaxy'];
-            if (selectedGalaxy === undefined) {
-                galaxyForkContainer.hide();
-            } else {
-                galaxyForkContainer.empty();
-                var toAdd = [];
-                Object.keys(selectedGalaxy).forEach(function(k) {
-                    var value = selectedGalaxy[k];
-                    galaxyForkContainer.append(
-                        $('<div/>')
-                            .append($('<strong/>').text(k + ': '))
-                            .append($('<span/>').text(value))
-                    )                    
-                });
-            }
-        }
-    }
 </script>
 <?php echo $this->Js->writeBuffer(); // Write cached scripts
