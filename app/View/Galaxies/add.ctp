@@ -29,7 +29,8 @@
                 ),
                 array(
                     'field' => 'icon',
-                    'type' => 'text'
+                    'type' => 'text',
+                    'div' => array('style' => 'position: relative;')
                 ),
                 !isset($origGalaxyMeta) ? '' : sprintf('<div id="fork_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block; position: absolute; right: 0px; top: 100px;"><h5>%s</h5>%s</div>',
                     __('Forked Galaxy data'),
@@ -71,6 +72,9 @@
     $('#GalaxyDistribution').change(function() {
         checkSharingGroup('Galaxy');
     });
+    $('#GalaxyIcon').on('input', function() {
+        updateFAIcon(this);
+    });
 
     $(document).ready(function() {
         checkSharingGroup('Galaxy');
@@ -78,6 +82,13 @@
         $(this).attr('data-toggle', '')
             .html(syntaxHighlightJson($(this).text().trim()));
         });
+        $('#GalaxyIcon').parent().append('<i class="position-absolute" style="top: 34px; right: 20px;"></i>');
+        updateFAIcon(document.getElementById('GalaxyIcon'));
     });
+
+    function updateFAIcon(elem) {
+        var val = $(elem).val();
+        $(elem).parent().find('i').attr('class', 'position-absolute fa-' + val + ' ' + getFAClass(val));
+    }
 </script>
 <?php echo $this->Js->writeBuffer(); // Write cached scripts

@@ -98,7 +98,7 @@ class GalaxiesController extends AppController
                     unset($this->request->data['Galaxy']['version']);
                     unset($this->request->data['Galaxy']['org_id']);
                     unset($this->request->data['Galaxy']['orgc_id']);
-                    $this->request->data['Galaxy']['kill_chain_order'] = json_encode($origGalaxy['Galaxy']['kill_chain_order']);
+                    $this->request->data['Galaxy']['kill_chain_order'] = isset($origGalaxy['Galaxy']['kill_chain_order']) ? json_encode($origGalaxy['Galaxy']['kill_chain_order']) : '{}';
                     $this->request->data['Galaxy']['values'] = json_encode($origGalaxy['GalaxyCluster']);
                 }
                 $this->set('origGalaxy', $origGalaxy);
