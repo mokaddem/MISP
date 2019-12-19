@@ -1,5 +1,6 @@
 <?php
     $modelForForm = 'Galaxy';
+    $origGalaxy = isset($origGalaxy) ? $origGalaxy : array();
     $origGalaxyHtmlPreview = '';
     if (isset($origGalaxyMeta)) {
         foreach ($origGalaxyMeta as $key => $value) {
