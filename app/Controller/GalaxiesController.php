@@ -106,26 +106,33 @@ class GalaxiesController extends AppController
             }
         }
         if ($this->request->is('post') || $this->request->is('put')) {
-            $galaxy = $this->request->data['Galaxy'];
+            $galaxy = array('Galaxy' => $this->request->data['Galaxy']);
             $errors = array();
-
-            // if (!empty($galaxy['fork_id'])) {
-            //     $galaxy = $this->Galaxy->find('first', array(
-            //         'conditions' => array('Galaxy.id' => $galaxy['fork_id'])
-            //     ));
-            //     if (!empty($galaxy)) {
-            //         $errors[] = sprintf(__('Forked Galaxy `%s` not found.'), $galaxy['fork_id']);
-            //     }
-            // }
-
-            // $flashErrorMessage = implode(', ', $errors);
-            // $this->Flash->error($flashErrorMessage);
+            if (empty($galaxy['Galaxy']['values'])) {
+                $errors[] = sprintf(__('Galaxy must have at least one cluster'));
+            }
+            $galaxy['Galaxy']['uuid'] = CakeText::uuid();
+            $type = CakeText::uuid();
+            $galaxy['Galaxy']['type'] = $type;
+            $date = new DateTime();
+            $galaxy['Galaxy']['version'] = $date->getTimestamp();;
+            $galaxy['Galaxy']['org_id'] = $this->Auth->user('org_id');
+            $galaxy['Galaxy']['orgc_id'] = $this->Auth->user('org_id');
+            $this->Galaxy->create();
+            $saveSuccess = $this->Galaxy->save($galaxy);
+            if (!$saveSuccess) {
+                foreach($this->Galaxy->validationErrors as $validationError) {
+                    $errors[] = $validationError;
+                }
+            }
+            if (!empty($errors)) {
+                $flashErrorMessage = implode(', ', $errors);
+                $this->Flash->error($flashErrorMessage);
+            }
         }
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
         $this->set('sharingGroups', $sgs);
-        // $this->set('galaxies', $galaxies);
-        // $this->set('galaxyNames', $galaxyNames);
         $action = 'add';
         $this->set('action', $action);
     }

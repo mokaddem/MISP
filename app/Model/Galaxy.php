@@ -11,8 +11,44 @@ class Galaxy extends AppModel
     );
 
     public $validate = array(
+        'description' => array(
+            'stringNotEmpty' => array(
+                'rule' => array('stringNotEmpty')
+            )
+        ),
+        'name' => array(
+            'stringNotEmpty' => array(
+                'rule' => array('stringNotEmpty')
+            )
+        ),
+        'namespace' => array(
+            'stringNotEmpty' => array(
+                'rule' => array('stringNotEmpty')
+            )
+        ),
+        'to_ids' => array(
+            'boolean' => array(
+                'rule' => array('boolean'),
+                'required' => false
+            )
+        ),
+        'uuid' => array(
+            'uuid' => array(
+                'rule' => array('custom', '/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/'),
+                'message' => 'Please provide a valid UUID'
+            ),
+            'unique' => array(
+                'rule' => 'isUnique',
+                'message' => 'The UUID provided is not unique',
+                'required' => 'create'
+            )
+        ),
+        'distribution' => array(
+                'rule' => array('inList', array('0', '1', '2', '3', '4', '5')),
+                'message' => 'Options: Your organisation only, This community only, Connected communities, All communities, Sharing group, Inherit event',
+                'required' => true
+        )
     );
-
     public $hasMany = array(
         'GalaxyCluster' => array('dependent' => true)
     );

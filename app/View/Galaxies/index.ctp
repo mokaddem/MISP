@@ -92,7 +92,17 @@
                     'icon' => 'code-branch'
                 ),
                 array(
+                    'url' => '/galaxies/edit',
+                    'url_named_params_data_paths' => array(
+                        'Galaxy.id'
+                    ),
+                    'icon' => 'edit'
+                ),
+                array(
                     'url' => '/galaxies/delete',
+                    'url_params_data_paths' => array(
+                        'Galaxy.id'
+                    ),
                     'postLink' => true,
                     'postLinkConfirm' => __('Are you sure you want to delete the Galaxy?'),
                     'icon' => 'trash'
