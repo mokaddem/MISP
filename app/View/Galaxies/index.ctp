@@ -96,7 +96,18 @@
                     'url_named_params_data_paths' => array(
                         'Galaxy.id'
                     ),
-                    'icon' => 'edit'
+                    'icon' => 'edit',
+                    'complex_requirement' => array(
+                        'function' => function($row, $options) {
+                            return ($options['me']['org_id'] == $options['datapath']['org']);
+                        },
+                        'options' => array(
+                            'me' => $me,
+                            'datapath' => array(
+                                'org' => 'Galaxy.org_id'
+                            )
+                        )
+                    ),
                 ),
                 array(
                     'url' => '/galaxies/delete',
