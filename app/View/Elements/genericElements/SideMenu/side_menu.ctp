@@ -1095,6 +1095,12 @@
                             'url' => '/galaxies/add',
                             'text' => __('Create Galaxies')
                         ));
+                        if ($menuItem === 'view') {
+                            echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                                'url' => '/galaxies/edit/' . h($galaxy['Galaxy']['id']),
+                                'text' => __('Edit Galaxy')
+                            ));
+                        }
                     }
                     if ($isSiteAdmin) {
                         echo $this->element('/genericElements/SideMenu/side_menu_divider');

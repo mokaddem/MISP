@@ -106,7 +106,8 @@ class GalaxiesController extends AppController
             }
         }
         if ($this->request->is('post') || $this->request->is('put')) {
-            $galaxy = array('Galaxy' => $this->request->data['Galaxy']);
+            // $galaxy = array('Galaxy' => $this->request->data['Galaxy']);
+            $galaxy = $this->request->data;
             $errors = array();
             if (empty($galaxy['Galaxy']['values'])) {
                 $errors[] = sprintf(__('Galaxy must have at least one cluster'));
@@ -115,7 +116,7 @@ class GalaxiesController extends AppController
             $type = CakeText::uuid();
             $galaxy['Galaxy']['type'] = $type;
             $date = new DateTime();
-            $galaxy['Galaxy']['version'] = $date->getTimestamp();;
+            $galaxy['Galaxy']['version'] = $date->getTimestamp();
             $galaxy['Galaxy']['org_id'] = $this->Auth->user('org_id');
             $galaxy['Galaxy']['orgc_id'] = $this->Auth->user('org_id');
             $this->Galaxy->create();
@@ -128,13 +129,14 @@ class GalaxiesController extends AppController
             if (!empty($errors)) {
                 $flashErrorMessage = implode(', ', $errors);
                 $this->Flash->error($flashErrorMessage);
+            } else {
+                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $id));
             }
         }
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
         $this->set('sharingGroups', $sgs);
-        $action = 'add';
-        $this->set('action', $action);
+        $this->set('action', 'add');
     }
 
     public function import()
@@ -185,6 +187,83 @@ class GalaxiesController extends AppController
                 }
             }
         }
+    }
+
+    public function edit($id = null)
+    {
+        if (Validation::uuid($id)) {
+            $temp = $this->Galaxy->find('first', array(
+                'recursive' => -1,
+                'fields' => array('Galaxy.id', 'Galaxy.uuid'),
+                'conditions' => array('Galaxy.uuid' => $id)
+            ));
+            if ($temp == null) {
+                throw new NotFoundException('Invalid galaxy');
+            }
+            $id = $temp['Galaxy']['id'];
+        } elseif (!is_numeric($id)) {
+            throw new NotFoundException(__('Invalid galaxy'));
+        }
+        $conditions = array('conditions' => array('Galaxy.id' => $id));
+        $galaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), $conditions);
+        if (empty($galaxy)) {
+            throw new MethodNotAllowedException('Invalid galaxy');
+        }
+        $this->Galaxy->data = $galaxy[0];
+
+        $this->loadModel('Attribute');
+        $distributionLevels = $this->Attribute->distributionLevels;
+        unset($distributionLevels[5]);
+        $initialDistribution = 3;
+        $configuredDistribution = Configure::check('MISP.default_attribute_distribution');
+        if ($configuredDistribution != null && $configuredDistribution != 'event') {
+            $initialDistribution = $configuredDistribution;
+        }
+        $this->loadModel('SharingGroup');
+        $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
+
+        if ($this->request->is('post') || $this->request->is('put')) {
+            $galaxy = $this->request->data;
+            $errors = array();
+            if (empty($galaxy['Galaxy']['values'])) {
+                $galaxy['Galaxy']['values'] = array();
+            }
+            if (!isset($galaxy['Galaxy']['uuid'])) { 
+                $galaxy['Galaxy']['uuid'] = $this->Galaxy->data['Galaxy']['uuid'];
+            }
+            if (!isset($galaxy['Galaxy']['id'])) { 
+                $galaxy['Galaxy']['id'] = $id;
+            }
+            if (
+                $galaxy['Galaxy']['id'] !== $this->Galaxy->data['Galaxy']['id'] || 
+                $galaxy['Galaxy']['uuid'] !== $this->Galaxy->data['Galaxy']['uuid']
+            ) {
+                $errors[] = sprintf(__('Galaxy id/uuid missmatch'));
+            }
+            $date = new DateTime();
+            $galaxy['Galaxy']['version'] = $date->getTimestamp();
+            $this->Galaxy->create();
+            $fieldList = array('id', 'uuid', 'name', 'namespace', 'type', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id');
+            $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
+            if (!$saveSuccess) {
+                foreach($this->Galaxy->validationErrors as $validationError) {
+                    $errors[] = $validationError;
+                }
+            }
+            if (!empty($errors)) {
+                $flashErrorMessage = implode(', ', $errors);
+                $this->Flash->error($flashErrorMessage);
+            } else {
+                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $id));
+            }
+        } else {
+            $this->request->data = $this->Galaxy->data;
+        }
+        $this->set('distributionLevels', $distributionLevels);
+        $this->set('initialDistribution', $initialDistribution);
+        $this->set('sharingGroups', $sgs);
+        $this->set('action', 'edit');
+        $this->render('add');
     }
 
     public function view($id)

@@ -410,6 +410,61 @@ class Galaxy extends AppModel
         }
     }
 
+    public function buildConditions($user)
+    {
+        $this->Event = ClassRegistry::init('Event');
+        $conditions = array();
+        if (!$user['Role']['perm_site_admin']) {
+            $sgids = $this->Event->cacheSgids($user, true);
+            $conditions['AND']['OR'] = array(
+                'Galaxy.org_id' => $user['org_id'],
+                array(
+                    'AND' => array(
+                        'Galaxy.distribution >' => 0,
+                        'Galaxy.distribution <' => 4
+                    ),
+                ),
+                array(
+                    'AND' => array(
+                        'Galaxy.sharing_group_id' => $sgids,
+                        'Galaxy.distribution' => 4
+                    )
+                )
+            );
+        }
+        return $conditions;
+    }
+
+
+    // very flexible, it's basically a replacement for find, with the addition that it restricts access based on user
+    // options:
+    //     fields
+    //     contain
+    //     conditions
+    //     order
+    //     group
+    public function fetchGalaxies($user, $options, $full=false)
+    {
+        $params = array(
+            'conditions' => $this->buildConditions($user),
+            'recursive' => -1,
+        );
+        if ($full) {
+            $params['contain'] = array('GalaxyCluster' => array('GalaxyElement'));
+        }
+        if (isset($options['fields'])) {
+            $params['fields'] = $options['fields'];
+        }
+        if (isset($options['conditions'])) {
+            $params['conditions']['AND'][] = $options['conditions'];
+        }
+        if (isset($options['group'])) {
+            $params['group'] = empty($options['group']) ? $options['group'] : false;
+        }
+        $galaxies = $this->find('all', $params);
+        return $galaxies;
+    }
+
     public function getMitreAttackGalaxyId($type="mitre-attack-pattern", $namespace="mitre-attack")
     {
         $galaxy = $this->find('first', array(
