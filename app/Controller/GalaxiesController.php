@@ -110,7 +110,9 @@ class GalaxiesController extends AppController
             $galaxy = $this->request->data;
             $errors = array();
             if (empty($galaxy['Galaxy']['values'])) {
-                $errors[] = sprintf(__('Galaxy must have at least one cluster'));
+                $galaxy['Galaxy']['values'] = array();
+            } else {
+                $galaxy['Galaxy']['values'] = $this->decodeJson($galaxy['Galaxy']['values']);
             }
             $galaxy['Galaxy']['uuid'] = CakeText::uuid();
             $type = CakeText::uuid();
@@ -189,6 +191,15 @@ class GalaxiesController extends AppController
         }
     }
 
+    public function decodeJson($text)
+    {
+        $decoded = json_decode($text, true);
+        if ($decoded === null) {
+            $decoded = array();
+        }
+        return $decoded;
+    }
+
     public function edit($id = null)
     {
         if (Validation::uuid($id)) {
@@ -225,9 +236,6 @@ class GalaxiesController extends AppController
         if ($this->request->is('post') || $this->request->is('put')) {
             $galaxy = $this->request->data;
             $errors = array();
-            if (empty($galaxy['Galaxy']['values'])) {
-                $galaxy['Galaxy']['values'] = array();
-            }
             if (!isset($galaxy['Galaxy']['uuid'])) { 
                 $galaxy['Galaxy']['uuid'] = $this->Galaxy->data['Galaxy']['uuid'];
             }
@@ -240,9 +248,13 @@ class GalaxiesController extends AppController
             ) {
                 $errors[] = sprintf(__('Galaxy id/uuid missmatch'));
             }
+            if (empty($galaxy['Galaxy']['values'])) {
+                $galaxy['Galaxy']['values'] = array();
+            } else {
+                $galaxy['Galaxy']['values'] = $this->decodeJson($galaxy['Galaxy']['values']);
+            }
             $date = new DateTime();
             $galaxy['Galaxy']['version'] = $date->getTimestamp();
-            $this->Galaxy->create();
             $fieldList = array('id', 'uuid', 'name', 'namespace', 'type', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id');
             $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
             if (!$saveSuccess) {
@@ -258,10 +270,14 @@ class GalaxiesController extends AppController
             }
         } else {
             $this->request->data = $this->Galaxy->data;
+            if (isset($this->request->data['Galaxy']['kill_chain_order'])) {
+                $this->request->data['Galaxy']['kill_chain_order'] = json_encode($this->request->data['Galaxy']['kill_chain_order']);
+            }
         }
         $this->set('distributionLevels', $distributionLevels);
         $this->set('initialDistribution', $initialDistribution);
         $this->set('sharingGroups', $sgs);
+        $this->set('galaxyId', $id);
         $this->set('action', 'edit');
         $this->render('add');
     }

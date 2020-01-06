@@ -1101,6 +1101,12 @@
                                 'text' => __('Edit Galaxy')
                             ));
                         }
+                        if ($menuItem === 'edit') {
+                            echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                                'url' => '/galaxies/view/' . h($galaxyId),
+                                'text' => __('View Galaxy')
+                            ));
+                        }
                     }
                     if ($isSiteAdmin) {
                         echo $this->element('/genericElements/SideMenu/side_menu_divider');

@@ -32,7 +32,7 @@
                     'type' => 'text',
                     'div' => array('style' => 'position: relative;')
                 ),
-                !isset($origGalaxyMeta) ? '' : sprintf('<div id="fork_galaxy_preview" class="panel-container large-left-margin" style="display: inline-block; position: absolute; right: 0px; top: 100px;"><h5>%s</h5>%s</div>',
+                !isset($origGalaxyMeta) ? '' : sprintf('<div id="fork_galaxy_preview" class="panel-container fork-galaxy-preview"><h5>%s</h5>%s</div>',
                     __('Forked Galaxy data'),
                     $origGalaxyHtmlPreview
                 ),

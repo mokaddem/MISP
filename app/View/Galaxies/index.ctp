@@ -93,7 +93,7 @@
                 ),
                 array(
                     'url' => '/galaxies/edit',
-                    'url_named_params_data_paths' => array(
+                    'url_params_data_paths' => array(
                         'Galaxy.id'
                     ),
                     'icon' => 'edit',

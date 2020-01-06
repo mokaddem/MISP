@@ -57,11 +57,21 @@ class Galaxy extends AppModel
     {
         parent::beforeValidate();
         if (isset($this->data['Galaxy']['kill_chain_order'])) {
-            $json = json_encode($this->data['Galaxy']['kill_chain_order']);
-            if ($json !== null) {
-                $this->data['Galaxy']['kill_chain_order'] = $json;
-            } else {
-                unset($this->data['Galaxy']['kill_chain_order']);
+            if (is_array($this->data['Galaxy']['kill_chain_order'])) {
+                $json = json_encode($this->data['Galaxy']['kill_chain_order']);
+                if ($json !== null) {
+                    $this->data['Galaxy']['kill_chain_order'] = $json;
+                } else {
+                    unset($this->data['Galaxy']['kill_chain_order']);
+                }
+            // } else {
+            //     $json = json_decode($this->data['Galaxy']['kill_chain_order'], true);
+            //     if ($json !== null) {
+            //         $this->data['Galaxy']['kill_chain_order'] = $json;
+            //     } else {
+            //         unset($this->data['Galaxy']['kill_chain_order']);
+            //     }
+            // }
             }
         }
         return true;
@@ -434,7 +444,6 @@ class Galaxy extends AppModel
         }
         return $conditions;
     }
-
 
     // very flexible, it's basically a replacement for find, with the addition that it restricts access based on user
     // options:

@@ -2437,3 +2437,12 @@ table tr:hover .down-expand-button {
     color: white;
     border-radius: 3px;
 }
+
+.fork-galaxy-preview {
+    display: inline-block;
+    position: absolute;
+    right: 0px;
+    top: 100px;
+    max-width: 600px;
+    z-index: -1;
+}
