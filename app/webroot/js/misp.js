@@ -4747,6 +4747,11 @@ function queryDeprecatedEndpointUsage() {
     });
 }
 
+function changeLocationFromIndexDblclick(row_index) {
+    var href = $('.index table tr[data-row-id=\"' + row_index + '\"] .dblclickActionElement').attr('href')
+    window.location = href;
+}
+
 (function(){
     "use strict";
     $(".datepicker").datepicker({

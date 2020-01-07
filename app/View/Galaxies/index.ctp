@@ -82,7 +82,8 @@
                     'url_params_data_paths' => array(
                         'Galaxy.id'
                     ),
-                    'icon' => 'eye'
+                    'icon' => 'eye',
+                    'dbclickAction' => true
                 ),
                 array(
                     'url' => '/galaxies/add',

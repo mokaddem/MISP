@@ -66,10 +66,11 @@
             );
         } else {
             echo sprintf(
-                '<a href="%s" title="%s" aria-label="%s" %s><i class="black %s"></i></a> ',
+                '<a href="%s" title="%s" aria-label="%s" %s %s><i class="black %s"></i></a> ',
                 $url,
                 empty($action['title']) ? '' : h($action['title']),
                 empty($action['title']) ? '' : h($action['title']),
+                empty($action['dbclickAction']) ? '' : 'class="dblclickActionElement"',
                 empty($action['onclick']) ? '' : sprintf('onclick="%s"', $action['onclick']),
                 $this->FontAwesome->getClass($action['icon'])
             );
