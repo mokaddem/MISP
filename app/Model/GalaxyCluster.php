@@ -57,59 +57,116 @@ class GalaxyCluster extends AppModel
 
 
     // receive a full galaxy and add all new clusters, update existing ones contained in the new galaxy, cull old clusters that are removed from the galaxy
-    public function update($id, $galaxy)
+    public function update($galaxy_id, $cluster_package, $force)
     {
-        $existingClusters = $this->find('all', array(
-            'conditions' => array('GalaxyCluster.galaxy_id' => $id),
+        $template = array(
+            'source' => isset($cluster_package['source']) ? $cluster_package['source'] : '',
+            'authors' => json_encode(isset($cluster_package['authors']) ? $cluster_package['authors'] : array(), true),
+            'collection_uuid' => isset($cluster_package['uuid']) ? $cluster_package['uuid'] : '',
+            'galaxy_id' => $galaxy_id,
+            'type' => $cluster_package['type'],
+            'tag_name' => 'misp-galaxy:' . $cluster_package['type'] . '="'
+        );
+        $elements = array();
+        $temp = $this->find('all', array(
+            'conditions' => array(
+                'GalaxyCluster.galaxy_id' => $galaxy_id
+            ),
             'recursive' => -1,
+            'fields' => array('version', 'id', 'value', 'uuid')
         ));
-        foreach ($galaxy['values'] as $cluster) {
-            $oldCluster = false;
-            if (!empty($existingClusters)) {
-                foreach ($existingClusters as $k => $existingCluster) {
-                    if ($existingCluster['GalaxyCluster']['value'] == $cluster['value']) {
-                        $oldCluster = true;
-                        if ($cluster['description'] != $existingCluster['GalaxyCluster']['description']) {
-                            $existingCluster['GalaxyCluster']['description'] = $cluster['description'];
-                            $this->GalaxyElement->deleteAll('galaxy_cluster_id' == $existingCluster['GalaxyCluster']['id']);
-                            $this->save($existingCluster);
-                            $template = array('galaxy_cluster_id' => $this->id);
-                            $toSave = array();
-                            foreach ($cluster as $key => $value) {
-                                if (in_array($key, array('value', 'description'))) {
-                                    continue;
-                                }
-                                $tosave[] = array_merge($template, array('key' => $key, 'value' => $value));
-                            }
-                            $this->GalaxyElement->saveMany($toSave);
+        $existingClusters = array();
+        foreach ($temp as $k => $v) {
+            $existingClusters[$v['GalaxyCluster']['uuid']] = $v;
+        }
+        $clusterPackageProxy = array();
+        foreach ($cluster_package['values'] as $k => $cluster) {
+            if (!isset($cluster['uuid'])) {
+                $cluster_package['values'][$k]['uuid'] = CakeText::uuid();
+            }
+            $clusterPackageProxy[$cluster_package['values'][$k]['uuid']] = $cluster;
+        }
+
+        $clustersToDelete = array();
+        $obsoleteClusters = array_diff_key($existingClusters, $clusterPackageProxy);
+        // Delete all clusters that do not exists anymore
+        foreach($obsoleteClusters as $k => $obsoleteCluster) {
+            $clustersToDelete[] = $obsoleteCluster['GalaxyCluster']['id'];
+        }
+        // Delete all existing outdated clusters
+        foreach ($cluster_package['values'] as $k => $cluster) {
+            if (empty($cluster['value'])) {
+                continue;
+            }
+            if (isset($cluster['version'])) {
+            } elseif (!empty($cluster_package['version'])) {
+                $cluster_package['values'][$k]['version'] = $cluster_package['version'];
+            } else {
+                $cluster_package['values'][$k]['version'] = 0;
+            }
+            if (!empty($existingClusters[$cluster['uuid']])) {
+                if ($force || $existingClusters[$cluster['uuid']]['GalaxyCluster']['version'] < $cluster_package['values'][$k]['version']) {
+                    $clustersToDelete[] = $existingClusters[$cluster['uuid']]['GalaxyCluster']['id'];
+                } else {
+                    unset($cluster_package['values'][$k]);
+                }
+            }
+        }
+        if (!empty($clustersToDelete)) {
+            $this->GalaxyElement->deleteAll(array('GalaxyElement.galaxy_cluster_id' => $clustersToDelete), false, false);
+            $this->delete($clustersToDelete, false, false);
+        }
+
+        // create all clusters
+        $saveSuccess = true;
+        foreach ($cluster_package['values'] as $cluster) {
+            if (empty($cluster['version'])) {
+                $cluster['version'] = 1;
+            }
+            $template['version'] = $cluster['version'];
+            $this->create();
+            $cluster_to_save = $template;
+            if (isset($cluster['description'])) {
+                $cluster_to_save['description'] = $cluster['description'];
+                unset($cluster['description']);
+            }
+            $cluster_to_save['value'] = $cluster['value'];
+            $cluster_to_save['tag_name'] = $cluster_to_save['tag_name'] . $cluster['value'] . '"';
+            if (!empty($cluster['uuid'])) {
+                $cluster_to_save['uuid'] = $cluster['uuid'];
+            }
+            unset($cluster['value']);
+            if (empty($cluster_to_save['description'])) {
+                $cluster_to_save['description'] = '';
+            }
+            $saveSuccess = $saveSuccess && $this->save($cluster_to_save, false);
+            $galaxyClusterId = $this->id;
+            if (isset($cluster['meta'])) {
+                foreach ($cluster['meta'] as $key => $value) {
+                    if (is_array($value)) {
+                        foreach ($value as $v) {
+                            $elements[] = array(
+                                $galaxyClusterId,
+                                $key,
+                                strval($v)
+                            );
                         }
-                        unset($existingClusters[$k]);
+                    } else {
+                        $elements[] = array(
+                            $this->id,
+                            $key,
+                            strval($value)
+                        );
                     }
                 }
             }
-            if (!$oldCluster) {
-                // $newCluster = array_intersect_key($cluster, array_flip(array('value', 'description')));
-                $newCluster = $cluster;
-                // $newCluster['galaxy_id'] = $id;
-                // $newCluster['type'] = $galaxy['type'];
-                // $newCluster['collection_uuid'] = '';
-                $toSave[] = $newCluster;
-            }
-            $final = array();
-            if (!empty($existingCluster)) {
-                $fieldsToUpdate = array('description', '');
-                $final = $existingCluster;
-            }
         }
-        debug($toSave);
-        $saveResult = $this->saveMany($toSave);
-        return $saveResult;
-        // Let's retrieve the full list of clusters we have for the given galaxy and pass it to the element system
-        $existingClusters = $this->find('all', array(
-                'conditions' => array('GalaxyCluster.galaxy_id'),
-                'contain' => array('GalaxyElement'/*, 'GalaxyReference'*/)
-        ));
-        $this->GalaxyElement->update($id, $existingClusters, $galaxy['values']);
+        $db = $this->getDataSource();
+        $fields = array('galaxy_cluster_id', 'key', 'value');
+        if (!empty($elements)) {
+            $db->insertMulti('galaxy_elements', $fields, $elements);
+        }
+        return $saveSuccess;
     }
 
     /* Return a list of all tags associated with the cluster specific cluster within the galaxy (or all clusters if $clusterValue is false)

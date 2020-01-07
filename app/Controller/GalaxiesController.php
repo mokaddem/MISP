@@ -106,7 +106,6 @@ class GalaxiesController extends AppController
             }
         }
         if ($this->request->is('post') || $this->request->is('put')) {
-            // $galaxy = array('Galaxy' => $this->request->data['Galaxy']);
             $galaxy = $this->request->data;
             $errors = array();
             if (empty($galaxy['Galaxy']['values'])) {
@@ -127,12 +126,22 @@ class GalaxiesController extends AppController
                 foreach($this->Galaxy->validationErrors as $validationError) {
                     $errors[] = $validationError;
                 }
+            } else {
+                $savedGalaxy = $this->Galaxy->find('first', array(
+                    'conditions' => array('id' =>  $this->Galaxy->id),
+                    'recursive' => -1
+                ));
+                $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
+                $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true);
+                if(!$saveSuccess) {
+                    $errors[] = __('Error while saving clusters');
+                }
             }
             if (!empty($errors)) {
                 $flashErrorMessage = implode(', ', $errors);
                 $this->Flash->error($flashErrorMessage);
             } else {
-                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $this->id));
+                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $this->Galaxy->id));
             }
         }
         $this->set('distributionLevels', $distributionLevels);
@@ -216,11 +225,19 @@ class GalaxiesController extends AppController
             throw new NotFoundException(__('Invalid galaxy'));
         }
         $conditions = array('conditions' => array('Galaxy.id' => $id));
-        $galaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), $conditions);
+        $galaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), $conditions, true);
         if (empty($galaxy)) {
             throw new MethodNotAllowedException('Invalid galaxy');
         }
-        $this->Galaxy->data = $galaxy[0];
+        $this->Galaxy->data = array('Galaxy' => $galaxy[0]['Galaxy']);
+        $galaxyClusters = $galaxy[0]['GalaxyCluster'];
+        foreach ($galaxyClusters as $k => $cluster) {
+            foreach($cluster['GalaxyElement'] as $element) {
+                $galaxyClusters[$k]['meta'][$element['key']]  = $element['value'];
+            }
+            unset($galaxyClusters[$k]['GalaxyElement']);
+        }
+        $this->Galaxy->data['Galaxy']['values'] = json_encode($galaxyClusters);
 
         $this->loadModel('Attribute');
         $distributionLevels = $this->Attribute->distributionLevels;
@@ -273,7 +290,7 @@ class GalaxiesController extends AppController
                         'recursive' => -1
                     ));
                     $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
-                    $saveSuccess = $this->Galaxy->editClusters($savedGalaxy['Galaxy']);
+                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true);
                     if(!$saveSuccess) {
                         $errors[] = __('Error while saving clusters');
                     }
