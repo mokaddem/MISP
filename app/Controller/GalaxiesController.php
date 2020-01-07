@@ -289,6 +289,7 @@ class GalaxiesController extends AppController
                         'conditions' => array('id' => $id),
                         'recursive' => -1
                     ));
+
                     $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
                     $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true);
                     if(!$saveSuccess) {

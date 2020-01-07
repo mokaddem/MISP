@@ -50,7 +50,7 @@ class Galaxy extends AppModel
         ),
         'kill_chain_order' => array(
             'valueIsJson' => array(
-                'rule' => array('valueIsJson')
+                'rule' => array('valueIsJsonOrNull')
             )
         )
     );
@@ -62,21 +62,24 @@ class Galaxy extends AppModel
     {
         parent::beforeValidate();
         if (isset($this->data['Galaxy']['kill_chain_order'])) {
-            if (is_array($this->data['Galaxy']['kill_chain_order'])) {
-                $json = json_encode($this->data['Galaxy']['kill_chain_order']);
-                if ($json !== null) {
-                    $this->data['Galaxy']['kill_chain_order'] = $json;
+            if (empty($this->data['Galaxy']['kill_chain_order'])) {
+                $this->data['Galaxy']['kill_chain_order'] = NULL;
+            } else {
+                if (is_array($this->data['Galaxy']['kill_chain_order'])) {
+                    $json = json_encode($this->data['Galaxy']['kill_chain_order']);
+                    if ($json !== null) {
+                        $this->data['Galaxy']['kill_chain_order'] = $json;
+                    } else {
+                        $this->data['Galaxy']['kill_chain_order'] = NULL;
+                    }
                 } else {
-                    unset($this->data['Galaxy']['kill_chain_order']);
+                    $json = json_decode($this->data['Galaxy']['kill_chain_order'], true);
+                    if ($json !== null && !empty($json)) {
+                        $this->data['Galaxy']['kill_chain_order'] = $json;
+                    } else {
+                        $this->data['Galaxy']['kill_chain_order'] = NULL;
+                    }
                 }
-            // } else {
-            //     $json = json_decode($this->data['Galaxy']['kill_chain_order'], true);
-            //     if ($json !== null) {
-            //         $this->data['Galaxy']['kill_chain_order'] = $json;
-            //     } else {
-            //         unset($this->data['Galaxy']['kill_chain_order']);
-            //     }
-            // }
             }
         }
         return true;
@@ -384,25 +387,6 @@ class Galaxy extends AppModel
         }
         $galaxies = $this->find('all', $params);
         return $galaxies;
-    }
-
-    public function editClusters($galaxy)
-    {
-        foreach ($galaxy['values'] as $i => $cluster) { // massage clusters
-            $galaxy['values'][$i]['galaxy_id'] = $galaxy['id'];
-            if (empty($cluster['uuid'])) {
-                $galaxy['values'][$i]['uuid'] = CakeText::uuid();
-            }
-            $galaxy['values'][$i]['tag_name'] = sprintf('misp-galaxy:%s="%s"', $galaxy['type'], $galaxy['values'][$i]['uuid']);
-            if (empty($cluster['value']) || empty($cluster['description'])) {
-                return __('Cluster must have a value');
-            }
-            // $galaxy['values'][$i]['version'] = $galaxy['version'];
-            // $galaxy['values'][$i]['type'] = $galaxy['type'];
-        }
-        debug($galaxy);
-        $saveSuccess = $this->GalaxyCluster->update($galaxy['id'], $galaxy);
-        return $saveSuccess;
     }
 
     public function getMitreAttackGalaxyId($type="mitre-attack-pattern", $namespace="mitre-attack")
