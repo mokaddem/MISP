@@ -115,7 +115,7 @@ class GalaxiesController extends AppController
                 $galaxy['Galaxy']['values'] = $this->decodeJson($galaxy['Galaxy']['values']);
             }
             $galaxy['Galaxy']['uuid'] = CakeText::uuid();
-            $type = CakeText::uuid();
+            $type = $galaxy['Galaxy']['uuid'];
             $galaxy['Galaxy']['type'] = $type;
             $date = new DateTime();
             $galaxy['Galaxy']['version'] = $date->getTimestamp();
@@ -132,7 +132,7 @@ class GalaxiesController extends AppController
                 $flashErrorMessage = implode(', ', $errors);
                 $this->Flash->error($flashErrorMessage);
             } else {
-                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $id));
+                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $this->id));
             }
         }
         $this->set('distributionLevels', $distributionLevels);
@@ -251,15 +251,32 @@ class GalaxiesController extends AppController
             if (empty($galaxy['Galaxy']['values'])) {
                 $galaxy['Galaxy']['values'] = array();
             } else {
-                $galaxy['Galaxy']['values'] = $this->decodeJson($galaxy['Galaxy']['values']);
+                $decoded = json_decode($galaxy['Galaxy']['values'], true);
+                if ($decoded === null) {
+                    $this->Galaxy->validationErrors['values'][] = __('Invalid JSON');
+                    $errors[] = sprintf(__('Invalid JSON'));
+                }
+                $galaxy['Galaxy']['values'] = $decoded;
             }
             $date = new DateTime();
             $galaxy['Galaxy']['version'] = $date->getTimestamp();
-            $fieldList = array('id', 'uuid', 'name', 'namespace', 'type', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id');
-            $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
-            if (!$saveSuccess) {
-                foreach($this->Galaxy->validationErrors as $validationError) {
-                    $errors[] = $validationError;
+            $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id');
+            if (empty($errors)) {
+                $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
+                if (!$saveSuccess) {
+                    foreach($this->Galaxy->validationErrors as $validationError) {
+                        $errors[] = $validationError[0];
+                    }
+                } else {
+                    $savedGalaxy = $this->Galaxy->find('first', array(
+                        'conditions' => array('id' => $id),
+                        'recursive' => -1
+                    ));
+                    $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
+                    $saveSuccess = $this->Galaxy->editClusters($savedGalaxy['Galaxy']);
+                    if(!$saveSuccess) {
+                        $errors[] = __('Error while saving clusters');
+                    }
                 }
             }
             if (!empty($errors)) {

@@ -88,10 +88,11 @@ class GalaxyCluster extends AppModel
                 }
             }
             if (!$oldCluster) {
-                $newCluster = array_intersect_key($cluster, array_flip(array('value', 'description')));
-                $newCluster['galaxy_id'] = $id;
-                $newCluster['type'] = $galaxy['type'];
-                $newCluster['collection_uuid'] = $newCluster['uuid'];
+                // $newCluster = array_intersect_key($cluster, array_flip(array('value', 'description')));
+                $newCluster = $cluster;
+                // $newCluster['galaxy_id'] = $id;
+                // $newCluster['type'] = $galaxy['type'];
+                // $newCluster['collection_uuid'] = '';
                 $toSave[] = $newCluster;
             }
             $final = array();
@@ -100,7 +101,9 @@ class GalaxyCluster extends AppModel
                 $final = $existingCluster;
             }
         }
-        $this->saveMany($toSave);
+        debug($toSave);
+        $saveResult = $this->saveMany($toSave);
+        return $saveResult;
         // Let's retrieve the full list of clusters we have for the given galaxy and pass it to the element system
         $existingClusters = $this->find('all', array(
                 'conditions' => array('GalaxyCluster.galaxy_id'),

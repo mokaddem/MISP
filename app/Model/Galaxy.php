@@ -47,6 +47,11 @@ class Galaxy extends AppModel
                 'rule' => array('inList', array('0', '1', '2', '3', '4', '5')),
                 'message' => 'Options: Your organisation only, This community only, Connected communities, All communities, Sharing group, Inherit event',
                 'required' => true
+        ),
+        'kill_chain_order' => array(
+            'valueIsJson' => array(
+                'rule' => array('valueIsJson')
+            )
         )
     );
     public $hasMany = array(
@@ -472,6 +477,25 @@ class Galaxy extends AppModel
         }
         $galaxies = $this->find('all', $params);
         return $galaxies;
+    }
+
+    public function editClusters($galaxy)
+    {
+        foreach ($galaxy['values'] as $i => $cluster) { // massage clusters
+            $galaxy['values'][$i]['galaxy_id'] = $galaxy['id'];
+            if (empty($cluster['uuid'])) {
+                $galaxy['values'][$i]['uuid'] = CakeText::uuid();
+            }
+            $galaxy['values'][$i]['tag_name'] = sprintf('misp-galaxy:%s="%s"', $galaxy['type'], $galaxy['values'][$i]['uuid']);
+            if (empty($cluster['value']) || empty($cluster['description'])) {
+                return __('Cluster must have a value');
+            }
+            $galaxy['values'][$i]['version'] = $galaxy['version'];
+            $galaxy['values'][$i]['type'] = $galaxy['type'];
+        }
+        debug($galaxy);
+        $saveSuccess = $this->GalaxyCluster->update($galaxy['id'], $galaxy);
+        return $saveSuccess;
     }
 
     public function getMitreAttackGalaxyId($type="mitre-attack-pattern", $namespace="mitre-attack")
