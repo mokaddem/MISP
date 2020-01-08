@@ -55,6 +55,11 @@
                     'data_path' => 'Galaxy.org_id',
                 ),
                 array(
+                    'name' => __('Default'),
+                    'class' => 'short',
+                    'data_path' => 'Galaxy.default',
+                ),
+                array(
                     'name' => __('Name'),
                     'sort' => 'name',
                     'class' => 'short',

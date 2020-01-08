@@ -21,6 +21,18 @@ class GalaxiesController extends AppController
         $filters = $this->IndexFilter->harvestParameters(array('context', 'value'));
         if (empty($filters['context'])) {
             $filters['context'] = 'all';
+        } else {
+            $additionalConditions = array();
+            if ($filters['context'] == 'default') {
+                $additionalConditions = array(
+                    'Galaxy.default' => true
+                );
+            } elseif ($filters['context'] == 'org') {
+                $additionalConditions = array(
+                    'Galaxy.org_id' => $this->Auth->user('org_id')
+                );
+            }
+            $this->paginate['conditions']['AND'][] = $additionalConditions;
         }
         if (empty($filters['value'])) {
             $filters['value'] = '';

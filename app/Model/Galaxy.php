@@ -389,6 +389,11 @@ class Galaxy extends AppModel
         return $galaxies;
     }
 
+    public function __setDefaultGalaxies()
+    {
+        // TODO: read all files on disk an set the default flag to 1 for those
+    }
+
     public function getMitreAttackGalaxyId($type="mitre-attack-pattern", $namespace="mitre-attack")
     {
         $galaxy = $this->find('first', array(
