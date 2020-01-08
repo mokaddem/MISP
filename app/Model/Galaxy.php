@@ -58,6 +58,13 @@ class Galaxy extends AppModel
         'GalaxyCluster' => array('dependent' => true)
     );
 
+    public $belongsTo = array(
+        'Org' => array(
+            'className' => 'Organisation',
+            'foreignKey' => 'org_id'
+        )
+    );
+
     public function beforeValidate($options = array())
     {
         parent::beforeValidate();

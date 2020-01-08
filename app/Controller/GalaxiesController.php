@@ -19,26 +19,27 @@ class GalaxiesController extends AppController
     public function index()
     {
         $filters = $this->IndexFilter->harvestParameters(array('context', 'value'));
+        $contextConditions = array();
         if (empty($filters['context'])) {
             $filters['context'] = 'all';
         } else {
-            $additionalConditions = array();
+            $contextConditions = array();
             if ($filters['context'] == 'default') {
-                $additionalConditions = array(
+                $contextConditions = array(
                     'Galaxy.default' => true
                 );
             } elseif ($filters['context'] == 'org') {
-                $additionalConditions = array(
+                $contextConditions = array(
                     'Galaxy.org_id' => $this->Auth->user('org_id')
                 );
             }
-            $this->paginate['conditions']['AND'][] = $additionalConditions;
         }
+        $searchConditions = array();
         if (empty($filters['value'])) {
             $filters['value'] = '';
         } else {
             $searchall = '%' . strtolower($filters['value']) . '%';
-            $this->paginate['conditions']['AND'][] = array(
+            $searchConditions = array(
                 'OR' => array(
                     'LOWER(Galaxy.name) LIKE' => $searchall,
                     'LOWER(Galaxy.namespace) LIKE' => $searchall,
@@ -48,10 +49,21 @@ class GalaxiesController extends AppController
                 )
             );
         }
-        $galaxies = $this->Galaxy->find('all', array('recursive' => -1));
         if ($this->_isRest()) {
+            $galaxies = $this->Galaxy->find('all', 
+                array(
+                    'recursive' => -1,
+                    'conditions' => array(
+                        'AND' => array($contextConditions, $searchConditions)
+                    ),
+                    'contain' => array('Org')
+                )
+            );
             return $this->RestResponse->viewData($galaxies, $this->response->type());
         } else {
+            $this->paginate['conditions']['AND'][] = $contextConditions;
+            $this->paginate['conditions']['AND'][] = $searchConditions;
+            $this->paginate['contain'] = array('Org');
             $galaxies = $this->paginate();
             $this->set('galaxyList', $galaxies);
             $this->set('list', $galaxies);

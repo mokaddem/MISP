@@ -51,8 +51,8 @@
                 array(
                     'name' => __('Org'),
                     'class' => 'short',
-                    // 'element' => 'org',
-                    'data_path' => 'Galaxy.org_id',
+                    'element' => 'org',
+                    'data_path' => 'Org',
                 ),
                 array(
                     'name' => __('Default'),
