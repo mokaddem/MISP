@@ -5888,7 +5888,7 @@ class Event extends AppModel
     {
         if ($includeCustomGalaxy) {
             foreach($tags as $tag) {
-                $cluster = $this->GalaxyCluster->getCluster($tag['Tag']['name'], $this->Auth->user);
+                $cluster = $this->GalaxyCluster->getCluster($tag['Tag']['name'], $user);
                 if (!empty($cluster)) {
                     $completeGalaxy = $this->GalaxyCluster->Galaxy->fetchGalaxies($user, array(
                         'conditions' => array('Galaxy.id' => $cluster['GalaxyCluster']['Galaxy']['id'])

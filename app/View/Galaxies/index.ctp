@@ -96,6 +96,13 @@
                     'dbclickAction' => true
                 ),
                 array(
+                    'url' => '/galaxies/export',
+                    'url_params_data_paths' => array(
+                        'Galaxy.id'
+                    ),
+                    'icon' => 'download',
+                ),
+                array(
                     'url' => '/galaxies/add',
                     'url_named_params_data_paths' => array(
                         'forkId' => 'Galaxy.id'

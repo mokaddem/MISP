@@ -18,6 +18,7 @@ class GalaxiesController extends AppController
 
     public function index()
     {
+        $aclConditions = $this->Galaxy->buildConditions($this->Auth->user());
         $filters = $this->IndexFilter->harvestParameters(array('context', 'value'));
         $contextConditions = array();
         if (empty($filters['context'])) {
@@ -54,7 +55,7 @@ class GalaxiesController extends AppController
                 array(
                     'recursive' => -1,
                     'conditions' => array(
-                        'AND' => array($contextConditions, $searchConditions)
+                        'AND' => array($contextConditions, $searchConditions, $aclConditions)
                     ),
                     'contain' => array('Org')
                 )
@@ -63,6 +64,7 @@ class GalaxiesController extends AppController
         } else {
             $this->paginate['conditions']['AND'][] = $contextConditions;
             $this->paginate['conditions']['AND'][] = $searchConditions;
+            $this->paginate['conditions']['AND'][] = $aclConditions;
             $this->paginate['contain'] = array('Org');
             $galaxies = $this->paginate();
             $this->loadModel('Attribute');
@@ -228,6 +230,31 @@ class GalaxiesController extends AppController
         }
     }
 
+    public function export($id)
+    {
+        $id = $this->Toolbox->findIdByUuid($this->Galaxy, $id);
+        $galaxy = $this->Galaxy->fetchGalaxies(
+            $this->Auth->user(),
+            array('conditions' => array('Galaxy.id' => $id)),
+            $full=true);
+        if (empty($galaxy)) {
+            throw new NotFoundException('Galaxy not found.');
+        }
+        $galaxy = $galaxy[0];
+        unset($galaxy['Galaxy']['id']);
+        unset($galaxy['Galaxy']['org_id']);
+        unset($galaxy['Galaxy']['sharing_group_id']);
+        foreach ($galaxy['GalaxyCluster'] as $k => $cluster) {
+            unset($galaxy['GalaxyCluster'][$k]['id']);
+        }
+        $this->response->body(json_encode($galaxy));
+        $this->response->download(sprintf('galaxy_%s_%s.json', $galaxy['Galaxy']['uuid'], time()));
+
+        // Return response object to prevent controller from trying to render
+        // a view
+        return $this->response;
+    }
+
     public function decodeJson($text)
     {
         $decoded = json_decode($text, true);
@@ -353,23 +380,22 @@ class GalaxiesController extends AppController
             $this->set('passedArgsArray', array('all' => $this->params['named']['searchall']));
         }
         if ($this->_isRest()) {
-            $galaxy = $this->Galaxy->find('first', array(
-                    'contain' => array('GalaxyCluster' => array('GalaxyElement'/*, 'GalaxyReference'*/)),
-                    'recursive' => -1,
-                    'conditions' => array('Galaxy.id' => $id)
-            ));
+            $galaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), array(
+                'conditions' => array('Galaxy.id' => $id)
+            ), $full=true);
             if (empty($galaxy)) {
                 throw new NotFoundException('Galaxy not found.');
             }
+            $galaxy = $galaxy[0];
             return $this->RestResponse->viewData($galaxy, $this->response->type());
         } else {
-            $galaxy = $this->Galaxy->find('first', array(
-                    'recursive' => -1,
-                    'conditions' => array('Galaxy.id' => $id)
-            ));
+            $galaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), array(
+                'conditions' => array('Galaxy.id' => $id)
+            ), $full=false);
             if (empty($galaxy)) {
                 throw new NotFoundException('Galaxy not found.');
             }
+            $galaxy = $galaxy[0];
             $this->set('galaxy', $galaxy);
         }
     }
