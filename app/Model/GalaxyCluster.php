@@ -206,9 +206,10 @@ class GalaxyCluster extends AppModel
     */
     public function getCluster($name, $user)
     {
-        $conditions = array('LOWER(GalaxyCluster.tag_name)' => strtolower($name));
+        $conditions = $this->Galaxy->buildConditions($user);
+        $conditions['AND'][] = array('LOWER(GalaxyCluster.tag_name)' => strtolower($name));
         if (is_numeric($name)) {
-            $conditions = array('GalaxyCluster.id' => $name);
+            $conditions['AND'][] = array('GalaxyCluster.id' => $name);
         }
         if (isset($this->__clusterCache[$name])) {
             return $this->__clusterCache[$name];

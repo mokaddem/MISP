@@ -2157,7 +2157,7 @@ class Event extends AppModel
                 }
                 $event['Event']['event_creator_email'] = $userEmails[$event['Event']['user_id']];
             }
-            $event = $this->massageTags($event, 'Event', $options['excludeGalaxy']);
+            $event = $this->massageTags($user, $event, 'Event', $options['excludeGalaxy']);
             $event = $this->attachCustomGalaxy($event, $event['EventTag'], $user, $options['includeCustomGalaxy']);
             // Let's find all the related events and attach it to the event itself
             $results[$eventKey]['RelatedEvent'] = $this->getRelatedEvents($user, $event['Event']['id'], $sgids);
@@ -2214,7 +2214,7 @@ class Event extends AppModel
                         $event['Attribute'][$key] = $this->Warninglist->checkForWarning($event['Attribute'][$key], $event['Event']['warnings'], $warninglists, true);
                         //$event['Attribute'][$key] = $this->Warninglist->simpleCheckForWarning($event['Attribute'][$key], $warninglists);
                     }
-                    $event['Attribute'][$key] = $this->massageTags($event['Attribute'][$key], 'Attribute', $options['excludeGalaxy']);
+                    $event['Attribute'][$key] = $this->massageTags($user, $event['Attribute'][$key], 'Attribute', $options['excludeGalaxy']);
                     $event = $this->attachCustomGalaxy($event, $event['Attribute'][$key]['AttributeTag'], $user, $options['includeCustomGalaxy']);
                     if (isset($event['customGalaxy'])) {
                         $event['customGalaxy'] = array_values($event['customGalaxy']);
@@ -5837,7 +5837,7 @@ class Event extends AppModel
         return $attributes_added;
     }
 
-    public function massageTags($data, $dataType = 'Event', $excludeGalaxy = false, $cullGalaxyTags = false, $user)
+    public function massageTags($user, $data, $dataType = 'Event', $excludeGalaxy = false, $cullGalaxyTags = false)
     {
         $data['Galaxy'] = array();
         if (empty($this->GalaxyCluster)) {
@@ -5889,11 +5889,13 @@ class Event extends AppModel
         if ($includeCustomGalaxy) {
             foreach($tags as $tag) {
                 $cluster = $this->GalaxyCluster->getCluster($tag['Tag']['name'], $this->Auth->user);
-                $completeGalaxy = $this->GalaxyCluster->Galaxy->fetchGalaxies($user, array(
-                    'conditions' => array('Galaxy.id' => $cluster['GalaxyCluster']['Galaxy']['id'])
-                ), true);
-                if (!empty($completeGalaxy) && !$completeGalaxy[0]['Galaxy']['default']) {
-                    $event['customGalaxy'][$completeGalaxy[0]['Galaxy']['id']] = $completeGalaxy[0];
+                if (!empty($cluster)) {
+                    $completeGalaxy = $this->GalaxyCluster->Galaxy->fetchGalaxies($user, array(
+                        'conditions' => array('Galaxy.id' => $cluster['GalaxyCluster']['Galaxy']['id'])
+                    ), true);
+                    if (!empty($completeGalaxy) && !$completeGalaxy[0]['Galaxy']['default']) {
+                        $event['customGalaxy'][$completeGalaxy[0]['Galaxy']['id']] = $completeGalaxy[0];
+                    }
                 }
             }
         }
