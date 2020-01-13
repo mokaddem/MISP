@@ -40,6 +40,12 @@ class JSONConverterTool
             }
         }
 
+        if (isset($event['customGalaxy'])) {
+            foreach($event['customGalaxy'] as $k => $customGalaxy) {
+                unset($customGalaxy['Galaxy']['org_id']);
+                $event['Event']['customGalaxy'][$k] = $customGalaxy;
+            }
+        }
         //
         // cleanup the array from things we do not want to expose
         //

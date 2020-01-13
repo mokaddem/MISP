@@ -65,6 +65,10 @@ class GalaxiesController extends AppController
             $this->paginate['conditions']['AND'][] = $searchConditions;
             $this->paginate['contain'] = array('Org');
             $galaxies = $this->paginate();
+            $this->loadModel('Attribute');
+            $distributionLevels = $this->Attribute->distributionLevels;
+            unset($distributionLevels[5]);
+            $this->set('distributionLevels', $distributionLevels);
             $this->set('galaxyList', $galaxies);
             $this->set('list', $galaxies);
             $this->set('context', $filters['context']);
@@ -156,13 +160,13 @@ class GalaxiesController extends AppController
                     'recursive' => -1
                 ));
                 $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
-                $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true);
+                $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
                 if(!$saveSuccess) {
-                    $errors[] = __('Error while saving clusters');
+                    $errors[] = array(__('Error while saving clusters'));
                 }
             }
             if (!empty($errors)) {
-                $flashErrorMessage = implode(', ', $errors);
+                $flashErrorMessage = implode(', ', implode(' ', $errors));
                 $this->Flash->error($flashErrorMessage);
             } else {
                 $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $this->Galaxy->id));
@@ -301,7 +305,8 @@ class GalaxiesController extends AppController
             }
             $date = new DateTime();
             $galaxy['Galaxy']['version'] = $date->getTimestamp();
-            $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id');
+            $galaxy['Galaxy']['default'] = false;
+            $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id', 'default');
             if (empty($errors)) {
                 $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
                 if (!$saveSuccess) {
@@ -315,7 +320,7 @@ class GalaxiesController extends AppController
                     ));
 
                     $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
-                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true);
+                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
                     if(!$saveSuccess) {
                         $errors[] = __('Error while saving clusters');
                     }

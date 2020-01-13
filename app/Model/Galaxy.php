@@ -132,6 +132,8 @@ class Galaxy extends AppModel
             $existingGalaxies[$v['Galaxy']['uuid']] = $v['Galaxy'];
         }
         foreach ($galaxies as $k => $galaxy) {
+            $galaxy['default'] = true;
+            $galaxy['distribution'] = 3;
             if (isset($existingGalaxies[$galaxy['uuid']])) {
                 if (
                     $force ||

@@ -78,6 +78,11 @@
                 array(
                     'name' => __('Description'),
                     'data_path' => 'Galaxy.description',
+                ),
+                array(
+                    'name' => __('Distribution'),
+                    'element' => 'distribution_levels',
+                    'data_path' => 'Galaxy.distribution',
                 )
             ),
             'title' => __('Galaxy index'),

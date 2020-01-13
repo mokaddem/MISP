@@ -57,7 +57,7 @@ class GalaxyCluster extends AppModel
 
 
     // receive a full galaxy and add all new clusters, update existing ones contained in the new galaxy, cull old clusters that are removed from the galaxy
-    public function update($galaxy_id, $cluster_package, $force)
+    public function update($galaxy_id, $cluster_package, $force, $default = true)
     {
         $template = array(
             'source' => isset($cluster_package['source']) ? $cluster_package['source'] : '',
@@ -131,9 +131,13 @@ class GalaxyCluster extends AppModel
                 unset($cluster['description']);
             }
             $cluster_to_save['value'] = $cluster['value'];
-            $cluster_to_save['tag_name'] = $cluster_to_save['tag_name'] . $cluster['value'] . '"';
             if (!empty($cluster['uuid'])) {
                 $cluster_to_save['uuid'] = $cluster['uuid'];
+            }
+            if ($default) {
+                $cluster_to_save['tag_name'] = $cluster_to_save['tag_name'] . $cluster['value'] . '"';
+            } else { // user-made galaxy cannot expose the cluster value
+                $cluster_to_save['tag_name'] = $cluster_to_save['tag_name'] . $cluster['uuid'] . '"';
             }
             unset($cluster['value']);
             if (empty($cluster_to_save['description'])) {
@@ -200,7 +204,7 @@ class GalaxyCluster extends AppModel
      *   - In the future, once we move to galaxy 2.0, pass a user along for access control
      *   - maybe in the future remove the galaxy itself once we have logos with each galaxy
     */
-    public function getCluster($name)
+    public function getCluster($name, $user)
     {
         $conditions = array('LOWER(GalaxyCluster.tag_name)' => strtolower($name));
         if (is_numeric($name)) {
@@ -253,7 +257,7 @@ class GalaxyCluster extends AppModel
         foreach ($events as $k => $event) {
             foreach ($event['EventTag'] as $k2 => $eventTag) {
                 if (substr($eventTag['Tag']['name'], 0, strlen('misp-galaxy:')) === 'misp-galaxy:') {
-                    $cluster = $this->getCluster($eventTag['Tag']['name']);
+                    $cluster = $this->getCluster($eventTag['Tag']['name'], $this->Auth->user);
                     if ($cluster) {
                         $cluster['GalaxyCluster']['tag_id'] = $eventTag['Tag']['id'];
                         $cluster['GalaxyCluster']['local'] = $eventTag['local'];
@@ -268,7 +272,7 @@ class GalaxyCluster extends AppModel
         return $events;
     }
 
-    public function getClusterTagsFromMeta($galaxyElements)
+    public function getClusterTagsFromMeta($galaxyElements, $user)
     {
         // AND operator between cluster metas
         $tmpResults = array();
@@ -296,6 +300,7 @@ class GalaxyCluster extends AppModel
                 'fields' => array('GalaxyCluster.tag_name'),
                 'recursive' => -1
             ));
+            // TODO: Apply ACL
         }
         return array_values($clusterTags);
     }

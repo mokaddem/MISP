@@ -205,7 +205,7 @@
 
       private function __addGalaxy($id)
       {
-          $temp = $this->__galaxyClusterModel->getCluster($id);
+          $temp = $this->__galaxyClusterModel->getCluster($id, $this->__user);
           // move stuff around to resemble the galaxies attached to events
           $galaxy = $temp['GalaxyCluster']['Galaxy'];
           unset($temp['GalaxyCluster']['Galaxy']);

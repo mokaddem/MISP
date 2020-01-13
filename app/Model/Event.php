@@ -1856,6 +1856,7 @@ class Event extends AppModel
             'eventsExtendingUuid',
             'extended',
             'excludeGalaxy',
+            'includeCustomGalaxy',
             'includeRelatedTags',
             'excludeLocalTags',
             'includeDecayScore',
@@ -2157,6 +2158,7 @@ class Event extends AppModel
                 $event['Event']['event_creator_email'] = $userEmails[$event['Event']['user_id']];
             }
             $event = $this->massageTags($event, 'Event', $options['excludeGalaxy']);
+            $event = $this->attachCustomGalaxy($event, $event['EventTag'], $user, $options['includeCustomGalaxy']);
             // Let's find all the related events and attach it to the event itself
             $results[$eventKey]['RelatedEvent'] = $this->getRelatedEvents($user, $event['Event']['id'], $sgids);
             // Let's also find all the relations for the attributes - this won't be in the xml export though
@@ -2213,6 +2215,10 @@ class Event extends AppModel
                         //$event['Attribute'][$key] = $this->Warninglist->simpleCheckForWarning($event['Attribute'][$key], $warninglists);
                     }
                     $event['Attribute'][$key] = $this->massageTags($event['Attribute'][$key], 'Attribute', $options['excludeGalaxy']);
+                    $event = $this->attachCustomGalaxy($event, $event['Attribute'][$key]['AttributeTag'], $user, $options['includeCustomGalaxy']);
+                    if (isset($event['customGalaxy'])) {
+                        $event['customGalaxy'] = array_values($event['customGalaxy']);
+                    }
                     if ($event['Attribute'][$key]['category'] === 'Financial fraud') {
                         $event['Attribute'][$key] = $this->Attribute->attachValidationWarnings($event['Attribute'][$key]);
                     }
@@ -5831,7 +5837,7 @@ class Event extends AppModel
         return $attributes_added;
     }
 
-    public function massageTags($data, $dataType = 'Event', $excludeGalaxy = false, $cullGalaxyTags = false)
+    public function massageTags($data, $dataType = 'Event', $excludeGalaxy = false, $cullGalaxyTags = false, $user)
     {
         $data['Galaxy'] = array();
         if (empty($this->GalaxyCluster)) {
@@ -5847,7 +5853,7 @@ class Event extends AppModel
                 $dataTag['Tag']['local'] = empty($dataTag['local']) ? 0 : 1;
                 if (!isset($excludeGalaxy) || !$excludeGalaxy) {
                     if (substr($dataTag['Tag']['name'], 0, strlen('misp-galaxy:')) === 'misp-galaxy:') {
-                        $cluster = $this->GalaxyCluster->getCluster($dataTag['Tag']['name']);
+                        $cluster = $this->GalaxyCluster->getCluster($dataTag['Tag']['name'], $user);
                         if ($cluster) {
                             $found = false;
                             $cluster['GalaxyCluster']['local'] = isset($dataTag['local']) ? $dataTag['local'] : false;
@@ -5876,6 +5882,22 @@ class Event extends AppModel
             $data[$dataType . 'Tag'] = array_values($data[$dataType . 'Tag']);
         }
         return $data;
+    }
+
+    public function attachCustomGalaxy($event, $tags, $user, $includeCustomGalaxy = false)
+    {
+        if ($includeCustomGalaxy) {
+            foreach($tags as $tag) {
+                $cluster = $this->GalaxyCluster->getCluster($tag['Tag']['name'], $this->Auth->user);
+                $completeGalaxy = $this->GalaxyCluster->Galaxy->fetchGalaxies($user, array(
+                    'conditions' => array('Galaxy.id' => $cluster['GalaxyCluster']['Galaxy']['id'])
+                ), true);
+                if (!empty($completeGalaxy) && !$completeGalaxy[0]['Galaxy']['default']) {
+                    $event['customGalaxy'][$completeGalaxy[0]['Galaxy']['id']] = $completeGalaxy[0];
+                }
+            }
+        }
+        return $event;
     }
 
     public function insertLock($user, $id)
@@ -6569,7 +6591,7 @@ class Event extends AppModel
         }
 
         $subqueryElements = $this->harvestSubqueryElements($filters);
-        $filters = $this->addFiltersFromSubqueryElements($filters, $subqueryElements);
+        $filters = $this->addFiltersFromSubqueryElements($filters, $subqueryElements, $user);
 
         $filters['include_attribute_count'] = 1;
         $eventid = $this->filterEventIds($user, $filters, $elementCounter);
@@ -6801,11 +6823,11 @@ class Event extends AppModel
         return $subqueryElement;
     }
 
-    public function addFiltersFromSubqueryElements($filters, $subqueryElements)
+    public function addFiltersFromSubqueryElements($filters, $subqueryElements, $user)
     {
         if (!empty($subqueryElements['galaxy'])) {
             $this->GalaxyCluster = ClassRegistry::init('GalaxyCluster');
-            $tagsFromGalaxyMeta = $this->GalaxyCluster->getClusterTagsFromMeta($subqueryElements['galaxy']);
+            $tagsFromGalaxyMeta = $this->GalaxyCluster->getClusterTagsFromMeta($subqueryElements['galaxy'], $user);
             if (empty($tagsFromGalaxyMeta)) {
                 $filters['eventid'] = -1;
             }
