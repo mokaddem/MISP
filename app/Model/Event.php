@@ -1422,7 +1422,7 @@ class Event extends AppModel
         $url = $server['Server']['url'];
         $HttpSocket = $this->setupHttpSocket($server, $HttpSocket);
         $request = $this->setupSyncRequest($server);
-        $uri = $url . '/events/view/' . $eventId . '/deleted[]:0/deleted[]:1/excludeGalaxy:1';
+        $uri = $url . '/events/view/' . $eventId . '/deleted[]:0/deleted[]:1/excludeGalaxy:1/includeCustomGalaxy:1';
         $response = $HttpSocket->get($uri, $data = '', $request);
         if ($response->isOk()) {
             return json_decode($response->body, true);
@@ -2146,7 +2146,7 @@ class Event extends AppModel
         );
         foreach ($results as $eventKey => &$event) {
             $this->__attachReferences($user, $event, $sgids, $fields);
-            $event = $this->Orgc->attachOrgsToEvent($event, $fieldsOrg);
+            $event = $this->Orgc->attachOrgs($event, $fieldsOrg);
             if (!$options['sgReferenceOnly'] && $event['Event']['sharing_group_id']) {
                 $event['SharingGroup'] = $sharingGroupData[$event['Event']['sharing_group_id']]['SharingGroup'];
             }
@@ -3564,6 +3564,12 @@ class Event extends AppModel
                     $result = $this->Sighting->saveSightings($s['attribute_uuid'], false, $s['date_sighting'], $user, $s['type'], $s['source'], $s['uuid']);
                 }
             }
+            if (isset($data['Event']['customGalaxy']) && !empty($data['Event']['customGalaxy'])) {
+                $this->Galaxy = ClassRegistry::init('Galaxy');
+                foreach ($data['Event']['customGalaxy'] as $galaxy) {
+                    $result = $this->Galaxy->captureGalaxy($user, $galaxy, $org_id, $fromPull);
+                }
+            }
             if ($fromXml) {
                 $created_id = $this->id;
             }
@@ -3763,6 +3769,26 @@ class Event extends AppModel
                 $this->Sighting = ClassRegistry::init('Sighting');
                 foreach ($data['Sighting'] as $s) {
                     $result = $this->Sighting->saveSightings($s['attribute_uuid'], false, $s['date_sighting'], $user, $s['type'], $s['source'], $s['uuid']);
+                }
+            }
+            if (isset($data['Event']['customGalaxy']) && !empty($data['Event']['customGalaxy'])) {
+                $this->Galaxy = ClassRegistry::init('Galaxy');
+                $org_id = $data['Event']['org_id']; // Owner of the galaxy is the same as the owner of the event
+                if ($passAlong) { // The edited event is from a remote server ?
+                    $this->Server = ClassRegistry::init('Server');
+                    $server = $this->Server->find('first', array(
+                        'conditions' => array(
+                            'Server.id' => $passAlong
+                        ),
+                        'recursive' => -1,
+                        'fields' => array(
+                            'Server.org_id'
+                        )
+                    ));
+                    $org_id = $server['Server']['org_id'];
+                }
+                foreach ($data['Event']['customGalaxy'] as $galaxy) {
+                    $result = $this->Galaxy->captureGalaxy($user, $galaxy, $org_id, true);
                 }
             }
             // if published -> do the actual publishing

@@ -1137,7 +1137,8 @@ CREATE TABLE public.roles (
     restricted_to_site_admin boolean DEFAULT false NOT NULL,
     perm_publish_zmq boolean DEFAULT false NOT NULL,
     perm_publish_kafka boolean DEFAULT false NOT NULL,
-    perm_decaying boolean DEFAULT false NOT NULL
+    perm_decaying boolean DEFAULT false NOT NULL,
+    perm_galaxy_editor boolean DEFAULT false NOT NULL
 );
 
 

@@ -134,6 +134,12 @@ class Role extends AppModel
             'readonlyenabled' => false,
             'title' => 'Create or modify MISP Object templates'
         ),
+        'perm_galaxy_editor' => array(
+            'id' => 'RolePermGalaxyEditor',
+            'text' => 'Galaxy Editor',
+            'readonlyenabled' => false,
+            'title' => 'Create or modify MISP Galaxies'
+        ),
         'perm_decaying' => array(
             'id' => 'RolePermDecaying',
             'text' => 'Decaying Model Editor',

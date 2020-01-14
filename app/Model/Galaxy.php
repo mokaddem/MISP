@@ -62,6 +62,10 @@ class Galaxy extends AppModel
         'Org' => array(
             'className' => 'Organisation',
             'foreignKey' => 'org_id'
+        ),
+        'Orgc' => array(
+            'className' => 'Organisation',
+            'foreignKey' => 'orgc_id'
         )
     );
 
@@ -344,6 +348,175 @@ class Galaxy extends AppModel
         }
     }
 
+    public function saveGalaxy($user, $galaxy, $fromPull = false)
+    {
+        if (!$user['Role']['perm_galaxy_editor'] && !$user['Role']['perm_site_admin']) {
+            return false;
+        }
+        unset($galaxy['Galaxy']['id']);
+        if (isset($galaxy['Galaxy']['uuid'])) {
+            // check if the uuid already exists
+            $existingGalaxy = $this->find('first', array('conditions' => array('Galaxy.uuid' => $galaxy['Galaxy']['uuid'])));
+            if ($existingGalaxy) {
+                if ($fromPull && !$existingGalaxy['Galaxy']['default']) {
+                    $editSuccessull = $this->editGalaxy($user, $galaxy, $fromPull);
+                    return $editSuccessull;
+                } else {
+                    // Maybe redirect to the correct URL?
+                }
+                return false;
+            }
+        } else {
+            $galaxy['Galaxy']['uuid'] = CakeText::uuid();
+        }
+        $type = $galaxy['Galaxy']['uuid'];
+        $galaxy['Galaxy']['type'] = $type;
+        $date = new DateTime();
+        $galaxy['Galaxy']['version'] = $date->getTimestamp();
+        $galaxy['Galaxy']['org_id'] = $user['org_id'];
+        if (!isset($galaxy['Galaxy']['orgc_id'])) {
+            if (isset($galaxy['Orgc']['uuid'])) {
+                $orgc_id = $this->Orgc->find('first', array('conditions' => array('Orgc.uuid' => $data['Orgc']['uuid']), 'fields' => array('Orgc.id'), 'recursive' => -1));
+            } else {
+                $orgc_id = $user['org_id'];
+            }
+            $galaxy['Galaxy']['orgc_id'] = $orgc_id;
+        }
+        debug($galaxy);
+        // $this->create();
+        // $saveSuccess = $this->save($galaxy);
+        // return $saveSuccess;
+        return true;
+    }
+
+    // Gets a galaxy then save it.
+    public function captureGalaxy($user, $galaxy, $orgId, $fromPull = false)
+    {
+        $errors = array();
+        if ($fromPull) {
+            $galaxy['Galaxy']['org_id'] = $orgId;
+        } else {
+            $galaxy['Galaxy']['org_id'] = $user['Organisation']['id'];
+        }
+        if (!isset($galaxy['Galaxy']['orgc_id']) && !isset($galaxy['Orgc'])) {
+            $galaxy['Galaxy']['orgc_id'] = $galaxy['Galaxy']['org_id'];
+        } else {
+            if (!isset($galaxy['Galaxy']['Orgc'])) {
+                if (isset($galaxy['Galaxy']['orgc_id']) && $galaxy['Galaxy']['orgc_id'] != $user['org_id'] && !$user['Role']['perm_sync'] && !$user['Role']['perm_site_admin']) {
+                    return array(__('Only sync user can create galaxy on behalf of other users'));
+                }
+            } else {
+                if ($galaxy['Galaxy']['Orgc']['uuid'] != $user['Organisation']['uuid'] && !$user['Role']['perm_sync'] && !$user['Role']['perm_site_admin']) {
+                    return array(__('Only sync user can create galaxy on behalf of other users'));
+                }
+            }
+            if (isset($galaxy['Galaxy']['orgc_id']) && $galaxy['Galaxy']['orgc_id'] != $user['org_id'] && !$user['Role']['perm_sync'] && !$user['Role']['perm_site_admin']) {
+                return array(__('Only sync user can create galaxy on behalf of other users'));
+            }
+        }
+        if (!Configure::check('MISP.enableOrgBlacklisting') || Configure::read('MISP.enableOrgBlacklisting') !== false) {
+            $this->OrgBlacklist = ClassRegistry::init('OrgBlacklist');
+            if (!isset($galaxy['Galaxy']['Orgc']['uuid'])) {
+                $orgc = $this->Orgc->find('first', array('conditions' => array('Orgc.id' => $galaxy['Galaxy']['orgc_id']), 'fields' => array('Orgc.uuid'), 'recursive' => -1));
+            } else {
+                $orgc = array('Orgc' => array('uuid' => $galaxy['Galaxy']['Orgc']['uuid']));
+            }
+            if ($this->OrgBlacklist->hasAny(array('OrgBlacklist.org_uuid' => $orgc['Orgc']['uuid']))) {
+                return array(__('Organisation blacklisted')); // Black listed
+            }
+        }
+        $galaxy = $this->captureOrganisationAndSG($galaxy, $user);
+        $saveSuccess = $this->saveGalaxy($user, $galaxy, true);
+        throw new Exception('stop capture');
+        if ($saveSuccess) {
+            $savedGalaxy = $this->Galaxy->find('first', array(
+                'conditions' => array('id' =>  $this->Galaxy->id),
+                'recursive' => -1
+            ));
+            $savedGalaxy['Galaxy']['values'] = $galaxy['GalaxyCluster'];
+            $saveSuccess = $this->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], false, false);
+            if(!$saveSuccess) {
+                $errors[] = array(__('Error while saving clusters'));
+            }
+        } else {
+            foreach($this->Galaxy->validationErrors as $validationError) {
+                $errors[] = $validationError[0];
+            }
+        }
+        return $errors;
+    }
+
+    public function editGalaxy($user, $galaxy, $fromPull = false)
+    {
+        $errors = array();
+        if (!$user['Role']['perm_galaxy_editor'] && !$user['Role']['perm_site_admin']) {
+            $errors[] = __('Incorrect permission');
+        }
+        if (isset($galaxy['Galaxy']['uuid'])) {
+            $existingGalaxy = $this->find('first', array('conditions' => array('Galaxy.uuid' => $galaxy['Galaxy']['uuid'])));
+        } else {
+            $errors[] = __('UUID not provided');
+        }
+        if (empty($existingGalaxy)) {
+            $errors[] = __('Unkown UUID');
+        } else {
+            // For users that are of the creating org of the galaxy, always allow the edit
+            // For users that are sync users, only allow the edit if the event is locked
+            if ($existingGalaxy['Galaxy']['orgc_id'] === $user['org_id']
+            || ($user['Role']['perm_sync'] && $existingGalaxy['Galaxy']['locked']) || $user['Role']['perm_site_admin']) {
+                if ($user['Role']['perm_sync']) {
+                    if (isset($galaxy['Galaxy']['distribution']) && $galaxy['Galaxy']['distribution'] == 4 && !$this->SharingGroup->checkIfAuthorised($user, $galaxy['Galaxy']['sharing_group_id'])) {
+                        $errors[] = array(__('Galaxy could not be saved: The sync user has to have access to the sharing group in order to be able to edit it.'));
+                    }
+                }
+            } else {
+                $errors[] = array(__('Galaxy could not be saved: The user used to edit the galaxy is not authorised to do so. This can be caused by the user not being of the same organisation as the original creator of the galaxy whilst also not being a site administrator.'));
+            }
+
+            if (empty($errors)) {
+                $date = new DateTime();
+                $galaxy['Galaxy']['version'] = $date->getTimestamp();
+                $galaxy['Galaxy']['default'] = false;
+                $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id', 'default');
+                $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
+                if (!$saveSuccess) {
+                    foreach($this->Galaxy->validationErrors as $validationError) {
+                        $errors[] = $validationError[0];
+                    }
+                } else {
+                    $savedGalaxy = $this->Galaxy->find('first', array(
+                        'conditions' => array('id' => $id),
+                        'recursive' => -1
+                    ));
+        
+                    $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
+                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
+                    if(!$saveSuccess) {
+                        $errors[] = __('Error while saving clusters');
+                    }
+                }
+            }
+        }
+        return $errors;
+    }
+
+    private function captureOrganisationAndSG($galaxy, $user)
+    {
+        if (isset($galaxy['Galaxy']['distribution']) && $galaxy['Galaxy']['distribution'] == 4) {
+            $galaxy['Galaxy'] = $this->__captureSGForElement($galaxy['Galaxy'], $user);
+        }
+        // first we want to see how the creator organisation is encoded
+        // The options here are either by passing an organisation object along or simply passing a string along
+        if (isset($galaxy['Galaxy']['Orgc'])) {
+            $galaxy['Galaxy']['orgc_id'] = $this->Orgc->captureOrg($galaxy['Galaxy']['Orgc'], $user);
+            unset($galaxy['Galaxy']['Orgc']);
+        } else {
+            // Can't capture the Orgc, default to the current user
+            $galaxy['Galaxy']['orgc_id'] = $user['org_id'];
+        }
+        return $galaxy;
+    }
+
     public function buildConditions($user)
     {
         $this->Event = ClassRegistry::init('Event');
@@ -380,7 +553,7 @@ class Galaxy extends AppModel
     {
         $params = array(
             'conditions' => $this->buildConditions($user),
-            'recursive' => -1,
+            'recursive' => -1
         );
         if ($full) {
             $params['contain'] = array('GalaxyCluster' => array('GalaxyElement'));
@@ -395,6 +568,9 @@ class Galaxy extends AppModel
             $params['group'] = empty($options['group']) ? $options['group'] : false;
         }
         $galaxies = $this->find('all', $params);
+        foreach($galaxies as $k => $galaxy) {
+            $galaxies[$k] = $this->Org->attachOrgs($galaxy, array('id', 'name', 'uuid', 'local'), 'Galaxy');
+        }
         return $galaxies;
     }
 

@@ -253,12 +253,12 @@ class GalaxyCluster extends AppModel
         return $cluster;
     }
 
-    public function attachClustersToEventIndex($events, $replace = false)
+    public function attachClustersToEventIndex($user, $events, $replace = false)
     {
         foreach ($events as $k => $event) {
             foreach ($event['EventTag'] as $k2 => $eventTag) {
                 if (substr($eventTag['Tag']['name'], 0, strlen('misp-galaxy:')) === 'misp-galaxy:') {
-                    $cluster = $this->getCluster($eventTag['Tag']['name'], $this->Auth->user);
+                    $cluster = $this->getCluster($eventTag['Tag']['name'], $user);
                     if ($cluster) {
                         $cluster['GalaxyCluster']['tag_id'] = $eventTag['Tag']['id'];
                         $cluster['GalaxyCluster']['local'] = $eventTag['local'];

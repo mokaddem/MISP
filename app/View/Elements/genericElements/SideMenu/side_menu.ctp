@@ -1145,6 +1145,11 @@
                             'element_id' => 'view',
                             'text' => __('View Galaxy')
                         ));
+                        echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                            'element_id' => 'export',
+                            'url' => '/galaxies/export/' . h($galaxy['Galaxy']['id']),
+                            'text' => __('Export Galaxy')
+                        ));
                     }
                     break;
 

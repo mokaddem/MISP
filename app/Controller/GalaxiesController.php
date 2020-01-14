@@ -141,17 +141,13 @@ class GalaxiesController extends AppController
             if (empty($galaxy['Galaxy']['values'])) {
                 $galaxy['Galaxy']['values'] = array();
             } else {
-                $galaxy['Galaxy']['values'] = $this->decodeJson($galaxy['Galaxy']['values']);
+                $decoded = json_decode($galaxy['Galaxy']['values'], true);
+                if ($decoded === null) {
+                    $decoded = array();
+                }
+                $galaxy['Galaxy']['values'] = $decoded;
             }
-            $galaxy['Galaxy']['uuid'] = CakeText::uuid();
-            $type = $galaxy['Galaxy']['uuid'];
-            $galaxy['Galaxy']['type'] = $type;
-            $date = new DateTime();
-            $galaxy['Galaxy']['version'] = $date->getTimestamp();
-            $galaxy['Galaxy']['org_id'] = $this->Auth->user('org_id');
-            $galaxy['Galaxy']['orgc_id'] = $this->Auth->user('org_id');
-            $this->Galaxy->create();
-            $saveSuccess = $this->Galaxy->save($galaxy);
+            $saveSuccess = $this->Galaxy->saveGalaxy($this->Auth->user(), $galaxy);
             if (!$saveSuccess) {
                 foreach($this->Galaxy->validationErrors as $validationError) {
                     $errors[] = $validationError;
@@ -206,9 +202,7 @@ class GalaxiesController extends AppController
                 throw new MethodNotAllowedException(__('Error while decoding JSON'));
             }
             
-            // perfom clean up here
-
-            // $saveResult = $this->Galaxy->save($json);
+            $saveResult = $this->Galaxy->save($json);
             $saveResult = true;
             if ($saveResult) {
                 $message = __('Galaxy imported');
@@ -253,15 +247,6 @@ class GalaxiesController extends AppController
         // Return response object to prevent controller from trying to render
         // a view
         return $this->response;
-    }
-
-    public function decodeJson($text)
-    {
-        $decoded = json_decode($text, true);
-        if ($decoded === null) {
-            $decoded = array();
-        }
-        return $decoded;
     }
 
     public function edit($id = null)
@@ -330,34 +315,17 @@ class GalaxiesController extends AppController
                 }
                 $galaxy['Galaxy']['values'] = $decoded;
             }
-            $date = new DateTime();
-            $galaxy['Galaxy']['version'] = $date->getTimestamp();
-            $galaxy['Galaxy']['default'] = false;
-            $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id', 'default');
-            if (empty($errors)) {
-                $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
-                if (!$saveSuccess) {
-                    foreach($this->Galaxy->validationErrors as $validationError) {
-                        $errors[] = $validationError[0];
-                    }
-                } else {
-                    $savedGalaxy = $this->Galaxy->find('first', array(
-                        'conditions' => array('id' => $id),
-                        'recursive' => -1
-                    ));
-
-                    $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
-                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
-                    if(!$saveSuccess) {
-                        $errors[] = __('Error while saving clusters');
-                    }
-                }
-            }
             if (!empty($errors)) {
                 $flashErrorMessage = implode(', ', $errors);
                 $this->Flash->error($flashErrorMessage);
             } else {
-                $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $id));
+                $errors = $this->Galaxy->editGalaxy($this->Auth->user(), $galaxy);
+                if (!empty($errors)) {
+                    $flashErrorMessage = implode(', ', $errors);
+                    $this->Flash->error($flashErrorMessage);
+                } else {
+                    $this->redirect(array('controller' => 'galaxies', 'action' => 'view', $id));
+                }
             }
         } else {
             $this->request->data = $this->Galaxy->data;

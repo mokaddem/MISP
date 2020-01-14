@@ -820,7 +820,7 @@ class EventsController extends AppController
                         }
                     }
                 }
-                $events = $this->GalaxyCluster->attachClustersToEventIndex($events);
+                $events = $this->GalaxyCluster->attachClustersToEventIndex($this->Auth->user(), $events);
                 foreach ($events as $key => $event) {
                     $temp = $events[$key]['Event'];
                     $temp['Org'] = $event['Org'];
@@ -868,7 +868,7 @@ class EventsController extends AppController
             if (Configure::read('MISP.showDiscussionsCountOnIndex')) {
                 $events = $this->Event->attachDiscussionsCountToEvents($this->Auth->user(), $events);
             }
-            $events = $this->GalaxyCluster->attachClustersToEventIndex($events, true);
+            $events = $this->GalaxyCluster->attachClustersToEventIndex($this->Auth->user(), $events, true);
             $this->set('events', $events);
         }
 
