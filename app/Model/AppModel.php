@@ -1315,6 +1315,7 @@ class AppModel extends Model
                 $sqlArray[] = "ALTER TABLE `galaxies` ADD `locked` tinyint(1) NOT NULL DEFAULT 0;";
                 $sqlArray[] = "ALTER TABLE `roles` ADD `perm_galaxy_editor` tinyint(1) NOT NULL DEFAULT 0;";
                 $sqlArray[] = "UPDATE `roles` SET `perm_galaxy_editor`=1 WHERE `perm_tag_editor`=1;";
+                $sqlArray[] = "UPDATE `galaxies` SET `distribution`=3;";
                 break;
             case 'fixNonEmptySharingGroupID':
                 $sqlArray[] = 'UPDATE `events` SET `sharing_group_id` = 0 WHERE `distribution` != 4;';
