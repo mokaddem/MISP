@@ -55,6 +55,12 @@
                     'data_path' => 'Org',
                 ),
                 array(
+                    'name' => __('Owner Org'),
+                    'class' => 'short',
+                    'element' => 'org',
+                    'data_path' => 'Orgc',
+                ),
+                array(
                     'name' => __('Default'),
                     'class' => 'short',
                     'data_path' => 'Galaxy.default',

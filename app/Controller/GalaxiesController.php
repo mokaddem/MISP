@@ -57,7 +57,7 @@ class GalaxiesController extends AppController
                     'conditions' => array(
                         'AND' => array($contextConditions, $searchConditions, $aclConditions)
                     ),
-                    'contain' => array('Org')
+                    'contain' => array('Org', 'Orgc')
                 )
             );
             return $this->RestResponse->viewData($galaxies, $this->response->type());
@@ -65,7 +65,7 @@ class GalaxiesController extends AppController
             $this->paginate['conditions']['AND'][] = $contextConditions;
             $this->paginate['conditions']['AND'][] = $searchConditions;
             $this->paginate['conditions']['AND'][] = $aclConditions;
-            $this->paginate['contain'] = array('Org');
+            $this->paginate['contain'] = array('Org', 'Orgc');
             $galaxies = $this->paginate();
             $this->loadModel('Attribute');
             $distributionLevels = $this->Attribute->distributionLevels;
