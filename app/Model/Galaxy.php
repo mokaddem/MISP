@@ -359,8 +359,8 @@ class Galaxy extends AppModel
             $existingGalaxy = $this->find('first', array('conditions' => array('Galaxy.uuid' => $galaxy['Galaxy']['uuid'])));
             if ($existingGalaxy) {
                 if ($fromPull && !$existingGalaxy['Galaxy']['default']) {
-                    $editSuccessull = $this->editGalaxy($user, $galaxy, $fromPull);
-                    return $editSuccessull;
+                    $errors = $this->editGalaxy($user, $galaxy, $fromPull);
+                    return empty($errors);
                 } else {
                     // Maybe redirect to the correct URL?
                 }
@@ -371,8 +371,10 @@ class Galaxy extends AppModel
         }
         $type = $galaxy['Galaxy']['uuid'];
         $galaxy['Galaxy']['type'] = $type;
-        $date = new DateTime();
-        $galaxy['Galaxy']['version'] = $date->getTimestamp();
+        if (!$fromPull) {
+            $date = new DateTime();
+            $galaxy['Galaxy']['version'] = $date->getTimestamp();
+        }
         $galaxy['Galaxy']['org_id'] = $user['org_id'];
         if (!isset($galaxy['Galaxy']['orgc_id'])) {
             if (isset($galaxy['Orgc']['uuid'])) {
@@ -382,11 +384,9 @@ class Galaxy extends AppModel
             }
             $galaxy['Galaxy']['orgc_id'] = $orgc_id;
         }
-        debug($galaxy);
-        // $this->create();
-        // $saveSuccess = $this->save($galaxy);
-        // return $saveSuccess;
-        return true;
+        $this->create();
+        $saveSuccess = $this->save($galaxy);
+        return $saveSuccess;
     }
 
     // Gets a galaxy then save it.
@@ -422,15 +422,14 @@ class Galaxy extends AppModel
                 $orgc = array('Orgc' => array('uuid' => $galaxy['Galaxy']['Orgc']['uuid']));
             }
             if ($this->OrgBlacklist->hasAny(array('OrgBlacklist.org_uuid' => $orgc['Orgc']['uuid']))) {
-                return array(__('Organisation blacklisted')); // Black listed
+                return array(__('Organisation blacklisted'));
             }
         }
         $galaxy = $this->captureOrganisationAndSG($galaxy, $user);
         $saveSuccess = $this->saveGalaxy($user, $galaxy, true);
-        throw new Exception('stop capture');
         if ($saveSuccess) {
-            $savedGalaxy = $this->Galaxy->find('first', array(
-                'conditions' => array('id' =>  $this->Galaxy->id),
+            $savedGalaxy = $this->find('first', array(
+                'conditions' => array('id' =>  $this->id),
                 'recursive' => -1
             ));
             $savedGalaxy['Galaxy']['values'] = $galaxy['GalaxyCluster'];
@@ -472,29 +471,32 @@ class Galaxy extends AppModel
             } else {
                 $errors[] = array(__('Galaxy could not be saved: The user used to edit the galaxy is not authorised to do so. This can be caused by the user not being of the same organisation as the original creator of the galaxy whilst also not being a site administrator.'));
             }
+            $galaxy['Galaxy']['id'] = $existingGalaxy['Galaxy']['id'];
 
             if (empty($errors)) {
                 $date = new DateTime();
-                $galaxy['Galaxy']['version'] = $date->getTimestamp();
+                if (!$fromPull) {
+                    $galaxy['Galaxy']['version'] = $date->getTimestamp();
+                }
                 $galaxy['Galaxy']['default'] = false;
                 $fieldList = array('name', 'namespace', 'description', 'version', 'icon', 'kill_chain_order', 'distribution', 'sharing_group_id', 'default');
-                $saveSuccess = $this->Galaxy->save($galaxy, array('fieldList' => $fieldList));
-                if (!$saveSuccess) {
-                    foreach($this->Galaxy->validationErrors as $validationError) {
-                        $errors[] = $validationError[0];
-                    }
-                } else {
-                    $savedGalaxy = $this->Galaxy->find('first', array(
-                        'conditions' => array('id' => $id),
-                        'recursive' => -1
-                    ));
+                $saveSuccess = $this->save($galaxy, array('fieldList' => $fieldList));
+                // if (!$saveSuccess) {
+                //     foreach($this->validationErrors as $validationError) {
+                //         $errors[] = $validationError[0];
+                //     }
+                // } else {
+                //     $savedGalaxy = $this->find('first', array(
+                //         'conditions' => array('id' => $galaxy['Galaxy']['id']),
+                //         'recursive' => -1
+                //     ));
         
-                    $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
-                    $saveSuccess = $this->Galaxy->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
-                    if(!$saveSuccess) {
-                        $errors[] = __('Error while saving clusters');
-                    }
-                }
+                //     $savedGalaxy['Galaxy']['values'] = $galaxy['Galaxy']['values'];
+                //     $saveSuccess = $this->GalaxyCluster->update($savedGalaxy['Galaxy']['id'], $savedGalaxy['Galaxy'], true, false);
+                //     if(!$saveSuccess) {
+                //         $errors[] = __('Error while saving clusters');
+                //     }
+                // }
             }
         }
         return $errors;
@@ -507,9 +509,9 @@ class Galaxy extends AppModel
         }
         // first we want to see how the creator organisation is encoded
         // The options here are either by passing an organisation object along or simply passing a string along
-        if (isset($galaxy['Galaxy']['Orgc'])) {
-            $galaxy['Galaxy']['orgc_id'] = $this->Orgc->captureOrg($galaxy['Galaxy']['Orgc'], $user);
-            unset($galaxy['Galaxy']['Orgc']);
+        if (isset($galaxy['Orgc'])) {
+            $galaxy['Galaxy']['orgc_id'] = $this->Orgc->captureOrg($galaxy['Orgc'], $user);
+            unset($galaxy['Orgc']);
         } else {
             // Can't capture the Orgc, default to the current user
             $galaxy['Galaxy']['orgc_id'] = $user['org_id'];

@@ -49,13 +49,13 @@
                     'data_path' => 'Galaxy.icon',
                 ),
                 array(
-                    'name' => __('Org'),
+                    'name' => __('Owner Org'),
                     'class' => 'short',
                     'element' => 'org',
                     'data_path' => 'Org',
                 ),
                 array(
-                    'name' => __('Owner Org'),
+                    'name' => __('Creator Org'),
                     'class' => 'short',
                     'element' => 'org',
                     'data_path' => 'Orgc',

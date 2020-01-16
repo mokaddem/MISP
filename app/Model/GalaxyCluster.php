@@ -143,6 +143,7 @@ class GalaxyCluster extends AppModel
             if (empty($cluster_to_save['description'])) {
                 $cluster_to_save['description'] = '';
             }
+            debug($cluster_to_save);
             $saveSuccess = $saveSuccess && $this->save($cluster_to_save, false);
             $galaxyClusterId = $this->id;
             if (isset($cluster['meta'])) {
