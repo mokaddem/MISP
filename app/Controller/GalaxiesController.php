@@ -112,12 +112,11 @@ class GalaxiesController extends AppController
         $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
 
         if (isset($this->params['named']['forkId'])) {
-            $origGalaxy = $this->Galaxy->find('first', array(
-                'recursive' => -1,
+            $origGalaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), array(
                 'conditions' => array('id' => $this->params['named']['forkId']),
-                'contain' => array('GalaxyCluster' => array('GalaxyElement')),
-            ));
+            ), true);
             if (!empty($origGalaxy)) {
+                $origGalaxy = $origGalaxy[0];
                 $this->set('forkId', $this->params['named']['forkId']);
                 $origGalaxyMeta = $origGalaxy['Galaxy'];
                 if (empty($this->request->data)) {
@@ -146,6 +145,16 @@ class GalaxiesController extends AppController
                     $decoded = array();
                 }
                 $galaxy['Galaxy']['values'] = $decoded;
+            }
+            $extendId = $this->Toolbox->findIdByUuid($this->Galaxy, $galaxy['Galaxy']['forkid']);
+            $extendGalaxy = $this->Galaxy->fetchGalaxies(
+                $this->Auth->user(),
+                array('conditions' => array('Galaxy.id' => $extendId))
+            );
+            if (!empty($extendGalaxy)) {
+                $galaxy['Galaxy']['extends_uuid'] = $extendGalaxy[0]['Galaxy']['uuid'];
+            } else {
+                $galaxy['Galaxy']['extends_uuid'] = '';
             }
             $saveSuccess = $this->Galaxy->saveGalaxy($this->Auth->user(), $galaxy);
             if (!$saveSuccess) {
@@ -269,8 +278,9 @@ class GalaxiesController extends AppController
         if (empty($galaxy)) {
             throw new MethodNotAllowedException('Invalid galaxy');
         }
-        $this->Galaxy->data = array('Galaxy' => $galaxy[0]['Galaxy']);
-        $galaxyClusters = $galaxy[0]['GalaxyCluster'];
+        $galaxy = $galaxy[0];
+        $this->Galaxy->data = array('Galaxy' => $galaxy['Galaxy']);
+        $galaxyClusters = $galaxy['GalaxyCluster'];
         foreach ($galaxyClusters as $k => $cluster) {
             foreach($cluster['GalaxyElement'] as $element) {
                 $galaxyClusters[$k]['meta'][$element['key']]  = $element['value'];
@@ -290,6 +300,17 @@ class GalaxiesController extends AppController
         $this->loadModel('SharingGroup');
         $sgs = $this->SharingGroup->fetchAllAuthorised($this->Auth->user(), 'name', 1);
 
+        $origGalaxy = $this->Galaxy->fetchGalaxies($this->Auth->user(), array(
+            'conditions' => array('uuid' => $galaxy['Galaxy']['extends_uuid']),
+        ), true);
+
+        if (!empty($origGalaxy)) {
+            $origGalaxy = $origGalaxy[0];
+            $this->set('forkId', $galaxy['Galaxy']['extends_uuid']);
+            $origGalaxyMeta = $origGalaxy['Galaxy'];
+            $this->set('origGalaxy', $origGalaxy);
+            $this->set('origGalaxyMeta', $origGalaxyMeta);
+        }
         if ($this->request->is('post') || $this->request->is('put')) {
             $galaxy = $this->request->data;
             $errors = array();
@@ -364,6 +385,8 @@ class GalaxiesController extends AppController
                 throw new NotFoundException('Galaxy not found.');
             }
             $galaxy = $galaxy[0];
+            $galaxy = $this->Galaxy->attachExtendByInfo($this->Auth->user(), $galaxy);
+            $galaxy = $this->Galaxy->attachExtendFromInfo($this->Auth->user(), $galaxy);
             $this->set('galaxy', $galaxy);
         }
     }

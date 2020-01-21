@@ -37,6 +37,11 @@
                     $origGalaxyHtmlPreview
                 ),
                 array(
+                    'field' => 'forkid',
+                    'type' => 'hidden',
+                    'default' => isset($forkId) ? $forkId : ''
+                ),
+                array(
                     'field' => 'description',
                     'type' => 'textarea'
                 ),

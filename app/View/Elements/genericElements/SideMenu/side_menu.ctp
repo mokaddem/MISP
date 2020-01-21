@@ -1091,6 +1091,12 @@
                             'url' => '/galaxies/import',
                             'text' => __('Import Galaxy')
                         ));
+                        if ($menuItem === 'view') {
+                            echo $this->element('/genericElements/SideMenu/side_menu_link', array(
+                                'url' => '/galaxies/add/forkId:' . h($galaxy['Galaxy']['id']),
+                                'text' => __('Fork Galaxy')
+                            ));
+                        }
                         echo $this->element('/genericElements/SideMenu/side_menu_link', array(
                             'url' => '/galaxies/add',
                             'text' => __('Create Galaxies')

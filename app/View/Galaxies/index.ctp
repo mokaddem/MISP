@@ -66,12 +66,6 @@
                     'data_path' => 'Galaxy.default',
                 ),
                 array(
-                    'name' => __('Extended By'),
-                    'class' => 'short',
-                    'data_path' => 'Galaxy.extends_uuid',
-                    'url' => '/galaxies/view/'
-                ),
-                array(
                     'name' => __('Name'),
                     'sort' => 'name',
                     'class' => 'short',

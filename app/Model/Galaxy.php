@@ -576,6 +576,24 @@ class Galaxy extends AppModel
         return $galaxies;
     }
 
+    public function attachExtendByInfo($user, $galaxy)
+    {
+        $extensions = $this->fetchGalaxies($user, array('conditions' => array('extends_uuid' => $galaxy['Galaxy']['uuid'])));
+        $galaxy['Galaxy']['extends_by'] = $extensions;
+        return $galaxy;
+    }
+
+    public function attachExtendFromInfo($user, $galaxy)
+    {
+        $extensions = $this->fetchGalaxies($user, array('conditions' => array('uuid' => $galaxy['Galaxy']['extends_uuid'])));
+        if (!empty($extensions)) {
+            $galaxy['Galaxy']['extends_from'] = $extensions[0];
+        } else {
+            $galaxy['Galaxy']['extends_from'] = array();
+        }
+        return $galaxy;
+    }
+
     public function __setDefaultGalaxies()
     {
         // TODO: read all files on disk an set the default flag to 1 for those

@@ -7,12 +7,14 @@
     $table_data[] = array('key' => __('Galaxy ID'), 'value' => $galaxy['Galaxy']['id']);
     $table_data[] = array(
         'key' => __('Creator org'),
-        'html' => sprintf(
-            '<a href="%s/organisations/view/%s">%s</a>',
-            $baseurl,
-            h($galaxy['Galaxy']['orgc_id']),
-            h($galaxy['Galaxy']['orgc_id'])
-        )
+        'html' => $galaxy['Galaxy']['orgc_id'] == 0 ? 
+            '<img src="' . $baseurl . '/img/orgs/MISP.png" width="24" height="24" style="padding-bottom:3px;" title="' . __('Default Galaxy from MISP Project') . '" />' :
+            sprintf(
+                '<a href="%s/organisations/view/%s">%s</a>',
+                $baseurl,
+                h($galaxy['Galaxy']['orgc_id']),
+                h($galaxy['Galaxy']['orgc_id'])
+            )
     );
     $table_data[] = array(
         'key' => __('Name'),
@@ -27,7 +29,22 @@
     $table_data[] = array('key' => __('Description'), 'value' => $galaxy['Galaxy']['description']);
     $table_data[] = array('key' => __('Version'), 'value' => $galaxy['Galaxy']['version']);
     $table_data[] = array('key' => __('Distribution'), 'value' => $galaxy['Galaxy']['distribution']);
-    $table_data[] = array('key' => __('Extended By'), 'value' => $galaxy['Galaxy']['extends_uuid']);
+    $extendByLinks = array();
+    foreach($galaxy['Galaxy']['extends_by'] as $extendGalaxy) {
+        $element = $this->element('genericElements/IndexTable/Fields/links', array(
+            'url' => '/galaxies/view/',
+            'row' => $extendGalaxy,
+            'field' => array(
+                'data_path' => 'Galaxy.uuid',
+                'title' => sprintf('%s > %s', $extendGalaxy['Galaxy']['namespace'], $extendGalaxy['Galaxy']['name'])
+            ),
+        ));
+        $extendByLinks[] = sprintf('<li>%s</li>', $element);
+    }
+    $table_data[] = array(
+        'key' => __('Extended By'),
+        'html' => sprintf('<ul>%s</ul>', implode('', $extendByLinks))
+    );
     $kco = '';
     if (isset($galaxy['Galaxy']['kill_chain_order'])) {
         $kco = '<strong>' . __('Kill chain order') . '</strong> <span class="useCursorPointer fa fa-expand" onclick="$(\'#killChainOrder\').toggle(\'blind\')"></span>';
@@ -42,6 +59,24 @@
                 <span class="<?php echo $this->FontAwesome->findNamespace($galaxy['Galaxy']['icon']); ?> fa-<?php echo h($galaxy['Galaxy']['icon']); ?>"></span>&nbsp;
                 <?php echo h($galaxy['Galaxy']['name']); ?> galaxy
             </h2>
+            <?php if (!empty($galaxy['Galaxy']['extends_from'])): ?>
+                <h5 style="padding-left: 10px;">
+                    <span class="apply_css_arrow">
+                        <span class="<?php echo $this->FontAwesome->findNamespace('code-branch'); ?> fa-code-branch"></span>
+                        <?php 
+                            $extend_link = $this->element('genericElements/IndexTable/Fields/links', array(
+                                'url' => '/galaxies/view/',
+                                'row' => $galaxy,
+                                'field' => array(
+                                    'data_path' => 'Galaxy.extends_from.Galaxy.uuid',
+                                    'title' => sprintf('%s > %s', $galaxy['Galaxy']['extends_from']['Galaxy']['namespace'], $galaxy['Galaxy']['extends_from']['Galaxy']['name'])
+                                ),
+                            ));
+                        ?>
+                        <?php echo sprintf(__('Extends %s'), $extend_link); ?>
+                    </span>
+                </h5>
+            <?php endif; ?>
             <?php echo $this->element('genericElements/viewMetaTable', array('table_data' => $table_data)); ?>
             <?php echo $kco; ?>
         </div>
@@ -62,7 +97,9 @@ $(document).ready(function () {
     });
 
     var $kco = $('#killChainOrder');
-    var j = syntaxHighlightJson($kco.text(), 8)
+    if ($kco.length > 0) {
+        var j = syntaxHighlightJson($kco.text(), 8)
+    }
     $kco.html(j);
 });
 </script>
