@@ -1092,8 +1092,8 @@ li .generic-picker-item-element-check {
     border-bottom: 1px solid;
     height: 7px;
     width: 5px;
-    display: inline-block;
     float: left;
+    margin-top: calc(1rem / 2 - 7px);
 }
 
 .gray_out {
