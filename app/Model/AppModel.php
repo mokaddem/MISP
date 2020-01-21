@@ -1314,6 +1314,7 @@ class AppModel extends Model
                 $sqlArray[] = "ALTER TABLE `galaxies` ADD `orgc_id` int(11) NOT NULL;";
                 $sqlArray[] = "ALTER TABLE `galaxies` ADD `default` tinyint(1) NOT NULL DEFAULT 0;";
                 $sqlArray[] = "ALTER TABLE `galaxies` ADD `locked` tinyint(1) NOT NULL DEFAULT 0;";
+                $sqlArray[] = "ALTER TABLE `galaxies` ADD `extends_uuid` varchar(40) COLLATE utf8_bin DEFAULT '';";
                 $sqlArray[] = "ALTER TABLE `roles` ADD `perm_galaxy_editor` tinyint(1) NOT NULL DEFAULT 0;";
                 $sqlArray[] = "UPDATE `roles` SET `perm_galaxy_editor`=1 WHERE `perm_tag_editor`=1;";
                 $sqlArray[] = "UPDATE `galaxies` SET `distribution`=3, `default`=1;";
