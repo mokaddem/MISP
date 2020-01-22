@@ -65,6 +65,7 @@
                         echo $this->element('genericElements/IndexTable/Fields/extended_by', array(
                             'row' => $galaxy,
                             'field' => array(
+                                'parent' => '',
                                 'url' => $baseurl . '/galaxies/view/%s',
                                 'data_path' => 'Galaxy.extended_from.Galaxy.uuid',
                                 'title' => sprintf('%s > %s', $galaxy['Galaxy']['extended_from']['Galaxy']['namespace'], $galaxy['Galaxy']['extended_from']['Galaxy']['name']),

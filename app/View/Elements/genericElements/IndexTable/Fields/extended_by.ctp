@@ -1,10 +1,14 @@
 
 <?php
     $data = Hash::extract($row, $field['data_path']);
-    echo $this->element('/genericElements/IndexTable/Fields/generic_field', array(
-        'row' => $row,
-        'field' => $field
-    ));
+    if (isset($field['parent'])) {
+        echo h($field['parent']);
+    } else {
+        echo $this->element('/genericElements/IndexTable/Fields/generic_field', array(
+            'row' => $row,
+            'field' => $field
+        ));
+    }
     $extendsData = Hash::extract($row, $field['fields']['extend_data_path']);
 ?>
 <?php if (!empty($extendsData)): ?>
@@ -25,19 +29,20 @@
                     }
                 }
             ?>
-            <br/>
-            <span class="apply_css_arrow" title="<?php echo __('Extended By') ?>">
-                <i class="<?php echo $this->FontAwesome->findNamespace('code-branch'); ?> fa-code-branch"></i>
-                <?php 
-                    echo $this->element('genericElements/IndexTable/Fields/links', array(
-                        'row' => $extendData,
-                        'field' => array(
-                            'url' => $baseurl . '/galaxies/view/%s',
-                            'data_path' => $field['fields']['extend_link_path'],
-                            'title' => $linkTitle
-                        ),
-                    ));
-                ?>
-            </span>
+            <div>
+                <span class="apply_css_arrow">
+                    <i class="<?php echo $this->FontAwesome->findNamespace('code-branch'); ?> fa-code-branch"></i>
+                    <?php 
+                        echo $this->element('genericElements/IndexTable/Fields/links', array(
+                            'row' => $extendData,
+                            'field' => array(
+                                'url' => $baseurl . '/galaxies/view/%s',
+                                'data_path' => $field['fields']['extend_link_path'],
+                                'title' => $linkTitle
+                            ),
+                        ));
+                    ?>
+                </span>
+            </div>
         <?php endforeach; ?>
 <?php endif; ?>
