@@ -579,7 +579,7 @@ class Galaxy extends AppModel
     public function attachExtendByInfo($user, $galaxy)
     {
         $extensions = $this->fetchGalaxies($user, array('conditions' => array('extends_uuid' => $galaxy['Galaxy']['uuid'])));
-        $galaxy['Galaxy']['extends_by'] = $extensions;
+        $galaxy['Galaxy']['extended_by'] = $extensions;
         return $galaxy;
     }
 
@@ -587,9 +587,9 @@ class Galaxy extends AppModel
     {
         $extensions = $this->fetchGalaxies($user, array('conditions' => array('uuid' => $galaxy['Galaxy']['extends_uuid'])));
         if (!empty($extensions)) {
-            $galaxy['Galaxy']['extends_from'] = $extensions[0];
+            $galaxy['Galaxy']['extended_from'] = $extensions[0];
         } else {
-            $galaxy['Galaxy']['extends_from'] = array();
+            $galaxy['Galaxy']['extended_from'] = array();
         }
         return $galaxy;
     }

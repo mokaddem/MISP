@@ -33,6 +33,10 @@ class GalaxiesController extends AppController
                 $contextConditions = array(
                     'Galaxy.org_id' => $this->Auth->user('org_id')
                 );
+            } elseif ($filters['context'] == 'orgc') {
+                $contextConditions = array(
+                    'Galaxy.orgc_id' => $this->Auth->user('org_id')
+                );
             }
         }
         $searchConditions = array();
@@ -67,6 +71,10 @@ class GalaxiesController extends AppController
             $this->paginate['conditions']['AND'][] = $aclConditions;
             $this->paginate['contain'] = array('Org', 'Orgc');
             $galaxies = $this->paginate();
+            foreach ($galaxies as $k => $galaxy) {
+                $galaxies[$k] = $this->Galaxy->attachExtendByInfo($this->Auth->user(), $galaxies[$k]);
+                $galaxies[$k] = $this->Galaxy->attachExtendFromInfo($this->Auth->user(), $galaxies[$k]);
+            }
             $this->loadModel('Attribute');
             $distributionLevels = $this->Attribute->distributionLevels;
             unset($distributionLevels[5]);

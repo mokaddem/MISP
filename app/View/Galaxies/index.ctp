@@ -22,6 +22,11 @@
                                 'active' => $context === 'org',
                                 'url' => $baseurl . '/galaxies/index/context:org',
                                 'text' => __('My Galaxies'),
+                            ),
+                            array(
+                                'active' => $context === 'orgc',
+                                'url' => $baseurl . '/galaxies/index/context:orgc',
+                                'text' => __('My Created Galaxies'),
                             )
                         )
                     ),
@@ -37,10 +42,12 @@
             ),
             'fields' => array(
                 array(
-                    'name' => __('Id'),
-                    'sort' => 'id',
+                    'name' => __('Galaxy Id'),
+                    'sort' => 'Galaxy.id',
+                    'element' => 'links',
                     'class' => 'short',
                     'data_path' => 'Galaxy.id',
+                    'url' => $baseurl . '/galaxies/view/%s'
                 ),
                 array(
                     'name' => __('Icon'),
@@ -53,12 +60,20 @@
                     'class' => 'short',
                     'element' => 'org',
                     'data_path' => 'Org',
+                    'fields' => array(
+                        'allow_picture' => true,
+                        'default_org' => 'MISP'
+                    )
                 ),
                 array(
                     'name' => __('Creator Org'),
                     'class' => 'short',
                     'element' => 'org',
                     'data_path' => 'Orgc',
+                    'fields' => array(
+                        'allow_picture' => true,
+                        'default_org' => 'MISP'
+                    )
                 ),
                 array(
                     'name' => __('Default'),
@@ -70,6 +85,12 @@
                     'sort' => 'name',
                     'class' => 'short',
                     'data_path' => 'Galaxy.name',
+                    'element' => 'extended_by',
+                    'fields' => array(
+                        'extend_data_path' => 'Galaxy.extended_by',
+                        'extend_link_path' => 'Galaxy.uuid',
+                        'extend_link_title' => 'Galaxy.name'
+                    )
                 ),
                 array(
                     'name' => __('version'),
