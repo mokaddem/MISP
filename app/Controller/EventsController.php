@@ -1309,7 +1309,7 @@ class EventsController extends AppController
             foreach ($event['Object'] as $k => $object) {
                 if (!empty($object['Attribute'])) {
                     foreach ($object['Attribute'] as $attribute) {
-                        if ($oldest_timestamp == false || $oldest_timestamp < $attribute['timestamp']) {
+                        if ($oldest_timestamp == false || $oldest_timestamp > $attribute['timestamp']) {
                             $oldest_timestamp = $attribute['timestamp'];
                         }
                     }
@@ -1407,7 +1407,7 @@ class EventsController extends AppController
         $startDate = null;
         $modificationMap = array();
         foreach ($event['Attribute'] as $k => $attribute) {
-            if ($oldest_timestamp == false || $oldest_timestamp < $attribute['timestamp']) {
+            if ($oldest_timestamp == false || $oldest_timestamp > $attribute['timestamp']) {
                 $oldest_timestamp = $attribute['timestamp'];
             }
             if ($startDate === null || $attribute['timestamp'] < $startDate) {
@@ -4505,6 +4505,32 @@ class EventsController extends AppController
         return $json;
     }
 
+    public function getEventTimeline($id, $type = 'event')
+    {
+        $validTools = array('event');
+        if (!in_array($type, $validTools)) {
+            throw new MethodNotAllowedException('Invalid type.');
+        }
+
+        App::uses('EventTimelineTool', 'Tools');
+        $grapher = new EventTimelineTool();
+        $data = $this->request->is('post') ? $this->request->data : array();
+        $dataFiltering = array_key_exists('filtering', $data) ? $data['filtering'] : array();
+
+        $extended = isset($this->params['named']['extended']) ? 1 : 0;
+
+        $grapher->construct($this->Event, $this->Auth->user(), $dataFiltering, $extended);
+        $json = $grapher->get_timeline($id);
+
+        array_walk_recursive($json, function (&$item, $key) {
+            if (!mb_detect_encoding($item, 'utf-8', true)) {
+                $item = utf8_encode($item);
+            }
+        });
+        $this->response->type('json');
+        return new CakeResponse(array('body' => json_encode($json), 'status' => 200, 'type' => 'json'));
+    }
+
     public function getDistributionGraph($id, $type = 'event')
     {
         $extended = isset($this->params['named']['extended']) ? 1 : 0;
@@ -4845,7 +4871,7 @@ class EventsController extends AppController
             $options = array();
             foreach ($enabledModules['modules'] as $temp) {
                 if ($temp['name'] == $module) {
-                    $format = (isset($temp['mispattributes']['format']) ? $temp['mispattributes']['format'] : 'simplified');
+                    $format = (!empty($temp['mispattributes']['format']) ? $temp['mispattributes']['format'] : 'simplified');
                     if (isset($temp['meta']['config'])) {
                         foreach ($temp['meta']['config'] as $conf) {
                             $options[$conf] = Configure::read('Plugin.' . $type . '_' . $module . '_' . $conf);
@@ -5109,7 +5135,7 @@ class EventsController extends AppController
                         throw new Exception($result);
                     }
                     $importComment = !empty($result['comment']) ? $result['comment'] : 'Enriched via the ' . $module['name'] . ' module';
-                    if (isset($module['mispattributes']['format']) && $module['mispattributes']['format'] === 'misp_standard') {
+                    if (!empty($module['mispattributes']['format']) && $module['mispattributes']['format'] === 'misp_standard') {
                         $event = $this->Event->handleMispFormatFromModuleResult($result);
                         $event['Event'] = array('id' => $eventId);
                         if ($this->_isRest()) {

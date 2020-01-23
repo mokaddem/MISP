@@ -394,6 +394,7 @@ class ServersController extends AppController
             }
             $this->set('allTags', $allTags);
             $this->set('host_org_id', Configure::read('MISP.host_org_id'));
+            $this->render('edit');
         }
     }
 
@@ -1135,6 +1136,9 @@ class ServersController extends AppController
             $this->set('phpversion', phpversion());
             $this->set('phpmin', $this->phpmin);
             $this->set('phprec', $this->phprec);
+            $this->set('pythonmin', $this->pythonmin);
+            $this->set('pythonrec', $this->pythonrec);
+            $this->set('pymisp', $this->pymisp);
         }
     }
 
