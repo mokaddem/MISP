@@ -22,6 +22,19 @@ $disabledReason = $filter_bar['disabled'] ?? null;
             <span id="selectedCount">0</span>
         </strong>
 
+<?php if ($disabledReason !== null): ?>
+        <?php
+        /*
+         * The reason is on the fieldset as a title too, but a tooltip on
+         * a disabled control is the one explanation hardest to reach, so
+         * an index that switches its bulk actions off says why in text.
+         */
+        ?>
+        <span class="small text-muted">
+            <?= h($disabledReason) ?>
+        </span>
+<?php endif; ?>
+
         <?php if (!empty($filter_bar['export'])): ?>
             <button id="multi-export-button"
                     class="btn btn-primary btn-sm ms-2"

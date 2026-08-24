@@ -25,14 +25,26 @@ $noWrites = __(
 );
 
 /*
- * Soft-deleted occurrences are part of the value's history but not of its
- * current state, so they render struck through and hidden until asked
- * for. The class is put on the <tr> by the table itself.
+ * Two things the page filters rows by, both stated on the <tr> because
+ * `row_class_callable` is the only per-row hook `index_table` offers.
+ *
+ * Soft-deleted occurrences are part of the value's history but not of
+ * its current state, so they start hidden until asked for. The type is
+ * carried as a slug: a MISP type can hold characters a class name
+ * cannot — `domain|ip`. The banner's type chips are keyed by the same
+ * slug, and the two forms have to agree for a chip to select anything.
  */
-$rowClass = function ($row) {
-    return empty($row['Attribute']['deleted'])
-        ? ''
-        : 'vp-occ-deleted d-none';
+$typeSlug = function ($type) {
+    return preg_replace('/[^a-z0-9]+/', '-', strtolower($type));
+};
+
+$rowClass = function ($row) use ($typeSlug) {
+    $classes = array('vp-occ-type-' . $typeSlug($row['Attribute']['type']));
+    if (!empty($row['Attribute']['deleted'])) {
+        $classes[] = 'vp-occ-deleted';
+        $classes[] = 'd-none';
+    }
+    return implode(' ', $classes);
 };
 
 /*
@@ -123,16 +135,19 @@ ob_start();
             </label>
         </div>
     <?php endif; ?>
-    <a href="#tab-occurrences"
-       class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
-       title="<?= __('The full, filterable occurrence table') ?>">
-        <?= __('Open full table') ?>
-        <i class="fas fa-arrow-right"></i>
-    </a>
+    <?php if (!empty($rows)): ?>
+        <a href="#tab-occurrences"
+           class="btn btn-sm btn-outline-secondary d-flex gap-1
+                  align-items-center"
+           title="<?= __('The full, filterable occurrence table') ?>">
+            <?= __('Open full table') ?>
+            <i class="fas fa-arrow-right"></i>
+        </a>
+    <?php endif; ?>
 <?php
 $headerExtra = ob_get_clean();
 ?>
-<div class="card shadow-sm mb-3 vp-panel"
+<div class="card shadow-sm mb-3 vp-panel" data-vp-occurrences
      style="--vp-panel-color: var(--attribute);">
 
     <?= $this->element('Values/View/value_panel_header', array(
@@ -156,7 +171,41 @@ $headerExtra = ob_get_clean();
             <span><?= __('No event you can see carries this value.') ?></span>
         </div>
     <?php else: ?>
-        <div class="card-body p-0">
+        <?php
+        /*
+         * What a type chip in the banner did, said in the panel it acted
+         * on: a narrowed table with no note reads as a value with fewer
+         * occurrences than the header claims.
+         *
+         * The denominator is the rows the filter chose from, not the
+         * value's occurrence count — rows hidden by ACL or by the
+         * soft-deleted toggle were never candidates.
+         */
+        ?>
+        <div class="vp-filter-note d-none" data-vp-filter-note>
+            <i class="fas fa-filter"></i>
+            <span><?= sprintf(
+                __('Type %1$s only &nbsp;·&nbsp; %2$s of %3$s rows'),
+                '<span class="font-monospace fw-semibold"'
+                    . ' data-vp-filter-type></span>',
+                '<span data-vp-filter-shown></span>',
+                '<span data-vp-filter-total></span>'
+            ) ?></span>
+            <button type="button" class="vp-filter-clear ms-auto"
+                    data-vp-filter-clear>
+                <?= __('Clear') ?>
+            </button>
+        </div>
+
+        <div class="vp-empty d-none" data-vp-filter-empty>
+            <span class="misp-icon misp-icon-attribute misp-simple"></span>
+            <span><?= sprintf(
+                __('No occurrence you can see has type %s.'),
+                '<span class="font-monospace" data-vp-filter-type></span>'
+            ) ?></span>
+        </div>
+
+        <div class="card-body p-0" data-vp-occ-table>
             <?= $this->element(
                 'genericElementsBS5/IndexTable/index_table',
                 array(
@@ -201,19 +250,3 @@ $headerExtra = ob_get_clean();
     <?php endif; ?>
 
 </div>
-
-<?php if (!empty($stats['deleted'])): ?>
-<script>
-(function () {
-    var toggle = document.getElementById('vp-occ-deleted-toggle');
-    if (!toggle) return;
-    // Scoped to this panel's own card: the toggle speaks for one table.
-    var scope = toggle.closest('.vp-panel') || document;
-    toggle.addEventListener('change', function () {
-        scope.querySelectorAll('tr.vp-occ-deleted').forEach(function (tr) {
-            tr.classList.toggle('d-none', !toggle.checked);
-        });
-    });
-}());
-</script>
-<?php endif; ?>

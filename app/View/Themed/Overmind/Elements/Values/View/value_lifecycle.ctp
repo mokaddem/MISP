@@ -83,6 +83,18 @@ $subtitle = empty($decay)
                     </div>
                 <?php endforeach; ?>
             </div>
+        <?php else: ?>
+            <?php
+            /*
+             * The other two lines below answer even when the answer is
+             * "nothing", so a silently absent decay section would read as
+             * a rendering gap rather than as a value no model scores.
+             */
+            ?>
+            <div class="vp-empty vp-empty-inline">
+                <i class="fas fa-hourglass-half"></i>
+                <span><?= __('No decaying model scores this value.') ?></span>
+            </div>
         <?php endif; ?>
 
         <div class="vp-fact-line<?= empty($warninglists)

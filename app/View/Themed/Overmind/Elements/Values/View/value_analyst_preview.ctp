@@ -68,7 +68,8 @@ $meta = function ($item) {
     return implode(' &nbsp;·&nbsp; ', $bits);
 };
 
-$headerExtra = '<a href="#tab-analyst"'
+// Nothing written means nothing to open, so the affordance goes too.
+$headerExtra = $shown === 0 ? null : '<a href="#tab-analyst"'
     . ' class="btn btn-sm btn-outline-secondary d-flex align-items-center'
     . ' gap-1" title="' . h(__('The full thread')) . '">'
     . h(__('Open thread')) . '<i class="fas fa-arrow-right"></i></a>';

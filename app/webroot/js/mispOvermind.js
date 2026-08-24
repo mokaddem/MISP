@@ -3525,6 +3525,18 @@ function loadAjaxContainer(container) {
             });
 
             initTopbarFilterSelects(container);
+
+            /*
+             * Page-level scripts need to know when a lazily-loaded panel
+             * has arrived, so state the page holds — an active filter,
+             * attributes stamped on controls — can be re-applied to
+             * markup that was not there at load. Nothing listens today,
+             * so every existing caller is unaffected.
+             */
+            container.dispatchEvent(new CustomEvent('misp:container-loaded', {
+                bubbles: true,
+                detail: { url: url }
+            }));
         })
         .catch(() => {
             container.innerHTML =

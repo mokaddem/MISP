@@ -49,10 +49,12 @@ $confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
         'panelTitle' => __('Verdict'),
         'panelIcon' => 'fas fa-gavel',
         'panelColor' => 'var(--primary)',
-        'panelSub' => h(sprintf(
-            __('Weighting profile %s'),
-            $verdict['profile']
-        )),
+        'panelSub' => empty($verdict['ledger'])
+            ? h(__('Nothing to weigh'))
+            : h(sprintf(
+                __('Weighting profile %s'),
+                $verdict['profile']
+            )),
     )) ?>
 
     <div class="p-3 d-flex flex-column gap-3">

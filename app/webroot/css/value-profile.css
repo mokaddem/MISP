@@ -80,6 +80,28 @@
     background: var(--bs-secondary-bg);
     background: color-mix(in srgb, var(--primary) 8%, var(--bs-body-bg));
     color: var(--primary);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.vp-type-chip:hover {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 16%, var(--bs-body-bg));
+}
+
+/*
+ * Pressed reads as filled rather than as outlined-but-darker: the chip
+ * is the only thing on the page saying the table below it is narrowed,
+ * so the state has to survive a glance.
+ */
+.vp-type-chip.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--bs-body-bg);
+}
+
+.vp-type-chip.active .vp-type-chip-count {
+    background: color-mix(in srgb, var(--bs-body-bg) 30%, transparent);
 }
 
 .vp-type-chip-name {
@@ -2571,4 +2593,62 @@ tr.vp-occ-deleted td {
     background: repeating-linear-gradient(to right,
         var(--vp-curve-color) 0 4px,
         transparent 4px 7px);
+}
+
+/* ==================================================================
+ * Active filter, and the controls that cannot be pressed
+ * ------------------------------------------------------------------
+ * Both say something the page would otherwise leave the reader to
+ * infer: which rows a table is not showing, and why a control that
+ * looks pressable is not.
+ * ================================================================== */
+
+.vp-filter-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: color-mix(in srgb, var(--primary) 7%, var(--bs-body-bg));
+    font-size: 0.76rem;
+    color: var(--bs-body-color);
+}
+
+.vp-filter-note > i {
+    color: var(--primary);
+    font-size: 0.7rem;
+}
+
+.vp-filter-clear {
+    padding: 1px 9px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.vp-filter-clear:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/*
+ * Bootstrap takes the pointer away from a disabled control, which also
+ * takes away its title — and on this page the title is the whole
+ * explanation of why nothing writes. Give the pointer back, say
+ * plainly that the control will not act, and let value-profile.js stop
+ * the activation that comes back with it.
+ */
+body[data-controller="values"] .btn.disabled,
+body[data-controller="values"] .btn:disabled,
+body[data-controller="values"] fieldset:disabled .btn,
+body[data-controller="values"] .dropdown-item.disabled,
+body[data-controller="values"] .vp-resolution:disabled,
+body[data-controller="values"] .vp-conflict-action:disabled,
+body[data-controller="values"] .vp-changer-action:disabled,
+body[data-controller="values"] .vp-vc-hero-action:disabled {
+    pointer-events: auto;
+    cursor: not-allowed;
 }

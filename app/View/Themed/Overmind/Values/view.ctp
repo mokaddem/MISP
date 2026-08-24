@@ -16,7 +16,7 @@ App::uses('ValueDisposition', 'Tools');
  */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-profile'),
-    'js' => array('Chart.min'),
+    'js' => array('Chart.min', 'value-profile'),
 ));
 
 $profile = $valueProfile;
@@ -32,18 +32,31 @@ $profile = $valueProfile;
 $titleHtml = '<span class="vp-value font-monospace user-select-all">'
     . h($profile['value']) . '</span>';
 
+/*
+ * A button, not a label: pressing one narrows the occurrence table to
+ * that type, and pressing it again lets it go. The slug is what the
+ * table's rows carry, since a MISP type can hold characters a class
+ * name cannot — `domain|ip`.
+ */
 foreach ($profile['types'] as $type) {
-    $titleHtml .= '<span class="vp-type-chip" title="'
-        . h(__n(
-            '%1$s occurrence of type %2$s',
-            '%1$s occurrences of type %2$s',
-            $type['count'],
-            $type['count'],
-            $type['type']
+    $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($type['type']));
+    $titleHtml .= '<button type="button" class="vp-type-chip"'
+        . ' data-vp-type="' . h($type['type']) . '"'
+        . ' data-vp-type-slug="' . h($slug) . '"'
+        . ' aria-pressed="false" title="'
+        . h(sprintf(
+            __('%s — show only these rows in the occurrence table'),
+            __n(
+                '%1$s occurrence of type %2$s',
+                '%1$s occurrences of type %2$s',
+                $type['count'],
+                $type['count'],
+                $type['type']
+            )
         )) . '">'
         . '<span class="vp-type-chip-name">' . h($type['type']) . '</span>'
         . '<span class="vp-type-chip-count">' . h($type['count'])
-        . '</span></span>';
+        . '</span></button>';
 }
 
 foreach ($profile['warninglists'] as $warninglist) {

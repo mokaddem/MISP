@@ -28,9 +28,17 @@ $computedAt = $verdict['computed_at'] ?? date('Y-m-d H:i:s');
 $parts = array(
     h(__('Computed at render,')) . ' <span class="font-monospace">'
         . h($computedAt) . '</span>',
-    h(__('Weighting profile')) . ' <span class="font-monospace'
-        . ' vp-meta-strong">' . h($verdict['profile']) . '</span>',
 );
+
+/*
+ * A verdict reached from no signal at all was not weighted by anything,
+ * so naming the profile that would have weighted it claims a
+ * computation that did not happen.
+ */
+if (!empty($verdict['ledger'])) {
+    $parts[] = h(__('Weighting profile')) . ' <span class="font-monospace'
+        . ' vp-meta-strong">' . h($verdict['profile']) . '</span>';
+}
 
 if (!empty($aclNote)) {
     $parts[] = '<i class="fas fa-eye-slash me-1"></i>' . h($aclNote);
