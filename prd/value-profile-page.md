@@ -417,6 +417,10 @@ their own artboard.
 treatment, the unknown-value sparse page, per-panel empty states. Exit
 criterion: all three states reachable and distinguishable.
 
+Two phases were added once the skeleton landed and are written up where they
+belong: **phase 6**, the verification pass, is §6; **phase 7**, candidate
+mockups for the five stubbed content tabs, is §7.
+
 ---
 
 ## 4. Key design decisions
@@ -515,3 +519,336 @@ Chrome against saved fragments, and the page pulls its CSS from the instance
 cross-origin — that fetch fails intermittently. An unstyled page passes a
 colour check for the wrong reason, so the harness now asserts `--vp-mal`
 resolves before it asserts anything else, and aborts when it does not.
+
+---
+
+## 7. Phase 7 — candidate mockups for the five content tabs
+
+### 7.1 What this phase produces
+
+Two of the nine tabs were built from artboards. The other seven were stubbed,
+and there are no artboards for them. Designing them directly in `.ctp` is the
+expensive way to find out a direction is wrong: a rejected layout costs a day
+of template work and a rewrite of the fixture shape underneath it.
+
+Phase 7 designs them as standalone mockups instead. Five tabs, four candidate
+designs each, published as five artifacts — one per tab, its four candidates on
+one page. The picks come back as a decision table in §7.8, and every
+implementation phase after this one starts from a chosen design rather than a
+paragraph of prose.
+
+No PHP is written in this phase.
+
+### 7.2 Scope — five tabs, twenty candidates
+
+| Registry # | Tab | Brief section | Candidates |
+|---|---|---|---|
+| 3 | Occurrences | §6.3 Tab 2 | `O1`–`O4` |
+| 4 | Sightings | §6.3 Tab 3 | `S1`–`S4` |
+| 5 | Relationships | §6.3 Tab 4 | `R1`–`R4` |
+| 6 | Enrichment | §6.3 Tab 5 | `E1`–`E4` |
+| 7 | Analyst data | §6.3 Tab 6 | `A1`–`A4` |
+
+Brief sections are in `prd/attribute-value-page.md`.
+
+**Timeline (#8) and History (#9) are excluded.** A merged chronology and an
+audit log are the two most conventional surfaces on the page — the ones where
+the design question is thinnest and the data question is thickest. They follow
+the same mockup-then-implement path once these five have proven the loop.
+
+Candidates are drawn against the malicious value, and must state how they
+behave at the other three:
+
+| Value | Disposition | Occurrences | Sightings | Relationships | Enrichment | Analyst |
+|---|---|---|---|---|---|---|
+| `185.234.219.24` | MALICIOUS | 10 | 47 | 31 | 9 | 6 |
+| `104.21.34.198` | CONFLICTED | 9 | 63 | 1,847 | 4 | 7 |
+| `8.8.8.8` | BENIGN | 9 | 17 | 21,904 | 3 | 5 |
+| any other | UNKNOWN | 0 | 0 | 0 | 0 | 0 |
+
+A design that only works at 31 rows is not a candidate. Neither is one with no
+answer for zero.
+
+### 7.3 Step 0 — the mockup kit
+
+Built once, before any agent runs. It is the reason twenty mockups drawn by
+five agents can be compared at all: without it each agent invents its own
+approximation of MISP, and the comparison is between house styles rather than
+between designs.
+
+**`prd/phase7/kit/mockup-kit.css`** — a concatenation of exactly the
+stylesheets the real page loads, in the order `Layouts/default.ctp` loads them:
+`bootstrap5-custom.min.css`, `tom-select.bootstrap5.min.css`,
+`mainOvermind.css`, `fontawesome7.min.css`, `misp-iconify.css`, then the
+page's own `value-profile.css`. `print.css` is skipped — it loads at
+`media="print"` and says nothing about the screen. About 760KB once the font
+below is embedded, inlined into each artifact and far inside the 16MB ceiling.
+`prd/phase7/kit/build-kit.sh` builds it and stamps the source commit into a
+header comment, so a stale kit is visible rather than silently wrong.
+
+**Fonts and icons.** The artifact CSP blocks every external host, so the build
+script embeds `webfonts/fa-solid-900.woff2` (80KB) as a `data:` URI and
+rewrites its `@font-face` src. `fa-brands` and `fa-regular` are dropped — the
+page uses solid. `misp-iconify.css` already carries its glyphs as inline
+`data:` SVG masks, so MISP's own icon set needs no work.
+
+**The theme bridge.** Artifacts stamp `data-theme` on the root element and
+otherwise fall back to `prefers-color-scheme`; MISP switches on
+`data-bs-theme`. The kit ships a short script that mirrors the artifact's
+resolved theme onto `data-bs-theme` at load and on change, so a mockup follows
+the reader's theme using MISP's own dark palette rather than a second one.
+
+**`prd/phase7/kit/frame.html`** — the page around the tab body: the banner with
+`185.234.219.24` and its type chips, the fact strip, the pivot rail, the
+nine-tab bar with the target tab active, and the `col-lg-9` / `col-lg-3` split.
+The frame renders at reduced emphasis: it is context for judging the tab body,
+not part of what is being judged. The tab bar wraps to two rows at ≤1600px and
+that is left exactly as §6.1 records it.
+
+**The pinned width.** Step 0 measures the real content column on the live stack
+and pins it in the kit as `--vp-mock-body` (expect ~975px at a 1600px window;
+the measured number is what ships). Every candidate renders at that width, so
+density is honest and no candidate wins by being drawn narrower than the column
+it would actually live in.
+
+**Step 0's own check.** The frame renders in both themes in headless Chrome,
+asserting that `--vp-mal` resolves before asserting anything else. That was a
+harness rule in §6.1 because the page pulled its CSS cross-origin; with the kit
+inlined there is no fetch left to fail, and the assertion stays only as a guard
+against a malformed kit.
+
+### 7.4 What a candidate is
+
+**A layout and an information architecture, not a colour scheme.** Four
+candidates for a tab must differ in what is on screen and where it sits. Four
+takes on one arrangement is one candidate and three variants, and the phase has
+bought nothing.
+
+**MISP-styled.** Real classes from the kit — `card`, `nav`, `badge`, `table`,
+`form-control`, `misp-icon`, and the `vp-*` primitives the page already owns. A
+candidate invents a class only where MISP has no equivalent, which is the rule
+§1.3 already sets for the page itself.
+
+**Placeholder content, not fixture data.** Structure is real: panel headers,
+column headers, control labels, filter names, empty-state copy, and the counts
+from §7.2. Row content is skeleton blocks at varying widths — except where the
+*kind* of thing is the design point, which is where density comes from:
+distribution badges, `to_ids` pills, tag chips, org names, dates and typed
+relationship labels render as real components carrying generic text (`Org A`,
+`tlp:amber`, `2025-03-14`). Nothing invents intelligence data — no fabricated
+IPs, hashes, actor names or CVEs beyond the four demo values this page already
+uses. A mockup that reads as a real threat report is a mockup that will
+eventually be screenshotted as one.
+
+**Charts are static SVG or CSS.** Chart.js is not in the kit. What is being
+judged is the shape and placement of a histogram or a decay curve, not its
+rendering library.
+
+**Interactivity is demonstrated, not implemented.** Controls are inert. Where a
+candidate's whole argument *is* an interaction — a brush, a split-pane
+selection — it shows one worked example, and never in a way that makes the
+mockup unjudgeable without clicking.
+
+**Every candidate carries its own reckoning**, in a card above it:
+
+- a one-sentence thesis;
+- what it optimises for, and what it gives up to do that;
+- how it behaves at the stress counts in §7.2, and at zero;
+- which MISP factory, model or endpoint would supply each region — and
+  anything the brief asks for that MISP cannot supply today;
+- a size estimate (S/M/L) for implementing it as one set of ajax panels.
+
+English only; `__()` comes with the implementation. The honesty rule from §1.3
+carries over: a control that would write renders visibly disabled, and "not
+implemented", "nothing to show" and "hidden by ACL" stay three different
+things.
+
+### 7.5 Per-tab briefs
+
+Each subsection names what the tab must cover, the tension its design has to
+resolve, and four starting directions. An agent may beat a direction with a
+better one — it just has to say what it replaced and why.
+
+#### 7.5.1 Occurrences — `O1`–`O4`
+
+**Must cover.** One row per occurrence: event id and info, creating org, type,
+category, `to_ids`, distribution with sharing-group name, object context,
+comment, first/last seen, tags. Filters for org, type, category, `to_ids`,
+distribution, sharing group, tag, date range and include-deleted. Multi-select
+with a bulk bar — tag, set `to_ids`, set distribution, propose edit, add
+sighting, add to collection, export selection. A pending-proposal indicator on
+rows that carry a shadow attribute. Soft-deleted rows struck through behind a
+toggle. The ACL truncation note.
+
+**The tension.** The Overview tab already shows a ten-row preview of this
+table, so a full-width copy of it is not a tab. What this one adds is
+filtering, selection and the columns the preview drops — and it has to make
+that addition visible on arrival.
+
+**Directions.** Dense single table with a filter bar above and a sticky bulk
+bar · faceted, with a filter rail carrying counts beside the table · grouped
+into collapsible sections by event, org or object with per-group actions ·
+split-pane, list on the left and the selected occurrence's full detail on the
+right.
+
+#### 7.5.2 Sightings — `S1`–`S4`
+
+**Must cover.** A time histogram stacked by organisation, with a type toggle
+(sighting / false positive / expiration) and a brush-selectable range. The
+decay-score curve, one per decaying model, over the same axis. A table of
+individual sightings: org, source string, date, type. A disabled, value-scoped
+"Add sighting".
+
+**The tension.** The overlay is the whole point: MISP computes the decay curve
+and has never had a place to show it against the sightings that move it. A
+candidate that puts the curve in its own separate card has lost the argument
+before it starts.
+
+**Directions.** Chart above, table below, one shared brush · chart-first and
+full-bleed with the table as a linked drawer · small multiples, one lane per
+reporting org over a shared axis · chronology-first, the sighting stream
+vertical with the decay curve as a rail beside it.
+
+#### 7.5.3 Relationships — `R1`–`R4`
+
+**Must cover.** Three notions, kept visibly apart: co-occurrence including
+object siblings, near-matches with their similarity scores (CIDR containment,
+ssdeep, domain/TLD tree), and asserted analyst relationships. Plus a graph view
+centred on the value.
+
+**The tension.** Conflating the three is the one way this tab fails outright —
+a machine-derived correlation and a human claim must never look alike. And the
+counts are brutal: 8.8.8.8 carries 21,904 relationships, so "list them" is not
+an answer. The design must degrade into ranking, grouping or thresholds, and
+say so on its face rather than in a scrollbar.
+
+**Directions.** Three stacked sections, each with its own affordances ·
+graph-first with the three notions as toggleable layers · a segmented control
+swapping one notion at a time into a full-width pane · one ranked list with a
+provenance column and notion filters.
+
+#### 7.5.4 Enrichment — `E1`–`E4`
+
+**Must cover.** A module picker — one card per enabled module valid for this
+type, with last-run timestamp, staleness indicator, select-all and
+run-selected. Per-module progress where one timeout does not read as total
+failure. Results as structured cards of returned MISP attributes and objects,
+each element with its own add-to-event / add-as-new-event / dismiss. A
+since-last-run delta. An explicit "nothing queried yet" state, and no auto-run
+on load.
+
+**The tension.** Running a module costs money and quota, and querying an
+adversary's infrastructure announces your interest — so "not yet run" is a
+first-class state to design, not an empty one to apologise for. Write-back is
+per returned element, never per module.
+
+**Directions.** Picker grid then a results feed · two-pane, module rail
+carrying state on the left and results on the right · a job-queue framing where
+runs are rows with progress and a history · results-first, last run as the
+landing state with the picker in a drawer.
+
+#### 7.5.5 Analyst data — `A1`–`A4`
+
+**Must cover.** The opinion aggregate — mean, 0–100 distribution histogram,
+per-organisation breakdown — above the individual opinions and their comments.
+Markdown-rendered notes, threaded two levels deep, with author org,
+distribution and timestamp. An inline composer for a note or an opinion,
+disabled.
+
+**The tension.** Disagreement between organisations is the signal, and a mean
+hides it. The Verdict tab already makes this argument for the conflicted value
+with a bimodal histogram and a note that its mean is meaningless (§2.6); this
+tab must not undo it by leading with an average.
+
+**Directions.** Aggregate header over a threaded feed · two columns, analytics
+rail beside the thread · grouped by organisation, each org's stance as a block ·
+one interleaved activity thread with the aggregate as a sticky summary.
+
+### 7.6 The artifact
+
+One per tab, holding all four of that tab's candidates. Nothing lives outside
+it.
+
+- **Title** a short noun phrase (`Occurrences Candidates`), a one-sentence
+  `description`, and one emoji `favicon` kept stable across redeploys.
+- **The landing view is the comparison.** All four scaled to fit the viewport
+  in a single row — `transform: scale()` with `transform-origin: top left` — so
+  the structural differences read at a glance. A toggle switches to the stacked
+  view, each candidate at the pinned width from §7.3, which is where density
+  and legibility are actually judged.
+- **Each candidate is anchored and preceded by its reckoning card** (§7.4), so
+  a decision can cite `O2` and land on it.
+- **The page closes with a comparison table** across the four and the agent's
+  own recommendation, with its reason. The agent that drew them has an opinion;
+  hiding it throws away the most informed read in the room.
+- **Both themes must render.** The kit supplies MISP's palette; a candidate
+  that hardcodes a light-only colour is a defect, the same one §6's check 7
+  found.
+- **Source is committed** at `prd/phase7/mockups/<tab>.html` and published from
+  there, so a revision edits the file and republishes the same URL.
+
+Artifacts are private on publish. The URLs are the user's to share or not.
+
+### 7.7 The fan-out
+
+Five subagents, one per tab, launched in a single message so they run
+concurrently.
+
+**One agent per tab, owning all four candidates.** Divergence is the hard part.
+An agent drawing all four can spread them deliberately across the axis; four
+independent agents each converge on the obvious table-with-filters, and the
+spread has to be manufactured afterwards by whoever reviews them.
+
+Each agent receives: this section; §1.3, §2.4, §2.5 and §2.6 of this PRD; its
+tab's subsection of the brief; the kit path and how to inline it; the counts
+table; and `value_occurrences.ctp`, `value_verdict_ledger.ctp` and
+`value_panel_header.ctp` as the tone to match. It loads the `artifact-design`
+skill before writing anything.
+
+Each agent returns: the artifact URL, the committed file path, its four
+candidate ids and theses, its recommendation, and every place the brief asks
+for something MISP cannot supply — that last one is a finding to record here,
+not something to design around quietly.
+
+**Agents write only under `prd/phase7/`.** Nothing under `app/` is touched in
+this phase, `value-profile.css` included.
+
+### 7.8 Review and selection
+
+Each artifact is reviewed before it reaches the user: kit compliance, genuine
+divergence, honest feasibility notes, both themes, the stress counts addressed.
+A tab that comes back with four restyles goes back to its agent, named with the
+axis it failed to spread on.
+
+The user then picks one candidate per tab, or a graft of two — "`O2`'s filter
+rail with `O4`'s row". Picks are recorded here:
+
+| Tab | Chosen | Grafts | Date |
+|---|---|---|---|
+| Occurrences | | | |
+| Sightings | | | |
+| Relationships | | | |
+| Enrichment | | | |
+| Analyst data | | | |
+
+"None of these" is a legitimate entry. If the four missed the axis, one more
+round for that tab costs a fraction of implementing a design nobody wanted.
+
+### 7.9 Exit criteria
+
+Five artifacts published, twenty candidates, each rendering at the pinned width
+in both themes with its reckoning card, and every row of the decision table
+carrying either a pick or an explicit re-run.
+
+### 7.10 What phase 7 leaves to phase 8
+
+No PHP, no CSS under `app/`, no fixture changes, no live data, no writes — the
+whole phase lives under `prd/phase7/`.
+
+Each chosen candidate then becomes its own implementation phase, in the shape
+phases 3 to 5 established: one ajax endpoint per panel on `ValuesController`,
+elements under `Elements/Values/View/`, the fixture extended with that tab's
+shape, `index_table` and the existing field renderers wherever they fit, and
+the panel's empty state built alongside the populated one rather than
+discovered later. Timeline and History join the queue once this loop has run
+once.
