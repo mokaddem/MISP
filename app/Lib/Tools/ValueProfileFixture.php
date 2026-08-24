@@ -640,32 +640,58 @@ class ValueProfileFixture
                     ),
                     'yes' => 6,
                     'no' => 4,
+                    'evidence' => __(
+                        '6 occurrences set yes, 4 set no, across 4'
+                        . ' organisations'
+                    ),
+                    'expanded' => true,
                     'rows' => array(
                         array(
                             'event_id' => 1284,
+                            'event_info' => 'OSINT - Emotet malspam'
+                                . ' campaign targeting .lu',
                             'org' => 'CIRCL',
+                            'type' => 'ip-dst',
                             'to_ids' => 1,
                             'category' => 'Network activity',
                             'comment' => 'Emotet C2, port 8080',
                         ),
                         array(
                             'event_id' => 1272,
+                            'event_info' => 'Scanning activity against'
+                                . ' member infrastructure',
                             'org' => 'Team-CIRCL',
+                            'type' => 'ip-src',
                             'to_ids' => 0,
                             'category' => 'Network activity',
                             'comment' => 'Scanning source, low confidence',
                         ),
                         array(
                             'event_id' => 1265,
+                            'event_info' => 'Malware delivery infrastructure'
+                                . ' round-up',
                             'org' => 'ORGNAME',
+                            'type' => 'ip-dst',
                             'to_ids' => 0,
                             'category' => 'Payload delivery',
                             'comment' => 'Reported by a member',
                         ),
                     ),
                     'actions' => array(
-                        __('Set to_ids on all visible occurrences'),
-                        __('Clear to_ids on all visible occurrences'),
+                        array(
+                            'label' => __('Set to_ids on all 6 …'),
+                            'icon' => 'fas fa-code-compare',
+                            'colour' => 'var(--vp-conflict)',
+                        ),
+                        array(
+                            'label' => __('Propose change to other orgs'),
+                            'icon' => 'fas fa-code-pull-request',
+                            'colour' => 'var(--correlation)',
+                        ),
+                    ),
+                    'confirm_note' => __(
+                        'Both actions confirm first, listing 6 rows in 6'
+                        . ' events across 4 organisations.'
                     ),
                 ),
                 array(
@@ -677,8 +703,14 @@ class ValueProfileFixture
                     ),
                     'yes' => 4,
                     'no' => 1,
+                    'evidence' => __(
+                        '4 occurrences tagged tlp:amber, 1 tlp:green,'
+                        . ' across 4 organisations'
+                    ),
+                    'expanded' => false,
                     'rows' => array(),
                     'actions' => array(),
+                    'confirm_note' => null,
                 ),
             ),
             'orgs' => array(
@@ -746,6 +778,120 @@ class ValueProfileFixture
                     'colour' => 'var(--bs-danger)',
                 ),
             ),
+            'composition_note' => __(
+                'Weights come from the default-v3 profile. An instance'
+                . ' admin can edit the profile; the tab always names the'
+                . ' one in force.'
+            ),
+            'curves' => array(
+                array(
+                    'label' => __('Synthesised verdict'),
+                    'colour' => 'var(--vp-mal)',
+                    'data' => self::maliciousVerdictCurve(),
+                ),
+                array(
+                    'label' => __('NIDS decay score'),
+                    'colour' => 'var(--vp-conflict)',
+                    'dashed' => true,
+                    'data' => self::decayCurveNids(),
+                ),
+            ),
+            'curves_span' => __('90 days'),
+            'curves_note' => __(
+                'Three step-ups, each a sighting burst; the dips between'
+                . ' are decay. The 2025-07-21 step is the APT28 galaxy'
+                . ' being attached.'
+            ),
+            /*
+             * Excluded on purpose, and said so. The ACL exclusion leads:
+             * a score computed from a subset should say which subset.
+             */
+            'not_counted' => array(
+                array(
+                    'title' => __('4 occurrences'),
+                    'note' => __(
+                        'Outside your ACL — excluded, not hidden. The'
+                        . ' score you see is the score for your'
+                        . ' permissions.'
+                    ),
+                ),
+                array(
+                    'title' => __('Feed presence alone'),
+                    'note' => __(
+                        'Feeds that merely mirror CIRCL OSINT are not'
+                        . ' independent corroboration and score once, not'
+                        . ' three times.'
+                    ),
+                ),
+                array(
+                    'title' => __('Self-sightings'),
+                    'note' => __(
+                        '3 sightings from the same org that created the'
+                        . ' attribute, within an hour of creation.'
+                    ),
+                ),
+            ),
+            /*
+             * What it would take to move the disposition. A verdict that
+             * cannot say what would falsify it is an opinion.
+             */
+            'changers' => array(
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'A warninglist hit of category known → CONFLICTED'
+                        . ' immediately, whatever the score.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        '3 or more false-positive sightings from 2+ orgs'
+                        . ' → drops to SUSPICIOUS.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'No sighting for 45 days → decay takes the score'
+                        . ' under 50.'
+                    ),
+                ),
+            ),
+            'changer_actions' => array(
+                array(
+                    'label' => __('Mark false positive'),
+                    'icon' => 'fas fa-flag',
+                    'colour' => 'var(--vp-mal)',
+                    'emphasis' => true,
+                ),
+                array(
+                    'label' => __('Record an opinion'),
+                    'icon' => 'fas fa-scale-balanced',
+                    'colour' => 'var(--analystData)',
+                ),
+                array(
+                    'label' => __('Notify me if the verdict changes'),
+                    'icon' => 'fas fa-bell',
+                    'colour' => 'var(--correlation)',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The synthesised verdict over the same 90 days: sighting bursts
+     * step it up, decay pulls it back between them.
+     *
+     * @return array
+     */
+    private static function maliciousVerdictCurve()
+    {
+        return array(
+            46, 45, 44, 43, 58, 57, 56, 55, 54, 53,
+            52, 51, 50, 49, 66, 65, 64, 63, 62, 61,
+            60, 59, 58, 57, 56, 72, 71, 70, 69, 68,
+            67, 66, 78, 84, 83, 82, 81, 83, 85, 84,
         );
     }
 
@@ -760,6 +906,7 @@ class ValueProfileFixture
         return array(
             array(
                 'kind' => __('Reporting'),
+                'note' => __('who reported it, and how widely'),
                 'signals' => array(
                     array(
                         'direction' => 'up',
@@ -788,6 +935,7 @@ class ValueProfileFixture
             ),
             array(
                 'kind' => __('Sightings'),
+                'note' => __('who has seen it, and how recently'),
                 'signals' => array(
                     array(
                         'direction' => 'up',
@@ -818,6 +966,7 @@ class ValueProfileFixture
             ),
             array(
                 'kind' => __('Attribution'),
+                'note' => __('what it has been linked to'),
                 'signals' => array(
                     array(
                         'direction' => 'up',
@@ -843,6 +992,7 @@ class ValueProfileFixture
             ),
             array(
                 'kind' => __('Lifecycle'),
+                'note' => __('whether it is still worth acting on'),
                 'signals' => array(
                     array(
                         'direction' => 'up',
@@ -1557,9 +1707,9 @@ class ValueProfileFixture
                 ),
             ),
             'tug' => array(
-                'malicious' => 54,
-                'benign' => 39,
-                'unresolved' => 7,
+                'malicious' => 71,
+                'benign' => 66,
+                'unresolved' => 12,
             ),
             'warninglist' => array(
                 'name' => 'List of known Cloudflare IP ranges',
@@ -1575,38 +1725,55 @@ class ValueProfileFixture
             ),
             'ledger' => self::conflictedLedger(),
             'cases' => self::conflictedCases(),
-            'unresolved' => array(
+            /*
+             * Ambiguities in the evidence itself — a split that could
+             * fall either way. Distinct from `not_counted`, which is
+             * evidence the profile deliberately set aside.
+             */
+            'ambiguities' => array(
                 array(
-                    'signal' => __(
-                        '1,847 correlations — over the threshold of 50'
+                    'title' => __(
+                        'to_ids disagreement — 5 yes / 4 no'
                     ),
-                    'evidence' => __(
-                        'An over-correlating value tells you about the'
-                        . ' hosting, not about the value'
-                    ),
-                    'source' => __('Lifecycle'),
-                    'why' => __(
-                        'Consistent with both readings, so it separates'
-                        . ' neither.'
+                    'note' => __(
+                        'The split follows the type, not the'
+                        . ' organisation: every domain|ip occurrence is'
+                        . ' yes, every bare ip-dst is no. That is'
+                        . ' agreement, expressed badly.'
                     ),
                 ),
                 array(
-                    'signal' => __('Present in 3 sync server caches'),
-                    'evidence' => __(
-                        'Propagation, not independent confirmation'
+                    'title' => __(
+                        'CIRCL both sighted it most and filed most false'
+                        . ' positives'
                     ),
-                    'source' => __('External presence'),
-                    'why' => __(
-                        'The same original reports, counted once already.'
+                    'note' => __(
+                        '26 sightings and 7 of the 9 false positives,'
+                        . ' from two different teams in the same'
+                        . ' organisation. Neither side can claim CIRCL'
+                        . ' as support.'
+                    ),
+                ),
+            ),
+            /*
+             * Set aside on purpose, and said so. A signal silently
+             * dropped looks the same as a signal nobody found.
+             */
+            'not_counted' => array(
+                array(
+                    'title' => __('1,847 correlations'),
+                    'note' => __(
+                        'Above the over-correlation threshold, so'
+                        . ' correlation is not treated as evidence here.'
+                        . ' It is itself a hint that the value is shared'
+                        . ' infrastructure.'
                     ),
                 ),
                 array(
-                    'signal' => __('84,109 SightingDB hits'),
-                    'evidence' => __('Global, unattributed volume'),
-                    'source' => __('External presence'),
-                    'why' => __(
-                        'Expected for a CDN edge whether or not it is'
-                        . ' abused.'
+                    'title' => __('Feed presence'),
+                    'note' => __(
+                        '2 feeds list it, and both ingest the same CIRCL'
+                        . ' OSINT source.'
                     ),
                 ),
             ),
@@ -1658,37 +1825,44 @@ class ValueProfileFixture
             ),
             'resolutions' => self::conflictedResolutions(),
             'opinions' => array(
-                'n' => 4,
-                'mean' => 45,
+                'n' => 7,
+                'mean' => 46,
                 'buckets' => array(
-                    array('label' => '0–10', 'count' => 1),
-                    array('label' => '11–20', 'count' => 1),
+                    array('label' => '0–10', 'count' => 0),
+                    array('label' => '11–20', 'count' => 3),
                     array('label' => '21–30', 'count' => 0),
                     array('label' => '31–40', 'count' => 0),
-                    array('label' => '41–50', 'count' => 0),
+                    array('label' => '41–50', 'count' => 1),
                     array('label' => '51–60', 'count' => 0),
-                    array('label' => '61–70', 'count' => 0),
-                    array('label' => '71–80', 'count' => 2),
-                    array('label' => '81–90', 'count' => 0),
+                    array('label' => '61–70', 'count' => 1),
+                    array('label' => '71–80', 'count' => 1),
+                    array('label' => '81–90', 'count' => 1),
                     array('label' => '91–100', 'count' => 0),
                 ),
                 'note' => __(
-                    'The mean of 45 is an artefact. Nobody holds that'
-                    . ' opinion: the distribution is bimodal, and the two'
-                    . ' clusters are the disagreement itself.'
+                    'Bimodal, not uncertain. The mean of 46 is the one'
+                    . ' number on this page that means nothing — two'
+                    . ' clusters, no middle. CthulhuSPRL.be 82 / 78'
+                    . ' against CIRCL 15 / 20 / 12.'
                 ),
             ),
             'curves' => array(
                 array(
-                    'label' => __('Case for malicious'),
-                    'colour' => 'var(--bs-danger)',
+                    'label' => __('Malicious case'),
+                    'colour' => 'var(--vp-mal)',
                     'data' => self::conflictedWeightMalicious(),
                 ),
                 array(
-                    'label' => __('Case for benign'),
-                    'colour' => 'var(--bs-success)',
+                    'label' => __('Benign case'),
+                    'colour' => 'var(--vp-ben)',
                     'data' => self::conflictedWeightBenign(),
                 ),
+            ),
+            'curves_span' => __('90 days'),
+            'curves_note' => __(
+                'The two cases crossed on 2025-07-09, when the Cloudflare'
+                . ' list was updated to cover this range. The value has'
+                . ' been conflicted for 46 days.'
             ),
         );
     }
@@ -1742,12 +1916,12 @@ class ValueProfileFixture
         return array(
             array(
                 'side' => 'malicious',
-                'title' => __('The case for malicious'),
-                'weight' => 54,
+                'title' => __('Argues malicious'),
+                'weight' => 71,
                 'rows' => array(
                     array(
                         'weight' => 'strong',
-                        'points' => 21,
+                        'points' => 24,
                         'signal' => __(
                             '3 independent organisations reported it'
                         ),
@@ -1777,8 +1951,8 @@ class ValueProfileFixture
                         'source' => __('Sightings'),
                     ),
                     array(
-                        'weight' => 'weak',
-                        'points' => 6,
+                        'weight' => 'moderate',
+                        'points' => 10,
                         'signal' => __(
                             'Above threshold under the Phishing Model'
                             . ' (66/100)'
@@ -1786,16 +1960,26 @@ class ValueProfileFixture
                         'evidence' => __('Threshold 50'),
                         'source' => __('Lifecycle'),
                     ),
+                    array(
+                        'weight' => 'weak',
+                        'points' => 8,
+                        'signal' => __(
+                            'Tagged phishing on 2 occurrences'
+                        ),
+                        'evidence' => 'phishing:distribution-mechanism'
+                            . '="hosting"',
+                        'source' => __('Context'),
+                    ),
                 ),
             ),
             array(
                 'side' => 'benign',
-                'title' => __('The case against acting on it'),
-                'weight' => 39,
+                'title' => __('Argues benign or false positive'),
+                'weight' => 66,
                 'rows' => array(
                     array(
                         'weight' => 'strong',
-                        'points' => 20,
+                        'points' => 28,
                         'signal' => __(
                             'Known-category warninglist hit'
                         ),
@@ -1806,7 +1990,7 @@ class ValueProfileFixture
                     ),
                     array(
                         'weight' => 'moderate',
-                        'points' => 11,
+                        'points' => 19,
                         'signal' => __(
                             '2,411 unrelated hostnames share this address'
                         ),
@@ -1815,7 +1999,7 @@ class ValueProfileFixture
                     ),
                     array(
                         'weight' => 'moderate',
-                        'points' => 8,
+                        'points' => 15,
                         'signal' => __(
                             '9 false-positive sightings from 2'
                             . ' organisations'
@@ -1825,7 +2009,7 @@ class ValueProfileFixture
                     ),
                     array(
                         'weight' => 'weak',
-                        'points' => 0,
+                        'points' => 4,
                         'signal' => __(
                             'Decayed under the NIDS Simple Decaying Model'
                             . ' (41/100)'
@@ -1854,6 +2038,7 @@ class ValueProfileFixture
             array(
                 'title' => __('Accept malicious'),
                 'icon' => 'fas fa-triangle-exclamation',
+                'colour' => 'var(--vp-mal)',
                 'note' => __(
                     'Treat the reports as decisive and the warninglist as'
                     . ' context.'
@@ -1867,6 +2052,7 @@ class ValueProfileFixture
             array(
                 'title' => __('Accept shared infrastructure'),
                 'icon' => 'fas fa-cloud',
+                'colour' => 'var(--vp-ben)',
                 'note' => __(
                     'Keep the intelligence, stop it firing detections.'
                 ),
@@ -1878,6 +2064,7 @@ class ValueProfileFixture
             array(
                 'title' => __('Narrow to the hostnames'),
                 'icon' => 'fas fa-scissors',
+                'colour' => 'var(--primary)',
                 'note' => __(
                     'The reuse is real; the address is only where it'
                     . ' surfaced.'
@@ -1891,6 +2078,7 @@ class ValueProfileFixture
             array(
                 'title' => __('Leave it conflicted'),
                 'icon' => 'fas fa-code-branch',
+                'colour' => 'var(--vp-conflict)',
                 'note' => __(
                     'A recorded disagreement is more useful than a'
                     . ' premature answer.'

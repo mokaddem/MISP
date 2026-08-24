@@ -19,9 +19,14 @@
  * @var int $chartHeight    Fixed, because a canvas in a flex column
  *                          with no height resizes forever
  * @var string $chartLabel  Accessible name for the canvas
+ * @var array $chartLegendSkip Dataset labels to keep off the legend,
+ *                          for a series that is scaffolding rather than
+ *                          a reading of its own — a threshold line. The
+ *                          series is still drawn and still in tooltips.
  */
 $chartHeight = $chartHeight ?? 240;
 $chartLabel = $chartLabel ?? __('Chart');
+$chartLegendSkip = $chartLegendSkip ?? array();
 ?>
 <div class="vp-chart" style="height: <?= (int)$chartHeight ?>px;">
     <canvas id="<?= h($chartId) ?>"
@@ -32,6 +37,7 @@ $chartLabel = $chartLabel ?? __('Chart');
 (function () {
     var id = <?= json_encode($chartId) ?>;
     var raw = <?= json_encode($chartConfig) ?>;
+    var legendSkip = <?= json_encode(array_values($chartLegendSkip)) ?>;
     var chart = null;
 
     /*
@@ -71,6 +77,22 @@ $chartLabel = $chartLabel ?? __('Chart');
             return false;
         }
         var config = resolveColours(JSON.parse(JSON.stringify(raw)), el);
+        /*
+         * A filter callback cannot survive JSON, so it is installed here
+         * from the label list the caller passed instead.
+         */
+        if (legendSkip.length) {
+            config.options = config.options || {};
+            config.options.plugins = config.options.plugins || {};
+            config.options.plugins.legend =
+                config.options.plugins.legend || {};
+            config.options.plugins.legend.labels =
+                config.options.plugins.legend.labels || {};
+            config.options.plugins.legend.labels.filter =
+                function (item) {
+                    return legendSkip.indexOf(item.text) === -1;
+                };
+        }
         if (chart) {
             chart.destroy();
         }

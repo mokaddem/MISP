@@ -2,17 +2,21 @@
 /**
  * The Verdict tab for a value whose signals agree.
  *
- * A glass box, not a score: the hero states the disposition and the
- * prose behind it, then the signal ledger grouped by kind, the
- * contradictions kept explicitly un-netted, the per-organisation
- * stances, the score composition, and the decay curves over time.
+ * One card, not four. The disposition, its provenance, the signals
+ * behind it and the contradictions that survived are a single argument,
+ * and separate cards made the reader reassemble it. They are bands of
+ * one card here, and the ledger is a real table so that Signal,
+ * Evidence, Contribution, Source panel and As of line up down the page.
  *
- * Every row traces back to the panel that produced it. A disposition
- * an analyst cannot take apart is worth less than no disposition at
- * all, because it cannot be argued with.
+ * Contradictions are a group inside that table rather than a card of
+ * their own: they are ledger rows whose contribution is `unresolved`,
+ * and lifting them out would imply they were netted off somewhere.
  *
- * Nothing here is stored or synchronised — the verdict is computed at
- * render, from what the viewing user is allowed to see.
+ * `Who says what` stays its own card — the same argument counted a
+ * different way, by organisation rather than by signal.
+ *
+ * The arithmetic, the trend, the exclusions and what would falsify the
+ * verdict live in the rail, from `value_verdict_aside`.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewVerdict.
@@ -21,7 +25,6 @@
  * @var string $valueB64
  */
 $verdict = $valueProfile['verdict'];
-$decay = $valueProfile['decay'];
 
 $uid = 'vp' . substr(md5($valueProfile['value'] . '-verdict'), 0, 8);
 
@@ -30,213 +33,276 @@ $noWrites = __(
     . ' the database yet.'
 );
 
-$confidenceLevels = array('none' => 0, 'low' => 1, 'medium' => 2,
-    'high' => 3);
-$confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
-
-$signalCount = 0;
-foreach ($verdict['ledger'] as $group) {
-    $signalCount += count($group['signals']);
-}
+$score = $verdict['score'];
+$conflicts = $verdict['conflicts'] ?? array();
 
 /*
- * Earned and deducted points share one scale, so the strip and the row
- * bars are read against the same ruler. Netting them into a single bar
- * first would produce one length nobody could account for.
+ * Contribution is drawn as a bar against the heaviest signal rather
+ * than printed as a number: the ledger is read for shape — which
+ * signals carry the verdict — and a column of signed integers hides
+ * that behind arithmetic.
  */
-$positive = 0;
-$negative = 0;
-foreach ($verdict['composition'] as $segment) {
-    if ($segment['points'] >= 0) {
-        $positive += $segment['points'];
-    } else {
-        $negative += abs($segment['points']);
+$heaviest = 1;
+foreach ($verdict['ledger'] as $group) {
+    foreach ($group['signals'] as $signal) {
+        $heaviest = max($heaviest, abs((int)$signal['contribution']));
     }
 }
-$span = max($positive + $negative, 1);
 ?>
 
-<?php
-/*
- * ------------------------------------------------------------------
- * 1. Hero
- * ------------------------------------------------------------------
- */
-?>
-<div class="card shadow-sm mb-3 vp-panel vp-verdict-hero"
-     style="--vp-panel-color: var(--bs-danger);">
+<div class="card shadow-sm mb-3 vp-panel vp-vc vp-vc-malicious">
 
-    <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => __('Assessment'),
-        'panelIcon' => 'fas fa-gavel',
-        'panelColor' => 'var(--bs-danger)',
-        'panelSub' => h(sprintf(
-            __('%1$s signals across %2$s kinds'),
-            $signalCount,
-            count($verdict['ledger'])
-        )),
-        'panelExtra' => '<button type="button"'
-            . ' class="btn btn-sm btn-outline-dark disabled"'
-            . ' title="' . h($noWrites) . '">'
-            . '<i class="fas fa-rotate me-1"></i>'
-            . h(__('Recompute')) . '</button>'
-            . '<button type="button"'
-            . ' class="btn btn-sm btn-outline-dark disabled"'
-            . ' title="' . h($noWrites) . '">'
-            . '<i class="fas fa-code me-1"></i>'
-            . h(__('View as JSON')) . '</button>',
-    )) ?>
+    <?php
+    /*
+     * ----------------------------------------------------------
+     * 1. Hero — the state, the score, and the reason
+     * ----------------------------------------------------------
+     */
+    ?>
+    <div class="vp-vc-hero">
+        <span class="vp-vc-badge">
+            <i class="fas fa-triangle-exclamation"></i>
+            <?= h($verdict['disposition']) ?>
+        </span>
 
-    <div class="p-3 d-flex flex-column gap-3">
-
-        <div class="vp-verdict-headline">
-            <?= $this->element('Values/View/value_disposition', array(
-                'disposition' => $verdict['disposition'],
-                'score' => null,
-                'size' => 'lg',
-            )) ?>
-            <?php if ($verdict['score'] !== null): ?>
-                <div class="vp-verdict-score">
-                    <span class="vp-verdict-score-value">
-                        <?= h($verdict['score']) ?>
+        <?php if ($score !== null): ?>
+            <div class="vp-vc-score">
+                <div class="vp-vc-score-heads">
+                    <span><?= h(sprintf(
+                        __('Confidence %s'),
+                        $verdict['confidence']
+                    )) ?></span>
+                    <span class="vp-vc-score-value">
+                        <?= h($score) ?> / 100
                     </span>
-                    <span class="vp-verdict-score-of">/ 100</span>
                 </div>
-            <?php endif; ?>
-            <div class="vp-confidence">
-                <span class="vp-confidence-label">
-                    <?= h(__('Confidence')) ?>
-                </span>
-                <span class="vp-confidence-track">
-                    <?php for ($i = 1; $i <= 3; $i++): ?>
-                        <span class="vp-confidence-seg<?=
-                            $i <= $confidence
-                                ? ' vp-confidence-seg-on'
-                                : '' ?>"></span>
-                    <?php endfor; ?>
-                </span>
-                <span class="vp-confidence-reading">
-                    <?= h($verdict['confidence']) ?>
-                </span>
+                <div class="vp-vc-score-track">
+                    <span class="vp-vc-score-fill"
+                          style="width: <?= (int)$score ?>%;"></span>
+                </div>
             </div>
-        </div>
+        <?php endif; ?>
 
-        <p class="vp-verdict-prose mb-0">
+        <p class="vp-vc-prose vp-vc-prose-wide">
             <?= h($verdict['summary']) ?>
         </p>
 
-        <?= $this->element('Values/View/value_verdict_meta', array(
-            'verdict' => $verdict,
-        )) ?>
-
+        <div class="vp-vc-hero-actions">
+            <button type="button" class="vp-vc-hero-action disabled"
+                    disabled title="<?= h($noWrites) ?>">
+                <i class="fas fa-rotate"></i>
+                <?= __('Recompute') ?>
+            </button>
+            <button type="button"
+                    class="vp-vc-hero-action vp-vc-hero-action-mono
+                           disabled"
+                    disabled title="<?= h($noWrites) ?>">
+                <?= __('view as JSON') ?>
+            </button>
+        </div>
     </div>
 
-</div>
-
-<?php
-/*
- * ------------------------------------------------------------------
- * 2. Signal ledger
- * ------------------------------------------------------------------
- * Grouped by kind rather than sorted by weight: an analyst checking
- * whether the sightings were counted twice wants them next to each
- * other, not scattered through a ranking.
- */
-?>
-<div class="card shadow-sm mb-3 vp-panel"
-     style="--vp-panel-color: var(--attribute);">
-
-    <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => __('Signal ledger'),
-        'panelIcon' => 'fas fa-list-check',
-        'panelColor' => 'var(--attribute)',
-        'panelSub' => h(__('Every row expands to its evidence')),
+    <?php
+    /*
+     * ----------------------------------------------------------
+     * 2. Provenance
+     * ----------------------------------------------------------
+     */
+    ?>
+    <?= $this->element('Values/View/value_verdict_meta', array(
+        'verdict' => $verdict,
     )) ?>
 
-    <?php if (empty($verdict['ledger'])): ?>
+    <?php
+    /*
+     * ----------------------------------------------------------
+     * 3. The ledger
+     * ----------------------------------------------------------
+     * Grouped by kind rather than sorted by weight: an analyst checking
+     * whether the sightings were counted twice wants them next to each
+     * other, not scattered through a ranking.
+     */
+    ?>
+    <?php if (empty($verdict['ledger']) && empty($conflicts)): ?>
         <div class="vp-empty">
             <i class="fas fa-list-check"></i>
             <span><?= __('No signal contributed to this verdict.') ?></span>
         </div>
     <?php else: ?>
-        <div class="vp-ledger">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 vp-ledger-table">
+                <thead>
+                    <tr>
+                        <th class="vp-ledger-dir"></th>
+                        <th><?= __('Signal') ?></th>
+                        <th><?= __('Evidence') ?></th>
+                        <th class="vp-ledger-contrib-col">
+                            <?= __('Contribution') ?>
+                        </th>
+                        <th class="vp-ledger-panel-col">
+                            <?= __('Source panel') ?>
+                        </th>
+                        <th class="vp-ledger-asof-col">
+                            <?= __('As of') ?>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
 
-            <div class="vp-ledger-head">
-                <span></span>
-                <span><?= __('Signal') ?></span>
-                <span class="text-end"><?= __('Contribution') ?></span>
-                <span><?= __('Source panel') ?></span>
-                <span><?= __('As of') ?></span>
-                <span></span>
-            </div>
-
-            <?php foreach ($verdict['ledger'] as $g => $group): ?>
-                <div class="vp-ledger-kind">
-                    <?= h($group['kind']) ?>
-                </div>
-                <?php foreach ($group['signals'] as $s => $signal):
-                    $up = $signal['direction'] === 'up';
-                    $rowId = $uid . '-sig-' . $g . '-' . $s;
-                    ?>
-                    <div class="vp-ledger-row<?= $up
-                        ? ' vp-ledger-row-up'
-                        : ' vp-ledger-row-down' ?>">
-                        <button type="button"
-                                class="vp-ledger-toggle collapsed"
-                                data-bs-toggle="collapse"
-                                data-bs-target="#<?= h($rowId) ?>"
-                                aria-expanded="false"
-                                aria-controls="<?= h($rowId) ?>">
-                            <span class="vp-signal-arrow">
-                                <i class="fas fa-caret-<?=
-                                    $up ? 'up' : 'down' ?>"></i>
-                            </span>
-                            <span class="vp-ledger-signal">
-                                <?= h($signal['signal']) ?>
-                            </span>
-                            <span class="vp-ledger-contrib">
-                                <?= h(($signal['contribution'] > 0 ? '+' : '')
-                                    . $signal['contribution']) ?>
-                            </span>
-                            <span class="vp-ledger-source">
-                                <?= h($signal['source']) ?>
-                            </span>
-                            <span class="vp-ledger-asof">
-                                <?= h($signal['as_of']) ?>
-                            </span>
-                            <i class="fas fa-chevron-down
-                                      vp-ledger-chevron"></i>
-                        </button>
-                        <div class="collapse" id="<?= h($rowId) ?>">
-                            <div class="vp-ledger-detail">
-                                <div>
-                                    <span class="vp-ledger-detail-label">
-                                        <?= __('Evidence') ?>
+                    <?php foreach ($verdict['ledger'] as $group): ?>
+                        <tr class="vp-ledger-group">
+                            <td colspan="6">
+                                <?= h($group['kind']) ?>
+                                <?php if (!empty($group['note'])): ?>
+                                    <span class="vp-ledger-group-note">
+                                        <?= h($group['note']) ?>
                                     </span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php foreach ($group['signals'] as $signal):
+                            $up = $signal['direction'] === 'up';
+                            $points = abs((int)$signal['contribution']);
+                            ?>
+                            <tr class="vp-ledger-line<?= $up
+                                ? ' vp-ledger-line-up'
+                                : ' vp-ledger-line-down' ?>">
+                                <td class="vp-ledger-dir">
+                                    <?= $up ? '&#9650;' : '&#9660;' ?>
+                                </td>
+                                <td class="vp-ledger-signal-cell">
+                                    <?= h($signal['signal']) ?>
+                                </td>
+                                <td class="vp-ledger-evidence">
                                     <?= h($signal['evidence']) ?>
-                                </div>
-                                <div>
-                                    <span class="vp-ledger-detail-label">
-                                        <?= __('Weight') ?>
-                                    </span>
-                                    <?= h($signal['weight']) ?>
-                                </div>
-                                <div>
-                                    <span class="vp-ledger-detail-label">
-                                        <?= __('Read from') ?>
-                                    </span>
-                                    <?= h(sprintf(
-                                        __('the %s panel, as of %s'),
-                                        $signal['source'],
-                                        $signal['as_of']
-                                    )) ?>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endforeach; ?>
+                                </td>
+                                <td>
+                                    <div class="vp-ledger-contrib-cell"
+                                         title="<?= h(sprintf(
+                                             __('%s points'),
+                                             $signal['contribution']
+                                         )) ?>">
+                                        <span class="vp-vc-bar">
+                                            <span class="vp-vc-bar-fill"
+                                                  style="width: <?= round(
+                                                      $points / $heaviest
+                                                      * 100,
+                                                      2
+                                                  ) ?>%;"></span>
+                                        </span>
+                                        <span class="vp-ledger-weight">
+                                            <?= h($signal['weight']) ?>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="vp-ledger-panel">
+                                    <?= h($signal['source']) ?>
+                                </td>
+                                <td class="vp-ledger-asof">
+                                    <?= h($signal['as_of']) ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
 
+                    <?php
+                    /*
+                     * Contradictions, in the same table and marked
+                     * `unresolved`. Not netted off, and not moved
+                     * somewhere that would imply they had been.
+                     */
+                    ?>
+                    <?php if (!empty($conflicts)): ?>
+                        <tr class="vp-ledger-group vp-ledger-group-conflict">
+                            <td colspan="6">
+                                <?= __('Contradictions &amp; conflicts') ?>
+                                <span class="vp-ledger-group-note">
+                                    <?= __(
+                                        'not netted off — shown as'
+                                        . ' unresolved'
+                                    ) ?>
+                                </span>
+                            </td>
+                        </tr>
+                        <?php foreach ($conflicts as $c => $conflict):
+                            $open = !empty($conflict['expanded'])
+                                && !empty($conflict['rows']);
+                            $rowId = $uid . '-conflict-' . $c;
+                            ?>
+                            <tr class="vp-ledger-conflict">
+                                <td class="vp-ledger-dir">
+                                    <?php if (!empty($conflict['rows'])): ?>
+                                        <button type="button"
+                                                class="vp-ledger-disclose<?=
+                                                    $open
+                                                        ? ''
+                                                        : ' collapsed' ?>"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#<?=
+                                                    h($rowId) ?>"
+                                                aria-expanded="<?= $open
+                                                    ? 'true'
+                                                    : 'false' ?>"
+                                                aria-controls="<?=
+                                                    h($rowId) ?>"
+                                                aria-label="<?= h(__(
+                                                    'Show the occurrences'
+                                                    . ' behind this'
+                                                )) ?>">
+                                            <i class="fas fa-chevron-down">
+                                            </i>
+                                        </button>
+                                    <?php else: ?>
+                                        <span class="vp-ledger-mark">
+                                            &#9670;
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="vp-ledger-signal-cell">
+                                    <?= h($conflict['title']) ?>
+                                </td>
+                                <td class="vp-ledger-evidence">
+                                    <?= h($conflict['evidence']
+                                        ?? $conflict['note']) ?>
+                                </td>
+                                <td>
+                                    <span class="vp-ledger-unresolved">
+                                        <?= __('unresolved') ?>
+                                    </span>
+                                </td>
+                                <td class="vp-ledger-panel">
+                                    <?= h(__('Occurrences')) ?>
+                                </td>
+                                <td class="vp-ledger-asof">
+                                    <?= h(__('now')) ?>
+                                </td>
+                            </tr>
+                            <?php if (!empty($conflict['rows'])): ?>
+                                <tr class="vp-ledger-conflict
+                                           vp-ledger-detail-row">
+                                    <td></td>
+                                    <td colspan="5">
+                                        <div class="collapse<?= $open
+                                            ? ' show'
+                                            : '' ?>"
+                                             id="<?= h($rowId) ?>">
+                                            <?= $this->element(
+                                                'Values/View'
+                                                . '/value_conflict_rows',
+                                                array(
+                                                    'conflict' => $conflict,
+                                                    'noWrites' => $noWrites,
+                                                )
+                                            ) ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+
+                </tbody>
+            </table>
         </div>
     <?php endif; ?>
 
@@ -245,57 +311,22 @@ $span = max($positive + $negative, 1);
 <?php
 /*
  * ------------------------------------------------------------------
- * 3. Contradictions and conflicts
+ * Who says what
  * ------------------------------------------------------------------
- * Shown whole rather than reduced to a net figure. A 6/4 split and a
- * unanimous 10 are different situations, and averaging them produces
- * a number that describes neither.
- */
-?>
-<?php if (!empty($verdict['conflicts'])): ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: var(--bs-warning);">
-
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('Contradictions and conflicts'),
-            'panelIcon' => 'fas fa-code-branch',
-            'panelColor' => 'var(--bs-warning)',
-            'panelSub' => h(sprintf(
-                __('%s disagreements, none netted off'),
-                count($verdict['conflicts'])
-            )),
-        )) ?>
-
-        <div class="p-3 d-flex flex-column gap-3">
-            <?php foreach ($verdict['conflicts'] as $conflict): ?>
-                <?= $this->element(
-                    'Values/View/value_conflict_block',
-                    array('conflict' => $conflict, 'noWrites' => $noWrites)
-                ) ?>
-            <?php endforeach; ?>
-        </div>
-
-    </div>
-<?php endif; ?>
-
-<?php
-/*
- * ------------------------------------------------------------------
- * 4. Who says what
- * ------------------------------------------------------------------
+ * Consensus is itself a signal, so it is shown per source.
  */
 ?>
 <?php if (!empty($verdict['orgs'])): ?>
     <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: var(--primary);">
+         style="--vp-panel-color: var(--object);">
 
         <?= $this->element('Values/View/value_panel_header', array(
             'panelTitle' => __('Who says what'),
             'panelIcon' => 'misp-icon misp-icon-organisation misp-simple',
-            'panelColor' => 'var(--primary)',
-            'panelSub' => h(sprintf(
-                __('%s organisations you can see'),
-                count($verdict['orgs'])
+            'panelColor' => 'var(--object)',
+            'panelSub' => h(__(
+                'One row per organisation — consensus is a signal, so it'
+                . ' is shown per source'
             )),
         )) ?>
 
@@ -360,234 +391,6 @@ $span = max($positive + $negative, 1);
                     <?php endforeach; ?>
                 </tbody>
             </table>
-        </div>
-
-    </div>
-<?php endif; ?>
-
-<?php
-/*
- * ------------------------------------------------------------------
- * 5. How the score was reached
- * ------------------------------------------------------------------
- */
-?>
-<?php if (!empty($verdict['composition'])): ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: var(--type);">
-
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('How the score was reached'),
-            'panelIcon' => 'fas fa-calculator',
-            'panelColor' => 'var(--type)',
-            'panelSub' => h(sprintf(
-                __('%1$s earned, %2$s deducted'),
-                $positive,
-                $negative
-            )),
-        )) ?>
-
-        <div class="p-3 d-flex flex-column gap-3">
-
-            <div class="vp-composition"
-                 title="<?= h(sprintf(
-                     __('%1$s points earned, %2$s deducted, %3$s net'),
-                     $positive,
-                     $negative,
-                     $positive - $negative
-                 )) ?>">
-                <?php foreach ($verdict['composition'] as $segment):
-                    if ($segment['points'] < 0) {
-                        continue;
-                    }
-                    ?>
-                    <span class="vp-composition-seg"
-                          style="width: <?= round(
-                              $segment['points'] / $span * 100,
-                              2
-                          ) ?>%; --vp-seg-color: <?=
-                              h($segment['colour']) ?>;"
-                          title="<?= h(sprintf(
-                              '%1$s +%2$s',
-                              $segment['label'],
-                              $segment['points']
-                          )) ?>"></span>
-                <?php endforeach; ?>
-                <?php if ($negative > 0): ?>
-                    <span class="vp-composition-cut"
-                          style="width: <?= round(
-                              $negative / $span * 100,
-                              2
-                          ) ?>%;"
-                          title="<?= h(sprintf(
-                              __('%s points deducted'),
-                              $negative
-                          )) ?>"></span>
-                <?php endif; ?>
-            </div>
-
-            <div class="d-flex flex-column gap-1">
-                <?php foreach ($verdict['composition'] as $segment):
-                    $points = (int)$segment['points'];
-                    $down = $points < 0;
-                    ?>
-                    <div class="vp-weight">
-                        <span class="vp-weight-swatch"
-                              style="--vp-seg-color: <?=
-                                  h($segment['colour']) ?>;"></span>
-                        <span class="vp-weight-label">
-                            <?= h($segment['label']) ?>
-                        </span>
-                        <span class="vp-weight-track">
-                            <span class="vp-weight-fill<?= $down
-                                ? ' vp-weight-fill-down'
-                                : '' ?>"
-                                  style="width: <?= round(
-                                      abs($points) / $span * 100,
-                                      2
-                                  ) ?>%; --vp-seg-color: <?=
-                                      h($segment['colour']) ?>;"></span>
-                        </span>
-                        <span class="vp-weight-points<?= $down
-                            ? ' vp-weight-points-down'
-                            : '' ?>">
-                            <?= h(($points > 0 ? '+' : '') . $points) ?>
-                        </span>
-                    </div>
-                <?php endforeach; ?>
-                <div class="vp-weight vp-weight-total">
-                    <span class="vp-weight-swatch
-                                 vp-weight-swatch-empty"></span>
-                    <span class="vp-weight-label">
-                        <?= __('Total') ?>
-                    </span>
-                    <span class="vp-weight-track"></span>
-                    <span class="vp-weight-points">
-                        <?= h($positive - $negative) ?>
-                    </span>
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-<?php endif; ?>
-
-<?php
-/*
- * ------------------------------------------------------------------
- * 6. Verdict over time
- * ------------------------------------------------------------------
- * The decay curves, with each model's threshold drawn as a dashed line
- * in the same colour. A score without the line it is above or below is
- * a number nobody can act on.
- */
-?>
-<?php if (!empty($decay)):
-    $buckets = count($decay[0]['curve']);
-    $labels = array();
-    for ($i = 0; $i < $buckets; $i++) {
-        $daysAgo = $buckets > 1
-            ? (int)round((($buckets - 1 - $i) * 90) / ($buckets - 1))
-            : 0;
-        $labels[] = $daysAgo === 0 ? __('today') : '-' . $daysAgo . 'd';
-    }
-
-    $palette = array('var(--correlation)', 'var(--sighting)');
-    $datasets = array();
-    foreach ($decay as $m => $model) {
-        $colour = $palette[$m % count($palette)];
-        $datasets[] = array(
-            'label' => $model['model'],
-            'data' => array_values($model['curve']),
-            'borderColor' => $colour,
-            'backgroundColor' => $colour,
-            'borderWidth' => 2,
-            'pointRadius' => 0,
-            'pointHoverRadius' => 3,
-            'tension' => 0.3,
-            'fill' => false,
-        );
-        $datasets[] = array(
-            'label' => sprintf(__('%s threshold'), $model['model']),
-            'data' => array_fill(0, $buckets, (int)$model['threshold']),
-            'borderColor' => $colour,
-            'backgroundColor' => $colour,
-            'borderWidth' => 1,
-            'borderDash' => array(4, 4),
-            'pointRadius' => 0,
-            'pointHoverRadius' => 0,
-            'fill' => false,
-        );
-    }
-
-    $chartConfig = array(
-        'type' => 'line',
-        'data' => array('labels' => $labels, 'datasets' => $datasets),
-        'options' => array(
-            'responsive' => true,
-            'maintainAspectRatio' => false,
-            'interaction' => array(
-                'mode' => 'index',
-                'intersect' => false,
-            ),
-            'scales' => array(
-                'x' => array(
-                    'grid' => array('display' => false),
-                    'ticks' => array(
-                        'color' => 'var(--bs-secondary-color)',
-                        'maxTicksLimit' => 7,
-                        'maxRotation' => 0,
-                        'autoSkip' => true,
-                        'font' => array('size' => 10),
-                    ),
-                ),
-                'y' => array(
-                    'min' => 0,
-                    'max' => 100,
-                    'grid' => array('color' => 'var(--bs-border-color)'),
-                    'ticks' => array(
-                        'color' => 'var(--bs-secondary-color)',
-                        'stepSize' => 25,
-                        'font' => array('size' => 10),
-                    ),
-                ),
-            ),
-            'plugins' => array(
-                'legend' => array(
-                    'position' => 'bottom',
-                    'labels' => array(
-                        'color' => 'var(--bs-body-color)',
-                        'boxWidth' => 14,
-                        'boxHeight' => 2,
-                        'font' => array('size' => 10),
-                    ),
-                ),
-            ),
-        ),
-    );
-    ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: var(--correlation);">
-
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('Verdict over time'),
-            'panelIcon' => 'fas fa-chart-line',
-            'panelColor' => 'var(--correlation)',
-            'panelSub' => h(__('90 days, one line per decaying model')),
-        )) ?>
-
-        <div class="p-3">
-            <?= $this->element('Values/View/value_chart', array(
-                'chartId' => $uid . '-decay',
-                'chartConfig' => $chartConfig,
-                'chartHeight' => 260,
-                'chartLabel' => __(
-                    'Decay score over the last 90 days, one line per'
-                    . ' decaying model, with each model threshold drawn'
-                    . ' as a dashed line'
-                ),
-            )) ?>
         </div>
 
     </div>

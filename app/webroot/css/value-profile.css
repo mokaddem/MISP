@@ -11,6 +11,35 @@
  */
 
 /* ==================================================================
+ * Verdict palette
+ * ------------------------------------------------------------------
+ * The three roles a verdict speaks in, named once. Two of them already
+ * exist in MISP's palette — the benign case is `--report`, the same
+ * green the artboard uses — and only the conflict amber is new, so it
+ * is declared here rather than borrowed from a Bootstrap state that
+ * means something else.
+ *
+ * `-ink` is the text tone that sits on a tint of the same hue. In dark
+ * they invert: the tint carries more of the hue and the ink lightens,
+ * because the artboards are light-only and give no guidance here.
+ * ================================================================== */
+
+:root {
+    --vp-conflict: #f39a1f;
+    --vp-conflict-ink: #8a5a04;
+    --vp-mal: var(--bs-danger);
+    --vp-mal-ink: #a71d2a;
+    --vp-ben: var(--report);
+    --vp-ben-ink: #2f6b45;
+}
+
+[data-bs-theme="dark"] {
+    --vp-conflict-ink: #f0b657;
+    --vp-mal-ink: #f1919b;
+    --vp-ben-ink: #8fd0a7;
+}
+
+/* ==================================================================
  * Banner — the value and its type chips
  * ================================================================== */
 
@@ -1075,329 +1104,6 @@ tr.vp-occ-deleted td {
 }
 
 /* ==================================================================
- * Verdict tab — hero
- * ------------------------------------------------------------------
- * The one place on the page allowed a headline number, and only
- * because it is immediately followed by everything that produced it.
- * ================================================================== */
-
-.vp-verdict-hero .vp-confidence {
-    margin-top: 0;
-    max-width: 220px;
-}
-
-/*
- * In the rail card the track fills the card; on the hero line it sits
- * between two other blocks, so it needs a floor of its own or three
- * segments collapse to a smudge.
- */
-.vp-verdict-hero .vp-confidence-track {
-    min-width: 84px;
-}
-
-.vp-verdict-headline {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-
-.vp-verdict-score {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-}
-
-.vp-verdict-score-value {
-    font-size: 2rem;
-    font-weight: 700;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-verdict-score-of {
-    font-size: 0.78rem;
-    color: var(--bs-secondary-color);
-}
-
-/*
- * A conflicted verdict states the absence of a score where the score
- * would be, rather than leaving a gap the reader has to interpret.
- */
-.vp-verdict-noscore {
-    padding: 4px 10px;
-    border: 1px dashed var(--bs-border-color);
-    border-radius: 6px;
-    font-size: 0.72rem;
-    font-style: italic;
-    color: var(--bs-secondary-color);
-}
-
-.vp-verdict-prose {
-    max-width: 76ch;
-    font-size: 0.86rem;
-    line-height: 1.55;
-}
-
-.vp-verdict-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.vp-meta-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 9px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    background: var(--bs-secondary-bg);
-    font-size: 0.68rem;
-    color: var(--bs-secondary-color);
-    white-space: nowrap;
-}
-
-.vp-meta-chip > i {
-    font-size: 0.72em;
-    opacity: 0.75;
-}
-
-/* ==================================================================
- * Verdict tab — signal ledger
- * ------------------------------------------------------------------
- * A grid rather than a table, because every row carries a disclosure
- * whose panel has to sit between two rows — which is exactly what a
- * table row cannot do.
- * ================================================================== */
-
-.vp-ledger {
-    display: flex;
-    flex-direction: column;
-}
-
-.vp-ledger-head,
-.vp-ledger-toggle {
-    display: grid;
-    grid-template-columns:
-        18px minmax(0, 1fr) 92px 132px 88px 18px;
-    align-items: center;
-    gap: 10px;
-}
-
-.vp-ledger-head {
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--bs-border-color);
-    background: var(--bs-secondary-bg);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
-.vp-ledger-kind {
-    padding: 10px 16px 4px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--vp-panel-color, var(--bs-secondary-color));
-}
-
-.vp-ledger-row {
-    border-bottom: 1px solid var(--bs-border-color);
-}
-
-.vp-ledger-row:last-child {
-    border-bottom: none;
-}
-
-.vp-ledger-toggle {
-    width: 100%;
-    padding: 8px 16px;
-    border: none;
-    border-left: 3px solid transparent;
-    background: transparent;
-    color: inherit;
-    font-size: 0.8rem;
-    text-align: left;
-}
-
-.vp-ledger-toggle:hover,
-.vp-ledger-toggle:focus-visible {
-    background: var(--bs-secondary-bg);
-}
-
-.vp-ledger-row-up .vp-ledger-toggle {
-    border-left-color: var(--bs-danger);
-}
-
-.vp-ledger-row-down .vp-ledger-toggle {
-    border-left-color: var(--bs-success);
-}
-
-.vp-ledger-row-up .vp-signal-arrow {
-    color: var(--bs-danger);
-}
-
-.vp-ledger-row-down .vp-signal-arrow {
-    color: var(--bs-success);
-}
-
-.vp-ledger-signal {
-    min-width: 0;
-}
-
-.vp-ledger-contrib {
-    text-align: right;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-ledger-row-up .vp-ledger-contrib {
-    color: var(--bs-danger);
-}
-
-.vp-ledger-row-down .vp-ledger-contrib {
-    color: var(--bs-success);
-}
-
-.vp-ledger-source,
-.vp-ledger-asof {
-    font-size: 0.72rem;
-    color: var(--bs-secondary-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.vp-ledger-chevron {
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
-    transition: transform 0.15s ease-in-out;
-}
-
-.vp-ledger-toggle.collapsed .vp-ledger-chevron {
-    transform: rotate(-90deg);
-}
-
-.vp-ledger-detail {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 4px 16px 12px 47px;
-    font-size: 0.76rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-ledger-detail-label {
-    display: inline-block;
-    min-width: 72px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-/*
- * Under a narrow viewport the two dateline columns are the first to
- * go: they are in the disclosure panel too, so nothing is lost.
- */
-@media (max-width: 991.98px) {
-    .vp-ledger-head,
-    .vp-ledger-toggle {
-        grid-template-columns: 18px minmax(0, 1fr) 72px 18px;
-    }
-
-    .vp-ledger-source,
-    .vp-ledger-asof {
-        display: none;
-    }
-}
-
-/* ==================================================================
- * Verdict tab — contradictions
- * ================================================================== */
-
-.vp-conflict-block {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-}
-
-.vp-conflict-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.vp-conflict-title {
-    font-weight: 600;
-}
-
-.vp-conflict-kind {
-    padding: 1px 7px;
-    border-radius: 4px;
-    background: var(--bs-secondary-bg);
-    font-family: var(--bs-font-monospace);
-    font-size: 0.66rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-conflict-note {
-    font-size: 0.78rem;
-    color: var(--bs-secondary-color);
-}
-
-/*
- * Two counts beside each other, never one net figure: a 6/4 split and
- * a unanimous 10 are different situations.
- */
-.vp-split {
-    display: flex;
-    height: 22px;
-    border-radius: 4px;
-    overflow: hidden;
-    font-size: 0.68rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-split-yes,
-.vp-split-no {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-}
-
-.vp-split-yes {
-    background: color-mix(in srgb, var(--bs-danger) 22%,
-        var(--bs-body-bg));
-    color: var(--bs-danger);
-}
-
-.vp-split-no {
-    background: color-mix(in srgb, var(--bs-success) 22%,
-        var(--bs-body-bg));
-    color: var(--bs-success);
-}
-
-[data-bs-theme="dark"] .vp-split-yes {
-    background: color-mix(in srgb, var(--bs-danger) 34%,
-        var(--bs-body-bg));
-}
-
-[data-bs-theme="dark"] .vp-split-no {
-    background: color-mix(in srgb, var(--bs-success) 34%,
-        var(--bs-body-bg));
-}
-
-/* ==================================================================
  * Verdict tab — who says what
  * ================================================================== */
 
@@ -1590,6 +1296,44 @@ tr.vp-occ-deleted td {
 }
 
 /* ==================================================================
+ * Rail cards
+ * ------------------------------------------------------------------
+ * A col-lg-3 card has room for a label and a number on one line, and
+ * nothing else. Anything that was a row of four columns in the main
+ * area becomes two rows here rather than four crushed ones.
+ * ================================================================== */
+
+.vp-aside .vp-weight {
+    grid-template-columns: 10px minmax(0, 1fr) 42px;
+    row-gap: 3px;
+    font-size: 0.74rem;
+}
+
+.vp-aside .vp-weight-swatch {
+    grid-row: 1;
+    grid-column: 1;
+}
+
+.vp-aside .vp-weight-label {
+    grid-row: 1;
+    grid-column: 2;
+}
+
+.vp-aside .vp-weight-points {
+    grid-row: 1;
+    grid-column: 3;
+}
+
+.vp-aside .vp-weight-track {
+    grid-row: 2;
+    grid-column: 2 / -1;
+}
+
+.vp-aside .vp-fact-line {
+    font-size: 0.74rem;
+}
+
+/* ==================================================================
  * Charts
  * ------------------------------------------------------------------
  * A canvas in a flex column with no height resizes forever, so every
@@ -1602,277 +1346,496 @@ tr.vp-occ-deleted td {
 }
 
 /* ==================================================================
- * Conflicted verdict — tug of war
+ * The conflicted argument card
  * ------------------------------------------------------------------
- * The two weights beside each other, with the signals that count for
- * neither drawn between them. Subtracting one from the other would
- * produce the single number this layout exists to avoid.
+ * One card, banded. The disposition, what it rests on, the warninglist
+ * hit, the two cases and the ambiguities between them are a single
+ * argument; separate cards made the reader reassemble it. Each band is
+ * separated by a rule rather than by a gap, so they read as chapters of
+ * one thing.
  * ================================================================== */
 
-.vp-tug {
-    display: flex;
-    height: 30px;
-    border-radius: 6px;
+.vp-vc {
+    border-color: color-mix(in srgb, var(--vp-conflict) 40%,
+        var(--bs-border-color));
     overflow: hidden;
-    font-size: 0.74rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
 }
 
-.vp-tug-mal,
-.vp-tug-ben {
+.vp-vc-hero {
     display: flex;
     align-items: center;
-    min-width: 26px;
-}
-
-.vp-tug-mal {
-    justify-content: flex-start;
-    padding-left: 10px;
-    background: color-mix(in srgb, var(--bs-danger) 24%,
-        var(--bs-body-bg));
-    color: var(--bs-danger);
-}
-
-.vp-tug-ben {
-    justify-content: flex-end;
-    padding-right: 10px;
-    background: color-mix(in srgb, var(--bs-success) 24%,
-        var(--bs-body-bg));
-    color: var(--bs-success);
-}
-
-.vp-tug-none {
-    background: color-mix(in srgb, var(--bs-secondary-color) 28%,
+    flex-wrap: wrap;
+    gap: 18px;
+    padding: 15px 18px;
+    border-bottom: 1px solid color-mix(in srgb, var(--vp-conflict) 20%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--vp-conflict) 8%,
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-tug-mal {
-    background: color-mix(in srgb, var(--bs-danger) 36%,
+[data-bs-theme="dark"] .vp-vc-hero {
+    background: color-mix(in srgb, var(--vp-conflict) 14%,
         var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-tug-ben {
-    background: color-mix(in srgb, var(--bs-success) 36%,
-        var(--bs-body-bg));
-}
-
-.vp-tug-legend {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 6px;
-    font-size: 0.68rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-tug-legend-item {
+.vp-vc-state {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 10px;
+    flex: 0 0 auto;
 }
 
-.vp-tug-legend-item::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    background: color-mix(in srgb, var(--bs-secondary-color) 28%,
-        var(--bs-body-bg));
+.vp-vc-state > i {
+    font-size: 1.45rem;
+    color: var(--vp-conflict);
 }
 
-.vp-tug-legend-mal::before {
-    background: var(--bs-danger);
+.vp-vc-state-word {
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--vp-conflict-ink);
 }
 
-.vp-tug-legend-ben::before {
-    background: var(--bs-success);
+.vp-vc-prose {
+    flex: 1 1 260px;
+    max-width: 470px;
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.6;
 }
 
 /*
- * The rule that produced the state, named and quoted. A verdict that
- * would not say which rule fired could not be argued with.
+ * The tug of war. Two weights pushing against each other with the
+ * unresolved wedge between them — striped, because it belongs to
+ * neither side and should not read as a third party's territory.
  */
-.vp-rule {
+.vp-tug-block {
+    flex: 0 1 430px;
+    min-width: 260px;
+}
+
+.vp-tug-heads,
+.vp-tug-feet {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--bs-border-color);
-    border-left: 3px solid var(--bs-warning);
-    border-radius: 6px;
-    background: var(--bs-secondary-bg);
+    justify-content: space-between;
 }
 
-.vp-rule > i {
-    margin-top: 2px;
-    color: var(--bs-warning);
-}
-
-.vp-rule-name {
-    font-size: 0.74rem;
-    font-weight: 600;
-}
-
-.vp-rule-text {
-    margin-top: 3px;
-    font-size: 0.78rem;
-    color: var(--bs-secondary-color);
-}
-
-/* ==================================================================
- * Conflicted verdict — warninglist callout
- * ================================================================== */
-
-.vp-warninglist-facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 10px;
-}
-
-.vp-warninglist-fact {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 8px 10px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 6px;
-}
-
-.vp-warninglist-fact-label {
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
-.vp-warninglist-fact-value {
-    font-size: 0.8rem;
-    overflow-wrap: anywhere;
-}
-
-/* ==================================================================
- * Conflicted verdict — the two cases
- * ------------------------------------------------------------------
- * Same width, same row shape, same type scale, so the comparison is
- * between the evidence rather than between two presentations of it.
- * ================================================================== */
-
-.vp-cases {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 12px;
-}
-
-.vp-case {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px;
-    border: 1px solid var(--bs-border-color);
-    border-top: 3px solid var(--bs-secondary-color);
-    border-radius: 8px;
-}
-
-.vp-case-malicious {
-    border-top-color: var(--bs-danger);
-}
-
-.vp-case-benign {
-    border-top-color: var(--bs-success);
-}
-
-.vp-case-head {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
-
-.vp-case-title {
-    flex: 1 1 auto;
-    font-weight: 600;
-}
-
-.vp-case-weight {
-    font-size: 1.15rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-case-malicious .vp-case-weight {
-    color: var(--bs-danger);
-}
-
-.vp-case-benign .vp-case-weight {
-    color: var(--bs-success);
-}
-
-.vp-case-row {
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: var(--bs-secondary-bg);
-}
-
-.vp-case-row-head {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-}
-
-.vp-case-signal {
-    flex: 1 1 auto;
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.vp-case-points {
-    font-size: 0.78rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-case-evidence {
-    margin-top: 2px;
-    font-size: 0.74rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-case-meta {
-    display: flex;
-    gap: 8px;
-    margin-top: 4px;
-    font-size: 0.62rem;
+.vp-tug-heads {
+    margin-bottom: 5px;
+    font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+}
+
+.vp-tug-head-mal {
+    color: var(--vp-mal);
+}
+
+.vp-tug-head-ben {
+    color: var(--vp-ben);
+}
+
+.vp-tug {
+    display: flex;
+    height: 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+}
+
+.vp-tug-mal,
+.vp-tug-none,
+.vp-tug-ben {
+    flex: 0 0 auto;
+}
+
+.vp-tug-mal {
+    background: var(--vp-mal);
+}
+
+.vp-tug-ben {
+    background: var(--vp-ben);
+}
+
+.vp-tug-none {
+    background: repeating-linear-gradient(45deg,
+        var(--vp-conflict) 0 4px,
+        color-mix(in srgb, var(--vp-conflict) 45%, var(--bs-body-bg))
+            4px 8px);
+}
+
+.vp-tug-feet {
+    margin-top: 4px;
+    font-size: 0.62rem;
     color: var(--bs-secondary-color);
 }
 
-.vp-case-source::before {
-    content: "· ";
+/* The provenance band: small print, and it reads as small print. */
+.vp-verdict-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 7px 18px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-meta-sep {
+    color: var(--bs-border-color);
+}
+
+.vp-meta-strong {
+    color: var(--bs-body-color);
+}
+
+.vp-acl-note-band {
+    margin: 0;
+    border: none;
+    border-bottom: 1px solid var(--bs-border-color);
+    border-radius: 0;
+}
+
+/*
+ * The warninglist band. Its own colour because it is the one signal on
+ * this page that is routinely read backwards.
+ */
+.vp-vc-warninglist {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 12px 18px;
+    border-bottom: 1px solid color-mix(in srgb, var(--warninglist) 30%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--warninglist) 7%,
+        var(--bs-body-bg));
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--warninglist);
+}
+
+[data-bs-theme="dark"] .vp-vc-warninglist {
+    background: color-mix(in srgb, var(--warninglist) 16%,
+        var(--bs-body-bg));
+    color: var(--bs-body-color);
+}
+
+.vp-vc-warninglist > i {
+    margin-top: 3px;
+    flex: 0 0 auto;
+}
+
+.vp-vc-warninglist-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-vc-warninglist-body code {
+    color: inherit;
+}
+
+.vp-vc-warninglist-note {
+    opacity: 0.85;
+}
+
+.vp-vc-warninglist-action {
+    flex: 0 0 auto;
+    padding: 6px 11px;
+    border: 1px solid currentColor;
+    border-radius: 5px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+}
+
+.vp-vc-warninglist-action:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    color: inherit;
+}
+
+/* The two cases, same width and same row shape. */
+.vp-vc-cases {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.vp-vc-case {
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.vp-vc-case + .vp-vc-case {
+    border-left: 1px solid var(--bs-border-color);
+}
+
+.vp-vc-case-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.vp-vc-case-malicious .vp-vc-case-head {
+    background: color-mix(in srgb, var(--vp-mal) 5%, var(--bs-body-bg));
+    color: var(--vp-mal-ink);
+}
+
+.vp-vc-case-benign .vp-vc-case-head {
+    background: color-mix(in srgb, var(--vp-ben) 5%, var(--bs-body-bg));
+    color: var(--vp-ben-ink);
+}
+
+.vp-vc-case-malicious .vp-vc-case-arrow {
+    color: var(--vp-mal);
+}
+
+.vp-vc-case-benign .vp-vc-case-arrow {
+    color: var(--vp-ben);
+}
+
+.vp-vc-case-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-vc-case-count {
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-row {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-vc-case:last-child .vp-vc-row:last-child,
+.vp-vc-case:first-child .vp-vc-row:last-child {
+    border-bottom: none;
+}
+
+.vp-vc-row-top {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.vp-vc-signal {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.vp-vc-bar {
+    flex: 0 0 70px;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    overflow: hidden;
+}
+
+.vp-vc-bar-fill {
+    display: block;
+    height: 100%;
+}
+
+.vp-vc-case-malicious .vp-vc-bar-fill {
+    background: var(--vp-mal);
+}
+
+.vp-vc-case-benign .vp-vc-bar-fill {
+    background: var(--vp-ben);
+}
+
+.vp-vc-weight {
+    flex: 0 0 56px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    text-align: right;
+}
+
+.vp-vc-case-malicious .vp-vc-weight {
+    color: var(--vp-mal);
+}
+
+.vp-vc-case-benign .vp-vc-weight {
+    color: var(--vp-ben);
+}
+
+.vp-vc-row-bottom {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    margin-top: 3px;
+}
+
+.vp-vc-evidence {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-panel {
+    flex: 0 0 auto;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.66rem;
+    color: var(--primary);
+}
+
+/* Unresolved: named, not assigned. */
+.vp-vc-unresolved {
+    border-top: 1px solid color-mix(in srgb, var(--vp-conflict) 20%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--vp-conflict) 4%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-vc-unresolved {
+    background: color-mix(in srgb, var(--vp-conflict) 9%,
+        var(--bs-body-bg));
+}
+
+.vp-vc-unresolved-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--vp-conflict) 14%,
+        var(--bs-border-color));
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--vp-conflict-ink);
+}
+
+.vp-vc-unresolved-mark {
+    color: var(--vp-conflict);
+}
+
+.vp-vc-unresolved-body {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.vp-vc-unresolved-item {
+    flex: 1 1 320px;
+    min-width: 0;
+    padding: 11px 16px;
+}
+
+.vp-vc-unresolved-item + .vp-vc-unresolved-item {
+    border-left: 1px solid color-mix(in srgb, var(--vp-conflict) 14%,
+        var(--bs-border-color));
+}
+
+.vp-vc-unresolved-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.vp-vc-unresolved-note {
+    margin-top: 3px;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--bs-secondary-color);
 }
 
 /* ==================================================================
- * Conflicted verdict — resolutions
+ * Rail card chrome
  * ------------------------------------------------------------------
- * Each card names the write it would perform, not the verdict it would
- * assert. The write is the part somebody has to own.
+ * A lighter header than `value_panel_header`'s glyph tile: at rail
+ * width the tile costs more than it earns, and these cards carry a
+ * right-aligned reading instead.
  * ================================================================== */
 
-.vp-resolutions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 12px;
+.vp-aside-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
+.vp-aside-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.vp-aside-meta {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-aside-note {
+    margin: 10px 0 0;
+    padding-top: 9px;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: var(--bs-secondary-color);
+}
+
+.vp-aside-conflict {
+    border-color: color-mix(in srgb, var(--vp-conflict) 40%,
+        var(--bs-border-color));
+}
+
+.vp-aside-conflict .vp-aside-head {
+    border-bottom-color: color-mix(in srgb, var(--vp-conflict) 20%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--vp-conflict) 8%,
+        var(--bs-body-bg));
+    color: var(--vp-conflict-ink);
+}
+
+[data-bs-theme="dark"] .vp-aside-conflict .vp-aside-head {
+    background: color-mix(in srgb, var(--vp-conflict) 14%,
+        var(--bs-body-bg));
+}
+
+/* ==================================================================
+ * Resolve it
+ * ================================================================== */
+
+.vp-resolve-intro {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * A button, not a div: it is an action that is unavailable, and the
+ * disabled attribute is what says so to a screen reader. The look is
+ * a card because that is what it will stay once it can be pressed.
+ */
 .vp-resolution {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px;
+    gap: 3px;
+    width: 100%;
+    padding: 9px 11px;
     border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
+    border-radius: 6px;
+    background: var(--bs-body-bg);
+    color: inherit;
+    text-align: left;
 }
 
 .vp-resolution-head {
@@ -1881,34 +1844,637 @@ tr.vp-occ-deleted td {
     gap: 8px;
 }
 
-.vp-resolution-head > i {
-    color: var(--vp-panel-color, var(--bs-secondary-color));
-}
-
 .vp-resolution-title {
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
 .vp-resolution-note {
-    margin: 0;
-    font-size: 0.76rem;
+    font-size: 0.7rem;
+    line-height: 1.5;
     color: var(--bs-secondary-color);
 }
 
 .vp-resolution-writes {
-    margin-top: auto;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: var(--bs-secondary-bg);
-    font-size: 0.72rem;
+    margin-top: 1px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.66rem;
+    line-height: 1.45;
+    color: var(--vp-conflict-ink);
 }
 
-.vp-resolution-writes-label {
-    display: block;
-    margin-bottom: 2px;
+/* ==================================================================
+ * Opinion histogram
+ * ------------------------------------------------------------------
+ * Ten bars and three axis marks. The reader is looking for two
+ * clusters and a hole, which is a shape rather than a plot.
+ * ================================================================== */
+
+.vp-hist {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 56px;
+}
+
+.vp-hist-bar {
+    flex: 1 1 0;
+    border-radius: 2px;
+}
+
+.vp-hist-bar-mal {
+    background: var(--vp-mal);
+}
+
+.vp-hist-bar-ben {
+    background: var(--vp-ben);
+}
+
+/*
+ * An empty band is drawn as a sliver rather than skipped: the gap in
+ * the middle is the point being made.
+ */
+.vp-hist-bar-empty {
+    background: var(--bs-border-color);
+}
+
+.vp-hist-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.62rem;
+    color: var(--bs-secondary-color);
+}
+
+/* ==================================================================
+ * Curve legend
+ * ================================================================== */
+
+.vp-curve-legend {
+    display: flex;
+    gap: 14px;
+    margin-top: 7px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-curve-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+/* ==================================================================
+ * Not counted
+ * ================================================================== */
+
+.vp-notcounted {
+    gap: 7px;
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--bs-secondary-color);
+}
+
+.vp-notcounted-item + .vp-notcounted-item {
+    padding-top: 7px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-notcounted-item > strong {
+    color: var(--bs-body-color);
+}
+
+/* ==================================================================
+ * The agreeing argument card
+ * ------------------------------------------------------------------
+ * Same banded card as the conflicted one, in the disposition's colour
+ * rather than amber, and with a ledger table where that one has two
+ * opposed columns.
+ * ================================================================== */
+
+.vp-vc-malicious {
+    border-color: color-mix(in srgb, var(--vp-mal) 21%,
+        var(--bs-border-color));
+}
+
+.vp-vc-malicious .vp-vc-hero {
+    border-bottom-color: color-mix(in srgb, var(--vp-mal) 15%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--vp-mal) 5%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-vc-malicious .vp-vc-hero {
+    background: color-mix(in srgb, var(--vp-mal) 12%, var(--bs-body-bg));
+}
+
+/*
+ * A solid chip rather than an outline pill: on the tab that exists to
+ * state a disposition, the disposition is allowed to be loud.
+ */
+.vp-vc-badge {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 15px;
+    border-radius: 7px;
+    background: var(--vp-mal);
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.vp-vc-score {
+    flex: 0 1 260px;
+    min-width: 180px;
+}
+
+.vp-vc-score-heads {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
     font-size: 0.6rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--bs-secondary-color);
+}
+
+.vp-vc-score-value {
+    font-family: var(--bs-font-monospace);
+    color: var(--vp-mal);
+}
+
+.vp-vc-score-track {
+    height: 9px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+}
+
+.vp-vc-score-fill {
+    display: block;
+    height: 100%;
+    background: var(--vp-mal);
+}
+
+.vp-vc-prose-wide {
+    max-width: 520px;
+}
+
+.vp-vc-hero-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vp-vc-hero-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    background: var(--bs-body-bg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--bs-body-color);
+}
+
+.vp-vc-hero-action-mono {
+    font-family: var(--bs-font-monospace);
+    font-weight: 400;
+}
+
+/* ==================================================================
+ * The ledger table
+ * ------------------------------------------------------------------
+ * A table, not a grid: five columns that have to line up down the
+ * page, and a contradiction row that opens a nested table of the
+ * occurrences behind it — which is exactly what a table row can do and
+ * a flex row cannot.
+ * ================================================================== */
+
+.vp-ledger-table {
+    font-size: 0.8rem;
+}
+
+.vp-ledger-table > thead > tr > th {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vp-ledger-table > tbody > tr > td {
+    padding: 8px 12px;
+    vertical-align: top;
+}
+
+.vp-ledger-dir {
+    width: 26px;
+    text-align: center;
+}
+
+.vp-ledger-contrib-col {
+    width: 150px;
+}
+
+.vp-ledger-panel-col {
+    width: 120px;
+}
+
+.vp-ledger-asof-col {
+    width: 96px;
+}
+
+/* A group heading, spanning the table rather than floating above it. */
+.vp-ledger-table > tbody > tr.vp-ledger-group > td {
+    padding: 7px 12px;
+    border-top: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-ledger-table > tbody > tr.vp-ledger-group-conflict > td {
+    color: var(--vp-conflict-ink);
+}
+
+.vp-ledger-group-note {
+    margin-left: 9px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    opacity: 0.8;
+}
+
+.vp-ledger-line-up .vp-ledger-dir {
+    color: var(--vp-mal);
+}
+
+.vp-ledger-line-down .vp-ledger-dir {
+    color: var(--vp-ben);
+}
+
+.vp-ledger-signal-cell {
+    max-width: 290px;
+    font-weight: 700;
+}
+
+.vp-ledger-evidence {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-ledger-contrib-cell {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.vp-ledger-contrib-cell .vp-vc-bar {
+    flex: 1 1 auto;
+}
+
+.vp-ledger-line-up .vp-vc-bar-fill {
+    background: var(--vp-mal);
+}
+
+.vp-ledger-line-down .vp-vc-bar-fill {
+    background: var(--vp-ben);
+}
+
+.vp-ledger-weight {
+    flex: 0 0 58px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.vp-ledger-line-up .vp-ledger-weight {
+    color: var(--vp-mal);
+}
+
+.vp-ledger-line-down .vp-ledger-weight {
+    color: var(--vp-ben);
+}
+
+.vp-ledger-panel {
+    font-size: 0.75rem;
+    color: var(--primary);
+}
+
+.vp-ledger-asof {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+/* A contradiction sits in the ledger, tinted but not removed. */
+.vp-ledger-table > tbody > tr.vp-ledger-conflict > td {
+    background: color-mix(in srgb, var(--vp-conflict) 5%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-ledger-table
+    > tbody > tr.vp-ledger-conflict > td {
+    background: color-mix(in srgb, var(--vp-conflict) 10%,
+        var(--bs-body-bg));
+}
+
+.vp-ledger-unresolved {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--vp-conflict);
+}
+
+.vp-ledger-mark {
+    color: var(--vp-conflict);
+}
+
+.vp-ledger-disclose {
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 0.7rem;
+    color: var(--vp-conflict-ink);
+    transition: transform 0.15s ease-in-out;
+}
+
+.vp-ledger-disclose.collapsed {
+    transform: rotate(-90deg);
+}
+
+.vp-ledger-table > tbody > tr.vp-ledger-detail-row > td {
+    padding: 0 12px 10px;
+}
+
+/* ==================================================================
+ * The occurrences behind a contradiction
+ * ================================================================== */
+
+.vp-conflict-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vp-conflict-table {
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--vp-conflict) 25%,
+        var(--bs-border-color));
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+    border-collapse: collapse;
+}
+
+.vp-conflict-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.74rem;
+}
+
+.vp-conflict-table tr:last-child td {
+    border-bottom: none;
+}
+
+.vp-cr-event {
+    width: 62px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+}
+
+.vp-cr-org {
+    width: 120px;
+}
+
+.vp-cr-type {
+    width: 84px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    color: var(--type);
+}
+
+.vp-cr-ids {
+    width: 70px;
+}
+
+.vp-cr-ids-badge {
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 0.64rem;
+    font-weight: 700;
+}
+
+.vp-cr-ids-yes {
+    background: color-mix(in srgb, var(--vp-mal) 16%, var(--bs-body-bg));
+    color: var(--vp-mal-ink);
+}
+
+.vp-cr-ids-no {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.vp-cr-who {
+    width: 210px;
+    color: var(--bs-secondary-color);
+}
+
+.vp-conflict-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.vp-conflict-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    background: var(--bs-body-bg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--bs-body-color);
+}
+
+/*
+ * How much the button above would touch, beside the button rather than
+ * behind a confirm dialog nobody has opened yet.
+ */
+.vp-conflict-confirm {
+    font-size: 0.7rem;
+    color: var(--vp-conflict-ink);
+}
+
+/* ==================================================================
+ * Composition legend
+ * ================================================================== */
+
+.vp-comp-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 10px;
+}
+
+.vp-comp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.vp-comp-swatch {
+    flex: 0 0 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    background: var(--vp-seg-color);
+}
+
+.vp-comp-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-comp-pts {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.vp-comp-pts-down {
+    color: var(--vp-mal);
+}
+
+.vp-comp-total {
+    margin-top: 3px;
+    padding-top: 6px;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.vp-comp-total .vp-comp-pts {
+    font-weight: 700;
+    color: var(--vp-mal);
+}
+
+.vp-comp-note {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: 5px;
+    background: var(--bs-secondary-bg);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+
+/* ==================================================================
+ * What would change this
+ * ================================================================== */
+
+.vp-changers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+
+.vp-changer {
+    display: flex;
+    gap: 9px;
+}
+
+.vp-changer-arrow {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    line-height: 1.6;
+}
+
+.vp-changer-arrow-down {
+    color: var(--vp-ben);
+}
+
+.vp-changer-arrow-up {
+    color: var(--vp-mal);
+}
+
+.vp-changer-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 3px;
+    padding-top: 9px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-changer-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    background: var(--bs-body-bg);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--bs-body-color);
+}
+
+.vp-changer-action > i {
+    color: var(--vp-action-color);
+}
+
+/*
+ * The one action that states a position rather than adding a datum
+ * wears its colour, so it is not pressed by accident.
+ */
+.vp-changer-action-strong {
+    border-color: var(--vp-action-color);
+    color: var(--vp-action-color);
+}
+
+.vp-changer-action-strong > i {
+    color: inherit;
+}
+
+/* A dashed series gets a dashed key. */
+.vp-curve-swatch {
+    background: var(--vp-curve-color);
+}
+
+.vp-curve-swatch-dashed {
+    background: repeating-linear-gradient(to right,
+        var(--vp-curve-color) 0 4px,
+        transparent 4px 7px);
 }

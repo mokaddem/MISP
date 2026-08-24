@@ -183,6 +183,15 @@ $verdictBadge = array(
     'dot' => true,
 );
 
+/*
+ * An UNKNOWN value has nothing for the Verdict rail — no score to
+ * compose, no model to decay, no warninglist hit to explain — so that
+ * tab keeps the full width rather than reserving a column for cards
+ * that would each render their own nothing. `value_verdict_aside`
+ * holds the matching decision about which cards apply.
+ */
+$hasVerdictAside = $verdict['disposition'] !== 'UNKNOWN';
+
 $tabRegistry = array(
     array(
         'id' => 'general',
@@ -205,9 +214,18 @@ $tabRegistry = array(
         'title' => __('Verdict'),
         'icon' => 'fas fa-gavel',
         'badge' => $verdictBadge,
+        /*
+         * The same 9/3 split as the Overview tab: the evidence — the
+         * ledger grid, the occurrence tables, the two opposed cases —
+         * needs the width, while the summaries and reference facts read
+         * better beside it than under it.
+         */
         'left' => array(
             $panel('viewVerdict'),
         ),
+        'right' => $hasVerdictAside
+            ? array($panel('viewVerdictAside'))
+            : null,
     ),
     array(
         'id' => 'occurrences',

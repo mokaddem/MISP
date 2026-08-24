@@ -105,6 +105,25 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Verdict tab's right rail.
+     *
+     * One endpoint for the whole rail rather than one per card, unlike
+     * the Overview rail: those cards are different questions of
+     * different models, while every card here is a reading of the same
+     * verdict computation. The element picks which cards apply.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewVerdictAside($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_verdict_aside'
+        );
+    }
+
+    /**
      * @param string $b64value
      * @return array
      */
