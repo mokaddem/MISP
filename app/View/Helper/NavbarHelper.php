@@ -12,6 +12,7 @@ class NavbarHelper extends AppHelper {
         // Data points
         'events'            => ['default' => 'datapoints', 'automation' => 'api', 'export' => 'api'],
         'attributes'        => 'datapoints',
+        'values'            => 'datapoints',
         'shadow_attributes' => 'datapoints',
         'event_delegations' => 'datapoints',
         'collections'       => 'datapoints',
@@ -162,6 +163,18 @@ class NavbarHelper extends AppHelper {
                 'controller' => 'attributes',
                 'action' => 'index',
                 'icon' => 'misp-icon misp-icon-attribute misp-simple',
+            ],
+            [
+                // Skeleton affordance: the page's subject is a value, and
+                // there is no value index to point at yet, so this links
+                // the demo value until a lookup exists.
+                'type' => 'group',
+                'label' => __('Value Profile'),
+                'url' => $baseurl . '/values/view/'
+                    . base64_encode('185.234.219.24'),
+                'controller' => 'values',
+                'action' => 'view',
+                'icon' => 'fas fa-fingerprint',
             ],
             ['divider' => true],
             [

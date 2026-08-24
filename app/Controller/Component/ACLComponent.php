@@ -1043,6 +1043,13 @@ class ACLComponent extends Component
             'setTheme' => ['*'],
             'setEventTemplateUserFormMode' => ['*']
         ),
+        // Value Profile. Read-only and aggregate-only, so any role may
+        // look; per-row ACL is enforced by the model calls behind each
+        // panel. Gated on theming so a themes-disabled instance answers
+        // 403 rather than 500 on a missing themed view.
+        'values' => array(
+            'view' => array('theming_enabled'),
+        ),
         'warninglists' => array(
             'checkValue' => ['*'],
             'delete' => ['perm_warninglist'],

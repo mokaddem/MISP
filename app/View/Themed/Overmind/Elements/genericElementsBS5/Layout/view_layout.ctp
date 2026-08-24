@@ -54,7 +54,10 @@ foreach ($tabs as $i => $tab) {
                                             echo '</div>';
                                             echo '</div>';
                                         } elseif (!empty($card['element'])) {
-                                            echo $this->element($card['element'], ['data' => $data]);
+                                            // Optional `params` lets one element serve several
+                                            // cards. Absent for every existing caller, so their
+                                            // render is unchanged.
+                                            echo $this->element($card['element'], ['data' => $data] + ($card['params'] ?? []));
                                         }
 
                                     } else {
@@ -78,7 +81,10 @@ foreach ($tabs as $i => $tab) {
                                             echo '</div>';
                                             echo '</div>';
                                         } elseif (!empty($card['element'])) {
-                                            echo $this->element($card['element'], ['data' => $data]);
+                                            // Optional `params` lets one element serve several
+                                            // cards. Absent for every existing caller, so their
+                                            // render is unchanged.
+                                            echo $this->element($card['element'], ['data' => $data] + ($card['params'] ?? []));
                                         }
 
                                     } else {

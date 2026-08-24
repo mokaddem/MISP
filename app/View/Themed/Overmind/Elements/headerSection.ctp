@@ -29,6 +29,13 @@ if (!empty($currentController)) {
     }
 }
 
+// `headerBreadcrumb` lets a page state its own crumb, for pages whose
+// controller/action pair does not name what the page is about. Plain text:
+// unlike the derived crumb, it points at no single index page.
+if (!empty($headerBreadcrumb)) {
+    $breadcrumb = h($headerBreadcrumb);
+}
+
 // `headerTitleHtml` lets a view supply pre-built, already-escaped title markup
 $title = isset($headerTitleHtml)
     ? $headerTitleHtml
