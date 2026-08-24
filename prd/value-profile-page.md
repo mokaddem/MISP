@@ -15,6 +15,10 @@ artboards: **A** the Overview tab, **B** the Verdict tab for a value that
 resolves to malicious, **C** the Verdict tab for a value that resolves to
 conflicted. The written brief behind it is `prd/attribute-value-page.md`.
 
+A fourth state, **BENIGN**, was added after the artboards. It has no artboard
+because it needs no new layout: a value everything points away from is the same
+argument as one everything points at, and it shares artboard B's template.
+
 ### 1.2 Scope of this PRD
 
 This PRD covers the **skeleton pass only**: the real page, real routing, real
@@ -60,8 +64,11 @@ app/View/Themed/Overmind/Elements/Values/View/
     value_sightings.ctp            right, Overview
     value_lifecycle.ctp            right, Overview
     value_external.ctp             right, Overview
-    value_verdict.ctp              left,  Verdict (malicious)
+    value_verdict.ctp              left,  Verdict (signals agree)
     value_verdict_conflicted.ctp   left,  Verdict (conflicted)
+    value_verdict_ledger.ctp       the signal table
+    value_verdict_orgs.ctp         Who says what, both layouts
+    value_verdict_warninglist.ctp  the warninglist band, both layouts
     value_placeholder.ctp          the seven stubbed tabs
 app/View/Themed/Overmind/Elements/genericElementsBS5/IndexTable/Fields/
     value_object_context.ctp
@@ -96,6 +103,11 @@ URLs; no `routes.php` change.
 | `viewExternal($b64value)` | ajax | `value_external` |
 | `viewVerdict($b64value)` | ajax | `value_verdict` or `value_verdict_conflicted` |
 
+`app/Lib/Tools/ValueDisposition.php` holds the one mapping from a disposition to
+its colour, glyph, modifier slug and whether it names a state at all — read by
+the tab badge, the disposition pill and the Verdict tab, each of which had grown
+its own copy.
+
 Every action decodes the value with `base64_decode($v, true)` and throws
 `NotFoundException` on invalid encoding — the same guard the existing
 `AttributesController::getAttributeByB64Value` uses. Ajax actions set
@@ -103,6 +115,7 @@ Every action decodes the value with `base64_decode($v, true)` and throws
 
 `viewVerdict` picks its template from the fixture's disposition, so the
 conflicted layout is a property of the value rather than a display mode.
+MALICIOUS and BENIGN both take `value_verdict`; only CONFLICTED branches.
 
 ### 2.3 Fixture contract
 
@@ -143,7 +156,7 @@ value, in MISP's own array shapes:
     'correlations' => ['count'=>31,'over_correlating'=>false],
     'external'     => ['feeds'=>[...],'servers'=>2,'sightingdb'=>1204],
     'verdict'      => [
-        'disposition' => 'MALICIOUS',   // or CONFLICTED / UNKNOWN
+        'disposition' => 'MALICIOUS',   // or BENIGN / CONFLICTED / UNKNOWN
         'score'       => 84,
         'confidence'  => 'high',
         'summary'     => prose,
@@ -246,7 +259,7 @@ colour dot, via the new optional `badge` key.
 - `value_external` — feeds holding the value, sync servers with a cache hit,
   SightingDB hit count.
 
-**Verdict tab, malicious** (`value_verdict`)
+**Verdict tab, signals agree** (`value_verdict`) — MALICIOUS and BENIGN
 
 1. Hero: disposition, confidence, score, prose summary, Recompute / view-as-JSON
    (disabled), "Computed at render", weighting profile name, the ACL exclusion
@@ -273,6 +286,19 @@ colour dot, via the new optional `badge` key.
 6. Resolve it — four resolution cards, each naming exactly what it would write.
 7. Opinion distribution — histogram plus the note that a bimodal mean is
    meaningless.
+
+On a BENIGN value the same bands carry the opposite argument: the disposition's
+colour and glyph come from `ValueDisposition`, the warninglist band from the
+conflicted layout appears between provenance and the ledger (a benign call
+usually rests on a listing), and `Who says what` gains a `Reads the value as`
+column wherever the fixture supplies one.
+
+The `score` is **support for the stated disposition**, not a malice reading —
+MALICIOUS 84 and BENIGN 91 both mean "well evidenced", and a ▲ ledger row is one
+that supports the verdict rather than one that argues malicious. The direction
+colours follow from that: red stays the malicious reading in both layouts, so ▲
+is red on a malicious value and green on a benign one, via `--vp-dir-with` /
+`--vp-dir-against`.
 
 **Stubs** — `value_placeholder` renders one card reading "<Tab> — not yet
 implemented", visually distinct from an empty state.
@@ -357,8 +383,9 @@ Watch, "I saw this", every bulk operation, every export target, Recompute, the
 
 ### 2.12 Unknown values
 
-`forValue()` knows `185.234.219.24` (malicious) and `104.21.34.198`
-(conflicted). Any other value renders the **full page** — banner, tab bar, all
+`forValue()` knows `185.234.219.24` (malicious), `104.21.34.198` (conflicted)
+and `8.8.8.8` (benign — Google Public DNS, hit by a `false_positive`-category
+warninglist). Any other value renders the **full page** — banner, tab bar, all
 nine tabs — with the value shown, zero counts, an `UNKNOWN` verdict and every
 panel in its own empty state. This is the majority case once the page takes live
 data, so the empty states get designed now rather than discovered later.
@@ -409,9 +436,14 @@ caller exists is premature.
 faster to render but would mean rewriting every template when the data goes
 live — the opposite of what a skeleton is for.
 
-**Two demo values rather than a display switch.** Verdict state is a property of
+**Demo values rather than a display switch.** Verdict state is a property of
 the value. Keying the fixture by value also exercises the lookup the real
 implementation needs, and avoids a debug affordance to unwind.
+
+**Two verdict layouts, not one per disposition.** The split is between signals
+that agree and signals that do not, which is a difference in shape; MALICIOUS
+and BENIGN differ only in colour, glyph and whether a warninglist band applies,
+none of which needs a second template to keep in step.
 
 **Fix `.ajax-card` rather than copy the workaround.** The declarative form is
 already emitted by shared code and already broken; making it work removes
@@ -452,7 +484,10 @@ verification is a real page load, not a lint pass:
 2. Load `/values/view/<b64 185.234.219.24>` and confirm the banner, all nine
    tabs, the seven stubs, and that every rail card resolves off its spinner.
 3. Load the conflicted value and confirm it renders artboard C's layout.
-4. Load an unknown value and confirm the sparse page.
-5. Check the nine-tab bar for wrapping at common widths — `nav-tabs` at `fs-5`
+4. Load the benign value and confirm the agreeing layout renders in green, with
+   the warninglist band, and that its ledger rows sum to the score the hero and
+   the rail's composition card both state.
+5. Load an unknown value and confirm the sparse page.
+6. Check the nine-tab bar for wrapping at common widths — `nav-tabs` at `fs-5`
    with nine items is a real risk and is reported, not silently restyled.
-6. Toggle the dark theme and confirm no hardcoded light-only colour survives.
+7. Toggle the dark theme and confirm no hardcoded light-only colour survives.

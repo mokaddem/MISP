@@ -13,12 +13,17 @@
  * @var array $valueProfile
  * @var string $noWrites Why every action here is disabled
  */
+App::uses('ValueDisposition', 'Tools');
+
 $verdict = $valueProfile['verdict'];
 $changers = $verdict['changers'] ?? array();
 $actions = $verdict['changer_actions'] ?? array();
 ?>
 <?php if (!empty($changers)): ?>
-    <div class="card shadow-sm mb-3 vp-panel vp-aside">
+    <div class="card shadow-sm mb-3 vp-panel vp-aside"
+         style="<?= h(ValueDisposition::directionStyle(
+             $verdict['disposition']
+         )) ?>">
 
         <div class="vp-aside-head">
             <i class="fas fa-arrows-turn-to-dots"

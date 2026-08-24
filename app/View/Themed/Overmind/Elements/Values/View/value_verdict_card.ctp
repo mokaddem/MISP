@@ -14,6 +14,8 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueDisposition', 'Tools');
+
 $verdict = $valueProfile['verdict'];
 
 /*
@@ -38,7 +40,10 @@ $confidenceLevels = array('none' => 0, 'low' => 1, 'medium' => 2,
 $confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
-     style="--vp-panel-color: var(--primary);">
+     style="--vp-panel-color: var(--primary);
+            <?= h(ValueDisposition::directionStyle(
+                $verdict['disposition']
+            )) ?>">
 
     <?= $this->element('Values/View/value_panel_header', array(
         'panelTitle' => __('Verdict'),

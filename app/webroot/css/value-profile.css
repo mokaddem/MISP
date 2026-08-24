@@ -31,6 +31,16 @@
     --vp-mal-ink: #a71d2a;
     --vp-ben: var(--report);
     --vp-ben-ink: #2f6b45;
+
+    /*
+     * Which way a signal points, as opposed to which hue that is. A ▲
+     * row supports the disposition the card states, so on a BENIGN
+     * value `with` is the green and `against` is the red. The default
+     * pair is the malicious reading; `ValueDisposition::directionStyle`
+     * swaps them on the cards that need it.
+     */
+    --vp-dir-with: var(--vp-mal);
+    --vp-dir-against: var(--vp-ben);
 }
 
 [data-bs-theme="dark"] {
@@ -773,11 +783,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-signal-up {
-    border-left-color: var(--bs-danger);
+    border-left-color: var(--vp-dir-with);
 }
 
 .vp-signal-down {
-    border-left-color: var(--bs-success);
+    border-left-color: var(--vp-dir-against);
 }
 
 .vp-signal-arrow {
@@ -786,11 +796,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-signal-up .vp-signal-arrow {
-    color: var(--bs-danger);
+    color: var(--vp-dir-with);
 }
 
 .vp-signal-down .vp-signal-arrow {
-    color: var(--bs-success);
+    color: var(--vp-dir-against);
 }
 
 .vp-signal-text {
@@ -1355,7 +1365,14 @@ tr.vp-occ-deleted td {
  * one thing.
  * ================================================================== */
 
+/*
+ * The card's own hue. Amber here because a conflicted card is the base
+ * case; the agreeing card overwrites it inline from the disposition, so
+ * every rule below can be written once and read against whichever hue
+ * the value earned.
+ */
 .vp-vc {
+    --vp-vc-color: var(--vp-conflict);
     border-color: color-mix(in srgb, var(--vp-conflict) 40%,
         var(--bs-border-color));
     overflow: hidden;
@@ -1953,21 +1970,29 @@ tr.vp-occ-deleted td {
  * Same banded card as the conflicted one, in the disposition's colour
  * rather than amber, and with a ledger table where that one has two
  * opposed columns.
+ *
+ * MALICIOUS and BENIGN share every rule here and differ only in
+ * `--vp-vc-color`, which the template sets from the disposition. The
+ * `.vp-vc-malicious` / `.vp-vc-benign` classes stay on the element as
+ * inspection hooks; nothing styles them, because a second set of rules
+ * per disposition is a second set to keep in step.
  * ================================================================== */
 
-.vp-vc-malicious {
-    border-color: color-mix(in srgb, var(--vp-mal) 21%,
+.vp-vc-agreeing {
+    border-color: color-mix(in srgb, var(--vp-vc-color) 21%,
         var(--bs-border-color));
 }
 
-.vp-vc-malicious .vp-vc-hero {
-    border-bottom-color: color-mix(in srgb, var(--vp-mal) 15%,
+.vp-vc-agreeing .vp-vc-hero {
+    border-bottom-color: color-mix(in srgb, var(--vp-vc-color) 15%,
         var(--bs-border-color));
-    background: color-mix(in srgb, var(--vp-mal) 5%, var(--bs-body-bg));
+    background: color-mix(in srgb, var(--vp-vc-color) 5%,
+        var(--bs-body-bg));
 }
 
-[data-bs-theme="dark"] .vp-vc-malicious .vp-vc-hero {
-    background: color-mix(in srgb, var(--vp-mal) 12%, var(--bs-body-bg));
+[data-bs-theme="dark"] .vp-vc-agreeing .vp-vc-hero {
+    background: color-mix(in srgb, var(--vp-vc-color) 12%,
+        var(--bs-body-bg));
 }
 
 /*
@@ -1981,7 +2006,7 @@ tr.vp-occ-deleted td {
     gap: 9px;
     padding: 9px 15px;
     border-radius: 7px;
-    background: var(--vp-mal);
+    background: var(--vp-vc-color);
     color: #fff;
     font-size: 1.2rem;
     font-weight: 900;
@@ -2006,7 +2031,7 @@ tr.vp-occ-deleted td {
 
 .vp-vc-score-value {
     font-family: var(--bs-font-monospace);
-    color: var(--vp-mal);
+    color: var(--vp-vc-color);
 }
 
 .vp-vc-score-track {
@@ -2020,7 +2045,7 @@ tr.vp-occ-deleted td {
 .vp-vc-score-fill {
     display: block;
     height: 100%;
-    background: var(--vp-mal);
+    background: var(--vp-vc-color);
 }
 
 .vp-vc-prose-wide {
@@ -2125,11 +2150,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-ledger-dir {
-    color: var(--vp-mal);
+    color: var(--vp-dir-with);
 }
 
 .vp-ledger-line-down .vp-ledger-dir {
-    color: var(--vp-ben);
+    color: var(--vp-dir-against);
 }
 
 .vp-ledger-signal-cell {
@@ -2153,11 +2178,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-vc-bar-fill {
-    background: var(--vp-mal);
+    background: var(--vp-dir-with);
 }
 
 .vp-ledger-line-down .vp-vc-bar-fill {
-    background: var(--vp-ben);
+    background: var(--vp-dir-against);
 }
 
 /*
@@ -2175,11 +2200,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-ledger-points {
-    color: var(--vp-mal);
+    color: var(--vp-dir-with);
 }
 
 .vp-ledger-line-down .vp-ledger-points {
-    color: var(--vp-ben);
+    color: var(--vp-dir-against);
 }
 
 .vp-ledger-weight {
@@ -2192,11 +2217,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-ledger-weight {
-    color: var(--vp-mal);
+    color: var(--vp-dir-with);
 }
 
 .vp-ledger-line-down .vp-ledger-weight {
-    color: var(--vp-ben);
+    color: var(--vp-dir-against);
 }
 
 .vp-ledger-panel {
@@ -2490,11 +2515,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-changer-arrow-down {
-    color: var(--vp-ben);
+    color: var(--vp-dir-against);
 }
 
 .vp-changer-arrow-up {
-    color: var(--vp-mal);
+    color: var(--vp-dir-with);
 }
 
 .vp-changer-actions {

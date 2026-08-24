@@ -3,24 +3,22 @@
  * The disposition pill: a coloured dot, the word, and the score when
  * there is one.
  *
- * The single place that maps a disposition to a colour, so the verdict
- * card and the Verdict tab cannot drift apart. The tab bar in
- * `Values/view.ctp` keeps its own lookup because it needs a raw colour
- * for a CSS variable rather than markup.
+ * The markup form of a disposition. The colour itself comes from
+ * `ValueDisposition`, which the tab bar and the Verdict tab read too —
+ * they each need it in a different form, and three copies of the same
+ * table is three chances for the page to contradict itself about what
+ * a value is.
  *
- * @var string $disposition MALICIOUS | CONFLICTED | UNKNOWN
+ * @var string $disposition MALICIOUS | BENIGN | CONFLICTED | UNKNOWN
  * @var int|null $score     0-100, omitted when nothing computed one
  * @var string $size        'lg' for the headline, otherwise inline
  */
+App::uses('ValueDisposition', 'Tools');
+
 $score = $score ?? null;
 $size = $size ?? '';
 
-$colours = array(
-    'MALICIOUS' => 'var(--bs-danger)',
-    'CONFLICTED' => 'var(--bs-warning)',
-    'UNKNOWN' => 'var(--bs-secondary-color)',
-);
-$colour = $colours[$disposition] ?? 'var(--bs-secondary-color)';
+$colour = ValueDisposition::colour($disposition);
 ?>
 <span class="vp-disposition<?= $size === 'lg' ? ' vp-disposition-lg' : '' ?>"
       style="--vp-disposition-color: <?= h($colour) ?>;">

@@ -6,6 +6,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueDisposition', 'Tools');
 
 /*
  * Chart.js is loaded once here rather than per fragment: several panels
@@ -169,17 +170,11 @@ $panel = function ($action) use ($baseurl, $valueB64) {
  * there is one to carry.
  */
 $verdict = $profile['verdict'];
-$verdictColors = array(
-    'MALICIOUS' => 'var(--bs-danger)',
-    'CONFLICTED' => 'var(--bs-warning)',
-    'UNKNOWN' => 'var(--bs-secondary-color)',
-);
 $verdictBadge = array(
     'label' => $verdict['score'] === null
         ? $verdict['disposition']
         : $verdict['disposition'] . ' ' . $verdict['score'],
-    'color' => $verdictColors[$verdict['disposition']]
-        ?? 'var(--bs-secondary-color)',
+    'color' => ValueDisposition::colour($verdict['disposition']),
     'dot' => true,
 );
 

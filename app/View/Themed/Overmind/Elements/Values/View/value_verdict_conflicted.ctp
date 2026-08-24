@@ -138,30 +138,9 @@ foreach ($cases as $case) {
      */
     ?>
     <?php if ($warninglist !== null): ?>
-        <div class="vp-vc-warninglist">
-            <i class="fas fa-list-check"></i>
-            <div class="vp-vc-warninglist-body">
-                <div>
-                    <strong><?= h($warninglist['name']) ?></strong>
-                    <span class="font-monospace">
-                        v<?= h($warninglist['version']) ?>
-                    </span>
-                    ·
-                    <?= h(__('category')) ?>
-                    <strong><?= h($warninglist['category']) ?></strong>
-                    ·
-                    <?= h(__('matched by CIDR')) ?>
-                    <code><?= h($warninglist['matched']) ?></code>
-                </div>
-                <div class="vp-vc-warninglist-note">
-                    <?= h($warninglist['note']) ?>
-                </div>
-            </div>
-            <a href="<?= $baseurl ?>/warninglists/index"
-               class="vp-vc-warninglist-action">
-                <?= __('View list') ?>
-            </a>
-        </div>
+        <?= $this->element('Values/View/value_verdict_warninglist', array(
+            'warninglist' => $warninglist,
+        )) ?>
     <?php endif; ?>
 
     <?php
@@ -268,84 +247,16 @@ foreach ($cases as $case) {
  * Who says what
  * ------------------------------------------------------------------
  * The disagreement is between organisations, so it is also shown per
- * organisation.
+ * organisation — and here the trailing column is the reading itself,
+ * because on this value the organisations do not disagree about what
+ * to do so much as about what the address is.
  */
 ?>
-<?php if (!empty($verdict['orgs'])): ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: var(--object);">
-
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('Who says what'),
-            'panelIcon' => 'misp-icon misp-icon-organisation misp-simple',
-            'panelColor' => 'var(--object)',
-            'panelSub' => h(__(
-                'The disagreement is between organisations, so it is'
-                . ' shown per organisation'
-            )),
-        )) ?>
-
-        <div class="table-responsive">
-            <table class="table table-sm align-middle vp-table mb-0">
-                <thead>
-                    <tr>
-                        <th><?= __('Organisation') ?></th>
-                        <th class="text-end"><?= __('Occurrences') ?></th>
-                        <th class="text-end"><?= __('Sightings') ?></th>
-                        <th class="text-end"><?= __('False positives') ?></th>
-                        <th><?= __('Opinion') ?></th>
-                        <th><?= __('Reads the value as') ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($verdict['orgs'] as $org): ?>
-                        <tr>
-                            <td class="fw-semibold"><?= h($org['org']) ?></td>
-                            <td class="text-end">
-                                <?= h($org['occurrences']) ?>
-                            </td>
-                            <td class="text-end">
-                                <?= h($org['sightings']) ?>
-                            </td>
-                            <td class="text-end<?= $org['fp'] > 0
-                                ? ' text-danger fw-semibold'
-                                : ' text-muted' ?>">
-                                <?= h($org['fp']) ?>
-                            </td>
-                            <td>
-                                <?php if ($org['opinion'] === null): ?>
-                                    <span class="text-muted">
-                                        <?= __('none stated') ?>
-                                    </span>
-                                <?php else: ?>
-                                    <span class="vp-opinion"
-                                          title="<?= h(sprintf(
-                                              __('Opinion %s of 100'),
-                                              $org['opinion']
-                                          )) ?>">
-                                        <span class="vp-opinion-track">
-                                            <span class="vp-opinion-fill"
-                                                  style="width: <?=
-                                                      (int)$org['opinion']
-                                                      ?>%;"></span>
-                                        </span>
-                                        <span class="vp-opinion-value">
-                                            <?= h($org['opinion']) ?>
-                                        </span>
-                                    </span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <span class="vp-side vp-side-<?=
-                                    h($org['side'] ?? 'none') ?>">
-                                    <?= h($org['reads']) ?>
-                                </span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-
-    </div>
-<?php endif; ?>
+<?= $this->element('Values/View/value_verdict_orgs', array(
+    'verdict' => $verdict,
+    'orgColumns' => array('reads'),
+    'orgsSub' => __(
+        'The disagreement is between organisations, so it is shown per'
+        . ' organisation'
+    ),
+)) ?>

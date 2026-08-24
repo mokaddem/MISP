@@ -20,6 +20,7 @@ class ValueProfileFixture
     const KNOWN_VALUES = array(
         '185.234.219.24' => 'MALICIOUS',
         '104.21.34.198' => 'CONFLICTED',
+        '8.8.8.8' => 'BENIGN',
     );
 
     /**
@@ -33,6 +34,9 @@ class ValueProfileFixture
         }
         if ($value === '104.21.34.198') {
             return self::conflicted();
+        }
+        if ($value === '8.8.8.8') {
+            return self::benign();
         }
         return self::unknown($value);
     }
@@ -1192,6 +1196,7 @@ class ValueProfileFixture
                     'version' => '20250714',
                     'category' => 'known',
                     'matched' => '104.21.0.0/20',
+                    'type' => 'cidr',
                 ),
             ),
             'warninglists_checked' => 84,
@@ -1723,6 +1728,7 @@ class ValueProfileFixture
                 'version' => '20250714',
                 'category' => 'known',
                 'matched' => '104.21.0.0/20',
+                'type' => 'cidr',
                 'note' => __(
                     'Category `known` means widely-used infrastructure,'
                     . ' not a false positive. The hit says an action'
@@ -2099,6 +2105,1024 @@ class ValueProfileFixture
     }
 
     /**
+     * Google Public DNS: nine occurrences across six events, every one
+     * of them describing infrastructure a sample used rather than an
+     * indicator to act on, and a `false_positive`-category warninglist
+     * hit that says so outright.
+     *
+     * The third artboard, and the one that shows the ledger reads in
+     * both directions. A value everything points away from is the same
+     * kind of argument as one everything points at — same bands, same
+     * table, same arithmetic — which is why it shares the layout rather
+     * than getting a third one.
+     *
+     * @return array
+     */
+    private static function benign()
+    {
+        return array(
+            'value' => '8.8.8.8',
+            'types' => array(
+                array('type' => 'ip-dst', 'count' => 6),
+                array('type' => 'domain|ip', 'count' => 2),
+                array('type' => 'ip-src', 'count' => 1),
+            ),
+            'value2_note' => __(
+                '2 occurrences have it as the second half of a domain|ip'
+            ),
+            'counts' => array(
+                'occurrences' => 9,
+                'sightings' => 17,
+                'relationships' => 21904,
+                'enrichment' => 3,
+                'analyst' => 5,
+            ),
+            'facts' => array(
+                array(
+                    'label' => __('First seen'),
+                    'value' => '2024-11-02',
+                    'sub' => __('10 months ago'),
+                    'tab' => 'timeline',
+                ),
+                array(
+                    'label' => __('Last seen'),
+                    'value' => '2025-08-21',
+                    'sub' => __('3 days ago'),
+                    'tab' => 'timeline',
+                ),
+                array(
+                    'label' => __('Occurrences'),
+                    'value' => '9',
+                    'sub' => __('3 types'),
+                    'tab' => 'occurrences',
+                ),
+                array(
+                    'label' => __('Events'),
+                    'value' => '6',
+                    'sub' => __('6 published'),
+                    'tab' => 'occurrences',
+                ),
+                array(
+                    'label' => __('Organisations'),
+                    'value' => '4',
+                    'sub' => __('CIRCL + 3'),
+                    'tab' => 'verdict',
+                ),
+                array(
+                    'label' => __('Sightings'),
+                    'value' => '17',
+                    'sub' => __('11 false positives'),
+                    'tab' => 'sightings',
+                ),
+            ),
+            'pivots' => array(
+                array(
+                    'label' => __('Containing CIDR'),
+                    'hint' => '8.8.8.0/24',
+                ),
+                array(
+                    'label' => __('ASN'),
+                    'hint' => 'AS15169 Google LLC',
+                ),
+                array(
+                    'label' => __('Geolocation'),
+                    'hint' => __('Mountain View, US'),
+                ),
+                array(
+                    'label' => __('Reverse DNS'),
+                    'hint' => 'dns.google',
+                ),
+                array(
+                    'label' => __('Ports seen'),
+                    'hint' => '53, 853',
+                ),
+                array(
+                    'label' => __('Passive DNS'),
+                    'hint' => __('1 hostname'),
+                ),
+            ),
+            'occurrences' => self::benignOccurrences(),
+            'occurrence_stats' => array(
+                'total' => 9,
+                'shown' => 5,
+                'hidden' => 4,
+                'events' => 6,
+                'orgs' => 4,
+                'deleted' => 1,
+            ),
+            'occurrence_acl_note' => __(
+                'Showing 5 of 9 occurrences. 4 are hidden by distribution'
+                . ' rules on events owned by other organisations.'
+            ),
+            'tags' => self::benignTags(),
+            /*
+             * Deliberately empty, and load-bearing: "nothing has ever
+             * been attributed to this address" is one of the signals in
+             * the ledger, and the Context panel has to be able to say
+             * so rather than render a gap.
+             */
+            'galaxies' => array(),
+            'analyst' => self::benignAnalystData(),
+            'sightings' => array(
+                'total' => 17,
+                'fp' => 11,
+                'expiration' => 0,
+                'spark' => self::benignSpark(),
+                'reporters' => array(
+                    array('org' => 'CIRCL', 'count' => 10),
+                    array('org' => 'CthulhuSPRL.be', 'count' => 5),
+                    array('org' => 'Botvrij.eu', 'count' => 2),
+                ),
+                'last' => __('12 days ago'),
+            ),
+            'decay' => array(
+                array(
+                    'model' => 'NIDS Simple Decaying Model',
+                    'score' => 4,
+                    'threshold' => 60,
+                    'decayed' => true,
+                    'curve' => self::benignCurveNids(),
+                ),
+                array(
+                    'model' => 'Phishing Model',
+                    'score' => 0,
+                    'threshold' => 50,
+                    'decayed' => true,
+                    'curve' => self::benignCurvePhishing(),
+                ),
+            ),
+            'warninglists' => array(
+                array(
+                    'name' => 'List of known IPv4 public DNS resolvers',
+                    'version' => '20250802',
+                    'category' => 'false_positive',
+                    'matched' => '8.8.8.8',
+                    'type' => 'string',
+                ),
+            ),
+            'warninglists_checked' => 84,
+            'correlations' => array(
+                'count' => 21904,
+                'over_correlating' => true,
+                'threshold' => 50,
+            ),
+            'external' => array(
+                'feeds' => array(),
+                'servers' => 1,
+                'sightingdb' => 0,
+            ),
+            'verdict' => self::benignVerdict(),
+        );
+    }
+
+    /**
+     * Five visible occurrences across six events: a resolver named in
+     * malware configuration and dynamic-analysis output, plus the one
+     * organisation that reported it out of an exfiltration incident and
+     * set `to_ids` on it.
+     *
+     * @return array
+     */
+    private static function benignOccurrences()
+    {
+        $clear = array(
+            'local' => 0,
+            'Tag' => array(
+                'name' => 'tlp:clear',
+                'colour' => '#FFFFFF',
+                'is_galaxy' => false,
+            ),
+        );
+        $osint = array(
+            'local' => 0,
+            'Tag' => array(
+                'name' => 'type:OSINT',
+                'colour' => '#004646',
+                'is_galaxy' => false,
+            ),
+        );
+        $falsePositive = array(
+            'local' => 0,
+            'Tag' => array(
+                'name' => 'false-positive:risk="high"',
+                'colour' => '#33FF00',
+                'is_galaxy' => false,
+            ),
+        );
+        $reviewed = array(
+            'local' => 1,
+            'Tag' => array(
+                'name' => 'workflow:state="reviewed"',
+                'colour' => '#3F51B5',
+                'is_galaxy' => false,
+            ),
+        );
+
+        return array(
+            array(
+                'Attribute' => array(
+                    'id' => 4902118,
+                    'uuid' => '7b1c2d3e-4f50-4617-a8b9-c0d1e2f30415',
+                    'event_id' => 1301,
+                    'object_id' => 0,
+                    'type' => 'ip-dst',
+                    'category' => 'Network activity',
+                    'to_ids' => 0,
+                    'distribution' => 3,
+                    'sharing_group_id' => 0,
+                    'comment' => 'Resolver the sample used, not an'
+                        . ' indicator',
+                    'first_seen' => '2025-08-14T07:22:00+00:00',
+                    'last_seen' => '2025-08-21T18:40:00+00:00',
+                    'timestamp' => 1755801600,
+                    'deleted' => 0,
+                    'object_relation' => null,
+                ),
+                'Event' => array(
+                    'id' => 1301,
+                    'info' => 'Emotet malspam campaign - full IOC set',
+                    'published' => 1,
+                    'orgc_id' => 1,
+                    'user_id' => 3,
+                    'Orgc' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                'Object' => array('id' => null, 'name' => null),
+                'SharingGroup' => array('id' => null, 'name' => null),
+                'AttributeTag' => array(
+                    $clear, $osint, $falsePositive, $reviewed,
+                ),
+            ),
+            array(
+                'Attribute' => array(
+                    'id' => 4899043,
+                    'uuid' => '8c2d3e4f-5061-4728-b9ca-d1e2f3041526',
+                    'event_id' => 1298,
+                    'object_id' => 90886,
+                    'type' => 'domain|ip',
+                    'category' => 'Network activity',
+                    'to_ids' => 0,
+                    'distribution' => 3,
+                    'sharing_group_id' => 0,
+                    'comment' => 'DNS server in the malware configuration',
+                    'first_seen' => '2025-07-30T11:05:00+00:00',
+                    'last_seen' => '2025-07-30T11:05:00+00:00',
+                    'timestamp' => 1753873500,
+                    'deleted' => 0,
+                    'object_relation' => 'ip',
+                ),
+                'Event' => array(
+                    'id' => 1298,
+                    'info' => 'AsyncRAT sample analysis - config dump',
+                    'published' => 1,
+                    'orgc_id' => 2,
+                    'user_id' => 8,
+                    'Orgc' => array('id' => 2, 'name' => 'CthulhuSPRL.be'),
+                ),
+                'Object' => array(
+                    'id' => 90886,
+                    'name' => 'network-connection',
+                ),
+                'SharingGroup' => array('id' => null, 'name' => null),
+                'AttributeTag' => array($clear, $falsePositive),
+            ),
+            array(
+                'Attribute' => array(
+                    'id' => 4884560,
+                    'uuid' => '9d3e4f50-6172-4839-cadb-e2f304152637',
+                    'event_id' => 1288,
+                    'object_id' => 0,
+                    'type' => 'ip-src',
+                    'category' => 'Network activity',
+                    'to_ids' => 0,
+                    'distribution' => 2,
+                    'sharing_group_id' => 0,
+                    'comment' => 'Queries seen towards this resolver during'
+                        . ' the tunnelling attempt',
+                    'first_seen' => '2025-06-11T02:47:00+00:00',
+                    'last_seen' => '2025-06-11T05:19:00+00:00',
+                    'timestamp' => 1749614340,
+                    'deleted' => 0,
+                    'object_relation' => null,
+                ),
+                'Event' => array(
+                    'id' => 1288,
+                    'info' => 'DNS tunnelling attempt against a member',
+                    'published' => 1,
+                    'orgc_id' => 3,
+                    'user_id' => 5,
+                    'Orgc' => array('id' => 3, 'name' => 'Team-CIRCL'),
+                ),
+                'Object' => array('id' => null, 'name' => null),
+                'SharingGroup' => array('id' => null, 'name' => null),
+                'AttributeTag' => array($clear),
+            ),
+            /*
+             * The occurrence the verdict argues with. Kept in the visible
+             * five on purpose: a page that states a contradiction and
+             * then hides the row behind it is asking to be believed.
+             */
+            array(
+                'Attribute' => array(
+                    'id' => 4871209,
+                    'uuid' => 'ae4f5061-7283-494a-dbec-f30415263748',
+                    'event_id' => 1276,
+                    'object_id' => 0,
+                    'type' => 'ip-dst',
+                    'category' => 'Network activity',
+                    'to_ids' => 1,
+                    'distribution' => 1,
+                    'sharing_group_id' => 0,
+                    'comment' => 'Blocked at the perimeter after the alert',
+                    'first_seen' => '2025-04-18T13:31:00+00:00',
+                    'last_seen' => '2025-04-18T13:31:00+00:00',
+                    'timestamp' => 1745069460,
+                    'deleted' => 0,
+                    'object_relation' => null,
+                ),
+                'Event' => array(
+                    'id' => 1276,
+                    'info' => 'Exfiltration over DNS - incident 2025-0442',
+                    'published' => 1,
+                    'orgc_id' => 4,
+                    'user_id' => 11,
+                    'Orgc' => array('id' => 4, 'name' => 'ORGNAME'),
+                ),
+                'Object' => array('id' => null, 'name' => null),
+                'SharingGroup' => array('id' => null, 'name' => null),
+                'AttributeTag' => array($clear),
+            ),
+            array(
+                'Attribute' => array(
+                    'id' => 4855731,
+                    'uuid' => 'bf506172-8394-4a5b-ecfd-041526374859',
+                    'event_id' => 1259,
+                    'object_id' => 0,
+                    'type' => 'ip-dst',
+                    'category' => 'Network activity',
+                    'to_ids' => 0,
+                    'distribution' => 3,
+                    'sharing_group_id' => 0,
+                    'comment' => 'Withdrawn - imported in error from the'
+                        . ' feed, kept for provenance',
+                    'first_seen' => '2024-11-02T09:00:00+00:00',
+                    'last_seen' => '2024-11-02T09:00:00+00:00',
+                    'timestamp' => 1730538000,
+                    'deleted' => 1,
+                    'object_relation' => null,
+                ),
+                'Event' => array(
+                    'id' => 1259,
+                    'info' => 'Botvrij.eu feed import 2024-11-02',
+                    'published' => 1,
+                    'orgc_id' => 5,
+                    'user_id' => 14,
+                    'Orgc' => array('id' => 5, 'name' => 'Botvrij.eu'),
+                ),
+                'Object' => array('id' => null, 'name' => null),
+                'SharingGroup' => array('id' => null, 'name' => null),
+                'AttributeTag' => array($clear, $osint),
+            ),
+        );
+    }
+
+    /**
+     * The taxonomies on a value nobody wants to act on: TLP wide open,
+     * an explicit `false-positive` rating, and a review that has already
+     * happened.
+     *
+     * @return array
+     */
+    private static function benignTags()
+    {
+        return array(
+            array(
+                'taxonomy' => 'tlp',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'tlp:clear',
+                        'colour' => '#FFFFFF',
+                        'count' => 9,
+                        'local' => false,
+                        'orgs' => array(
+                            'CIRCL', 'CthulhuSPRL.be', 'Team-CIRCL',
+                            'ORGNAME', 'Botvrij.eu',
+                        ),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'false-positive',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'false-positive:risk="high"',
+                        'colour' => '#33FF00',
+                        'count' => 3,
+                        'local' => false,
+                        'orgs' => array('CIRCL', 'CthulhuSPRL.be'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'admiralty-scale',
+                'conflict' => false,
+                'scale' => array(
+                    'label' => __('Source reliability'),
+                    'position' => 2,
+                    'of' => 6,
+                    'reading' => __('B — usually reliable'),
+                ),
+                'tags' => array(
+                    array(
+                        'name' => 'admiralty-scale:source-reliability="b"',
+                        'colour' => '#00B050',
+                        'count' => 2,
+                        'local' => false,
+                        'orgs' => array('CIRCL'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'type',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'type:OSINT',
+                        'colour' => '#004646',
+                        'count' => 4,
+                        'local' => false,
+                        'orgs' => array('CIRCL', 'Botvrij.eu'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'workflow',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'workflow:state="reviewed"',
+                        'colour' => '#3F51B5',
+                        'count' => 2,
+                        'local' => true,
+                        'orgs' => array('CIRCL'),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The notes and opinions on a value the analysts have already argued
+     * about — which is why the opinion split is one of the
+     * contradictions the verdict carries rather than something the page
+     * averages away.
+     *
+     * @return array
+     */
+    private static function benignAnalystData()
+    {
+        return array(
+            'total' => 5,
+            'notes' => 2,
+            'opinions' => 3,
+            'Note' => array(
+                array(
+                    'uuid' => 'c0d1e2f3-0415-4263-9748-59a6b7c8d9e0',
+                    'note' => 'This is Google Public DNS. It turns up in'
+                        . ' almost every dynamic-analysis run because the'
+                        . ' sample resolves through it. Worth keeping for'
+                        . ' context, not worth blocking.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-21 09:12:33',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'd1e2f304-1526-4374-8859-a6b7c8d9e0f1',
+                    'note' => 'Off our blocklist after the 2025-0442'
+                        . ' review. The alert was the exfiltration'
+                        . ' traffic, not the resolver carrying it. The'
+                        . ' attribute stays as it is until the incident'
+                        . ' report is closed.',
+                    'authors' => 'dave@orgname.example',
+                    'created' => '2025-08-04 16:48:20',
+                    'distribution' => 3,
+                    'Org' => array('id' => 4, 'name' => 'ORGNAME'),
+                ),
+            ),
+            'Opinion' => array(
+                array(
+                    'uuid' => 'e2f30415-2637-4859-a6b7-c8d9e0f10213',
+                    'opinion' => 8,
+                    'comment' => 'Context only. We would object to this'
+                        . ' being distributed with to_ids set.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-21 09:15:02',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'f3041526-3748-4960-b7c8-d9e0f1021324',
+                    'opinion' => 15,
+                    'comment' => 'Agreed. It is in the config because'
+                        . ' every config has a resolver in it.',
+                    'authors' => 'bob@cthulhu.example',
+                    'created' => '2025-08-19 10:33:41',
+                    'distribution' => 3,
+                    'Org' => array('id' => 2, 'name' => 'CthulhuSPRL.be'),
+                ),
+                array(
+                    'uuid' => '04152637-4859-4a71-c8d9-e0f102132435',
+                    'opinion' => 70,
+                    'comment' => 'It carried the exfiltrated data out of'
+                        . ' our network. I take the point about shared'
+                        . ' infrastructure and I still want it flagged.',
+                    'authors' => 'carol@orgname.example',
+                    'created' => '2025-08-05 08:27:55',
+                    'distribution' => 3,
+                    'Org' => array('id' => 4, 'name' => 'ORGNAME'),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The verdict that resolves away from malicious.
+     *
+     * Carries exactly the keys the malicious verdict does, plus the
+     * `warninglist` the conflicted one uses — a benign call almost
+     * always rests on a listing, and the band that explains what the
+     * category does and does not claim is the same band either way.
+     *
+     * The score is support for the disposition, not a malice reading:
+     * 91 says the benign call is well evidenced. That is the same axis
+     * the malicious verdict's 84 is on, which is what makes the two
+     * comparable at a glance.
+     *
+     * @return array
+     */
+    private static function benignVerdict()
+    {
+        return array(
+            'disposition' => 'BENIGN',
+            'score' => 91,
+            'confidence' => 'high',
+            'summary' => __(
+                'Every organisation that reported this address reported'
+                . ' it as infrastructure a sample used rather than as an'
+                . ' indicator to act on. It is Google Public DNS, it sits'
+                . ' on a false_positive-category warninglist, and eleven'
+                . ' of the seventeen sightings are false positives. One'
+                . ' organisation still sets to_ids on its occurrence'
+                . ' after an exfiltration incident — a defensible reading'
+                . ' of that incident, and not a reading of the address.'
+            ),
+            'profile' => 'default-v3',
+            'computed_at' => null,
+            'acl_note' => __(
+                '4 occurrences you cannot see were excluded from this'
+                . ' assessment.'
+            ),
+            'warninglist' => array(
+                'name' => 'List of known IPv4 public DNS resolvers',
+                'version' => '20250802',
+                'category' => 'false_positive',
+                'matched' => '8.8.8.8',
+                'type' => 'string',
+                'note' => __(
+                    'Category `false_positive` means reports about this'
+                    . ' value are usually collateral — the sample really'
+                    . ' did resolve through this address, and the address'
+                    . ' is still not the indicator. It does not say the'
+                    . ' reporting organisations were wrong about their'
+                    . ' incidents.'
+                ),
+            ),
+            'ledger' => self::benignLedger(),
+            'conflicts' => array(
+                array(
+                    'kind' => 'to_ids',
+                    'title' => __('to_ids disagreement: 1 yes / 8 no'),
+                    'note' => __(
+                        'Not netted off. ORGNAME set it during an'
+                        . ' exfiltration incident and has not cleared it,'
+                        . ' which is a judgement about the incident'
+                        . ' rather than about the address.'
+                    ),
+                    'yes' => 1,
+                    'no' => 8,
+                    'evidence' => __(
+                        '1 occurrence sets yes, 8 set no, across 4'
+                        . ' organisations'
+                    ),
+                    'expanded' => true,
+                    'rows' => array(
+                        array(
+                            'event_id' => 1276,
+                            'event_info' => 'Exfiltration over DNS -'
+                                . ' incident 2025-0442',
+                            'org' => 'ORGNAME',
+                            'type' => 'ip-dst',
+                            'to_ids' => 1,
+                            'category' => 'Network activity',
+                            'comment' => 'Blocked at the perimeter after'
+                                . ' the alert',
+                        ),
+                        array(
+                            'event_id' => 1301,
+                            'event_info' => 'Emotet malspam campaign -'
+                                . ' full IOC set',
+                            'org' => 'CIRCL',
+                            'type' => 'ip-dst',
+                            'to_ids' => 0,
+                            'category' => 'Network activity',
+                            'comment' => 'Resolver the sample used, not an'
+                                . ' indicator',
+                        ),
+                        array(
+                            'event_id' => 1298,
+                            'event_info' => 'AsyncRAT sample analysis -'
+                                . ' config dump',
+                            'org' => 'CthulhuSPRL.be',
+                            'type' => 'domain|ip',
+                            'to_ids' => 0,
+                            'category' => 'Network activity',
+                            'comment' => 'DNS server in the malware'
+                                . ' configuration',
+                        ),
+                    ),
+                    'actions' => array(
+                        array(
+                            'label' => __('Clear to_ids on the 1 …'),
+                            'icon' => 'fas fa-code-compare',
+                            'colour' => 'var(--vp-conflict)',
+                        ),
+                        array(
+                            'label' => __('Propose change to ORGNAME'),
+                            'icon' => 'fas fa-code-pull-request',
+                            'colour' => 'var(--correlation)',
+                        ),
+                    ),
+                    'confirm_note' => __(
+                        'Both actions confirm first, listing 1 row in 1'
+                        . ' event owned by another organisation.'
+                    ),
+                ),
+                array(
+                    'kind' => 'opinion',
+                    'title' => __('Opinion split: 70 against 8 and 15'),
+                    'note' => __(
+                        'Two clusters and no middle. The mean of 31 is'
+                        . ' the one number here that describes nobody, so'
+                        . ' the profile does not compute one.'
+                    ),
+                    'yes' => 1,
+                    'no' => 2,
+                    'evidence' => __(
+                        '3 opinions across 4 organisations; the fourth'
+                        . ' states none'
+                    ),
+                    'expanded' => false,
+                    'rows' => array(),
+                    'actions' => array(),
+                    'confirm_note' => null,
+                ),
+            ),
+            'orgs' => array(
+                array(
+                    'org' => 'CIRCL',
+                    'occurrences' => 4,
+                    'sightings' => 10,
+                    'fp' => 7,
+                    'opinion' => 8,
+                    'to_ids' => __('no'),
+                    'reliability' => 'B',
+                    'reads' => __('Public resolver, context only'),
+                    'side' => 'benign',
+                ),
+                array(
+                    'org' => 'CthulhuSPRL.be',
+                    'occurrences' => 3,
+                    'sightings' => 5,
+                    'fp' => 3,
+                    'opinion' => 15,
+                    'to_ids' => __('no'),
+                    'reliability' => 'B',
+                    'reads' => __('In the config, not an indicator'),
+                    'side' => 'benign',
+                ),
+                array(
+                    'org' => 'Botvrij.eu',
+                    'occurrences' => 1,
+                    'sightings' => 2,
+                    'fp' => 1,
+                    'opinion' => null,
+                    'to_ids' => __('no'),
+                    'reliability' => 'C',
+                    'reads' => __('Withdrawn from the feed'),
+                    'side' => 'benign',
+                ),
+                array(
+                    'org' => 'ORGNAME',
+                    'occurrences' => 1,
+                    'sightings' => 0,
+                    'fp' => 0,
+                    'opinion' => 70,
+                    'to_ids' => __('yes'),
+                    'reliability' => 'D',
+                    'reads' => __('Carried exfiltrated data — keep it'
+                        . ' flagged'),
+                    'side' => 'malicious',
+                ),
+            ),
+            /*
+             * Reconciles with the ledger: the six supporting rows sum to
+             * 106, the two against to -15, and the total to the 91 the
+             * hero states. `Decay` and `Known-good listing` are split
+             * apart even though both come from the Lifecycle panel,
+             * because a reader tracing 38 should land on one row rather
+             * than on a pair that has to be pulled apart first.
+             */
+            'composition' => array(
+                array(
+                    'label' => __('Known-good listing'),
+                    'points' => 38,
+                    'colour' => 'var(--warninglist)',
+                ),
+                array(
+                    'label' => __('False-positive sightings'),
+                    'points' => 26,
+                    'colour' => 'var(--sighting)',
+                ),
+                array(
+                    'label' => __('Decay'),
+                    'points' => 16,
+                    'colour' => 'var(--correlation)',
+                ),
+                array(
+                    'label' => __('Reporting intent'),
+                    'points' => 13,
+                    'colour' => 'var(--event)',
+                ),
+                array(
+                    'label' => __('Absence of corroboration'),
+                    'points' => 13,
+                    'colour' => 'var(--galaxy)',
+                ),
+                array(
+                    'label' => __('Signals against'),
+                    'points' => -15,
+                    'colour' => 'var(--bs-danger)',
+                ),
+            ),
+            'composition_note' => __(
+                'The number is support for BENIGN, not a malice reading:'
+                . ' 91 says the benign call is well evidenced, on the'
+                . ' same scale the malicious verdict\'s 84 sits on.'
+            ),
+            'curves' => array(
+                array(
+                    'label' => __('Synthesised verdict'),
+                    'colour' => 'var(--vp-ben)',
+                    'data' => self::benignVerdictCurve(),
+                ),
+                array(
+                    'label' => __('NIDS decay score'),
+                    'colour' => 'var(--vp-conflict)',
+                    'dashed' => true,
+                    'data' => self::benignCurveNids(),
+                ),
+            ),
+            'curves_span' => __('90 days'),
+            'curves_note' => __(
+                'The step on 2025-06-24 is the address being added to the'
+                . ' public-resolver warninglist. Before that the page'
+                . ' called it SUSPICIOUS on the strength of the same four'
+                . ' reports — the evidence did not change, the profile\'s'
+                . ' knowledge of it did.'
+            ),
+            'not_counted' => array(
+                array(
+                    'title' => __('4 occurrences'),
+                    'note' => __(
+                        'Outside your ACL — excluded, not hidden. The'
+                        . ' score you see is the score for your'
+                        . ' permissions.'
+                    ),
+                ),
+                array(
+                    'title' => __('21,904 correlations'),
+                    'note' => __(
+                        'Far above the over-correlation threshold, so'
+                        . ' correlation is not treated as evidence here.'
+                        . ' It is itself a hint that the value is shared'
+                        . ' infrastructure.'
+                    ),
+                ),
+                array(
+                    'title' => __('The reverse DNS record'),
+                    'note' => __(
+                        '`dns.google` corroborates and the profile still'
+                        . ' ignores it: a PTR record is attacker-'
+                        . 'controlled for most values, and a rule that'
+                        . ' only holds where it happens to be trustworthy'
+                        . ' is not a rule.'
+                    ),
+                ),
+            ),
+            /*
+             * The falsification list matters more here than anywhere
+             * else on the page. A benign verdict is the one that tells a
+             * reader to stop looking, so it owes them the conditions
+             * under which they should start again.
+             */
+            'changers' => array(
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'A sighting burst — 3 or more from 2+ orgs inside'
+                        . ' 7 days → SUSPICIOUS, whatever the listing'
+                        . ' says.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'Removal from the false_positive warninglist →'
+                        . ' back to scoring on the reports alone, which'
+                        . ' currently stand at 15.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'A threat-actor galaxy on any occurrence →'
+                        . ' CONFLICTED, the way a known-category hit does'
+                        . ' on a reported value.'
+                    ),
+                ),
+            ),
+            'changer_actions' => array(
+                array(
+                    'label' => __('Report a sighting'),
+                    'icon' => 'fas fa-eye',
+                    'colour' => 'var(--vp-ben)',
+                    'emphasis' => true,
+                ),
+                array(
+                    'label' => __('Record an opinion'),
+                    'icon' => 'fas fa-scale-balanced',
+                    'colour' => 'var(--analystData)',
+                ),
+                array(
+                    'label' => __('Notify me if the verdict changes'),
+                    'icon' => 'fas fa-bell',
+                    'colour' => 'var(--correlation)',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The same four groups the malicious ledger uses, read the other
+     * way: ▲ is a row that supports the stated disposition, so on this
+     * value the heavy rows are the ones arguing nobody should act.
+     *
+     * The two rows against are real and stay in — a benign verdict that
+     * hid the reporting breadth behind it would be making the reader's
+     * decision for them.
+     *
+     * @return array
+     */
+    private static function benignLedger()
+    {
+        return array(
+            array(
+                'kind' => __('Reporting'),
+                'note' => __('who reported it, and how widely'),
+                'signals' => array(
+                    array(
+                        'direction' => 'down',
+                        'weight' => 'moderate',
+                        'contribution' => -11,
+                        'signal' => __(
+                            '4 organisations carry an occurrence of it'
+                        ),
+                        'evidence' => __(
+                            'Breadth argues for any value, and it argues'
+                            . ' for this one too'
+                        ),
+                        'source' => __('Occurrences'),
+                        'as_of' => '2025-08-21',
+                    ),
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'moderate',
+                        'contribution' => 13,
+                        'signal' => __('8 of 9 occurrences set to_ids = no'),
+                        'evidence' => __(
+                            'The reporting organisations did not intend'
+                            . ' it to fire a rule'
+                        ),
+                        'source' => __('Occurrences'),
+                        'as_of' => '2025-08-21',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Sightings'),
+                'note' => __('who has seen it, and how recently'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'strong',
+                        'contribution' => 26,
+                        'signal' => __(
+                            '11 false-positive sightings from 3 orgs'
+                        ),
+                        'evidence' => __(
+                            'First 2024-11-02, most recent 2025-08-14'
+                        ),
+                        'source' => __('Sightings'),
+                        'as_of' => '2025-08-14',
+                    ),
+                    array(
+                        'direction' => 'down',
+                        'weight' => 'weak',
+                        'contribution' => -4,
+                        'signal' => __(
+                            '6 ordinary sightings, last 12 days ago'
+                        ),
+                        'evidence' => __(
+                            'No burst: 1 sighting in the last 30 days'
+                        ),
+                        'source' => __('Sightings'),
+                        'as_of' => '2025-08-12',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Attribution'),
+                'note' => __('what it has been linked to'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'weak',
+                        'contribution' => 7,
+                        'signal' => __(
+                            'No galaxy and no technique on any occurrence'
+                        ),
+                        'evidence' => __('9 occurrences, 0 clusters'),
+                        'source' => __('Context'),
+                        'as_of' => '2025-08-21',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Lifecycle'),
+                'note' => __('whether it is still worth acting on'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'strong',
+                        'contribution' => 38,
+                        'signal' => __(
+                            'Hits List of known IPv4 public DNS resolvers'
+                        ),
+                        'evidence' => __(
+                            'category false_positive · exact match ·'
+                            . ' list version 20250802'
+                        ),
+                        'source' => __('Lifecycle'),
+                        'as_of' => '2025-08-24',
+                    ),
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'moderate',
+                        'contribution' => 16,
+                        'signal' => __(
+                            'Decayed under both models (4/100 and 0/100)'
+                        ),
+                        'evidence' => __('Thresholds 60 and 50'),
+                        'source' => __('Lifecycle'),
+                        'as_of' => '2025-08-24',
+                    ),
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'weak',
+                        'contribution' => 6,
+                        'signal' => __('Listed by no enabled feed'),
+                        'evidence' => __('0 of 41 feeds carry it'),
+                        'source' => __('External'),
+                        'as_of' => '2025-08-24',
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
      * 90 days of sightings, bucketed into 40 columns.
      *
      * @return array
@@ -2216,6 +3240,70 @@ class ValueProfileFixture
             16, 17, 18, 19, 20, 21, 22, 31, 32, 33,
             34, 35, 36, 36, 37, 38, 38, 39, 39, 40,
             40, 41, 41, 41, 40, 40, 39, 39, 39, 39,
+        );
+    }
+
+    /**
+     * A resolver is sighted rarely and unevenly — it is nobody's
+     * hunting target, so what shows up is incidental.
+     *
+     * @return array
+     */
+    private static function benignSpark()
+    {
+        return array(
+            0, 0, 1, 0, 0, 0, 2, 0, 0, 0,
+            1, 0, 0, 0, 0, 3, 0, 0, 0, 1,
+            0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+            1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+        );
+    }
+
+    /**
+     * Support for the benign reading. Flat and unremarkable until
+     * 2025-06-24, when the address was added to the public-resolver
+     * warninglist and the profile learned in one step what the analysts
+     * had been saying in the notes for months.
+     *
+     * @return array
+     */
+    private static function benignVerdictCurve()
+    {
+        return array(
+            44, 45, 44, 46, 45, 47, 46, 48, 47, 49,
+            48, 50, 49, 82, 83, 84, 83, 85, 84, 86,
+            85, 86, 87, 86, 88, 87, 88, 89, 88, 89,
+            90, 89, 90, 91, 90, 91, 90, 91, 91, 91,
+        );
+    }
+
+    /**
+     * Nothing bumps it back up, so it decays the whole way and stays
+     * under the threshold — the shape the malicious curve only ever
+     * threatens to take.
+     *
+     * @return array
+     */
+    private static function benignCurveNids()
+    {
+        return array(
+            41, 39, 37, 35, 33, 31, 29, 34, 32, 30,
+            28, 26, 24, 22, 20, 19, 17, 16, 15, 14,
+            13, 12, 11, 10, 10, 9, 9, 8, 8, 7,
+            7, 6, 6, 6, 5, 5, 5, 4, 4, 4,
+        );
+    }
+
+    /**
+     * @return array
+     */
+    private static function benignCurvePhishing()
+    {
+        return array(
+            28, 26, 24, 22, 20, 18, 17, 21, 19, 17,
+            15, 14, 12, 11, 10, 9, 8, 7, 7, 6,
+            6, 5, 5, 4, 4, 3, 3, 3, 2, 2,
+            2, 1, 1, 1, 1, 0, 0, 0, 0, 0,
         );
     }
 }
