@@ -904,6 +904,15 @@ th .sort-icon::before {
     --bs-btn-hover-border-color: var(--bs-gray-200);
     --bs-btn-active-bg: var(--bs-gray-200);
     --bs-btn-active-color: var(--bs-dark);
+    /*
+     * Bootstrap reads the disabled state from its own variables, which
+     * this block did not set: a disabled .btn-outline-dark kept the light
+     * theme's near-black and rendered invisible on the dark body. A
+     * disabled control has to stay readable — that is what tells the user
+     * it exists but is unavailable.
+     */
+    --bs-btn-disabled-color: var(--bs-gray-500);
+    --bs-btn-disabled-border-color: var(--bs-gray-600);
 }
 
 /* Tables */
