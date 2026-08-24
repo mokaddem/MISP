@@ -10,10 +10,21 @@
 $isCard    = isset($viewMode) && $viewMode === 'card';
 $attribute = isset($row['Attribute']) ? $row['Attribute'] : $row;
 
+/*
+ * `readonly` reports the flag without offering the toggle, for a page that
+ * shows an attribute it does not own — the Value Profile aggregates rows
+ * across events and writes to none of them. It also skips the ACL lookup,
+ * which would otherwise answer about an event this page never fetched.
+ * Absent for every existing caller.
+ */
+$readonly = !empty($field['readonly']);
+
 if ($attribute && isset($attribute['id'], $attribute['to_ids'])):
     $objectId  = h($attribute['id']);
     $toIds     = !empty($attribute['to_ids']);
-    $mayModify = isset($event) ? $this->Acl->canModifyEvent($event) : $this->Acl->canModifyEvent($row);
+    $mayModify = $readonly
+        ? false
+        : (isset($event) ? $this->Acl->canModifyEvent($event) : $this->Acl->canModifyEvent($row));
 
     $colorClass = $toIds ? 'text-warning' : 'text-secondary';
     $titleText  = $toIds
@@ -52,6 +63,7 @@ if ($attribute && isset($attribute['id'], $attribute['to_ids'])):
 <?php endif; ?>
 
 
+<?php if (!$readonly): ?>
 <script>
 (function () {
     if (window._idsShieldInit) return;
@@ -165,6 +177,7 @@ if ($attribute && isset($attribute['id'], $attribute['to_ids'])):
     }
 })();
 </script>
+<?php endif; ?>
 
 <?php
 else:

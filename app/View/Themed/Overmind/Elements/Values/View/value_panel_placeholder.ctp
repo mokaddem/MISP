@@ -12,28 +12,16 @@
  * @var string $panelColor A CSS colour for the glyph tile
  * @var string $panelNote  What the panel will hold
  */
-$panelIcon = $panelIcon ?? 'fas fa-cube';
-$panelColor = $panelColor ?? 'var(--bs-secondary-color)';
 $panelNote = $panelNote ?? null;
-$isMispGlyph = strpos($panelIcon, 'misp-icon') === 0;
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
-     style="--vp-panel-color: <?= h($panelColor) ?>;">
-    <div class="p-3 border-bottom d-flex align-items-center gap-2">
-        <span class="vp-panel-glyph">
-            <?php if ($isMispGlyph): ?>
-                <span class="<?= h($panelIcon) ?>"></span>
-            <?php else: ?>
-                <i class="<?= h($panelIcon) ?>"></i>
-            <?php endif; ?>
-        </span>
-        <div class="me-auto">
-            <div class="fw-bold lh-1"><?= h($panelTitle) ?></div>
-            <div class="small text-muted mt-1">
-                <?= __('Not yet implemented') ?>
-            </div>
-        </div>
-    </div>
+     style="--vp-panel-color: <?= h($panelColor ?? 'var(--bs-secondary-color)') ?>;">
+    <?= $this->element('Values/View/value_panel_header', array(
+        'panelTitle' => $panelTitle,
+        'panelIcon' => $panelIcon ?? null,
+        'panelColor' => $panelColor ?? null,
+        'panelSub' => h(__('Not yet implemented')),
+    )) ?>
     <div class="vp-panel-stub">
         <?php if ($panelNote !== null): ?>
             <p class="vp-panel-stub-note"><?= h($panelNote) ?></p>

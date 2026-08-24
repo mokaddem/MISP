@@ -1,8 +1,19 @@
 <?php
 $filter_bar = $filter_bar ?? [];
+
+/*
+ * `disabled` holds the reason every bulk action on this index is
+ * unavailable — a read-only page that still wants to show what selection
+ * would offer. A <fieldset disabled> takes every button out at once, so
+ * no button here has to know about it. Absent for every existing caller.
+ */
+$disabledReason = $filter_bar['disabled'] ?? null;
 ?>
 <div id="multiSelectToolbar"
      class="mt-2 d-none">
+<?php if ($disabledReason !== null): ?>
+    <fieldset disabled class="border-0 p-0 m-0" title="<?= h($disabledReason) ?>">
+<?php endif; ?>
 
     <div class="p-2 border rounded bg-light d-flex align-items-center gap-2 flex-wrap">
 
@@ -272,4 +283,7 @@ $filter_bar = $filter_bar ?? [];
         <?php endif; ?>
 
     </div>
+<?php if ($disabledReason !== null): ?>
+    </fieldset>
+<?php endif; ?>
 </div>

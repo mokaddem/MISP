@@ -120,6 +120,14 @@ class ValueProfileFixture
                 ),
             ),
             'occurrences' => self::maliciousOccurrences(),
+            'occurrence_stats' => array(
+                'total' => 10,
+                'shown' => 6,
+                'hidden' => 4,
+                'events' => 7,
+                'orgs' => 4,
+                'deleted' => 1,
+            ),
             'occurrence_acl_note' => __(
                 'Showing 6 of 10 occurrences. 4 are hidden by distribution'
                 . ' rules on events owned by other organisations.'
@@ -143,6 +151,7 @@ class ValueProfileFixture
                     'n' => 3,
                 ),
             ),
+            'analyst' => self::maliciousAnalystData(),
             'sightings' => array(
                 'total' => 47,
                 'fp' => 1,
@@ -208,43 +217,43 @@ class ValueProfileFixture
     private static function maliciousOccurrences()
     {
         $amber = array(
+            'local' => 0,
             'Tag' => array(
                 'name' => 'tlp:amber',
                 'colour' => '#FFC000',
                 'is_galaxy' => false,
-                'local' => 0,
             ),
         );
         $green = array(
+            'local' => 0,
             'Tag' => array(
                 'name' => 'tlp:green',
                 'colour' => '#33FF00',
                 'is_galaxy' => false,
-                'local' => 0,
             ),
         );
         $osint = array(
+            'local' => 0,
             'Tag' => array(
                 'name' => 'type:OSINT',
                 'colour' => '#004646',
                 'is_galaxy' => false,
-                'local' => 0,
             ),
         );
         $sofacy = array(
+            'local' => 0,
             'Tag' => array(
                 'name' => 'misp-galaxy:threat-actor="Sofacy"',
                 'colour' => '#8B5CF6',
                 'is_galaxy' => true,
-                'local' => 0,
             ),
         );
         $reviewed = array(
+            'local' => 1,
             'Tag' => array(
                 'name' => 'workflow:state="reviewed"',
                 'colour' => '#3F51B5',
                 'is_galaxy' => false,
-                'local' => 1,
             ),
         );
 
@@ -271,6 +280,8 @@ class ValueProfileFixture
                     'id' => 1284,
                     'info' => 'OSINT - Emotet malspam campaign targeting .lu',
                     'published' => 1,
+                    'orgc_id' => 1,
+                    'user_id' => 3,
                     'Orgc' => array('id' => 1, 'name' => 'CIRCL'),
                 ),
                 'Object' => array('id' => null, 'name' => null),
@@ -299,6 +310,8 @@ class ValueProfileFixture
                     'id' => 1291,
                     'info' => 'Phishing kit hosted on compromised WordPress',
                     'published' => 1,
+                    'orgc_id' => 2,
+                    'user_id' => 41,
                     'Orgc' => array('id' => 2, 'name' => 'CthulhuSPRL.be'),
                 ),
                 'Object' => array(
@@ -330,6 +343,8 @@ class ValueProfileFixture
                     'id' => 1272,
                     'info' => 'Mass scanning activity against .lu netblocks',
                     'published' => 1,
+                    'orgc_id' => 3,
+                    'user_id' => 12,
                     'Orgc' => array('id' => 3, 'name' => 'Team-CIRCL'),
                 ),
                 'Object' => array('id' => null, 'name' => null),
@@ -361,6 +376,8 @@ class ValueProfileFixture
                     'id' => 1279,
                     'info' => 'OSINT - Emotet infrastructure, June 2025',
                     'published' => 1,
+                    'orgc_id' => 1,
+                    'user_id' => 3,
                     'Orgc' => array('id' => 1, 'name' => 'CIRCL'),
                 ),
                 'Object' => array('id' => 89771, 'name' => 'domain-ip'),
@@ -389,6 +406,8 @@ class ValueProfileFixture
                     'id' => 1265,
                     'info' => 'Suspicious download hosts, April 2025',
                     'published' => 0,
+                    'orgc_id' => 4,
+                    'user_id' => 57,
                     'Orgc' => array('id' => 4, 'name' => 'ORGNAME'),
                 ),
                 'Object' => array('id' => null, 'name' => null),
@@ -417,6 +436,8 @@ class ValueProfileFixture
                     'id' => 1251,
                     'info' => 'OSINT - Emotet infrastructure, autumn 2024',
                     'published' => 1,
+                    'orgc_id' => 1,
+                    'user_id' => 3,
                     'Orgc' => array('id' => 1, 'name' => 'CIRCL'),
                 ),
                 'Object' => array('id' => null, 'name' => null),
@@ -512,6 +533,67 @@ class ValueProfileFixture
                         'local' => true,
                         'orgs' => array('CIRCL'),
                     ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The notes and opinions attached to this value, in the shape
+     * `AnalystData::fetchForObject` returns and `AnalystData/thread`
+     * already renders: one flat item per record, grouped by type.
+     *
+     * Only the most recent of each are carried — the preview panel shows
+     * a handful and the Analyst data tab holds the thread.
+     *
+     * @return array
+     */
+    private static function maliciousAnalystData()
+    {
+        return array(
+            'total' => 6,
+            'notes' => 2,
+            'opinions' => 4,
+            'Note' => array(
+                array(
+                    'uuid' => 'c1d2e3f4-0516-4728-b93a-4c5d6e7f8091',
+                    'note' => 'Still answering on 8080 as of this morning.'
+                        . ' The TLS certificate is the same self-signed one'
+                        . ' the June infrastructure used.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-22 08:41:07',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'd2e3f405-1627-4839-ba4b-5d6e7f809122',
+                    'note' => 'Hosting provider notified 2025-08-05, no'
+                        . ' response.',
+                    'authors' => 'bob@cthulhu.example',
+                    'created' => '2025-08-06 15:02:44',
+                    'distribution' => 3,
+                    'Org' => array('id' => 2, 'name' => 'CthulhuSPRL.be'),
+                ),
+            ),
+            'Opinion' => array(
+                array(
+                    'uuid' => 'e3f40516-2738-494a-cb5c-6e7f80912233',
+                    'opinion' => 85,
+                    'comment' => 'Consistent with our own telemetry.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-21 17:20:00',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'f4051627-3849-4a5b-dc6d-7f8091223344',
+                    'opinion' => 30,
+                    'comment' => 'We saw one hit and it was a scanner.'
+                        . ' Not convinced this is C2.',
+                    'authors' => 'carol@orgname.example',
+                    'created' => '2025-08-18 11:55:12',
+                    'distribution' => 3,
+                    'Org' => array('id' => 4, 'name' => 'ORGNAME'),
                 ),
             ),
         );
@@ -826,9 +908,24 @@ class ValueProfileFixture
             ),
             'pivots' => array(),
             'occurrences' => array(),
+            'occurrence_stats' => array(
+                'total' => 0,
+                'shown' => 0,
+                'hidden' => 0,
+                'events' => 0,
+                'orgs' => 0,
+                'deleted' => 0,
+            ),
             'occurrence_acl_note' => null,
             'tags' => array(),
             'galaxies' => array(),
+            'analyst' => array(
+                'total' => 0,
+                'notes' => 0,
+                'opinions' => 0,
+                'Note' => array(),
+                'Opinion' => array(),
+            ),
             'sightings' => array(
                 'total' => 0,
                 'fp' => 0,

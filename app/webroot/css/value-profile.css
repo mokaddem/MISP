@@ -298,3 +298,703 @@ a.vp-fact:hover .vp-fact-value {
     text-transform: uppercase;
     color: var(--bs-secondary-color);
 }
+
+/* ==================================================================
+ * Panel building blocks
+ * ------------------------------------------------------------------
+ * Shared by the seven Overview panels: a section heading, a fact line,
+ * an empty state and a truncation host.
+ * ================================================================== */
+
+.vp-min-w-0 {
+    min-width: 0;
+}
+
+.vp-subhead {
+    margin-bottom: 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * A single stated fact with a glyph: the warninglist result, the
+ * correlation count. `-warn` is for the reading that should give the
+ * analyst pause, never for the absence of data.
+ */
+.vp-fact-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    font-size: 0.82rem;
+}
+
+.vp-fact-line > i {
+    margin-top: 2px;
+    color: var(--bs-secondary-color);
+}
+
+.vp-fact-line-warn {
+    border-color: var(--bs-warning);
+    background: var(--bs-body-bg);
+    background: color-mix(in srgb, var(--bs-warning) 10%,
+        var(--bs-body-bg));
+}
+
+.vp-fact-line-warn > i {
+    color: var(--bs-warning-text-emphasis);
+}
+
+.vp-fact-line-sub {
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * "Nothing to show" — distinct from the dashed .vp-panel-stub, which
+ * means "nobody has written this panel yet".
+ */
+.vp-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 16px;
+    font-size: 0.82rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.vp-empty > i,
+.vp-empty > .misp-icon {
+    font-size: 1.4rem;
+    opacity: 0.55;
+}
+
+.vp-empty-inline {
+    flex-direction: row;
+    justify-content: center;
+    padding: 12px 8px;
+}
+
+.vp-empty-inline > i,
+.vp-empty-inline > .misp-icon {
+    font-size: 1rem;
+}
+
+/* ==================================================================
+ * Occurrence table
+ * ================================================================== */
+
+/*
+ * A soft-deleted occurrence is history, not current state. Struck
+ * through rather than tinted, so it reads the same in both themes.
+ */
+tr.vp-occ-deleted td {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.vp-relation {
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    background: color-mix(in srgb, var(--object) 14%, var(--bs-body-bg));
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .vp-relation {
+    background: color-mix(in srgb, var(--object) 45%, var(--bs-body-bg));
+}
+
+/*
+ * The count the table cannot show. Sits in the card footer rather than
+ * in the table, because it is a statement about the query, not a row.
+ */
+.vp-acl-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: 0.76rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-acl-note > i {
+    margin-top: 2px;
+}
+
+/* ==================================================================
+ * Tags and galaxies
+ * ================================================================== */
+
+.vp-tax {
+    display: flex;
+    gap: 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-tax:last-child {
+    border-bottom: 0;
+}
+
+.vp-tax-name {
+    display: flex;
+    flex: 0 0 130px;
+    align-items: center;
+    gap: 6px;
+    padding-top: 3px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    word-break: break-word;
+}
+
+.vp-tax-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-tax-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+/* A tag and the number of occurrences carrying it, as one unit. */
+.vp-tag {
+    display: inline-flex;
+    align-items: center;
+}
+
+.vp-tag-count {
+    margin: 0 6px 4px -2px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Two occurrences carrying contradictory tags from one taxonomy. Shown,
+ * never resolved: which of them is right is not a display decision.
+ */
+.vp-conflict {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid var(--bs-warning);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    background: color-mix(in srgb, var(--bs-warning) 12%,
+        var(--bs-body-bg));
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--bs-body-color);
+}
+
+.vp-conflict-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bs-warning);
+}
+
+/* An ordinal taxonomy — admiralty-scale and its kin — as a position. */
+.vp-scale {
+    margin-bottom: 8px;
+}
+
+.vp-scale-track {
+    display: flex;
+    gap: 3px;
+}
+
+.vp-scale-seg {
+    flex: 1 1 0;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-scale-seg-on {
+    background: var(--primary);
+}
+
+.vp-scale-reading {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.75rem;
+}
+
+.vp-galaxy {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    max-width: 100%;
+    margin: 0 4px 4px 0;
+    padding: 4px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-color: color-mix(in srgb, var(--galaxy) 40%,
+        var(--bs-border-color));
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    background: color-mix(in srgb, var(--galaxy) 8%, var(--bs-body-bg));
+    font-size: 0.75rem;
+}
+
+[data-bs-theme="dark"] .vp-galaxy {
+    background: color-mix(in srgb, var(--galaxy) 20%, var(--bs-body-bg));
+}
+
+.vp-galaxy > .misp-icon {
+    align-self: center;
+    color: var(--galaxy);
+}
+
+.vp-galaxy-name {
+    font-weight: 600;
+}
+
+.vp-galaxy-kind {
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-galaxy-count {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--galaxy) 22%, transparent);
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+ * Analyst data preview
+ * ================================================================== */
+
+.vp-analyst {
+    display: flex;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--bs-border-color);
+    border-left: 3px solid var(--analystData);
+    border-radius: 8px;
+}
+
+.vp-analyst-kind {
+    display: flex;
+    flex: 0 0 84px;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--analystData);
+}
+
+[data-bs-theme="dark"] .vp-analyst-kind {
+    color: color-mix(in srgb, var(--analystData) 55%, var(--bs-body-color));
+}
+
+.vp-analyst-body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.vp-analyst-text {
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+}
+
+.vp-analyst-meta {
+    margin-top: 4px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+/* ==================================================================
+ * Verdict card
+ * ================================================================== */
+
+.vp-disposition {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border: 1px solid var(--vp-disposition-color);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    background: color-mix(in srgb, var(--vp-disposition-color) 10%,
+        var(--bs-body-bg));
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+[data-bs-theme="dark"] .vp-disposition {
+    background: color-mix(in srgb, var(--vp-disposition-color) 22%,
+        var(--bs-body-bg));
+}
+
+.vp-disposition-lg {
+    padding: 6px 16px;
+    font-size: 1.05rem;
+}
+
+.vp-disposition-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--vp-disposition-color);
+}
+
+.vp-disposition-score {
+    padding: 0 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-disposition-color) 22%,
+        transparent);
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Confidence is ordinal, not continuous, so it gets three segments
+ * rather than a percentage bar that would imply a precision the
+ * weighting profile does not have.
+ */
+.vp-confidence {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.vp-confidence-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-confidence-track {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 3px;
+}
+
+.vp-confidence-seg {
+    flex: 1 1 0;
+    height: 6px;
+    border-radius: 2px;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-confidence-seg-on {
+    background: var(--primary);
+}
+
+.vp-confidence-reading {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.vp-verdict-summary {
+    font-size: 0.82rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-signals {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/*
+ * One row of the ledger. The arrow carries the direction, the tint only
+ * reinforces it — the page has to survive being read in greyscale.
+ */
+.vp-signal {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    font-size: 0.78rem;
+}
+
+.vp-signal-up {
+    border-left-color: var(--bs-danger);
+}
+
+.vp-signal-down {
+    border-left-color: var(--bs-success);
+}
+
+.vp-signal-arrow {
+    flex: 0 0 auto;
+    line-height: 1.4;
+}
+
+.vp-signal-up .vp-signal-arrow {
+    color: var(--bs-danger);
+}
+
+.vp-signal-down .vp-signal-arrow {
+    color: var(--bs-success);
+}
+
+.vp-signal-text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-signal-weight {
+    flex: 0 0 auto;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-signals-rest {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--bs-secondary-color);
+}
+
+/* ==================================================================
+ * Sightings card
+ * ================================================================== */
+
+.vp-stat-row {
+    display: flex;
+    gap: 6px;
+}
+
+.vp-stat {
+    flex: 1 1 0;
+    padding: 8px 6px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.vp-stat-primary {
+    border-color: color-mix(in srgb, var(--sighting) 45%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--sighting) 8%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-stat-primary {
+    background: color-mix(in srgb, var(--sighting) 28%, var(--bs-body-bg));
+}
+
+.vp-stat-warn {
+    border-color: var(--bs-warning);
+}
+
+.vp-stat-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-stat-label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+/* Ninety days of sightings, one bar per bucket. */
+.vp-spark {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 40px;
+}
+
+.vp-spark-bar {
+    flex: 1 1 0;
+    min-height: 2px;
+    height: var(--vp-spark-h, 0%);
+    border-radius: 1px;
+    background: var(--sighting);
+}
+
+/*
+ * A bucket with no sightings is drawn, not skipped: a gap in the middle
+ * of a run is information.
+ */
+.vp-spark-bar-empty {
+    height: 2px;
+    background: var(--bs-border-color);
+}
+
+.vp-spark-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    font-size: 0.62rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-reporter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+}
+
+.vp-reporter-name {
+    flex: 0 0 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-reporter-track {
+    flex: 1 1 auto;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-reporter-fill {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background: var(--sighting);
+}
+
+.vp-reporter-count {
+    flex: 0 0 auto;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+ * Lifecycle card
+ * ================================================================== */
+
+.vp-decay-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.75rem;
+}
+
+.vp-decay-model {
+    overflow: hidden;
+    flex: 1 1 auto;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-decay-score {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-decay-flag {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    background: color-mix(in srgb, var(--bs-warning) 22%,
+        var(--bs-body-bg));
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.vp-decay-track {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-decay-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--correlation);
+}
+
+.vp-decay-expired .vp-decay-fill {
+    background: var(--bs-secondary-color);
+}
+
+/*
+ * The threshold is the whole point of the bar: a score means nothing
+ * without the line it is above or below.
+ */
+.vp-decay-threshold {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 12px;
+    background: var(--bs-body-color);
+}
+
+/* ==================================================================
+ * External presence card
+ * ================================================================== */
+
+.vp-external-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.8rem;
+}
+
+.vp-external-row:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.vp-external-row > i {
+    flex: 0 0 auto;
+    width: 16px;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+.vp-external-count {
+    margin-left: auto;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
