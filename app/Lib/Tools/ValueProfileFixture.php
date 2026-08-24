@@ -895,7 +895,7 @@ class ValueProfileFixture
                 'occurrences' => 0,
                 'sightings' => 0,
                 'relationships' => 0,
-                'enrichment' => 9,
+                'enrichment' => 0,
                 'analyst' => 0,
             ),
             'facts' => array(

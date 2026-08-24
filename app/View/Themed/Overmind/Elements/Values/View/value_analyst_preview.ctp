@@ -100,9 +100,17 @@ $headerExtra = '<a href="#tab-analyst"'
                         <?= __('Note') ?>
                     </div>
                     <div class="vp-analyst-body">
-                        <div class="vp-analyst-text">
-                            <?= h($note['note']) ?>
-                        </div>
+                        <?php
+                        /*
+                         * Tight against the tags: .vp-analyst-text is
+                         * pre-wrap so an analyst's own line breaks
+                         * survive, which also preserves the template's
+                         * indentation if it is allowed to leak in.
+                         */
+                        ?>
+                        <div class="vp-analyst-text"><?=
+                            h($note['note'])
+                        ?></div>
                         <div class="vp-analyst-meta"><?= $meta($note) ?></div>
                     </div>
                 </div>
@@ -129,9 +137,9 @@ $headerExtra = '<a href="#tab-analyst"'
                             </span>
                         </div>
                         <?php if (!empty($opinion['comment'])): ?>
-                            <div class="vp-analyst-text">
-                                <?= h($opinion['comment']) ?>
-                            </div>
+                            <div class="vp-analyst-text"><?=
+                                h($opinion['comment'])
+                            ?></div>
                         <?php endif; ?>
                         <div class="vp-analyst-meta">
                             <?= $meta($opinion) ?>

@@ -35,6 +35,13 @@ $rowClass = function ($row) {
         : 'vp-occ-deleted d-none';
 };
 
+/*
+ * Nine columns, not the full table's ten: `category` is dropped here
+ * because it is the least discriminating of them — MISP's category
+ * mostly follows from the type — and ten columns overflow a col-lg-9 far
+ * enough to push the tags off the edge. The Occurrences tab carries the
+ * complete field set.
+ */
 $fields = array(
     array(
         'element' => 'checkbox',
@@ -55,11 +62,6 @@ $fields = array(
         'name' => __('Type'),
         'element' => 'type',
         'data_path' => 'Attribute.type',
-    ),
-    array(
-        'name' => __('Category'),
-        'element' => 'category',
-        'data_path' => 'Attribute.category',
     ),
     array(
         'name' => __('IDS'),
@@ -86,6 +88,7 @@ $fields = array(
         'name' => __('Last seen'),
         'element' => 'datetime',
         'data_path' => 'Attribute.last_seen',
+        'format' => 'Y-m-d H:i',
         'empty' => __('Not set'),
     ),
     array(
@@ -140,21 +143,35 @@ $headerExtra = ob_get_clean();
         'panelExtra' => $headerExtra,
     )) ?>
 
-    <div class="card-body p-0">
-        <?= $this->element(
-            'genericElementsBS5/IndexTable/index_table',
-            array(
-                'scaffold_data' => array(
-                    'data' => array(
-                        'data' => $rows,
-                        'fields' => $fields,
-                        'primary_id_path' => 'Attribute.id',
-                        'row_class_callable' => $rowClass,
+    <?php if (empty($rows)): ?>
+        <?php
+        /*
+         * "No event you can see" rather than "no occurrences": for a
+         * value-centric page the distinction between absent and hidden
+         * is the whole point, and only one of them is knowable here.
+         */
+        ?>
+        <div class="vp-empty">
+            <span class="misp-icon misp-icon-attribute misp-simple"></span>
+            <span><?= __('No event you can see carries this value.') ?></span>
+        </div>
+    <?php else: ?>
+        <div class="card-body p-0">
+            <?= $this->element(
+                'genericElementsBS5/IndexTable/index_table',
+                array(
+                    'scaffold_data' => array(
+                        'data' => array(
+                            'data' => $rows,
+                            'fields' => $fields,
+                            'primary_id_path' => 'Attribute.id',
+                            'row_class_callable' => $rowClass,
+                        ),
                     ),
-                ),
-            )
-        ) ?>
-    </div>
+                )
+            ) ?>
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($rows)): ?>
         <div class="px-3 pb-3 pt-0">

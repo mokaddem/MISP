@@ -998,3 +998,78 @@ tr.vp-occ-deleted td {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
+
+/* ==================================================================
+ * The occurrence table inside a panel card
+ * ------------------------------------------------------------------
+ * `index_table` is built for a full-page scaffold, and two of its
+ * shared rules do the wrong thing inside a card. Both overrides are
+ * scoped to .vp-panel, so every other index is untouched.
+ * ================================================================== */
+
+/*
+ * .table-scroll is a fixed 90vh viewport, which a six-row summary
+ * neither fills nor should be clipped by. Grow to the content, and cap
+ * it before the panel takes over the page.
+ */
+.vp-panel .table-scroll {
+    height: auto;
+    max-height: 70vh;
+}
+
+/*
+ * .table-scroll td breaks words anywhere, which also shrinks the
+ * min-content width table-layout:auto measures — so a cell holding a
+ * bordered block collapses to one character per line. These columns
+ * carry structure rather than free text and get a floor instead.
+ */
+.vp-panel .idx-col-event,
+.vp-panel .idx-col-organisation,
+.vp-panel .idx-col-value_object_context,
+.vp-panel .idx-col-tag_list {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.vp-panel .idx-col-event {
+    min-width: 13rem;
+}
+
+.vp-panel .idx-col-organisation {
+    min-width: 8rem;
+}
+
+.vp-panel .idx-col-value_object_context {
+    min-width: 11rem;
+}
+
+.vp-panel .idx-col-datetime {
+    min-width: 6.5rem;
+}
+
+.vp-panel .idx-col-tag_list {
+    min-width: 10rem;
+}
+
+/*
+ * What is left still has to announce itself: a column sitting off the
+ * right edge must not read as a column that is not there. The gradients
+ * are attached `local` so they scroll away with the content and `scroll`
+ * so the shadow stays pinned to the edge — the shadow shows only on the
+ * side that still has something behind it.
+ */
+.vp-panel .table-responsive {
+    background-image:
+        linear-gradient(to right, var(--bs-body-bg), transparent),
+        linear-gradient(to left, var(--bs-body-bg), transparent),
+        linear-gradient(to right,
+            color-mix(in srgb, var(--bs-body-color) 16%, transparent),
+            transparent),
+        linear-gradient(to left,
+            color-mix(in srgb, var(--bs-body-color) 16%, transparent),
+            transparent);
+    background-position: 0 0, 100% 0, 0 0, 100% 0;
+    background-repeat: no-repeat;
+    background-size: 28px 100%, 28px 100%, 12px 100%, 12px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
