@@ -65,18 +65,9 @@ over whitespace. The verdict strip is the one place where restraint wins.
 
 ## 5. Layout skeleton — must match MISP's current "Overmind" chrome
 
-MISP's new UI (Bootstrap 5, theme name "Overmind") uses a strict, recognisable
-page pattern. The mockup must reuse it, not invent a new one:
+You're free to design your own page. As long as it works for these constraints:
 
-- Full-width page header: title, description line, header action buttons.
-- Below it a **tab bar** (icon + label + count badge).
-- Each tab body is a two-column grid: a wide **left column** (≈8/12) of stacked
-  cards and a narrow **right rail** (≈4/12) of stacked cards.
-- Every card: rounded, `shadow-sm`, a `border-bottom` header block containing a
-  **36×36 rounded icon tile** (background = the entity colour at 25% alpha, icon
-  in the full colour), then a bold title with a small muted count/subtitle
-  beneath it, then a right-aligned small outline-secondary icon button (usually
-  "open full view" / external-link).
+- MISP already has a topbar that should be kept.
 - Cards load lazily and show a small centred spinner before content.
 
 **Design tokens (use these exact values — they are MISP's real CSS variables):**
@@ -92,8 +83,7 @@ page pattern. The mockup must reuse it, not invent a new one:
 Bootstrap 5 semantic colours for state (`danger #dc3545`, `warning #f39a1f`,
 `success #6fbe80`, info, secondary). Icon set: MISP's own `misp-iconify` glyphs
 for MISP entities (attribute, object, sighting, report, galaxy) and Font Awesome
-for generic UI. **Produce both light and dark theme artboards** — MISP ships both
-and analysts overwhelmingly use dark.
+for generic UI. **Produce just light theme artboards**.
 
 ---
 
@@ -138,6 +128,7 @@ hard-to-resolve situation, and the page's job is to surface the tension rather
 than average it away.
 
 ### 6.3 Tabs
+Even though, we use "Tab" as name, feel free to consider them as UI tabs, panels or section.
 
 **Tab 1 — Overview** (default)
 
@@ -308,20 +299,19 @@ navigation surface rather than a dead end.
 ## 8. Artboards to produce
 
 1. **Overview — rich malicious value** (a C2 IP: many sightings, APT galaxy,
-   4 orgs, high decay score). Light theme.
-2. **Overview — the same page, dark theme.**
-3. **Overview — Conflicted verdict** (heavily sighted but hits a Cloudflare
+   4 orgs, high decay score). There should be 4 variant for this one, exploring tabs, panels and section
+2. **Overview — Conflicted verdict** (heavily sighted but hits a Cloudflare
    warninglist, with false-positive sightings). The verdict card's hardest job.
-4. **Overview — sparse value** (a single occurrence, one org, no sightings, no
+3. **Overview — sparse value** (a single occurrence, one org, no sightings, no
    enrichment run). The honest empty state, and the majority case.
-5. **Occurrences tab** with 4 rows selected and the bulk-action bar active.
-6. **Sightings tab** — histogram stacked by org + decay curve overlay.
-7. **Enrichment tab** — three states on one board: module picker, mid-run, and
+4. **Occurrences tab** with 4 rows selected and the bulk-action bar active.
+5. **Sightings tab** — histogram stacked by org + decay curve overlay.
+6. **Enrichment tab** — three states on one board: module picker, mid-run, and
    results with add/dismiss controls.
-8. **Analyst data tab** — opinion distribution histogram plus a threaded note.
-9. **Relationships tab** — graph view with the near-match / co-occurrence /
+7. **Analyst data tab** — opinion distribution histogram plus a threaded note.
+8. **Relationships tab** — graph view with the near-match / co-occurrence /
    asserted-relationship legend.
-10. **Entry point** — a small board showing how a value in the event attribute
+9. **Entry point** — a small board showing how a value in the event attribute
     table becomes a link into this page.
 
 ## 9. Sample data to use
