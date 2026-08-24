@@ -772,8 +772,15 @@ class ValueProfileFixture
                     'points' => 18,
                     'colour' => 'var(--correlation)',
                 ),
+                /*
+                 * The two downward signals, collected. Not the
+                 * contradictions — those are marked `unresolved` in the
+                 * ledger and contribute nothing, and labelling this line
+                 * after them would send a reader tracing -14 to the
+                 * wrong rows.
+                 */
                 array(
-                    'label' => __('Contradictions'),
+                    'label' => __('Signals against'),
                     'points' => -14,
                     'colour' => 'var(--bs-danger)',
                 ),
@@ -1942,7 +1949,7 @@ class ValueProfileFixture
                     ),
                     array(
                         'weight' => 'moderate',
-                        'points' => 9,
+                        'points' => 11,
                         'signal' => __(
                             '54 non-false-positive sightings, last'
                             . ' yesterday'

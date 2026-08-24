@@ -39,6 +39,7 @@ $uid = 'vp' . substr(md5($valueProfile['value'] . '-aside'), 0, 8);
 $cards = $conflicted
     ? array(
         array('element' => 'value_verdict_resolve'),
+        array('element' => 'value_verdict_case_composition'),
         array('element' => 'value_verdict_opinions'),
         array(
             'element' => 'value_verdict_curves',

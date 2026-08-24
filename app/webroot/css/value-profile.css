@@ -2088,7 +2088,7 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-contrib-col {
-    width: 150px;
+    width: 196px;
 }
 
 .vp-ledger-panel-col {
@@ -2158,6 +2158,28 @@ tr.vp-occ-deleted td {
 
 .vp-ledger-line-down .vp-vc-bar-fill {
     background: var(--vp-ben);
+}
+
+/*
+ * The number beside the bar. The bar carries the shape and the word
+ * carries the band, but neither can be added up — and this column is
+ * the one a reader checks the rail card's arithmetic against.
+ */
+.vp-ledger-points {
+    flex: 0 0 34px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-ledger-line-up .vp-ledger-points {
+    color: var(--vp-mal);
+}
+
+.vp-ledger-line-down .vp-ledger-points {
+    color: var(--vp-ben);
 }
 
 .vp-ledger-weight {
@@ -2394,6 +2416,53 @@ tr.vp-occ-deleted td {
     font-size: 0.7rem;
     line-height: 1.5;
     color: var(--bs-secondary-color);
+}
+
+/*
+ * Two totals in one card, each with its own strip. The side's colour
+ * appears on the total only — the strip segments are keyed by source
+ * panel, and tinting them by side would collide with that.
+ */
+.vp-case-comp + .vp-case-comp {
+    padding-top: 12px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-case-comp-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.vp-case-comp-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.vp-case-comp-total {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-case-comp-malicious .vp-case-comp-total {
+    color: var(--vp-mal);
+}
+
+.vp-case-comp-benign .vp-case-comp-total {
+    color: var(--vp-ben);
+}
+
+.vp-case-comp .vp-comp-legend {
+    margin-top: 8px;
+}
+
+.vp-case-comp .vp-comp-note {
+    margin-top: 0;
 }
 
 /* ==================================================================

@@ -179,8 +179,9 @@ foreach ($verdict['ledger'] as $group) {
                                 <td>
                                     <div class="vp-ledger-contrib-cell"
                                          title="<?= h(sprintf(
-                                             __('%s points'),
-                                             $signal['contribution']
+                                             __('%1$s points, %2$s'),
+                                             $signal['contribution'],
+                                             $signal['weight']
                                          )) ?>">
                                         <span class="vp-vc-bar">
                                             <span class="vp-vc-bar-fill"
@@ -189,6 +190,14 @@ foreach ($verdict['ledger'] as $group) {
                                                       * 100,
                                                       2
                                                   ) ?>%;"></span>
+                                        </span>
+                                        <span class="vp-ledger-points">
+                                            <?= h(
+                                                ($signal['contribution'] > 0
+                                                    ? '+'
+                                                    : '')
+                                                . $signal['contribution']
+                                            ) ?>
                                         </span>
                                         <span class="vp-ledger-weight">
                                             <?= h($signal['weight']) ?>
