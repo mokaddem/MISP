@@ -225,3 +225,76 @@ a.vp-fact:hover .vp-fact-value {
     text-transform: uppercase;
     color: var(--bs-secondary-color);
 }
+
+/* ==================================================================
+ * Panel card
+ * ------------------------------------------------------------------
+ * Shared chrome for the lazily-loaded panels. The panel names its own
+ * accent through --vp-panel-color and everything here derives from it,
+ * so a panel never hardcodes a colour.
+ * ================================================================== */
+
+.vp-panel {
+    --vp-panel-color: var(--bs-secondary-color);
+}
+
+.vp-panel-glyph {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background: var(--bs-secondary-bg);
+    background: color-mix(in srgb, var(--vp-panel-color) 15%,
+        var(--bs-body-bg));
+    color: var(--vp-panel-color);
+    font-size: 1rem;
+}
+
+[data-bs-theme="dark"] .vp-panel-glyph {
+    background: color-mix(in srgb, var(--vp-panel-color) 28%,
+        var(--bs-body-bg));
+}
+
+/* ==================================================================
+ * Not-yet-implemented panel
+ * ------------------------------------------------------------------
+ * Inside real card chrome, so the space the panel will occupy is
+ * already visible. The dashed frame keeps it from reading as an empty
+ * state: the panel is missing, not the data.
+ * ================================================================== */
+
+.vp-panel-stub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin: 12px;
+    padding: 20px 16px;
+    border: 2px dashed var(--bs-border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.vp-panel-stub-note {
+    max-width: 40rem;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-panel-stub-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}

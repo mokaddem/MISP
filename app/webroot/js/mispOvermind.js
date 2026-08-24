@@ -3486,6 +3486,13 @@ function initTopbarFilterSelects(scope) {
 }
 
 /**
+ * The two containers view_layout emits for a lazily-loaded panel: the
+ * full-width `.ajax-tab-content` in the left column, and the `.ajax-card`
+ * in the right rail. Both carry data-url and both are loaded the same way.
+ */
+const AJAX_CONTAINER_SELECTOR = '.ajax-tab-content, .ajax-card';
+
+/**
  * Fetch an ajax container's URL into it, once, and run the scripts it brings.
  *
  * @param {Element} container carries data-url, gains data-loaded
@@ -3568,7 +3575,8 @@ document.addEventListener('shown.bs.tab', function (event) {
         updateMultiSelectToolbar();
     }
 
-    tabPane.querySelectorAll('.ajax-tab-content').forEach(loadAjaxContainer);
+    tabPane.querySelectorAll(AJAX_CONTAINER_SELECTOR)
+        .forEach(loadAjaxContainer);
 });
 
 /**
@@ -3631,6 +3639,8 @@ document.addEventListener('DOMContentLoaded', function () {
     initTopbarFilterSelects();
     initSessionWatchdog();
     // The tab that is already active gets no shown.bs.tab event.
-    document.querySelectorAll('.tab-pane.active .ajax-tab-content')
-        .forEach(loadAjaxContainer);
+    document.querySelectorAll('.tab-pane.active').forEach(function (pane) {
+        pane.querySelectorAll(AJAX_CONTAINER_SELECTOR)
+            .forEach(loadAjaxContainer);
+    });
 });

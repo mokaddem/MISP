@@ -29,9 +29,114 @@ class ValuesController extends AppController
      */
     public function view($b64value = null)
     {
-        $value = $this->decodeValue($b64value);
-        $this->set('valueProfile', ValueProfileFixture::forValue($value));
-        $this->set('valueB64', $b64value);
+        $profile = $this->profileFor($b64value);
+        $this->set('valueProfile', $profile);
+        // Re-encoded rather than passed through, so the panel URLs the page
+        // builds are well-formed whichever alphabet the caller arrived with.
+        $this->set('valueB64', self::encodeValue($profile['value']));
+    }
+
+    /**
+     * The panels, one lazily-loaded fragment each.
+     *
+     * A panel per endpoint rather than one endpoint per page: each is a
+     * different question of a different model, they answer at different
+     * speeds, and a slow one should not hold up the rest. It also means
+     * each panel's live implementation is one action and one element.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewOccurrences($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_occurrences');
+    }
+
+    public function viewContext($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_context');
+    }
+
+    public function viewAnalystPreview($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_analyst_preview');
+    }
+
+    public function viewVerdictCard($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_verdict_card');
+    }
+
+    public function viewSightings($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_sightings');
+    }
+
+    public function viewLifecycle($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_lifecycle');
+    }
+
+    public function viewExternal($b64value = null)
+    {
+        $this->renderPanel($this->profileFor($b64value), 'value_external');
+    }
+
+    /**
+     * The Verdict tab body.
+     *
+     * A value whose signals contradict each other needs a different
+     * layout, not a different colour: two opposed cases side by side
+     * rather than one ledger. Which one is a property of the value, so
+     * the disposition picks the template.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewVerdict($b64value = null)
+    {
+        $profile = $this->profileFor($b64value);
+        $conflicted = ($profile['verdict']['disposition'] ?? null)
+            === 'CONFLICTED';
+        $this->renderPanel(
+            $profile,
+            $conflicted ? 'value_verdict_conflicted' : 'value_verdict'
+        );
+    }
+
+    /**
+     * @param string $b64value
+     * @return array
+     */
+    private function profileFor($b64value)
+    {
+        return ValueProfileFixture::forValue($this->decodeValue($b64value));
+    }
+
+    /**
+     * Serve one panel: the fragment only, no layout and no chrome, since
+     * it is injected into a page that already has both.
+     *
+     * @param array $profile
+     * @param string $element Name under Elements/Values/View
+     * @return void
+     */
+    private function renderPanel(array $profile, $element)
+    {
+        $this->set('valueProfile', $profile);
+        $this->set('valueB64', self::encodeValue($profile['value']));
+        $this->layout = false;
+        $this->render('/Elements/Values/View/' . $element);
+    }
+
+    /**
+     * @param string $value
+     * @return string URL-safe base64, so a value containing `/` survives
+     *                a path segment.
+     */
+    private static function encodeValue($value)
+    {
+        return strtr(base64_encode($value), '+/', '-_');
     }
 
     /**

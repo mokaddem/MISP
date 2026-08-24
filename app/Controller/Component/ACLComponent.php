@@ -1049,6 +1049,14 @@ class ACLComponent extends Component
         // 403 rather than 500 on a missing themed view.
         'values' => array(
             'view' => array('theming_enabled'),
+            'viewOccurrences' => array('theming_enabled'),
+            'viewContext' => array('theming_enabled'),
+            'viewAnalystPreview' => array('theming_enabled'),
+            'viewVerdictCard' => array('theming_enabled'),
+            'viewSightings' => array('theming_enabled'),
+            'viewLifecycle' => array('theming_enabled'),
+            'viewExternal' => array('theming_enabled'),
+            'viewVerdict' => array('theming_enabled'),
         ),
         'warninglists' => array(
             'checkValue' => ['*'],

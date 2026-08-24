@@ -138,28 +138,68 @@ echo $this->element('Values/View/value_pivot_rail', array(
  * ------------------------------------------------------------------
  * Tabs
  * ------------------------------------------------------------------
- * Every tab is stubbed in this pass. Going live is a local change: swap
- * one registry entry's placeholder params for the panels it should hold.
+ * Overview and Verdict are assembled from lazily-loaded panels, one
+ * endpoint each, so a slow panel never holds up the rest of the page
+ * and each one's live implementation stays a local change. The
+ * remaining seven tabs are still stubbed inline.
  */
 $counts = $profile['counts'];
+
+/**
+ * @param string $action
+ * @return array A view_layout card pointing at one panel endpoint
+ */
+$panel = function ($action) use ($baseurl, $valueB64) {
+    return array(
+        'ajax' => $baseurl . '/values/' . $action . '/' . h($valueB64),
+    );
+};
+
+/*
+ * The Verdict tab's state pill. A verdict is a state, not a count, so it
+ * gets a badge rather than the parenthesised number the other tabs use.
+ * The colour names the disposition; the label carries the score when
+ * there is one to carry.
+ */
+$verdict = $profile['verdict'];
+$verdictColors = array(
+    'MALICIOUS' => 'var(--bs-danger)',
+    'CONFLICTED' => 'var(--bs-warning)',
+    'UNKNOWN' => 'var(--bs-secondary-color)',
+);
+$verdictBadge = array(
+    'label' => $verdict['score'] === null
+        ? $verdict['disposition']
+        : $verdict['disposition'] . ' ' . $verdict['score'],
+    'color' => $verdictColors[$verdict['disposition']]
+        ?? 'var(--bs-secondary-color)',
+    'dot' => true,
+);
+
 $tabRegistry = array(
     array(
         'id' => 'general',
         'title' => __('Overview'),
         'icon' => 'fas fa-info-circle',
-        'note' => __(
-            'Occurrence summary, tags and galaxies, analyst data, and a'
-            . ' rail carrying the verdict, sightings, lifecycle and'
-            . ' external presence.'
+        'left' => array(
+            $panel('viewOccurrences'),
+            $panel('viewContext'),
+            $panel('viewAnalystPreview'),
+        ),
+        'right' => array(
+            $panel('viewVerdictCard'),
+            $panel('viewSightings'),
+            $panel('viewLifecycle'),
+            $panel('viewExternal'),
         ),
     ),
     array(
         'id' => 'verdict',
         'title' => __('Verdict'),
         'icon' => 'fas fa-gavel',
-        'note' => __(
-            'The glass-box assessment: every signal, contradiction and'
-            . ' per-organisation stance behind the disposition.'
+        'badge' => $verdictBadge,
+        'left' => array(
+            $panel('viewVerdict'),
         ),
     ),
     array(
@@ -232,6 +272,10 @@ $tabRegistry = array(
     ),
 );
 
+/*
+ * A tab that names no panels is one nobody has written yet, and says so
+ * with the whole-tab placeholder rather than an empty column.
+ */
 $tabs = array();
 foreach ($tabRegistry as $tab) {
     $tabs[] = array(
@@ -239,7 +283,9 @@ foreach ($tabRegistry as $tab) {
         'title' => $tab['title'],
         'icon' => $tab['icon'],
         'count' => $tab['count'] ?? null,
-        'left' => array(
+        'badge' => $tab['badge'] ?? null,
+        'right' => $tab['right'] ?? null,
+        'left' => $tab['left'] ?? array(
             array(
                 'element' => 'Values/View/value_placeholder',
                 'params' => array(

@@ -934,6 +934,35 @@ th .sort-icon::before {
     color: var(--primary) !important;
 }
 
+/*
+ * State pill on a view tab — for a tab whose content resolves to a state
+ * rather than to a count. The caller passes the colour as
+ * --nav-view-badge-color; the muted default keeps an uncoloured pill legible.
+ */
+.nav-view-badge {
+    --nav-view-badge-color: var(--bs-secondary-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 9px;
+    border: 1px solid var(--nav-view-badge-color);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--nav-view-badge-color);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.nav-view-badge-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--nav-view-badge-color);
+}
+
 .nav-ajax.active {
     background-color: var(--primary) !important;
 }

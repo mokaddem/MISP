@@ -29,6 +29,29 @@ foreach ($tabs as $i => $tab) {
                     <?php if (!empty($tab['count'])): ?>
                         <span> (<?= h($tab['count']) ?>) </span>
                     <?php endif; ?>
+
+                    <?php
+                    /*
+                     * Optional state pill, for a tab whose content resolves to
+                     * a state rather than to a count — a verdict, a status, a
+                     * severity. `label` is required; `color` is any CSS colour
+                     * (a variable is the intent) and `dot` prefixes a filled
+                     * circle in it. Absent for every existing caller.
+                     */
+                    ?>
+                    <?php if (!empty($tab['badge']['label'])): ?>
+                        <span class="nav-view-badge"<?=
+                            empty($tab['badge']['color'])
+                                ? ''
+                                : ' style="--nav-view-badge-color: '
+                                    . h($tab['badge']['color']) . ';"'
+                        ?>>
+                            <?php if (!empty($tab['badge']['dot'])): ?>
+                                <span class="nav-view-badge-dot"></span>
+                            <?php endif; ?>
+                            <?= h($tab['badge']['label']) ?>
+                        </span>
+                    <?php endif; ?>
                 </a>
             </li>
         <?php endforeach; ?>
