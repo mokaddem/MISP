@@ -7,8 +7,15 @@
  * @var string $valueB64
  */
 
+/*
+ * Chart.js is loaded once here rather than per fragment: several panels
+ * draw curves, and a lazily-injected fragment cannot be trusted to be
+ * the first one to need it. The panels poll for the global instead of
+ * assuming it has arrived.
+ */
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-profile'),
+    'js' => array('Chart.min'),
 ));
 
 $profile = $valueProfile;

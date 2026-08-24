@@ -1,0 +1,109 @@
+<?php
+/**
+ * One Chart.js canvas, themed from CSS rather than from literals.
+ *
+ * Callers write colours as `var(--something)` in the config exactly as
+ * they would in a stylesheet; this element resolves them against the
+ * canvas at init, so a chart picks up the same variables the rest of
+ * the page does. It re-resolves them when `data-bs-theme` flips, which
+ * is the only way a canvas can follow a theme it cannot inherit.
+ *
+ * Safe inside a lazily-injected fragment: `loadAjaxContainer` re-creates
+ * every `<script>` after setting innerHTML, so the canvas exists by the
+ * time this runs, and the Chart global is polled for rather than
+ * assumed — `Chart.min` is loaded once at page level.
+ *
+ * @var string $chartId     Namespaced per panel, so two cards cannot
+ *                          collide over one canvas
+ * @var array $chartConfig  A Chart.js config
+ * @var int $chartHeight    Fixed, because a canvas in a flex column
+ *                          with no height resizes forever
+ * @var string $chartLabel  Accessible name for the canvas
+ */
+$chartHeight = $chartHeight ?? 240;
+$chartLabel = $chartLabel ?? __('Chart');
+?>
+<div class="vp-chart" style="height: <?= (int)$chartHeight ?>px;">
+    <canvas id="<?= h($chartId) ?>"
+            role="img"
+            aria-label="<?= h($chartLabel) ?>"></canvas>
+</div>
+<script>
+(function () {
+    var id = <?= json_encode($chartId) ?>;
+    var raw = <?= json_encode($chartConfig) ?>;
+    var chart = null;
+
+    /*
+     * `var(--x)` is meaningless to a canvas, so resolve it against the
+     * element that would have inherited it. Walks the whole config
+     * rather than a list of known keys: colours turn up in scales,
+     * plugins and datasets alike.
+     */
+    function resolveColours(node, el) {
+        if (typeof node === 'string') {
+            var match = node.match(/^var\((--[\w-]+)\)$/);
+            if (!match) {
+                return node;
+            }
+            var resolved = getComputedStyle(el)
+                .getPropertyValue(match[1]).trim();
+            return resolved || node;
+        }
+        if (Array.isArray(node)) {
+            return node.map(function (item) {
+                return resolveColours(item, el);
+            });
+        }
+        if (node && typeof node === 'object') {
+            var out = {};
+            Object.keys(node).forEach(function (key) {
+                out[key] = resolveColours(node[key], el);
+            });
+            return out;
+        }
+        return node;
+    }
+
+    function build() {
+        var el = document.getElementById(id);
+        if (!el) {
+            return false;
+        }
+        var config = resolveColours(JSON.parse(JSON.stringify(raw)), el);
+        if (chart) {
+            chart.destroy();
+        }
+        chart = new Chart(el, config);
+        return true;
+    }
+
+    function boot() {
+        if (typeof Chart === 'undefined') {
+            setTimeout(boot, 100);
+            return;
+        }
+        if (!build()) {
+            return;
+        }
+        /*
+         * A canvas cannot inherit a theme, so it is redrawn when one is
+         * chosen. The observer stops itself once the canvas is gone —
+         * a reloaded tab brings its own script with it.
+         */
+        var observer = new MutationObserver(function () {
+            if (!document.getElementById(id)) {
+                observer.disconnect();
+                return;
+            }
+            build();
+        });
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['data-bs-theme'],
+        });
+    }
+
+    boot();
+}());
+</script>
