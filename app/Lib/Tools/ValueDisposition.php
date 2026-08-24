@@ -42,7 +42,7 @@ class ValueDisposition
             'definite' => false,
         ),
         'UNKNOWN' => array(
-            'colour' => 'var(--bs-secondary-color)',
+            'colour' => 'var(--vp-unknown)',
             'icon' => 'fas fa-circle-question',
             'slug' => 'unknown',
             'definite' => false,
@@ -50,7 +50,7 @@ class ValueDisposition
     );
 
     const NEUTRAL = array(
-        'colour' => 'var(--bs-secondary-color)',
+        'colour' => 'var(--vp-unknown)',
         'icon' => 'fas fa-circle-question',
         'slug' => 'unknown',
         'definite' => false,

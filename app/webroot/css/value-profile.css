@@ -33,6 +33,14 @@
     --vp-ben-ink: #2f6b45;
 
     /*
+     * The quiet role, for a verdict that names no state. It is a grey
+     * from the scale rather than `--bs-secondary-color`, which is a
+     * text colour and inverts between the themes — used as a chip fill
+     * it turns light in dark mode and takes the white label with it.
+     */
+    --vp-unknown: var(--bs-gray-600);
+
+    /*
      * Which way a signal points, as opposed to which hue that is. A ▲
      * row supports the disposition the card states, so on a BENIGN
      * value `with` is the green and `against` is the red. The default

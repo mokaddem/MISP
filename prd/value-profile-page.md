@@ -491,3 +491,27 @@ verification is a real page load, not a lint pass:
 6. Check the nine-tab bar for wrapping at common widths — `nav-tabs` at `fs-5`
    with nine items is a real risk and is reported, not silently restyled.
 7. Toggle the dark theme and confirm no hardcoded light-only colour survives.
+
+### 6.1 Outcome
+
+All seven ran against the live stack. Two things are worth carrying forward.
+
+**The nine-tab bar wraps.** Measured on the malicious value: one row at 1920px,
+two rows at 1600px and every width below it down to 992px. The bar never
+overflows horizontally and the page never scrolls sideways — it wraps cleanly,
+and the second row is legible. It is reported here rather than restyled,
+because the fix is a design decision (scroll, overflow menu, drop the counts,
+or accept two rows) and not one this pass should make on its own.
+
+**`--bs-secondary-color` is a text colour.** The UNKNOWN disposition used it as
+a chip fill. It inverts between the themes, so in dark the hero badge became a
+light grey block under the white label — about 1.4:1. Dispositions now resolve
+through `--vp-unknown`, which is theme-stable and reaches 4.69:1 in both.
+`ValueDisposition::isDefinite()` is still unused: the quiet treatment its
+docblock describes for CONFLICTED and UNKNOWN was never wired to a style.
+
+A caveat for whoever verifies the next phase. Panels are checked in headless
+Chrome against saved fragments, and the page pulls its CSS from the instance
+cross-origin — that fetch fails intermittently. An unstyled page passes a
+colour check for the wrong reason, so the harness now asserts `--vp-mal`
+resolves before it asserts anything else, and aborts when it does not.
