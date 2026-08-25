@@ -847,27 +847,121 @@ divergence, honest feasibility notes, both themes, the stress counts addressed.
 A tab that comes back with four restyles goes back to its agent, named with the
 axis it failed to spread on.
 
+All five passed. Twenty candidates, drawn 2026-08-25:
+
+| Tab | Artifact | Candidates | Agent's pick | Chosen | Grafts |
+|---|---|---|---|---|---|
+| Occurrences | [b9ab9ec9](https://claude.ai/code/artifact/b9ab9ec9-e3cf-42e4-86b7-d53242c9447f) | `O1`–`O4` | O2 + O1's bulk bar, O4's proposal diff | | |
+| Sightings | [715b4822](https://claude.ai/code/artifact/715b4822-2644-409e-beb2-3ac09474c4d2) | `S1`–`S4` | S1 + S4's gap rows, S3's baseline split | | |
+| Relationships | [0eaa5580](https://claude.ai/code/artifact/0eaa5580-c273-451a-b7ba-6444dd58296e) | `R1`–`R4` | R1 + R3's faceted pane, R2's clustering rule | | |
+| Enrichment | [ee197bd7](https://claude.ai/code/artifact/ee197bd7-e9ec-46f3-9b51-c3797236a4ee) | `E1`–`E4` | E2 + E1's staging tray | | |
+| Analyst data | [09f056ee](https://claude.ai/code/artifact/09f056ee-be74-4560-90e1-b14cda8f832c) | `A1`–`A4` | A1 + A2's reused opinion element | | |
+
+Each deck names the axis its four candidates spread along, so a pick is a
+choice between organising units rather than between skins: the row, the facet,
+the event or the occurrence (Occurrences); what the tab is besides the chart
+(Sightings); the notion, the graph, the pane or the row (Relationships); the
+spend decision, the module, the run or the returned element (Enrichment); time,
+analytics, organisation or position (Analyst data).
+
 The user then picks one candidate per tab, or a graft of two — "`O2`'s filter
-rail with `O4`'s row". Picks are recorded here:
+rail with `O4`'s row". "None of these" is a legitimate entry: if the four
+missed the axis, one more round for that tab costs a fraction of implementing a
+design nobody wanted.
 
-| Tab | Chosen | Grafts | Date |
-|---|---|---|---|
-| Occurrences | | | |
-| Sightings | | | |
-| Relationships | | | |
-| Enrichment | | | |
-| Analyst data | | | |
+### 7.9 What the mockups found MISP cannot supply
 
-"None of these" is a legitimate entry. If the four missed the axis, one more
-round for that tab costs a fraction of implementing a design nobody wanted.
+Each agent was asked to name what its tab's brief assumes and MISP does not
+have. These are the phase's second deliverable, and several of them decide
+what a phase 8 can honestly promise.
 
-### 7.9 Exit criteria
+**Sightings.** The decay curve is computed **per attribute, not per value** —
+`DecayingModel::getScoreOvertime()` takes one attribute id and derives its base
+score from that attribute's own type and numerically-tagged taxonomies, so ten
+occurrences can carry ten curves per model. There is no value-scoped endpoint
+and no aggregation rule; the deck proposes *max across occurrences, labelled
+with its occurrence*, and someone has to decide it before this tab is real. The
+curve's axis is not the histogram's either: hourly samples from the attribute's
+first timestamp to *last sighting + lifetime*, so it starts arbitrarily and
+runs into the future. False positives and expirations move the score by
+nothing (`$sightingsType = 0`), which the chart states rather than hides. And
+the count in the tab title is the viewer's: `Sightings_policy` hides whole
+sightings, `Sightings_anonymise` files foreign orgs as *Others*. The org-stacked
+histogram, by contrast, needs no new query — `attributesStatistics()` already
+groups org × attribute × type × date in SQL.
+
+**Relationships.** Domain/TLD-tree relations, which the brief asks for, **do
+not exist in MISP at all** — no public-suffix list, no tree, no code path — so
+the candidates render a distinct "no engine" state rather than an empty one.
+Correlations carry no provenance: exact matches, CIDR containment and ssdeep
+rows are written into the same table by
+`Correlation::__addAdvancedCorrelations()` with nothing to tell them apart, so
+splitting co-occurrence from near-match means re-deriving per render or adding
+a column. The ssdeep score is computed
+and then thrown away — `ssdeepCorrelation()` only tests it against
+`MISP.ssdeep_correlation_threshold`. And **21,904 correlations cannot exist**:
+`MISP.correlation_limit` defaults to 20 (`OnDemandCorrelationBehavior:185`,
+`OverCorrelatingValue:86`, `Event:5553`), past which the value is recorded as
+over-correlating and *no* correlations are stored — which the fixture already
+reflects with `over_correlating => true` on both large values. The honest render
+of `8.8.8.8` is a suppressed state, a fourth alongside empty, hidden-by-ACL and
+not-implemented.
+
+**Enrichment.** Nothing anywhere records that a module ran: `Module` is
+`useTable = false`, so every staleness chip and the entire since-last-run delta
+needs new persistence. A dismissal is not remembered either — the per-element
+checkboxes are DOM state in one modal, so a re-run re-proposes everything the
+analyst rejected. Module introspection carries no cost, quota or
+leaves-the-building metadata, and there is no progress inside a module: one
+`POST /query` under `Plugin.Enrichment_timeout`, so progress can only ever be
+*n of m modules*. "Add to event" has no target when the value sits in seven of
+them. Also `Event::enrichmentRouter()` returns before its own
+`MISP.background_jobs` branch (`Event.php:7995`), so the interactive path is
+synchronous whatever the setting says.
+
+**Analyst data.** Notes and opinions hang off `object_uuid` + `object_type`,
+and **a value is not a valid target** — the tab is a controller-assembled union
+over the value's occurrences and events, with no single query and no pagination
+across it, and the composer needs an explicit "attach to" picker. Nothing
+computes the aggregate today; the Verdict tab's histogram is fixture. Markdown
+is stored and never rendered (`Analyst_data/thread.ctp` prints `pre-line`), and
+there is no per-note markup flag to turn it on selectively. Depth 2 is a fetch
+limit, so `_max_depth_reached` has to be rendered or threads truncate in
+silence. And MISP currently colours an opinion two contradictory ways — the
+Overview preview paints "Agree" green while the Verdict histogram paints
+everything above 50 red; the mockups unify on the Verdict reading and the
+contradiction needs a decision.
+
+**Occurrences.** No endpoint returns per-facet counts over an ACL-scoped
+attribute set — tallying the fetched page works at ten rows and stops being
+honest the moment the table paginates. A cross-event bulk write does not exist
+either: every bulk action fans out per attribute, and one selection can mix
+rows the user may edit with rows they may only propose against. The event ids
+behind ACL-hidden occurrences are not obtainable, so a "ghost group" can name a
+number and never a row. And no demo value carries a pending proposal, so the
+indicator every candidate must show has nothing to render until the fixture
+grows one.
+
+**Shared-code defects surfaced along the way**, all outside this phase's remit
+and none of them touched:
+
+- `IndexTable/multi_select_toolbar.ctp:18` paints the bulk bar `bg-light`.
+  Bootstrap does not redefine `--bs-light-rgb` for `[data-bs-theme=dark]` while
+  it does redefine `--bs-body-color`, so in dark the real bulk bar is near-white
+  text on a near-white bar — on every index table that uses it, not only this
+  page.
+- `genericElementsBS5/Badges/type.ctp:12` uses `border border-dark`, which all
+  but vanishes against the dark ground for the same reason.
+- `Event::enrichmentRouter()` has unreachable code after its `return`
+  (`Event.php:7995`).
+
+### 7.10 Exit criteria
 
 Five artifacts published, twenty candidates, each rendering at the pinned width
 in both themes with its reckoning card, and every row of the decision table
 carrying either a pick or an explicit re-run.
 
-### 7.10 What phase 7 leaves to phase 8
+### 7.11 What phase 7 leaves to phase 8
 
 No PHP, no CSS under `app/`, no fixture changes, no live data, no writes — the
 whole phase lives under `prd/phase7/`.
