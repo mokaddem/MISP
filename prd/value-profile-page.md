@@ -581,16 +581,28 @@ stylesheets the real page loads, in the order `Layouts/default.ctp` loads them:
 `bootstrap5-custom.min.css`, `tom-select.bootstrap5.min.css`,
 `mainOvermind.css`, `fontawesome7.min.css`, `misp-iconify.css`, then the
 page's own `value-profile.css`. `print.css` is skipped — it loads at
-`media="print"` and says nothing about the screen. About 760KB once the font
-below is embedded, inlined into each artifact and far inside the 16MB ceiling.
+`media="print"` and says nothing about the screen. 812KB with the fonts
+embedded, inlined into each artifact and far inside the 16MB ceiling.
 `prd/phase7/kit/build-kit.sh` builds it and stamps the source commit into a
 header comment, so a stale kit is visible rather than silently wrong.
 
 **Fonts and icons.** The artifact CSP blocks every external host, so the build
-script embeds `webfonts/fa-solid-900.woff2` (80KB) as a `data:` URI and
-rewrites its `@font-face` src. `fa-brands` and `fa-regular` are dropped — the
-page uses solid. `misp-iconify.css` already carries its glyphs as inline
-`data:` SVG masks, so MISP's own icon set needs no work.
+script embeds `webfonts-fa7/fa-solid-900.woff2` (112KB) and
+`fa-regular-400.woff2` (18KB) as `data:` URIs. Font Awesome declares each face
+three times — once for `Font Awesome 7 Free` and twice more as the
+`Font Awesome 5 Free` and `FontAwesome` aliases — so embedding on every
+occurrence would carry the same font three times over; only the live family is
+embedded and the eight alias and brand faces are dropped. `misp-iconify.css`
+already carries its glyphs as inline `data:` SVG masks, so MISP's own icon set
+needs no work.
+
+**A BOM will eat Bootstrap's variables.** `bootstrap5-custom.min.css` opens
+with one. Harmless at the head of its own file; concatenated into the middle of
+another it is an invalid token that takes the *following* rule with it — which
+there is the whole `:root,[data-bs-theme=light]` block, every Bootstrap
+variable the page has. The stylesheet still parses, `--bs-danger` and
+`--bs-body-bg` just quietly resolve to nothing. The builder reads with
+`utf-8-sig` and refuses to emit a kit containing a BOM.
 
 **The theme bridge.** Artifacts stamp `data-theme` on the root element and
 otherwise fall back to `prefers-color-scheme`; MISP switches on
@@ -598,24 +610,39 @@ otherwise fall back to `prefers-color-scheme`; MISP switches on
 resolved theme onto `data-bs-theme` at load and on change, so a mockup follows
 the reader's theme using MISP's own dark palette rather than a second one.
 
-**`prd/phase7/kit/frame.html`** — the page around the tab body: the banner with
-`185.234.219.24` and its type chips, the fact strip, the pivot rail, the
-nine-tab bar with the target tab active, and the `col-lg-9` / `col-lg-3` split.
-The frame renders at reduced emphasis: it is context for judging the tab body,
-not part of what is being judged. The tab bar wraps to two rows at ≤1600px and
-that is left exactly as §6.1 records it.
+**`prd/phase7/kit/frame.html`** — the page around the tab body, lifted from a
+live render rather than approximated: the banner with `185.234.219.24` and its
+type chips, the disabled action buttons, the fact strip, the pivot rail and the
+nine-tab bar. `prd/phase7/kit/build-frame.py` regenerates it from a page dump
+when the chrome changes. Each frame carries `data-vp-tab`, and the deck script
+activates that tab in the bar. The chrome renders at reduced emphasis — it is
+context for judging the tab body, not part of what is being judged — except the
+tab bar, which is what tells the reader which tab they are looking at. The bar
+wraps to two rows at 1600px and that is left exactly as §6.1 records it.
 
-**The pinned width.** Step 0 measures the real content column on the live stack
-and pins it in the kit as `--vp-mock-body` (expect ~975px at a 1600px window;
-the measured number is what ships). Every candidate renders at that width, so
-density is honest and no candidate wins by being drawn narrower than the column
-it would actually live in.
+**The pinned width.** Not the body width: the page is `container-fluid`, so the
+content column is a share of the window rather than a fixed size — `col-lg-9`
+measures 1080px at a 1440px window, 1200px at 1600px and 1440px at 1920px.
+Pinning the *page* at 1600px and keeping MISP's real grid inside it gives every
+candidate the geometry it would really have, and lets one that wants the full
+width take `col-12` (1576px) instead of the 9/3 split without leaving the
+frame. Candidates are drawn at that pin, so density is honest and none of them
+wins by being drawn narrower than the column it would live in.
 
-**Step 0's own check.** The frame renders in both themes in headless Chrome,
-asserting that `--vp-mal` resolves before asserting anything else. That was a
-harness rule in §6.1 because the page pulled its CSS cross-origin; with the kit
-inlined there is no fetch left to fail, and the assertion stays only as a guard
-against a malformed kit.
+**Publishing.** A source file under `prd/phase7/mockups/` keeps a
+`<!-- vp-kit -->` marker and stays readable in a diff;
+`prd/phase7/kit/inline-kit.py` swaps the marker for the kit and writes the
+publishable copy to `prd/phase7/build/`, which is not committed — five
+committed copies of the same 812KB is not a diff anyone can read.
+
+**Step 0's own check.** `prd/phase7/kit/check-mockup.sh` renders a built file
+in headless Chrome in both themes and asserts that `--vp-mal` resolves before
+it asserts anything else, then that there are nine tabs with exactly one
+active, four candidates with real body height, no off-host reference, and no
+page-level horizontal scroll. The first assertion is the one that matters: a
+mockup whose CSS failed to apply still renders, as unstyled HTML, and unstyled
+HTML passes a colour check for the wrong reason — the trap that made a whole
+sweep vacuous in §6.1.
 
 ### 7.4 What a candidate is
 
