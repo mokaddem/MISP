@@ -1629,6 +1629,202 @@
         return false;
     }
 
+    /**
+     * Analyst data tab
+     * ------------------------------------------------------------
+     * Four behaviours, all client-side against markup the two
+     * endpoints already sent: the order of the thread, which kinds it
+     * shows, whether an item's replies are open, and a strip marker
+     * lighting up the table row it belongs to.
+     *
+     * A reply is never sorted or filtered on its own. The unit is the
+     * top-level item and everything written under it — `.vpa-item` —
+     * because a reply reordered away from what it replies to is no
+     * longer a reply, and a thread that hides the note but keeps the
+     * opinion written on it is showing an answer to a question it has
+     * taken off the page.
+     */
+
+    // Per-panel state, keyed by the element so a panel re-fetched into
+    // the tab starts from its markup rather than from what the last
+    // one was showing.
+    var analystState = new WeakMap();
+
+    /**
+     * @param {Element} panel
+     * @return {Object} The panel's sort and kind, defaulted
+     */
+    function analystStateOf(panel) {
+        if (!analystState.has(panel)) {
+            analystState.set(panel, {sort: 'newest', kind: 'all'});
+        }
+        return analystState.get(panel);
+    }
+
+    /**
+     * Reorder and re-show the thread from the panel's current state.
+     *
+     * @param {Element} panel
+     */
+    function refreshAnalyst(panel) {
+        var thread = panel.querySelector('.vpa-thread');
+        if (!thread) {
+            return;
+        }
+        var state = analystStateOf(panel);
+        var items = Array.prototype.slice.call(
+            thread.querySelectorAll('[data-vp-a-item]')
+        );
+
+        items.sort(function (a, b) {
+            if (state.sort === 'org') {
+                var byOrg = a.dataset.vpAOrg.localeCompare(b.dataset.vpAOrg);
+                if (byOrg !== 0) {
+                    return byOrg;
+                }
+            }
+            var dates = a.dataset.vpADate.localeCompare(b.dataset.vpADate);
+            if (dates !== 0) {
+                // Oldest first only when asked; by organisation keeps
+                // each organisation's own thread in the order it was
+                // written, newest at the top like everything else.
+                return state.sort === 'oldest' ? dates : -dates;
+            }
+            // Same day: the order the endpoint sent, which is the order
+            // the rows came back in.
+            return parseInt(a.dataset.vpAOrder, 10)
+                - parseInt(b.dataset.vpAOrder, 10);
+        });
+
+        var shown = 0;
+        items.forEach(function (item) {
+            thread.appendChild(item);
+            var on = state.kind === 'all'
+                || item.dataset.vpAKind === state.kind;
+            item.classList.toggle('d-none', !on);
+            if (on) {
+                shown++;
+            }
+        });
+
+        var empty = panel.querySelector('[data-vp-a-empty]');
+        if (empty) {
+            empty.classList.toggle('d-none', shown > 0);
+        }
+
+        panel.querySelectorAll('[data-vp-a-sort]').forEach(function (button) {
+            var active = button.dataset.vpASort === state.sort;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        panel
+            .querySelectorAll('[data-vp-a-kind-filter]')
+            .forEach(function (button) {
+                var active = button.dataset.vpAKindFilter === state.kind;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+    }
+
+    /**
+     * Open or close one item's replies.
+     *
+     * @param {Element} button
+     */
+    function toggleAnalystReplies(button) {
+        /*
+         * The replies block is the next sibling of the .vp-analyst the
+         * button sits in — never a descendant of it. Walking down from
+         * the item would find the replies of a nested item first, and
+         * open somebody else's sub-thread.
+         */
+        var claim = button.closest('.vp-analyst');
+        var replies = claim ? claim.nextElementSibling : null;
+        if (!replies || !replies.classList.contains('vpa-replies')) {
+            return;
+        }
+        var open = replies.classList.toggle('d-none');
+        button.setAttribute('aria-expanded', open ? 'false' : 'true');
+        var caret = button.querySelector('i');
+        if (caret) {
+            caret.classList.toggle('fa-caret-down', !open);
+            caret.classList.toggle('fa-caret-right', open);
+        }
+    }
+
+    /**
+     * A strip marker and the table rows it stands for, lit together.
+     *
+     * A merged marker carries every organisation it swallowed, so
+     * hovering the badged one highlights all of them — which is the
+     * only way the reader finds out which organisations collided.
+     *
+     * @param {Element} mark
+     * @param {boolean} on
+     */
+    function highlightAnalystMark(mark, on) {
+        var panel = mark.closest('[data-vp-analyst-standing]');
+        if (!panel) {
+            return;
+        }
+        mark.classList.toggle('vpa-mark-on', on);
+        (mark.dataset.vpAMark || '').split('|').forEach(function (org) {
+            panel
+                .querySelectorAll('[data-vp-a-org]')
+                .forEach(function (row) {
+                    if (row.dataset.vpAOrg === org) {
+                        row.classList.toggle('vpa-row-on', on);
+                    }
+                });
+        });
+    }
+
+    /**
+     * @param {Element} root
+     */
+    function initAnalyst(root) {
+        var panels = root.querySelectorAll
+            ? root.querySelectorAll('[data-vp-analyst-thread]')
+            : [];
+        panels.forEach(function (panel) {
+            refreshAnalyst(panel);
+        });
+    }
+
+    /**
+     * @param {Event} event
+     * @return {boolean} Whether the click belonged to this tab
+     */
+    function onAnalystClick(event) {
+        var sort = event.target.closest('[data-vp-a-sort]');
+        if (sort) {
+            var sortPanel = sort.closest('[data-vp-analyst-thread]');
+            if (sortPanel) {
+                analystStateOf(sortPanel).sort = sort.dataset.vpASort;
+                refreshAnalyst(sortPanel);
+            }
+            return true;
+        }
+
+        var kind = event.target.closest('[data-vp-a-kind-filter]');
+        if (kind) {
+            var kindPanel = kind.closest('[data-vp-analyst-thread]');
+            if (kindPanel) {
+                analystStateOf(kindPanel).kind = kind.dataset.vpAKindFilter;
+                refreshAnalyst(kindPanel);
+            }
+            return true;
+        }
+
+        var replies = event.target.closest('[data-vp-a-replies]');
+        if (replies) {
+            toggleAnalystReplies(replies);
+            return true;
+        }
+
+        return false;
+    }
+
     function init() {
         if (!onValuePage()) {
             return;
@@ -1681,6 +1877,10 @@
                 return;
             }
 
+            if (onAnalystClick(event)) {
+                return;
+            }
+
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
                 expandFacetGroup(more);
@@ -1695,6 +1895,29 @@
                     listPages.set(clearList, 1);
                     refreshList(clearList);
                 }
+            }
+        });
+
+        // Hovering a strip marker lights the table rows it stands
+        // for. Delegated, because the standing panel arrives after
+        // load like every other fragment on this page.
+        document.addEventListener('mouseover', function (event) {
+            if (!event.target.closest) {
+                return;
+            }
+            var mark = event.target.closest('[data-vp-a-mark]');
+            if (mark) {
+                highlightAnalystMark(mark, true);
+            }
+        });
+
+        document.addEventListener('mouseout', function (event) {
+            if (!event.target.closest) {
+                return;
+            }
+            var leaving = event.target.closest('[data-vp-a-mark]');
+            if (leaving) {
+                highlightAnalystMark(leaving, false);
             }
         });
 
@@ -1837,12 +2060,14 @@
             refreshAllLists(event.target);
             initSightings(event.target);
             initEnrichment(event.target);
+            initAnalyst(event.target);
         });
 
         refreshOccurrences();
         refreshAllLists(document);
         initSightings(document);
         initEnrichment(document);
+        initAnalyst(document);
     }
 
     if (document.readyState === 'loading') {

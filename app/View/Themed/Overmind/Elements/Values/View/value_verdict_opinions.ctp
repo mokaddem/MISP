@@ -35,7 +35,7 @@ if (!empty($opinions['buckets'])) {
                 <?= h(sprintf(
                     __('%1$s opinions · mean %2$s'),
                     $opinions['n'],
-                    $opinions['mean']
+                    $opinions['mean_label']
                 )) ?>
             </span>
         </div>
@@ -60,7 +60,11 @@ if (!empty($opinions['buckets'])) {
                               ? 2
                               : round($count / $tallest * 100, 2) ?>%;"
                           title="<?= h(sprintf(
-                              __('%1$s opinions in %2$s'),
+                              __n(
+                                  '%1$s opinion in %2$s',
+                                  '%1$s opinions in %2$s',
+                                  $count
+                              ),
                               $count,
                               $bucket['label']
                           )) ?>"></span>

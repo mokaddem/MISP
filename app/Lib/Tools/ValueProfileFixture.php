@@ -73,6 +73,10 @@ class ValueProfileFixture
             self::maliciousModels()
         );
         $enrichment = self::maliciousEnrichment();
+        $analyst = array_merge(
+            self::maliciousAnalystData(),
+            self::maliciousAnalystTab()
+        );
 
         return array(
             'value' => '185.234.219.24',
@@ -96,7 +100,7 @@ class ValueProfileFixture
                  * being sent to the tab for is what came back.
                  */
                 'enrichment' => $enrichment['pending'],
-                'analyst' => 6,
+                'analyst' => $analyst['counts']['items'],
             ),
             'facts' => array(
                 array(
@@ -191,7 +195,7 @@ class ValueProfileFixture
                     'n' => 3,
                 ),
             ),
-            'analyst' => self::maliciousAnalystData(),
+            'analyst' => $analyst,
             'sightings' => array(
                 'total' => 47,
                 'fp' => 1,
@@ -1276,6 +1280,10 @@ class ValueProfileFixture
             self::conflictedModels()
         );
         $enrichment = self::conflictedEnrichment();
+        $analyst = array_merge(
+            self::conflictedAnalystData(),
+            self::conflictedAnalystTab()
+        );
 
         return array(
             'value' => '104.21.34.198',
@@ -1292,7 +1300,7 @@ class ValueProfileFixture
                 'sightings' => 63,
                 'relationships' => 1847,
                 'enrichment' => $enrichment['pending'],
-                'analyst' => 7,
+                'analyst' => $analyst['counts']['items'],
             ),
             'facts' => array(
                 array(
@@ -1383,7 +1391,7 @@ class ValueProfileFixture
                     'n' => 2,
                 ),
             ),
-            'analyst' => self::conflictedAnalystData(),
+            'analyst' => $analyst,
             'sightings' => array(
                 'total' => 63,
                 'fp' => 9,
@@ -1440,7 +1448,16 @@ class ValueProfileFixture
                 'servers' => 3,
                 'sightingdb' => 84109,
             ),
-            'verdict' => self::conflictedVerdict(),
+            /*
+             * The opinion distribution is handed in rather than
+             * written again: the Verdict tab's histogram and the
+             * Analyst tab's are the same ten buckets over the same
+             * opinions, and deriving them twice is how they would
+             * stop agreeing.
+             */
+            'verdict' => self::conflictedVerdict(
+                $analyst['standing']['aggregate']
+            ),
         );
     }
 
@@ -1925,12 +1942,21 @@ class ValueProfileFixture
             'occurrence_facets' => null,
             'tags' => array(),
             'galaxies' => array(),
-            'analyst' => array(
-                'total' => 0,
-                'notes' => 0,
-                'opinions' => 0,
-                'Note' => array(),
-                'Opinion' => array(),
+            /*
+             * Nothing written, and the tab still renders: the standing
+             * panel's strip is replaced by one empty line and the
+             * thread keeps its composer, so a value nobody has argued
+             * about reads as usable rather than broken.
+             */
+            'analyst' => array_merge(
+                array(
+                    'total' => 0,
+                    'notes' => 0,
+                    'opinions' => 0,
+                    'Note' => array(),
+                    'Opinion' => array(),
+                ),
+                self::analystTab(array(), array())
             ),
             'sightings' => array(
                 'total' => 0,
@@ -2006,7 +2032,7 @@ class ValueProfileFixture
      *
      * @return array
      */
-    private static function conflictedVerdict()
+    private static function conflictedVerdict(array $opinions)
     {
         return array(
             'disposition' => 'CONFLICTED',
@@ -2157,28 +2183,24 @@ class ValueProfileFixture
                 ),
             ),
             'resolutions' => self::conflictedResolutions(),
-            'opinions' => array(
-                'n' => 7,
-                'mean' => 46,
-                'buckets' => array(
-                    array('label' => '0–10', 'count' => 0),
-                    array('label' => '11–20', 'count' => 3),
-                    array('label' => '21–30', 'count' => 0),
-                    array('label' => '31–40', 'count' => 0),
-                    array('label' => '41–50', 'count' => 1),
-                    array('label' => '51–60', 'count' => 0),
-                    array('label' => '61–70', 'count' => 1),
-                    array('label' => '71–80', 'count' => 1),
-                    array('label' => '81–90', 'count' => 1),
-                    array('label' => '91–100', 'count' => 0),
+            /*
+             * The Analyst tab's aggregate, unchanged, plus the reading
+             * of it this card is for. Both tabs then draw one
+             * distribution rather than two versions of it.
+             */
+            'opinions' => array_merge($opinions, array(
+                'note' => sprintf(
+                    __(
+                        'Bimodal, not uncertain. The mean of %1$s is the'
+                        . ' one number on this page that means nothing —'
+                        . ' two positions, nothing between %2$s and'
+                        . ' %3$s.'
+                    ),
+                    $opinions['mean_label'],
+                    $opinions['gap']['from'],
+                    $opinions['gap']['to']
                 ),
-                'note' => __(
-                    'Bimodal, not uncertain. The mean of 46 is the one'
-                    . ' number on this page that means nothing — two'
-                    . ' clusters, no middle. CthulhuSPRL.be 82 / 78'
-                    . ' against CIRCL 15 / 20 / 12.'
-                ),
-            ),
+            )),
             'curves' => array(
                 array(
                     'label' => __('Malicious case'),
@@ -2444,6 +2466,10 @@ class ValueProfileFixture
         $rows = self::benignSightingRows();
         $decay = self::decayModels($rows, $created, self::benignModels());
         $enrichment = self::benignEnrichment();
+        $analyst = array_merge(
+            self::benignAnalystData(),
+            self::benignAnalystTab()
+        );
 
         return array(
             'value' => '8.8.8.8',
@@ -2460,7 +2486,7 @@ class ValueProfileFixture
                 'sightings' => 17,
                 'relationships' => 21904,
                 'enrichment' => $enrichment['pending'],
-                'analyst' => 5,
+                'analyst' => $analyst['counts']['items'],
             ),
             'facts' => array(
                 array(
@@ -2551,7 +2577,7 @@ class ValueProfileFixture
              * so rather than render a gap.
              */
             'galaxies' => array(),
-            'analyst' => self::benignAnalystData(),
+            'analyst' => $analyst,
             'sightings' => array(
                 'total' => 17,
                 'fp' => 11,
@@ -6185,5 +6211,918 @@ class ValueProfileFixture
             'modules' => self::modulesForType($type),
             'results' => array(),
         ));
+    }
+
+    /* ==================================================================
+     * Analyst data tab
+     * ==================================================================
+     * Two readings of one set of notes and opinions: where each
+     * organisation stands on the 0-100 scale, and the argument in the
+     * order it happened.
+     *
+     * Every number the standing panel prints is derived here from the
+     * rows themselves — the mean, the ten buckets, the empty middle,
+     * the per-organisation note counts and last activity. Nothing in
+     * MISP computes any of them (`05-analyst.md` §11), so the panel
+     * says `computed at render` and this is where the computing is.
+     */
+
+    /**
+     * The five bands MISP itself uses for an opinion, so the word on
+     * this page is the word the product uses.
+     *
+     * @param int $score
+     * @return string
+     */
+    private static function opinionBand($score)
+    {
+        if ($score >= 81) {
+            return __('Strongly agree');
+        }
+        if ($score >= 61) {
+            return __('Agree');
+        }
+        if ($score >= 41) {
+            return __('Neutral');
+        }
+        if ($score >= 21) {
+            return __('Disagree');
+        }
+        return __('Strongly disagree');
+    }
+
+    /**
+     * Which way an opinion argues about the value.
+     *
+     * The band word and the reading are two different things: MISP
+     * calls 61-80 "Agree", and what it agrees with is the claim that
+     * the value is hostile. The Verdict tab's histogram already reads
+     * the axis this way and this tab follows it — the contradiction
+     * `05-analyst.md` §11 records.
+     *
+     * @param int $score
+     * @return string malicious | benign | none
+     */
+    private static function opinionReads($score)
+    {
+        if ($score > 50) {
+            return 'malicious';
+        }
+        if ($score < 50) {
+            return 'benign';
+        }
+        // Exactly 50 argues neither way, and inventing a side for it
+        // would be the page's own claim rather than the analyst's.
+        return 'none';
+    }
+
+    /**
+     * Which of the ten bands a score falls in. 0-10 is the first band
+     * and every band after it is ten wide, which is what makes 100 the
+     * last band rather than an eleventh.
+     *
+     * @param int $score
+     * @return int 0-9
+     */
+    private static function opinionBucket($score)
+    {
+        $score = max(0, min(100, (int)$score));
+        return $score <= 10 ? 0 : (int)ceil($score / 10) - 1;
+    }
+
+    /**
+     * @return array The ten band labels, in the Verdict tab's spelling
+     *               so the two histograms read as one object.
+     */
+    private static function opinionBucketLabels()
+    {
+        return array(
+            '0–10', '11–20', '21–30', '31–40', '41–50',
+            '51–60', '61–70', '71–80', '81–90', '91–100',
+        );
+    }
+
+    /**
+     * Everything the standing panel states about the set as a whole.
+     *
+     * Derived rather than written down, so a fixture that changes one
+     * organisation's opinion cannot leave behind a mean, a gap and a
+     * histogram describing the old set. The Verdict tab's opinion card
+     * reads the same array, which is what stops one value carrying two
+     * different distributions on two tabs.
+     *
+     * @param array $orgs Rows from `analystStanding`
+     * @return array
+     */
+    private static function opinionAggregate(array $orgs)
+    {
+        $scores = array();
+        foreach ($orgs as $org) {
+            $scores[] = (int)$org['score'];
+        }
+        sort($scores);
+        $n = count($scores);
+
+        $buckets = array();
+        foreach (self::opinionBucketLabels() as $label) {
+            $buckets[] = array('label' => $label, 'count' => 0);
+        }
+        foreach ($scores as $score) {
+            $buckets[self::opinionBucket($score)]['count']++;
+        }
+        $empty = 0;
+        foreach ($buckets as $bucket) {
+            if ($bucket['count'] === 0) {
+                $empty++;
+            }
+        }
+
+        $mean = array_sum($scores) / $n;
+        /*
+         * One decimal only when the mean is not a whole number. `62.5`
+         * is a fact about four opinions; `63` would be a rounding this
+         * panel has no reason to perform on the one number it is
+         * already asking the reader to distrust.
+         */
+        $meanLabel = $mean == (int)$mean
+            ? (string)(int)$mean
+            : (string)round($mean, 1);
+
+        /*
+         * The widest run with no opinion in it — the empty middle the
+         * whole panel is arranged around. Measured between two
+         * opinions somebody actually holds rather than between two
+         * band edges, because that is the claim being made.
+         */
+        $gap = null;
+        for ($i = 1; $i < $n; $i++) {
+            $span = $scores[$i] - $scores[$i - 1];
+            if ($gap === null || $span > $gap['points']) {
+                $gap = array(
+                    'from' => $scores[$i - 1],
+                    'to' => $scores[$i],
+                    'points' => $span,
+                );
+            }
+        }
+
+        $nearest = null;
+        foreach ($scores as $score) {
+            $distance = abs($mean - $score);
+            if ($nearest === null || $distance < $nearest) {
+                $nearest = $distance;
+            }
+        }
+
+        $clusters = self::opinionClusters($scores, $gap);
+
+        return array(
+            'n' => $n,
+            'orgs' => count($orgs),
+            'mean' => $mean,
+            'mean_label' => $meanLabel,
+            'mean_nearest' => $nearest,
+            /*
+             * Whether the mean describes a reading nobody holds. Five
+             * points is half a band: closer than that and striking the
+             * number through would be theatre, further and it is the
+             * panel's whole point.
+             */
+            'mean_orphan' => $nearest !== null && $nearest >= 5,
+            'buckets' => $buckets,
+            'empty_bands' => $empty,
+            'gap' => $gap,
+            'clusters' => $clusters,
+            'note' => self::opinionNote($clusters, $gap, $n, count($orgs)),
+        );
+    }
+
+    /**
+     * The two positions, or the one.
+     *
+     * Split at the widest gap and nowhere else. Splitting at every gap
+     * over some width turns four opinions into four clusters and says
+     * nothing; the reader's question is where the set divides, and a
+     * set divides in one place. Below two bands there is no division
+     * worth naming and the whole set is one position.
+     *
+     * @param array $scores Sorted ascending
+     * @param array|null $gap The widest gap, from `opinionAggregate`
+     * @return array
+     */
+    private static function opinionClusters(array $scores, $gap)
+    {
+        if ($gap === null || $gap['points'] < 20) {
+            return array($scores);
+        }
+
+        $low = array();
+        $high = array();
+        foreach ($scores as $score) {
+            if ($score <= $gap['from']) {
+                $low[] = $score;
+            } else {
+                $high[] = $score;
+            }
+        }
+        return array($low, $high);
+    }
+
+    /**
+     * The sub-line under the panel title, shaped by what the numbers
+     * turned out to be rather than written once and left to go stale.
+     *
+     * @param array $clusters
+     * @param array|null $gap
+     * @param int $n
+     * @param int $orgs
+     * @return string
+     */
+    private static function opinionNote(array $clusters, $gap, $n, $orgs)
+    {
+        $bits = array();
+        $bits[] = sprintf(
+            __('%1$s from %2$s'),
+            __n('%s opinion', '%s opinions', $n, $n),
+            __n('%s organisation', '%s organisations', $orgs, $orgs)
+        );
+
+        if (count($clusters) < 2 || $gap === null) {
+            $bits[] = __('one position, no disagreement to read');
+            return implode(' · ', $bits);
+        }
+
+        $bits[] = sprintf(
+            __('two positions %s apart'),
+            __n(
+                '%s point',
+                '%s points',
+                $gap['points'],
+                $gap['points']
+            )
+        );
+        $bits[] = sprintf(
+            __('nothing between %1$s and %2$s'),
+            $gap['from'],
+            $gap['to']
+        );
+
+        return implode(' · ', $bits);
+    }
+
+    /**
+     * One organisation's position, with the parts of it that are
+     * properties of the thread rather than of the opinion — how many
+     * notes it wrote, when it was last heard from — read off the
+     * thread instead of restated beside it.
+     *
+     * @param array $opinions org => array(score, date)
+     * @param array $thread
+     * @return array
+     */
+    private static function analystStanding(array $opinions, array $thread)
+    {
+        $rows = array();
+        foreach ($opinions as $org => $held) {
+            $notes = 0;
+            $last = $held['date'];
+            self::walkThread($thread, function ($item) use (
+                $org,
+                &$notes,
+                &$last
+            ) {
+                if ($item['org'] !== $org) {
+                    return;
+                }
+                if ($item['kind'] === 'note') {
+                    $notes++;
+                }
+                if ($item['date'] > $last) {
+                    $last = $item['date'];
+                }
+            });
+
+            $score = (int)$held['score'];
+            $rows[] = array(
+                'org' => $org,
+                'score' => $score,
+                'label' => self::opinionBand($score),
+                'reads' => self::opinionReads($score),
+                'date' => $held['date'],
+                'notes' => $notes,
+                'last' => $last,
+            );
+        }
+
+        /*
+         * Highest first. The panel is read as a scale, and a scale that
+         * starts in the middle because that is the order the rows were
+         * written is not one.
+         */
+        usort($rows, function ($a, $b) {
+            return $b['score'] - $a['score'];
+        });
+
+        return $rows;
+    }
+
+    /**
+     * @param array $thread
+     * @param callable $fn Called with every item at every depth
+     * @return void
+     */
+    private static function walkThread(array $thread, $fn)
+    {
+        foreach ($thread as $item) {
+            $fn($item);
+            if (!empty($item['children'])) {
+                self::walkThread($item['children'], $fn);
+            }
+        }
+    }
+
+    /**
+     * What the thread contains, counted rather than declared.
+     *
+     * Top-level items are what the tab counts, because a reply is
+     * written on an item and not on the value. The replies are counted
+     * separately and said separately.
+     *
+     * @param array $thread
+     * @return array
+     */
+    private static function analystCounts(array $thread)
+    {
+        $counts = array(
+            'items' => count($thread),
+            'opinions' => 0,
+            'notes' => 0,
+            'replies' => 0,
+        );
+        foreach ($thread as $item) {
+            if ($item['kind'] === 'opinion') {
+                $counts['opinions']++;
+            } else {
+                $counts['notes']++;
+            }
+        }
+        self::walkThread($thread, function ($item) use (&$counts) {
+            $counts['replies'] += count($item['children']);
+        });
+
+        return $counts;
+    }
+
+    /**
+     * One thread item. The defaults are the ordinary case, so a row
+     * only states what is unusual about it.
+     *
+     * @param array $spec
+     * @return array
+     */
+    private static function analystItem(array $spec)
+    {
+        $item = array_merge(array(
+            'kind' => 'note',
+            'org' => 'CIRCL',
+            'author' => null,
+            'date' => null,
+            'distribution' => 3,
+            'sharing_group' => null,
+            'language' => null,
+            'score' => null,
+            /*
+             * What the item rates. An opinion written on a note rates
+             * the note, and `05-analyst.md` §5 makes this explicit
+             * rather than leaving the template to infer it from the
+             * attachment: keeping it out of the aggregate is the whole
+             * reason the distinction exists.
+             */
+            'rates' => 'value',
+            'body' => '',
+            'attached_to' => array('kind' => 'attribute'),
+            'children' => array(),
+            'max_depth_reached' => false,
+        ), $spec);
+
+        if ($item['kind'] !== 'opinion') {
+            $item['label'] = null;
+            $item['reads'] = 'none';
+            return $item;
+        }
+
+        $item['label'] = self::opinionBand((int)$item['score']);
+        // It has a reading, but not one about this value.
+        $item['reads'] = $item['rates'] === 'value'
+            ? self::opinionReads((int)$item['score'])
+            : 'none';
+
+        return $item;
+    }
+
+    /**
+     * Assemble the tab's two panels from one thread.
+     *
+     * @param array $opinions org => array(score, date)
+     * @param array $thread
+     * @param string|null $aclNote
+     * @return array
+     */
+    private static function analystTab(
+        array $opinions,
+        array $thread,
+        $aclNote = null
+    ) {
+        $standing = self::analystStanding($opinions, $thread);
+
+        return array(
+            'counts' => self::analystCounts($thread),
+            'standing' => array(
+                'orgs' => $standing,
+                /*
+                 * Null, not a mean of zero. Zero is a reading somebody
+                 * could have meant; the absence of any opinion is not.
+                 */
+                'aggregate' => empty($standing)
+                    ? null
+                    : self::opinionAggregate($standing),
+            ),
+            'thread' => $thread,
+            'acl_note' => $aclNote,
+        );
+    }
+
+    /**
+     * The malicious value's argument.
+     *
+     * Six items and three replies. The two notes and the two most
+     * recent opinions are the same rows the Overview preview shows, so
+     * the text a reader met on the first tab is the text they meet
+     * again here rather than a second version of it.
+     *
+     * @return array
+     */
+    private static function maliciousAnalystTab()
+    {
+        $preview = self::maliciousAnalystData();
+        $notes = $preview['Note'];
+        $opinions = $preview['Opinion'];
+
+        $thread = array(
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CIRCL',
+                'author' => $notes[0]['authors'],
+                'date' => '2025-08-22',
+                'body' => $notes[0]['note'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1284,
+                ),
+                'children' => array(
+                    self::analystItem(array(
+                        'kind' => 'note',
+                        'org' => 'Team-CIRCL',
+                        'author' => 'erin@team-circl.example',
+                        'date' => '2025-08-20',
+                        'distribution' => 2,
+                        'attached_to' => array(
+                            'kind' => 'object',
+                            'name' => 'network-connection',
+                            'event' => 1284,
+                        ),
+                        'body' => "Same certificate on 8443 as well."
+                            . " Fingerprint is in the"
+                            . " `network-connection` object on this"
+                            . " event.",
+                    )),
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[0]['opinion'],
+                'org' => 'CIRCL',
+                'author' => $opinions[0]['authors'],
+                'date' => '2025-08-21',
+                'body' => $opinions[0]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1284,
+                ),
+                'children' => array(
+                    self::analystItem(array(
+                        'kind' => 'note',
+                        'org' => 'CthulhuSPRL.be',
+                        'author' => 'bob@cthulhu.example',
+                        'date' => '2025-08-20',
+                        'language' => 'en',
+                        'distribution' => 4,
+                        'sharing_group' => 'Sharing group A',
+                        'attached_to' => array(
+                            'kind' => 'attribute',
+                            'type' => 'ip-dst',
+                            'event' => 1284,
+                        ),
+                        /*
+                         * The one body written as markdown. MISP stores
+                         * it and renders none of it today, which is
+                         * what makes rendering it here a decision this
+                         * tab is making rather than a detail — see
+                         * `05-analyst.md` §11.
+                         */
+                        'body' => "#### What our telemetry has\n"
+                            . "Three beacons between 2025-08-04 and"
+                            . " 2025-08-19, all to 8080, all from the"
+                            . " same subnet.\n\n"
+                            . "- TLS certificate matches the June"
+                            . " infrastructure\n"
+                            . "- JA3 `a0e9f5b8c4d3` on every"
+                            . " connection\n"
+                            . "- No traffic at all after 2025-08-19\n\n"
+                            . "> The gap since the 19th is the part I"
+                            . " would not read as retirement yet.",
+                        'children' => array(
+                            self::analystItem(array(
+                                'kind' => 'opinion',
+                                'score' => 68,
+                                'rates' => 'note',
+                                'org' => 'Team-CIRCL',
+                                'author' => 'erin@team-circl.example',
+                                'date' => '2025-08-19',
+                                'distribution' => 2,
+                                'attached_to' => array('kind' => 'note'),
+                                'body' => 'Useful summary. The JA3 is'
+                                    . ' the part worth circulating.',
+                                'max_depth_reached' => true,
+                            )),
+                        ),
+                    )),
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[1]['opinion'],
+                'org' => 'ORGNAME',
+                'author' => $opinions[1]['authors'],
+                'date' => '2025-08-18',
+                'distribution' => 1,
+                'body' => $opinions[1]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-src',
+                    'event' => 1291,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => 75,
+                'org' => 'CthulhuSPRL.be',
+                'author' => 'bob@cthulhu.example',
+                'date' => '2025-08-11',
+                'body' => 'Two of our customers saw the same beacon'
+                    . ' interval. Good enough for us.',
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1288,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CthulhuSPRL.be',
+                'author' => $notes[1]['authors'],
+                'date' => '2025-08-06',
+                'body' => $notes[1]['note'],
+                /*
+                 * Event-level, and the one item on the tab that shows
+                 * what that costs: it is inherited by every occurrence
+                 * in the event rather than said about this value.
+                 */
+                'attached_to' => array(
+                    'kind' => 'event',
+                    'event' => 1288,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => 60,
+                'org' => 'Team-CIRCL',
+                'author' => 'erin@team-circl.example',
+                'date' => '2025-07-29',
+                'distribution' => 0,
+                'body' => 'We have it, but only from the shared feed.'
+                    . ' Nothing of our own.',
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1279,
+                ),
+            )),
+        );
+
+        return self::analystTab(
+            array(
+                'CIRCL' => array('score' => 85, 'date' => '2025-08-21'),
+                'CthulhuSPRL.be' => array(
+                    'score' => 75,
+                    'date' => '2025-08-11',
+                ),
+                'Team-CIRCL' => array('score' => 60, 'date' => '2025-07-29'),
+                'ORGNAME' => array('score' => 30, 'date' => '2025-08-18'),
+            ),
+            $thread,
+            __(
+                'Notes and opinions on occurrences outside your'
+                . ' distribution scope are not listed. MISP scopes the'
+                . ' query and does not report what it withheld, so this'
+                . ' note cannot carry a number.'
+            )
+        );
+    }
+
+    /**
+     * The conflicted value's argument: two positions forty-eight points
+     * apart with nothing between them, and one opinion from an
+     * organisation that holds no occurrence of the value at all.
+     *
+     * That last row is not decoration. Analyst data hangs off an
+     * object UUID, so any organisation that can see the attribute can
+     * write about it — which is why this tab's list of organisations
+     * is not the Verdict tab's list of organisations.
+     *
+     * @return array
+     */
+    private static function conflictedAnalystTab()
+    {
+        $preview = self::conflictedAnalystData();
+        $notes = $preview['Note'];
+        $opinions = $preview['Opinion'];
+
+        $thread = array(
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[0]['opinion'],
+                'org' => 'CIRCL',
+                'author' => $opinions[0]['authors'],
+                'date' => '2025-08-23',
+                'body' => $opinions[0]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1402,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'ORGNAME',
+                'author' => $notes[0]['authors'],
+                'date' => '2025-08-20',
+                'body' => $notes[0]['note'],
+                'attached_to' => array(
+                    'kind' => 'event',
+                    'event' => 1402,
+                ),
+                'children' => array(
+                    self::analystItem(array(
+                        'kind' => 'note',
+                        'org' => 'CthulhuSPRL.be',
+                        'author' => 'bob@cthulhu.example',
+                        'date' => '2025-08-19',
+                        'attached_to' => array(
+                            'kind' => 'event',
+                            'event' => 1402,
+                        ),
+                        'body' => "Both can be true:\n\n"
+                            . "- the hostnames are phishing\n"
+                            . "- the address is shared edge"
+                            . " infrastructure\n\n"
+                            . "Blocking the second to reach the first"
+                            . " is what we are arguing about.",
+                        'children' => array(
+                            self::analystItem(array(
+                                'kind' => 'opinion',
+                                'score' => 72,
+                                'rates' => 'note',
+                                'org' => 'CIRCL',
+                                'author' => 'alice@circl.lu',
+                                'date' => '2025-08-19',
+                                'attached_to' => array('kind' => 'note'),
+                                'body' => 'This is the clearest statement'
+                                    . ' of the disagreement so far.',
+                                'max_depth_reached' => true,
+                            )),
+                        ),
+                    )),
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[1]['opinion'],
+                'org' => 'ORGNAME',
+                'author' => $opinions[1]['authors'],
+                'date' => '2025-08-20',
+                'body' => $opinions[1]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1402,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CIRCL',
+                'author' => $notes[1]['authors'],
+                'date' => '2025-08-19',
+                'body' => $notes[1]['note'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'domain|ip',
+                    'event' => 1397,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => 60,
+                'org' => 'CthulhuSPRL.be',
+                'author' => 'bob@cthulhu.example',
+                'date' => '2025-08-14',
+                'distribution' => 2,
+                'body' => 'Abused, and we still block the hostname'
+                    . ' rather than the address.',
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'domain|ip',
+                    'event' => 1397,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => 12,
+                'org' => 'Team-CIRCL',
+                'author' => 'erin@team-circl.example',
+                'date' => '2025-08-12',
+                'distribution' => 1,
+                'body' => 'We hold nothing on this address. Recording'
+                    . ' the position because it keeps arriving in'
+                    . ' other people\'s blocklists.',
+                /*
+                 * The organisation with no occurrence of the value: it
+                 * wrote on somebody else's attribute, which is the only
+                 * kind of target analyst data has.
+                 */
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1402,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CthulhuSPRL.be',
+                'author' => 'bob@cthulhu.example',
+                'date' => '2025-08-08',
+                'body' => 'Six hostnames on this edge in our own'
+                    . ' passive DNS, four of them unrelated to the'
+                    . ' phishing.',
+                'attached_to' => array(
+                    'kind' => 'object',
+                    'name' => 'domain-ip',
+                    'event' => 1397,
+                ),
+            )),
+        );
+
+        return self::analystTab(
+            array(
+                'CIRCL' => array('score' => 80, 'date' => '2025-08-23'),
+                'CthulhuSPRL.be' => array(
+                    'score' => 60,
+                    'date' => '2025-08-14',
+                ),
+                'Team-CIRCL' => array('score' => 12, 'date' => '2025-08-12'),
+                'ORGNAME' => array('score' => 10, 'date' => '2025-08-20'),
+            ),
+            $thread,
+            __(
+                'Notes and opinions on occurrences outside your'
+                . ' distribution scope are not listed. MISP scopes the'
+                . ' query and does not report what it withheld, so this'
+                . ' note cannot carry a number.'
+            )
+        );
+    }
+
+    /**
+     * The benign value's argument: two organisations reading it as
+     * context and one that will not let it go.
+     *
+     * @return array
+     */
+    private static function benignAnalystTab()
+    {
+        $preview = self::benignAnalystData();
+        $notes = $preview['Note'];
+        $opinions = $preview['Opinion'];
+
+        $thread = array(
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[0]['opinion'],
+                'org' => 'CIRCL',
+                'author' => $opinions[0]['authors'],
+                'date' => '2025-08-21',
+                'body' => $opinions[0]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1150,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CIRCL',
+                'author' => $notes[0]['authors'],
+                'date' => '2025-08-21',
+                'body' => $notes[0]['note'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1150,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[1]['opinion'],
+                'org' => 'CthulhuSPRL.be',
+                'author' => $opinions[1]['authors'],
+                'date' => '2025-08-19',
+                'body' => $opinions[1]['comment'],
+                'attached_to' => array(
+                    'kind' => 'object',
+                    'name' => 'network-connection',
+                    'event' => 1150,
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'score' => $opinions[2]['opinion'],
+                'org' => 'ORGNAME',
+                'author' => $opinions[2]['authors'],
+                'date' => '2025-08-05',
+                'distribution' => 0,
+                'body' => $opinions[2]['comment'],
+                'attached_to' => array(
+                    'kind' => 'attribute',
+                    'type' => 'ip-dst',
+                    'event' => 1163,
+                ),
+                'children' => array(
+                    self::analystItem(array(
+                        'kind' => 'note',
+                        'org' => 'CIRCL',
+                        'author' => 'alice@circl.lu',
+                        'date' => '2025-08-05',
+                        'attached_to' => array(
+                            'kind' => 'attribute',
+                            'type' => 'ip-dst',
+                            'event' => 1163,
+                        ),
+                        'body' => 'Noted. The exfiltration is the finding;'
+                            . ' the resolver is where it went out.',
+                    )),
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'ORGNAME',
+                'author' => $notes[1]['authors'],
+                'date' => '2025-08-04',
+                'body' => $notes[1]['note'],
+                'attached_to' => array(
+                    'kind' => 'event',
+                    'event' => 1163,
+                ),
+            )),
+        );
+
+        return self::analystTab(
+            array(
+                'CIRCL' => array('score' => 8, 'date' => '2025-08-21'),
+                'CthulhuSPRL.be' => array(
+                    'score' => 15,
+                    'date' => '2025-08-19',
+                ),
+                'ORGNAME' => array('score' => 70, 'date' => '2025-08-05'),
+            ),
+            $thread,
+            __(
+                'Notes and opinions on occurrences outside your'
+                . ' distribution scope are not listed. MISP scopes the'
+                . ' query and does not report what it withheld, so this'
+                . ' note cannot carry a number.'
+            )
+        );
     }
 }

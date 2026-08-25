@@ -4653,3 +4653,303 @@ td.vp-rel-pick {
     font-size: 0.7rem;
     line-height: 1.55;
 }
+
+/* ==================================================================
+ * Analyst data tab
+ * ==================================================================
+ * The item itself, its badges, its histogram, its bars and its empty
+ * states are primitives that already exist — .vp-analyst, .vp-hist,
+ * .vp-opinion, .vp-table, .vp-empty, .vp-acl-note, .vp-subhead. What
+ * is new here is threading, the 0-100 position strip, the chip naming
+ * what an item hangs off, and the composer shell.
+ * ================================================================== */
+
+/* The 0-100 position strip. Mostly SVG; this only sizes it and gives
+   its text the page's own font rather than the browser's default. */
+.vpa-strip {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-bottom: 4px;
+    font-family: var(--bs-body-font-family);
+}
+
+/* A marker and the table row it belongs to light up together, which
+   is the whole reason the strip and the table are one panel. */
+.vpa-mark {
+    cursor: default;
+}
+
+.vpa-mark circle {
+    transition: filter 0.12s ease-out;
+}
+
+.vpa-mark-on circle {
+    filter: brightness(1.08);
+    stroke-width: 4;
+}
+
+.vp-table tr.vpa-row-on > td {
+    background: color-mix(in srgb, var(--analystData) 10%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-table tr.vpa-row-on > td {
+    background: color-mix(in srgb, var(--analystData) 22%,
+        var(--bs-body-bg));
+}
+
+/* The empty middle, as a row. Dashed above and below so it reads as a
+   break in the list rather than as a fifth organisation. */
+.vpa-gaprow > td {
+    border-top: 1px dashed var(--bs-border-color) !important;
+    border-bottom: 1px dashed var(--bs-border-color) !important;
+    background: color-mix(in srgb, var(--bs-secondary-bg) 45%,
+        var(--bs-body-bg));
+}
+
+/* Counts above the histogram, so four buckets of one still read as
+   data rather than as four bars of the same height. */
+.vpa-hist-counts {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 3px;
+}
+
+.vpa-hist-counts > span {
+    flex: 1 1 0;
+    text-align: center;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+/* The mean, wherever it appears: present, sourced, and never the
+   lead. Struck through only when no organisation holds a position
+   within half a band of it — see `mean_orphan` in the fixture. */
+.vpa-mean {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 1px 8px;
+    border: 1px dashed var(--bs-secondary-color);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vpa-mean-value {
+    font-family: var(--bs-font-monospace);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.vpa-mean-orphan .vpa-mean-value {
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+}
+
+/* ------------------------------------------------------------------
+ * The thread
+ * ------------------------------------------------------------------ */
+
+.vpa-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* One top-level item and everything written under it. Sorting and the
+   kind pills move this, not the item inside it, so a reply never ends
+   up next to something it is not a reply to. */
+.vpa-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.vpa-replies {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* A reply is a child analyst-data row on the item above it. Two
+   levels, which is exactly what fetchChildNotesAndOpinions returns at
+   depth 2. */
+.vpa-reply {
+    position: relative;
+    margin-left: 2.4rem;
+}
+
+.vpa-reply::before {
+    content: "";
+    position: absolute;
+    left: -1.2rem;
+    top: -0.25rem;
+    bottom: -0.25rem;
+    border-left: 2px solid var(--bs-border-color);
+}
+
+.vpa-reply-2 {
+    margin-left: 4.8rem;
+}
+
+/* Rendered inside the reply it terminates, so it takes that reply's
+   own indentation rather than adding a second one. */
+.vpa-depth {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0 1px;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+/* Which way an item argues about the value, on its own rail. An item
+   that rates a note takes the neutral border: it has a score, and the
+   score is not about this value. */
+.vp-analyst.vpa-side-mal {
+    border-left-color: var(--vp-mal);
+}
+
+.vp-analyst.vpa-side-ben {
+    border-left-color: var(--vp-ben);
+}
+
+.vp-analyst.vpa-side-none {
+    border-left-color: var(--bs-border-color);
+}
+
+/* What the item is attached to. Analyst data hangs off an
+   object_uuid, so this chip is load-bearing rather than decorative. */
+.vpa-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-body-bg);
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vpa-chip-sep {
+    opacity: 0.75;
+    font-style: italic;
+}
+
+/* An opinion written on a note is an opinion about that note. It is
+   not a reading of the value and must never reach the aggregate. */
+.vpa-notcounted {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border: 1px dashed var(--vp-conflict);
+    border-radius: 4px;
+    font-size: 0.66rem;
+    color: var(--vp-conflict-ink);
+}
+
+/* Show and hide the replies on one item. A link-shaped button rather
+   than a chevron alone, because the count is the useful half. */
+.vpa-replybtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 0.7rem;
+    color: var(--analystData);
+}
+
+.vpa-replybtn:hover {
+    text-decoration: underline;
+}
+
+[data-bs-theme="dark"] .vpa-replybtn {
+    color: color-mix(in srgb, var(--analystData) 55%, var(--bs-body-color));
+}
+
+/* A note body is markdown, rendered. MISP stores it and renders none
+   of it today, which is why the item carries a chip saying so. */
+.vpa-md {
+    font-size: 0.85rem;
+    white-space: normal;
+}
+
+.vpa-md h4 {
+    margin: 1px 0 5px;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.vpa-md ul {
+    margin: 4px 0 7px;
+    padding-left: 1.15rem;
+}
+
+.vpa-md li {
+    margin: 3px 0;
+}
+
+.vpa-md blockquote {
+    margin: 6px 0;
+    padding: 2px 0 2px 11px;
+    border-left: 3px solid var(--bs-border-color);
+}
+
+.vpa-md code {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    font-size: 0.76rem;
+}
+
+.vpa-md p {
+    margin-bottom: 5px;
+}
+
+.vpa-md > :last-child {
+    margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------------
+ * The composer
+ * ------------------------------------------------------------------ */
+
+/* Dashed, because it is the one region on this tab that would write. */
+.vpa-composer {
+    padding: 13px 14px;
+    border: 1px dashed color-mix(in srgb, var(--analystData) 45%,
+        var(--bs-border-color));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--analystData) 5%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vpa-composer {
+    background: color-mix(in srgb, var(--analystData) 12%,
+        var(--bs-body-bg));
+}
+
+.vpa-composer-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.vpa-kindswitch .nav-link {
+    padding: 2px 10px;
+    font-size: 0.78rem;
+}
+
+.vpa-kindswitch .nav-link.disabled {
+    opacity: 0.75;
+}

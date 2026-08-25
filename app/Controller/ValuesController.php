@@ -235,6 +235,44 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Analyst data tab: where the organisations stand, and the
+     * thread underneath it.
+     *
+     * Two endpoints for what is one fetch live, which is the opposite
+     * of the Occurrences tab's reasoning and for a compatible one.
+     * There the rail counts the rows beside it, so a split could let
+     * the two disagree. Here the aggregate is a rollup of the same
+     * items the thread lists — the numbers cannot drift because
+     * neither panel is authoritative for the other's rows — while the
+     * thread is the part that grows without limit and, when this goes
+     * live, the part that has no single query behind it: analyst data
+     * hangs off an object UUID, so the union over a value's
+     * occurrences and their events is assembled per occurrence.
+     *
+     * The standing panel is four numbers over a set that is bounded by
+     * the number of organisations on the instance. It should not wait
+     * for the union.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewAnalystStanding($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_analyst_standing'
+        );
+    }
+
+    public function viewAnalystThread($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_analyst_thread'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

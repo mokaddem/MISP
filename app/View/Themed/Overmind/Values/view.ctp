@@ -318,10 +318,19 @@ $tabRegistry = array(
         'title' => __('Analyst data'),
         'icon' => 'misp-icon misp-icon-analyst-note misp-simple',
         'count' => $counts['analyst'],
-        'note' => __(
-            'Threaded notes and the opinion distribution across'
-            . ' organisations.'
+        /*
+         * One full-width slot, and the standing panel lays out its own
+         * internal row: the histogram at col-lg-4 beside the
+         * per-organisation table at col-lg-8. Not this page's 9/3,
+         * because the position strip spans the whole panel above both
+         * of them — it is the tab's opening claim and a rail would cut
+         * a hundred-point scale down to a quarter of the page.
+         */
+        'left' => array(
+            $panel('viewAnalystStanding'),
+            $panel('viewAnalystThread'),
         ),
+        'right' => null,
     ),
     array(
         'id' => 'timeline',
