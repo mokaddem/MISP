@@ -1,6 +1,8 @@
 # PRD: Value Profile — Occurrences tab
 
 **Phase 9.** Implements candidate **`O2`**, chosen 2026-08-25.
+Built 2026-08-25; §11 records what was verified and §13 where the
+implementation departs from the sections above.
 Artifact: <https://claude.ai/code/artifact/b9ab9ec9-e3cf-42e4-86b7-d53242c9447f>
 Depends on `00-shared.md`.
 
@@ -213,23 +215,152 @@ yet."*
   is; the rows are not. Any future "show me what I'm missing" affordance can
   name a number and never a row.
 
-## 11. Verification
+## 11. Verification — what was run
 
-1. `php -l` on both new elements.
-2. `viewOccurrenceTable` returns 200 for all four demo values; the panel
+Against the Docker stack serving this worktree, logged in and rendering the
+Overmind theme.
+
+1. **`php -l`** over every changed and new file, plus `node --check` on
+   `value-profile.js`. Clean.
+2. **The fixture is internally coherent** — 143 assertions. Every stated facet
+   count is recomputed from the rows it claims to cover; every token a row will
+   carry names a facet the rail offers, and every facet the rail offers matches
+   at least one row; `visible`/`total` agree with `occurrence_stats`;
+   `banner_note` quotes the banner's own chip count and the rail's own type
+   count and the two differ. This is the check the design needs precisely
+   because §5 writes the numbers down rather than tallying them: nothing else
+   would notice them drifting from the rows.
+3. **`viewOccurrenceTable` returns 200 for all four demo values** and the panel
    resolves off its spinner in the tab.
-3. Malicious value: nine columns, twelve offered, `Showing 6 of 10 · 7 events ·
-   4 organisations`, eight facet groups, the banner/rail discrepancy note
-   present, one proposal badge, one struck-through row behind the switch.
-4. Facets filter client-side and both counts update together; `Clear all`
-   restores.
-5. Unknown value: no rail, one empty state, no facet block of zeroes.
-6. Light and dark: the bulk bar is legible (the `00-shared.md` §9 fix), org dots
-   and type badges hold their contrast, struck-through rows stay readable.
-7. `index_table` callers elsewhere render byte-identically.
+4. **The fragment's structure — 61 assertions** across the four values. On the
+   malicious value: rail at `col-lg-3` before the table at `col-lg-9`; thirteen
+   `<th>` of which ten are shown — nine columns and the checkbox; `Columns
+   (9 of 12)`; `Showing 6 of 10 occurrences · 7 events · 4 organisations`; the
+   seven element-driven facet groups in design order plus the two bespoke ones;
+   the banner/rail note carrying `6`, `10`, `ip-dst 7` and `4`; six rows with
+   facet tokens, one proposal badge, one struck-through row; forty spark
+   buckets. On the unknown value: no rail, no bulk bar, no ACL band, exactly
+   one empty state.
+5. **The interactions, driven in a real browser** — 32 assertions, in light and
+   dark, against the shipped CSS and JS with the real ajax path running. Six
+   rows on arrival; `ip-dst` narrows to 4 and both counts follow; adding
+   `ip-src` widens to 5 (alternatives within a key); adding `CIRCL` cuts to 2
+   (conjunction across keys); a tag chip filters like any other facet;
+   `Clear all` restores 6 and goes inert; the soft-deleted reveal arrives on
+   and unticking it drops the struck-through row and the header to 5; hiding
+   Tags takes its heading with it and drops the ratio to 8 of 12; unfolding
+   Category brings it back to 9; selecting rows reveals the bulk bar with
+   `2 rows · 2 events · 2 organisations`, then `3 rows · 3 events · 2
+   organisations`, every control in it disabled; the unwired date range is
+   disabled.
+6. **Light and dark, measured not eyeballed.** The bulk bar inverts correctly
+   (ground `#f8f9fa`/ink `#212529` → `#212529`/`#f8f9fa`, 14.63:1 both ways) and
+   the type badge's border inverts with it — 00-shared §9's finding, restated
+   here because this brief's original item asked for a "fix" that was
+   withdrawn as unfounded. The rail's honesty note reads 14.41:1 light and
+   11.04:1 dark, the ACL band 13.01 and 8.84, and the struck-through row keeps
+   its line-through and 0.6 opacity in both. The org discs measured 3.33:1 at
+   first and their lightness was taken from 45%/42% to 45%/35%, which puts
+   every hue between 4.60 and 5.91.
+7. **`index_table` and `headers.ctp` callers render byte-identically.**
+   `events/index`, `attributes/index`, `feeds/index`, `tags/index`,
+   `warninglists/index` and the diagnostics page fetched with and without the
+   change: after normalising the per-request ids CakePHP mints, nothing else
+   differs, and the `<th>` census is identical across all 45 headers on those
+   pages. `header_class` appears in none of them.
 
 ## 12. Exit criterion
 
-Artifact `O2` is recognisable in the browser on the malicious value in both
-themes; the facet rail filters; and the unknown value renders the tab as one
-honest empty state rather than an empty rail beside an empty table.
+Met. `O2` is recognisable in the browser on the malicious value in both
+themes — the counted rail on the left, the nine-column table beside it, the
+bulk bar above the rows and the ACL band under them. The rail filters. The
+unknown value renders the tab as one honest empty state at full width rather
+than an empty rail beside an empty table.
+
+## 13. Where this differs from the brief above
+
+Nine departures, each with its reason. Nothing here changes what the tab is;
+they are the points where following the brief literally would have contradicted
+something it inherits.
+
+- **The facet groups' identity lives in the template, not the fixture.** §5's
+  sketch put `label` and `icon` in `occurrence_facets`. `value-profile-page.md`
+  §1.3 says the fixture carries nothing presentational, and the order, heading
+  and glyph of the eight groups are the same for every value — so the fixture
+  supplies only what varies (counts, and the domain values behind them) and
+  `value_occurrence_facets` owns the rest. Three copies of the same eight
+  labels would have been three places to change them.
+- **`occurrence_facets` also carries `seen_from` and `seen_to`.** The design's
+  date inputs are pre-filled with the value's span; §5's sketch had no field to
+  fill them from.
+- **The date inputs ship disabled, with a title.** Date filtering is not on
+  §9's list of what works, and this page's own rule is that a control which
+  cannot do its job says so rather than looking live. Implementing it was
+  outside what the brief asked for; rendering it live-looking and inert was the
+  one option the page's rules rule out.
+- **A fourth shared hook was needed, which `00-shared.md` §5.2 did not
+  anticipate: `header_class` on `headers.ctp`.** The Columns menu has to hide a
+  column's heading along with its cells, and `row.ctp` already hangs
+  `field['class']` on the `<td>` while `headers.ctp` had no counterpart.
+  Reusing `class` was not open: `feeds/index`, `tags/index` and others pass
+  `'class' => 'short'` for a cell width they do not mean to impose on the
+  heading, and honouring it there would have changed live pages. `header_class`
+  is the name two health-diagnostics tables already use for exactly this,
+  though they render through the legacy index table and never reach this
+  element — so the hook is dormant for every existing caller, which item 7
+  above measures rather than assumes.
+- **`.vp-o-orgdot` became `.vp-occ-orgdot`, and the disc is a fallback rather
+  than an addition.** The rename follows phase 8's own precedent, where the
+  mockups' per-candidate `vp-o-facet*` became `vp-facet*`. The behaviour
+  changed because MISP's organisation renderer already draws a logo where an
+  organisation has uploaded one — CIRCL has — and a disc beside a logo is two
+  glyphs where the column needs one. The disc now stands in where there is no
+  logo, which is what an avatar fallback is for and keeps the per-organisation
+  colour cue down the whole column.
+- **The rail's sparkline is `.vp-spark`, not a new primitive.** The mockup drew
+  an SVG because a published artifact cannot call PHP; `00-shared.md` §7 keeps
+  CSS bars as the standing exception to the Chart.js rule, and `.vp-spark`
+  already exists for the Overview's sightings strip. It takes a colour
+  modifier and forty buckets instead of ninety days.
+- **`.vp-facet-summary-on` had no CSS.** Phase 8 shipped the JS that toggles
+  the class and nothing that styled it, so the rail's "No filter applied" /
+  "2 filters" line had no second state. Added to the shared facet block, where
+  the rest of the control lives.
+- **The soft-deleted reveal ships checked**, unlike the Overview preview's
+  switch. The preview shows the value's current state, so it starts them
+  hidden; this tab is the whole table, its header says "Showing 6 of 10" and
+  the rail's counts cover six — all three of which are only true with the
+  soft-deleted row in. Unticking it drops the row and the header to five
+  together.
+- **Plural nouns are static.** "1 filters", "1 rows" — the same compromise the
+  shipped `.vp-filter-note` already makes ("%s of %s rows"), because the
+  numbers are updated by script and `__n()` cannot reach them. Worth fixing
+  once, for both, rather than differently here.
+
+Two behaviours worth knowing rather than defending:
+
+- **No demo value paginates.** The page control is real and rendered, and the
+  header carries `1–6 of 6 (10 in total)`, but with six, five and five visible
+  rows against a page size of ten, §8's high-cardinality row — "the table
+  paginates" — is not reachable from this fixture. The control was exercised
+  in phase 8 against 25 injected rows; here it is present and correct and
+  idle. Growing a demo value's visible rows past ten is the way to see it, and
+  is a fixture change no part of this design needs.
+- **The bulk bar's `mass_*` buttons appear only for a user who may modify the
+  owning event**, because `checkbox.ctp` asks the real ACL about fixture rows.
+  Export and the four custom actions always show. The Overview's bulk bar has
+  behaved this way since phase 3; both are disabled either way.
+
+## 14. What the live phase still inherits
+
+§10 stands unchanged — no endpoint returns per-facet counts over an ACL-scoped
+attribute set, no cross-event bulk write exists, and the event ids behind
+ACL-hidden occurrences are not obtainable. Two more, learned here:
+
+- **Selection survives filtering.** A checked row that a facet then hides stays
+  selected and stays in the scope line's count, matching MISP's own
+  `selectedItems`. Harmless while every action is disabled; a live bulk write
+  has to decide whether "selected" means "selected and visible".
+- **Nine columns overflow `col-lg-9` below roughly 1800px** and scroll inside
+  `.table-scroll`, which is what every MISP index does. The Columns menu is the
+  release valve the design already gives the reader.

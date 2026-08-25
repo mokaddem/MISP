@@ -41,6 +41,23 @@
             if (!empty($header['sort'])) {
                 $classes[] = 'pagination_link';
             }
+            /*
+             * `class` already lands on the <td> via row.ctp, and without a
+             * counterpart here a caller can style a column's cells but not
+             * its header — which is how a hidden column ends up with a
+             * visible heading. A separate key rather than reusing `class`:
+             * indexes pass `'class' => 'short'` for a cell width they do
+             * not mean to impose on the heading too.
+             *
+             * `header_class` is the name two health-diagnostics tables
+             * already use for this, though they render through the legacy
+             * index table and never reach here — so no existing caller of
+             * this element passes it, and every one of them renders
+             * unchanged.
+             */
+            if (!empty($header['header_class'])) {
+                $classes[] = $header['header_class'];
+            }
             if (!empty($header['rotate_header'])) {
                 $classes[] = 'rotate';
                 $header_data = "<div><span>$header_data</span></div>";

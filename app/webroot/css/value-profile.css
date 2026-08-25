@@ -2781,6 +2781,23 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
     color: var(--bs-body-color);
 }
 
+/*
+ * "No filter applied" and "2 filters" are one line in two states, not
+ * two lines: the reader's eye should not have to move when the first
+ * box is ticked. The script only toggles the class.
+ */
+.vp-facet-summary-some {
+    display: none;
+}
+
+.vp-facet-summary-on .vp-facet-summary-none {
+    display: none;
+}
+
+.vp-facet-summary-on .vp-facet-summary-some {
+    display: inline;
+}
+
 /* ==================================================================
  * Suppressed
  * ------------------------------------------------------------------
@@ -2835,4 +2852,65 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--vp-conflict-ink);
+}
+
+/* ==================================================================
+ * Occurrences tab
+ * ------------------------------------------------------------------
+ * The two things the tab's table needs that no shared primitive
+ * already carries: the density strip in the rail's date group, and a
+ * disc that tells four organisations apart down a column.
+ * ================================================================== */
+
+/*
+ * The rail's variant of `.vp-spark`: forty buckets rather than ninety
+ * days, in a quarter of the width, and coloured for the attribute
+ * rather than for sightings — it is counting occurrences, not reports.
+ */
+.vp-spark-attribute {
+    gap: 1px;
+    height: 30px;
+}
+
+.vp-spark-attribute .vp-spark-bar:not(.vp-spark-bar-empty) {
+    background: var(--attribute);
+}
+
+/*
+ * A one-letter disc before the organisation name, so a column of four
+ * organisations is scannable without reading it.
+ *
+ * The hue is computed from the organisation's name and passed in as
+ * `--vp-orgdot-hue`, which is why this is the one place on the page
+ * that does not take its colour from a theme variable: there is no
+ * fixed set of organisations to assign variables to, and the same
+ * organisation has to land on the same colour every time it appears.
+ *
+ * Decorative, and marked `aria-hidden` in the markup — the name beside
+ * it is the content — so the letter's contrast against its own disc is
+ * a legibility concern rather than an accessibility one, and it holds
+ * in both themes without an override.
+ */
+.vp-occ-orgdot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: hsl(var(--vp-orgdot-hue, 0) 45% 35%);
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--bs-white);
+    text-decoration: none;
+}
+
+/*
+ * A soft-deleted row is struck through, but its disc is a shape rather
+ * than text and a line across it just makes it hard to read.
+ */
+tr.vp-occ-deleted .vp-occ-orgdot {
+    text-decoration: none;
 }

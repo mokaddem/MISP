@@ -139,6 +139,7 @@ class ValueProfileFixture
                 'Showing 6 of 10 occurrences. 4 are hidden by distribution'
                 . ' rules on events owned by other organisations.'
             ),
+            'occurrence_facets' => self::maliciousOccurrenceFacets(),
             'tags' => self::maliciousTags(),
             'galaxies' => array(
                 array(
@@ -327,6 +328,13 @@ class ValueProfileFixture
                 ),
                 'SharingGroup' => array('id' => null, 'name' => null),
                 'AttributeTag' => array($green),
+                /*
+                 * A pending shadow attribute against this occurrence. No
+                 * demo value carried one, and the Occurrences tab's State
+                 * column has to render the indicator somewhere rather than
+                 * describe a state that never appears.
+                 */
+                'proposal_count' => 1,
             ),
             array(
                 'Attribute' => array(
@@ -450,6 +458,174 @@ class ValueProfileFixture
                 'Object' => array('id' => null, 'name' => null),
                 'SharingGroup' => array('id' => null, 'name' => null),
                 'AttributeTag' => array($amber),
+            ),
+        );
+    }
+
+    /**
+     * One counted facet row: what it is called, the token its rows
+     * carry, and how many rows carry it.
+     *
+     * The three helpers below exist because these arrays are the same
+     * five keys repeated eighty times, and spelling each one out costs
+     * two hundred lines that say nothing the helper's name does not.
+     *
+     * @param string $label
+     * @param string $value Token the matching rows carry
+     * @param int $count
+     * @return array
+     */
+    private static function facetRow($label, $value, $count)
+    {
+        return array('label' => $label, 'value' => $value, 'count' => $count);
+    }
+
+    /**
+     * A distribution facet, named by its level rather than by a label:
+     * the rail renders MISP's own badge, which already knows what each
+     * level is called and what colour it is.
+     *
+     * @param int $level
+     * @param int $count
+     * @return array
+     */
+    private static function distributionFacet($level, $count)
+    {
+        return array(
+            'level' => $level,
+            'value' => (string)$level,
+            'count' => $count,
+        );
+    }
+
+    /**
+     * A tag facet carrying the tag record, so the rail renders the real
+     * chip rather than the tag's name as text.
+     *
+     * Galaxy tags are absent by construction: the Tags column does not
+     * draw them either, and a filter on something the reader cannot see
+     * in the table is not a filter.
+     *
+     * @param string $name
+     * @param string $colour
+     * @param int $local
+     * @param string $value
+     * @param int $count
+     * @return array
+     */
+    private static function tagFacet($name, $colour, $local, $value, $count)
+    {
+        return array(
+            'tag' => array(
+                'name' => $name,
+                'colour' => $colour,
+                'is_galaxy' => false,
+            ),
+            'local' => $local,
+            'value' => $value,
+            'count' => $count,
+        );
+    }
+
+    /**
+     * The counted rail beside the occurrence table.
+     *
+     * Stated here rather than tallied in the template for two reasons
+     * the design rests on. The numbers exist in one place, so the rail
+     * and the table cannot come to disagree; and the gap between what
+     * the instance holds and what this viewer may see is an explicit
+     * number rather than an accident of which rows the fixture lists.
+     *
+     * Every count covers the six occurrences the viewer can open, never
+     * the ten the value has. `banner_note` is where that is said out
+     * loud, against the one chip where the difference is largest.
+     *
+     * @return array
+     */
+    private static function maliciousOccurrenceFacets()
+    {
+        return array(
+            'visible' => 6,
+            'total' => 10,
+            /*
+             * Keyed by facet key. The rail owns the order, the heading
+             * and the glyph, because those are the same for every value;
+             * a key with no values is a group the rail does not draw.
+             */
+            'groups' => array(
+                'organisation' => array(
+                    self::facetRow('CIRCL', '1', 3),
+                    self::facetRow('CthulhuSPRL.be', '2', 1),
+                    self::facetRow('Team-CIRCL', '3', 1),
+                    self::facetRow('ORGNAME', '4', 1),
+                ),
+                'type' => array(
+                    self::facetRow('ip-dst', 'ip-dst', 4),
+                    self::facetRow('ip-src', 'ip-src', 1),
+                    self::facetRow('domain|ip', 'domain-ip', 1),
+                ),
+                'category' => array(
+                    self::facetRow('Network activity', 'network-activity', 5),
+                    self::facetRow('Payload delivery', 'payload-delivery', 1),
+                ),
+                'ids' => array(
+                    self::facetRow(__('to_ids set'), 'set', 4),
+                    self::facetRow(__('to_ids unset'), 'unset', 2),
+                ),
+                'distribution' => array(
+                    self::distributionFacet(3, 3),
+                    self::distributionFacet(1, 1),
+                    self::distributionFacet(4, 1),
+                    self::distributionFacet(0, 1),
+                ),
+                'sharing_group' => array(
+                    self::facetRow('CIRCL private sector', '7', 1),
+                ),
+                'tag' => array(
+                    self::tagFacet('tlp:amber', '#FFC000', 0, 'tlp-amber', 4),
+                    self::tagFacet('type:OSINT', '#004646', 0, 'type-osint', 2),
+                    self::tagFacet('tlp:green', '#33FF00', 0, 'tlp-green', 1),
+                    self::tagFacet(
+                        'workflow:state="reviewed"',
+                        '#3F51B5',
+                        1,
+                        'workflow-state-reviewed',
+                        1
+                    ),
+                ),
+                'state' => array(
+                    self::facetRow(
+                        __('With a pending proposal'),
+                        'proposal',
+                        1
+                    ),
+                ),
+            ),
+            /*
+             * Forty buckets across the value's seen span, each counting
+             * the occurrences whose first/last-seen interval covers it.
+             * An empty bucket is drawn rather than skipped: a gap in the
+             * middle of a run is information.
+             */
+            'seen_spark' => array(
+                1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                1, 1, 1, 1, 0, 0, 0, 1, 0, 1,
+            ),
+            'seen_from' => '2024-09-14',
+            'seen_to' => '2025-08-19',
+            'seen_unset' => 2,
+            'deleted' => 1,
+            /*
+             * The one place on the page where the ACL gap is a number:
+             * the banner counts every ip-dst the instance holds, the
+             * rail counts the ones this viewer may open.
+             */
+            'banner_note' => array(
+                'chip' => 'ip-dst',
+                'banner' => 7,
+                'rail' => 4,
             ),
         );
     }
@@ -1145,6 +1321,7 @@ class ValueProfileFixture
                 'Showing 5 of 9 occurrences. 4 are hidden by distribution'
                 . ' rules on events owned by other organisations.'
             ),
+            'occurrence_facets' => self::conflictedOccurrenceFacets(),
             'tags' => self::conflictedTags(),
             'galaxies' => array(
                 array(
@@ -1430,6 +1607,81 @@ class ValueProfileFixture
     }
 
     /**
+     * The high-cardinality case's rail: same eight groups, no soft-
+     * deleted rows and no pending proposal, so the row-state group is
+     * empty and the rail draws nothing where it would have been.
+     *
+     * @return array
+     */
+    private static function conflictedOccurrenceFacets()
+    {
+        return array(
+            'visible' => 5,
+            'total' => 9,
+            'groups' => array(
+                'organisation' => array(
+                    self::facetRow('CIRCL', '1', 3),
+                    self::facetRow('CthulhuSPRL.be', '2', 1),
+                    self::facetRow('ORGNAME', '4', 1),
+                ),
+                'type' => array(
+                    self::facetRow('ip-dst', 'ip-dst', 2),
+                    self::facetRow('domain|ip', 'domain-ip', 2),
+                    self::facetRow('ip-src', 'ip-src', 1),
+                ),
+                'category' => array(
+                    self::facetRow('Network activity', 'network-activity', 4),
+                    self::facetRow('Payload delivery', 'payload-delivery', 1),
+                ),
+                'ids' => array(
+                    self::facetRow(__('to_ids set'), 'set', 3),
+                    self::facetRow(__('to_ids unset'), 'unset', 2),
+                ),
+                'distribution' => array(
+                    self::distributionFacet(3, 4),
+                    self::distributionFacet(1, 1),
+                ),
+                'sharing_group' => array(),
+                'tag' => array(
+                    self::tagFacet('type:OSINT', '#004646', 0, 'type-osint', 4),
+                    self::tagFacet('tlp:green', '#33FF00', 0, 'tlp-green', 3),
+                    self::tagFacet(
+                        'phishing:distribution-mechanism="hosting"',
+                        '#EF476F',
+                        0,
+                        'phishing-distribution-mechanism-hosting',
+                        2
+                    ),
+                    self::tagFacet('tlp:clear', '#FFFFFF', 0, 'tlp-clear', 1),
+                    self::tagFacet(
+                        'false-positive:risk="high"',
+                        '#9d174d',
+                        1,
+                        'false-positive-risk-high',
+                        1
+                    ),
+                ),
+                'state' => array(),
+            ),
+            'seen_spark' => array(
+                1, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                1, 1, 1, 1, 1, 0, 0, 0, 2, 2,
+            ),
+            'seen_from' => '2025-02-03',
+            'seen_to' => '2025-08-23',
+            'seen_unset' => 0,
+            'deleted' => 0,
+            'banner_note' => array(
+                'chip' => 'ip-dst',
+                'banner' => 5,
+                'rail' => 2,
+            ),
+        );
+    }
+
+    /**
      * The taxonomies that disagree here are the point: one organisation
      * has locally marked the value a high false-positive risk while the
      * others tag it as phishing infrastructure.
@@ -1623,6 +1875,12 @@ class ValueProfileFixture
                 'deleted' => 0,
             ),
             'occurrence_acl_note' => null,
+            /*
+             * Null rather than a set of empty groups: a facet rail of
+             * zeroes claims there are rows to narrow. The tab renders no
+             * rail at all and lets the table carry the one empty state.
+             */
+            'occurrence_facets' => null,
             'tags' => array(),
             'galaxies' => array(),
             'analyst' => array(
@@ -2214,6 +2472,7 @@ class ValueProfileFixture
                 'Showing 5 of 9 occurrences. 4 are hidden by distribution'
                 . ' rules on events owned by other organisations.'
             ),
+            'occurrence_facets' => self::benignOccurrenceFacets(),
             'tags' => self::benignTags(),
             /*
              * Deliberately empty, and load-bearing: "nothing has ever
@@ -2481,6 +2740,82 @@ class ValueProfileFixture
                 'Object' => array('id' => null, 'name' => null),
                 'SharingGroup' => array('id' => null, 'name' => null),
                 'AttributeTag' => array($clear, $osint),
+            ),
+        );
+    }
+
+    /**
+     * The benign case's rail. Five organisations report it once each,
+     * so the organisation group is five bars of equal length — which is
+     * the reading: nobody has looked at this value twice.
+     *
+     * @return array
+     */
+    private static function benignOccurrenceFacets()
+    {
+        return array(
+            'visible' => 5,
+            'total' => 9,
+            'groups' => array(
+                'organisation' => array(
+                    self::facetRow('CIRCL', '1', 1),
+                    self::facetRow('CthulhuSPRL.be', '2', 1),
+                    self::facetRow('Team-CIRCL', '3', 1),
+                    self::facetRow('ORGNAME', '4', 1),
+                    self::facetRow('Botvrij.eu', '5', 1),
+                ),
+                'type' => array(
+                    self::facetRow('ip-dst', 'ip-dst', 3),
+                    self::facetRow('domain|ip', 'domain-ip', 1),
+                    self::facetRow('ip-src', 'ip-src', 1),
+                ),
+                'category' => array(
+                    self::facetRow('Network activity', 'network-activity', 5),
+                ),
+                'ids' => array(
+                    self::facetRow(__('to_ids set'), 'set', 1),
+                    self::facetRow(__('to_ids unset'), 'unset', 4),
+                ),
+                'distribution' => array(
+                    self::distributionFacet(3, 3),
+                    self::distributionFacet(2, 1),
+                    self::distributionFacet(1, 1),
+                ),
+                'sharing_group' => array(),
+                'tag' => array(
+                    self::tagFacet('tlp:clear', '#FFFFFF', 0, 'tlp-clear', 5),
+                    self::tagFacet('type:OSINT', '#004646', 0, 'type-osint', 2),
+                    self::tagFacet(
+                        'false-positive:risk="high"',
+                        '#33FF00',
+                        0,
+                        'false-positive-risk-high',
+                        2
+                    ),
+                    self::tagFacet(
+                        'workflow:state="reviewed"',
+                        '#3F51B5',
+                        1,
+                        'workflow-state-reviewed',
+                        1
+                    ),
+                ),
+                'state' => array(),
+            ),
+            'seen_spark' => array(
+                1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                1, 0, 0, 0, 0, 0, 1, 0, 1, 1,
+            ),
+            'seen_from' => '2024-11-02',
+            'seen_to' => '2025-08-21',
+            'seen_unset' => 0,
+            'deleted' => 1,
+            'banner_note' => array(
+                'chip' => 'ip-dst',
+                'banner' => 6,
+                'rail' => 3,
             ),
         );
     }

@@ -159,10 +159,10 @@ echo $this->element('Values/View/value_pivot_rail', array(
  * ------------------------------------------------------------------
  * Tabs
  * ------------------------------------------------------------------
- * Overview and Verdict are assembled from lazily-loaded panels, one
- * endpoint each, so a slow panel never holds up the rest of the page
- * and each one's live implementation stays a local change. The
- * remaining seven tabs are still stubbed inline.
+ * Overview, Verdict and Occurrences are assembled from lazily-loaded
+ * panels, one endpoint each, so a slow panel never holds up the rest of
+ * the page and each one's live implementation stays a local change. The
+ * remaining six tabs are still stubbed inline.
  */
 $counts = $profile['counts'];
 
@@ -240,9 +240,17 @@ $tabRegistry = array(
         'title' => __('Occurrences'),
         'icon' => 'misp-icon misp-icon-attribute misp-simple',
         'count' => $counts['occurrences'],
-        'note' => __(
-            'The full, filterable attribute table with a bulk-action bar.'
+        /*
+         * One full-width slot, and the panel lays out its own internal
+         * row: the rail on the left at col-lg-3, the table at col-lg-9,
+         * the reverse of this page's usual split. Both come out of one
+         * fetch, which is why they are one panel — a facet count and
+         * the rows it counts must not be able to disagree.
+         */
+        'left' => array(
+            $panel('viewOccurrenceTable'),
         ),
+        'right' => null,
     ),
     array(
         'id' => 'sightings',

@@ -83,6 +83,25 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Occurrences tab: the facet rail and the table it counts.
+     *
+     * One endpoint rather than two, unlike the panels above. A facet
+     * count and the rows it counts have to be computed from the same
+     * fetch or they can disagree with each other, and two endpoints
+     * against a moving attribute set is exactly how that happens.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewOccurrenceTable($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_occurrence_table'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different
