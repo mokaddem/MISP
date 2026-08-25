@@ -423,6 +423,10 @@ the five stubbed content tabs, is §7. The picks from phase 7 become
 **phases 8–13**, one document each in `prd/value-profile-tabs/` — shared
 groundwork first, then one tab per phase. §7.8 has the table.
 
+**Phase 14**, candidate mockups for the last two stubbed tabs — Timeline and
+History — is §8, together with the feasibility pass those two needed first.
+Its picks become **phases 15** and **16**. §8.7 has the table.
+
 ---
 
 ## 4. Key design decisions
@@ -989,3 +993,310 @@ shape, `index_table` and the existing field renderers wherever they fit, and
 the panel's empty state built alongside the populated one rather than
 discovered later. Timeline and History join the queue once this loop has run
 once.
+
+---
+
+## 8. Phase 14 — Timeline and History
+
+The loop §7.11 describes has now run once: phase 8 laid the shared groundwork
+and phases 9–13 shipped the five content tabs. The two tabs still rendering
+`value_placeholder` are the ones §7.11 left in the queue, and this section is
+their brief.
+
+### 8.1 What this phase covers
+
+Tabs 8 and 9 of the registry in §2.5. Their placeholder notes in `view.ctp`
+state the intent as it was written in phase 1:
+
+- **Timeline** — "One merged chronology: publications, first and last seen,
+  sightings, tags, opinions, feed appearances and edits."
+- **History** — "The audit log across every occurrence, with actor and
+  organisation."
+
+Both notes were written before anyone checked what MISP records. §8.2 is that
+check, and it does not leave the Timeline note standing.
+
+### 8.2 What MISP cannot supply for these two tabs
+
+This is the §7.9 pass for the last two tabs, run before the design rather than
+alongside it, because for these two the answer changes what the tab can be.
+
+#### Nothing is recorded at all on a default instance
+
+`MISP.log_new_audit` defaults to **`false`** (`Server.php:6649`), and
+`AuditLogBehavior::isEnabled()` reads exactly that setting
+(`AuditLogBehavior.php:296`). On a default instance `audit_logs` is empty —
+not sparse, empty. So:
+
+- The **History tab has no rows whatsoever**, and its own tab count is `0` for
+  a reason that has nothing to do with the value.
+- The Timeline's **edits** lane collapses to one point per occurrence
+  (`attributes.timestamp`, which is the latest edit and not a history).
+
+Both tabs therefore need a distinct **not-recorded** state, and it is not the
+empty state. Empty means nothing happened to this value; this means nobody was
+writing it down. Conflating them tells the analyst the value is quiet when the
+truth is that the instance is deaf. That is a fifth honest state alongside
+phase 8 §8's four — empty, hidden-by-ACL, not-implemented, suppressed.
+
+#### Tags have no timestamp anywhere
+
+`attribute_tags` is `(id, attribute_id, event_id, tag_id, local,
+relationship_type)` and `event_tags` is `(id, event_id, tag_id, local,
+relationship_type)`. Neither carries `created` or `modified`. A tag's date
+exists *only* as an `audit_logs` row (`ACTION_TAG`, `ACTION_TAG_LOCAL`,
+`ACTION_REMOVE_TAG`, `ACTION_REMOVE_TAG_LOCAL`), so it inherits the gate above.
+Galaxy clusters are the same — `ACTION_GALAXY` and friends, no column.
+
+On a default instance the Timeline can say **which** tags the value carries and
+never **when** any of them was applied. The tab's own note promises tags in a
+chronology, and that promise cannot be kept.
+
+#### Feed appearances cannot be dated at all, on any instance
+
+The feed cache is a Redis set of md5s per feed — `misp:feed_cache:<feedId>`,
+written by `sAddArray`/`sAdd` (`Feed.php:1605-1611`) — with no per-member time.
+The only timestamp is `misp:feed_cache_timestamp:<feedId>`, one integer per
+feed, `set` to `time()` on every re-cache (`Feed.php:1573`).
+
+So every value in a feed shares one date, that date means "when we last
+fetched", and it moves each time the feed refreshes. A feed appearance can
+honestly be drawn as **as of the last cache** and never as **appeared on**.
+This one is not gated by a setting: no configuration makes it available.
+
+#### Publications are two points per event, not a history
+
+`events.publish_timestamp` is the most recent publication and
+`events.first_publication` is the first; nothing records the ones in between.
+Both are already in `Event::fetchEvent`'s field list (`Event.php:3187`), so
+they need no new query. A value in seven events contributes at most fourteen
+publication marks, and an event published three times still contributes two of
+them. A full publication history exists only as `ACTION_PUBLISH` audit rows,
+which is gated.
+
+#### First and last seen are per occurrence, and nullable
+
+`attributes.first_seen` / `last_seen`. Ten occurrences can carry ten different
+spans for one value, and any of them can be null. These are also a different
+kind of thing from the rest of the list: a claim about when the value was
+*active*, not a record of something that *happened on the page's own
+chronology*. A merged stream has to decide whether they are points, spans, or a
+lane of their own — and it cannot merge ten spans into one without inventing an
+aggregation rule, the same problem §7.9 found for the decay curve.
+
+#### Sightings are the one source that fully works
+
+`sightings.date_sighting` (epoch), with `type` ∈ `{0 sighting, 1
+false-positive, 2 expiration}` (`Sighting::TYPE`, `Sighting.php:60`), `org_id`
+and `source`. Per value, per event, properly dated. It carries the caveat
+§7.9 already recorded: `Sightings_policy` can hide whole sightings and
+`Sightings_anonymise` files foreign orgs as *Others*, so the chronology is the
+viewer's rather than the instance's.
+
+#### Notes and opinions are dated but not addressable by value
+
+`notes` and `opinions` both carry `created` and `modified`. But §7.9 already
+established that a value is not a valid `object_uuid` target, so the Timeline
+inherits phase 13's controller-assembled union over the value's occurrences
+and events rather than getting a query of its own.
+
+#### The scoreboard
+
+Of the seven sources the Timeline's note promises: **one** is fully dated and
+addressable by value (sightings), **one** is dated but needs an assembled
+union (analyst data), **two** are truncated to first-and-last (publications,
+edits), **one** is a nullable per-occurrence span needing an aggregation rule
+(first/last seen), and **two** have no usable timestamp at all (tags, feed
+appearances) — one of those two gated by a setting, the other unavailable on
+any instance. The note in `view.ctp` should be rewritten as part of this phase
+rather than left describing a tab nobody can build.
+
+#### A plain user sees only their own history
+
+`AuditLogsController::__applyAuditAcl` (`:356`) restricts a non-admin to
+`AuditLog.user_id = $user['id']` and an org admin to `AuditLog.org_id =
+$user['org_id']`; only a site admin sees everything. The per-event index
+escapes that with a different path entirely: `__createEventIndexConditions`
+(`:488`) returns every row for an event when the viewer is a site admin or sits
+in the event's creating org, and otherwise runs a full `fetchEvent()` to
+enumerate the attribute, object, proposal and object-reference ids the viewer
+may see, then restricts to those.
+
+A value-scoped history has to pick one of the two models, and only the
+per-event one shows a plain analyst anything at all. Note the shape of the
+trap: verified as a site admin, either model looks identical.
+
+#### The per-event ACL model costs a `fetchEvent()` per event
+
+A value in seven events, viewed by someone outside all seven creating orgs, is
+seven `fetchEvent()` calls before a single audit row is read — just to build
+the `WHERE` clause. There is no value-scoped equivalent and no cheaper path.
+
+Scoping instead by `model = 'Attribute' AND model_id IN (<occurrence ids>)` is
+one query and needs no `fetchEvent()` at all, but it drops every event-level
+action — publications, event tags, the event's own edits — which is a real part
+of the value's story. The choice between them is a design decision this phase
+has to make explicitly, not a detail to settle in the controller.
+
+#### `model_title` carries the value, and it carries the *new* one
+
+The behaviour's Attribute closure builds `"$category/$type $value"` preferring
+`$new` over `$old` (`AuditLogBehavior.php:65-72`). So an edit that rewrote
+`1.2.3.4` into `185.234.219.24` is filed under the new value. Two consequences:
+
+1. **Scope by id, never by title.** Matching history on `model_title` would
+   hand this value someone else's deletion and lose its own — and `model_title`
+   is an unindexed `text` column, so the query is a scan as well as wrong.
+2. **A correct row can name a different value.** The occurrence that *became*
+   this value has audit rows describing what it was before. Showing them is
+   right; showing them without saying so reads as a bug.
+
+### 8.3 What already exists to reuse
+
+`Themed/Overmind/Elements/Logs/timeline.ctp` is a day-grouped,
+action-coloured timeline card with a documented entry contract — `created`,
+`action`, `action_label`, `title`, `model`, `model_link`, `user`, `user_link`,
+`org`, `request_badge`, `change_html` — and an action map covering all sixteen
+`AuditLog::ACTION_*` constants plus the application-log actions. It is already
+called by `Overmind/AuditLogs/admin_index.ctp:168` and
+`Overmind/Logs/index.ctp:92`.
+
+That is the History tab's body and very likely the Timeline tab's spine, and it
+means **neither tab needs a new rendering primitive** — the phase 8 §4 posture,
+applied to the only two tabs that get it for free.
+
+One caveat, to be measured rather than assumed: the element's `$meta` colours
+are hardcoded hex with light pastel fills (`#d1e7dd`, `#cfe2ff`, …) and its
+header chip is `background:#e0e7ff` with `#4f46e5` on it. Those are
+theme-blind. If they need `vp-*` tokens, that is a change to a shared element
+with two existing callers, and it belongs in this phase as a stated decision
+rather than a drive-by.
+
+Also reusable: `Elements/AuditLog/change.ctp` for a row's diff and
+`AuditLogsController::fullChange` for fetching one on demand —
+`audit_logs.change` is a brotli-compressed blob above 256 bytes and capped at
+64KB (`AuditLog::BROTLI_HEADER`, `COMPRESS_MIN_LENGTH`, `CHANGE_MAX_SIZE`), so
+decompressing inline is the wrong instinct. And phase 8 §5's counted facet
+control, for filtering History by action, model, org and actor.
+
+### 8.4 Timeline — the brief
+
+**Must cover.** One merged, reverse-chronological stream of everything the
+value has that is genuinely dated: sightings by type and org, publications
+(first and last per event), notes and opinions, edits where the audit log has
+them. Per-source filtering. First/last seen, under whatever treatment the
+design settles on. And an explicit, visible account of the undated sources
+rather than their silent omission.
+
+**The tension.** Five of the seven sources the tab promises are truncated,
+unaddressable, or undated. The design problem is therefore not "how to draw a
+chronology" — it is **how to draw a chronology that admits its own holes**. A
+candidate that quietly drops tags and feed appearances looks complete and lies
+about the value; one that renders every gap inline is honest and unreadable.
+That trade is the axis.
+
+**Directions.** A single stream with the undated facts in a footer band that
+says why they are there · a lane per source, with the undated lanes rendered as
+static chip rows against the same axis · a density spine (calendar or
+histogram) with the stream beside it, so gaps in the record are visible as gaps
+· a two-track split — "what happened", dated, above "what is true but undated",
+below.
+
+### 8.5 History — the brief
+
+**Must cover.** One row per audit entry across the value's occurrences and, if
+the event-scoped model wins, their events: actor, organisation, action, model,
+title, and an expandable diff. Filters on action, model, org, actor and date
+range. The not-recorded state from §8.2. A note on whose rows the viewer is
+actually seeing, since §8.2 shows that differs by role.
+
+**The tension.** This is the one tab whose content is *literally* an existing
+MISP view, rendered by an element that already exists. So its design question
+is only what a value-scoped history adds over seven per-event ones — and that
+addition has to be visible on arrival, the same test §7.5.1 set for
+Occurrences. The candidate that is a per-event audit log with a different
+`WHERE` clause has not earned a tab.
+
+**Directions.** The shared timeline element, value-scoped, with a facet rail ·
+grouped by occurrence, so the value's own edit history separates from its
+events' · grouped by actor and org, answering "who has been touching this" ·
+diff-first, one changed field per row rather than one audit entry per row.
+
+### 8.6 How the phase runs
+
+Phases 9–13 were each preceded by a candidate deck (§7), and these two tabs get
+the same treatment: a deck of four candidates each, reviewed and picked, then a
+sub-PRD each, then implementation as **phases 15** (Timeline) and **16**
+(History). Decided 2026-08-25.
+
+The argument against decks was real and was rejected: §8.3 hands both tabs an
+existing rendering primitive, which is most of what the other five decks were
+choosing between. But §8.4's axis — how much of the record's absence to show —
+is a design choice that primitive does not make, and it is the choice this
+page's whole provenance argument rests on.
+
+Both decks are fixture-first, in the shape phases 9–13 used: no live query, no
+write, and every number consistent with what the rest of the page already
+claims about the demo value.
+
+Whatever is picked, §8.2 stands and the Timeline's placeholder note in
+`view.ctp` gets rewritten — it currently promises a chronology of seven sources
+where two of them have no timestamp in MISP at all.
+
+### 8.7 The decks
+
+Built on phase 7's kit unchanged — `prd/phase7/kit/frame.html`, MISP's own
+stylesheets, the real page chrome, the pinned 1600px geometry, both themes
+through the kit's theme bridge. Sources are `prd/phase7/mockups/timeline.html`
+and `.../history.html`; `inline-kit.py` produces the published copies and
+`check-mockup.sh` passes on both in light and dark.
+
+Two things the kit needed nothing for: `#tab-timeline` and `#tab-history`
+already exist in the chrome's nine-tab bar, so `data-vp-tab` activates them
+with no change to the frame or its script.
+
+| Tab | Artifact | Candidates | Axis | Recommended |
+|---|---|---|---|---|
+| Timeline | [7c2bbad2](https://claude.ai/code/artifact/7c2bbad2-fcf2-49c8-8bf3-b60f122cadbb) | `T1`–`T4` | How much of the record's absence the reader has to look at | **`T1`** + `T4`'s precision chip |
+| History | [41280107](https://claude.ai/code/artifact/41280107-5222-435c-8d48-5b51b8acd1d3) | `H1`–`H4` | The organising unit: the stream, the occurrence, the actor, the field | **`H2`** + `H1`'s facet rail |
+
+**Timeline.** T1 is one uninterrupted stream with the undated facts as
+explained rail cards; T2 gives all seven promised sources a lane and hatches
+the three that have no record, at full size; T3 makes a twelve-month density
+spine the tab and puts the undated on one strip beneath it; T4 abandons the
+timeline shape for a ledger where how well a fact is dated is a column.
+Recommended: T1, because it is the only candidate that is a chronology first
+and cheap second — its stream is `Logs/timeline.ctp` with one extra column —
+grafted with T4's per-row precision chip, which fixes T1's real weakness
+(absence sits in the margin) without costing the chronology. T3 is rejected on
+a specific ground rather than on taste: a density spine cannot tell a quiet
+month from an unrecorded one, and on the demo value December is the second.
+T2 is the most honest of the four and the one to revisit if the undated sources
+ever become datable.
+
+**History.** H1 is the shared audit-timeline element value-scoped with a
+counted facet rail; H2 groups by occurrence with a per-occurrence action mix;
+H3 groups by organisation and actor; H4 unpacks each entry into one row per
+changed field. Recommended: H2, because §8.5's test is what a value-scoped
+history adds over the seven per-event ones an analyst already has, and grouping
+by occurrence is that addition — it can say 4831022 has nine entries and
+4828810 has two, which no per-event log can. H1 is the right answer to
+"ship it this week" and the wrong one to that test. H3 asks the best question
+and cannot answer it for most readers: `__applyAuditAcl` collapses three of its
+four cards to *unnamed users* for anyone who is not a site admin. H4 is
+rejected on cost — it needs `audit_logs.change` decoded for every row at render
+time, which is what `fullChange` exists to avoid.
+
+Two grafts are recommended into whichever History candidate wins, because both
+are §8.2 findings made visible rather than design preferences: H1's and H4's
+**rename callout** — the `2025-06-14` row where the value was rewritten, marked
+as the reason scoping is by attribute id and never by `model_title` — and H2's
+**footer note** that four of the ten occurrences are ACL-hidden and their entry
+counts are not obtainable at all.
+
+The **not-recorded state** is drawn once, in the History deck's foot, outside
+the candidate lane. It is a shared requirement and not a differentiator: with
+`MISP.log_new_audit` off, every candidate renders the same page, and the
+treatment argues that this is neither the empty state nor an error — it says
+what is still knowable without the audit log, and that enabling it records
+forward and never reconstructs the past.
