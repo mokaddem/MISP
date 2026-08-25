@@ -1,0 +1,1931 @@
+<title>Occurrences Candidates</title>
+
+<!--
+    Phase 7 candidate mockups for the Occurrences tab of the Value Profile
+    page (PRD §7.5.1). Four candidates, O1–O4, drawn against the malicious
+    demo value 185.234.219.24.
+
+        python3 prd/phase7/kit/inline-kit.py prd/phase7/mockups/occurrences.html
+        bash prd/phase7/kit/check-mockup.sh prd/phase7/build/occurrences.html
+
+    The marker below is replaced by the kit at build time. Do not paste the
+    kit into this file.
+-->
+<!-- vp-kit -->
+
+<style>
+/* ==================================================================
+ * Deck — the page furniture around the candidates. Shared by all five
+ * artifacts so a reader learns it once.
+ * ================================================================== */
+
+:root {
+    /*
+     * The reference viewport. The real page is `container-fluid`, so the
+     * content column is a percentage of the window rather than a fixed
+     * width: at 1600px the col-lg-9 measures 1200px and the full row
+     * 1576px. Pinning the page width rather than the body width lets a
+     * candidate choose its own split and still be drawn at the size it
+     * would really have.
+     */
+    --vp-page: 1600px;
+    --vp-scale: 0.4;
+    --vp-deck-gap: 2rem;
+}
+
+body {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.vp-deck {
+    padding: 1.5rem clamp(1rem, 3vw, 3rem) 4rem;
+    max-width: 100%;
+}
+
+.vp-deck-head h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0 0 .35rem;
+}
+
+.vp-deck-sub {
+    color: var(--bs-secondary-color);
+    max-width: 68ch;
+    margin-bottom: 1rem;
+}
+
+.vp-deck-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1.5rem;
+    align-items: center;
+    padding: .75rem 0 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    margin-bottom: 1.5rem;
+    position: sticky;
+    top: 0;
+    background: var(--bs-body-bg);
+    z-index: 20;
+}
+
+.vp-deck-controls .btn-group .btn {
+    --bs-btn-padding-y: .15rem;
+    --bs-btn-padding-x: .6rem;
+    --bs-btn-font-size: .85rem;
+}
+
+.vp-deck-jump {
+    margin-left: auto;
+    display: flex;
+    gap: .35rem;
+}
+
+/* ------------------------------------------------------------------
+ * The lane. Side by side scrolls horizontally at whatever scale is
+ * chosen; stacked drops the transform and shows each candidate at true
+ * size, which is the only view where density can be judged.
+ * ------------------------------------------------------------------ */
+
+.vp-lane {
+    display: flex;
+    gap: var(--vp-deck-gap);
+    align-items: flex-start;
+}
+
+[data-mode="compare"] .vp-lane {
+    overflow-x: auto;
+    padding-bottom: 1rem;
+}
+
+[data-mode="stack"] .vp-lane {
+    flex-direction: column;
+    overflow-x: auto;
+}
+
+[data-mode="stack"] {
+    --vp-scale: 1;
+}
+
+.vp-cand {
+    flex: 0 0 auto;
+    max-width: 100%;
+}
+
+.vp-cand-head {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem .5rem 0 0;
+    border-bottom: 0;
+    padding: .85rem 1rem;
+    background: var(--bs-tertiary-bg);
+    width: calc(var(--vp-page) * var(--vp-scale));
+    max-width: 100%;
+}
+
+.vp-cand-id {
+    font-weight: 700;
+    font-family: var(--bs-font-monospace);
+    margin-right: .5rem;
+}
+
+.vp-cand-thesis {
+    font-weight: 600;
+}
+
+.vp-cand-reckoning {
+    margin: .6rem 0 0;
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: .2rem .75rem;
+}
+
+.vp-cand-reckoning dt {
+    font-weight: 600;
+    color: var(--bs-body-color);
+    white-space: nowrap;
+}
+
+.vp-cand-reckoning dd {
+    margin: 0;
+}
+
+[data-mode="compare"] .vp-cand-reckoning {
+    display: none;
+}
+
+.vp-cand-view {
+    width: calc(var(--vp-page) * var(--vp-scale));
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0 0 .5rem .5rem;
+    background: var(--bs-body-bg);
+}
+
+.vp-cand-scaler {
+    width: var(--vp-page);
+    transform: scale(var(--vp-scale));
+    transform-origin: top left;
+}
+
+/* ------------------------------------------------------------------
+ * The frame itself. The chrome is context, not the subject, so it sits
+ * back a little — except the tab bar, which is what tells the reader
+ * which tab they are looking at.
+ * ------------------------------------------------------------------ */
+
+.vp-frame {
+    background: var(--bs-body-bg);
+    padding-bottom: 2rem;
+}
+
+.vp-frame-chrome {
+    opacity: .72;
+    pointer-events: none;
+}
+
+.vp-frame-tag {
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--bs-secondary-color);
+    padding: .4rem 1.5rem 0;
+}
+
+/* ------------------------------------------------------------------
+ * Skeleton primitives. Structure is real — headers, labels, controls,
+ * counts — and the data inside a row is a block, except where the kind
+ * of thing is itself the design point (badges, chips, dates), which is
+ * where a table gets its density.
+ * ------------------------------------------------------------------ */
+
+.sk {
+    display: inline-block;
+    width: var(--sk-w, 5rem);
+    height: var(--sk-h, .68em);
+    border-radius: .2rem;
+    background: var(--bs-secondary-bg);
+    vertical-align: middle;
+}
+
+.sk-line {
+    display: block;
+    margin: .28rem 0;
+}
+
+.sk-dim {
+    opacity: .55;
+}
+
+.sk-circle {
+    border-radius: 50%;
+    --sk-w: 1.4rem;
+    --sk-h: 1.4rem;
+}
+
+.sk-block {
+    display: block;
+    --sk-h: 8rem;
+    --sk-w: 100%;
+    border-radius: .4rem;
+}
+
+/* A chart placeholder is a shape, not a grey box: candidates draw the
+ * curve or the bars as static SVG inside this. */
+.sk-chart {
+    display: block;
+    width: 100%;
+    border-radius: .4rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-deck-foot {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-deck-foot table {
+    font-size: .9rem;
+}
+
+
+/* ==================================================================
+ * Candidate primitives for the Occurrences tab.
+ *
+ * Everything MISP already has is used as MISP has it: `card`, `table`,
+ * `badge`, `nav`, `form-control`, `form-select`, `form-switch`,
+ * `dropdown`, `pagination`, `fieldset disabled`, `btn-tag` /
+ * `btn-galaxy` / `btn-sighting`, `misp-icon`, the `idx-col-*` column
+ * classes the occurrence table already tunes, and the page's own
+ * `vp-panel`, `vp-panel-glyph`, `vp-subhead`, `vp-acl-note`,
+ * `vp-relation`, `vp-empty` and `vp-occ-deleted`.
+ *
+ * What is below is what MISP has no equivalent for. Every colour comes
+ * from a Bootstrap or MISP token, so both themes resolve.
+ *
+ * One deliberate deviation: MISP's own `multi_select_toolbar` paints its
+ * bar with `bg-light`, and `--bs-light-rgb` is never redefined for the
+ * dark theme — so in dark mode the real toolbar is a near-white bar
+ * carrying near-white text. These mockups use `--bs-tertiary-bg`, which
+ * flips. That is a bug in the shared element, reported rather than
+ * silently reproduced.
+ * ================================================================== */
+
+/* The shape of the result set, stated in one line above the table. */
+.vp-o-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem 1.4rem;
+    align-items: baseline;
+    padding: .5rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: color-mix(in srgb, var(--attribute) 8%, var(--bs-body-bg));
+    font-size: .76rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-o-summary-item b {
+    color: var(--bs-body-color);
+    font-size: .95rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-o-summary-note {
+    font-size: .72rem;
+}
+
+/* A column this tab adds over the Overview preview. */
+.vp-o-new {
+    display: inline-block;
+    margin-left: .2rem;
+    padding: 0 .28rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 20%, var(--bs-body-bg));
+    color: var(--primary);
+    font-size: .6rem;
+    font-weight: 700;
+}
+
+/* The bulk bar, docked to an edge of the panel rather than floating. */
+.vp-o-bulk {
+    position: sticky;
+    z-index: 5;
+    padding: .5rem .75rem;
+    background: var(--bs-body-bg);
+}
+
+.vp-o-bulk-bottom {
+    bottom: 0;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-o-bulk-top {
+    top: 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-o-bulk-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    padding: .5rem .6rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .375rem;
+    background: var(--bs-tertiary-bg);
+}
+
+/*
+ * Bulk actions here span events and organisations, so the bar states the
+ * blast radius next to the count rather than waiting for a confirmation.
+ */
+.vp-o-scope {
+    padding: .1rem .5rem;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    font-size: .72rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+/* ---- O2: the facet rail ---- */
+
+.vp-o-facet-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: .72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-o-facetgrp + .vp-o-facetgrp {
+    margin-top: .9rem;
+    padding-top: .7rem;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-o-facet {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: .1rem .5rem;
+    align-items: center;
+    padding: .2rem .3rem;
+    border-radius: .25rem;
+    font-size: .78rem;
+    cursor: default;
+}
+
+.vp-o-facet:hover {
+    background: var(--bs-secondary-bg);
+}
+
+.vp-o-facet-label {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    min-width: 0;
+}
+
+.vp-o-facet-count {
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+.vp-o-facet-bar {
+    grid-column: 1 / -1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-o-facet-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--attribute);
+}
+
+.vp-o-spark {
+    display: block;
+    color: var(--attribute);
+}
+
+/* ---- O3: groups ---- */
+
+.vp-o-groupcard {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .4rem;
+    margin: .6rem .75rem;
+    overflow: hidden;
+}
+
+.vp-o-group {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .45rem .6rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-o-groupcard > .vp-o-group:not(:only-child) {
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-o-chev {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    padding: 0;
+    border: 0;
+    border-radius: .25rem;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: .7rem;
+}
+
+.vp-o-group-count {
+    font-size: .72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+.vp-o-gcount {
+    margin-left: .3rem;
+    font-variant-numeric: tabular-nums;
+    opacity: .7;
+}
+
+/*
+ * The event the viewer cannot see. Dashed, never expandable: the count
+ * is knowable, the rows are not, and the two must not look alike.
+ */
+.vp-o-ghost {
+    border-style: dashed;
+    background: repeating-linear-gradient(
+        135deg,
+        transparent 0 6px,
+        color-mix(in srgb, var(--bs-secondary-bg) 60%, transparent) 6px 12px);
+}
+
+.vp-o-ghost .vp-o-group {
+    background: transparent;
+}
+
+.vp-o-groupnote {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-warning-bg-subtle);
+    color: var(--bs-warning-text-emphasis);
+    font-size: .76rem;
+}
+
+/* ---- O4: list and detail ---- */
+
+.vp-o-list {
+    max-height: 34rem;
+    overflow-y: auto;
+}
+
+.vp-o-listrow {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    gap: .55rem;
+    align-items: center;
+    padding: .5rem .7rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    border-left: 3px solid transparent;
+    cursor: default;
+}
+
+.vp-o-listrow:hover {
+    background: var(--bs-secondary-bg);
+}
+
+.vp-o-listrow.is-deleted {
+    text-decoration: line-through;
+    opacity: .6;
+}
+
+.vp-o-listrow.is-active {
+    border-left-color: var(--attribute);
+    background: color-mix(in srgb, var(--attribute) 10%, var(--bs-body-bg));
+}
+
+.vp-o-listtype {
+    padding: .1rem .4rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    font-family: var(--bs-font-monospace);
+    font-size: .68rem;
+    white-space: nowrap;
+}
+
+.vp-o-listmain {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vp-o-listflags {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+}
+
+.vp-o-kv {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: .5rem 1rem;
+    align-items: start;
+    font-size: .82rem;
+    margin: 0;
+}
+
+.vp-o-kv dt {
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.vp-o-kv dd {
+    margin: 0;
+}
+
+.vp-o-band {
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-warning-bg-subtle);
+}
+
+.vp-o-diff {
+    display: grid;
+    grid-template-columns: 8rem 1fr 1fr;
+    gap: .4rem .9rem;
+    align-items: center;
+    font-size: .78rem;
+}
+
+.vp-o-sib {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .3rem .1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: .8rem;
+}
+
+.vp-o-sib:last-of-type {
+    border-bottom: 0;
+}
+
+/* An organisation avatar. MISP's OrgImg helper has no asset to serve in
+ * a standalone mockup, so the initial stands in for the logo. */
+.vp-o-orgdot {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    font-size: .62rem;
+    font-weight: 700;
+}
+
+/* The deck's own comparison table wants columns, not prose. */
+.vp-deck-foot td, .vp-deck-foot th {
+    vertical-align: top;
+}
+
+</style>
+
+<div class="vp-deck" data-mode="compare">
+
+  <header class="vp-deck-head">
+    <h1>Occurrences — four candidates</h1>
+    <p class="vp-deck-sub">
+      Ten occurrences of <code>185.234.219.24</code>, in seven events, from
+      four organisations — six of which this user is allowed to see. The
+      Overview tab already previews this table, so the four candidates
+      disagree about the only thing that makes it a tab: where the filters
+      live, and what the primary unit is — a row, a facet, an event, or a
+      single occurrence.
+    </p>
+  </header>
+
+  <div class="vp-deck-controls">
+    <div class="btn-group" role="group" aria-label="View">
+      <button type="button" class="btn btn-outline-secondary active"
+              data-vp-mode="compare">Side by side</button>
+      <button type="button" class="btn btn-outline-secondary"
+              data-vp-mode="stack">Stacked, true size</button>
+    </div>
+    <div class="btn-group" role="group" aria-label="Scale">
+      <button type="button" class="btn btn-outline-secondary active"
+              data-vp-scale="fit">Fit</button>
+      <button type="button" class="btn btn-outline-secondary"
+              data-vp-scale="0.5">50%</button>
+      <button type="button" class="btn btn-outline-secondary"
+              data-vp-scale="0.75">75%</button>
+      <button type="button" class="btn btn-outline-secondary"
+              data-vp-scale="1">100%</button>
+    </div>
+    <div class="vp-deck-jump">
+      <a class="btn btn-sm btn-outline-secondary" href="#O1">O1</a>
+      <a class="btn btn-sm btn-outline-secondary" href="#O2">O2</a>
+      <a class="btn btn-sm btn-outline-secondary" href="#O3">O3</a>
+      <a class="btn btn-sm btn-outline-secondary" href="#O4">O4</a>
+    </div>
+  </div>
+
+  <div class="vp-lane">
+
+    <!-- ===================== O1 ===================== -->
+    <article class="vp-cand" id="O1">
+      <div class="vp-cand-head">
+        <div>
+          <span class="vp-cand-id">O1</span>
+          <span class="vp-cand-thesis">One dense table at full width: every column, every filter in a bar above it, and the bulk bar docked to the bottom edge.</span>
+        </div>
+        <dl class="vp-cand-reckoning"><dt>Optimises for</dt><dd>Reading rows against each other. Twelve columns in the order the Overview preview already uses, so the eye carries over from the tab it just left, and the three columns the preview drops are marked <sup class="vp-o-new">+</sup> in the header. The summary strip states the shape of the set in one line, and every number in it is a filter.</dd><dt>Gives up</dt><dd>The shape of the set beyond that one line. A count sits nowhere near the control that would apply it, so &ldquo;which organisation contributes most&rdquo; costs a filter round-trip. At 1576px the last columns sit behind the table container’s own horizontal scroll — never the page’s.</dd><dt>At scale</dt><dd><b>1,847:</b> server-side pagination, 25 a page; the summary counts come from the query, not the page; select-all becomes &ldquo;all 1,847 matching rows&rdquo; and the confirmation names rows, events and organisations. <b>21,904:</b> the same, but the org and tag selects have to become searchable (tom-select is already in the kit) and the summary drops per-type counts. <b>Zero:</b> three separate states — no occurrence you can see, no row matching these filters (filter note + Clear), and everything hidden by ACL.</dd><dt>Data</dt><dd>Rows: <code>Attribute::fetchAttributes</code> in the shape the Overview panel already gets, through <code>index_table</code> with the same field renderers plus <code>sort</code> keys and <code>paginatorOptions</code>. Filters: named params on <code>ValuesController::viewOccurrences</code>, each mapping to a condition <code>fetchAttributes</code> already accepts (<code>deleted</code> included). Bulk bar: <code>multi_select_toolbar</code>, with propose-edit, set-to_ids, set-distribution and add-to-collection as <code>custom_actions</code>. <b>MISP cannot supply</b> a cross-event bulk write: every action here fans out per attribute, and one selection can mix rows the user may edit with rows they may only propose against.</dd><dt>Size</dt><dd>S — one panel, one endpoint, no new primitive.</dd></dl>
+      </div>
+      <div class="vp-cand-view">
+        <div class="vp-cand-scaler">
+<div class="vp-frame" data-vp-tab="occurrences">
+<div class="vp-frame-tag">Page chrome — context, not the design</div>
+<div class="vp-frame-chrome">
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div class="d-flex flex-column align-items-start">
+                            <span class="text-muted text-uppercase fw-semibold mb-1"
+                        style="font-size:0.68rem; letter-spacing:0.07em;">
+                    Data points &gt; Value Profile                </span>
+                        <div class="d-flex align-items-center gap-2 ">
+                <h1 class="mb-0 fw-bold lh-1 d-flex" style="font-size:2rem; word-break:break-word; max-width:100%;">
+                    <span class="vp-value font-monospace user-select-all">185.234.219.24</span><button type="button" class="vp-type-chip" data-vp-type="ip-dst" data-vp-type-slug="ip-dst" aria-pressed="false" title="7 occurrences of type ip-dst — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-dst</span><span class="vp-type-chip-count">7</span></button><button type="button" class="vp-type-chip" data-vp-type="ip-src" data-vp-type-slug="ip-src" aria-pressed="false" title="2 occurrences of type ip-src — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-src</span><span class="vp-type-chip-count">2</span></button><button type="button" class="vp-type-chip" data-vp-type="domain|ip" data-vp-type-slug="domain-ip" aria-pressed="false" title="1 occurrence of type domain|ip — show only these rows in the occurrence table"><span class="vp-type-chip-name">domain|ip</span><span class="vp-type-chip-count">1</span></button>                </h1>
+                                            </div>
+
+                            <p class="text-muted mt-1" style="font-size:0.85rem;">
+                    1 occurrence has it as the second half of a domain|ip                </p>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    
+                                            <a href="#" class="btn btn-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-eye"></i>Add sighting</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-wand-magic-sparkles"></i>Enrich</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-folder-plus"></i>Add to collection</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-bell"></i>Watch</a>
+                    
+                                    
+                    
+                        <div class="dropdown">
+                            <button class="btn btn-outline-dark fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                Export                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield-halved me-2"></i>STIX 2.1</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield me-2"></i>Suricata</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-network-wired me-2"></i>Zeek</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-ban me-2"></i>RPZ</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-file-csv me-2"></i>CSV</a></li><li><hr class="dropdown-divider"></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-code me-2"></i>Copy the restSearch query</a></li></ul>                        </div>
+
+                    
+                            </div>
+                                
+    </div>
+
+    
+</div>
+
+                <link rel="stylesheet" href="/css/value-profile.css?v=203">
+
+
+
+</div>
+<div class="container-fluid">
+    <div class="vp-fact-strip">
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">First seen</span>
+                <span class="vp-fact-value">2024-09-14</span>
+                                    <span class="vp-fact-sub">11 months ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">Last seen</span>
+                <span class="vp-fact-value">2025-08-19</span>
+                                    <span class="vp-fact-sub">5 days ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Occurrences</span>
+                <span class="vp-fact-value">10</span>
+                                    <span class="vp-fact-sub">3 types</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Events</span>
+                <span class="vp-fact-value">7</span>
+                                    <span class="vp-fact-sub">5 published</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-verdict">
+                <span class="vp-fact-label">Organisations</span>
+                <span class="vp-fact-value">4</span>
+                                    <span class="vp-fact-sub">CIRCL + 3</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-sightings">
+                <span class="vp-fact-label">Sightings</span>
+                <span class="vp-fact-value">47</span>
+                                    <span class="vp-fact-sub">1 false positive</span>
+                            </a>
+            </div>
+</div>
+<div class="container-fluid">
+    <div class="vp-pivot-rail">
+        <span class="vp-pivot-rail-label">Pivot to</span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Containing CIDR</span>
+                <span class="vp-pivot-hint">185.234.216.0/22</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">ASN</span>
+                <span class="vp-pivot-hint">AS204428 SS-Net</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Geolocation</span>
+                <span class="vp-pivot-hint">Sofia, BG</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Ports seen</span>
+                <span class="vp-pivot-hint">443, 8080, 8443</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Passive DNS</span>
+                <span class="vp-pivot-hint">6 hostnames</span>
+            </span>
+            </div>
+</div>
+<div class="container-fluid">
+    <ul class="nav nav-tabs mb-3 fs-5" role="tablist">
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark active"
+                    data-bs-toggle="tab"
+                    href="#tab-general"
+                    role="tab"
+                    aria-selected="true">
+
+                                            <i class="fas fa-info-circle"></i>
+                    
+                                            Overview                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-verdict"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-gavel"></i>
+                    
+                                            Verdict                    
+                    
+                                                                <span class="nav-view-badge" style="--nav-view-badge-color: var(--vp-mal);">
+                                                            <span class="nav-view-badge-dot"></span>
+                                                        MALICIOUS 84                        </span>
+                                    </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-occurrences"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-attribute misp-simple"></i>
+                    
+                                            Occurrences                    
+                                            <span> (10) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-sightings"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-sighting misp-simple"></i>
+                    
+                                            Sightings                    
+                                            <span> (47) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-relationships"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-link"></i>
+                    
+                                            Relationships                    
+                                            <span> (31) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-enrichment"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                    
+                                            Enrichment                    
+                                            <span> (9) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-analyst"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-analyst-note misp-simple"></i>
+                    
+                                            Analyst data                    
+                                            <span> (6) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-timeline"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-clock"></i>
+                    
+                                            Timeline                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-history"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-history"></i>
+                    
+                                            History                    
+                    
+                                                        </a>
+            </li>
+            </ul>
+
+    
+    <div class="tab-content">
+      <div class="tab-pane fade show active" role="tabpanel">
+        <div class="row">
+<div class="col-12"><div class="card shadow-sm mb-3 vp-panel" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2"><span class="vp-panel-glyph"><span class="misp-icon misp-icon-attribute misp-simple"></span></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1">Occurrences</div><div class="small text-muted mt-1">Showing 6 of 10 occurrences &nbsp;&middot;&nbsp; 7 events &nbsp;&middot;&nbsp; 4 organisations &nbsp;&middot;&nbsp; 3 types</div></div><div class="d-flex align-items-center gap-2 flex-shrink-0"><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" role="switch" id="o1-deleted" checked><label class="form-check-label small text-muted" for="o1-deleted">Include 1 soft-deleted</label></div><div class="btn-group" role="group" aria-label="View"><button type="button" class="btn btn-outline-primary btn-sm active" title="Table view"><i class="fas fa-list"></i></button><button type="button" class="btn btn-outline-primary btn-sm" title="Card view"><i class="fas fa-th"></i></button></div></div></div><div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center"><div class="flex-grow-1" style="max-width:22rem;"><div class="input-group input-group-sm"><input class="form-control" type="text" placeholder="Filter by comment, event info or tag" aria-label="Quick filter"><button class="btn btn-primary" type="button" aria-label="Search"><i class="fas fa-search"></i></button></div></div><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Organisation"><option selected>Any organisation</option><option>Org A (3)</option><option>Org B (1)</option><option>Org C (1)</option><option>Org D (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Type"><option selected>Any type</option><option>ip-dst (4)</option><option>ip-src (1)</option><option>domain|ip (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Category"><option selected>Any category</option><option>Network activity (5)</option><option>Payload delivery (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="IDS"><option selected>to_ids: any</option><option>to_ids: yes (4)</option><option>to_ids: no (2)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Distribution"><option selected>Any distribution</option><option>Your organisation only</option><option>This community only</option><option>Connected communities</option><option>All communities</option><option>Sharing group</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Sharing group"><option selected>Any sharing group</option><option>Sharing group A</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Tag"><option selected>Any tag</option><option>tlp:amber</option><option>tlp:green</option><option>pap:amber</option><option>type:OSINT</option><option>workflow:state="reviewed"</option></select><div class="input-group input-group-sm flex-shrink-0" style="width:19rem;"><span class="input-group-text">Seen</span><input type="date" class="form-control" aria-label="First seen from" value="2024-09-14"><span class="input-group-text">to</span><input type="date" class="form-control" aria-label="Last seen to" value="2025-08-19"></div><div class="dropdown flex-shrink-0"><button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="o1-more"><i class="fas fa-sliders-h me-1"></i>More filters</button></div><div class="ms-auto"><div class="d-flex align-items-center gap-2"><span class="small text-muted text-nowrap">1&ndash;6 of 6</span><nav aria-label="Occurrence pages"><ul class="pagination pagination-sm mb-0"><li class="page-item disabled"><a class="page-link" href="#"><i class="fas fa-chevron-left"></i></a></li><li class="page-item active"><a class="page-link" href="#">1</a></li><li class="page-item disabled"><a class="page-link" href="#"><i class="fas fa-chevron-right"></i></a></li></ul></nav></div></div></div><div class="vp-o-summary"><span class="vp-o-summary-item"><b>6</b> rows you can see</span><span class="vp-o-summary-item"><b>7</b> events</span><span class="vp-o-summary-item"><b>4</b> organisations</span><span class="vp-o-summary-item"><b>3</b> types</span><span class="vp-o-summary-item"><b>1</b> pending proposal</span><span class="vp-o-summary-item"><b>1</b> soft-deleted</span><span class="vp-o-summary-item"><b>4</b> hidden by ACL</span><span class="vp-o-summary-note ms-auto"><sup class="vp-o-new">+</sup> three columns the Overview preview drops &nbsp;&middot;&nbsp; every count here is a filter</span></div><div class="card-body p-0"><div class="table-responsive table-scroll"><table class="table table-hover align-middle mb-0"><thead class="checkbox-index"><tr><th style="width:2.4rem;"><input id="select_all" class="select_all form-check-input ms-1" type="checkbox"></th><th class="text-nowrap">State<sup class="vp-o-new" title="A column the Overview preview drops">+</sup></th><th class="text-nowrap">Event</th><th class="text-nowrap">Reported by</th><th class="text-nowrap">Type</th><th class="text-nowrap">Category<sup class="vp-o-new" title="A column the Overview preview drops">+</sup></th><th class="text-nowrap">IDS</th><th class="text-nowrap">Distribution</th><th class="text-nowrap">Context</th><th class="text-nowrap">First seen<sup class="vp-o-new" title="A column the Overview preview drops">+</sup></th><th class="text-nowrap"><span class="sortable-header">Last seen<i class="fas fa-arrow-down-long ms-1" style="opacity:.65;font-size:.75em;"></i></span></th><th class="text-nowrap">Tags</th></tr></thead><tbody><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1284</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:9rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-08-12 09:14</span></td><td class="idx-col-datetime"><span class="text-nowrap">2025-08-19 21:02</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="badge d-inline-flex align-items-center gap-1 bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="A pending shadow attribute proposes a change to this occurrence"><i class="fas fa-code-pull-request"></i>1 proposal</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1291</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">B</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org B</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">network-connection</a><span class="vp-relation" title="Object relation">ip-dst</span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-07-30 14:00</span></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1272</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">C</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org C</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-src</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#dce8ff;color:#0e146d;border:1px solid #0e146d20;font-weight:500;" title="Sharing group"><span class="misp-icon misp-icon-sharing-group misp-simple"></span></span><div class="text-muted small text-truncate mt-1" title="Sharing group A">Sharing group A</div></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:11rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#33FF00; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:green</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#3F51B5; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;"><i class="fas fa-user me-1"></i>workflow:state="reviewed"</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1279</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">domain|ip</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">domain-ip</a><span class="vp-relation" title="Object relation">domain-ip</span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-06-02 08:00</span></td><td class="idx-col-datetime"><span class="text-nowrap">2025-06-27 08:00</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">pap:amber</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1265</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">D</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org D</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Payload delivery</p></div></td><td><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#f8d7da;color:#842029;border:1px solid #84202920;font-weight:500;" title="Your organisation only"><i class="fas fa-building"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span></div></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><span class="text-muted small">&mdash;</span></td></tr><tr class="vp-occ-deleted"><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="badge d-inline-flex align-items-center gap-1 bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Soft-deleted — history, not current state"><i class="fas fa-trash"></i>Deleted</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1284</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:10rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#e7d3c3;color:#5a3e2b;border:1px solid #5a3e2b20;font-weight:500;" title="Connected communities"><i class="fas fa-network-wired"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:7rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2024-09-14 00:00</span></td><td class="idx-col-datetime"><span class="text-nowrap">2024-10-01 00:00</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr></tbody></table></div></div><div class="vp-acl-note"><i class="fas fa-eye-slash"></i><span>Showing 6 of 10 occurrences. 4 are hidden by distribution rules on events owned by other organisations.</span></div><div class="vp-o-bulk vp-o-bulk-bottom"><fieldset disabled class="border-0 p-0 m-0" title="Disabled in this pass — the Value Profile page does not write to the database yet."><div class="vp-o-bulk-inner"><strong class="text-nowrap">Selected items: 3</strong><span class="vp-o-scope">3 rows &middot; 3 events &middot; 2 organisations</span><button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-file-export"></i>Export</button><button type="button" class="btn btn-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-edit"></i>Edit</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-tag misp-simple"></span>Tag</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-user"></i>Local tag</button><button type="button" class="btn btn-galaxy btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-galaxy misp-simple"></span>Cluster</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-shield-halved"></i>Set to_ids</button><button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-globe"></i>Set distribution</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-code-pull-request"></i>Propose edit</button><button type="button" class="btn btn-sighting btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-sighting misp-simple"></span>Add sighting</button><button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-folder-plus"></i>Add to collection</button><span class="small text-muted ms-auto">Disabled in this pass — the Value Profile page does not write to the database yet.</span></div></fieldset></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ===================== O2 ===================== -->
+    <article class="vp-cand" id="O2">
+      <div class="vp-cand-head">
+        <div>
+          <span class="vp-cand-id">O2</span>
+          <span class="vp-cand-thesis">A counted facet rail beside the table, so the shape of the value’s occurrences is readable before a single row is.</span>
+        </div>
+        <dl class="vp-cand-reckoning"><dt>Optimises for</dt><dd>Answering &ldquo;who reports this, how, and under what distribution&rdquo; without running a query. Every filter carries its own count, so the filter set and the summary are the same object — which is the addition over the Overview preview, visible on arrival without reading a row.</dd><dt>Gives up</dt><dd>A quarter of the width, permanently. Category and First seen move behind a Columns menu (nine of twelve shown). And it is the only candidate whose headline element needs a number MISP has no endpoint for.</dd><dt>At scale</dt><dd><b>1,847:</b> the rail stays the same size while the table paginates — its counts must come from a GROUP BY, not from the page. <b>21,904:</b> tag and organisation facets are long-tailed, so each shows its top ten and a &ldquo;n more&rdquo;; past ~50 values a facet becomes a search box, and the date facet takes over as the primary cut. <b>Zero:</b> the rail is not rendered at all — a facet rail of zeroes is a lie about the value — and the table shows the single empty state.</dd><dt>Data</dt><dd>Table exactly as O1. The rail is the finding: <b>MISP has no endpoint returning per-facet counts over an ACL-scoped attribute set.</b> At ten rows the counts can be tallied in PHP over the fetched set, which is what phase 8 should ship first; that stops being honest the moment the table paginates, and past that it needs a GROUP BY under the same conditions <code>fetchAttributes</code> builds. Either way the counts can only cover rows the user may see, so the rail says so: the banner’s chips count ip-dst 7, the rail counts 4.</dd><dt>Size</dt><dd>M — O1 plus a facet endpoint and one new primitive.</dd></dl>
+      </div>
+      <div class="vp-cand-view">
+        <div class="vp-cand-scaler">
+<div class="vp-frame" data-vp-tab="occurrences">
+<div class="vp-frame-tag">Page chrome — context, not the design</div>
+<div class="vp-frame-chrome">
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div class="d-flex flex-column align-items-start">
+                            <span class="text-muted text-uppercase fw-semibold mb-1"
+                        style="font-size:0.68rem; letter-spacing:0.07em;">
+                    Data points &gt; Value Profile                </span>
+                        <div class="d-flex align-items-center gap-2 ">
+                <h1 class="mb-0 fw-bold lh-1 d-flex" style="font-size:2rem; word-break:break-word; max-width:100%;">
+                    <span class="vp-value font-monospace user-select-all">185.234.219.24</span><button type="button" class="vp-type-chip" data-vp-type="ip-dst" data-vp-type-slug="ip-dst" aria-pressed="false" title="7 occurrences of type ip-dst — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-dst</span><span class="vp-type-chip-count">7</span></button><button type="button" class="vp-type-chip" data-vp-type="ip-src" data-vp-type-slug="ip-src" aria-pressed="false" title="2 occurrences of type ip-src — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-src</span><span class="vp-type-chip-count">2</span></button><button type="button" class="vp-type-chip" data-vp-type="domain|ip" data-vp-type-slug="domain-ip" aria-pressed="false" title="1 occurrence of type domain|ip — show only these rows in the occurrence table"><span class="vp-type-chip-name">domain|ip</span><span class="vp-type-chip-count">1</span></button>                </h1>
+                                            </div>
+
+                            <p class="text-muted mt-1" style="font-size:0.85rem;">
+                    1 occurrence has it as the second half of a domain|ip                </p>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    
+                                            <a href="#" class="btn btn-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-eye"></i>Add sighting</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-wand-magic-sparkles"></i>Enrich</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-folder-plus"></i>Add to collection</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-bell"></i>Watch</a>
+                    
+                                    
+                    
+                        <div class="dropdown">
+                            <button class="btn btn-outline-dark fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                Export                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield-halved me-2"></i>STIX 2.1</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield me-2"></i>Suricata</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-network-wired me-2"></i>Zeek</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-ban me-2"></i>RPZ</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-file-csv me-2"></i>CSV</a></li><li><hr class="dropdown-divider"></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-code me-2"></i>Copy the restSearch query</a></li></ul>                        </div>
+
+                    
+                            </div>
+                                
+    </div>
+
+    
+</div>
+
+                <link rel="stylesheet" href="/css/value-profile.css?v=203">
+
+
+
+</div>
+<div class="container-fluid">
+    <div class="vp-fact-strip">
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">First seen</span>
+                <span class="vp-fact-value">2024-09-14</span>
+                                    <span class="vp-fact-sub">11 months ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">Last seen</span>
+                <span class="vp-fact-value">2025-08-19</span>
+                                    <span class="vp-fact-sub">5 days ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Occurrences</span>
+                <span class="vp-fact-value">10</span>
+                                    <span class="vp-fact-sub">3 types</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Events</span>
+                <span class="vp-fact-value">7</span>
+                                    <span class="vp-fact-sub">5 published</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-verdict">
+                <span class="vp-fact-label">Organisations</span>
+                <span class="vp-fact-value">4</span>
+                                    <span class="vp-fact-sub">CIRCL + 3</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-sightings">
+                <span class="vp-fact-label">Sightings</span>
+                <span class="vp-fact-value">47</span>
+                                    <span class="vp-fact-sub">1 false positive</span>
+                            </a>
+            </div>
+</div>
+<div class="container-fluid">
+    <div class="vp-pivot-rail">
+        <span class="vp-pivot-rail-label">Pivot to</span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Containing CIDR</span>
+                <span class="vp-pivot-hint">185.234.216.0/22</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">ASN</span>
+                <span class="vp-pivot-hint">AS204428 SS-Net</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Geolocation</span>
+                <span class="vp-pivot-hint">Sofia, BG</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Ports seen</span>
+                <span class="vp-pivot-hint">443, 8080, 8443</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Passive DNS</span>
+                <span class="vp-pivot-hint">6 hostnames</span>
+            </span>
+            </div>
+</div>
+<div class="container-fluid">
+    <ul class="nav nav-tabs mb-3 fs-5" role="tablist">
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark active"
+                    data-bs-toggle="tab"
+                    href="#tab-general"
+                    role="tab"
+                    aria-selected="true">
+
+                                            <i class="fas fa-info-circle"></i>
+                    
+                                            Overview                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-verdict"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-gavel"></i>
+                    
+                                            Verdict                    
+                    
+                                                                <span class="nav-view-badge" style="--nav-view-badge-color: var(--vp-mal);">
+                                                            <span class="nav-view-badge-dot"></span>
+                                                        MALICIOUS 84                        </span>
+                                    </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-occurrences"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-attribute misp-simple"></i>
+                    
+                                            Occurrences                    
+                                            <span> (10) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-sightings"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-sighting misp-simple"></i>
+                    
+                                            Sightings                    
+                                            <span> (47) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-relationships"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-link"></i>
+                    
+                                            Relationships                    
+                                            <span> (31) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-enrichment"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                    
+                                            Enrichment                    
+                                            <span> (9) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-analyst"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-analyst-note misp-simple"></i>
+                    
+                                            Analyst data                    
+                                            <span> (6) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-timeline"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-clock"></i>
+                    
+                                            Timeline                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-history"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-history"></i>
+                    
+                                            History                    
+                    
+                                                        </a>
+            </li>
+            </ul>
+
+    
+    <div class="tab-content">
+      <div class="tab-pane fade show active" role="tabpanel">
+        <div class="row">
+<div class="col-lg-3"><div class="card shadow-sm mb-3 vp-panel" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2"><span class="vp-panel-glyph"><i class="fas fa-filter"></i></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1">Filters</div><div class="small text-muted mt-1">No filter applied &nbsp;&middot;&nbsp; 6 rows</div></div><div class="d-flex align-items-center gap-2 flex-shrink-0"><button type="button" class="btn btn-sm btn-outline-danger" disabled>Clear all</button></div></div><div class="vp-o-facet-note"><i class="fas fa-eye-slash"></i><span>Counts cover the <b>6 occurrences you can see</b>. The banner counts all 10 &mdash; it says <b>ip-dst 7</b>, this rail says <b>4</b>.</span></div><div class="card-body py-2 px-3"><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><i class="fas fa-building"></i>Organisation</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Org A</span></span><span class="vp-o-facet-count">3</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Org B</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Org C</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Org D</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><span class="misp-icon misp-icon-attribute misp-simple"></span>Type</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">ip-dst</span></span><span class="vp-o-facet-count">4</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">ip-src</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:25%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">domain|ip</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:25%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><i class="fas fa-folder"></i>Category</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Network activity</span></span><span class="vp-o-facet-count">5</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Payload delivery</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:20%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><i class="fas fa-shield-halved"></i>IDS flag</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">to_ids set</span></span><span class="vp-o-facet-count">4</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">to_ids unset</span></span><span class="vp-o-facet-count">2</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><i class="fas fa-globe"></i>Distribution</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i><span class="ms-1">All communities</span></span></span><span class="vp-o-facet-count">2</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i><span class="ms-1">This community only</span></span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#e7d3c3;color:#5a3e2b;border:1px solid #5a3e2b20;font-weight:500;" title="Connected communities"><i class="fas fa-network-wired"></i><span class="ms-1">Connected communities</span></span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#dce8ff;color:#0e146d;border:1px solid #0e146d20;font-weight:500;" title="Sharing group"><span class="misp-icon misp-icon-sharing-group misp-simple"></span><span class="ms-1">Sharing group</span></span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#f8d7da;color:#842029;border:1px solid #84202920;font-weight:500;" title="Your organisation only"><i class="fas fa-building"></i><span class="ms-1">Your organisation only</span></span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><span class="misp-icon misp-icon-sharing-group misp-simple"></span>Sharing group</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">Sharing group A</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead d-flex align-items-center gap-2"><span class="misp-icon misp-icon-tag misp-simple"></span>Tag</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div></span><span class="vp-o-facet-count">3</span><span class="vp-o-facet-bar"><span style="width:100%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></span><span class="vp-o-facet-count">2</span><span class="vp-o-facet-bar"><span style="width:66%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#33FF00; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:green</span></div></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">pap:amber</span></div></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#3F51B5; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;"><i class="fas fa-user me-1"></i>workflow:state="reviewed"</span></div></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:33%"></span></span></label></div><div class="vp-o-facetgrp"><div class="vp-subhead">First / last seen</div><div class="d-flex flex-column gap-2"><svg class="vp-o-spark" viewBox="0 0 115 30" width="100%" height="30" role="img" aria-label="Occurrences per month"><rect x="1.0" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="10.5" y="15.0" width="6" height="13.0" rx="1.5" fill="currentColor"/><rect x="20.0" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="29.5" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="39.0" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="48.5" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="58.0" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="67.5" y="15.0" width="6" height="13.0" rx="1.5" fill="currentColor"/><rect x="77.0" y="28.0" width="6" height="1.5" rx="1.5" fill="var(--bs-secondary-bg)"/><rect x="86.5" y="15.0" width="6" height="13.0" rx="1.5" fill="currentColor"/><rect x="96.0" y="15.0" width="6" height="13.0" rx="1.5" fill="currentColor"/><rect x="105.5" y="2.0" width="6" height="26.0" rx="1.5" fill="currentColor"/></svg><div class="input-group input-group-sm"><input type="date" class="form-control" value="2024-09-14" aria-label="Seen from"><span class="input-group-text">to</span><input type="date" class="form-control" value="2025-08-19" aria-label="Seen to"></div><div class="small text-muted">2 occurrences carry no first/last seen at all.</div></div></div><div class="vp-o-facetgrp"><div class="vp-subhead">Row state</div><label class="vp-o-facet"><span class="vp-o-facet-label"><input class="form-check-input mt-0 flex-shrink-0" type="checkbox"><span class="text-truncate">With a pending proposal</span></span><span class="vp-o-facet-count">1</span><span class="vp-o-facet-bar"><span style="width:50%"></span></span></label><div class="mt-2"><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" role="switch" id="o2-deleted" checked><label class="form-check-label small text-muted" for="o2-deleted">Include 1 soft-deleted</label></div></div></div></div></div></div><div class="col-lg-9"><div class="card shadow-sm mb-3 vp-panel" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2"><span class="vp-panel-glyph"><span class="misp-icon misp-icon-attribute misp-simple"></span></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1">Occurrences</div><div class="small text-muted mt-1">Showing 6 of 10 occurrences &nbsp;&middot;&nbsp; 7 events &nbsp;&middot;&nbsp; 4 organisations</div></div><div class="d-flex align-items-center gap-2 flex-shrink-0"><div class="dropdown"><button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"><i class="fas fa-table-columns me-1"></i>Columns (9 of 12)</button></div><div class="d-flex align-items-center gap-2"><span class="small text-muted text-nowrap">1&ndash;6 of 6</span><nav aria-label="Occurrence pages"><ul class="pagination pagination-sm mb-0"><li class="page-item disabled"><a class="page-link" href="#"><i class="fas fa-chevron-left"></i></a></li><li class="page-item active"><a class="page-link" href="#">1</a></li><li class="page-item disabled"><a class="page-link" href="#"><i class="fas fa-chevron-right"></i></a></li></ul></nav></div></div></div><div class="vp-o-bulk vp-o-bulk-top"><fieldset disabled class="border-0 p-0 m-0" title="Disabled in this pass — the Value Profile page does not write to the database yet."><div class="vp-o-bulk-inner"><strong class="text-nowrap">Selected items: 3</strong><span class="vp-o-scope">3 rows &middot; 3 events &middot; 2 organisations</span><button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-file-export"></i>Export</button><button type="button" class="btn btn-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-edit"></i>Edit</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-tag misp-simple"></span>Tag</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-user"></i>Local tag</button><button type="button" class="btn btn-galaxy btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-galaxy misp-simple"></span>Cluster</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-shield-halved"></i>Set to_ids</button><button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-globe"></i>Set distribution</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-code-pull-request"></i>Propose edit</button><button type="button" class="btn btn-sighting btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-sighting misp-simple"></span>Add sighting</button><button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-folder-plus"></i>Add to collection</button><span class="small text-muted ms-auto">Disabled in this pass — the Value Profile page does not write to the database yet.</span></div></fieldset></div><div class="card-body p-0"><div class="table-responsive table-scroll"><table class="table table-hover align-middle mb-0"><thead class="checkbox-index"><tr><th style="width:2.4rem;"><input id="select_all" class="select_all form-check-input ms-1" type="checkbox"></th><th class="text-nowrap">State</th><th class="text-nowrap">Event</th><th class="text-nowrap">Reported by</th><th class="text-nowrap">Type</th><th class="text-nowrap">IDS</th><th class="text-nowrap">Distribution</th><th class="text-nowrap">Context</th><th class="text-nowrap">Last seen</th><th class="text-nowrap">Tags</th></tr></thead><tbody><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1284</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:9rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-08-19 21:02</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="badge d-inline-flex align-items-center gap-1 bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="A pending shadow attribute proposes a change to this occurrence"><i class="fas fa-code-pull-request"></i>1</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1291</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">B</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org B</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">network-connection</a><span class="vp-relation" title="Object relation">ip-dst</span></div></div></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1272</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">C</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org C</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-src</p></div></td><td><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#dce8ff;color:#0e146d;border:1px solid #0e146d20;font-weight:500;" title="Sharing group"><span class="misp-icon misp-icon-sharing-group misp-simple"></span></span><div class="text-muted small text-truncate mt-1" title="Sharing group A">Sharing group A</div></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:11rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#33FF00; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:green</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#3F51B5; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;"><i class="fas fa-user me-1"></i>workflow:state="reviewed"</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1279</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">domain|ip</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">domain-ip</a><span class="vp-relation" title="Object relation">domain-ip</span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-06-27 08:00</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">pap:amber</span></div></div></td></tr><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="text-muted">&mdash;</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1265</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">D</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org D</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#f8d7da;color:#842029;border:1px solid #84202920;font-weight:500;" title="Your organisation only"><i class="fas fa-building"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span></div></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><span class="text-muted small">&mdash;</span></td></tr><tr class="vp-occ-deleted"><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="text-nowrap"><span class="badge d-inline-flex align-items-center gap-1 bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Soft-deleted — history, not current state"><i class="fas fa-trash"></i>Del</span></td><td class="idx-col-event"><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1284</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:8rem"></span></span></div></div></td><td class="idx-col-organisation"><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#e7d3c3;color:#5a3e2b;border:1px solid #5a3e2b20;font-weight:500;" title="Connected communities"><i class="fas fa-network-wired"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:7rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2024-10-01 00:00</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr></tbody></table></div></div><div class="vp-acl-note"><i class="fas fa-eye-slash"></i><span>Showing 6 of 10 occurrences. 4 are hidden by distribution rules on events owned by other organisations.</span></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ===================== O3 ===================== -->
+    <article class="vp-cand" id="O3">
+      <div class="vp-cand-head">
+        <div>
+          <span class="vp-cand-id">O3</span>
+          <span class="vp-cand-thesis">The table folded along its strongest key: occurrences grouped into the events that carry them, with per-group actions and a ghost group for what ACL hides.</span>
+        </div>
+        <dl class="vp-cand-reckoning"><dt>Optimises for</dt><dd>The question a value page is usually opened with — how many separate reports is this, and whose. Event, organisation, published state and distribution leave the row and become the group header, so a row is only what varies inside a group and every column left is a column the preview showed. The event hidden by ACL is a dashed group in the list, not a footnote.</dd><dt>Gives up</dt><dd>Comparison across groups and a stable column grid — two collapsed groups put their rows at different vertical offsets, so scanning one column down the page stops working. And an event is a poor unit for a value carried by hundreds of them.</dd><dt>At scale</dt><dd><b>1,847:</b> every group collapsed on arrival, the group list paginated (~120 event groups), counts in the headers; &ldquo;Expand all&rdquo; disables past 50 groups. <b>21,904:</b> grouping by event is useless at ~2,000 groups, so the default grouping switches to Organisation — 4 to 40 groups — and event becomes the second level inside it. <b>Zero:</b> no groups, one empty card; the ghost group still renders if the reason is ACL rather than absence.</dd><dt>Data</dt><dd>The same fetch as O1, folded in PHP: <code>Event.id</code>, <code>Event.Orgc</code> or <code>Object.id</code> as the key. Per-group actions are the bulk fan-out scoped to one event, which is the only scope MISP’s per-event ACL check answers cleanly — the strongest argument for this shape. <b>MISP cannot supply</b> the ghost group’s detail: the count of hidden occurrences is knowable (it is the same difference the ACL note already prints), the event ids behind it are not, so the ghost may name a number and never a row.</dd><dt>Size</dt><dd>M — grouping, a group header primitive, nested tables.</dd></dl>
+      </div>
+      <div class="vp-cand-view">
+        <div class="vp-cand-scaler">
+<div class="vp-frame" data-vp-tab="occurrences">
+<div class="vp-frame-tag">Page chrome — context, not the design</div>
+<div class="vp-frame-chrome">
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div class="d-flex flex-column align-items-start">
+                            <span class="text-muted text-uppercase fw-semibold mb-1"
+                        style="font-size:0.68rem; letter-spacing:0.07em;">
+                    Data points &gt; Value Profile                </span>
+                        <div class="d-flex align-items-center gap-2 ">
+                <h1 class="mb-0 fw-bold lh-1 d-flex" style="font-size:2rem; word-break:break-word; max-width:100%;">
+                    <span class="vp-value font-monospace user-select-all">185.234.219.24</span><button type="button" class="vp-type-chip" data-vp-type="ip-dst" data-vp-type-slug="ip-dst" aria-pressed="false" title="7 occurrences of type ip-dst — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-dst</span><span class="vp-type-chip-count">7</span></button><button type="button" class="vp-type-chip" data-vp-type="ip-src" data-vp-type-slug="ip-src" aria-pressed="false" title="2 occurrences of type ip-src — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-src</span><span class="vp-type-chip-count">2</span></button><button type="button" class="vp-type-chip" data-vp-type="domain|ip" data-vp-type-slug="domain-ip" aria-pressed="false" title="1 occurrence of type domain|ip — show only these rows in the occurrence table"><span class="vp-type-chip-name">domain|ip</span><span class="vp-type-chip-count">1</span></button>                </h1>
+                                            </div>
+
+                            <p class="text-muted mt-1" style="font-size:0.85rem;">
+                    1 occurrence has it as the second half of a domain|ip                </p>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    
+                                            <a href="#" class="btn btn-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-eye"></i>Add sighting</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-wand-magic-sparkles"></i>Enrich</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-folder-plus"></i>Add to collection</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-bell"></i>Watch</a>
+                    
+                                    
+                    
+                        <div class="dropdown">
+                            <button class="btn btn-outline-dark fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                Export                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield-halved me-2"></i>STIX 2.1</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield me-2"></i>Suricata</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-network-wired me-2"></i>Zeek</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-ban me-2"></i>RPZ</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-file-csv me-2"></i>CSV</a></li><li><hr class="dropdown-divider"></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-code me-2"></i>Copy the restSearch query</a></li></ul>                        </div>
+
+                    
+                            </div>
+                                
+    </div>
+
+    
+</div>
+
+                <link rel="stylesheet" href="/css/value-profile.css?v=203">
+
+
+
+</div>
+<div class="container-fluid">
+    <div class="vp-fact-strip">
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">First seen</span>
+                <span class="vp-fact-value">2024-09-14</span>
+                                    <span class="vp-fact-sub">11 months ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">Last seen</span>
+                <span class="vp-fact-value">2025-08-19</span>
+                                    <span class="vp-fact-sub">5 days ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Occurrences</span>
+                <span class="vp-fact-value">10</span>
+                                    <span class="vp-fact-sub">3 types</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Events</span>
+                <span class="vp-fact-value">7</span>
+                                    <span class="vp-fact-sub">5 published</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-verdict">
+                <span class="vp-fact-label">Organisations</span>
+                <span class="vp-fact-value">4</span>
+                                    <span class="vp-fact-sub">CIRCL + 3</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-sightings">
+                <span class="vp-fact-label">Sightings</span>
+                <span class="vp-fact-value">47</span>
+                                    <span class="vp-fact-sub">1 false positive</span>
+                            </a>
+            </div>
+</div>
+<div class="container-fluid">
+    <div class="vp-pivot-rail">
+        <span class="vp-pivot-rail-label">Pivot to</span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Containing CIDR</span>
+                <span class="vp-pivot-hint">185.234.216.0/22</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">ASN</span>
+                <span class="vp-pivot-hint">AS204428 SS-Net</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Geolocation</span>
+                <span class="vp-pivot-hint">Sofia, BG</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Ports seen</span>
+                <span class="vp-pivot-hint">443, 8080, 8443</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Passive DNS</span>
+                <span class="vp-pivot-hint">6 hostnames</span>
+            </span>
+            </div>
+</div>
+<div class="container-fluid">
+    <ul class="nav nav-tabs mb-3 fs-5" role="tablist">
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark active"
+                    data-bs-toggle="tab"
+                    href="#tab-general"
+                    role="tab"
+                    aria-selected="true">
+
+                                            <i class="fas fa-info-circle"></i>
+                    
+                                            Overview                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-verdict"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-gavel"></i>
+                    
+                                            Verdict                    
+                    
+                                                                <span class="nav-view-badge" style="--nav-view-badge-color: var(--vp-mal);">
+                                                            <span class="nav-view-badge-dot"></span>
+                                                        MALICIOUS 84                        </span>
+                                    </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-occurrences"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-attribute misp-simple"></i>
+                    
+                                            Occurrences                    
+                                            <span> (10) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-sightings"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-sighting misp-simple"></i>
+                    
+                                            Sightings                    
+                                            <span> (47) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-relationships"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-link"></i>
+                    
+                                            Relationships                    
+                                            <span> (31) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-enrichment"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                    
+                                            Enrichment                    
+                                            <span> (9) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-analyst"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-analyst-note misp-simple"></i>
+                    
+                                            Analyst data                    
+                                            <span> (6) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-timeline"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-clock"></i>
+                    
+                                            Timeline                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-history"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-history"></i>
+                    
+                                            History                    
+                    
+                                                        </a>
+            </li>
+            </ul>
+
+    
+    <div class="tab-content">
+      <div class="tab-pane fade show active" role="tabpanel">
+        <div class="row">
+<div class="col-12"><div class="card shadow-sm mb-3 vp-panel" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2"><span class="vp-panel-glyph"><span class="misp-icon misp-icon-attribute misp-simple"></span></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1">Occurrences by event</div><div class="small text-muted mt-1">6 of 10 occurrences &nbsp;&middot;&nbsp; 5 events you can see, 2 you cannot &nbsp;&middot;&nbsp; 4 organisations</div></div><div class="d-flex align-items-center gap-2 flex-shrink-0"><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" role="switch" id="o3-deleted" checked><label class="form-check-label small text-muted" for="o3-deleted">Include 1 soft-deleted</label></div></div></div><div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center"><span class="vp-subhead mb-0 me-1">Group by</span><div class="btn-group btn-group-sm" role="group" aria-label="Group by"><button type="button" class="btn btn-outline-primary active">Event <span class="vp-o-gcount">7</span></button><button type="button" class="btn btn-outline-primary">Organisation <span class="vp-o-gcount">4</span></button><button type="button" class="btn btn-outline-primary">Object <span class="vp-o-gcount">2</span></button><button type="button" class="btn btn-outline-primary">None</button></div><div class="flex-grow-1" style="max-width:18rem;"><div class="input-group input-group-sm"><input class="form-control" type="text" placeholder="Filter by comment, event info or tag" aria-label="Quick filter"><button class="btn btn-primary" type="button" aria-label="Search"><i class="fas fa-search"></i></button></div></div><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Organisation"><option selected>Any organisation</option><option>Org A (3)</option><option>Org B (1)</option><option>Org C (1)</option><option>Org D (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Type"><option selected>Any type</option><option>ip-dst (4)</option><option>ip-src (1)</option><option>domain|ip (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Category"><option selected>Any category</option><option>Network activity (5)</option><option>Payload delivery (1)</option></select><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="IDS"><option selected>to_ids: any</option><option>to_ids: yes (4)</option><option>to_ids: no (2)</option></select><div class="dropdown flex-shrink-0"><button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="o3-more"><i class="fas fa-sliders-h me-1"></i>More filters</button></div><div class="ms-auto d-flex gap-1"><button type="button" class="btn btn-sm btn-outline-secondary">Expand all</button><button type="button" class="btn btn-sm btn-outline-secondary">Collapse all</button></div></div><div class="card-body p-0"><div class="vp-o-groupcard"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" aria-label="Select every occurrence in this event"><button type="button" class="vp-o-chev" aria-expanded="true"><i class="fas fa-chevron-down"></i></button><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);">Event #1284</a><span class="text-muted small text-truncate"><span class="sk " style="--sk-w:14rem"></span></span><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Published</span><span title="The event's distribution. Each row carries its own."><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></span><span class="badge d-inline-flex align-items-center gap-1 bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Soft-deleted — history, not current state"><i class="fas fa-trash"></i>1 soft-deleted</span><span class="vp-o-group-count ms-auto text-nowrap">2 of the 10 occurrences</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-tag"><span class="misp-icon misp-icon-tag misp-simple"></span></button><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request"></i></button><button type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export"></i></button></fieldset></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="checkbox-index"><tr><th style="width:2.4rem;"></th><th class="text-nowrap">Type</th><th class="text-nowrap">Category</th><th class="text-nowrap">IDS</th><th class="text-nowrap">Distribution</th><th class="text-nowrap">Context</th><th class="text-nowrap">First seen</th><th class="text-nowrap">Last seen</th><th class="text-nowrap">Tags</th></tr></thead><tbody><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:9rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-08-12 09:14</span></td><td class="idx-col-datetime"><span class="text-nowrap">2025-08-19 21:02</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr><tr class="vp-occ-deleted"><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0"></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#e7d3c3;color:#5a3e2b;border:1px solid #5a3e2b20;font-weight:500;" title="Connected communities"><i class="fas fa-network-wired"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><span class="text-muted small">Standalone attribute</span><div class="text-muted small text-truncate" style="max-width: 18rem;"><span class="sk " style="--sk-w:7rem"></span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2024-09-14 00:00</span></td><td class="idx-col-datetime"><span class="text-nowrap">2024-10-01 00:00</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#004646; color:#ffffff; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">type:OSINT</span></div></div></td></tr></tbody></table></div></div><div class="vp-o-groupcard"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" aria-label="Select every occurrence in this event" checked><button type="button" class="vp-o-chev" aria-expanded="true"><i class="fas fa-chevron-down"></i></button><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);">Event #1291</a><span class="text-muted small text-truncate"><span class="sk " style="--sk-w:14rem"></span></span><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">B</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org B</a></div><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Published</span><span title="The event's distribution. Each row carries its own."><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i></span></span><span class="badge d-inline-flex align-items-center gap-1 bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="A pending shadow attribute proposes a change to this occurrence"><i class="fas fa-code-pull-request"></i>1 proposal</span><span class="vp-o-group-count ms-auto text-nowrap">1 of the 10 occurrences</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-tag"><span class="misp-icon misp-icon-tag misp-simple"></span></button><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request"></i></button><button type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export"></i></button></fieldset></div><div class="vp-o-groupnote"><i class="fas fa-code-pull-request"></i><span><b>Org B</b> proposes a change to this occurrence. The proposal is not an occurrence of its own &mdash; it is accepted or discarded against the event that owns the row.</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1 ms-auto" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button class="btn btn-sm btn-success">Accept</button><button class="btn btn-sm btn-outline-danger">Discard</button></fieldset></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="checkbox-index"><tr><th style="width:2.4rem;"></th><th class="text-nowrap">Type</th><th class="text-nowrap">Category</th><th class="text-nowrap">IDS</th><th class="text-nowrap">Distribution</th><th class="text-nowrap">Context</th><th class="text-nowrap">First seen</th><th class="text-nowrap">Last seen</th><th class="text-nowrap">Tags</th></tr></thead><tbody><tr><td><div class="d-inline-flex align-items-center checkbox-actions-wrapper checkbox-index"><input type="checkbox" class="item-checkbox form-check-input mass-select mt-0" checked></div></td><td class="idx-col-type"><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></td><td class="idx-col-category"><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></td><td><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></td><td class="idx-col-distribution"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i></span></td><td class="idx-col-value_object_context"><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">network-connection</a><span class="vp-relation" title="Object relation">ip-dst</span></div></div></td><td class="idx-col-datetime"><span class="text-nowrap">2025-07-30 14:00</span></td><td class="idx-col-datetime"><span class="text-muted">Not set</span></td><td class="idx-col-tag_list"><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div></div></td></tr></tbody></table></div></div><div class="vp-o-groupcard"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" aria-label="Select every occurrence in this event"><button type="button" class="vp-o-chev" aria-expanded="false"><i class="fas fa-chevron-right"></i></button><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);">Event #1272</a><span class="text-muted small text-truncate"><span class="sk " style="--sk-w:14rem"></span></span><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">C</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org C</a></div><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Published</span><span title="The event's distribution. Each row carries its own."><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#dce8ff;color:#0e146d;border:1px solid #0e146d20;font-weight:500;" title="Sharing group"><span class="misp-icon misp-icon-sharing-group misp-simple"></span></span></span><span class="vp-o-group-count ms-auto text-nowrap">1 of the 10 occurrences</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-tag"><span class="misp-icon misp-icon-tag misp-simple"></span></button><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request"></i></button><button type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export"></i></button></fieldset></div></div><div class="vp-o-groupcard"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" aria-label="Select every occurrence in this event"><button type="button" class="vp-o-chev" aria-expanded="false"><i class="fas fa-chevron-right"></i></button><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);">Event #1279</a><span class="text-muted small text-truncate"><span class="sk " style="--sk-w:14rem"></span></span><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">A</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org A</a></div><span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Published</span><span title="The event's distribution. Each row carries its own."><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span></span><span class="vp-o-group-count ms-auto text-nowrap">1 of the 10 occurrences</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-tag"><span class="misp-icon misp-icon-tag misp-simple"></span></button><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request"></i></button><button type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export"></i></button></fieldset></div></div><div class="vp-o-groupcard"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" aria-label="Select every occurrence in this event"><button type="button" class="vp-o-chev" aria-expanded="false"><i class="fas fa-chevron-right"></i></button><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);">Event #1265</a><span class="text-muted small text-truncate"><span class="sk " style="--sk-w:14rem"></span></span><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">D</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org D</a></div><span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">Unpublished</span><span title="The event's distribution. Each row carries its own."><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#f8d7da;color:#842029;border:1px solid #84202920;font-weight:500;" title="Your organisation only"><i class="fas fa-building"></i></span></span><span class="vp-o-group-count ms-auto text-nowrap">1 of the 10 occurrences</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-tag"><span class="misp-icon misp-icon-tag misp-simple"></span></button><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request"></i></button><button type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-file-export"></i></button></fieldset></div></div><div class="vp-o-groupcard vp-o-ghost"><div class="vp-o-group"><input type="checkbox" class="form-check-input mt-0 flex-shrink-0" disabled aria-label="Hidden by ACL"><span class="vp-o-chev"><i class="fas fa-eye-slash"></i></span><span class="fw-semibold text-nowrap">2 events you cannot see</span><span class="text-muted small">Hidden by distribution rules on events owned by other organisations. The count is knowable; the rows are not.</span><span class="vp-o-group-count ms-auto text-nowrap">4 of the 10 occurrences</span></div></div></div><div class="vp-acl-note"><i class="fas fa-eye-slash"></i><span>Showing 6 of 10 occurrences. 4 are hidden by distribution rules on events owned by other organisations.</span></div><div class="vp-o-bulk vp-o-bulk-bottom"><fieldset disabled class="border-0 p-0 m-0" title="Disabled in this pass — the Value Profile page does not write to the database yet."><div class="vp-o-bulk-inner"><strong class="text-nowrap">Selected items: 2</strong><span class="vp-o-scope">2 rows &middot; 2 events &middot; 2 organisations</span><button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-file-export"></i>Export</button><button type="button" class="btn btn-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-edit"></i>Edit</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-tag misp-simple"></span>Tag</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-user"></i>Local tag</button><button type="button" class="btn btn-galaxy btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-galaxy misp-simple"></span>Cluster</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-shield-halved"></i>Set to_ids</button><button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-globe"></i>Set distribution</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-code-pull-request"></i>Propose edit</button><button type="button" class="btn btn-sighting btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-sighting misp-simple"></span>Add sighting</button><button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-folder-plus"></i>Add to collection</button><span class="small text-muted ms-auto">Disabled in this pass — the Value Profile page does not write to the database yet.</span></div></fieldset></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ===================== O4 ===================== -->
+    <article class="vp-cand" id="O4">
+      <div class="vp-cand-head">
+        <div>
+          <span class="vp-cand-id">O4</span>
+          <span class="vp-cand-thesis">List on the left, the whole occurrence on the right — the record no table row can hold, including the proposal it carries.</span>
+        </div>
+        <dl class="vp-cand-reckoning"><dt>Optimises for</dt><dd>Depth. Everything the preview truncates renders in full: the comment, the sharing group, both seen dates against the modified timestamp, the object and its siblings, and a pending proposal as a field-by-field diff — the one thing a table cell cannot do. Selection stays in the list, so bulk work and single-row reading do not fight for the same space.</dd><dt>Gives up</dt><dd>Comparison. One occurrence is legible at a time, and the list column is too narrow to carry category, both dates and tags at once, so the answer to &ldquo;which of these six disagree about to_ids&rdquo; is six clicks.</dd><dt>At scale</dt><dd><b>1,847:</b> the list paginates or virtualises and the detail is one cheap fetch, so this degrades best in cost and worst in usefulness — at that count the analyst’s question is a distribution, not a record. <b>21,904:</b> unusable until filtered; the list must open filtered rather than complete. <b>Zero:</b> three empty states, kept apart — no rows, rows hidden by ACL, and nothing selected yet in the detail pane.</dd><dt>Data</dt><dd>List and detail come from one fetch. The proposal block needs <code>ShadowAttribute</code> contained on the occurrence (<code>fetchAttributes</code> with <code>includeProposals</code>) — available in MISP, <b>absent from the Value Profile fixture</b>, which carries no proposal on any of the four demo values. Accept and Discard exist (<code>/shadow_attributes/accept</code>, <code>/discard</code>) and render disabled. Object siblings are the other attributes of <code>Object.id</code>: available, but a second query per selection.</dd><dt>Size</dt><dd>L — two panes, a selection model, a diff primitive.</dd></dl>
+      </div>
+      <div class="vp-cand-view">
+        <div class="vp-cand-scaler">
+<div class="vp-frame" data-vp-tab="occurrences">
+<div class="vp-frame-tag">Page chrome — context, not the design</div>
+<div class="vp-frame-chrome">
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div class="d-flex flex-column align-items-start">
+                            <span class="text-muted text-uppercase fw-semibold mb-1"
+                        style="font-size:0.68rem; letter-spacing:0.07em;">
+                    Data points &gt; Value Profile                </span>
+                        <div class="d-flex align-items-center gap-2 ">
+                <h1 class="mb-0 fw-bold lh-1 d-flex" style="font-size:2rem; word-break:break-word; max-width:100%;">
+                    <span class="vp-value font-monospace user-select-all">185.234.219.24</span><button type="button" class="vp-type-chip" data-vp-type="ip-dst" data-vp-type-slug="ip-dst" aria-pressed="false" title="7 occurrences of type ip-dst — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-dst</span><span class="vp-type-chip-count">7</span></button><button type="button" class="vp-type-chip" data-vp-type="ip-src" data-vp-type-slug="ip-src" aria-pressed="false" title="2 occurrences of type ip-src — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-src</span><span class="vp-type-chip-count">2</span></button><button type="button" class="vp-type-chip" data-vp-type="domain|ip" data-vp-type-slug="domain-ip" aria-pressed="false" title="1 occurrence of type domain|ip — show only these rows in the occurrence table"><span class="vp-type-chip-name">domain|ip</span><span class="vp-type-chip-count">1</span></button>                </h1>
+                                            </div>
+
+                            <p class="text-muted mt-1" style="font-size:0.85rem;">
+                    1 occurrence has it as the second half of a domain|ip                </p>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    
+                                            <a href="#" class="btn btn-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-eye"></i>Add sighting</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-wand-magic-sparkles"></i>Enrich</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-folder-plus"></i>Add to collection</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-bell"></i>Watch</a>
+                    
+                                    
+                    
+                        <div class="dropdown">
+                            <button class="btn btn-outline-dark fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                Export                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield-halved me-2"></i>STIX 2.1</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield me-2"></i>Suricata</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-network-wired me-2"></i>Zeek</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-ban me-2"></i>RPZ</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-file-csv me-2"></i>CSV</a></li><li><hr class="dropdown-divider"></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-code me-2"></i>Copy the restSearch query</a></li></ul>                        </div>
+
+                    
+                            </div>
+                                
+    </div>
+
+    
+</div>
+
+                <link rel="stylesheet" href="/css/value-profile.css?v=203">
+
+
+
+</div>
+<div class="container-fluid">
+    <div class="vp-fact-strip">
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">First seen</span>
+                <span class="vp-fact-value">2024-09-14</span>
+                                    <span class="vp-fact-sub">11 months ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">Last seen</span>
+                <span class="vp-fact-value">2025-08-19</span>
+                                    <span class="vp-fact-sub">5 days ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Occurrences</span>
+                <span class="vp-fact-value">10</span>
+                                    <span class="vp-fact-sub">3 types</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Events</span>
+                <span class="vp-fact-value">7</span>
+                                    <span class="vp-fact-sub">5 published</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-verdict">
+                <span class="vp-fact-label">Organisations</span>
+                <span class="vp-fact-value">4</span>
+                                    <span class="vp-fact-sub">CIRCL + 3</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-sightings">
+                <span class="vp-fact-label">Sightings</span>
+                <span class="vp-fact-value">47</span>
+                                    <span class="vp-fact-sub">1 false positive</span>
+                            </a>
+            </div>
+</div>
+<div class="container-fluid">
+    <div class="vp-pivot-rail">
+        <span class="vp-pivot-rail-label">Pivot to</span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Containing CIDR</span>
+                <span class="vp-pivot-hint">185.234.216.0/22</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">ASN</span>
+                <span class="vp-pivot-hint">AS204428 SS-Net</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Geolocation</span>
+                <span class="vp-pivot-hint">Sofia, BG</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Ports seen</span>
+                <span class="vp-pivot-hint">443, 8080, 8443</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Passive DNS</span>
+                <span class="vp-pivot-hint">6 hostnames</span>
+            </span>
+            </div>
+</div>
+<div class="container-fluid">
+    <ul class="nav nav-tabs mb-3 fs-5" role="tablist">
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark active"
+                    data-bs-toggle="tab"
+                    href="#tab-general"
+                    role="tab"
+                    aria-selected="true">
+
+                                            <i class="fas fa-info-circle"></i>
+                    
+                                            Overview                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-verdict"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-gavel"></i>
+                    
+                                            Verdict                    
+                    
+                                                                <span class="nav-view-badge" style="--nav-view-badge-color: var(--vp-mal);">
+                                                            <span class="nav-view-badge-dot"></span>
+                                                        MALICIOUS 84                        </span>
+                                    </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-occurrences"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-attribute misp-simple"></i>
+                    
+                                            Occurrences                    
+                                            <span> (10) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-sightings"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-sighting misp-simple"></i>
+                    
+                                            Sightings                    
+                                            <span> (47) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-relationships"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-link"></i>
+                    
+                                            Relationships                    
+                                            <span> (31) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-enrichment"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                    
+                                            Enrichment                    
+                                            <span> (9) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-analyst"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-analyst-note misp-simple"></i>
+                    
+                                            Analyst data                    
+                                            <span> (6) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-timeline"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-clock"></i>
+                    
+                                            Timeline                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-history"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-history"></i>
+                    
+                                            History                    
+                    
+                                                        </a>
+            </li>
+            </ul>
+
+    
+    <div class="tab-content">
+      <div class="tab-pane fade show active" role="tabpanel">
+        <div class="row">
+<div class="col-12"><div class="row g-3"><div class="col-xl-5"><div class="card shadow-sm mb-3 vp-panel h-100" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2"><span class="vp-panel-glyph"><span class="misp-icon misp-icon-attribute misp-simple"></span></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1">Occurrences</div><div class="small text-muted mt-1">6 of 10 &nbsp;&middot;&nbsp; 7 events &nbsp;&middot;&nbsp; 4 organisations</div></div><div class="d-flex align-items-center gap-2 flex-shrink-0"><div class="dropdown"><button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"><i class="fas fa-sliders-h me-1"></i>Filters (9)</button></div></div></div><div class="p-2 border-bottom d-flex flex-wrap gap-2 align-items-center"><div class="flex-grow-1" style="min-width:9rem;"><div class="input-group input-group-sm"><input class="form-control" type="text" placeholder="Filter rows" aria-label="Quick filter"><button class="btn btn-primary" type="button" aria-label="Search"><i class="fas fa-search"></i></button></div></div><select class="form-select form-select-sm flex-shrink-0 w-auto topbar-filter" aria-label="Sort"><option selected>Last seen, newest</option><option>First seen, oldest</option><option>Event id</option><option>Organisation</option></select><div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" role="switch" id="o4-deleted" checked><label class="form-check-label small text-muted" for="o4-deleted">Include 1 soft-deleted</label></div></div><div class="px-2 py-1 border-bottom d-flex flex-wrap gap-2 align-items-center"><strong class="small me-1">Active filters:</strong><span class="badge bg-primary">type: ip-dst, ip-src, domain|ip</span><span class="badge bg-primary">deleted: included</span><button type="button" class="btn btn-sm btn-outline-danger ms-auto py-0"><i class="fas fa-times"></i> Clear all</button></div><div class="vp-o-list"><label class="vp-o-listrow"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0" checked><span class="vp-o-listtype">ip-dst</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1284</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">A</span><span class="small text-muted">Org A</span><span class="small text-muted ms-auto text-nowrap">2025-08-19 21:02</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></span></label><label class="vp-o-listrow is-active"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0" checked><span class="vp-o-listtype">ip-dst</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1291</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">B</span><span class="small text-muted">Org B</span><span class="small text-muted ms-auto text-nowrap">Not set</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i></span><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span><span class="badge d-inline-flex align-items-center gap-1 bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="A pending shadow attribute proposes a change to this occurrence"><i class="fas fa-code-pull-request"></i>1</span></span></label><label class="vp-o-listrow"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0"><span class="vp-o-listtype">ip-src</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1272</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">C</span><span class="small text-muted">Org C</span><span class="small text-muted ms-auto text-nowrap">Not set</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#dce8ff;color:#0e146d;border:1px solid #0e146d20;font-weight:500;" title="Sharing group"><span class="misp-icon misp-icon-sharing-group misp-simple"></span></span><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></span></label><label class="vp-o-listrow"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0" checked><span class="vp-o-listtype">domain|ip</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1279</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">A</span><span class="small text-muted">Org A</span><span class="small text-muted ms-auto text-nowrap">2025-06-27 08:00</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#d1f7e0;color:#0f5132;border:1px solid #0f513220;font-weight:500;" title="All communities"><i class="fas fa-globe"></i></span><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span></span></label><label class="vp-o-listrow"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0"><span class="vp-o-listtype">ip-dst</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1265</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">D</span><span class="small text-muted">Org D</span><span class="small text-muted ms-auto text-nowrap">Not set</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#f8d7da;color:#842029;border:1px solid #84202920;font-weight:500;" title="Your organisation only"><i class="fas fa-building"></i></span><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></span></label><label class="vp-o-listrow is-deleted"><input type="checkbox" class="item-checkbox form-check-input mt-0 flex-shrink-0"><span class="vp-o-listtype">ip-dst</span><span class="vp-o-listmain"><span class="d-flex align-items-center gap-2"><a href="#" class="fw-semibold text-decoration-none text-nowrap" style="color:var(--primary);font-size:.78rem;">#1284</a><span class="sk " style="--sk-w:6rem"></span></span><span class="d-flex align-items-center gap-2 mt-1"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">A</span><span class="small text-muted">Org A</span><span class="small text-muted ms-auto text-nowrap">2024-10-01 00:00</span></span></span><span class="vp-o-listflags"><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#e7d3c3;color:#5a3e2b;border:1px solid #5a3e2b20;font-weight:500;" title="Connected communities"><i class="fas fa-network-wired"></i></span><span title="IDS active"><i class="fas fa-shield-halved text-warning" style="font-size:1.2em;"></i></span><span class="badge d-inline-flex align-items-center gap-1 bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" title="Soft-deleted — history, not current state"><i class="fas fa-trash"></i>Del</span></span></label></div><div class="vp-acl-note"><i class="fas fa-eye-slash"></i><span>Showing 6 of 10 occurrences. 4 are hidden by distribution rules on events owned by other organisations.</span></div><div class="vp-o-bulk vp-o-bulk-bottom"><fieldset disabled class="border-0 p-0 m-0" title="Disabled in this pass — the Value Profile page does not write to the database yet."><div class="vp-o-bulk-inner"><strong class="text-nowrap">Selected items: 3</strong><span class="vp-o-scope">3 rows &middot; 3 events &middot; 2 organisations</span><button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-file-export"></i>Export</button><button type="button" class="btn btn-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-edit"></i>Edit</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-tag misp-simple"></span>Tag</button><button type="button" class="btn btn-tag btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-user"></i>Local tag</button><button type="button" class="btn btn-galaxy btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-galaxy misp-simple"></span>Cluster</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-shield-halved"></i>Set to_ids</button><button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-globe"></i>Set distribution</button><button type="button" class="btn btn-outline-warning btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-code-pull-request"></i>Propose edit</button><button type="button" class="btn btn-sighting btn-sm d-inline-flex align-items-center gap-1"><span class="misp-icon misp-icon-sighting misp-simple"></span>Add sighting</button><button type="button" class="btn btn-outline-dark btn-sm d-inline-flex align-items-center gap-1"><i class="fas fa-folder-plus"></i>Add to collection</button><span class="small text-muted ms-auto">Disabled in this pass — the Value Profile page does not write to the database yet.</span></div></fieldset></div></div></div><div class="col-xl-7"><div class="card shadow-sm mb-3 vp-panel" style="--vp-panel-color: var(--attribute);"><div class="p-3 border-bottom d-flex align-items-center gap-2 flex-wrap"><span class="vp-panel-glyph"><span class="misp-icon misp-icon-attribute misp-simple"></span></span><div class="me-auto vp-min-w-0"><div class="fw-bold lh-1 d-flex align-items-center gap-2">Occurrence 2 of 6<span class="badge d-inline-flex align-items-center gap-1 bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="A pending shadow attribute proposes a change to this occurrence"><i class="fas fa-code-pull-request"></i>1 proposal</span></div><div class="small text-muted mt-1">Every field of one row, including the four the table drops and the proposal no cell can hold.</div></div><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1 flex-wrap" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-outline-warning"><i class="fas fa-code-pull-request me-1"></i>Propose edit</button><button type="button" class="btn btn-sm btn-sighting"><span class="misp-icon misp-icon-sighting misp-simple"></span> Add sighting</button><button type="button" class="btn btn-sm btn-outline-dark"><i class="fas fa-folder-plus me-1"></i>Add to collection</button></fieldset><a href="#" class="btn btn-sm btn-outline-secondary">Open in event <i class="fas fa-arrow-up-right-from-square ms-1"></i></a></div><div class="card-body"><dl class="vp-o-kv mb-0"><dt>Event</dt><dd><div class="rounded border"><div class="d-flex align-items-center gap-2 px-2 py-1" style="background:rgba(24,146,177,.07);border-bottom:1px solid rgba(24,146,177,.2);"><span class="fw-semibold text-uppercase" style="font-size:.6rem;letter-spacing:.08em;color:var(--primary);">Event</span><a href="#" class="d-flex align-items-center gap-1 text-decoration-none" style="font-size:.7rem;color:var(--primary);"><span class="fw-semibold">#1291</span><i class="fas fa-arrow-up-right-from-square" style="font-size:.6rem;"></i></a><div class="ms-auto"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="vp-o-orgdot" style="width:18px;height:18px;font-size:.55rem;">B</span><span class="fw-semibold" style="font-size:.7rem;color:var(--primary);">Org B</span></div></div></div><div class="px-2 py-1 d-flex flex-column gap-2"><span class="text-muted small"><span class="sk " style="--sk-w:16rem"></span></span></div></div></dd><dt>Reported by</dt><dd><div class="d-inline-flex align-items-center gap-2 text-nowrap"><span class="vp-o-orgdot">B</span><a href="#" class="text-decoration-none fw-semibold text-primary">Org B</a></div></dd><dt>Type</dt><dd><div class="d-flex align-items-center"><p class="border border-dark rounded p-1 mb-0 text-nowrap">ip-dst</p></div></dd><dt>Category</dt><dd><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></dd><dt>to_ids</dt><dd><span class="badge d-inline-flex align-items-center gap-1 px-2 py-1 border border-warning text-warning" style="background:transparent;font-size:.8rem;"><i class="fas fa-shield-halved"></i><span>IDS</span></span><span class="small text-muted ms-2">Set by the event that owns the row; this page reports it.</span></dd><dt>Distribution</dt><dd><span class="badge d-inline-flex align-items-center px-2 py-1" style="background-color:#ffe5b4;color:#b45309;border:1px solid #b4530920;font-weight:500;" title="This community only"><i class="fas fa-users"></i><span class="ms-1">This community only</span></span></dd><dt>Object context</dt><dd><div class="d-flex flex-column gap-1"><div class="d-inline-flex align-items-center gap-1 text-nowrap"><span class="misp-icon misp-icon-object misp-simple" style="color: var(--object);"></span><a href="#" class="text-decoration-none fw-semibold">network-connection</a><span class="vp-relation" title="Object relation">ip-dst</span></div></div><div class="small text-muted mt-1">Relation <code>ip-dst</code> inside object <code>network-connection</code>.</div></dd><dt>Comment</dt><dd><div class="text-muted small"><span class="sk sk-line " style="--sk-w:26rem"></span><span class="sk sk-line " style="--sk-w:19rem"></span></div></dd><dt>First seen</dt><dd><span class="text-nowrap">2025-07-30 14:00</span></dd><dt>Last seen</dt><dd><span class="text-muted">Not set</span><span class="small text-muted ms-2">Last modified 2025-07-30 14:06</span></dd><dt>Tags</dt><dd><div class="tag-container d-inline-flex flex-wrap align-items-center"><div class="d-inline-flex align-items-center"><span class="badge me-1 mb-1" style="background-color:#FFC000; color:#000000; filter: drop-shadow(-1px 3px 2px rgba(50, 50, 0, 0.5)); background-image: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 40%, rgba(0,0,0,0.05) 100%); text-align:left; white-space:normal; word-wrap:break-word;">tlp:amber</span></div></div></dd><dt>Sharing group</dt><dd><span class="text-muted">Not applicable at this distribution</span></dd></dl></div><div class="vp-o-band"><div class="vp-subhead mb-2 d-flex align-items-center gap-2"><i class="fas fa-code-pull-request"></i>Pending proposal &mdash; Org B, 2025-08-02</div><div class="vp-o-diff"><span class="vp-subhead mb-0">Field</span><span class="vp-subhead mb-0">Current</span><span class="vp-subhead mb-0">Proposed</span><span class="fw-semibold">to_ids</span><span><span class="badge d-inline-flex align-items-center gap-1 px-2 py-1 border border-warning text-warning" style="background:transparent;font-size:.8rem;"><i class="fas fa-shield-halved"></i><span>IDS</span></span></span><span><span class="badge d-inline-flex align-items-center gap-1 px-2 py-1 border border-secondary text-secondary" style="background:transparent;font-size:.8rem;"><i class="fas fa-shield-halved"></i><span>No IDS</span></span></span><span class="fw-semibold">comment</span><span class="text-muted"><span class="sk sk-line " style="--sk-w:9rem"></span></span><span><span class="sk sk-line " style="--sk-w:12rem"></span></span><span class="fw-semibold">category</span><span><div class="d-flex align-items-center text-nowrap"><p class="fst-italic mb-0">Network activity</p></div></span><span class="text-muted">unchanged</span></div><div class="d-flex align-items-center gap-2 mt-2"><span class="small text-muted me-auto">Accepting writes to the event that owns the row, not to this page.</span><fieldset disabled class="border-0 p-0 m-0 d-flex gap-1" title="Disabled in this pass — the Value Profile page does not write to the database yet."><button type="button" class="btn btn-sm btn-success">Accept</button><button type="button" class="btn btn-sm btn-outline-danger">Discard</button></fieldset></div></div><div class="p-3 border-top"><div class="vp-subhead mb-2 d-flex align-items-center gap-2"><span class="misp-icon misp-icon-object misp-simple" style="color:var(--object);"></span>The rest of object <code>network-connection</code></div><div class="vp-o-sib"><span class="misp-icon misp-icon-attribute misp-simple" style="color:var(--attribute);"></span><span class="vp-relation">ip-src</span><span class="sk " style="--sk-w:8rem"></span><span class="ms-auto"><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></span></div><div class="vp-o-sib"><span class="misp-icon misp-icon-attribute misp-simple" style="color:var(--attribute);"></span><span class="vp-relation">dst-port</span><span class="sk " style="--sk-w:3rem"></span><span class="ms-auto"><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></span></div><div class="vp-o-sib"><span class="misp-icon misp-icon-attribute misp-simple" style="color:var(--attribute);"></span><span class="vp-relation">first-packet-seen</span><span class="sk " style="--sk-w:7rem"></span><span class="ms-auto"><span title="IDS inactive"><i class="fas fa-shield-halved text-secondary" style="font-size:1.2em;"></i></span></span></div><div class="small text-muted mt-2">Three sibling attributes. Pivoting to them is the Relationships tab's job; naming them is this pane's.</div></div></div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <section class="vp-deck-foot">
+    <h2 class="h5">How they compare</h2>
+    <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Candidate</th><th>Primary unit</th><th>Where the filters live</th>
+          <th>Where selection lives</th><th>Reads best when</th>
+          <th>Falls down when</th><th>Size</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><a href="#O1"><b>O1</b></a> Full ledger</td>
+          <td>The row</td>
+          <td>A bar above the table, plus a summary strip of counts</td>
+          <td>Docked to the bottom edge of the panel</td>
+          <td>The analyst is comparing occurrences against each other and
+              already knows which cut they want</td>
+          <td>The question is about the set rather than the rows &mdash;
+              every count costs a round-trip</td>
+          <td>S</td>
+        </tr>
+        <tr>
+          <td><a href="#O2"><b>O2</b></a> Faceted rail</td>
+          <td>The facet</td>
+          <td>A permanent rail, every filter carrying its count</td>
+          <td>Docked to the top of the table, under the header</td>
+          <td>Arrival. The rail answers &ldquo;who, how, under what
+              distribution&rdquo; before a row is read</td>
+          <td>The counts have to be honest at 1,847 rows &mdash; that needs
+              an endpoint MISP does not have</td>
+          <td>M</td>
+        </tr>
+        <tr>
+          <td><a href="#O3"><b>O3</b></a> Grouped by event</td>
+          <td>The event (or org, or object)</td>
+          <td>A compact bar, with the grouping key as a segmented control</td>
+          <td>Per group in the header, plus the docked bar for the page</td>
+          <td>The value sits in a handful of events and the question is
+              &ldquo;how many separate reports is this&rdquo;</td>
+          <td>Hundreds of events: the grouping key has to change under the
+              reader or the page becomes a list of headers</td>
+          <td>M</td>
+        </tr>
+        <tr>
+          <td><a href="#O4"><b>O4</b></a> List and detail</td>
+          <td>The occurrence</td>
+          <td>Collapsed into a Filters dropdown over the list</td>
+          <td>In the list, bar docked under it</td>
+          <td>One row needs to be understood completely &mdash; a proposal,
+              an object context, a disputed to_ids</td>
+          <td>Anything comparative. Six rows, six clicks</td>
+          <td>L</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <h2 class="h5 mt-4">Recommendation</h2>
+    <p class="vp-deck-sub" style="max-width:78ch;">
+      <b>O2</b>, with two grafts. The tab has one job the Overview preview
+      cannot do &mdash; filter and select &mdash; and O2 is the only
+      candidate where that is legible in the first second without reading a
+      row: the rail <em>is</em> the filter set and the summary at the same
+      time, and it is the only place on the page where the ACL truncation
+      stops being a footnote and becomes a number the reader can compare
+      (the banner says <code>ip-dst 7</code>, the rail says <code>4</code>).
+      Graft <b>O1</b>&rsquo;s bottom-docked bulk bar onto it &mdash; a bar
+      pinned under the panel header pushes the table down every time a row
+      is ticked, which is exactly when the reader is looking at rows &mdash;
+      and graft <b>O4</b>&rsquo;s proposal detail in as a row expander,
+      since a shadow attribute is a diff and a diff has never fitted in a
+      cell.
+    </p>
+    <p class="vp-deck-sub" style="max-width:78ch;">
+      If the facet-count endpoint is judged not worth building, ship
+      <b>O1</b> unchanged: it is the S-sized candidate, it needs nothing
+      MISP does not already have, and its summary strip carries the same
+      counts one line at a time. <b>O3</b> is the better design for this
+      particular value &mdash; ten occurrences in seven events is exactly
+      the shape grouping flatters, and its dashed ghost group is the most
+      honest ACL treatment of the four &mdash; but it is the candidate that
+      changes behaviour most at scale, and the tab has to work for the
+      Cloudflare-shaped values too. <b>O4</b> is a panel, not a tab; its
+      detail pane is worth stealing and its list is not worth the width.
+    </p>
+    <p class="vp-deck-sub" style="max-width:78ch;">
+      <b>What MISP cannot supply today, in one place.</b> Per-facet counts
+      over an ACL-scoped attribute set (O2). A cross-event bulk write, and
+      any confirmation that expresses a selection mixing rows the user may
+      edit with rows they may only propose against (all four). The event
+      ids behind the ACL-hidden occurrences — only the count is
+      knowable (O3). A pending proposal on any of the four demo values: the
+      fixture carries none, so the indicator every candidate is required to
+      show has nothing to render until phase 8 extends it (O4 most). And
+      <code>first_seen</code> / <code>last_seen</code> are optional on
+      attributes and unset on two of these six rows, so a date filter is a
+      filter over a column that is frequently empty &mdash; which is why
+      every candidate prints <em>Not set</em> rather than a dash.
+    </p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+    var root = document.documentElement;
+
+    /*
+     * Theme bridge. Artifacts stamp data-theme on the root element and
+     * otherwise leave it to prefers-color-scheme; MISP switches on
+     * data-bs-theme. Mirror one onto the other so the mockups follow the
+     * reader's theme in MISP's own palette rather than a second one.
+     */
+    function applyTheme() {
+        var t = root.getAttribute('data-theme');
+        if (!t) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark' : 'light';
+        }
+        root.setAttribute('data-bs-theme', t);
+    }
+    applyTheme();
+    new MutationObserver(applyTheme).observe(root, {
+        attributes: true, attributeFilter: ['data-theme']
+    });
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', applyTheme);
+    } catch (e) { /* older engines: the stamped attribute still works */ }
+
+    /* Activate the tab each frame says it is designing. */
+    document.querySelectorAll('.vp-frame[data-vp-tab]').forEach(function (f) {
+        var want = '#tab-' + f.getAttribute('data-vp-tab');
+        f.querySelectorAll('.nav-tabs .nav-link').forEach(function (a) {
+            var on = a.getAttribute('href') === want;
+            a.classList.toggle('active', on);
+            a.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    });
+
+    var deck = document.querySelector('.vp-deck');
+    if (!deck) { return; }
+
+    /*
+     * A scaled candidate keeps its unscaled height in layout, because a
+     * transform does not affect it — so the viewport box is sized here and
+     * resized whenever the scale changes.
+     */
+    function resize() {
+        var scale = parseFloat(
+            getComputedStyle(deck).getPropertyValue('--vp-scale')) || 1;
+        deck.querySelectorAll('.vp-cand-view').forEach(function (view) {
+            var inner = view.querySelector('.vp-cand-scaler');
+            if (inner) { view.style.height = (inner.offsetHeight * scale) + 'px'; }
+        });
+    }
+
+    function setScale(value) {
+        if (value === 'fit') {
+            var lane = deck.querySelector('.vp-lane');
+            var count = deck.querySelectorAll('.vp-cand').length || 1;
+            var gaps = 32 * (count - 1);
+            value = Math.max(0.12, (lane.clientWidth - gaps) / (count * 1600));
+        }
+        deck.style.setProperty('--vp-scale', value);
+        resize();
+    }
+
+    deck.querySelectorAll('[data-vp-mode]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            deck.setAttribute('data-mode', btn.getAttribute('data-vp-mode'));
+            deck.querySelectorAll('[data-vp-mode]').forEach(function (b) {
+                b.classList.toggle('active', b === btn);
+            });
+            if (btn.getAttribute('data-vp-mode') === 'stack') {
+                deck.style.removeProperty('--vp-scale');
+                resize();
+            } else {
+                setScale('fit');
+            }
+        });
+    });
+
+    deck.querySelectorAll('[data-vp-scale]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            deck.querySelectorAll('[data-vp-scale]').forEach(function (b) {
+                b.classList.toggle('active', b === btn);
+            });
+            setScale(btn.getAttribute('data-vp-scale'));
+        });
+    });
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', function () {
+        if (deck.getAttribute('data-mode') === 'compare') { setScale('fit'); }
+        else { resize(); }
+    });
+    setTimeout(resize, 0);
+})();
+</script>
