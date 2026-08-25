@@ -1446,6 +1446,189 @@
         return false;
     }
 
+    /**
+     * Enrichment tab
+     * ------------------------------------------------------------
+     * Everything here is a class change over markup the endpoint
+     * already sent. That is not an implementation shortcut: running a
+     * module spends quota and tells whoever operates it that you are
+     * looking at this value, so picking one to read must not be
+     * capable of querying anything. The tab's one behavioural
+     * promise is that no request leaves the browser — on load, on tab
+     * switch, or on selecting a module — and rendering every pane up
+     * front is what makes that promise keepable rather than merely
+     * intended.
+     */
+
+    /**
+     * Swap which module the pane is showing.
+     *
+     * @param {Element} panel
+     * @param {string} key Module name, or `__all` for the merged pane
+     */
+    function pickEnrichModule(panel, key) {
+        panel.querySelectorAll('[data-vp-e-pane]').forEach(function (pane) {
+            pane.classList.toggle('d-none', pane.dataset.vpEPane !== key);
+        });
+        panel.querySelectorAll('[data-vp-e-row]').forEach(function (row) {
+            var on = row.dataset.vpERow === key;
+            row.classList.toggle('vp-e-railrow-on', on);
+            var body = row.querySelector('[data-vp-e-pick]');
+            if (body) {
+                body.setAttribute('aria-pressed', on ? 'true' : 'false');
+            }
+        });
+    }
+
+    /**
+     * What the current selection would cost.
+     *
+     * Two chips rather than one, because quota is money and a third
+     * party is disclosure and a reader may accept one and not the
+     * other. Nothing is selected on arrival, and the resting line
+     * says so rather than printing two zeroes.
+     *
+     * @param {Element} panel
+     */
+    function refreshEnrichTray(panel) {
+        var boxes = panel.querySelectorAll('[data-vp-e-select]');
+        var picked = 0;
+        var quota = 0;
+        var external = 0;
+
+        boxes.forEach(function (box) {
+            if (!box.checked) {
+                return;
+            }
+            picked++;
+            if (box.dataset.vpEQuota === '1') {
+                quota++;
+            }
+            if (box.dataset.vpEExternal === '1') {
+                external++;
+            }
+        });
+
+        setText(panel, '[data-vp-e-picked]', picked);
+        setText(panel, '[data-vp-e-runcount]', picked);
+        setText(panel, '[data-vp-e-quota-n]', quota);
+        setText(panel, '[data-vp-e-ext-n]', external);
+
+        showEnrich(panel, '[data-vp-e-cost-quota]', quota > 0);
+        showEnrich(panel, '[data-vp-e-cost-out]', external > 0);
+        showEnrich(panel, '[data-vp-e-cost-none]', picked === 0);
+
+        var all = panel.querySelector('[data-vp-e-select-all]');
+        if (all) {
+            all.checked = picked > 0 && picked === boxes.length;
+            // Some but not all is its own state, and a box that reads
+            // "unchecked" over six ticked rows is a lie about them.
+            all.indeterminate = picked > 0 && picked < boxes.length;
+        }
+    }
+
+    /**
+     * @param {Element} root
+     * @param {string} selector
+     * @param {boolean} visible
+     */
+    function showEnrich(root, selector, visible) {
+        var target = root.querySelector(selector);
+        if (target) {
+            target.classList.toggle('d-none', !visible);
+        }
+    }
+
+    /**
+     * Narrow a pane to what this run brought back that the last one
+     * did not.
+     *
+     * @param {Element} button
+     */
+    function toggleEnrichNew(button) {
+        var pane = button.closest('[data-vp-e-pane]');
+        if (!pane) {
+            return;
+        }
+        var on = button.getAttribute('aria-pressed') !== 'true';
+        button.setAttribute('aria-pressed', on ? 'true' : 'false');
+        button.classList.toggle('active', on);
+
+        var shown = 0;
+        pane.querySelectorAll('[data-vp-e-item]').forEach(function (item) {
+            var hide = on && !item.hasAttribute('data-vp-e-new');
+            item.classList.toggle('d-none', hide);
+            if (!hide) {
+                shown++;
+            }
+        });
+
+        // Only when the filter produced the emptiness. A pane that had
+        // nothing to begin with keeps its own wording.
+        showEnrich(pane, '[data-vp-e-empty]', shown === 0);
+    }
+
+    /**
+     * Fold an object's relations away, or open an element's
+     * provenance.
+     *
+     * @param {Element} button
+     */
+    function toggleEnrichDisc(button) {
+        var item = button.closest('[data-vp-e-item]');
+        if (!item) {
+            return;
+        }
+        var fold = item.querySelector('[data-vp-e-fold]');
+        if (!fold) {
+            return;
+        }
+        var open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        fold.classList.toggle('d-none', !open);
+    }
+
+    /**
+     * @param {Element} root
+     */
+    function initEnrichment(root) {
+        var panels = root.querySelectorAll
+            ? root.querySelectorAll('[data-vp-enrich]')
+            : [];
+        panels.forEach(function (panel) {
+            refreshEnrichTray(panel);
+        });
+    }
+
+    /**
+     * @param {Event} event
+     * @return {boolean} Whether the click belonged to this tab
+     */
+    function onEnrichClick(event) {
+        var pick = event.target.closest('[data-vp-e-pick]');
+        if (pick) {
+            var panel = pick.closest('[data-vp-enrich]');
+            if (panel) {
+                pickEnrichModule(panel, pick.dataset.vpEPick);
+            }
+            return true;
+        }
+
+        var disc = event.target.closest('[data-vp-e-disc]');
+        if (disc) {
+            toggleEnrichDisc(disc);
+            return true;
+        }
+
+        var onlyNew = event.target.closest('[data-vp-e-only-new]');
+        if (onlyNew) {
+            toggleEnrichNew(onlyNew);
+            return true;
+        }
+
+        return false;
+    }
+
     function init() {
         if (!onValuePage()) {
             return;
@@ -1494,6 +1677,10 @@
                 return;
             }
 
+            if (onEnrichClick(event)) {
+                return;
+            }
+
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
                 expandFacetGroup(more);
@@ -1514,6 +1701,29 @@
         document.addEventListener('change', function (event) {
             if (event.target.id === 'vp-occ-deleted-toggle') {
                 refreshOccurrences();
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-e-select-all]')) {
+                var allPanel = event.target.closest('[data-vp-enrich]');
+                if (allPanel) {
+                    allPanel
+                        .querySelectorAll('[data-vp-e-select]')
+                        .forEach(function (box) {
+                            box.checked = event.target.checked;
+                        });
+                    refreshEnrichTray(allPanel);
+                }
+                return;
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-e-select]')) {
+                var enrichPanel = event.target.closest('[data-vp-enrich]');
+                if (enrichPanel) {
+                    refreshEnrichTray(enrichPanel);
+                }
+                return;
             }
 
             if (event.target.matches && event.target.matches('[data-vp-col]')) {
@@ -1626,11 +1836,13 @@
             refreshOccurrences();
             refreshAllLists(event.target);
             initSightings(event.target);
+            initEnrichment(event.target);
         });
 
         refreshOccurrences();
         refreshAllLists(document);
         initSightings(document);
+        initEnrichment(document);
     }
 
     if (document.readyState === 'loading') {

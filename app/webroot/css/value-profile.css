@@ -3764,3 +3764,892 @@ td.vp-rel-pick {
     fill: var(--bs-secondary-color);
     font-size: 10px;
 }
+
+/* ==================================================================
+ * Enrichment tab — the module rail and the results pane
+ * ------------------------------------------------------------------
+ * `--enrichment` is #48435C, a deep plum that reads as a tint over
+ * white and disappears as ink on MISP's dark ground, so the dark
+ * theme lightens it rather than reusing it. The pair lives here
+ * because the accent is what tells the reader which of the nine rows
+ * they are reading, and a role that carries meaning is named once.
+ *
+ * Two other roles are borrowed rather than invented: a module that
+ * answered is `--report`, the same green every other panel uses for a
+ * settled fact, and a new element is `--attribute`, because that is
+ * what it would become.
+ * ================================================================== */
+
+:root {
+    --vp-e-accent: var(--enrichment);
+    --vp-e-ok: var(--report);
+    --vp-e-new-c: var(--attribute);
+
+    /*
+     * `--report` is a mid green: fine as a 9px fill, and 3.01:1 on
+     * white, which is under the bar for the 0.63rem chips that also
+     * speak in this role. They take the ink the verdict cards already
+     * use for the same green, which inverts with the theme.
+     */
+    --vp-e-ok-ink: var(--vp-ben-ink);
+
+    /*
+     * `--bs-warning` is 1.55:1 on the light ground — a dot nobody can
+     * find. The emphasis tone is what the staleness chip already uses
+     * for this role and it inverts correctly.
+     */
+    --vp-e-warn-ink: var(--bs-warning-text-emphasis);
+}
+
+[data-bs-theme="dark"] {
+    --vp-e-accent: #a79dd4;
+}
+
+/* ------------------------------------------------------------------
+ * The split
+ * ------------------------------------------------------------------
+ * Not a Bootstrap row. The rail scrolls on its own once there are
+ * more modules than fit, which a grid column cannot do, and thirty
+ * modules is as ordinary a number here as three.
+ *
+ * ~40% of the panel is the drawn proportion, clamped at both ends: a
+ * rail is a list of short names, so 640px of it on a wide screen is
+ * width taken from the pane for nothing.
+ * ------------------------------------------------------------------ */
+
+.vp-e-split {
+    display: flex;
+    align-items: stretch;
+    min-height: 26rem;
+}
+
+.vp-e-rail {
+    display: flex;
+    flex: 0 0 clamp(17rem, 32%, 26rem);
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+/*
+ * No height of its own: it fills whatever the split turns out to be,
+ * so the tray stays pinned at the foot and the rows scroll between.
+ * A fixed cap would clip a row mid-height whenever the pane happened
+ * to be taller than the cap, which is most of the time.
+ *
+ * That also gives "scrolls once there are more modules than fit" its
+ * honest meaning — than fit beside the pane. With a short pane and
+ * thirty modules the panel simply grows, and nothing is hidden.
+ */
+.vp-e-railscroll {
+    flex: 1 1 auto;
+    /* without this a flex child refuses to shrink past its content,
+       and the scroll lands on the page instead of on the rail */
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.vp-e-pane {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Under lg the two panes stack: a 17rem rail beside a pane is two
+   columns of nothing on a phone. */
+@media (max-width: 991.98px) {
+    .vp-e-split {
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .vp-e-rail {
+        flex: 0 0 auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+    .vp-e-railscroll {
+        max-height: 22rem;
+    }
+}
+
+/* ------------------------------------------------------------------
+ * A rail row
+ * ------------------------------------------------------------------
+ * The row is the state. Six of them at once is the ordinary case, so
+ * every state has to be legible in one line at 0.76rem: the sub-line
+ * says it in words, the dot says it in colour, and the staleness chip
+ * says when it was last true.
+ * ------------------------------------------------------------------ */
+
+.vp-e-railrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: inherit;
+    font-size: 0.76rem;
+    text-align: left;
+}
+
+.vp-e-railrow:hover {
+    background: color-mix(in srgb, var(--vp-e-accent) 6%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-railrow:hover {
+    background: color-mix(in srgb, var(--vp-e-accent) 12%,
+        var(--bs-body-bg));
+}
+
+/*
+ * Which module the pane is showing. A bar down the edge as well as a
+ * tint, so the selection survives greyscale and a tint too weak to
+ * see on a themed ground.
+ */
+.vp-e-railrow-on,
+.vp-e-railrow-on:hover {
+    background: color-mix(in srgb, var(--vp-e-accent) 10%,
+        var(--bs-body-bg));
+    box-shadow: inset 3px 0 0 var(--vp-e-accent);
+}
+
+[data-bs-theme="dark"] .vp-e-railrow-on,
+[data-bs-theme="dark"] .vp-e-railrow-on:hover {
+    background: color-mix(in srgb, var(--vp-e-accent) 18%,
+        var(--bs-body-bg));
+}
+
+.vp-e-railrow-all {
+    background: var(--bs-tertiary-bg);
+}
+
+/*
+ * A button rather than a click handler on the row, so picking a
+ * module is reachable from the keyboard — and separate from the
+ * checkbox beside it, because staging a module to run and reading
+ * what it already said are different decisions.
+ */
+.vp-e-railbody {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.vp-e-railbody:focus-visible {
+    outline: 2px solid var(--vp-e-accent);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+.vp-e-railrow-name {
+    display: block;
+    overflow: hidden;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-e-railrow-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    font-size: 0.66rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-e-railgroup {
+    padding: 9px 12px 5px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+/* ------------------------------------------------------------------
+ * The module family chip
+ * ------------------------------------------------------------------
+ * Cortex is a separate service on a separate port with a separate
+ * timeout, so merging it into one rail is a decision this design
+ * makes and the chip is where it says so.
+ * ------------------------------------------------------------------ */
+
+.vp-e-kind {
+    flex: 0 0 auto;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.vp-e-kind-cortex {
+    background: color-mix(in srgb, var(--galaxy) 16%, var(--bs-body-bg));
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .vp-e-kind-cortex {
+    background: color-mix(in srgb, var(--galaxy) 34%, var(--bs-body-bg));
+}
+
+/* ------------------------------------------------------------------
+ * Staleness
+ * ------------------------------------------------------------------
+ * A module nobody has ever run is not stale, it is unused, and the
+ * chip says so rather than printing a number it does not have.
+ * ------------------------------------------------------------------ */
+
+.vp-e-stale {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    padding: 0 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    color: var(--bs-secondary-color);
+    font-size: 0.63rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.45;
+}
+
+.vp-e-stale::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.vp-e-stale-fresh {
+    border-color: color-mix(in srgb, var(--vp-e-ok) 45%,
+        var(--bs-border-color));
+    color: var(--vp-e-ok-ink);
+}
+
+.vp-e-stale-stale {
+    border-color: var(--bs-warning);
+    color: var(--bs-warning-text-emphasis);
+}
+
+.vp-e-stale-never {
+    border-style: dashed;
+}
+
+.vp-e-stale-never::before {
+    background: none;
+    border: 1px dashed currentColor;
+}
+
+/* ------------------------------------------------------------------
+ * What a run costs
+ * ------------------------------------------------------------------
+ * The only argument the untouched state has to make. Quota is money
+ * and third party is disclosure, and they are different costs, so
+ * they are two chips rather than one.
+ * ------------------------------------------------------------------ */
+
+.vp-e-cost {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--bs-secondary-color);
+    font-size: 0.66rem;
+}
+
+.vp-e-cost-quota {
+    color: var(--bs-warning-text-emphasis);
+}
+
+.vp-e-cost-out {
+    color: var(--vp-e-accent);
+}
+
+.vp-e-tray {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+    padding: 10px 12px;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-e-tray-cost {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    font-size: 0.74rem;
+}
+
+/* ------------------------------------------------------------------
+ * The state dot, and the pane's status pill
+ * ------------------------------------------------------------------ */
+
+.vp-e-dot {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--bs-border-color);
+}
+
+.vp-e-dot-ok { background: var(--vp-e-ok); }
+.vp-e-dot-timeout { background: var(--vp-e-warn-ink); }
+.vp-e-dot-err { background: var(--bs-danger); }
+.vp-e-dot-run { background: var(--primary); }
+
+/* Queried and silent is an answer, so it is drawn hollow, never red. */
+.vp-e-dot-none {
+    background: none;
+    border: 1px dashed var(--bs-secondary-color);
+}
+
+.vp-e-status {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 9px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.vp-e-status-ok {
+    border-color: color-mix(in srgb, var(--vp-e-ok) 50%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--vp-e-ok) 9%, var(--bs-body-bg));
+    color: var(--vp-e-ok-ink);
+}
+
+.vp-e-status-timeout {
+    border-color: var(--bs-warning);
+    background: color-mix(in srgb, var(--bs-warning) 12%,
+        var(--bs-body-bg));
+    color: var(--bs-warning-text-emphasis);
+}
+
+.vp-e-status-none {
+    border-style: dashed;
+}
+
+[data-bs-theme="dark"] .vp-e-status-ok {
+    background: color-mix(in srgb, var(--vp-e-ok) 22%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-status-timeout {
+    background: color-mix(in srgb, var(--bs-warning) 24%,
+        var(--bs-body-bg));
+}
+
+/* ------------------------------------------------------------------
+ * Module service reachability
+ * ------------------------------------------------------------------
+ * MISP re-fetches /modules live on every render with a one-second
+ * timeout and caches nothing, so "the service is up" is a state this
+ * tab has to be able to draw. It lives in the tray because a rail of
+ * dashed rows under an unreachable service means something different
+ * from the same rail under a healthy one.
+ * ------------------------------------------------------------------ */
+
+.vp-e-svc {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+}
+
+.vp-e-svc-down {
+    color: var(--bs-danger-text-emphasis);
+    font-weight: 600;
+}
+
+/* ------------------------------------------------------------------
+ * The delta band
+ * ------------------------------------------------------------------ */
+
+.vp-e-delta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border: 1px solid color-mix(in srgb, var(--vp-e-new-c) 50%,
+        var(--bs-border-color));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--vp-e-new-c) 11%,
+        var(--bs-body-bg));
+    font-size: 0.82rem;
+}
+
+[data-bs-theme="dark"] .vp-e-delta {
+    background: color-mix(in srgb, var(--vp-e-new-c) 15%,
+        var(--bs-body-bg));
+}
+
+.vp-e-delta > i {
+    color: var(--vp-e-new-c);
+}
+
+.vp-e-delta-text {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
+/* A run with nothing new is still a reading, so the band stays and
+   goes quiet rather than disappearing. */
+.vp-e-delta-quiet {
+    border-color: var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+[data-bs-theme="dark"] .vp-e-delta-quiet {
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-e-delta-quiet > i {
+    color: var(--bs-secondary-color);
+}
+
+/* ------------------------------------------------------------------
+ * A returned element
+ * ------------------------------------------------------------------ */
+
+.vp-e-el {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 14px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-e-el:first-child {
+    border-top: 0;
+}
+
+.vp-e-el-new {
+    background: color-mix(in srgb, var(--vp-e-new-c) 9%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-el-new {
+    background: color-mix(in srgb, var(--vp-e-new-c) 12%,
+        var(--bs-body-bg));
+}
+
+.vp-e-el-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 9px;
+    min-width: 0;
+}
+
+.vp-e-el-acts {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+}
+
+.vp-e-el-acts .btn {
+    --bs-btn-padding-y: 0.05rem;
+    --bs-btn-padding-x: 0.45rem;
+    --bs-btn-font-size: 0.68rem;
+}
+
+/*
+ * MISP's own type badge is `border border-dark rounded p-1`, which
+ * carries a fixed ink. Same shape, theme-aware border.
+ */
+.vp-e-type {
+    display: inline-block;
+    flex: 0 0 auto;
+    padding: 0 6px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    line-height: 1.5;
+}
+
+/*
+ * The value a module returned, withheld.
+ *
+ * Nothing on this page was produced by querying anybody, so printing
+ * a hostname here would be inventing intelligence. The bar is hatched
+ * rather than plain grey so it reads as deliberately held back and
+ * not as a row still loading.
+ */
+.vp-e-val {
+    display: inline-block;
+    flex: 0 0 auto;
+    width: var(--vp-e-val-w, 6rem);
+    height: 0.8em;
+    /* The fill alone is 1.12:1 on the light ground and the default
+       border only 1.24:1 — the bar has to have an edge a reader can
+       actually find, or they cannot see where the withheld value
+       starts and stops. */
+    border: 1px solid color-mix(in srgb, var(--bs-secondary-color) 55%,
+        var(--bs-border-color));
+    border-radius: 0.2rem;
+    background-color: var(--bs-secondary-bg);
+    background-image: repeating-linear-gradient(-45deg,
+        transparent 0 3px,
+        color-mix(in srgb, var(--bs-secondary-color) 45%, transparent)
+            3px 4px);
+    cursor: help;
+    vertical-align: middle;
+}
+
+.vp-e-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--bs-secondary-color);
+    font-size: 0.67rem;
+}
+
+.vp-e-new {
+    flex: 0 0 auto;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-e-new-c) 26%,
+        var(--bs-body-bg));
+    color: var(--bs-body-color);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+}
+
+/* What stops an analyst adding a duplicate. */
+.vp-e-known {
+    flex: 0 0 auto;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------
+ * Where an element came from
+ * ------------------------------------------------------------------
+ * The rail costs the reader cross-module reading; this is the half of
+ * buying it back that the `All results` row cannot do on its own.
+ * Two modules returning the same *type* is not corroboration, so the
+ * note is only drawn where the fixture records the same *value*.
+ * ------------------------------------------------------------------ */
+
+.vp-e-provs {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.vp-e-prov-lbl {
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
+}
+
+.vp-e-prov {
+    padding: 0 6px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.63rem;
+    line-height: 1.5;
+}
+
+.vp-e-prov-note {
+    padding: 0 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-e-accent) 18%,
+        var(--bs-body-bg));
+    color: var(--bs-body-color);
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+[data-bs-theme="dark"] .vp-e-prov-note {
+    background: color-mix(in srgb, var(--vp-e-accent) 30%,
+        var(--bs-body-bg));
+}
+
+/* ------------------------------------------------------------------
+ * The disclosure, and what it discloses
+ * ------------------------------------------------------------------ */
+
+.vp-e-disc {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
+}
+
+.vp-e-disc:hover {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+}
+
+.vp-e-disc > i {
+    transition: transform 0.12s ease;
+}
+
+.vp-e-disc[aria-expanded="true"] > i {
+    transform: rotate(90deg);
+}
+
+.vp-e-why {
+    flex: 1 1 100%;
+    margin-top: 5px;
+    padding: 6px 10px;
+    border-left: 2px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+    line-height: 1.55;
+}
+
+.vp-e-why dl {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 1px 10px;
+    margin: 0;
+}
+
+.vp-e-why dt {
+    font-weight: 600;
+}
+
+.vp-e-why dd {
+    margin: 0;
+    min-width: 0;
+}
+
+/* ------------------------------------------------------------------
+ * A returned object
+ * ------------------------------------------------------------------ */
+
+.vp-e-obj {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.vp-e-obj-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: color-mix(in srgb, var(--object) 10%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-obj-head {
+    background: color-mix(in srgb, var(--object) 42%, var(--bs-body-bg));
+}
+
+.vp-e-obj-name {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.vp-e-obj-count {
+    color: var(--bs-secondary-color);
+    font-size: 0.66rem;
+}
+
+.vp-e-obj-new {
+    border-color: color-mix(in srgb, var(--vp-e-new-c) 50%,
+        var(--bs-border-color));
+}
+
+.vp-e-rel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px 4px 28px;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: 0.72rem;
+}
+
+.vp-e-rel:first-of-type {
+    border-top: 0;
+}
+
+.vp-e-rel-name {
+    flex: 0 0 11rem;
+    overflow: hidden;
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.67rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------
+ * Nothing queried yet
+ * ------------------------------------------------------------------
+ * A briefing, not an apology. The reader is being asked to spend
+ * money and to reveal an interest, so the state that precedes the
+ * spend gets the room to say what the spend buys and what it costs.
+ * ------------------------------------------------------------------ */
+
+.vp-e-cold {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    gap: 28px;
+    padding: 24px 26px;
+}
+
+@media (max-width: 1199.98px) {
+    .vp-e-cold {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+    }
+}
+
+.vp-e-cold-title {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.vp-e-cold-prose {
+    max-width: 62ch;
+    margin: 0 0 14px;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.vp-e-cold-ledger {
+    align-self: start;
+    padding: 13px 15px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-e-ledger-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+    font-size: 0.76rem;
+}
+
+.vp-e-ledger-row + .vp-e-ledger-row {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-e-ledger-n {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+ * A module that did not answer with results
+ * ------------------------------------------------------------------
+ * One module timing out is not the run failing, so the band names the
+ * limit that produced it and says what is still standing. Silence is
+ * the same shape of claim without the warning ink: a module that
+ * answered with nothing answered.
+ * ------------------------------------------------------------------ */
+
+.vp-e-partial {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 14px;
+    border: 1px solid var(--bs-warning);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bs-warning) 11%,
+        var(--bs-body-bg));
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+[data-bs-theme="dark"] .vp-e-partial {
+    background: color-mix(in srgb, var(--bs-warning) 22%,
+        var(--bs-body-bg));
+}
+
+.vp-e-partial > i {
+    margin-top: 3px;
+    color: var(--bs-warning-text-emphasis);
+}
+
+.vp-e-quiet {
+    border-style: dashed;
+    border-color: var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+[data-bs-theme="dark"] .vp-e-quiet {
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-e-quiet > i {
+    color: var(--bs-secondary-color);
+}
+
+.vp-e-num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* The note that says why every value on this tab is a bar. Stated
+   once per pane, at the foot, where it explains what was read above
+   it rather than delaying it. */
+.vp-e-withheld {
+    padding: 10px 14px 14px;
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    line-height: 1.55;
+}

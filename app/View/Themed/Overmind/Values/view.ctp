@@ -301,11 +301,17 @@ $tabRegistry = array(
         'title' => __('Enrichment'),
         'icon' => 'fas fa-wand-magic-sparkles',
         'count' => $counts['enrichment'],
-        'note' => __(
-            'A module picker and per-module results. Never auto-run:'
-            . ' querying an adversary\'s infrastructure announces your'
-            . ' interest.'
+        /*
+         * One full-width slot, and the panel owns its own split: the
+         * module rail at ~40% and one module's results beside it. Not
+         * this page's 9/3, because the rail scrolls independently of
+         * the pane once there are more modules than fit — thirty is
+         * as ordinary a number here as three.
+         */
+        'left' => array(
+            $panel('viewEnrichment'),
         ),
+        'right' => null,
     ),
     array(
         'id' => 'analyst',

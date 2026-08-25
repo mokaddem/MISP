@@ -210,6 +210,31 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Enrichment tab: one endpoint for the whole tab.
+     *
+     * The rail's state chips and the pane's contents are the same
+     * data read two ways, so splitting them would let a rail row
+     * claim six elements over a pane that had none. Switching modules
+     * is client-side against markup already here, which is also why
+     * every module's pane is rendered up front and one of them shown:
+     * a request per module would be a request this tab must not make.
+     *
+     * Nothing runs a module. Not on load, not on tab switch, not on
+     * selecting one — a run spends quota and tells an adversary you
+     * are looking, so it needs a press nobody made by arriving.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewEnrichment($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_enrichment'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

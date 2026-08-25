@@ -72,6 +72,7 @@ class ValueProfileFixture
             $created,
             self::maliciousModels()
         );
+        $enrichment = self::maliciousEnrichment();
 
         return array(
             'value' => '185.234.219.24',
@@ -87,7 +88,14 @@ class ValueProfileFixture
                 'occurrences' => 10,
                 'sightings' => 47,
                 'relationships' => 31,
-                'enrichment' => 9,
+                /*
+                 * Elements awaiting review, not modules. Every other
+                 * tab's count is the thing the tab lists, and nine
+                 * modules valid for a type is a capability rather
+                 * than something to read — the number the reader is
+                 * being sent to the tab for is what came back.
+                 */
+                'enrichment' => $enrichment['pending'],
                 'analyst' => 6,
             ),
             'facts' => array(
@@ -214,6 +222,7 @@ class ValueProfileFixture
                 'threshold' => 50,
             ),
             'relationships' => self::maliciousRelationships(),
+            'enrichment' => $enrichment,
             'external' => array(
                 'feeds' => array(
                     array(
@@ -1266,6 +1275,7 @@ class ValueProfileFixture
             $created,
             self::conflictedModels()
         );
+        $enrichment = self::conflictedEnrichment();
 
         return array(
             'value' => '104.21.34.198',
@@ -1281,7 +1291,7 @@ class ValueProfileFixture
                 'occurrences' => 9,
                 'sightings' => 63,
                 'relationships' => 1847,
-                'enrichment' => 4,
+                'enrichment' => $enrichment['pending'],
                 'analyst' => 7,
             ),
             'facts' => array(
@@ -1413,6 +1423,7 @@ class ValueProfileFixture
                 'threshold' => 50,
             ),
             'relationships' => self::conflictedRelationships(),
+            'enrichment' => $enrichment,
             'external' => array(
                 'feeds' => array(
                     array(
@@ -1949,6 +1960,14 @@ class ValueProfileFixture
                 'threshold' => 50,
             ),
             'relationships' => self::emptyRelationships(),
+            /*
+             * A value with no occurrence still gets the full rail.
+             * There is no attribute row to read a type from, so the
+             * type is inferred from the value's own shape and the
+             * panel says so — which is what lets the untouched state
+             * be a page rather than an empty one.
+             */
+            'enrichment' => self::unknownEnrichment($value),
             'external' => array(
                 'feeds' => array(),
                 'servers' => 0,
@@ -2424,6 +2443,7 @@ class ValueProfileFixture
         $created = '2024-11-02';
         $rows = self::benignSightingRows();
         $decay = self::decayModels($rows, $created, self::benignModels());
+        $enrichment = self::benignEnrichment();
 
         return array(
             'value' => '8.8.8.8',
@@ -2439,7 +2459,7 @@ class ValueProfileFixture
                 'occurrences' => 9,
                 'sightings' => 17,
                 'relationships' => 21904,
-                'enrichment' => 3,
+                'enrichment' => $enrichment['pending'],
                 'analyst' => 5,
             ),
             'facts' => array(
@@ -2571,6 +2591,7 @@ class ValueProfileFixture
                 'threshold' => 50,
             ),
             'relationships' => self::benignRelationships(),
+            'enrichment' => $enrichment,
             'external' => array(
                 'feeds' => array(),
                 'servers' => 1,
@@ -5470,5 +5491,699 @@ class ValueProfileFixture
                 'excluded' => false,
             ),
         );
+    }
+
+    /* ==============================================================
+     * Enrichment
+     * --------------------------------------------------------------
+     * Modules are matched on a type, so every builder here starts
+     * from one, and the catalogues below are the list MISP would
+     * report from `getEnabledModules()` filtered to that type.
+     *
+     * Nothing in this data is an intelligence claim. A returned
+     * element is a type and a shape — the value it carries is drawn
+     * as a withheld bar, because no third party was queried to
+     * produce this page and inventing what one would have said is the
+     * one thing this tab must not do.
+     * ============================================================== */
+
+    /**
+     * One module as the rail reads it.
+     *
+     * Columns: name · kind · spends quota · leaves the building ·
+     * state · elements still standing · of which new · ran at, in the
+     * last run · last ran at, ever · seconds taken · result shape ·
+     * days since it last ran.
+     *
+     * `elements` is what the module returned *and that still stands*:
+     * a dismissed element is subtracted, so the rail's counts and the
+     * header's "awaiting review" are the same quantity.
+     *
+     * @param array $row
+     * @return array
+     */
+    private static function enrichModuleRow(array $row)
+    {
+        return array(
+            'name' => $row[0],
+            'kind' => $row[1],
+            'cost' => array('quota' => $row[2], 'external' => $row[3]),
+            'state' => $row[4],
+            'elements' => $row[5],
+            'new' => $row[6],
+            'ran_at' => $row[7],
+            'last_ran_at' => $row[8],
+            'took' => $row[9],
+            'shape' => $row[10],
+            'stale_days' => $row[11],
+        );
+    }
+
+    /**
+     * @param array $table
+     * @return array
+     */
+    private static function enrichModuleRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = self::enrichModuleRow($row);
+        }
+        return $rows;
+    }
+
+    /**
+     * One loose attribute a module returned.
+     *
+     * Columns: type · to_ids · date · provenance · bar width, in rem
+     * · the other modules that returned the same value.
+     *
+     * The provenance column is `new`, `known` — the value already
+     * exists in MISP, which is what stops an analyst adding a
+     * duplicate — or null for an element that is neither.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function enrichAttrRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'type' => $row[0],
+                'to_ids' => $row[1],
+                'date' => $row[2],
+                'is_new' => $row[3] === 'new',
+                'known' => $row[3] === 'known',
+                'width' => $row[4],
+                'also' => isset($row[5]) ? $row[5] : array(),
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * One object a module returned, in the `misp_standard` shape.
+     *
+     * An object is new only when every attribute in it is new: half a
+     * new object is a template that gained a relation, which is not
+     * the same claim and does not get the chip.
+     *
+     * @param string $name Object template name
+     * @param bool $isNew
+     * @param array $table Columns: relation · type · bar width
+     * @return array
+     */
+    private static function enrichObject($name, $isNew, array $table)
+    {
+        $elements = array();
+        foreach ($table as $row) {
+            $elements[] = array(
+                'relation' => $row[0],
+                'type' => $row[1],
+                'width' => $row[2],
+            );
+        }
+        return array(
+            'name' => $name,
+            'attributes' => count($elements),
+            'is_new' => $isNew,
+            'elements' => $elements,
+        );
+    }
+
+    /**
+     * The `All results` row and the pane behind it, derived from the
+     * per-module results rather than stated.
+     *
+     * The rail's whole cost is cross-module reading and this row is
+     * what buys it back, so its numbers have to be the modules' own
+     * numbers — written down twice they would drift the first time a
+     * module's result changed.
+     *
+     * @param array $modules
+     * @param array $results
+     * @return array
+     */
+    private static function enrichMerge(array $modules, array $results)
+    {
+        $objects = array();
+        $attributes = array();
+        $answered = 0;
+        foreach ($modules as $module) {
+            $name = $module['name'];
+            if (empty($results[$name]) || $module['elements'] < 1) {
+                continue;
+            }
+            $answered++;
+            $result = $results[$name];
+            foreach ($result['objects'] as $object) {
+                $object['module'] = $name;
+                $objects[] = $object;
+            }
+            foreach ($result['attributes'] as $attribute) {
+                $attribute['module'] = $name;
+                $attributes[] = $attribute;
+            }
+        }
+
+        $elements = 0;
+        $new = 0;
+        foreach ($objects as $object) {
+            $elements += $object['attributes'];
+            $new += $object['is_new'] ? $object['attributes'] : 0;
+        }
+        foreach ($attributes as $attribute) {
+            $elements++;
+            $new += $attribute['is_new'] ? 1 : 0;
+        }
+
+        return array(
+            'modules' => $answered,
+            'elements' => $elements,
+            'new' => $new,
+            'objects' => $objects,
+            'attributes' => $attributes,
+        );
+    }
+
+    /**
+     * Everything the tab reads, assembled so the header, the rail and
+     * the pane cannot disagree about a count.
+     *
+     * @param array $spec
+     * @return array
+     */
+    private static function enrichment(array $spec)
+    {
+        $modules = $spec['modules'];
+        $results = isset($spec['results']) ? $spec['results'] : array();
+
+        $pending = 0;
+        foreach ($modules as $module) {
+            $pending += $module['elements'];
+        }
+
+        return array(
+            'type' => $spec['type'],
+            'type_inferred' => !empty($spec['type_inferred']),
+            'last_run' => isset($spec['last_run'])
+                ? $spec['last_run']
+                : null,
+            'pending' => $pending,
+            'timeout' => 10,
+            'cortex_timeout' => 120,
+            'service' => $spec['service'],
+            'modules' => $modules,
+            'results' => $results,
+            'merged' => self::enrichMerge($modules, $results),
+        );
+    }
+
+    /**
+     * The nine modules MISP has enabled for an IP on this instance.
+     *
+     * `$runs` maps a module name onto the columns that differ per
+     * value — state, counts and timings. A module absent from it has
+     * never been run against the value, which is the majority case.
+     *
+     * @param array $runs
+     * @return array
+     */
+    private static function ipModules(array $runs)
+    {
+        // name · kind · spends quota · leaves the building
+        $catalogue = array(
+            array('virustotal', 'expansion', true, true),
+            array('shodan', 'expansion', true, true),
+            array('circl_passivedns', 'expansion', false, true),
+            array('ipasn', 'expansion', false, true),
+            array('reversedns', 'expansion', false, true),
+            array('threatminer', 'expansion', true, true),
+            array('urlhaus', 'expansion', false, true),
+            array('rbl', 'expansion', false, true),
+            array('Abuse_Finder_3_0', 'cortex', false, true),
+        );
+        return self::modulesFrom($catalogue, $runs);
+    }
+
+    /**
+     * @param array $runs
+     * @return array
+     */
+    private static function domainModules(array $runs)
+    {
+        $catalogue = array(
+            array('virustotal', 'expansion', true, true),
+            array('circl_passivedns', 'expansion', false, true),
+            array('dns', 'expansion', false, true),
+            array('whois', 'expansion', false, true),
+            array('urlhaus', 'expansion', false, true),
+            array('threatminer', 'expansion', true, true),
+            array('Abuse_Finder_3_0', 'cortex', false, true),
+        );
+        return self::modulesFrom($catalogue, $runs);
+    }
+
+    /**
+     * @param array $runs
+     * @return array
+     */
+    private static function hashModules(array $runs)
+    {
+        $catalogue = array(
+            array('virustotal', 'expansion', true, true),
+            array('hashlookup', 'expansion', false, true),
+            array('malwarebazaar', 'expansion', false, true),
+            array('threatminer', 'expansion', true, true),
+        );
+        return self::modulesFrom($catalogue, $runs);
+    }
+
+    /**
+     * @param array $runs
+     * @return array
+     */
+    private static function urlModules(array $runs)
+    {
+        $catalogue = array(
+            array('virustotal', 'expansion', true, true),
+            array('urlhaus', 'expansion', false, true),
+            array('urlscan', 'expansion', true, true),
+            array('Abuse_Finder_3_0', 'cortex', false, true),
+        );
+        return self::modulesFrom($catalogue, $runs);
+    }
+
+    /**
+     * @param array $catalogue
+     * @param array $runs
+     * @return array
+     */
+    private static function modulesFrom(array $catalogue, array $runs)
+    {
+        // never · no elements · none new · not in this run · never ran
+        // · no timing · no shape · not stale, unused
+        $untouched = array('never', 0, 0, null, null, null, null, null);
+        $table = array();
+        foreach ($catalogue as $entry) {
+            $table[] = array_merge(
+                $entry,
+                isset($runs[$entry[0]]) ? $runs[$entry[0]] : $untouched
+            );
+        }
+        return self::enrichModuleRows($table);
+    }
+
+    /**
+     * Which type MISP would match modules on for a value that has no
+     * occurrence, and so no attribute row to read a type from.
+     *
+     * The page's subject is a value string, and `ComplexTypeTool`
+     * classifies one by shape. That is a weaker claim than reading an
+     * attribute's type and the panel says so — but it is the only
+     * honest way a value nobody has ever recorded can show a rail at
+     * all, and the rail is what tells the reader what running would
+     * cost.
+     *
+     * @param string $value
+     * @return string|null
+     */
+    private static function inferType($value)
+    {
+        if (filter_var($value, FILTER_VALIDATE_IP) !== false) {
+            return 'ip-dst';
+        }
+        if (preg_match('/^[a-f0-9]{32}$/i', $value)) {
+            return 'md5';
+        }
+        if (preg_match('/^[a-f0-9]{40}$/i', $value)) {
+            return 'sha1';
+        }
+        if (preg_match('/^[a-f0-9]{64}$/i', $value)) {
+            return 'sha256';
+        }
+        if (preg_match('#^https?://\S+$#i', $value)) {
+            return 'url';
+        }
+        $domain = '/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+'
+            . '[a-z]{2,}$/i';
+        if (preg_match($domain, $value)) {
+            return 'domain';
+        }
+        return null;
+    }
+
+    /**
+     * The module catalogue for an inferred type, or an empty rail.
+     *
+     * A value MISP cannot classify has no valid module, and that is a
+     * real state rather than a missing one: there is nothing to offer
+     * to run, and the panel says which of the two it is.
+     *
+     * @param string|null $type
+     * @return array
+     */
+    private static function modulesForType($type)
+    {
+        if ($type === 'ip-dst') {
+            return self::ipModules(array());
+        }
+        if ($type === 'domain') {
+            return self::domainModules(array());
+        }
+        if ($type === 'url') {
+            return self::urlModules(array());
+        }
+        if (in_array($type, array('md5', 'sha1', 'sha256'), true)) {
+            return self::hashModules(array());
+        }
+        return array();
+    }
+
+    /**
+     * The populated case the mockup drew: a run that answered on six
+     * modules, timed out on one, came back empty-handed on one, and
+     * left the Cortex analyser out altogether.
+     *
+     * @return array
+     */
+    private static function maliciousEnrichment()
+    {
+        // state · elements · new · ran at · last ran · took · shape ·
+        // stale days
+        $ran = '2025-08-24 09:14';
+        $modules = self::ipModules(array(
+            'virustotal' => array(
+                'ok', 6, 2, $ran, $ran, 1.8, 'misp_standard', 1),
+            'shodan' => array(
+                'timeout', 0, 0, $ran, $ran, 10.0, null, 1),
+            'circl_passivedns' => array(
+                'ok', 9, 1, $ran, $ran, 0.7, 'misp_standard', 1),
+            'ipasn' => array(
+                'ok', 1, 0, $ran, $ran, 0.4, 'simplified', 1),
+            'reversedns' => array(
+                'ok', 3, 0, $ran, $ran, 0.2, 'simplified', 1),
+            'threatminer' => array(
+                'ok', 2, 0, $ran, $ran, 2.4, 'simplified', 1),
+            'urlhaus' => array(
+                'ok', 2, 0, $ran, $ran, 0.9, 'misp_standard', 1),
+            'rbl' => array(
+                'none', 0, 0, $ran, $ran, 3.1, null, 1),
+            /*
+             * Ran, but not in this run. That is a fifth rail wording
+             * and its own group: a module MISP did not include is not
+             * a module that answered with nothing, and neither is a
+             * module nobody has ever tried.
+             */
+            'Abuse_Finder_3_0' => array(
+                'never', 0, 0, null, '2025-06-02 11:40', null, null, 83),
+        ));
+
+        $previous = '2025-08-11 14:02';
+        $results = array(
+            'virustotal' => array(
+                'delta' => array(
+                    'new' => 2,
+                    'previous_run' => $previous,
+                    'unchanged' => 4,
+                ),
+                'objects' => array(
+                    self::enrichObject('virustotal-report', false, array(
+                        array('permalink', 'link', 13),
+                        array('detection-ratio', 'text', 4),
+                        array('last-submission', 'datetime', 7),
+                    )),
+                ),
+                'attributes' => self::enrichAttrRows(array(
+                    array('hostname', true, '2025-08-24', 'new', 11,
+                        array('circl_passivedns', 'reversedns')),
+                    array('domain', true, '2025-08-24', 'known', 9),
+                    array('url', true, '2025-08-24', 'new', 15),
+                )),
+                'dismissed' => 1,
+            ),
+            'circl_passivedns' => array(
+                'delta' => array(
+                    'new' => 1,
+                    'previous_run' => $previous,
+                    'unchanged' => 8,
+                ),
+                'objects' => array(
+                    self::enrichObject('passive-dns', false, array(
+                        array('rrname', 'text', 10),
+                        array('rrtype', 'text', 3),
+                        array('time-first', 'datetime', 7),
+                        array('time-last', 'datetime', 7),
+                    )),
+                    self::enrichObject('passive-dns', false, array(
+                        array('rrname', 'text', 12),
+                        array('rrtype', 'text', 3),
+                        array('time-first', 'datetime', 7),
+                        array('time-last', 'datetime', 7),
+                    )),
+                ),
+                'attributes' => self::enrichAttrRows(array(
+                    array('hostname', false, '2025-08-24', 'new', 12,
+                        array('virustotal', 'reversedns')),
+                )),
+                'dismissed' => 0,
+            ),
+            'ipasn' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 1,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('AS', false, '2025-08-24', null, 5),
+                )),
+                'dismissed' => 0,
+            ),
+            'reversedns' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 3,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('hostname', false, '2025-08-24', 'known', 11,
+                        array('virustotal', 'circl_passivedns')),
+                    array('hostname', false, '2025-08-24', null, 13),
+                    array('hostname', false, '2025-08-24', null, 9),
+                )),
+                'dismissed' => 0,
+            ),
+            'threatminer' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 2,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('domain', true, '2025-08-24', 'known', 10),
+                    array('hostname', false, '2025-08-24', null, 12),
+                )),
+                'dismissed' => 0,
+            ),
+            'urlhaus' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 2,
+                ),
+                'objects' => array(
+                    self::enrichObject('url', false, array(
+                        array('url', 'url', 15),
+                        array('resource_path', 'text', 8),
+                    )),
+                ),
+                'attributes' => array(),
+                'dismissed' => 0,
+            ),
+        );
+
+        return self::enrichment(array(
+            'type' => 'ip-dst',
+            'last_run' => $ran,
+            'service' => array(
+                'reachable' => true,
+                'checked' => '2025-08-25 07:02',
+                'note' => null,
+            ),
+            'modules' => $modules,
+            'results' => $results,
+        ));
+    }
+
+    /**
+     * The run that was cut short: three modules answered and then the
+     * module service stopped answering, which is why the other six
+     * were never tried.
+     *
+     * Service-down is a distinct state from "nothing queried yet" and
+     * this is where the tab renders it — a rail of dashed rows under
+     * an unreachable service means something different from the same
+     * rail under a healthy one.
+     *
+     * @return array
+     */
+    private static function conflictedEnrichment()
+    {
+        $ran = '2025-08-22 16:30';
+        $modules = self::ipModules(array(
+            'virustotal' => array(
+                'ok', 4, 3, $ran, $ran, 2.1, 'misp_standard', 3),
+            'shodan' => array(
+                'timeout', 0, 0, $ran, $ran, 10.0, null, 3),
+            'ipasn' => array(
+                'none', 0, 0, $ran, $ran, 0.5, null, 3),
+        ));
+
+        $results = array(
+            'virustotal' => array(
+                'delta' => array(
+                    'new' => 3,
+                    'previous_run' => '2025-07-30 09:12',
+                    'unchanged' => 1,
+                ),
+                'objects' => array(
+                    self::enrichObject('virustotal-report', true, array(
+                        array('permalink', 'link', 13),
+                        array('detection-ratio', 'text', 4),
+                        array('last-submission', 'datetime', 7),
+                    )),
+                ),
+                'attributes' => self::enrichAttrRows(array(
+                    array('domain', false, '2025-08-22', 'known', 9),
+                )),
+                'dismissed' => 0,
+            ),
+        );
+
+        return self::enrichment(array(
+            'type' => 'ip-dst',
+            'last_run' => $ran,
+            'service' => array(
+                'reachable' => false,
+                'checked' => '2025-08-25 07:02',
+                'note' => __(
+                    'misp-modules did not answer within the 1 second'
+                    . ' MISP allows the module list. Nothing here is'
+                    . ' stale because of it — the six untried modules'
+                    . ' were never tried, which is a different claim.'
+                ),
+            ),
+            'modules' => $modules,
+            'results' => $results,
+        ));
+    }
+
+    /**
+     * The quiet case: a run this morning where everything that
+     * answered was already in MISP, and one module answered with
+     * nothing at all.
+     *
+     * @return array
+     */
+    private static function benignEnrichment()
+    {
+        $ran = '2025-08-25 06:40';
+        $previous = '2025-08-18 06:40';
+        $modules = self::ipModules(array(
+            'virustotal' => array(
+                'ok', 1, 0, $ran, $ran, 1.4, 'simplified', 0),
+            'ipasn' => array(
+                'ok', 1, 0, $ran, $ran, 0.3, 'simplified', 0),
+            'reversedns' => array(
+                'ok', 1, 0, $ran, $ran, 0.2, 'simplified', 0),
+            'rbl' => array(
+                'none', 0, 0, $ran, $ran, 2.8, null, 0),
+        ));
+
+        $results = array(
+            'virustotal' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 1,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('domain', false, '2025-08-25', 'known', 9,
+                        array('reversedns')),
+                )),
+                'dismissed' => 0,
+            ),
+            'ipasn' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 1,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('AS', false, '2025-08-25', null, 5),
+                )),
+                'dismissed' => 0,
+            ),
+            'reversedns' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 1,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('hostname', false, '2025-08-25', 'known', 10,
+                        array('virustotal')),
+                )),
+                'dismissed' => 2,
+            ),
+        );
+
+        return self::enrichment(array(
+            'type' => 'ip-dst',
+            'last_run' => $ran,
+            'service' => array(
+                'reachable' => true,
+                'checked' => '2025-08-25 07:02',
+                'note' => null,
+            ),
+            'modules' => $modules,
+            'results' => $results,
+        ));
+    }
+
+    /**
+     * Nothing queried yet — the majority case in production, and the
+     * one this tab is shaped around.
+     *
+     * The rail is full and every row carries what running it would
+     * cost. There is no run to be stale against, no delta and no
+     * results, and nothing has been sent anywhere.
+     *
+     * @param string $value
+     * @return array
+     */
+    private static function unknownEnrichment($value)
+    {
+        $type = self::inferType($value);
+
+        return self::enrichment(array(
+            'type' => $type,
+            'type_inferred' => true,
+            'last_run' => null,
+            'service' => array(
+                'reachable' => true,
+                'checked' => '2025-08-25 07:02',
+                'note' => null,
+            ),
+            'modules' => self::modulesForType($type),
+            'results' => array(),
+        ));
     }
 }
