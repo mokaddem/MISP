@@ -102,6 +102,58 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Sightings tab: five panels, one endpoint each.
+     *
+     * Split the other way from the Occurrences tab, and for the
+     * opposite reason. There the rail counts the rows beside it, so one
+     * fetch is the only honest shape; here the chart, the list and the
+     * three rail cards are five readings of the same rows that resolve
+     * at their own speed, and the overlay is the slow one.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewSightingChart($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_sighting_chart'
+        );
+    }
+
+    public function viewSightingList($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_sighting_list'
+        );
+    }
+
+    public function viewSightingDecay($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_sighting_decay'
+        );
+    }
+
+    public function viewSightingReporters($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_sighting_reporters'
+        );
+    }
+
+    public function viewSightingAdd($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_sighting_add'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

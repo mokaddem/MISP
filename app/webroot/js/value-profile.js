@@ -505,6 +505,689 @@
             .replace('%3$s', Object.keys(orgs).length);
     }
 
+
+    /* ==================================================================
+     * Charts
+     * ------------------------------------------------------------------
+     * A canvas cannot inherit a CSS variable, so a chart's colours are
+     * resolved against the canvas at init and resolved again whenever
+     * the theme flips. Two panels draw charts and both need exactly
+     * this, so it lives here rather than in whichever fragment happened
+     * to want it first.
+     * ================================================================== */
+
+    /**
+     * Turn every `var(--x)` in a config into the value that variable
+     * has on `el`.
+     *
+     * Walks the whole config rather than a list of known keys: colours
+     * turn up in scales, plugins and datasets alike, and a config is
+     * plain data by the time it gets here.
+     *
+     * @param {*} node
+     * @param {Element} el
+     * @return {*}
+     */
+    function resolveChartColours(node, el) {
+        if (typeof node === 'string') {
+            var match = node.match(/^var\((--[\w-]+)\)$/);
+            if (!match) {
+                return node;
+            }
+            var resolved = getComputedStyle(el)
+                .getPropertyValue(match[1]).trim();
+            return resolved || node;
+        }
+        if (Array.isArray(node)) {
+            return node.map(function (item) {
+                return resolveChartColours(item, el);
+            });
+        }
+        if (node && typeof node === 'object') {
+            var out = {};
+            Object.keys(node).forEach(function (key) {
+                out[key] = resolveChartColours(node[key], el);
+            });
+            return out;
+        }
+        return node;
+    }
+
+    /**
+     * Build a chart once Chart.js has arrived, and rebuild it on demand
+     * or whenever the theme changes.
+     *
+     * Safe inside a lazily-injected fragment: the global is polled for
+     * rather than assumed, since a fragment cannot know it is the first
+     * one to land.
+     *
+     * @param {string} id Canvas id, namespaced by the caller
+     * @param {function(Element): Object} build Returns a Chart
+     * @return {{refresh: function}} A handle the caller redraws through
+     */
+    function bootChart(id, build) {
+        var chart = null;
+
+        function make() {
+            var el = document.getElementById(id);
+            if (!el || typeof Chart === 'undefined') {
+                return false;
+            }
+            if (chart) {
+                chart.destroy();
+            }
+            chart = build(el);
+            return true;
+        }
+
+        function boot() {
+            if (typeof Chart === 'undefined') {
+                setTimeout(boot, 100);
+                return;
+            }
+            if (!make()) {
+                return;
+            }
+            // The observer stops itself once the canvas is gone — a
+            // reloaded fragment brings its own script with it.
+            var observer = new MutationObserver(function () {
+                if (!document.getElementById(id)) {
+                    observer.disconnect();
+                    return;
+                }
+                make();
+            });
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ['data-bs-theme'],
+            });
+        }
+
+        boot();
+        return { refresh: make };
+    }
+
+    window.VP = window.VP || {};
+    window.VP.chart = { resolve: resolveChartColours, boot: bootChart };
+
+    /* ==================================================================
+     * Sightings tab
+     * ------------------------------------------------------------------
+     * One overlay and one brush. The chart and the list arrive as two
+     * fragments in whichever order the network decides, so the state
+     * lives here and each fragment applies it when it lands rather than
+     * one of them reaching into the other.
+     *
+     * Everything is client-side against data the fragments already
+     * carry: changing the range redraws from an array the template
+     * transposed, and dragging the brush hides table rows. Nothing
+     * re-queries, and nothing writes.
+     * ================================================================== */
+
+    var sight = {
+        data: null,
+        rangeKey: null,
+        // Which of the three types are drawn. A type with no rows at
+        // all is disabled in the markup and never reaches this.
+        shown: { sighting: true, fp: true, expiration: true },
+        // Bucket index bounds of the brush, or null while it covers the
+        // whole range.
+        brush: null,
+        expanded: false,
+        main: null,
+        nav: null,
+    };
+
+    var SIGHT_ORG_COLOURS = 6;
+    var SIGHT_CURVE_COLOURS = 2;
+
+    /**
+     * @return {Object|null}
+     */
+    function sightRange() {
+        if (!sight.data) {
+            return null;
+        }
+        var found = null;
+        sight.data.ranges.forEach(function (range) {
+            if (range.key === sight.rangeKey) {
+                found = range;
+            }
+        });
+        return found || sight.data.ranges[0];
+    }
+
+    /**
+     * A categorical colour by position, cycling once the palette runs
+     * out. Named variables rather than literals: the canvas resolves
+     * them against the page, so the ramp follows the theme.
+     *
+     * @param {number} index
+     * @param {number} count How many the palette defines
+     * @param {string} name `org` or `curve`
+     * @return {string}
+     */
+    function sightHue(index, count, name) {
+        return 'var(--vp-sight-' + name + '-' + ((index % count) + 1) + ')';
+    }
+
+    /**
+     * The overlay itself: one stacked bar dataset per organisation on
+     * the count axis, one line per decaying model on the score axis,
+     * and a dotted threshold under each line.
+     *
+     * The thresholds are drawn as datasets rather than annotations —
+     * the annotation plugin is not loaded — and labelled by a plugin
+     * declared inline, which is the one thing this chart does that
+     * `value_chart` could not have done for it.
+     *
+     * @param {Element} el
+     * @return {Object}
+     */
+    function buildSightMain(el) {
+        var data = sight.data;
+        var range = sightRange();
+        var datasets = [];
+
+        if (sight.shown.sighting) {
+            range.org.forEach(function (counts, i) {
+                datasets.push({
+                    type: 'bar',
+                    label: data.orgs[i],
+                    data: counts,
+                    backgroundColor: sightHue(i, SIGHT_ORG_COLOURS, 'org'),
+                    stack: 'reports',
+                    yAxisID: 'y',
+                    order: 3,
+                });
+            });
+        }
+        if (sight.shown.fp) {
+            datasets.push({
+                type: 'bar',
+                label: data.labels.falsePositive,
+                data: range.fp,
+                backgroundColor: 'var(--vp-sight-fp)',
+                stack: 'reports',
+                yAxisID: 'y',
+                order: 3,
+            });
+        }
+        if (sight.shown.expiration) {
+            datasets.push({
+                type: 'bar',
+                label: data.labels.expiration,
+                data: range.expiration,
+                backgroundColor: 'var(--vp-sight-exp)',
+                stack: 'reports',
+                yAxisID: 'y',
+                order: 3,
+            });
+        }
+
+        var thresholds = [];
+        range.curves.forEach(function (curve, i) {
+            var colour = sightHue(i, SIGHT_CURVE_COLOURS, 'curve');
+            datasets.push({
+                type: 'line',
+                label: curve.model,
+                data: curve.points,
+                borderColor: colour,
+                backgroundColor: colour,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 3,
+                tension: 0.25,
+                spanGaps: false,
+                yAxisID: 'score',
+                order: 1,
+            });
+            var line = range.labels.map(function () {
+                return curve.threshold;
+            });
+            var label = data.labels.threshold.replace('%s', curve.threshold);
+            datasets.push({
+                type: 'line',
+                label: label,
+                data: line,
+                borderColor: colour,
+                borderWidth: 1,
+                borderDash: [4, 3],
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                yAxisID: 'score',
+                order: 2,
+            });
+            thresholds.push({ value: curve.threshold, text: label });
+        });
+
+        var config = window.VP.chart.resolve({
+            data: { labels: range.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        border: { color: 'var(--bs-border-color)' },
+                        ticks: {
+                            color: 'var(--bs-secondary-color)',
+                            maxRotation: 0,
+                            autoSkipPadding: 24,
+                            font: { size: 10 },
+                        },
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: { color: 'var(--bs-border-color)' },
+                        ticks: {
+                            color: 'var(--bs-secondary-color)',
+                            precision: 0,
+                            font: { size: 10 },
+                        },
+                    },
+                    score: {
+                        position: 'right',
+                        min: 0,
+                        max: 100,
+                        border: { display: false },
+                        grid: { drawOnChartArea: false },
+                        ticks: {
+                            color: 'var(--bs-secondary-color)',
+                            stepSize: 25,
+                            font: { size: 10 },
+                        },
+                    },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        // A stack of ten one-report bars would otherwise
+                        // list ten organisations reporting zero.
+                        filter: function (item) {
+                            return item.parsed.y !== 0
+                                || item.dataset.type === 'line';
+                        },
+                    },
+                },
+            },
+        }, el);
+
+        /*
+         * A dotted line at 60 means nothing until it says 60. Chart.js
+         * has no annotation plugin loaded, so the labels are drawn here
+         * — on a chip of the page's own ground, because a curve passing
+         * under the text is the normal case rather than the unlucky
+         * one.
+         */
+        config.plugins = [{
+            id: 'vpThresholdLabels',
+            afterDatasetsDraw: function (chart) {
+                var scale = chart.scales.score;
+                var ctx = chart.ctx;
+                var style = getComputedStyle(el);
+                var ink = style.getPropertyValue('--bs-secondary-color')
+                    .trim();
+                var ground = style.getPropertyValue('--bs-body-bg').trim();
+                ctx.save();
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                thresholds.forEach(function (threshold) {
+                    var right = chart.chartArea.right - 3;
+                    var y = scale.getPixelForValue(threshold.value);
+                    var width = ctx.measureText(threshold.text).width;
+                    ctx.globalAlpha = 0.88;
+                    ctx.fillStyle = ground;
+                    ctx.fillRect(right - width - 4, y - 7, width + 6, 14);
+                    ctx.globalAlpha = 1;
+                    ctx.fillStyle = ink;
+                    ctx.fillText(threshold.text, right, y);
+                });
+                ctx.restore();
+            },
+        }];
+        config.type = 'bar';
+        return new Chart(el, config);
+    }
+
+    /**
+     * The navigator: every report in the range as one bar per bucket,
+     * with no axes, so the brush above it can be positioned as a plain
+     * fraction of the strip's width.
+     *
+     * @param {Element} el
+     * @return {Object}
+     */
+    function buildSightNav(el) {
+        var range = sightRange();
+        var totals = range.labels.map(function (label, i) {
+            var sum = range.fp[i] + range.expiration[i];
+            range.org.forEach(function (counts) {
+                sum += counts[i];
+            });
+            return sum;
+        });
+        var config = window.VP.chart.resolve({
+            type: 'bar',
+            data: {
+                labels: range.labels,
+                datasets: [{
+                    data: totals,
+                    backgroundColor: 'var(--vp-sight-nav)',
+                    barPercentage: 1,
+                    categoryPercentage: 1,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                layout: { padding: 0 },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                },
+            },
+        }, el);
+        return new Chart(el, config);
+    }
+
+    /**
+     * @param {Element} panel
+     */
+    function updateSightLegend(panel) {
+        var range = sightRange();
+        panel.querySelectorAll('[data-vp-sight-key-org]')
+            .forEach(function (key) {
+                var i = parseInt(key.dataset.vpSightKeyOrg, 10);
+                setText(key, '[data-vp-sight-key-count]', range.orgCounts[i]);
+            });
+        setText(panel, '[data-vp-sight-key-fp]', range.fpCount);
+        setText(panel, '[data-vp-sight-key-exp]', range.expirationCount);
+
+        var axis = panel.querySelector('[data-vp-sight-axis-left]');
+        if (axis) {
+            axis.textContent = range.step === 1
+                ? sight.data.labels.perDay
+                : sight.data.labels.perWeek;
+        }
+    }
+
+    /**
+     * Where the brush currently sits, as dates.
+     *
+     * @return {{from: string, to: string, whole: boolean}}
+     */
+    function sightWindow() {
+        var range = sightRange();
+        var last = range.labels.length - 1;
+        var from = sight.brush ? sight.brush.from : 0;
+        var to = sight.brush ? sight.brush.to : last;
+        return {
+            from: range.starts[from],
+            to: range.ends[to],
+            whole: from === 0 && to === last,
+        };
+    }
+
+    /**
+     * @param {Element} panel
+     */
+    function paintSightBrush(panel) {
+        var range = sightRange();
+        var count = range.labels.length;
+        var from = sight.brush ? sight.brush.from : 0;
+        var to = sight.brush ? sight.brush.to : count - 1;
+        var left = (100 * from) / count;
+        var right = (100 * (count - 1 - to)) / count;
+
+        var maskLeft = panel.querySelector('[data-vp-sight-mask-left]');
+        var maskRight = panel.querySelector('[data-vp-sight-mask-right]');
+        var handle = panel.querySelector('[data-vp-sight-handle]');
+        if (maskLeft) {
+            maskLeft.style.width = left + '%';
+        }
+        if (maskRight) {
+            maskRight.style.width = right + '%';
+        }
+        if (handle) {
+            handle.style.left = left + '%';
+            handle.style.right = right + '%';
+        }
+
+        var window_ = sightWindow();
+        var label = panel.querySelector('[data-vp-sight-window]');
+        if (label) {
+            label.textContent = window_.from + ' → ' + window_.to;
+        }
+    }
+
+    /**
+     * Row visibility in the sightings list, decided in one place: the
+     * brush chooses which rows are candidates and `load the rest`
+     * chooses how many of them are on screen.
+     */
+    function refreshSightList() {
+        var list = document.querySelector('[data-vp-sight-list]');
+        if (!list) {
+            return;
+        }
+        var size = parseInt(list.dataset.vpSightPageSize, 10) || 10;
+        var window_ = sight.data ? sightWindow() : null;
+        var matched = [];
+
+        list.querySelectorAll('tbody tr').forEach(function (row) {
+            var day = row.dataset.vpSightDate;
+            var keep = !window_
+                || (day >= window_.from && day <= window_.to);
+            if (keep) {
+                matched.push(row);
+            }
+            row.classList.add('d-none');
+        });
+
+        var limit = sight.expanded
+            ? matched.length
+            : Math.min(size, matched.length);
+        matched.slice(0, limit).forEach(function (row) {
+            row.classList.remove('d-none');
+        });
+
+        setText(list, '[data-vp-sight-in-range]', matched.length);
+        setText(list, '[data-vp-sight-range-shown]', matched.length);
+        setText(list, '[data-vp-sight-shown]', limit);
+        setText(list, '[data-vp-sight-of]', matched.length);
+
+        var note = list.querySelector('[data-vp-sight-range-note]');
+        if (note) {
+            // The note is the brush's, not the range select's: the
+            // select says what it selected in its own label, and a note
+            // repeating it would be noise on every page load.
+            var narrowed = !!window_ && !window_.whole;
+            note.classList.toggle('d-none', !narrowed);
+            if (narrowed) {
+                setText(note, '[data-vp-sight-range-from]', window_.from);
+                setText(note, '[data-vp-sight-range-to]', window_.to);
+            }
+        }
+
+        var more = list.querySelector('[data-vp-sight-more]');
+        if (more) {
+            more.hidden = limit >= matched.length;
+        }
+
+        // Only a brush can empty this list. A value with no sightings
+        // has its own empty state from the template, and "none in this
+        // range" over it would be a different and false claim.
+        var empty = list.querySelector('[data-vp-sight-empty]');
+        var rows = list.querySelector('[data-vp-sight-rows]');
+        var blank = matched.length === 0;
+        if (empty) {
+            empty.classList.toggle('d-none', !blank);
+        }
+        if (rows) {
+            rows.classList.toggle('d-none', blank);
+        }
+        var foot = list.querySelector('.vp-sight-foot');
+        if (foot) {
+            foot.classList.toggle('d-none', blank);
+        }
+    }
+
+    /**
+     * Redraw everything the chart panel owns, then hand the window to
+     * the list.
+     *
+     * @param {Element} panel
+     */
+    function refreshSight(panel) {
+        if (sight.main) {
+            sight.main.refresh();
+        }
+        if (sight.nav) {
+            sight.nav.refresh();
+        }
+        updateSightLegend(panel);
+        paintSightBrush(panel);
+        refreshSightList();
+    }
+
+    /**
+     * Drag on the navigator strip. A drag that does not move is a
+     * click, and a click clears the brush — the same gesture the
+     * `Clear` button offers, for a reader who never found it.
+     *
+     * @param {Element} panel
+     */
+    function wireSightBrush(panel) {
+        var strip = panel.querySelector('[data-vp-sight-brush]');
+        if (!strip) {
+            return;
+        }
+        var anchor = null;
+
+        function bucketAt(event) {
+            var box = strip.getBoundingClientRect();
+            var count = sightRange().labels.length;
+            var fraction = (event.clientX - box.left) / box.width;
+            var index = Math.floor(fraction * count);
+            return Math.max(0, Math.min(count - 1, index));
+        }
+
+        strip.addEventListener('pointerdown', function (event) {
+            anchor = bucketAt(event);
+            strip.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+
+        strip.addEventListener('pointermove', function (event) {
+            if (anchor === null) {
+                return;
+            }
+            var to = bucketAt(event);
+            sight.brush = {
+                from: Math.min(anchor, to),
+                to: Math.max(anchor, to),
+            };
+            sight.expanded = false;
+            paintSightBrush(panel);
+            refreshSightList();
+        });
+
+        strip.addEventListener('pointerup', function (event) {
+            if (anchor !== null && bucketAt(event) === anchor) {
+                sight.brush = null;
+                sight.expanded = false;
+                paintSightBrush(panel);
+                refreshSightList();
+            }
+            anchor = null;
+        });
+
+        strip.addEventListener('pointercancel', function () {
+            anchor = null;
+        });
+    }
+
+    /**
+     * @param {Element} root Either the whole page or a fragment
+     */
+    function initSightings(root) {
+        var panel = (root || document).querySelector('[data-vp-sight]');
+        if (panel) {
+            var payload = panel.querySelector('[data-vp-sight-data]');
+            if (!payload) {
+                return;
+            }
+            sight.data = JSON.parse(payload.textContent);
+            sight.rangeKey = sight.data['default'];
+            sight.brush = null;
+            sight.expanded = false;
+            sight.shown = { sighting: true, fp: true, expiration: true };
+            panel.querySelectorAll('[data-vp-sight-type]')
+                .forEach(function (button) {
+                    if (button.disabled) {
+                        sight.shown[button.dataset.vpSightType] = false;
+                    }
+                });
+            sight.main = window.VP.chart.boot('vp-sight-main', buildSightMain);
+            sight.nav = window.VP.chart.boot('vp-sight-nav', buildSightNav);
+            wireSightBrush(panel);
+            updateSightLegend(panel);
+            paintSightBrush(panel);
+        }
+        // The list can land before or after the chart, so it is caught
+        // here either way: with the chart's state if there is one, and
+        // with its own untouched rows if there is not yet.
+        refreshSightList();
+    }
+
+    /**
+     * @param {Event} event
+     * @return {boolean} Whether the event was a sightings control
+     */
+    function onSightClick(event) {
+        var panel = document.querySelector('[data-vp-sight]');
+
+        var toggle = event.target.closest('[data-vp-sight-type]');
+        if (toggle && !toggle.disabled && panel) {
+            var key = toggle.dataset.vpSightType;
+            sight.shown[key] = !sight.shown[key];
+            toggle.setAttribute('aria-pressed', String(sight.shown[key]));
+            refreshSight(panel);
+            return true;
+        }
+
+        if (event.target.closest('[data-vp-sight-clear]')) {
+            sight.brush = null;
+            sight.expanded = false;
+            if (panel) {
+                paintSightBrush(panel);
+            }
+            refreshSightList();
+            return true;
+        }
+
+        var more = event.target.closest('[data-vp-sight-more]');
+        if (more) {
+            sight.expanded = true;
+            refreshSightList();
+            return true;
+        }
+
+        return false;
+    }
+
     function init() {
         if (!onValuePage()) {
             return;
@@ -549,6 +1232,10 @@
                 return;
             }
 
+            if (onSightClick(event)) {
+                return;
+            }
+
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
                 expandFacetGroup(more);
@@ -577,6 +1264,20 @@
 
             if (event.target.matches && event.target.matches('[data-vp-col]')) {
                 toggleColumn(event.target);
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-sight-range]')) {
+                // A wider window is a different set of buckets, so a
+                // brush drawn over the old ones no longer points at
+                // anything the reader chose.
+                sight.rangeKey = event.target.value;
+                sight.brush = null;
+                sight.expanded = false;
+                var sightPanel = document.querySelector('[data-vp-sight]');
+                if (sightPanel) {
+                    refreshSight(sightPanel);
+                }
             }
 
             if (event.target.classList
@@ -613,10 +1314,12 @@
             markDisabled(event.target);
             refreshOccurrences();
             refreshAllLists(event.target);
+            initSightings(event.target);
         });
 
         refreshOccurrences();
         refreshAllLists(document);
+        initSightings(document);
     }
 
     if (document.readyState === 'loading') {

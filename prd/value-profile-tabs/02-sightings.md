@@ -248,3 +248,134 @@ in SQL.
 Artifact `S1` is recognisable in the browser: one chart carrying both the bars
 and the curves, a brush that drives the table under it, and a page that states —
 in words, on screen — that a false positive moves no score.
+
+---
+
+## 14. Verification — what was run
+
+Against the Docker stack serving this worktree, as an authenticated user,
+2026-08-25.
+
+1. **`php -l`** over every changed and new file, `node --check` on
+   `value-profile.js`. Clean. Every new file is inside 80 columns; the three
+   over-length lines in the diff are all pre-existing.
+2. **All five endpoints, all four demo values — twenty fetches, twenty 200s**,
+   no PHP notice or warning in any body. Forty content assertions over the
+   returned markup: the sub-lines, both axis captions, the navigator caption,
+   the `fp_moves_nothing` note, the disabled expiration toggle and its reason,
+   four organisation legend keys, both threshold labels, the policy band, the
+   false-positive badge, the em-dash source, `Reported against`, and every
+   panel's empty state on the unknown value.
+3. **The tab driven in a real browser**, both themes, with the fragments served
+   locally so the shipped CSS and JS are what runs. The chart is a live
+   `Chart` instance with 9 datasets over 90 labels, three scales (`x`, `y`,
+   `score`), a score axis capped at 100, and **zero unresolved `var(--…)`
+   colours** — the first bar dataset resolves to `#4c78a8` in light and the
+   palette inverts in dark.
+4. **Every interaction §10 promises.** Toggling *False positives* takes the
+   chart from 9 datasets to 8 and back, and flips `aria-pressed`; the
+   expiration toggle is disabled with its reason. The range select moves
+   between 90 daily buckets and 50 weekly ones, and the axis caption follows
+   it from *per day* to *per week*. A drag on the navigator narrows the list
+   from 47 rows to 29, prints `2025-03-17 → 2025-08-10` in both the note and
+   the window label, and positions the handle at 54%/4%. `load the rest` takes
+   10 rows to 29 and hides itself. `Clear` restores the full window and hides
+   the note.
+5. **The sparse case behaves differently, and correctly.** `8.8.8.8` opens on
+   `All time · from 2024-11-02` with 43 weekly buckets and all 17 rows, not on
+   90 days with 6. Switching to 90 days does drop it to 6, which is the number
+   the range control exists to let the reader discover. The NIDS curve steps up
+   six times over eleven false positives — the tab's whole claim, visible
+   rather than asserted.
+6. **The zero-sightings state**, which no demo value carries, was driven by
+   temporarily emptying the benign rows: the chart keeps its canvas and its
+   series, carries *"Nobody has reported seeing this"* across the axes, reads
+   *Never sighted* in the sub-line, disables all three toggles — and the rail
+   still prints a score, with *"Never sighted — decaying from 2024-11-02"* as
+   its provenance. The fixture was restored and re-verified afterwards.
+7. **No regression on the two tabs this phase touched shared code for.** The
+   Verdict rail's curve chart still builds through the refactored
+   `value_chart.ctp`: 2 datasets, 40 points, zero unresolved colours. The
+   Occurrences facet rail still filters — 6 rows, 21 facet boxes, one facet
+   narrowing to 3, `Clear all` restoring 6 and going inert.
+
+Per `00-shared.md` §9, §12's item 7 is not a claim about a Bootstrap utility in
+dark mode; it is about Chart.js colours, and it was measured as item 3 above.
+
+## 15. Where this differs from the brief above
+
+**The curve is computed from the rows, not drawn beside them.** §5 specified
+`curves` as a literal array of points per model. They are instead derived, with
+MISP's own polynomial — `base × (1 − (t / lifetime) ^ (1 / decay_rate))`, `t`
+being days since the last **type-0** sighting. Three things follow that a
+literal array could not have given:
+
+- the tab's central claim is now true by construction rather than by
+  assertion. A false positive is type 1, so it cannot enter `t`, so it cannot
+  move the line. §6's note describes something the reader can check.
+- the curve's last point *is* the number the rail card prints, so §8's closing
+  sentence — *"the bar under each name is the same number now"* — is not a
+  promise the fixture could quietly break.
+- the Verdict tab's `NIDS decay score` line now comes from the same function.
+  One quantity, two tabs, one shape. It previously had its own hand-drawn
+  array, which disagreed with the rail's own numbers.
+
+**`Last 365 days` is not offered.** §5 listed three ranges. All four demo
+values are younger than 365 days, so that option would have drawn the same
+chart as `All time` behind a different label. The range list is derived: 90
+always, 365 only for a value older than it, all time always. A control that
+changes nothing is worse than one that is absent.
+
+**The brush opens covering the whole range** rather than on the sub-window §7
+illustrates, and the `.vp-filter-note` stays hidden until a drag narrows
+something — the idiom the Overview already uses. A note that always says
+"showing everything" teaches the reader to stop reading it.
+
+**The list's page size is a `load the rest`, not a pager.** §7 asked for
+exactly that, so this is not a deviation, but it is worth recording that the
+Occurrences table's `value_pager` primitive is deliberately *not* reused here:
+47 rows in one panel do not need pages, they need a fold.
+
+**Two corrections to data that predates this phase.** `8.8.8.8`'s five visible
+occurrences carry five distinct owning organisations, while its fact strip and
+`occurrence_stats` both said four — a total smaller than its own visible
+subset. The Add-sighting card's fan-out sentence counts the rows rather than
+trusting the stat, which is how it surfaced; both numbers are now five. And the
+three hand-drawn `*Spark()` helpers were replaced by one that buckets the
+sighting rows, so the Overview's sparkline and this tab cannot disagree about
+how busy the last 90 days were — two of the three previously did.
+
+**One sentence the brief did not ask for.** Three counts with three scopes are
+on screen at once: the toggles count the whole value, the legend counts the
+selected range, and the Reporters card counts every report an organisation
+filed of any type. `CIRCL 4` and `CIRCL 10` are both correct and both visible,
+so the chart panel says which is which rather than leaving the reader to work
+it out.
+
+**A categorical palette, declared in CSS.** Everything else on this page
+colours by meaning. A stack of organisations cannot: the hues carry no argument
+and exist only to be told apart. Six `--vp-sight-org-*` variables are declared
+in `:root` with a dark counterpart, following the precedent `--vp-conflict`
+already set, and cycled by position from JavaScript. No template contains a hex
+value.
+
+## 16. What the live phase still inherits
+
+§11's list is unchanged and none of it was solved here — this phase is fixture
+work, and the derived curve is a model of `getScoreOvertime`, not a call to it.
+One item is now sharper rather than softer:
+
+**The aggregation rule is still undecided, and the fixture now has an opinion.**
+`decayModels` computes one score per value from one row set. Live, ten
+occurrences can carry ten curves per model, and §11 records that there is no
+aggregation rule and that the phase 7 deck proposed *max across occurrences,
+labelled with the occurrence it came from*. The rail card's provenance line —
+*"Last reset by CIRCL on 2025-08-22"* — is the slot that label lands in, and
+`lastResetAt` is the function that would have to become per-occurrence. That
+decision is still to be taken before this tab goes live, not during.
+
+Added by this phase, and small: `sightingSeries` resamples into daily buckets
+under 90 days and weekly ones above. §11 already noted that aligning
+`getScoreOvertime`'s hourly samples to a window means resampling in PHP; the
+bucket-width rule and the `step_label` caption that states it are now written
+down, so the live version has a shape to match rather than one to invent.

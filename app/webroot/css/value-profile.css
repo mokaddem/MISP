@@ -2914,3 +2914,408 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
 tr.vp-occ-deleted .vp-occ-orgdot {
     text-decoration: none;
 }
+
+/* ==================================================================
+ * Sightings tab
+ * ------------------------------------------------------------------
+ * One overlay chart, a navigator strip under it, and the table the
+ * navigator drives.
+ *
+ * The palette is the one genuinely new thing here. Everything else on
+ * this page colours by meaning — malicious red, benign green — but a
+ * stack of organisations is categorical: the hues carry no argument and
+ * exist only to be told apart. They are declared once, cycled by
+ * position in JavaScript, and darkened in the dark theme rather than
+ * lightened, because they sit as filled areas against the page ground
+ * rather than as text on it.
+ * ================================================================== */
+
+:root {
+    --vp-sight-org-1: #4c78a8;
+    --vp-sight-org-2: #72b7b2;
+    --vp-sight-org-3: #54a24b;
+    --vp-sight-org-4: #b279a2;
+    --vp-sight-org-5: #ff9da6;
+    --vp-sight-org-6: #9d755d;
+
+    /*
+     * The two contradicting types keep the page's own vocabulary: a
+     * false positive is the benign case arguing, an expiration is the
+     * quiet one. Neither is a seventh organisation, and neither may be
+     * mistaken for one in a stack.
+     */
+    --vp-sight-fp: var(--vp-ben);
+    --vp-sight-exp: var(--vp-unknown);
+
+    /* The curves are the verdict's own conflict amber and the primary,
+     * so a line is never the same hue as a bar underneath it. */
+    --vp-sight-curve-1: var(--vp-conflict);
+    --vp-sight-curve-2: var(--primary);
+
+    --vp-sight-nav: var(--bs-secondary-color);
+}
+
+[data-bs-theme="dark"] {
+    --vp-sight-org-1: #6d9cc9;
+    --vp-sight-org-2: #8fd4cf;
+    --vp-sight-org-3: #79c46f;
+    --vp-sight-org-4: #cf96c0;
+    --vp-sight-org-5: #ffb9c0;
+    --vp-sight-org-6: #bd9379;
+}
+
+/* ------------------------------------------------------------------
+ * The chart panel
+ * ------------------------------------------------------------------ */
+
+/*
+ * Two scales, two captions. An overlay that labels neither axis is
+ * asking the reader to assume the bars and the line share a scale, and
+ * here they emphatically do not.
+ */
+.vp-sight-axes {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.vp-sight-axis-right {
+    text-align: right;
+}
+
+.vp-sight-main {
+    position: relative;
+    height: 260px;
+}
+
+/*
+ * A value with occurrences but no sightings keeps its axes and says so
+ * across them. Blanking the panel would lose the distinction the rail
+ * beside it depends on: no reports is not the same as no score.
+ */
+.vp-sight-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    background: color-mix(in srgb,
+        var(--bs-body-bg) 72%, transparent);
+    pointer-events: none;
+}
+
+/* ------------------------------------------------------------------
+ * The navigator
+ * ------------------------------------------------------------------ */
+
+.vp-sight-nav {
+    position: relative;
+    height: 40px;
+    margin-top: 4px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-tertiary-bg);
+    overflow: hidden;
+}
+
+.vp-sight-nav > canvas {
+    position: absolute;
+    inset: 0;
+}
+
+.vp-sight-brush {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+/* Outside the window is dimmed rather than hidden: the reader has to be
+ * able to see what they are not looking at, or a brush is just a
+ * shorter chart. */
+.vp-sight-mask {
+    background: color-mix(in srgb,
+        var(--bs-body-bg) 62%, transparent);
+    pointer-events: none;
+}
+
+.vp-sight-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    pointer-events: none;
+}
+
+.vp-sight-nav-caption {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 5px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-nav-window {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.68rem;
+    white-space: nowrap;
+    color: var(--bs-body-color);
+}
+
+/* ------------------------------------------------------------------
+ * Type toggles and the range select
+ * ------------------------------------------------------------------ */
+
+.vp-sight-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+
+.vp-sight-toggle:hover:not(:disabled) {
+    border-color: var(--primary);
+}
+
+/*
+ * Unpressed is the exception, so it is what gets the treatment: the
+ * default state of a type that exists is drawn.
+ */
+.vp-sight-toggle[aria-pressed="false"] {
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-toggle[aria-pressed="false"] .vp-sight-toggle-swatch {
+    background: transparent;
+    border-color: var(--bs-secondary-color);
+}
+
+/*
+ * A type nobody has ever reported keeps its control and its count, and
+ * says why in a title. Hiding it would take away the only place the
+ * page states that no expiration exists for this value.
+ */
+.vp-sight-toggle:disabled {
+    opacity: 0.55;
+}
+
+.vp-sight-toggle-swatch {
+    width: 9px;
+    height: 9px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+}
+
+.vp-sight-swatch-sighting {
+    background: var(--vp-sight-org-1);
+}
+
+.vp-sight-swatch-fp {
+    background: var(--vp-sight-fp);
+}
+
+.vp-sight-swatch-expiration,
+.vp-sight-swatch-exp {
+    background: var(--vp-sight-exp);
+}
+
+.vp-sight-toggle-count {
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-range {
+    width: auto;
+    font-size: 0.72rem;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+/* ------------------------------------------------------------------
+ * The legend
+ * ------------------------------------------------------------------ */
+
+.vp-sight-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--bs-body-color);
+}
+
+.vp-sight-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vp-sight-key > b {
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-key-quiet {
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--vp-sight-hue);
+}
+
+/* A line in the legend is a line, not a block: the reader is matching
+ * it against a stroke on the canvas. */
+.vp-sight-swatch-line {
+    height: 3px;
+    border-radius: 2px;
+}
+
+.vp-sight-swatch-dash {
+    height: 0;
+    border-top: 1px dashed var(--vp-sight-hue);
+    background: none;
+}
+
+/* ------------------------------------------------------------------
+ * The note under the chart
+ * ------------------------------------------------------------------ */
+
+.vp-sight-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 9px 11px;
+    border-radius: 4px;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--bs-body-color);
+}
+
+.vp-sight-note > i {
+    margin-top: 2px;
+    color: var(--primary);
+    font-size: 0.72rem;
+}
+
+/* ------------------------------------------------------------------
+ * The list
+ * ------------------------------------------------------------------ */
+
+.vp-sight-badge {
+    display: inline-block;
+    padding: 1px 7px;
+    border: 1px solid;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.vp-sight-badge-yes {
+    border-color: color-mix(in srgb, var(--vp-sight-org-1) 55%,
+        transparent);
+    color: var(--vp-sight-org-1);
+}
+
+/*
+ * The contradiction has to be visibly different from the row above it,
+ * or a table of forty-seven agreements with one disagreement in it
+ * reads as forty-seven agreements.
+ */
+.vp-sight-badge-no {
+    border-color: color-mix(in srgb, var(--vp-ben) 55%, transparent);
+    background: color-mix(in srgb, var(--vp-ben) 12%, transparent);
+    color: var(--vp-ben-ink);
+}
+
+.vp-sight-badge-exp {
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-against {
+    font-size: 0.74rem;
+    color: var(--bs-body-color);
+}
+
+.vp-sight-against-type {
+    margin-left: 5px;
+    padding: 0 5px;
+    border-radius: 3px;
+    background: var(--bs-tertiary-bg);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.66rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-foot strong {
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}
+
+/* ------------------------------------------------------------------
+ * The decay rail card
+ * ------------------------------------------------------------------ */
+
+/*
+ * Why this model is under its threshold, when the reason is structural
+ * rather than temporal. It sits above the provenance line because it
+ * changes what that line means: "last reset by CIRCL" is encouraging
+ * until you know the reset lands below the threshold anyway.
+ */
+.vp-decay-why {
+    margin-top: 5px;
+    padding: 5px 8px;
+    border-left: 2px solid var(--vp-conflict);
+    background: color-mix(in srgb, var(--vp-conflict) 8%, transparent);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: var(--bs-body-color);
+}
+
+.vp-decay-prov {
+    margin-top: 5px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-sight-legend-note {
+    margin: 6px 0 0;
+    font-size: 0.68rem;
+    line-height: 1.4;
+    color: var(--bs-secondary-color);
+}

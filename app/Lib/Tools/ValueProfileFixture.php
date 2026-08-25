@@ -24,6 +24,22 @@ class ValueProfileFixture
     );
 
     /**
+     * The day the whole fixture is written from. Every relative phrase
+     * on the page — "2 days ago", "yesterday" — is measured against it,
+     * and the sightings series buckets up to it.
+     */
+    const TODAY = '2025-08-24';
+
+    /**
+     * MISP's sighting types, as ints. They are not degrees of one thing:
+     * a sighting supports the value, a false positive contradicts it, an
+     * expiration retires it, and only the first resets a decay clock.
+     */
+    const SIGHTING = 0;
+    const FALSE_POSITIVE = 1;
+    const EXPIRATION = 2;
+
+    /**
      * @param string $value A refanged value, as MISP stores it.
      * @return array
      */
@@ -49,6 +65,14 @@ class ValueProfileFixture
      */
     private static function malicious()
     {
+        $created = '2024-09-14';
+        $rows = self::maliciousSightingRows();
+        $decay = self::decayModels(
+            $rows,
+            $created,
+            self::maliciousModels()
+        );
+
         return array(
             'value' => '185.234.219.24',
             'types' => array(
@@ -164,7 +188,7 @@ class ValueProfileFixture
                 'total' => 47,
                 'fp' => 1,
                 'expiration' => 0,
-                'spark' => self::sightingSpark(),
+                'spark' => self::sightingSpark($rows),
                 'reporters' => array(
                     array('org' => 'CIRCL', 'count' => 21),
                     array('org' => 'CthulhuSPRL.be', 'count' => 14),
@@ -173,22 +197,15 @@ class ValueProfileFixture
                 ),
                 'last' => __('2 days ago'),
             ),
-            'decay' => array(
-                array(
-                    'model' => 'NIDS Simple Decaying Model',
-                    'score' => 78,
-                    'threshold' => 60,
-                    'decayed' => false,
-                    'curve' => self::decayCurveNids(),
-                ),
-                array(
-                    'model' => 'Phishing Model',
-                    'score' => 34,
-                    'threshold' => 50,
-                    'decayed' => true,
-                    'curve' => self::decayCurvePhishing(),
-                ),
-            ),
+            'sighting_rows' => $rows,
+            'sighting_series' => self::sightingSeries($rows, $decay, $created),
+            'sighting_notes' => self::sightingNotes(__(
+                'The false positive on 2025-08-01 leaves both curves'
+                . ' flat. MISP resets the decay clock on type-0 sightings'
+                . ' only, so a contradiction is visible on the axis but'
+                . ' moves no score.'
+            )),
+            'decay' => $decay,
             'warninglists' => array(),
             'warninglists_checked' => 84,
             'correlations' => array(
@@ -212,7 +229,15 @@ class ValueProfileFixture
                 'servers' => 2,
                 'sightingdb' => 1204,
             ),
-            'verdict' => self::maliciousVerdict(),
+            /*
+             * The rail card's second line is the NIDS decay score, and
+             * it is handed in rather than drawn again here: the Verdict
+             * tab and the Sightings tab plot one number two ways, and
+             * deriving it twice is how they would stop agreeing.
+             */
+            'verdict' => self::maliciousVerdict(
+                self::decaySpan($rows, $created, $decay[0])
+            ),
         );
     }
 
@@ -786,9 +811,11 @@ class ValueProfileFixture
      * The glass-box verdict: a disposition plus every signal, conflict and
      * per-organisation stance that produced it.
      *
+     * @param array $nidsCurve The NIDS decay score over the same 90
+     *                         days, computed from the sighting rows
      * @return array
      */
-    private static function maliciousVerdict()
+    private static function maliciousVerdict(array $nidsCurve)
     {
         return array(
             'disposition' => 'MALICIOUS',
@@ -980,7 +1007,7 @@ class ValueProfileFixture
                     'label' => __('NIDS decay score'),
                     'colour' => 'var(--vp-conflict)',
                     'dashed' => true,
-                    'data' => self::decayCurveNids(),
+                    'data' => $nidsCurve,
                 ),
             ),
             'curves_span' => __('90 days'),
@@ -1231,6 +1258,14 @@ class ValueProfileFixture
      */
     private static function conflicted()
     {
+        $created = '2025-02-03';
+        $rows = self::conflictedSightingRows();
+        $decay = self::decayModels(
+            $rows,
+            $created,
+            self::conflictedModels()
+        );
+
         return array(
             'value' => '104.21.34.198',
             'types' => array(
@@ -1342,7 +1377,7 @@ class ValueProfileFixture
                 'total' => 63,
                 'fp' => 9,
                 'expiration' => 2,
-                'spark' => self::conflictedSpark(),
+                'spark' => self::sightingSpark($rows),
                 'reporters' => array(
                     array('org' => 'CIRCL', 'count' => 26),
                     array('org' => 'Botvrij.eu', 'count' => 19),
@@ -1351,22 +1386,16 @@ class ValueProfileFixture
                 ),
                 'last' => __('yesterday'),
             ),
-            'decay' => array(
-                array(
-                    'model' => 'Phishing Model',
-                    'score' => 66,
-                    'threshold' => 50,
-                    'decayed' => false,
-                    'curve' => self::conflictedCurvePhishing(),
-                ),
-                array(
-                    'model' => 'NIDS Simple Decaying Model',
-                    'score' => 41,
-                    'threshold' => 60,
-                    'decayed' => true,
-                    'curve' => self::conflictedCurveNids(),
-                ),
-            ),
+            'sighting_rows' => $rows,
+            'sighting_series' => self::sightingSeries($rows, $decay, $created),
+            'sighting_notes' => self::sightingNotes(__(
+                'Nine of these 63 reports are false positives and two are'
+                . ' expirations, and neither kind touches either curve.'
+                . ' MISP resets the decay clock on type-0 sightings only,'
+                . ' so eleven contradictions are visible on the axis and'
+                . ' none of them is in the score.'
+            )),
+            'decay' => $decay,
             'warninglists' => array(
                 array(
                     'name' => 'List of known Cloudflare IP ranges',
@@ -1898,6 +1927,17 @@ class ValueProfileFixture
                 'reporters' => array(),
                 'last' => null,
             ),
+            /*
+             * Null, not an empty series. There is no attribute here to
+             * date an axis from, so a chart drawn over the last 90 days
+             * would be inventing a window for a value that has none —
+             * the panel renders its empty state instead. That is not the
+             * same as the value with occurrences and no sightings, which
+             * does get axes, and does get a score.
+             */
+            'sighting_rows' => array(),
+            'sighting_series' => null,
+            'sighting_notes' => null,
             'decay' => array(),
             'warninglists' => array(),
             'warninglists_checked' => 84,
@@ -2378,6 +2418,10 @@ class ValueProfileFixture
      */
     private static function benign()
     {
+        $created = '2024-11-02';
+        $rows = self::benignSightingRows();
+        $decay = self::decayModels($rows, $created, self::benignModels());
+
         return array(
             'value' => '8.8.8.8',
             'types' => array(
@@ -2422,8 +2466,8 @@ class ValueProfileFixture
                 ),
                 array(
                     'label' => __('Organisations'),
-                    'value' => '4',
-                    'sub' => __('CIRCL + 3'),
+                    'value' => '5',
+                    'sub' => __('CIRCL + 4'),
                     'tab' => 'verdict',
                 ),
                 array(
@@ -2465,7 +2509,10 @@ class ValueProfileFixture
                 'shown' => 5,
                 'hidden' => 4,
                 'events' => 6,
-                'orgs' => 4,
+                // Five, not four: the five occurrences the viewer can
+                // see already carry five distinct owners, so a total of
+                // four would be smaller than its own visible subset.
+                'orgs' => 5,
                 'deleted' => 1,
             ),
             'occurrence_acl_note' => __(
@@ -2486,7 +2533,7 @@ class ValueProfileFixture
                 'total' => 17,
                 'fp' => 11,
                 'expiration' => 0,
-                'spark' => self::benignSpark(),
+                'spark' => self::sightingSpark($rows),
                 'reporters' => array(
                     array('org' => 'CIRCL', 'count' => 10),
                     array('org' => 'CthulhuSPRL.be', 'count' => 5),
@@ -2494,22 +2541,17 @@ class ValueProfileFixture
                 ),
                 'last' => __('12 days ago'),
             ),
-            'decay' => array(
-                array(
-                    'model' => 'NIDS Simple Decaying Model',
-                    'score' => 4,
-                    'threshold' => 60,
-                    'decayed' => true,
-                    'curve' => self::benignCurveNids(),
-                ),
-                array(
-                    'model' => 'Phishing Model',
-                    'score' => 0,
-                    'threshold' => 50,
-                    'decayed' => true,
-                    'curve' => self::benignCurvePhishing(),
-                ),
-            ),
+            'sighting_rows' => $rows,
+            'sighting_series' => self::sightingSeries($rows, $decay, $created),
+            'sighting_notes' => self::sightingNotes(__(
+                'Eleven of these 17 reports are false positives, and the'
+                . ' NIDS curve steps up six times — once per actual'
+                . ' sighting, never once per contradiction. On a public'
+                . ' resolver that is the whole story: the reports that'
+                . ' disagree outnumber the ones that agree, and the score'
+                . ' has never heard about it.'
+            )),
+            'decay' => $decay,
             'warninglists' => array(
                 array(
                     'name' => 'List of known IPv4 public DNS resolvers',
@@ -2530,7 +2572,9 @@ class ValueProfileFixture
                 'servers' => 1,
                 'sightingdb' => 0,
             ),
-            'verdict' => self::benignVerdict(),
+            'verdict' => self::benignVerdict(
+                self::decaySpan($rows, $created, $decay[0])
+            ),
         );
     }
 
@@ -2995,9 +3039,11 @@ class ValueProfileFixture
      * the malicious verdict's 84 is on, which is what makes the two
      * comparable at a glance.
      *
+     * @param array $nidsCurve The NIDS decay score over the same 90
+     *                         days, computed from the sighting rows
      * @return array
      */
-    private static function benignVerdict()
+    private static function benignVerdict(array $nidsCurve)
     {
         return array(
             'disposition' => 'BENIGN',
@@ -3226,7 +3272,7 @@ class ValueProfileFixture
                     'label' => __('NIDS decay score'),
                     'colour' => 'var(--vp-conflict)',
                     'dashed' => true,
-                    'data' => self::benignCurveNids(),
+                    'data' => $nidsCurve,
                 ),
             ),
             'curves_span' => __('90 days'),
@@ -3458,97 +3504,6 @@ class ValueProfileFixture
     }
 
     /**
-     * 90 days of sightings, bucketed into 40 columns.
-     *
-     * @return array
-     */
-    private static function sightingSpark()
-    {
-        return array(
-            0, 1, 0, 0, 2, 1, 0, 3, 1, 0,
-            0, 0, 1, 2, 4, 1, 0, 0, 1, 0,
-            2, 3, 1, 0, 0, 1, 0, 0, 2, 1,
-            0, 1, 3, 5, 2, 1, 0, 2, 4, 1,
-        );
-    }
-
-    /**
-     * Decay score over the same 90 days: sightings bump it back up.
-     *
-     * @return array
-     */
-    private static function decayCurveNids()
-    {
-        return array(
-            92, 90, 87, 85, 88, 86, 83, 91, 88, 85,
-            82, 79, 81, 84, 90, 87, 84, 81, 83, 80,
-            85, 88, 86, 83, 80, 82, 79, 76, 81, 79,
-            76, 78, 84, 90, 88, 85, 82, 85, 90, 78,
-        );
-    }
-
-    /**
-     * @return array
-     */
-    private static function decayCurvePhishing()
-    {
-        return array(
-            71, 68, 65, 62, 64, 61, 58, 63, 60, 57,
-            54, 51, 53, 56, 61, 58, 55, 52, 54, 51,
-            55, 58, 55, 52, 49, 51, 48, 45, 49, 47,
-            44, 46, 51, 56, 53, 50, 47, 49, 53, 34,
-        );
-    }
-
-    /**
-     * A CDN edge is sighted constantly, in a way a dedicated C2 is not:
-     * a high floor rather than bursts.
-     *
-     * @return array
-     */
-    private static function conflictedSpark()
-    {
-        return array(
-            1, 2, 1, 3, 2, 1, 2, 4, 2, 1,
-            2, 1, 3, 2, 1, 0, 1, 2, 3, 2,
-            1, 2, 5, 3, 2, 1, 2, 1, 3, 4,
-            2, 1, 2, 3, 6, 4, 2, 3, 5, 3,
-        );
-    }
-
-    /**
-     * Two phishing waves keep the score alive: it decays between them
-     * and is bumped back over the threshold each time.
-     *
-     * @return array
-     */
-    private static function conflictedCurvePhishing()
-    {
-        return array(
-            58, 55, 52, 49, 47, 44, 42, 55, 52, 49,
-            47, 44, 42, 40, 38, 36, 34, 46, 44, 41,
-            39, 37, 35, 33, 31, 44, 42, 40, 38, 36,
-            34, 32, 48, 62, 71, 68, 65, 70, 74, 66,
-        );
-    }
-
-    /**
-     * The NIDS model has no phishing bump to carry it, so it crosses its
-     * threshold and stays under.
-     *
-     * @return array
-     */
-    private static function conflictedCurveNids()
-    {
-        return array(
-            74, 71, 69, 66, 64, 61, 59, 66, 63, 61,
-            58, 56, 54, 51, 49, 47, 45, 52, 50, 48,
-            46, 44, 42, 40, 38, 46, 44, 42, 40, 38,
-            36, 35, 42, 50, 55, 52, 49, 51, 53, 41,
-        );
-    }
-
-    /**
      * The weight of each case over the same 90 days. They cross: the
      * warninglist entry landed before the second phishing wave, so for
      * six weeks the benign reading was the stronger one.
@@ -3579,22 +3534,6 @@ class ValueProfileFixture
     }
 
     /**
-     * A resolver is sighted rarely and unevenly — it is nobody's
-     * hunting target, so what shows up is incidental.
-     *
-     * @return array
-     */
-    private static function benignSpark()
-    {
-        return array(
-            0, 0, 1, 0, 0, 0, 2, 0, 0, 0,
-            1, 0, 0, 0, 0, 3, 0, 0, 0, 1,
-            0, 0, 0, 0, 2, 0, 0, 0, 0, 0,
-            1, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-        );
-    }
-
-    /**
      * Support for the benign reading. Flat and unremarkable until
      * 2025-06-24, when the address was added to the public-resolver
      * warninglist and the profile learned in one step what the analysts
@@ -3612,33 +3551,768 @@ class ValueProfileFixture
         );
     }
 
+    /* ==================================================================
+     * Sightings
+     * ==================================================================
+     * The Sightings tab draws one chart over two axes: the reports that
+     * arrived, and the decay score they move. Everything below is
+     * derived from one list of rows per value — the bars, the curve, the
+     * legend, the table and the Overview's sparkline all come out of the
+     * same array, so they cannot tell five different stories about the
+     * same 47 reports.
+     *
+     * The curve in particular is computed rather than drawn, using
+     * MISP's own polynomial: `base * (1 - (t / lifetime) ^ (1 /
+     * decay_rate))`, with `t` the days since the last sighting of type
+     * 0. That is what makes the tab's central claim provable rather than
+     * asserted — a false positive is type 1, so it cannot appear in `t`,
+     * so it cannot move the line.
+     */
+
     /**
-     * Nothing bumps it back up, so it decays the whole way and stays
-     * under the threshold — the shape the malicious curve only ever
-     * threatens to take.
+     * One sighting, in the shape `Sighting::listSightings` returns.
+     *
+     * `type` stays MISP's int rather than a label because the three are
+     * not degrees of one thing: only type 0 moves a score.
+     *
+     * @param string $date `Y-m-d H:i`
+     * @param string $org Reporting organisation
+     * @param int $type 0 sighting, 1 false positive, 2 expiration
+     * @param int $eventId The occurrence it was filed against — a
+     *                     value-scoped list otherwise loses which of ten
+     *                     occurrences was actually seen
+     * @param string $attributeType
+     * @param string|null $source Free text the reporter supplied, which
+     *                            most sightings do not carry
+     * @return array
+     */
+    private static function sightingRow(
+        $date,
+        $org,
+        $type,
+        $eventId,
+        $attributeType,
+        $source = null
+    ) {
+        return array(
+            'date' => $date,
+            'org' => $org,
+            'type' => $type,
+            'source' => $source,
+            'against' => array(
+                'event' => $eventId,
+                'type' => $attributeType,
+            ),
+        );
+    }
+
+    /**
+     * Whole days from one date to another, negative if $to is earlier.
+     *
+     * Explicitly UTC so a bucket boundary cannot move when the host's
+     * clocks do — every date in this class is a literal, and the day
+     * arithmetic over them has to be as fixed as they are.
+     *
+     * @param string $from `Y-m-d`
+     * @param string $to `Y-m-d`
+     * @return int
+     */
+    private static function dayDiff($from, $to)
+    {
+        $utc = new DateTimeZone('UTC');
+        $a = new DateTimeImmutable($from . ' 00:00:00', $utc);
+        $b = new DateTimeImmutable($to . ' 00:00:00', $utc);
+        return (int)$a->diff($b)->format('%r%a');
+    }
+
+    /**
+     * @param string $date `Y-m-d`
+     * @param int $days
+     * @return string
+     */
+    private static function addDays($date, $days)
+    {
+        $utc = new DateTimeZone('UTC');
+        $d = new DateTimeImmutable($date . ' 00:00:00', $utc);
+        return $d->modify(($days >= 0 ? '+' : '') . $days . ' days')
+            ->format('Y-m-d');
+    }
+
+    /**
+     * MISP's default decay function, as `DecayingModelBase` computes it.
+     *
+     * @param array $model `base`, `lifetime`, `decay_rate`
+     * @param int $days Days since the last type-0 sighting
+     * @return int
+     */
+    private static function decayScore(array $model, $days)
+    {
+        if ($days >= $model['lifetime']) {
+            return 0;
+        }
+        if ($days <= 0) {
+            return (int)$model['base'];
+        }
+        $decayed = pow(
+            $days / $model['lifetime'],
+            1 / $model['decay_rate']
+        );
+        return (int)round($model['base'] * (1 - $decayed));
+    }
+
+    /**
+     * The last thing that reset the decay clock at or before `$at`.
+     *
+     * An attribute nobody has sighted still has a score, because MISP
+     * decays it from its own timestamp — so a value with no sightings
+     * falls back to `$created` rather than having no curve at all.
+     *
+     * @param array $rows
+     * @param string $created `Y-m-d`
+     * @param string $at `Y-m-d`
+     * @return array `date`, `org`, `days`
+     */
+    private static function lastResetAt(array $rows, $created, $at)
+    {
+        $reset = array('date' => $created, 'org' => null);
+        foreach ($rows as $row) {
+            if ($row['type'] !== self::SIGHTING) {
+                continue;
+            }
+            $day = substr($row['date'], 0, 10);
+            if (self::dayDiff($day, $at) < 0) {
+                continue;
+            }
+            if (self::dayDiff($reset['date'], $day) >= 0) {
+                $reset = array('date' => $day, 'org' => $row['org']);
+            }
+        }
+        $reset['days'] = self::dayDiff($reset['date'], $at);
+        return $reset;
+    }
+
+    /**
+     * The decaying models that apply to a value, with today's score and
+     * its provenance filled in rather than asserted.
+     *
+     * `decayed` is derived from the score, and `permanently_under` from
+     * the base: a model whose base score is below its own threshold can
+     * never cross it for this value however often it is sighted, and
+     * that is a different claim from "it has decayed", so the rail card
+     * gets to say which one it is looking at.
+     *
+     * @param array $rows
+     * @param string $created `Y-m-d`, the attribute's first seen
+     * @param array $specs `model`, `base`, `lifetime`, `decay_rate`,
+     *                     `threshold`
+     * @return array
+     */
+    private static function decayModels(array $rows, $created, array $specs)
+    {
+        $models = array();
+        foreach ($specs as $spec) {
+            $reset = self::lastResetAt($rows, $created, self::TODAY);
+            $spec['score'] = self::decayScore($spec, $reset['days']);
+            $spec['decayed'] = $spec['score'] < $spec['threshold'];
+            $spec['permanently_under'] = $spec['base'] < $spec['threshold'];
+            $spec['reset_on'] = $reset['date'];
+            $spec['reset_by'] = $reset['org'];
+            $models[] = $spec;
+        }
+        return $models;
+    }
+
+    /**
+     * One model's score on each of the given dates.
+     *
+     * @param array $rows
+     * @param string $created
+     * @param array $model
+     * @param array $dates `Y-m-d` each
+     * @return array
+     */
+    private static function decayCurve(
+        array $rows,
+        $created,
+        array $model,
+        array $dates
+    ) {
+        $points = array();
+        foreach ($dates as $date) {
+            if (self::dayDiff($created, $date) < 0) {
+                // Before the attribute existed there is no score to
+                // draw, and zero is a score. A gap is the honest mark.
+                $points[] = null;
+                continue;
+            }
+            $reset = self::lastResetAt($rows, $created, $date);
+            $points[] = self::decayScore($model, $reset['days']);
+        }
+        return $points;
+    }
+
+    /**
+     * The same curve resampled to a fixed number of points over the last
+     * 90 days, which is the shape the Verdict tab's rail card draws.
+     *
+     * The Verdict tab and the Sightings tab therefore plot one number
+     * two ways rather than two numbers under one name.
+     *
+     * @param array $rows
+     * @param string $created
+     * @param array $model
+     * @param int $points
+     * @return array
+     */
+    private static function decaySpan(
+        array $rows,
+        $created,
+        array $model,
+        $points = 40
+    ) {
+        $dates = array();
+        for ($i = 0; $i < $points; $i++) {
+            $daysAgo = (int)round((($points - 1 - $i) * 90) / ($points - 1));
+            $dates[] = self::addDays(self::TODAY, -$daysAgo);
+        }
+        return self::decayCurve($rows, $created, $model, $dates);
+    }
+
+    /**
+     * The Overview card's sparkline: 90 days in 40 columns, counting
+     * sightings only.
+     *
+     * Derived from the same rows the tab charts, so the Overview and the
+     * Sightings tab cannot disagree about how busy the last 90 days
+     * were.
+     *
+     * @param array $rows
+     * @return array
+     */
+    private static function sightingSpark(array $rows)
+    {
+        $columns = 40;
+        $spark = array_fill(0, $columns, 0);
+        $from = self::addDays(self::TODAY, -89);
+        foreach ($rows as $row) {
+            if ($row['type'] !== self::SIGHTING) {
+                continue;
+            }
+            $offset = self::dayDiff($from, substr($row['date'], 0, 10));
+            if ($offset < 0) {
+                continue;
+            }
+            $column = (int)floor(($offset * $columns) / 90);
+            $spark[min($column, $columns - 1)]++;
+        }
+        return $spark;
+    }
+
+    /**
+     * The tab's chart data: the rows bucketed per range, and each
+     * model's score sampled onto the same axis.
+     *
+     * Three things are worth stating about the shape.
+     *
+     * `by_org` is positional, aligned with `orgs`, because Chart.js
+     * wants one dataset per organisation and a stack order that does not
+     * change between buckets.
+     *
+     * A range is only offered when it is a window this value can
+     * actually be looked at through: `Last 365 days` is not listed for a
+     * value that has existed for 344, because it would draw the same
+     * chart as `All time` behind a different label, and a control that
+     * changes nothing is worse than one that is absent.
+     *
+     * The default range is the narrowest one that holds every sighting.
+     * A sparse value defaulting to 90 days is a nearly empty chart, and
+     * the reader would have to discover the control to find out it is
+     * not the whole truth.
+     *
+     * @param array $rows
+     * @param array $models Already through `decayModels`
+     * @param string $created `Y-m-d`, the attribute's first seen
+     * @return array
+     */
+    private static function sightingSeries(array $rows, array $models, $created)
+    {
+        $orgs = array();
+        $totals = array(
+            'total' => count($rows),
+            'sighting' => 0,
+            'fp' => 0,
+            'expiration' => 0,
+        );
+        $latest = null;
+        foreach ($rows as $row) {
+            $orgs[$row['org']] = ($orgs[$row['org']] ?? 0) + 1;
+            if ($row['type'] === self::FALSE_POSITIVE) {
+                $totals['fp']++;
+            } elseif ($row['type'] === self::EXPIRATION) {
+                $totals['expiration']++;
+            } else {
+                $totals['sighting']++;
+            }
+            if ($latest === null || strcmp($row['date'], $latest) > 0) {
+                $latest = $row['date'];
+            }
+        }
+        arsort($orgs);
+
+        $age = self::dayDiff($created, self::TODAY);
+        $windows = array(90);
+        if ($age > 365) {
+            $windows[] = 365;
+        }
+        $windows[] = null;
+
+        $ranges = array();
+        $default = null;
+        foreach ($windows as $days) {
+            $range = self::sightingRange(
+                $rows,
+                $models,
+                $created,
+                $days,
+                array_keys($orgs)
+            );
+            $ranges[] = $range;
+            if ($default === null && $range['in_range'] === $totals['total']) {
+                $default = $range['key'];
+            }
+        }
+
+        return array(
+            'today' => self::TODAY,
+            'first' => $created,
+            'orgs' => array_keys($orgs),
+            'org_counts' => $orgs,
+            'totals' => $totals,
+            'last' => $latest,
+            'ranges' => $ranges,
+            // A value with no sightings still has ranges to look at, and
+            // the last of them is the one that holds its whole history.
+            'default_range' => $default === null ? 'all' : $default,
+        );
+    }
+
+    /**
+     * One range of the series: its buckets, its curves and its label.
+     *
+     * @param array $rows
+     * @param array $models
+     * @param string $created
+     * @param int|null $days null for all time
+     * @param array $orgs Stack order
+     * @return array
+     */
+    private static function sightingRange(
+        array $rows,
+        array $models,
+        $created,
+        $days,
+        array $orgs
+    ) {
+        $from = $days === null
+            ? $created
+            : self::addDays(self::TODAY, -($days - 1));
+        // Daily columns only make sense while there are fewer of them
+        // than the chart has pixels; past a quarter the bucket is a week
+        // and the caption says so rather than leaving the reader to
+        // infer it from bar widths.
+        $step = ($days !== null && $days <= 90) ? 1 : 7;
+
+        $buckets = array();
+        $cursor = self::TODAY;
+        while (self::dayDiff($from, $cursor) >= 0) {
+            $start = self::addDays($cursor, -($step - 1));
+            if (self::dayDiff($from, $start) < 0) {
+                $start = $from;
+            }
+            array_unshift($buckets, array(
+                'from' => $start,
+                'to' => $cursor,
+                'label' => self::bucketLabel($cursor),
+                'by_org' => array_fill(0, count($orgs), 0),
+                'fp' => 0,
+                'expiration' => 0,
+            ));
+            $cursor = self::addDays($start, -1);
+        }
+        $buckets[count($buckets) - 1]['label'] = __('today');
+
+        $index = array_flip($orgs);
+        $inRange = 0;
+        foreach ($rows as $row) {
+            $day = substr($row['date'], 0, 10);
+            if (self::dayDiff($from, $day) < 0) {
+                continue;
+            }
+            foreach ($buckets as $i => $bucket) {
+                if (self::dayDiff($day, $bucket['to']) < 0) {
+                    continue;
+                }
+                if (self::dayDiff($bucket['from'], $day) < 0) {
+                    continue;
+                }
+                $inRange++;
+                if ($row['type'] === self::FALSE_POSITIVE) {
+                    $buckets[$i]['fp']++;
+                } elseif ($row['type'] === self::EXPIRATION) {
+                    $buckets[$i]['expiration']++;
+                } else {
+                    $buckets[$i]['by_org'][$index[$row['org']]]++;
+                }
+                break;
+            }
+        }
+
+        $dates = array_column($buckets, 'to');
+        $curves = array();
+        foreach ($models as $model) {
+            $curves[] = array(
+                'model' => $model['model'],
+                'threshold' => $model['threshold'],
+                'points' => self::decayCurve($rows, $created, $model, $dates),
+            );
+        }
+
+        return array(
+            'key' => $days === null ? 'all' : (string)$days,
+            'label' => $days === null
+                ? sprintf(__('All time · from %s'), $created)
+                : sprintf(__('Last %s days'), $days),
+            'days' => $days,
+            'from' => $from,
+            'to' => self::TODAY,
+            'step' => $step,
+            'step_label' => $step === 1
+                ? __('one column per day')
+                : __('one column per week'),
+            'buckets' => $buckets,
+            'curves' => $curves,
+            'in_range' => $inRange,
+        );
+    }
+
+    /**
+     * @param string $date `Y-m-d`
+     * @return string
+     */
+    private static function bucketLabel($date)
+    {
+        $d = new DateTimeImmutable(
+            $date . ' 00:00:00',
+            new DateTimeZone('UTC')
+        );
+        return $d->format('j M');
+    }
+
+    /**
+     * The two sentences the tab must not omit, per value.
+     *
+     * @param string $fp What the value's own false positives did
+     * @return array
+     */
+    private static function sightingNotes($fp)
+    {
+        return array(
+            'fp_moves_nothing' => $fp,
+            'policy' => __(
+                'Sightings you can see. This instance\'s sighting policy'
+                . ' hides sightings reported by other organisations on'
+                . ' events your organisation does not own, so this count'
+                . ' is yours, not the instance\'s.'
+            ),
+        );
+    }
+
+    /**
+     * The models that score the C2 address.
+     *
+     * NIDS keeps it well above threshold because it is sighted every few
+     * days; the Phishing model's base score for this value is 34, which
+     * is below its own threshold of 50, so no amount of sighting can
+     * ever carry it over.
      *
      * @return array
      */
-    private static function benignCurveNids()
+    private static function maliciousModels()
     {
         return array(
-            41, 39, 37, 35, 33, 31, 29, 34, 32, 30,
-            28, 26, 24, 22, 20, 19, 17, 16, 15, 14,
-            13, 12, 11, 10, 10, 9, 9, 8, 8, 7,
-            7, 6, 6, 6, 5, 5, 5, 4, 4, 4,
+            array(
+                'model' => 'NIDS Simple Decaying Model',
+                'base' => 78,
+                'lifetime' => 14,
+                'decay_rate' => 0.3,
+                'threshold' => 60,
+            ),
+            array(
+                'model' => 'Phishing Model',
+                'base' => 34,
+                'lifetime' => 21,
+                'decay_rate' => 0.3,
+                'threshold' => 50,
+            ),
         );
     }
 
     /**
      * @return array
      */
-    private static function benignCurvePhishing()
+    private static function conflictedModels()
     {
         return array(
-            28, 26, 24, 22, 20, 18, 17, 21, 19, 17,
-            15, 14, 12, 11, 10, 9, 8, 7, 7, 6,
-            6, 5, 5, 4, 4, 3, 3, 3, 2, 2,
-            2, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+            array(
+                'model' => 'Phishing Model',
+                'base' => 66,
+                'lifetime' => 21,
+                'decay_rate' => 0.3,
+                'threshold' => 50,
+            ),
+            array(
+                'model' => 'NIDS Simple Decaying Model',
+                'base' => 41,
+                'lifetime' => 14,
+                'decay_rate' => 0.3,
+                'threshold' => 60,
+            ),
         );
+    }
+
+    /**
+     * @return array
+     */
+    private static function benignModels()
+    {
+        return array(
+            array(
+                'model' => 'NIDS Simple Decaying Model',
+                'base' => 18,
+                'lifetime' => 14,
+                'decay_rate' => 0.3,
+                'threshold' => 60,
+            ),
+            array(
+                'model' => 'Phishing Model',
+                'base' => 0,
+                'lifetime' => 21,
+                'decay_rate' => 0.3,
+                'threshold' => 50,
+            ),
+        );
+    }
+
+    /**
+     * Expand a row table into sighting rows.
+     *
+     * The tables are written positionally because 127 of them read as a
+     * table and not as 127 objects; this is where the columns get their
+     * names back.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function sightingRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = self::sightingRow(
+                $row[0],
+                $row[1],
+                $row[2],
+                $row[3],
+                $row[4],
+                isset($row[5]) ? $row[5] : null
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * 47 reports on the C2 address, every one of them inside the
+     * last 90 days: the value sat in MISP for eight months before
+     * anybody said they had seen it. That is the reading `All time`
+     * exists to give, and it is not one the 90-day window can.
+     *
+     * One of the 47 is a false positive, on 2025-08-01, so the
+     * chart has a contradiction to draw and the curve has a chance
+     * to visibly not move.
+     *
+     * Columns: date · organisation · type · event · attribute
+     * type · source.
+     *
+     * @return array
+     */
+    private static function maliciousSightingRows()
+    {
+        return self::sightingRows(array(
+            array('2025-05-27 17:52', 'CIRCL', 0, 1279, 'domain|ip'),
+            array('2025-06-01 06:19', 'CIRCL', 0, 1265, 'ip-dst'),
+            array('2025-06-02 16:13', 'CthulhuSPRL.be', 0, 1265, 'ip-dst'),
+            array('2025-06-10 02:06', 'CthulhuSPRL.be', 0, 1265, 'ip-dst'),
+            array('2025-06-13 06:30', 'Team-CIRCL', 0, 1279, 'domain|ip'),
+            array('2025-06-14 10:04', 'CthulhuSPRL.be', 0, 1265, 'ip-dst'),
+            array('2025-06-14 22:35', 'CIRCL', 0, 1272, 'ip-src'),
+            array('2025-06-18 03:42', 'CthulhuSPRL.be', 0, 1279, 'domain|ip'),
+            array('2025-06-18 05:50', 'Team-CIRCL', 0, 1251, 'ip-dst'),
+            array('2025-06-18 19:28', 'CthulhuSPRL.be', 0, 1251, 'ip-dst'),
+            array('2025-06-19 10:08', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-06-19 20:06', 'Team-CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-06-20 10:00', 'CIRCL', 0, 1251, 'ip-dst'),
+            array('2025-06-20 14:05', 'CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-06-22 07:37', 'CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-06-22 19:25', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-07-01 05:24', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-07-02 12:08', 'CthulhuSPRL.be', 0, 1284, 'ip-dst'),
+            array('2025-07-04 14:06', 'ORGNAME', 0, 1279, 'domain|ip'),
+            array('2025-07-09 00:31', 'CIRCL', 0, 1265, 'ip-dst'),
+            array('2025-07-15 04:52', 'CthulhuSPRL.be', 0, 1279, 'domain|ip'),
+            array('2025-07-15 12:42', 'CthulhuSPRL.be', 0, 1279, 'domain|ip'),
+            array('2025-07-15 17:28', 'Team-CIRCL', 0, 1272, 'ip-src'),
+            array('2025-07-16 11:58', 'Team-CIRCL', 0, 1279, 'domain|ip'),
+            array('2025-07-19 20:58', 'CthulhuSPRL.be', 0, 1251, 'ip-dst'),
+            array('2025-07-25 19:27', 'CthulhuSPRL.be', 0, 1291, 'ip-dst'),
+            array('2025-07-25 22:16', 'ORGNAME', 0, 1265, 'ip-dst'),
+            array('2025-07-29 16:35', 'Team-CIRCL', 0, 1265, 'ip-dst'),
+            array('2025-08-01 11:47', 'ORGNAME', 1, 1265, 'ip-dst', 'triage'),
+            array('2025-08-11 01:23', 'CthulhuSPRL.be', 0, 1284, 'ip-dst'),
+            array('2025-08-11 21:08', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-08-12 01:00', 'CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-08-15 10:46', 'ORGNAME', 0, 1279, 'domain|ip'),
+            array('2025-08-16 07:46', 'CthulhuSPRL.be', 0, 1284, 'ip-dst'),
+            array('2025-08-17 09:41', 'CthulhuSPRL.be', 0, 1251, 'ip-dst'),
+            array('2025-08-18 07:20', 'CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-08-18 20:41', 'CIRCL', 0, 1279, 'domain|ip'),
+            array('2025-08-19 01:43', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-08-19 05:41', 'CIRCL', 0, 1291, 'ip-dst'),
+            array('2025-08-19 17:27', 'CIRCL', 0, 1251, 'ip-dst'),
+            array('2025-08-20 02:24', 'CthulhuSPRL.be', 0, 1279, 'domain|ip'),
+            array('2025-08-20 10:35', 'Team-CIRCL', 0, 1272, 'ip-src'),
+            array('2025-08-21 08:09', 'CIRCL', 0, 1284, 'ip-dst'),
+            array('2025-08-21 20:40', 'CIRCL', 0, 1272, 'ip-src'),
+            array('2025-08-21 23:13', 'Team-CIRCL', 0, 1251, 'ip-dst'),
+            array('2025-08-22 08:03', 'CIRCL', 0, 1284, 'ip-dst', 'sightingdb'),
+            array('2025-08-22 16:20', 'CIRCL', 0, 1279, 'domain|ip'),
+        ));
+    }
+
+    /**
+     * 63 reports on the CDN edge, spread over six months rather
+     * than bunched: a shared address is sighted by whoever happens
+     * to be looking at the time. Nine false positives and two
+     * expirations, so this is the value where all three type
+     * toggles have something to toggle.
+     *
+     * Columns: date · organisation · type · event · attribute
+     * type · source.
+     *
+     * @return array
+     */
+    private static function conflictedSightingRows()
+    {
+        return self::sightingRows(array(
+            array('2025-02-05 21:15', 'Botvrij.eu', 0, 1388, 'ip-dst'),
+            array('2025-02-10 01:58', 'CthulhuSPRL.be', 0, 1309, 'domain|ip'),
+            array('2025-02-15 11:20', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-02-15 11:53', 'CthulhuSPRL.be', 0, 1388, 'ip-dst'),
+            array('2025-02-21 15:55', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-02-25 05:56', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-03-17 10:20', 'Botvrij.eu', 0, 1388, 'ip-dst'),
+            array('2025-03-17 14:44', 'CthulhuSPRL.be', 0, 1341, 'ip-src'),
+            array('2025-03-19 14:02', 'ORGNAME', 1, 1341, 'ip-src'),
+            array('2025-04-01 03:58', 'CIRCL', 0, 1309, 'domain|ip'),
+            array('2025-04-08 01:03', 'CIRCL', 0, 1309, 'domain|ip'),
+            array('2025-04-11 01:37', 'CthulhuSPRL.be', 0, 1341, 'ip-src'),
+            array('2025-04-11 05:41', 'CIRCL', 0, 1388, 'ip-dst'),
+            array('2025-04-14 03:09', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-04-18 01:50', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-04-21 19:27', 'Botvrij.eu', 0, 1388, 'ip-dst'),
+            array('2025-04-23 06:34', 'Botvrij.eu', 0, 1341, 'ip-src'),
+            array('2025-04-26 22:33', 'Botvrij.eu', 0, 1341, 'ip-src'),
+            array('2025-04-27 09:31', 'CthulhuSPRL.be', 1, 1309, 'domain|ip'),
+            array('2025-04-28 12:29', 'CIRCL', 0, 1402, 'ip-dst'),
+            array('2025-04-30 04:59', 'ORGNAME', 0, 1402, 'ip-dst'),
+            array('2025-05-08 16:55', 'Botvrij.eu', 1, 1388, 'ip-dst',
+                'allowlist'),
+            array('2025-05-12 19:07', 'Botvrij.eu', 0, 1402, 'ip-dst'),
+            array('2025-05-13 02:33', 'Botvrij.eu', 0, 1402, 'ip-dst'),
+            array('2025-05-17 17:29', 'CthulhuSPRL.be', 0, 1388, 'ip-dst'),
+            array('2025-05-30 10:12', 'CIRCL', 1, 1402, 'ip-dst'),
+            array('2025-06-02 03:14', 'CIRCL', 2, 1341, 'ip-src'),
+            array('2025-06-09 03:06', 'Botvrij.eu', 0, 1309, 'domain|ip'),
+            array('2025-06-10 08:39', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-06-12 06:43', 'Botvrij.eu', 0, 1309, 'domain|ip'),
+            array('2025-06-14 08:44', 'Botvrij.eu', 1, 1402, 'domain|ip'),
+            array('2025-06-18 22:07', 'CIRCL', 0, 1388, 'ip-dst'),
+            array('2025-06-20 11:15', 'CIRCL', 0, 1309, 'domain|ip'),
+            array('2025-06-21 08:50', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-06-24 09:01', 'Botvrij.eu', 0, 1402, 'domain|ip'),
+            array('2025-06-24 23:54', 'Botvrij.eu', 0, 1402, 'ip-dst'),
+            array('2025-06-25 00:29', 'Botvrij.eu', 0, 1402, 'ip-dst'),
+            array('2025-06-25 23:14', 'CthulhuSPRL.be', 0, 1388, 'ip-dst'),
+            array('2025-06-29 19:20', 'CIRCL', 1, 1388, 'ip-dst', 'allowlist'),
+            array('2025-07-01 10:14', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-07-10 12:50', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-07-11 07:58', 'CthulhuSPRL.be', 1, 1341, 'ip-src'),
+            array('2025-07-13 08:38', 'CIRCL', 0, 1341, 'ip-src'),
+            array('2025-07-15 04:28', 'CIRCL', 0, 1309, 'domain|ip'),
+            array('2025-07-16 11:43', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-07-21 01:57', 'CthulhuSPRL.be', 0, 1341, 'ip-src'),
+            array('2025-07-24 20:28', 'Botvrij.eu', 0, 1402, 'domain|ip'),
+            array('2025-07-25 01:49', 'ORGNAME', 0, 1309, 'domain|ip'),
+            array('2025-07-26 13:37', 'CIRCL', 1, 1402, 'ip-dst'),
+            array('2025-07-27 06:37', 'ORGNAME', 0, 1402, 'ip-dst'),
+            array('2025-08-04 02:48', 'ORGNAME', 2, 1309, 'domain|ip'),
+            array('2025-08-08 12:56', 'CthulhuSPRL.be', 0, 1402, 'ip-dst'),
+            array('2025-08-09 03:36', 'CthulhuSPRL.be', 0, 1309, 'domain|ip'),
+            array('2025-08-09 11:05', 'Botvrij.eu', 1, 1309, 'domain|ip',
+                'allowlist'),
+            array('2025-08-14 10:02', 'Botvrij.eu', 0, 1309, 'domain|ip'),
+            array('2025-08-14 11:11', 'CthulhuSPRL.be', 0, 1388, 'ip-dst'),
+            array('2025-08-15 17:02', 'Botvrij.eu', 0, 1402, 'domain|ip'),
+            array('2025-08-17 05:30', 'Botvrij.eu', 0, 1341, 'ip-src'),
+            array('2025-08-18 12:54', 'CIRCL', 0, 1388, 'ip-dst'),
+            array('2025-08-19 00:33', 'CIRCL', 0, 1309, 'domain|ip'),
+            array('2025-08-19 15:36', 'CIRCL', 0, 1402, 'domain|ip'),
+            array('2025-08-19 19:05', 'CthulhuSPRL.be', 0, 1309, 'domain|ip'),
+            array('2025-08-23 17:26', 'CIRCL', 0, 1402, 'ip-dst'),
+        ));
+    }
+
+    /**
+     * 17 reports on the resolver over ten months, eleven of them
+     * false positives — the sparse case, and the one that makes the
+     * range control necessary: six rows fall in the last 90 days,
+     * so a chart that opened there would be hiding two thirds of
+     * what is known about the value.
+     *
+     * Columns: date · organisation · type · event · attribute
+     * type · source.
+     *
+     * @return array
+     */
+    private static function benignSightingRows()
+    {
+        return self::sightingRows(array(
+            array('2024-11-14 08:22', 'CIRCL', 1, 1259, 'ip-dst'),
+            array('2024-11-28 14:09', 'CthulhuSPRL.be', 0, 1288, 'ip-src'),
+            array('2024-12-03 15:41', 'CthulhuSPRL.be', 1, 1276, 'ip-dst'),
+            array('2024-12-14 10:32', 'CIRCL', 0, 1298, 'domain|ip'),
+            array('2025-01-01 06:48', 'CIRCL', 0, 1301, 'ip-dst'),
+            array('2025-01-09 11:17', 'CIRCL', 1, 1301, 'ip-dst', 'allowlist'),
+            array('2025-02-21 09:03', 'CIRCL', 1, 1288, 'ip-src'),
+            array('2025-03-15 17:52', 'Botvrij.eu', 1, 1298, 'domain|ip'),
+            array('2025-04-02 13:29', 'CthulhuSPRL.be', 1, 1301, 'ip-dst'),
+            array('2025-04-09 00:42', 'CIRCL', 0, 1301, 'ip-dst'),
+            array('2025-05-18 10:44', 'CIRCL', 1, 1276, 'ip-dst', 'allowlist'),
+            array('2025-06-06 07:15', 'CIRCL', 1, 1259, 'ip-dst'),
+            array('2025-06-27 19:38', 'CthulhuSPRL.be', 1, 1298, 'domain|ip'),
+            array('2025-07-14 14:42', 'CIRCL', 0, 1301, 'ip-dst'),
+            array('2025-07-19 12:06', 'CIRCL', 1, 1288, 'ip-src'),
+            array('2025-08-11 11:16', 'Botvrij.eu', 0, 1259, 'ip-dst'),
+            array('2025-08-12 14:50', 'CthulhuSPRL.be', 1, 1301, 'ip-dst',
+                'allowlist'),
+        ));
     }
 }

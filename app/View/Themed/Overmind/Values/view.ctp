@@ -159,10 +159,10 @@ echo $this->element('Values/View/value_pivot_rail', array(
  * ------------------------------------------------------------------
  * Tabs
  * ------------------------------------------------------------------
- * Overview, Verdict and Occurrences are assembled from lazily-loaded
- * panels, one endpoint each, so a slow panel never holds up the rest of
- * the page and each one's live implementation stays a local change. The
- * remaining six tabs are still stubbed inline.
+ * Overview, Verdict, Occurrences and Sightings are assembled from
+ * lazily-loaded panels, one endpoint each, so a slow panel never holds
+ * up the rest of the page and each one's live implementation stays a
+ * local change. The remaining five tabs are still stubbed inline.
  */
 $counts = $profile['counts'];
 
@@ -257,9 +257,20 @@ $tabRegistry = array(
         'title' => __('Sightings'),
         'icon' => 'misp-icon misp-icon-sighting misp-simple',
         'count' => $counts['sightings'],
-        'note' => __(
-            'A histogram stacked by organisation, with the decay-score'
-            . ' curve overlaid.'
+        /*
+         * The page's usual 9/3 split. The overlay is the tab, and it
+         * needs the width: bars stacked by organisation under two decay
+         * curves on their own axis is not a chart that survives being
+         * put in a card beside something else.
+         */
+        'left' => array(
+            $panel('viewSightingChart'),
+            $panel('viewSightingList'),
+        ),
+        'right' => array(
+            $panel('viewSightingDecay'),
+            $panel('viewSightingReporters'),
+            $panel('viewSightingAdd'),
         ),
     ),
     array(

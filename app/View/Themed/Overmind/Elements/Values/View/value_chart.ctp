@@ -3,10 +3,15 @@
  * One Chart.js canvas, themed from CSS rather than from literals.
  *
  * Callers write colours as `var(--something)` in the config exactly as
- * they would in a stylesheet; this element resolves them against the
+ * they would in a stylesheet; `VP.chart` resolves them against the
  * canvas at init, so a chart picks up the same variables the rest of
- * the page does. It re-resolves them when `data-bs-theme` flips, which
- * is the only way a canvas can follow a theme it cannot inherit.
+ * the page does, and resolves them again when `data-bs-theme` flips —
+ * the only way a canvas can follow a theme it cannot inherit.
+ *
+ * This element is the shape for a chart that is fully described by its
+ * config. The Sightings overlay is not — it swaps datasets as the
+ * reader changes range — so it drives `VP.chart` itself rather than
+ * being handed a config here.
  *
  * Safe inside a lazily-injected fragment: `loadAjaxContainer` re-creates
  * every `<script>` after setting innerHTML, so the canvas exists by the
@@ -38,45 +43,16 @@ $chartLegendSkip = $chartLegendSkip ?? array();
     var id = <?= json_encode($chartId) ?>;
     var raw = <?= json_encode($chartConfig) ?>;
     var legendSkip = <?= json_encode(array_values($chartLegendSkip)) ?>;
-    var chart = null;
 
     /*
-     * `var(--x)` is meaningless to a canvas, so resolve it against the
-     * element that would have inherited it. Walks the whole config
-     * rather than a list of known keys: colours turn up in scales,
-     * plugins and datasets alike.
+     * `VP.chart` polls for the Chart global, resolves the config's
+     * `var(--x)` colours against the canvas, and redraws when
+     * `data-bs-theme` flips. All three are wanted by every chart on the
+     * page, so they live in value-profile.js rather than once per
+     * fragment that happens to draw one.
      */
-    function resolveColours(node, el) {
-        if (typeof node === 'string') {
-            var match = node.match(/^var\((--[\w-]+)\)$/);
-            if (!match) {
-                return node;
-            }
-            var resolved = getComputedStyle(el)
-                .getPropertyValue(match[1]).trim();
-            return resolved || node;
-        }
-        if (Array.isArray(node)) {
-            return node.map(function (item) {
-                return resolveColours(item, el);
-            });
-        }
-        if (node && typeof node === 'object') {
-            var out = {};
-            Object.keys(node).forEach(function (key) {
-                out[key] = resolveColours(node[key], el);
-            });
-            return out;
-        }
-        return node;
-    }
-
-    function build() {
-        var el = document.getElementById(id);
-        if (!el) {
-            return false;
-        }
-        var config = resolveColours(JSON.parse(JSON.stringify(raw)), el);
+    VP.chart.boot(id, function (el) {
+        var config = VP.chart.resolve(JSON.parse(JSON.stringify(raw)), el);
         /*
          * A filter callback cannot survive JSON, so it is installed here
          * from the label list the caller passed instead.
@@ -93,39 +69,7 @@ $chartLegendSkip = $chartLegendSkip ?? array();
                     return legendSkip.indexOf(item.text) === -1;
                 };
         }
-        if (chart) {
-            chart.destroy();
-        }
-        chart = new Chart(el, config);
-        return true;
-    }
-
-    function boot() {
-        if (typeof Chart === 'undefined') {
-            setTimeout(boot, 100);
-            return;
-        }
-        if (!build()) {
-            return;
-        }
-        /*
-         * A canvas cannot inherit a theme, so it is redrawn when one is
-         * chosen. The observer stops itself once the canvas is gone —
-         * a reloaded tab brings its own script with it.
-         */
-        var observer = new MutationObserver(function () {
-            if (!document.getElementById(id)) {
-                observer.disconnect();
-                return;
-            }
-            build();
-        });
-        observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ['data-bs-theme'],
-        });
-    }
-
-    boot();
+        return new Chart(el, config);
+    });
 }());
 </script>
