@@ -417,9 +417,11 @@ their own artboard.
 treatment, the unknown-value sparse page, per-panel empty states. Exit
 criterion: all three states reachable and distinguishable.
 
-Two phases were added once the skeleton landed and are written up where they
-belong: **phase 6**, the verification pass, is §6; **phase 7**, candidate
-mockups for the five stubbed content tabs, is §7.
+Phases added once the skeleton landed, written up where they belong:
+**phase 6**, the verification pass, is §6; **phase 7**, candidate mockups for
+the five stubbed content tabs, is §7. The picks from phase 7 become
+**phases 8–13**, one document each in `prd/value-profile-tabs/` — shared
+groundwork first, then one tab per phase. §7.8 has the table.
 
 ---
 
@@ -849,13 +851,13 @@ axis it failed to spread on.
 
 All five passed. Twenty candidates, drawn 2026-08-25:
 
-| Tab | Artifact | Candidates | Agent's pick | Chosen | Grafts |
+| Tab | Artifact | Candidates | **Chosen** | Grafts | Spec |
 |---|---|---|---|---|---|
-| Occurrences | [b9ab9ec9](https://claude.ai/code/artifact/b9ab9ec9-e3cf-42e4-86b7-d53242c9447f) | `O1`–`O4` | O2 + O1's bulk bar, O4's proposal diff | | |
-| Sightings | [715b4822](https://claude.ai/code/artifact/715b4822-2644-409e-beb2-3ac09474c4d2) | `S1`–`S4` | S1 + S4's gap rows, S3's baseline split | | |
-| Relationships | [0eaa5580](https://claude.ai/code/artifact/0eaa5580-c273-451a-b7ba-6444dd58296e) | `R1`–`R4` | R1 + R3's faceted pane, R2's clustering rule | | |
-| Enrichment | [ee197bd7](https://claude.ai/code/artifact/ee197bd7-e9ec-46f3-9b51-c3797236a4ee) | `E1`–`E4` | E2 + E1's staging tray | | |
-| Analyst data | [09f056ee](https://claude.ai/code/artifact/09f056ee-be74-4560-90e1-b14cda8f832c) | `A1`–`A4` | A1 + A2's reused opinion element | | |
+| Occurrences | [b9ab9ec9](https://claude.ai/code/artifact/b9ab9ec9-e3cf-42e4-86b7-d53242c9447f) | `O1`–`O4` | **`O2`** | none | [phase 9](value-profile-tabs/01-occurrences.md) |
+| Sightings | [715b4822](https://claude.ai/code/artifact/715b4822-2644-409e-beb2-3ac09474c4d2) | `S1`–`S4` | **`S1`** | none | [phase 10](value-profile-tabs/02-sightings.md) |
+| Relationships | [0eaa5580](https://claude.ai/code/artifact/0eaa5580-c273-451a-b7ba-6444dd58296e) | `R1`–`R4` | **`R1`** | `R3`'s faceted pane | [phase 11](value-profile-tabs/03-relationships.md) |
+| Enrichment | [ee197bd7](https://claude.ai/code/artifact/ee197bd7-e9ec-46f3-9b51-c3797236a4ee) | `E1`–`E4` | **`E2`** | none | [phase 12](value-profile-tabs/04-enrichment.md) |
+| Analyst data | [09f056ee](https://claude.ai/code/artifact/09f056ee-be74-4560-90e1-b14cda8f832c) | `A1`–`A4` | **`A1`** | none | [phase 13](value-profile-tabs/05-analyst.md) |
 
 Each deck names the axis its four candidates spread along, so a pick is a
 choice between organising units rather than between skins: the row, the facet,
@@ -864,10 +866,24 @@ the event or the occurrence (Occurrences); what the tab is besides the chart
 spend decision, the module, the run or the returned element (Enrichment); time,
 analytics, organisation or position (Analyst data).
 
-The user then picks one candidate per tab, or a graft of two — "`O2`'s filter
-rail with `O4`'s row". "None of these" is a legitimate entry: if the four
-missed the axis, one more round for that tab costs a fraction of implementing a
-design nobody wanted.
+Decided 2026-08-25. Four picks were taken bare and one with a graft:
+Relationships takes `R1`'s three-ledger structure with `R3`'s faceted pane on
+its co-occurrence section, for faster narrowing and an exact count per
+dimension. The grafts each deck recommended for the other four — `O1`'s
+bottom-docked bulk bar, `O4`'s proposal diff, `S4`'s gap rows, `S3`'s baseline
+split, `E1`'s staging tray, `A2`'s element reuse — are recorded as deferred in
+the sub-PRD that owns them, so the first implementation of each tab is the
+design that was actually reviewed.
+
+Each pick is specified as its own phase in `prd/value-profile-tabs/`, preceded
+by **phase 8**, [shared groundwork](value-profile-tabs/00-shared.md): the
+registry mechanics, an inventory of the 257 `vp-*` primitives that already
+exist, the one new shared primitive (the counted facet control), the
+static-SVG-to-Chart.js translation, a fourth honest state, and two shared-code
+dark-theme fixes. Those five phases are **fixture-first** — real templates and
+real ajax endpoints against an extended `ValueProfileFixture`, nothing writes,
+no model queries — which is the pattern phases 3–5 used and the one §7.11
+anticipates. §7.9 below is the list of what a later live phase has to solve.
 
 ### 7.9 What the mockups found MISP cannot supply
 
