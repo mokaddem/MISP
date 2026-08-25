@@ -1057,6 +1057,25 @@ class ACLComponent extends Component
             'viewLifecycle' => array('theming_enabled'),
             'viewExternal' => array('theming_enabled'),
             'viewVerdict' => array('theming_enabled'),
+            'viewVerdictAside' => array('theming_enabled'),
+            // The five content tabs. Listed here rather than per tab phase
+            // so a tab lands as one controller-plus-element change: an
+            // action missing from this list is a 403 behind a spinner that
+            // never resolves, and a site admin never sees it.
+            'viewOccurrenceTable' => array('theming_enabled'),
+            'viewSightingChart' => array('theming_enabled'),
+            'viewSightingList' => array('theming_enabled'),
+            'viewSightingDecay' => array('theming_enabled'),
+            'viewSightingReporters' => array('theming_enabled'),
+            'viewSightingAdd' => array('theming_enabled'),
+            'viewRelationCooccurrence' => array('theming_enabled'),
+            'viewRelationNearMatch' => array('theming_enabled'),
+            'viewRelationAsserted' => array('theming_enabled'),
+            'viewRelationGraph' => array('theming_enabled'),
+            'viewRelationSettings' => array('theming_enabled'),
+            'viewEnrichment' => array('theming_enabled'),
+            'viewAnalystStanding' => array('theming_enabled'),
+            'viewAnalystThread' => array('theming_enabled'),
         ),
         'warninglists' => array(
             'checkValue' => ['*'],

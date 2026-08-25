@@ -2660,3 +2660,179 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
     pointer-events: auto;
     cursor: not-allowed;
 }
+
+/* ==================================================================
+ * Facet control
+ * ------------------------------------------------------------------
+ * One counted, checkable narrowing of a list. Occurrences draws it as
+ * a rail of stacked groups; Relationships draws the same rows inside
+ * compact dropdowns. The group chrome differs, the row does not, so
+ * the row is what lives here.
+ *
+ * A count here is always what the viewer may see, never what exists.
+ * Where those differ the group says so in `.vp-facet-note` — that
+ * sentence is the only place on the page where the gap between the
+ * banner's total and the rail's total is stated as a number.
+ * ================================================================== */
+
+.vp-facetgrp {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-facetgrp:last-child {
+    border-bottom: 0;
+}
+
+/*
+ * The row is a <label> wrapping its checkbox, so the whole line is the
+ * hit area. Two grid rows: the reading on top, its share underneath,
+ * indented to start where the label does.
+ */
+.vp-facet {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 3px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.vp-facet:hover {
+    background: var(--bs-secondary-bg);
+}
+
+.vp-facet > input {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+}
+
+.vp-facet-label {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/*
+ * The label is the component wherever MISP has one: a distribution
+ * row carries the real badge, a tag row the real chip. Neither should
+ * inherit the row's truncation rules as text would.
+ */
+.vp-facet-label > * {
+    vertical-align: middle;
+}
+
+.vp-facet-count {
+    grid-column: 3;
+    grid-row: 1;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Share of the largest count in this group, not of the whole set: the
+ * bar is there to rank the group's own rows against each other.
+ * One element rather than a track and a fill, because the stop is all
+ * the geometry there is.
+ */
+.vp-facet-bar {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(
+        to right,
+        var(--primary) 0 var(--vp-facet-share, 0%),
+        var(--bs-secondary-bg) var(--vp-facet-share, 0%) 100%);
+}
+
+.vp-facet:has(input:checked) {
+    background: color-mix(in srgb, var(--primary) 10%, var(--bs-body-bg));
+}
+
+.vp-facet:has(input:checked) .vp-facet-count {
+    color: var(--bs-body-color);
+}
+
+/*
+ * The honesty line. Sits under the group heading rather than at the
+ * foot of the rail: it qualifies these counts, and a reader checking a
+ * box needs it before they act, not after.
+ */
+.vp-facet-note {
+    margin: 2px 0 8px;
+    padding: 7px 9px;
+    border-left: 3px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 6%, var(--bs-body-bg));
+    font-size: 0.72rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
+
+.vp-facet-note strong {
+    color: var(--bs-body-color);
+}
+
+/* ==================================================================
+ * Suppressed
+ * ------------------------------------------------------------------
+ * The fourth state, beside not-implemented, empty and hidden-by-ACL.
+ * Past `MISP.correlation_limit` MISP records the value in
+ * `over_correlating_values` and stores no correlations at all, so "no
+ * rows" means "too many to store" — the opposite of empty. The band
+ * names what was dropped, the setting that dropped it, and what to
+ * read instead.
+ *
+ * Amber rather than red: nothing has failed, and the reader's next
+ * move is to narrow the question, not to file a bug.
+ * ================================================================== */
+
+.vp-suppressed {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 12px;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--vp-conflict) 45%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--vp-conflict) 8%, var(--bs-body-bg));
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--bs-body-color);
+}
+
+.vp-suppressed > i {
+    margin-top: 2px;
+    color: var(--vp-conflict-ink);
+}
+
+.vp-suppressed code {
+    color: var(--vp-conflict-ink);
+}
+
+/*
+ * Distinct from `.vp-panel-stub-badge`: that one says nobody has built
+ * this yet, this one says MISP decided not to keep the data. Confusing
+ * the two would turn a deliberate engine limit into a missing feature.
+ */
+.vp-suppressed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-conflict) 20%, var(--bs-body-bg));
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--vp-conflict-ink);
+}

@@ -8,6 +8,14 @@ $filter_bar = $filter_bar ?? [];
  * no button here has to know about it. Absent for every existing caller.
  */
 $disabledReason = $filter_bar['disabled'] ?? null;
+
+/*
+ * `scope_note` names what the selection spans when the count alone is
+ * ambiguous — `3 rows · 3 events · 2 organisations` on an index whose rows
+ * are attributes drawn from several events. Absent for every existing
+ * caller, which keeps the bar exactly as it is today.
+ */
+$scopeNote = $filter_bar['scope_note'] ?? null;
 ?>
 <div id="multiSelectToolbar"
      class="mt-2 d-none">
@@ -22,6 +30,11 @@ $disabledReason = $filter_bar['disabled'] ?? null;
             <span id="selectedCount">0</span>
         </strong>
 
+<?php if ($scopeNote !== null): ?>
+        <span class="small text-muted" id="multiSelectScopeNote">
+            <?= h($scopeNote) ?>
+        </span>
+<?php endif; ?>
 <?php if ($disabledReason !== null): ?>
         <?php
         /*

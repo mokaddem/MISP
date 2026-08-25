@@ -8,15 +8,19 @@ built twice differently.
 
 Phase 7 produced twenty candidate mockups and a pick per tab
 (`prd/value-profile-page.md` §7.8). Five of those designs are now specified in
-`01-occurrences.md` … `05-analyst.md`. Four things are common to all five, and
+`01-occurrences.md` … `05-analyst.md`. Five things are common to all five, and
 one of them is a genuinely new primitive:
 
-1. the mechanics of turning a stubbed tab into a real one,
+1. the mechanics of turning a stubbed tab into a real one, including the ACL
+   entry every new endpoint needs (§3.1),
 2. an inventory of the `vp-*` primitives that **already exist**, so no tab
    re-invents one,
 3. the facet control, which Occurrences and Relationships both need,
 4. the rules that let a mockup be translated into a template without lying:
-   charts, pagination, and a fourth honest state.
+   charts, pagination, and a fourth honest state,
+5. the handful of hooks on genuinely shared MISP elements that the designs
+   depend on (§5.2), so a tab phase is a controller and its own elements and
+   nothing else.
 
 Nothing in this phase renders a new tab by itself. Its exit criterion is that
 the five tab phases can each be implemented without touching shared code again.
@@ -79,6 +83,27 @@ renders its own internal `row` with `col-lg-3` + `col-lg-9`. That is also the
 truthful shape: facet counts and table rows must be computed from the same
 fetch, or they can disagree with each other.
 
+### 3.1 Every action needs an ACL entry, and this phase adds all fourteen
+
+`ACLComponent::checkAccess` throws `ForbiddenException` for any action absent
+from its controller's list — with one escape hatch: `perm_site_admin` is checked
+last and returns true regardless. So a missing entry is invisible to whoever is
+most likely to be testing, and shows up for everyone else as a panel whose
+spinner never resolves.
+
+That already happened. **`viewVerdictAside` was never added to the `values`
+block**, so the Verdict tab's rail has been 403 for every non-site-admin user
+since phase 5, and phase 5's verification passed because it ran as the admin.
+Fixed here alongside the new ones.
+
+All fourteen tab endpoints are registered in this phase rather than each in its
+own — one entry per action, `theming_enabled`, in `ACLComponent.php`'s `values`
+block. A tab phase then lands as one controller-plus-element change, and the
+five phases do not queue on the same array.
+
+**When adding an endpoint, verify it as a non-site-admin user, or verify the ACL
+entry exists by reading it.** A 200 as admin proves nothing about this.
+
 ## 4. Primitive inventory — reuse, do not re-invent
 
 `value-profile.css` already carries **257** `vp-*` primitives from phases 3–5.
@@ -139,6 +164,73 @@ Rules the control carries with it, because they are what make a count honest:
 Interaction is client-side and real: checking a facet filters the rows already
 in the DOM and updates the panel's "Showing n of m" line. Nothing re-queries.
 
+### 5.1 The contract, as built
+
+`value-profile.js` carries the behaviour and `value_facet_group.ctp` the
+markup. A panel opts in with `data-vp-list` on the region that owns the rows;
+everything else hangs off that.
+
+| Attribute | On | Means |
+|---|---|---|
+| `data-vp-list` | the panel region | this region is a faceted list |
+| `data-vp-list-rows` | the row host | rows are its `tbody > tr`, or its `[data-vp-list-row]` children |
+| `data-vp-facet="k:v k:v"` | a row | the row's facet tokens; several values for one key is fine |
+| `data-vp-hidden="token"` | a row | keep this row out until something reveals `token` |
+| `data-vp-facet-key="k"` | a checkbox | a facet on key `k`, its `value` the token |
+| `data-vp-reveal="token"` | a checkbox | reveals rows hidden by `token` |
+| `data-vp-facet-clear` | a button | clears every facet in this list; disabled while none are set |
+| `data-vp-facet-more` | a button | reveals its group's folded tail |
+| `data-vp-facet-search` | an input | narrows its own group's rows, never the table's |
+| `data-vp-pager` + `data-vp-page-size` | the control | page the surviving rows client-side |
+| `data-vp-list-shown`, `data-vp-facet-rows`, `data-vp-facet-count-active` | spans | rows left · rows left · facets set |
+| `data-vp-page-from`, `-to`, `-of` | spans | the current page window |
+| `data-vp-list-empty` | a block | shown only when a *filter* emptied the list |
+
+Two semantics the mockups implied and the implementation had to settle:
+
+- **Within one key the checked values are alternatives; across keys they all
+  have to hold.** Ticking `ip-dst` and `ip-src` under Type and `Org A` under
+  Organisation means *(ip-dst or ip-src) and Org A* — what a reader means by
+  it, and what every faceted search does.
+- **Soft-deleted rows are a reveal, not a facet value.** Filtering *to* deleted
+  rows and including them alongside the rest are different questions, and the
+  design only ever asks the second. Hence `data-vp-reveal` rather than a
+  `state:deleted` token.
+
+Changing a facet or a reveal returns the reader to page one: narrowing changes
+how many pages there are, and leaving them on a page that no longer exists is
+how a filtered table starts looking empty when it is not.
+
+`data-vp-list-empty` fires only when a filter produced the emptiness. A list
+that was empty to begin with keeps the template's own empty state — "no rows
+match your filter" over a value with no occurrences is a different and false
+claim.
+
+### 5.2 Three shared-code additions this needed
+
+Additive and guarded, per §1.3. All three exist so no tab phase has to touch
+shared code:
+
+1. **`index_table.ctp` gains `row_data_callable`.** It already had
+   `row_class_callable`, but a row matched on several independent keys at once
+   cannot express that as a class string without the reader parsing class names
+   back into fields. The callable returns name => value pairs hung on the `<tr>`
+   as `data-` attributes; names are restricted to what may follow `data-`.
+   Occurrences' table is `index_table` (`01` §4), so without this the facet rail
+   has nothing to match on.
+2. **`multi_select_toolbar.ctp` gains `scope_note`.** The optional slot `01` §4
+   asks for — `3 rows · 3 events · 2 organisations` beside the count.
+3. **`value_facet_group.ctp` and `value_pager.ctp`**, under
+   `Elements/Values/View/`. The honesty rules above are behavioural, and a rule
+   restated in two templates is a rule built two ways: the group element is
+   where "a group of zeroes renders nothing", "the tail is folded, not dropped"
+   and "past ~50 it is a search box" actually live. The pager element is where
+   §6's markup lives, first page rendered server-side so a load without
+   JavaScript still shows a truthful range.
+
+Both elements are plain partials a tab template includes — not endpoints — and
+neither touches `$this`, which is what let them be unit-tested outside CakePHP.
+
 ## 6. Pagination inside an ajax panel
 
 The Overview's preview table deliberately has no `sort` keys and no Paginator
@@ -194,23 +286,37 @@ Only Relationships uses it today. It lives in the shared sheet because
 `Sightings_range` cap and Enrichment's service-unreachable state are the same
 shape of claim.
 
-## 9. Two shared-code dark-theme fixes
+## 9. Two shared-code dark-theme fixes — withdrawn, the bug does not exist
 
-Both surfaced in phase 7 review, both verified in source, both needed by the
-designs that follow. Additive and guarded, per §1.3.
+Phase 7 review claimed two dark-theme defects here and said both were verified
+in source. **Neither is real.** The review reasoned from Bootstrap's tokens
+alone and missed that the Overmind theme carries its own inversion layer:
+`mainOvermind.css` has a *Dark mode: switch colors between light/dark* section
+that redefines exactly these utilities, and the layout preloads that sheet on
+every Overmind page (`Layouts/default.ctp:72`), so it is never absent.
 
-1. **`IndexTable/multi_select_toolbar.ctp:18`** paints the bulk bar `bg-light`.
-   Bootstrap does not redefine `--bs-light-rgb` under `[data-bs-theme=dark]`
-   while it does redefine `--bs-body-color`, so in dark the bar is near-white
-   text on a near-white ground — on every index table that uses it, not only
-   this page. Occurrences' bulk bar is this element. Fix: a theme-aware surface
-   (`--bs-tertiary-bg`) in place of `bg-light`.
-2. **`genericElementsBS5/Badges/type.ctp:12`** uses `border border-dark`, which
-   all but vanishes against the dark ground. Every tab that renders an
-   attribute type badge hits it — Occurrences, Relationships and Enrichment all
-   do.
+```css
+/* mainOvermind.css:821 */  [data-bs-theme="dark"] .bg-light   { background-color: var(--bs-dark); color: var(--bs-light); }
+/* mainOvermind.css:864 */  [data-bs-theme="dark"] .border-dark { border-color: var(--bs-light); }
+```
 
-Neither fix changes light-theme rendering; that is the acceptance test.
+Measured in a real browser on `/values/view`, both themes, computed styles:
+
+| Element | Light | Dark | Reading |
+|---|---|---|---|
+| bulk bar (`multi_select_toolbar.ctp:18`) | ground `#f8f9fa`, ink `#212529` | ground `#212529`, ink `#f8f9fa` | inverted correctly |
+| type badge (`Badges/type.ctp:12`) | border `#212529` | border `#f8f9fa` | inverted correctly |
+
+Making the proposed changes would have been a regression, not a fix:
+`--bs-tertiary-bg` resolves to `#2b3035` in dark, so swapping `bg-light` for it
+would have *changed* a bar that already renders correctly.
+
+**The rule this leaves behind, which matters more than the two fixes did:** a
+claim about how a Bootstrap utility renders in dark is only settled by reading
+`mainOvermind.css`'s inversion section as well as Bootstrap's tokens, and by
+measuring in the browser. Neither tab PRD's verification list should carry a
+"the §9 fix" item; `01`, `03` and `04` each do, and each should read simply
+*the bulk bar / type badge is legible in both themes* — which it already is.
 
 ## 10. How the fixture grows
 
@@ -232,23 +338,55 @@ that already ships.
 
 ## 11. Verification
 
-Per §6's method — a real page load against the Docker stack serving this
-worktree, not a lint pass:
+Items 2 and 3 of the original list belonged to the tab phases, not to this one:
+this phase deliberately renders no new tab, so it has no endpoint to call and no
+facet rail on the page to point at. They move to the phase that builds one.
 
-1. `php -l` over every new file.
-2. All five tab endpoints return 200 for all four demo values (20 requests) and
-   every panel resolves off its spinner.
-3. The facet control renders, filters client-side, and its note appears wherever
-   the viewer's count differs from the page's.
-4. Light and dark, with the two shared-code fixes in place: the bulk bar and the
-   type badge are legible in both.
-5. Existing pages that use `multi_select_toolbar` and `Badges/type` render
-   byte-identically in light — the guard on §1.3's "additive changes" rule.
+What this phase can and did verify, against the Docker stack serving this
+worktree:
+
+1. **`php -l`** over every changed and new file, plus `node --check` on
+   `value-profile.js`. Clean.
+2. **The two new elements, rendered standalone** — neither uses `$this`, so
+   `h()` and `__()` are the whole dependency surface and they can be driven
+   directly. Eight cases, all passing: a group of zeroes renders nothing; bar
+   shares are relative to the group's own maximum (4/1/1 → 100/25/25); a label
+   like `domain|ip` slugs to something safe for an attribute; a caller's badge
+   survives as the label; fourteen values fold to ten plus a `4 more`; sixty
+   values get a search box; the pager renders `« 1 2 3 »` with page one active
+   and the left arrow dead; a single page hides the control but keeps the range
+   line; an empty list reads `0–0`.
+3. **The facet control driven in the real page, both themes** — markup injected
+   into a live `/values/view` load so the shipped CSS and JS are what runs,
+   which is the only honest way to test a primitive no tab renders yet. 48
+   assertions, all passing: initial paging over 22 eligible rows of 25; a facet
+   narrowing to 15; two values on one key widening back to 22 (alternatives);
+   a second key cutting to 11 (conjunction); page two showing the eleventh row
+   alone; the reveal switch adding the three soft-deleted rows and resetting to
+   page one; `Clear all` restoring 25 and going inert; a filter that matches
+   nothing showing the empty block instead of a bare table; the bar painting
+   its gradient; a checked row tinted differently from an unchecked one; the
+   suppressed band carrying a ground in both themes.
+4. **Light and dark, measured not eyeballed.** See §9 — the two fixes that
+   section asked for were withdrawn because the computed values prove the
+   utilities already invert.
+5. **`multi_select_toolbar` and `index_table` callers render byte-identically.**
+   `events/index`, `attributes/index` and `feeds/index` fetched with and without
+   the changes: after normalising the per-request ids CakePHP mints, the only
+   remaining difference on all three pages is the page's own render timestamp.
+   The `<tr>` attribute census is identical across 140 rows, and
+   `multiSelectScopeNote` appears zero times — both new hooks are dormant until
+   a caller passes them.
 
 ## 12. Exit criteria
 
-The five tab PRDs can each be implemented without editing shared code: the
-registry mechanics are known, the primitive inventory is written down, the facet
-control exists with its honesty rules, pagination and charts have a stated
-translation, `suppressed` exists as a state, and the two dark-theme fixes are
-in.
+Met. The five tab PRDs can each be implemented without editing shared code: the
+registry mechanics are known, all fourteen endpoints are registered in the ACL
+list, the primitive inventory is written down, the facet control exists with its
+honesty rules and a documented markup contract (§5.1), the three shared-code
+hooks it needed are in (§5.2), pagination and charts have a stated translation,
+and `suppressed` exists as a state.
+
+One correction carried out of this phase rather than into it: §9's two fixes
+were withdrawn as unfounded, and the verification lines that reference them in
+`01`, `03` and `04` should be reworded when those phases run.
