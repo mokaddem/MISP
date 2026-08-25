@@ -259,11 +259,186 @@ Disabled with a `title`: `Tag the selection`, `Add selection to a collection`,
 5. `8.8.8.8`: section one is the suppressed band, not an empty state, and
    sections two and three still render.
 6. Unknown value: three differently worded empty states.
-7. Light and dark: the three notion colours stay distinguishable, and the type
-   badge is legible (the `00-shared.md` §9 fix).
+7. Light and dark: the three notion colours stay distinguishable, and the bulk
+   bar and type badge are legible — which, per `00-shared.md` §9, they already
+   are, so this is a measurement and not a fix.
 
 ## 14. Exit criterion
 
 Artifact `R1` is recognisable in the browser with `R3`'s narrowing bar on its
 first section; the three notions cannot be mistaken for one another; and
 `8.8.8.8` renders as suppressed rather than empty.
+
+---
+
+## 15. Verification — what was run
+
+Against the Docker stack serving this worktree, as an authenticated user,
+2026-08-25.
+
+1. **`php -l`** over every changed and new file, `node --check` on
+   `value-profile.js`. Clean. Every new file is inside 80 columns.
+2. **All five endpoints, all four demo values — twenty fetches, twenty 200s**,
+   plus the four full pages, and no PHP notice or warning in any body.
+   **136 content assertions** over the returned markup, all passing: the three
+   provenance words appear in their own section and nowhere else
+   (`Machine-derived` never in the asserted panel, `Human claim` never in the
+   co-occurrence one); four `.vp-analyst` claim blocks with no `<table>`
+   anywhere in that panel, and no `.vp-analyst` anywhere in section one; 18/6/3
+   rows in the three roll-ups; six counted facet dropdowns and the `GROUP BY`
+   note; the three engine states including the `No engine in MISP` stub; the
+   three CIDR blocks with their address counts; both ACL notes; the rail's
+   `7 of 31 edges drawn`, three edge kinds and 3 + 2 + 2 nodes.
+3. **The tab driven in a real browser, both themes**, with the fragments served
+   locally so the shipped CSS and JS are what runs. **62 assertions per theme,
+   all passing.** Every interaction §11 promises:
+   - **the facet bar** — `domain` narrows 18 to 5; adding `sha256` on the same
+     key widens to 9, so values within a key are alternatives; adding `ORGNAME`
+     on a second key cuts to 3, so keys conjoin;
+   - **the filter row** — the `Any type` select on top of those facets narrows
+     3 to 2 rather than widening, which is the whole reason a select and a
+     counted dropdown may share a key; `Search value` finds the 7
+     `cdn-analytics` values; `Shared events ≥ 2` leaves the 4, the 3 and the 2;
+     `Object siblings only` leaves the two rows that sit in an object this
+     value is itself in;
+   - **`Reset`** restores 18, puts the selects back to `Any …`, and goes inert;
+   - **ranking** — `Most recent first` puts 2025-08-19 on top and 2025-07-30
+     second; `Most shared first` puts the 4 back;
+   - **the roll-up switch** — 6 event rows, 3 object rows, no value rows
+     showing, the narrowing block put away with a line saying why, and the
+     pager hidden because six rows need no pages;
+   - **pagination** — `1–8 of 18`, three pages plus two arrows, page three
+     holding rows 17–18, and a facet set from page three returning the reader
+     to page one rather than to a page that no longer exists;
+   - **selection** — one row reads `1 selected` and tints, the header box goes
+     indeterminate, and select-all takes the page's 8 rather than all 18;
+   - **`Similarity ≥`** — 60% leaves only the `/22`, 99% leaves none and says
+     so instead of showing a bare table;
+   - **the relationship-type filter** — `similar-to` leaves the one claim and
+     clearing brings all four back, over blocks that are still not rows.
+4. **The suppressed and empty states probed in both themes.** `8.8.8.8` renders
+   `.vp-suppressed` with a ground in both themes and a badge at 5.06:1 light /
+   5.82:1 dark — and sections two and three render normally beside it, three
+   CIDR rows and two claims, because neither reads the correlation table. The
+   unknown value renders three differently-worded empty states and a settings
+   card that is still true. No two empty states on the tab say the same thing.
+5. **Light and dark, measured not eyeballed.** The three notion inks resolve
+   and differ in both themes — light `#b4610b` / `#0b7f61` / `#8f2d56`, dark
+   `#f0a95f` / `#4fd6b0` / `#e58cad` — and each clears 3:1 against its own
+   tinted chip ground: 3.87 / 4.23 / 6.44 light, 4.88 / 5.20 / 4.27 dark. The
+   sketch's edges resolve too, dashes included.
+6. **The greyscale check (§13.4), rendered rather than argued.** With
+   `grayscale(1)` on the document a claim is still unmistakable for a row: it
+   is an indented block with a monospace kind gutter, a direction chip, prose
+   and an author line, against two dense grids above it. The stripe carries the
+   distinction a second way — `solid` on a correlation row, `dashed` on a
+   near-match, a 3px block border on a claim — and the words carry it a third.
+7. **No regression on the two tabs whose shared JS this phase changed.** The
+   Occurrences facet rail still opens on 6 rows, still narrows to 4 on
+   `ip-dst`, still counts one filter and still restores 6 on `Clear all`, with
+   the soft-delete reveal still on. The Sightings chart still builds with 9
+   datasets over 90 labels and no unresolved `var(--…)`, its list still reads
+   47, and the Verdict tab's canvas still has a live `Chart` on it.
+
+Per `00-shared.md` §9, §13's item 7 is not a claim about a Bootstrap utility in
+dark mode; it is about this tab's own palette, and it was measured as item 5.
+
+## 16. Where this differs from the brief above
+
+**The rank select's options are worded for all three roll-ups.** §6 names the
+two orderings `shared events` and `most recent`; the control reads **`Most
+shared first`** and **`Most recent first`**. The orderings are the ones the
+brief asks for, but the select survives a change of roll-up, and *"rank by
+shared events"* over a table of events would be a label that means nothing. The
+`Shared events ≥` threshold keeps its exact name and is put away with the value
+roll-up, where it is exactly true.
+
+**The narrowing controls belong to the value roll-up, and say so when they are
+not showing.** §6 lists the filter row and the `Narrow by` bar without saying
+what happens to them under a different roll-up. They are hidden, everything set
+is cleared, and a line takes their place: *a facet like Type is a property of a
+correlated value; an event row is not a value.* The alternative — leaving a
+`Type` facet applying to rows that have no type — is a control that empties the
+table and cannot say why.
+
+**A select and a counted dropdown may share a key, and they conjoin.** The
+graft puts `Any type` in the filter row and a counted `Type` dropdown in the
+`Narrow by` bar. Merging them into one bucket would have made the select a
+third alternative of the dropdown — pick `domain` in one and tick `sha256` in
+the other and you would get *nine* rows, not two. `data-vp-filter-key` is a
+separate conjunct from `data-vp-facet-key` for exactly that reason, and the
+driver asserts the arithmetic both ways.
+
+**The third rail card was folded into the second.** The `R1` mockup has three
+rail cards; §3's endpoint table names two. The split-three-ways bars are the
+foot of `What is counted`, which is where §9 already asks for *"the correlation
+count the page states, and how much of it is visible"* — one card, no
+unspecified sixth endpoint.
+
+**The arithmetic was wrong in the mockup and is fixed here.** `R1`'s rail reads
+*23 + 4 + 4 = 31*, with the 31 also being the correlation count the Overview's
+lifecycle card prints. Those cannot both be true: an analyst claim is a
+`Relationship` row and not a correlation. The split is now **28 co-occurrence +
+3 near-match = the 31**, with the **4 claims counted apart** and the card
+saying so in words — *"nothing here is summed into one strength"* is the
+mockup's own sentence, and it now describes what the numbers do.
+
+**`over_correlating` could not decide the suppressed state on its own.** §10
+keys the band on `correlations.over_correlating`, but the fixture predating this
+phase carries `true` for *both* `104.21.34.198` and `8.8.8.8`, while §10 wants
+the first to paginate and the second to suppress. The tab reads its own
+`relationships.cooccurrence.suppressed` instead, and the two remaining
+`over_correlating` readers — the Overview's lifecycle card, on a softer
+threshold of 50 — are untouched. What the band claims is narrower and truer
+than a boolean: MISP stored **no** correlation, and `21,904` is the
+`over_correlating_values.occurrence` count it kept in their place.
+
+**Object siblings survive the suppressed band, and that is the point.** §10 says
+section one renders `.vp-suppressed` and stops there. The object join reads
+attributes the page has already fetched — `Attribute.object_id`, not the
+correlation table — so it is not the engine's to suppress, and `8.8.8.8` still
+lists `dns.google` under a band that says nothing was stored. The sub-section
+carries the sentence explaining why.
+
+**Closeness is grounded twice.** §7 asks for a bar reading `/22` and an address
+count. The bar's *share* is the prefix as a fraction of the 32-bit width, which
+is a defensible number rather than an invented one, and `Similarity ≥` filters
+on it — so the control and the bar cannot disagree. The address count is
+computed from the prefix rather than typed in, which is how `8.8.8.8`'s `/9`
+correctly reads 8,388,608 without anybody checking the arithmetic by hand.
+
+**Two small rendering fixes the mockup could not have caught.** `network-block`
+at 11px overflows its node and SVG clips at its viewport, so a node label past
+ten characters drops to 9px; and the `ASSERTED` region label sat on the last
+baseline of the viewBox and lost its descenders, so it moved under the divider.
+Both were found by rendering the sketch, not by reading it.
+
+## 17. What the live phase still inherits
+
+§12's list is unchanged and none of it was solved here — this phase is fixture
+work. Three items are now sharper:
+
+**The roll-ups are three queries, not one.** The pane renders `by value`,
+`by event` and `by object` from three row sets that this pass ships together
+and pages client-side. Live, only one of them is ever needed at a time, and the
+right shape is one `GROUP BY` per roll-up rather than one fetch reshaped in
+PHP — the switch becomes a request, and the honesty rule §6 states (the facet
+counts are a `GROUP BY` on the correlation table, not a count of the page) is
+what keeps the facet bar valid across all three without refetching it.
+
+**The facet counts and the rows come from *different* queries here, and must.**
+`00-shared.md` §5 says counts and rows come from one fetch, and the Occurrences
+tab obeys it. This pane deliberately cannot: at 1,462 distinct values a count
+tallied over the page would say 8. The fixture states the counts independently
+and the pane renders the sentence that tells the reader which regime they are
+in. Live, that is a `GROUP BY` per facet key alongside the paged `SELECT` —
+more queries than the Occurrences rail needs, and the reason the note is not
+optional.
+
+**A suppressed value still needs three queries, not zero.** The temptation on
+seeing `over_correlating_values` is to render the band and skip the tab. Two of
+the three sections do not read the correlation table at all, and `8.8.8.8`
+proves it: the object join and the analyst relationships both return rows. The
+live implementation must keep firing `viewRelationNearMatch` and
+`viewRelationAsserted` for a suppressed value, and must keep the sibling join
+inside `viewRelationCooccurrence` outside whatever short-circuits the band.

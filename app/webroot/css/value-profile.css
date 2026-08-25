@@ -3319,3 +3319,448 @@ tr.vp-occ-deleted .vp-occ-orgdot {
     line-height: 1.4;
     color: var(--bs-secondary-color);
 }
+
+/* ==================================================================
+ * Relationships tab — the three notions, named once
+ * ------------------------------------------------------------------
+ * Conflating a machine-derived correlation with a human claim is the
+ * one way this tab fails, so the separation is carried four times over
+ * and never by hue alone:
+ *
+ *   colour   one role colour per notion, used for every rail, edge,
+ *            swatch and label of that notion and for nothing else;
+ *   form     machine relations are table rows; a human claim is never
+ *            a row — it is a .vp-analyst block with an author on it;
+ *   word     every region names its notion and says "Machine-derived"
+ *            or "Human claim" in words;
+ *   place    in the sketch each notion owns a labelled region, so the
+ *            separation survives even when the colours do not.
+ *
+ * The hues are MISP's own — --correlation, --type and --analystData —
+ * darkened for the light ground and lightened for the dark one, the
+ * same move the verdict palette above already makes: a 2px stroke and
+ * a 10px label have to hold on both.
+ * ================================================================== */
+
+:root {
+    --vp-rel-co: #b4610b;      /* --correlation #E67F0D */
+    --vp-rel-near: #0b7f61;    /* --type #06D6A0 */
+    --vp-rel-human: #8f2d56;   /* --analystData */
+}
+
+[data-bs-theme="dark"] {
+    --vp-rel-co: #f0a95f;
+    --vp-rel-near: #4fd6b0;
+    --vp-rel-human: #e58cad;
+}
+
+.vp-rel-k-co { --vp-rel-color: var(--vp-rel-co); }
+.vp-rel-k-near { --vp-rel-color: var(--vp-rel-near); }
+.vp-rel-k-human { --vp-rel-color: var(--vp-rel-human); }
+
+/*
+ * The notion chip. Carried by every section header so a reader never
+ * has to remember which colour meant which.
+ */
+.vp-rel-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 8px;
+    border: 1px solid color-mix(in srgb, var(--vp-rel-color) 38%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-rel-color) 12%, var(--bs-body-bg));
+    color: var(--vp-rel-color);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+[data-bs-theme="dark"] .vp-rel-tag {
+    background: color-mix(in srgb, var(--vp-rel-color) 22%, var(--bs-body-bg));
+}
+
+/* Machine or human, in words, because colour is not an argument. */
+.vp-rel-prov {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-prov-human {
+    color: var(--vp-rel-human);
+    font-weight: 600;
+}
+
+/*
+ * A strength reading, on the page's own .vp-weight track. Strengths
+ * are only ever compared inside one roll-up, never across the three
+ * notions — which is why the bar takes its colour from the section it
+ * is in rather than from a scale of its own.
+ */
+.vp-rel-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 7rem;
+}
+
+.vp-rel-bar .vp-weight-track {
+    flex: 1 1 auto;
+    min-width: 3rem;
+}
+
+.vp-rel-bar-read {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+/*
+ * The cut, stated. Every region that ranks, caps or pages says so here,
+ * above the rows, rather than leaving it to a scrollbar.
+ */
+.vp-rel-cap {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-cap > i {
+    margin-top: 3px;
+    flex: 0 0 auto;
+}
+
+.vp-rel-cap > span {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-rel-cap strong {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+/* The opposite statement: nothing was cut. */
+.vp-rel-cap-complete {
+    background: color-mix(in srgb, var(--vp-rel-human) 8%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-rel-cap-complete {
+    background: color-mix(in srgb, var(--vp-rel-human) 18%, var(--bs-body-bg));
+}
+
+/*
+ * The key is drawn as a line sample rather than a square, so it teaches
+ * the sketch's edge styles as well as its colours.
+ */
+.vp-rel-key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 0.76rem;
+}
+
+.vp-rel-key-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.vp-rel-swatch {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 0;
+    border-top: 3px solid var(--vp-rel-color, var(--bs-secondary-color));
+}
+
+.vp-rel-swatch-dash {
+    border-top-style: dashed;
+}
+
+.vp-rel-swatch-arrow::after {
+    content: "";
+    position: absolute;
+    right: -2px;
+    top: -4px;
+    border-left: 6px solid var(--vp-rel-color);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+}
+
+/*
+ * A machine row wears its notion on the left edge — solid for a
+ * correlation the engine stored, dashed for one re-derived as a
+ * near-match. A border rather than an inset shadow, because the dash
+ * is half the distinction and a shadow cannot be dashed.
+ */
+tr.vp-rel-stripe > td:first-child {
+    border-left: 3px solid var(--vp-rel-color);
+}
+
+tr.vp-rel-k-near > td:first-child {
+    border-left-style: dashed;
+}
+
+tr.vp-rel-rowsel > td {
+    background: color-mix(in srgb, var(--vp-rel-co) 10%, transparent);
+}
+
+/* A value or an event title can be long; the row must not stretch. */
+.vp-rel-cell {
+    display: inline-block;
+    max-width: 18rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+th.vp-rel-num {
+    min-width: 8rem;
+}
+
+th.vp-rel-pick,
+td.vp-rel-pick {
+    width: 1%;
+    padding-right: 0;
+}
+
+/*
+ * Near-match engines, and the three states one can be in: running,
+ * inapplicable to this type, and absent from MISP altogether.
+ */
+.vp-rel-engine {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-rel-engine-state {
+    flex: 0 0 7.5rem;
+    padding-top: 2px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-engine-on .vp-rel-engine-state {
+    color: var(--vp-rel-near);
+}
+
+.vp-rel-engine-off {
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-rel-engine-name {
+    font-weight: 600;
+}
+
+.vp-rel-score {
+    background: color-mix(in srgb, var(--vp-rel-near) 14%, var(--bs-body-bg));
+    border: 1px solid color-mix(in srgb, var(--vp-rel-near) 40%, transparent);
+    color: var(--vp-rel-near);
+    font-family: var(--bs-font-monospace);
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .vp-rel-score {
+    background: color-mix(in srgb, var(--vp-rel-near) 24%, var(--bs-body-bg));
+}
+
+/*
+ * A claim is not a row. It reuses the page's own .vp-analyst block so
+ * it can never be redrawn as one by accident — the indent, the kind
+ * gutter and the author line are what make it unmistakable in
+ * greyscale, and the colour is only the confirmation.
+ */
+.vp-rel-claim {
+    border-left-color: var(--vp-rel-human);
+}
+
+.vp-rel-claim .vp-analyst-kind {
+    flex: 0 0 104px;
+    align-items: flex-start;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--vp-rel-human);
+}
+
+.vp-rel-dir {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-target {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 0.82rem;
+}
+
+/*
+ * The Narrow by bar. A dropdown per facet key rather than a rail:
+ * this pane already spends its width on eleven columns, and the
+ * counts have to be reachable without pushing the table narrower.
+ */
+.vp-rel-facet {
+    --bs-btn-font-size: 0.78rem;
+}
+
+.vp-rel-facetmenu {
+    min-width: 17rem;
+    max-height: 22rem;
+    overflow-y: auto;
+}
+
+.vp-rel-facetmenu .vp-facetgrp:last-child {
+    margin-bottom: 0;
+}
+
+/*
+ * MISP's type badge, re-flowed for a dense row. The factory wraps it in
+ * a d-flex block, which would put every type on its own line.
+ */
+.vp-rel-type > div {
+    display: inline-flex;
+}
+
+.vp-rel-type p {
+    padding: 1px 5px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------
+ * The neighbourhood sketch
+ * ------------------------------------------------------------------
+ * Nodes are neutral and carry only a type label, so notion colour is
+ * the only colour in the picture and can never be misread as an entity
+ * kind. Every stroke and fill is a theme token, so the sketch inverts
+ * with the page rather than being drawn twice.
+ * ------------------------------------------------------------------ */
+
+.rg-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.rg-div {
+    stroke: var(--bs-border-color);
+    stroke-dasharray: 4 6;
+    stroke-width: 1;
+}
+
+.rg-sector {
+    fill: var(--bs-secondary-color);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+}
+
+.rg-node {
+    fill: var(--bs-body-bg);
+    stroke: var(--bs-border-color);
+    stroke-width: 1.25;
+}
+
+.rg-accent-co { fill: var(--vp-rel-co); }
+.rg-accent-near { fill: var(--vp-rel-near); }
+.rg-accent-human { fill: var(--vp-rel-human); }
+
+.rg-type-sm {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+/*
+ * For a type longer than the node is wide. SVG clips at its viewport,
+ * so `network-block` at 11px loses its tail against the card edge.
+ */
+.rg-type-xs {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.rg-type-co { fill: var(--vp-rel-co); }
+.rg-type-near { fill: var(--vp-rel-near); }
+.rg-type-human { fill: var(--vp-rel-human); }
+
+.rg-sk { fill: var(--bs-secondary-bg); }
+
+.rg-edge-co {
+    stroke: var(--vp-rel-co);
+    stroke-width: 2;
+    fill: none;
+    opacity: 0.85;
+}
+
+.rg-edge-near {
+    stroke: var(--vp-rel-near);
+    stroke-width: 2;
+    fill: none;
+    stroke-dasharray: 7 5;
+}
+
+.rg-edge-human {
+    stroke: var(--vp-rel-human);
+    stroke-width: 2.25;
+    fill: none;
+}
+
+.rg-halo {
+    fill: var(--bs-secondary-bg);
+    opacity: 0.4;
+}
+
+.rg-centre {
+    fill: var(--bs-tertiary-bg);
+    stroke: var(--bs-body-color);
+    stroke-width: 2;
+}
+
+.rg-value {
+    fill: var(--bs-body-color);
+    font-weight: 700;
+    font-size: 11px;
+    font-family: var(--bs-font-monospace);
+}
+
+.rg-muted {
+    fill: var(--bs-secondary-color);
+    font-size: 10px;
+}

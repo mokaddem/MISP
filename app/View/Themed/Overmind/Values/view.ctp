@@ -278,9 +278,22 @@ $tabRegistry = array(
         'title' => __('Relationships'),
         'icon' => 'fas fa-link',
         'count' => $counts['relationships'],
-        'note' => __(
-            'Co-occurrence, near-matches and analyst-asserted'
-            . ' relationships, kept apart rather than conflated.'
+        /*
+         * Three panels rather than one, top to bottom in the order the
+         * three notions should be read: what the engine stored, what is
+         * merely close, and what a person asserted. They are separate
+         * endpoints because they will cost wildly different amounts
+         * live, and because one slow correlation query must not hold up
+         * the claims — the only part of this tab somebody wrote by hand.
+         */
+        'left' => array(
+            $panel('viewRelationCooccurrence'),
+            $panel('viewRelationNearMatch'),
+            $panel('viewRelationAsserted'),
+        ),
+        'right' => array(
+            $panel('viewRelationGraph'),
+            $panel('viewRelationSettings'),
         ),
     ),
     array(

@@ -154,6 +154,62 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Relationships tab: three notions of "related", one endpoint
+     * each, plus the two rail cards.
+     *
+     * Three and not one, because the three cost different amounts the
+     * moment this goes live. Co-occurrence is a query against the
+     * correlation table that can return 1,847 rows; near-matches are
+     * re-derived per render and need the CIDR list and an ssdeep
+     * recompute; asserted claims are a cheap, complete read of
+     * `Relationship` over the value's occurrence UUIDs. One slow
+     * correlation query must not hold up the claims, which are the part
+     * of this tab a person actually wrote.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewRelationCooccurrence($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_relation_cooccurrence'
+        );
+    }
+
+    public function viewRelationNearMatch($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_relation_near_match'
+        );
+    }
+
+    public function viewRelationAsserted($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_relation_asserted'
+        );
+    }
+
+    public function viewRelationGraph($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_relation_graph'
+        );
+    }
+
+    public function viewRelationSettings($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_relation_settings'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

@@ -202,6 +202,80 @@
     }
 
     /**
+     * The filter row's constraints, which are conjunctive where the
+     * facet groups are disjunctive.
+     *
+     * A select and a facet group can name the same key — `Any type`
+     * beside a counted `Type` dropdown is exactly the pane the graft
+     * asks for. Ticking `domain` and `sha256` in the dropdown means
+     * *either*; picking `domain` in the select on top of it means
+     * *and also*. Merging the two into one bucket would turn the second
+     * control into a third value of the first, which is not what
+     * anybody reading the row means by it.
+     *
+     * @param {Element} list
+     * @return {Object} key => token, one per set control
+     */
+    function activeSelects(list) {
+        var active = {};
+        list.querySelectorAll('select[data-vp-filter-key]')
+            .forEach(function (select) {
+                if (select.value === '') {
+                    return;
+                }
+                active[select.dataset.vpFilterKey] = select.value;
+            });
+        return active;
+    }
+
+    /**
+     * The free-text box, matched against the row's own `data-vp-text`
+     * rather than its rendered cells: a cell can carry a badge, a bar
+     * and a truncation, and searching what the reader sees would then
+     * mean searching an ellipsis.
+     *
+     * @param {Element} list
+     * @return {string}
+     */
+    function activeText(list) {
+        var input = list.querySelector('[data-vp-filter-text]');
+        return input ? input.value.trim().toLowerCase() : '';
+    }
+
+    /**
+     * The numeric thresholds — `Shared events ≥`, `Similarity ≥`. A
+     * threshold at its floor places no constraint and is not counted
+     * as a set filter, so the panel does not claim a filter is applied
+     * when the control is where it started.
+     *
+     * @param {Element} list
+     * @return {Object} key => minimum
+     */
+    function activeMinimums(list) {
+        var active = {};
+        list.querySelectorAll('[data-vp-filter-min]').forEach(function (input) {
+            var value = parseFloat(input.value);
+            var floor = parseFloat(input.min);
+            if (isNaN(value) || (!isNaN(floor) && value <= floor)) {
+                return;
+            }
+            active[input.dataset.vpFilterMin] = value;
+        });
+        return active;
+    }
+
+    /**
+     * @param {Element} row
+     * @param {string} key
+     * @return {number|null}
+     */
+    function rowNumber(row, key) {
+        var match = (row.dataset.vpNum || '')
+            .match(new RegExp('(?:^|\\s)' + key + ':(-?\\d+(?:\\.\\d+)?)'));
+        return match ? parseFloat(match[1]) : null;
+    }
+
+    /**
      * @param {Element} list
      * @return {Array<string>} Tokens whose hidden rows are revealed.
      */
@@ -238,13 +312,29 @@
      */
     function refreshList(list) {
         var active = activeFacets(list);
+        var selects = activeSelects(list);
+        var minimums = activeMinimums(list);
+        var text = activeText(list);
         var revealed = revealedTokens(list);
+        // A roll-up the reader is not looking at is excluded before
+        // anything else: its rows are a different kind of row, and
+        // paging them alongside the visible ones would give the page
+        // control a count nothing on screen agrees with.
+        var group = list.dataset.vpGroupActive || null;
         var filtered = [];
 
         listRows(list).forEach(function (row) {
             var hidden = row.dataset.vpHidden;
-            var excluded = !!hidden && revealed.indexOf(hidden) === -1;
-            var keep = !excluded && rowMatches(row, active);
+            var keep = !(!!hidden && revealed.indexOf(hidden) === -1);
+            if (keep && group && row.dataset.vpGroup) {
+                keep = row.dataset.vpGroup === group;
+            }
+            if (keep) {
+                keep = rowMatches(row, active)
+                    && rowMatchesSelects(row, selects)
+                    && rowMatchesMinimums(row, minimums)
+                    && rowMatchesText(row, text);
+            }
             if (keep) {
                 filtered.push(row);
             } else {
@@ -254,10 +344,177 @@
 
         var activeCount = Object.keys(active).reduce(function (sum, key) {
             return sum + active[key].length;
-        }, 0);
+        }, 0)
+            + Object.keys(selects).length
+            + Object.keys(minimums).length
+            + (text === '' ? 0 : 1);
 
+        sortRows(list, filtered);
         paginate(list, filtered);
         updateListNotes(list, filtered.length, activeCount);
+    }
+
+    /**
+     * @param {Element} row
+     * @param {Object} selects
+     * @return {boolean}
+     */
+    function rowMatchesSelects(row, selects) {
+        var tokens = (row.dataset.vpFacet || '').split(/\s+/);
+        return Object.keys(selects).every(function (key) {
+            return tokens.indexOf(key + ':' + selects[key]) !== -1;
+        });
+    }
+
+    /**
+     * A row with no number for a key it is being thresholded on is
+     * dropped rather than kept: the control is asking a question that
+     * row cannot answer, and keeping it would make the threshold look
+     * like it did nothing.
+     *
+     * @param {Element} row
+     * @param {Object} minimums
+     * @return {boolean}
+     */
+    function rowMatchesMinimums(row, minimums) {
+        return Object.keys(minimums).every(function (key) {
+            var value = rowNumber(row, key);
+            return value !== null && value >= minimums[key];
+        });
+    }
+
+    /**
+     * @param {Element} row
+     * @param {string} needle
+     * @return {boolean}
+     */
+    function rowMatchesText(row, needle) {
+        if (needle === '') {
+            return true;
+        }
+        return (row.dataset.vpText || '').indexOf(needle) !== -1;
+    }
+
+    /**
+     * Reorder the surviving rows, descending, on whichever number the
+     * rank select names.
+     *
+     * Done in the DOM rather than by re-rendering, because the rows are
+     * already here: this pass pages over what the fragment carries, and
+     * a sort that re-queried would be the one control on the tab that
+     * did. Rows are re-appended to their own host, so the three
+     * roll-ups cannot end up interleaved.
+     *
+     * @param {Element} list
+     * @param {Array<Element>} filtered
+     */
+    function sortRows(list, filtered) {
+        var select = list.querySelector('[data-vp-sort]');
+        if (!select || filtered.length < 2) {
+            return;
+        }
+        var key = select.value;
+        var ordered = filtered.slice().sort(function (a, b) {
+            return (rowNumber(b, key) || 0) - (rowNumber(a, key) || 0);
+        });
+        ordered.forEach(function (row) {
+            if (row.parentNode) {
+                row.parentNode.appendChild(row);
+            }
+        });
+        // `filtered` is what paginate() slices, so it has to end up in
+        // the order the reader is about to see rather than the order
+        // the server happened to render.
+        filtered.length = 0;
+        Array.prototype.push.apply(filtered, ordered);
+    }
+
+    /**
+     * Switch which roll-up is on screen.
+     *
+     * The narrowing controls belong to the value roll-up and are put
+     * away with it: a facet like Type is a property of a correlated
+     * value, and an event row is not a value. Anything set is cleared
+     * on the way out rather than left applying invisibly.
+     *
+     * @param {Element} select A [data-vp-group] select
+     */
+    function switchGroup(select) {
+        var list = select.closest('[data-vp-list]');
+        if (!list) {
+            return;
+        }
+        var group = select.value;
+        list.dataset.vpGroupActive = group;
+        list.querySelectorAll('[data-vp-group-pane]').forEach(function (pane) {
+            pane.classList.toggle('d-none',
+                pane.dataset.vpGroupPane !== group);
+        });
+        list.querySelectorAll('[data-vp-group-only]').forEach(function (el) {
+            el.classList.toggle('d-none', el.dataset.vpGroupOnly !== group);
+        });
+        list.querySelectorAll('[data-vp-group-not]').forEach(function (el) {
+            el.classList.toggle('d-none', el.dataset.vpGroupNot === group);
+        });
+        clearListFilters(list);
+        listPages.set(list, 1);
+        refreshList(list);
+    }
+
+    /**
+     * Put every narrowing control in this list back where it started.
+     *
+     * @param {Element} list
+     */
+    function clearListFilters(list) {
+        list.querySelectorAll('input[data-vp-facet-key]:checked')
+            .forEach(function (box) {
+                box.checked = false;
+            });
+        list.querySelectorAll('select[data-vp-filter-key]')
+            .forEach(function (select) {
+                select.value = '';
+            });
+        list.querySelectorAll('[data-vp-filter-text]')
+            .forEach(function (input) {
+                input.value = '';
+            });
+        list.querySelectorAll('[data-vp-filter-min]')
+            .forEach(function (input) {
+                input.value = input.min === '' ? '0' : input.min;
+            });
+    }
+
+    /**
+     * How many rows are ticked, and the actions that would act on them.
+     *
+     * Counts every checked row including one a filter has since taken
+     * off screen: it is still selected, and a bulk action would still
+     * carry it.
+     *
+     * @param {Element} list
+     */
+    function refreshSelection(list) {
+        var readout = list.querySelector('[data-vp-rel-selected]');
+        if (!readout) {
+            return;
+        }
+        var boxes = list.querySelectorAll('[data-vp-rel-select]');
+        var checked = list.querySelectorAll('[data-vp-rel-select]:checked');
+        readout.textContent = checked.length;
+
+        var all = list.querySelector('[data-vp-rel-select-all]');
+        if (all) {
+            all.checked = boxes.length > 0 && checked.length === boxes.length;
+            all.indeterminate = checked.length > 0
+                && checked.length < boxes.length;
+        }
+        list.querySelectorAll('[data-vp-rel-select]').forEach(function (box) {
+            var row = box.closest('tr');
+            if (row) {
+                row.classList.toggle('vp-rel-rowsel', box.checked);
+            }
+        });
     }
 
     /**
@@ -400,6 +657,7 @@
             .forEach(function (list) {
                 refreshList(list);
                 refreshBulkScope(list);
+                refreshSelection(list);
             });
     }
 
@@ -1246,11 +1504,7 @@
             if (clearAll && !clearAll.disabled) {
                 var clearList = clearAll.closest('[data-vp-list]');
                 if (clearList) {
-                    clearList
-                        .querySelectorAll('input[data-vp-facet-key]:checked')
-                        .forEach(function (box) {
-                            box.checked = false;
-                        });
+                    clearListFilters(clearList);
                     listPages.set(clearList, 1);
                     refreshList(clearList);
                 }
@@ -1288,11 +1542,56 @@
                 }
             }
 
-            // Narrowing a list changes how many pages it has, so any
-            // facet or reveal switch sends the reader back to page one
-            // rather than to a page that may no longer exist.
             if (event.target.matches
-                && event.target.matches('[data-vp-facet-key], [data-vp-reveal]')) {
+                && event.target.matches('[data-vp-group]')) {
+                switchGroup(event.target);
+                return;
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-sort]')) {
+                var sortList = event.target.closest('[data-vp-list]');
+                if (sortList) {
+                    // A reorder does not change how many rows there
+                    // are, but page three of a new order is not the
+                    // rows the reader was looking at either.
+                    listPages.set(sortList, 1);
+                    refreshList(sortList);
+                }
+                return;
+            }
+
+            if (event.target.matches
+                && event.target.matches(
+                    '[data-vp-rel-select], [data-vp-rel-select-all]'
+                )) {
+                var pickList = event.target.closest('[data-vp-list]');
+                if (pickList) {
+                    if (event.target.matches('[data-vp-rel-select-all]')) {
+                        // Only what is on screen: ticking the header
+                        // box over a filtered table must not quietly
+                        // select rows the filter has taken away.
+                        pickList
+                            .querySelectorAll('tr:not(.d-none) '
+                                + '[data-vp-rel-select]')
+                            .forEach(function (box) {
+                                box.checked = event.target.checked;
+                            });
+                    }
+                    refreshSelection(pickList);
+                }
+                return;
+            }
+
+            // Narrowing a list changes how many pages it has, so any
+            // facet, select, threshold or reveal switch sends the
+            // reader back to page one rather than to a page that may no
+            // longer exist.
+            if (event.target.matches
+                && event.target.matches(
+                    '[data-vp-facet-key], [data-vp-reveal],'
+                    + ' [data-vp-filter-key], [data-vp-filter-min]'
+                )) {
                 var list = event.target.closest('[data-vp-list]');
                 if (list) {
                     listPages.set(list, 1);
@@ -1302,9 +1601,21 @@
         });
 
         document.addEventListener('input', function (event) {
-            if (event.target.matches
-                && event.target.matches('[data-vp-facet-search]')) {
+            if (!event.target.matches) {
+                return;
+            }
+            if (event.target.matches('[data-vp-facet-search]')) {
                 filterFacetGroup(event.target);
+                return;
+            }
+            if (event.target.matches(
+                '[data-vp-filter-text], [data-vp-filter-min]'
+            )) {
+                var typedList = event.target.closest('[data-vp-list]');
+                if (typedList) {
+                    listPages.set(typedList, 1);
+                    refreshList(typedList);
+                }
             }
         });
 

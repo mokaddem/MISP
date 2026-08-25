@@ -213,6 +213,7 @@ class ValueProfileFixture
                 'over_correlating' => false,
                 'threshold' => 50,
             ),
+            'relationships' => self::maliciousRelationships(),
             'external' => array(
                 'feeds' => array(
                     array(
@@ -1411,6 +1412,7 @@ class ValueProfileFixture
                 'over_correlating' => true,
                 'threshold' => 50,
             ),
+            'relationships' => self::conflictedRelationships(),
             'external' => array(
                 'feeds' => array(
                     array(
@@ -1946,6 +1948,7 @@ class ValueProfileFixture
                 'over_correlating' => false,
                 'threshold' => 50,
             ),
+            'relationships' => self::emptyRelationships(),
             'external' => array(
                 'feeds' => array(),
                 'servers' => 0,
@@ -2567,6 +2570,7 @@ class ValueProfileFixture
                 'over_correlating' => true,
                 'threshold' => 50,
             ),
+            'relationships' => self::benignRelationships(),
             'external' => array(
                 'feeds' => array(),
                 'servers' => 1,
@@ -4314,5 +4318,1157 @@ class ValueProfileFixture
             array('2025-08-12 14:50', 'CthulhuSPRL.be', 1, 1301, 'ip-dst',
                 'allowlist'),
         ));
+    }
+
+    /* ==================================================================
+     * Relationships
+     * ------------------------------------------------------------------
+     * Three notions of "related", kept apart because they are not
+     * degrees of one thing. Co-occurrence and near-match are rows in
+     * MISP's correlation table; an asserted relationship is a sentence
+     * somebody wrote, and it is never counted into the correlation
+     * total.
+     * ================================================================== */
+
+    /**
+     * A correlated value, rolled up one row per distinct value.
+     *
+     * Columns: value · type · category · shared events · organisations ·
+     * last together · distribution · object template · tag names ·
+     * event ids.
+     *
+     * `shared_events` is how many of this value's events the two appear
+     * in together, not how many correlation rows there are: MISP writes
+     * one row per attribute pair, so a value in four shared events is
+     * at least four rows.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relValueRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'value' => $row[0],
+                'type' => $row[1],
+                'category' => $row[2],
+                'shared_events' => $row[3],
+                'orgs' => $row[4],
+                'last_together' => $row[5],
+                'distribution' => $row[6],
+                'sharing_group' => $row[6] === 4
+                    ? array('id' => 7, 'name' => 'CIRCL private sector')
+                    : array('id' => null, 'name' => null),
+                'object' => $row[7],
+                'tags' => self::relTags($row[8]),
+                'events' => $row[9],
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * The same correlations rolled up by event instead of by value.
+     *
+     * Columns: event id · info · date · organisation · shared values ·
+     * distribution · tag names.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relEventRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'event' => array(
+                    'id' => $row[0],
+                    'info' => $row[1],
+                    'date' => $row[2],
+                ),
+                'org' => $row[3],
+                'shared_values' => $row[4],
+                'distribution' => $row[5],
+                'sharing_group' => $row[5] === 4
+                    ? array('id' => 7, 'name' => 'CIRCL private sector')
+                    : array('id' => null, 'name' => null),
+                'tags' => self::relTags($row[6]),
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * And rolled up by the object the correlated attributes sit in.
+     *
+     * Columns: object id · template · event id · organisation · related
+     * values · relations.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relObjectRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'object' => array('id' => $row[0], 'name' => $row[1]),
+                'event' => $row[2],
+                'org' => $row[3],
+                'values' => $row[4],
+                'relations' => $row[5],
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * The other attributes of an object this value is itself part of.
+     *
+     * Not a correlation at all: a join on `Attribute.object_id` over
+     * occurrences the page has already fetched, with the edge named by
+     * `ObjectReference.relationship_type`. Structural rather than
+     * statistical, which is why it is listed above the ranked table.
+     *
+     * Columns: object id · template · relation · value · type · event
+     * id · organisation.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relSiblingRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'object' => array('id' => $row[0], 'name' => $row[1]),
+                'relation' => $row[2],
+                'value' => $row[3],
+                'type' => $row[4],
+                'event' => $row[5],
+                'org' => $row[6],
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * A CIDR containment row, re-derived rather than read.
+     *
+     * The correlation table records no provenance, so nothing in it
+     * says a row came from the CIDR engine; the block, the prefix and
+     * the address count are all recomputed at render time from the
+     * network-block attribute.
+     *
+     * Columns: block · prefix · event id · organisation · distribution.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relCidrRows(array $table)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $prefix = (int)$row[1];
+            $rows[] = array(
+                'block' => $row[0],
+                'prefix' => $prefix,
+                // What the block actually covers, so "closeness" is
+                // grounded in a number rather than in a bar's width.
+                'addresses' => 1 << (32 - $prefix),
+                'event' => $row[2],
+                'org' => $row[3],
+                'distribution' => $row[4],
+            );
+        }
+        return $rows;
+    }
+
+    /**
+     * An analyst-asserted relationship — a claim, never a table row.
+     *
+     * Columns: relationship type · direction · target kind · target id ·
+     * target label · text · organisation · date · distribution.
+     *
+     * @param array $table
+     * @return array
+     */
+    private static function relClaims(array $table)
+    {
+        $claims = array();
+        foreach ($table as $row) {
+            $claims[] = array(
+                'relationship_type' => $row[0],
+                'direction' => $row[1],
+                'target' => array(
+                    'kind' => $row[2],
+                    'id' => $row[3],
+                    'label' => $row[4],
+                ),
+                'text' => $row[5],
+                'org' => $row[6],
+                'date' => $row[7],
+                'distribution' => $row[8],
+            );
+        }
+        return $claims;
+    }
+
+    /**
+     * Tag records by name, so a row carries the real chip rather than
+     * the tag's name as text.
+     *
+     * @param array $names
+     * @return array
+     */
+    private static function relTags(array $names)
+    {
+        $colours = array(
+            'tlp:amber' => '#FFC000',
+            'tlp:green' => '#33FF00',
+            'pap:amber' => '#FFC000',
+            'type:OSINT' => '#004646',
+            'workflow:state="reviewed"' => '#3F51B5',
+        );
+        $tags = array();
+        foreach ($names as $name) {
+            $tags[] = array(
+                'name' => $name,
+                'colour' => isset($colours[$name])
+                    ? $colours[$name]
+                    : '#6C757D',
+                'is_galaxy' => strpos($name, 'misp-galaxy:') === 0,
+            );
+        }
+        return $tags;
+    }
+
+    /**
+     * The C2 address: 31 correlation rows, three of them near-matches,
+     * and four claims nobody counted into the 31.
+     *
+     * The arithmetic is the point of the tab. 28 co-occurrence rows and
+     * 3 CIDR rows make the 31 the Overview's lifecycle card prints and
+     * the tab bar repeats. The 4 asserted claims are not correlations
+     * and are not added to it — they are counted apart and said so, in
+     * words, on the rail.
+     *
+     * @return array
+     */
+    private static function maliciousRelationships()
+    {
+        return array(
+            'summary' => array(
+                'correlations' => 31,
+                'cooccurrence' => 28,
+                'near' => 3,
+                'asserted' => 4,
+                'recorded' => null,
+            ),
+            'cooccurrence' => array(
+                'suppressed' => false,
+                'stored' => 28,
+                'visible' => 24,
+                'hidden' => 4,
+                'distinct_values' => 18,
+                'events' => 6,
+                'page_size' => 8,
+                'siblings' => self::maliciousRelationSiblings(),
+                'rollups' => array(
+                    'value' => array(
+                        'total' => 18,
+                        'rows' => self::maliciousRelationValues(),
+                    ),
+                    'event' => array(
+                        'total' => 6,
+                        'rows' => self::maliciousRelationEvents(),
+                    ),
+                    'object' => array(
+                        'total' => 3,
+                        'rows' => self::maliciousRelationObjects(),
+                    ),
+                ),
+                'facets' => self::maliciousRelationFacets(),
+                'categories' => array(
+                    'Network activity',
+                    'Payload delivery',
+                ),
+            ),
+            'near' => array(
+                'matches' => 3,
+                'engines_active' => 1,
+                'engines_idle' => 2,
+                'threshold' => 40,
+                'engines' => array(
+                    array(
+                        'id' => 'cidr',
+                        'state' => 'active',
+                        'rows' => self::relCidrRows(array(
+                            array('185.234.216.0/22', 22, 1291,
+                                'CthulhuSPRL.be', 3),
+                            array('185.234.192.0/18', 18, 1265,
+                                'ORGNAME', 1),
+                            array('185.234.0.0/16', 16, 1265,
+                                'ORGNAME', 1),
+                        )),
+                    ),
+                    array(
+                        'id' => 'ssdeep',
+                        'state' => 'not_applicable',
+                        'rows' => array(),
+                    ),
+                    array(
+                        'id' => 'tld',
+                        'state' => 'absent',
+                        'rows' => array(),
+                    ),
+                ),
+            ),
+            'asserted' => array(
+                'total' => 4,
+                'orgs' => 3,
+                'hidden' => 2,
+                'occurrences' => 10,
+                'claims' => self::relClaims(array(
+                    array(
+                        'related-to',
+                        'outbound',
+                        'Event',
+                        1291,
+                        'Phishing kit hosted on compromised WordPress',
+                        __(
+                            'Same operator as the kit in this event —'
+                            . ' the panel login and the C2 answer on the'
+                            . ' same certificate, and the kit posts its'
+                            . ' harvested credentials straight here.'
+                        ),
+                        'CIRCL',
+                        '2025-08-04',
+                        1,
+                    ),
+                    array(
+                        'similar-to',
+                        'outbound',
+                        'GalaxyCluster',
+                        'APT28',
+                        'Threat actor · Sofacy',
+                        __(
+                            'Infrastructure pattern matches the cluster:'
+                            . ' /22 leased from the same reseller, same'
+                            . ' three ports, same fortnight rotation.'
+                            . ' Similarity, not attribution.'
+                        ),
+                        'Team-CIRCL',
+                        '2025-06-21',
+                        3,
+                    ),
+                    array(
+                        'derived-from',
+                        'inbound',
+                        'Object',
+                        90188,
+                        'file · emotet-loader.dll',
+                        __(
+                            'The loader in this object resolves the C2'
+                            . ' from an embedded list; this address is'
+                            . ' the first entry of it, so the address'
+                            . ' was derived from the sample.'
+                        ),
+                        'CthulhuSPRL.be',
+                        '2025-05-09',
+                        4,
+                    ),
+                    array(
+                        'connects-to',
+                        'outbound',
+                        'Attribute',
+                        4831577,
+                        'ip-dst · 185.234.219.24',
+                        __(
+                            'Beaconing observed from the sandbox run'
+                            . ' recorded in event 1291 — 8443/tcp every'
+                            . ' 300 seconds for the whole capture.'
+                        ),
+                        'CIRCL',
+                        '2025-04-30',
+                        1,
+                    ),
+                )),
+            ),
+            'graph' => array(
+                'edges' => 7,
+                'nodes' => array(
+                    'co' => array('domain', 'sha256', 'url'),
+                    'near' => array('network-block', 'network-block'),
+                    'human' => array('Event', 'Object'),
+                ),
+            ),
+            'settings' => array(
+                'correlation_limit' => 20,
+                'ssdeep_threshold' => 40,
+                'excluded' => false,
+            ),
+        );
+    }
+
+    /**
+     * The 18 distinct values, ranked by shared events.
+     *
+     * 4 + 3 + 2 and fifteen ones: 24 shared-event memberships over 18
+     * values, which is the visible half of the 28 stored rows. The
+     * remaining 4 point into the seventh event, which this viewer
+     * cannot open.
+     *
+     * @return array
+     */
+    private static function maliciousRelationValues()
+    {
+        $amber = array('tlp:amber');
+        $green = array('tlp:green');
+        $amberOsint = array('tlp:amber', 'type:OSINT');
+
+        return self::relValueRows(array(
+            array('update.cdn-analytics.net', 'domain', 'Network activity',
+                4, array('CIRCL', 'CthulhuSPRL.be', 'Team-CIRCL', 'ORGNAME'),
+                '2025-08-19', 3, 'domain-ip', $amberOsint,
+                array(1251, 1265, 1279, 1284)),
+            array('9f2c1b7ae4d8035c19f0b2a6d7c48e1a3b5f90d2'
+                . 'c6e8471a90bd35f2e7c81046', 'sha256', 'Payload delivery',
+                3, array('CIRCL', 'Team-CIRCL'), '2025-07-02', 3, 'file',
+                $amber, array(1251, 1272, 1284)),
+            array('http://update.cdn-analytics.net/wp/x.php', 'url',
+                'Network activity', 2, array('CthulhuSPRL.be'),
+                '2025-06-11', 1, null, $amberOsint, array(1265, 1291)),
+            array('185.234.219.31', 'ip-dst', 'Network activity', 1,
+                array('CIRCL'), '2025-05-28', 4, null, $green,
+                array(1272)),
+            array('invoice_2025_08.doc', 'filename', 'Payload delivery', 1,
+                array('Team-CIRCL'), '2025-04-17', 1, null, $amber,
+                array(1272)),
+            array('cdn-analytics.net', 'domain', 'Network activity', 1,
+                array('CthulhuSPRL.be'), '2025-02-08', 1, null, $amber,
+                array(1291)),
+            array('3a7f0d91c4b8e25a6f03d7c19b4e8025'
+                . 'a1c9f36d70b8e42159cd03a6f7b81e94', 'sha256',
+                'Payload delivery', 1, array('CIRCL'), '2025-06-05', 3,
+                'file', $amber, array(1251)),
+            array('panel.cdn-analytics.net', 'domain', 'Network activity',
+                1, array('CIRCL'), '2025-05-14', 3, null, $amberOsint,
+                array(1284)),
+            array('http://panel.cdn-analytics.net/gate.php', 'url',
+                'Network activity', 1, array('CIRCL'), '2025-05-02', 3,
+                null, $amber, array(1284)),
+            array('emotet-loader.dll', 'filename', 'Payload delivery', 1,
+                array('ORGNAME'), '2025-02-19', 0, null, $amber,
+                array(1265)),
+            array('185.234.216.7', 'ip-dst', 'Network activity', 1,
+                array('Team-CIRCL'), '2025-01-09', 4, null, $green,
+                array(1272)),
+            array('b12e94a07f3c8d5619e2b0a4c7d83f16'
+                . '90ea25c8b7f04d3169ac52e8b0f79d34', 'sha256',
+                'Payload delivery', 1, array('CthulhuSPRL.be'),
+                '2025-03-27', 1, null, $amber, array(1291)),
+            array('mail.cdn-analytics.net', 'domain', 'Network activity',
+                1, array('ORGNAME'), '2025-01-22', 0, null, $amber,
+                array(1265)),
+            array('8443', 'port', 'Network activity', 1,
+                array('CthulhuSPRL.be'), '2025-06-29', 1,
+                'network-connection', $amber, array(1291)),
+            array('setup_x86.exe', 'filename', 'Payload delivery', 1,
+                array('CIRCL'), '2025-04-08', 3, 'file', $amberOsint,
+                array(1251)),
+            array('185.234.219.99', 'ip-dst', 'Network activity', 1,
+                array('CIRCL'), '2025-03-14', 3, null, $green,
+                array(1284)),
+            array('dl.cdn-analytics.net', 'domain', 'Network activity', 1,
+                array('Team-CIRCL'), '2025-07-30', 4, null, $amber,
+                array(1272)),
+            array('c9d03e6a15b78f24c0e9a3d6b8175029'
+                . '4e7f01a63bd8c25e07f19a4b3c6d80e5', 'sha256',
+                'Payload delivery', 1, array('ORGNAME'), '2025-02-27', 0,
+                null, $amber, array(1265)),
+        ));
+    }
+
+    /**
+     * The same 24 memberships rolled up by event.
+     *
+     * @return array
+     */
+    private static function maliciousRelationEvents()
+    {
+        return self::relEventRows(array(
+            array(1265, 'Suspicious download hosts, April 2025',
+                '2025-04-11', 'ORGNAME', 5, 0, array('tlp:amber')),
+            array(1272, 'Mass scanning activity against .lu netblocks',
+                '2025-05-02', 'Team-CIRCL', 5, 4, array('tlp:green')),
+            array(1284, 'OSINT - Emotet malspam campaign targeting .lu',
+                '2025-07-14', 'CIRCL', 5, 3,
+                array('tlp:amber', 'type:OSINT')),
+            array(1251, 'OSINT - Emotet infrastructure, autumn 2024',
+                '2024-10-08', 'CIRCL', 4, 3,
+                array('tlp:amber', 'type:OSINT')),
+            array(1291, 'Phishing kit hosted on compromised WordPress',
+                '2025-08-02', 'CthulhuSPRL.be', 4, 1, array('tlp:amber')),
+            array(1279, 'OSINT - Emotet infrastructure, June 2025',
+                '2025-06-19', 'CIRCL', 1, 3, array('tlp:amber')),
+        ));
+    }
+
+    /**
+     * And by the object the correlated attribute sits in. Only ten of
+     * the 24 do sit in one, which is why this roll-up is the shortest
+     * of the three rather than a third view of the same length.
+     *
+     * @return array
+     */
+    private static function maliciousRelationObjects()
+    {
+        return self::relObjectRows(array(
+            array(90188, 'file', 1251, 'CIRCL', 3,
+                array('filename', 'sha256', 'sha1')),
+            array(89771, 'domain-ip', 1279, 'CIRCL', 1,
+                array('domain', 'ip', 'first-seen')),
+            array(90412, 'network-connection', 1291, 'CthulhuSPRL.be', 1,
+                array('ip-dst', 'dst-port')),
+        ));
+    }
+
+    /**
+     * The other attributes of the two objects this value is part of.
+     *
+     * The highest-signal rows on the tab and the cheapest to compute:
+     * the page has already fetched the occurrences, so this is a join
+     * on `object_id` and nothing more.
+     *
+     * @return array
+     */
+    private static function maliciousRelationSiblings()
+    {
+        return self::relSiblingRows(array(
+            array(89771, 'domain-ip', 'domain', 'update.cdn-analytics.net',
+                'domain', 1279, 'CIRCL'),
+            array(89771, 'domain-ip', 'first-seen',
+                '2025-06-02T08:14:00+00:00', 'datetime', 1279, 'CIRCL'),
+            array(90412, 'network-connection', 'dst-port', '8443', 'port',
+                1291, 'CthulhuSPRL.be'),
+        ));
+    }
+
+    /**
+     * Six counted groups over the 18 rows.
+     *
+     * A count here is a `GROUP BY` on the correlation table, not a
+     * tally of the page: `Event 1265` says 5 whether the reader is on
+     * page one or page three, and would still say 5 at 1,847. The
+     * per-event counts sum past 18 because a value can share more than
+     * one event, which is the correct reading and not a mistake.
+     *
+     * @return array
+     */
+    private static function maliciousRelationFacets()
+    {
+        return array(
+            'event' => array(
+                self::facetRow('#1265 Suspicious download hosts',
+                    '1265', 5),
+                self::facetRow('#1272 Mass scanning activity',
+                    '1272', 5),
+                self::facetRow('#1284 Emotet malspam campaign',
+                    '1284', 5),
+                self::facetRow('#1251 Emotet infrastructure, autumn 2024',
+                    '1251', 4),
+                self::facetRow('#1291 Phishing kit on WordPress',
+                    '1291', 4),
+                self::facetRow('#1279 Emotet infrastructure, June 2025',
+                    '1279', 1),
+            ),
+            'organisation' => array(
+                self::facetRow('CIRCL', 'circl', 8),
+                self::facetRow('CthulhuSPRL.be', 'cthulhusprl-be', 5),
+                self::facetRow('Team-CIRCL', 'team-circl', 5),
+                self::facetRow('ORGNAME', 'orgname', 4),
+            ),
+            'type' => array(
+                self::facetRow('domain', 'domain', 5),
+                self::facetRow('sha256', 'sha256', 4),
+                self::facetRow('filename', 'filename', 3),
+                self::facetRow('ip-dst', 'ip-dst', 3),
+                self::facetRow('url', 'url', 2),
+                self::facetRow('port', 'port', 1),
+            ),
+            'object' => array(
+                self::facetRow('file', 'file', 3),
+                self::facetRow('domain-ip', 'domain-ip', 1),
+                self::facetRow('network-connection',
+                    'network-connection', 1),
+            ),
+            'tag' => array(
+                self::tagFacet('tlp:amber', '#FFC000', 0,
+                    'tlp-amber', 15),
+                self::tagFacet('type:OSINT', '#004646', 0,
+                    'type-osint', 4),
+                self::tagFacet('tlp:green', '#33FF00', 0,
+                    'tlp-green', 3),
+            ),
+            'distribution' => array(
+                self::distributionFacet(3, 7),
+                self::distributionFacet(1, 5),
+                self::distributionFacet(0, 3),
+                self::distributionFacet(4, 3),
+            ),
+        );
+    }
+
+    /**
+     * A shared hosting address: 1,847 correlations, and the pane that
+     * has to page rather than cap.
+     *
+     * Nothing else about the tab changes at this cardinality, which is
+     * the reading the three-section split exists to give. The near-match
+     * block still has four rows because CIDR containment is bounded by
+     * how many network blocks contain one address, not by how popular
+     * the address is; the asserted section still has three claims,
+     * because people write them one at a time.
+     *
+     * Only 24 of the 1,462 distinct values are carried here. The pane
+     * says so rather than implying the fixture holds them all —
+     * `value_pager` prints `1–8 of 24` and `(1,462 in total)` beside it.
+     *
+     * @return array
+     */
+    private static function conflictedRelationships()
+    {
+        return array(
+            'summary' => array(
+                'correlations' => 1847,
+                'cooccurrence' => 1843,
+                'near' => 4,
+                'asserted' => 3,
+                'recorded' => null,
+            ),
+            'cooccurrence' => array(
+                'suppressed' => false,
+                'stored' => 1843,
+                'visible' => 1747,
+                'hidden' => 96,
+                'distinct_values' => 1462,
+                'events' => 5,
+                'page_size' => 8,
+                'siblings' => self::relSiblingRows(array(
+                    array(96331, 'domain-ip', 'domain',
+                        'secure-mybank-lu.com', 'domain', 1402, 'CIRCL'),
+                    array(96331, 'domain-ip', 'first-seen',
+                        '2025-07-19T21:40:00+00:00', 'datetime', 1402,
+                        'CIRCL'),
+                    array(94018, 'domain-ip', 'domain',
+                        'login-portal-verify.net', 'domain', 1309,
+                        'CIRCL'),
+                )),
+                'rollups' => array(
+                    'value' => array(
+                        'total' => 1462,
+                        'rows' => self::conflictedRelationValues(),
+                    ),
+                    'event' => array(
+                        'total' => 5,
+                        'rows' => self::relEventRows(array(
+                            array(1402,
+                                'Phishing campaign impersonating a .lu bank',
+                                '2025-07-19', 'CIRCL', 812, 3,
+                                array('tlp:amber')),
+                            array(1388, 'Gamaredon infrastructure, July batch',
+                                '2025-07-04', 'CthulhuSPRL.be', 486, 1,
+                                array('tlp:amber')),
+                            array(1341,
+                                'Suspicious traffic against a member portal',
+                                '2025-05-21', 'ORGNAME', 271, 0,
+                                array('tlp:green')),
+                            array(1309,
+                                'Phishing kit reuse across .lu targets',
+                                '2025-03-12', 'CIRCL', 149, 3,
+                                array('tlp:amber', 'type:OSINT')),
+                            array(1356, 'Cloudflare-fronted C2 survey',
+                                '2025-06-02', 'Team-CIRCL', 29, 4,
+                                array('tlp:green')),
+                        )),
+                    ),
+                    'object' => array(
+                        'total' => 2,
+                        'rows' => self::relObjectRows(array(
+                            array(96331, 'domain-ip', 1402, 'CIRCL', 611,
+                                array('domain', 'ip', 'first-seen')),
+                            array(94018, 'domain-ip', 1309, 'CIRCL', 138,
+                                array('domain', 'ip')),
+                        )),
+                    ),
+                ),
+                'facets' => self::conflictedRelationFacets(),
+                'categories' => array(
+                    'Network activity',
+                    'Payload delivery',
+                ),
+            ),
+            'near' => array(
+                'matches' => 4,
+                'engines_active' => 1,
+                'engines_idle' => 2,
+                'threshold' => 40,
+                'engines' => array(
+                    array(
+                        'id' => 'cidr',
+                        'state' => 'active',
+                        'rows' => self::relCidrRows(array(
+                            array('104.21.32.0/20', 20, 1402, 'CIRCL', 3),
+                            array('104.21.0.0/16', 16, 1388,
+                                'CthulhuSPRL.be', 1),
+                            array('104.16.0.0/13', 13, 1341, 'ORGNAME', 0),
+                            array('104.0.0.0/8', 8, 1341, 'ORGNAME', 0),
+                        )),
+                    ),
+                    array(
+                        'id' => 'ssdeep',
+                        'state' => 'not_applicable',
+                        'rows' => array(),
+                    ),
+                    array(
+                        'id' => 'tld',
+                        'state' => 'absent',
+                        'rows' => array(),
+                    ),
+                ),
+            ),
+            'asserted' => array(
+                'total' => 3,
+                'orgs' => 2,
+                'hidden' => 1,
+                'occurrences' => 9,
+                'claims' => self::relClaims(array(
+                    array(
+                        'related-to',
+                        'outbound',
+                        'Event',
+                        1402,
+                        'Phishing campaign impersonating a .lu bank',
+                        __(
+                            'The phishing hostname resolved here for the'
+                            . ' fortnight of the campaign. Shared'
+                            . ' hosting, so the address is evidence of'
+                            . ' the front and not of the operator.'
+                        ),
+                        'CIRCL',
+                        '2025-07-22',
+                        3,
+                    ),
+                    array(
+                        'similar-to',
+                        'inbound',
+                        'Attribute',
+                        5103011,
+                        'domain|ip · secure-mybank-lu.com|104.21.34.198',
+                        __(
+                            'Same reverse proxy as the other .lu bank'
+                            . ' lookalikes this quarter — the second half'
+                            . ' of the pair is the interesting one, and'
+                            . ' it is this address.'
+                        ),
+                        'CthulhuSPRL.be',
+                        '2025-06-08',
+                        1,
+                    ),
+                    array(
+                        'connects-to',
+                        'outbound',
+                        'GalaxyCluster',
+                        'Gamaredon Group',
+                        'Threat actor · Primitive Bear',
+                        __(
+                            'Recorded because the address answered for a'
+                            . ' Gamaredon domain for four days. Weak: the'
+                            . ' host is shared and thousands of unrelated'
+                            . ' names answer from it.'
+                        ),
+                        'CIRCL',
+                        '2025-04-30',
+                        3,
+                    ),
+                )),
+            ),
+            'graph' => array(
+                'edges' => 7,
+                'nodes' => array(
+                    'co' => array('domain', 'domain', 'url'),
+                    'near' => array('network-block', 'network-block'),
+                    'human' => array('Event', 'Attribute'),
+                ),
+            ),
+            'settings' => array(
+                'correlation_limit' => 20,
+                'ssdeep_threshold' => 40,
+                'excluded' => false,
+            ),
+        );
+    }
+
+    /**
+     * 24 of the 1,462, which is what the pager's `(1,462 in total)`
+     * exists to say. Ranked the same way as the malicious value's, so
+     * the reader who has seen one recognises the other.
+     *
+     * @return array
+     */
+    private static function conflictedRelationValues()
+    {
+        $amber = array('tlp:amber');
+        $green = array('tlp:green');
+        $amberOsint = array('tlp:amber', 'type:OSINT');
+        $network = 'Network activity';
+        $payload = 'Payload delivery';
+
+        return self::relValueRows(array(
+            array('secure-mybank-lu.com', 'domain', $network, 4,
+                array('CIRCL', 'CthulhuSPRL.be', 'ORGNAME'), '2025-08-23',
+                3, 'domain-ip', $amberOsint, array(1309, 1341, 1388, 1402)),
+            array('login-portal-verify.net', 'domain', $network, 3,
+                array('CIRCL', 'ORGNAME'), '2025-08-11', 3, 'domain-ip',
+                $amber, array(1309, 1341, 1402)),
+            array('https://secure-mybank-lu.com/auth/session', 'url',
+                $network, 3, array('CIRCL'), '2025-08-04', 3, null,
+                $amber, array(1309, 1388, 1402)),
+            array('mybank-lu-support.com', 'domain', $network, 2,
+                array('CIRCL', 'CthulhuSPRL.be'), '2025-07-28', 1, null,
+                $amber, array(1388, 1402)),
+            array('104.21.34.201', 'ip-dst', $network, 2,
+                array('Team-CIRCL'), '2025-07-16', 4, null, $green,
+                array(1341, 1356)),
+            array('verify-account-lu.net', 'domain', $network, 2,
+                array('ORGNAME'), '2025-07-09', 0, null, $amber,
+                array(1341, 1402)),
+            array('https://login-portal-verify.net/lu/', 'url', $network,
+                1, array('CIRCL'), '2025-06-30', 3, null, $amberOsint,
+                array(1309)),
+            array('kit_bank_lu.zip', 'filename', $payload, 1,
+                array('CthulhuSPRL.be'), '2025-06-24', 1, null, $amber,
+                array(1388)),
+            array('7d41ac09e8b25f36104ba7c9d2e08153'
+                . '6ba09c47e1d82f350ae96b73c04d1f28', 'sha256', $payload,
+                1, array('CthulhuSPRL.be'), '2025-06-18', 1, null, $amber,
+                array(1388)),
+            array('portal-mybank.lu', 'domain', $network, 1,
+                array('CIRCL'), '2025-06-11', 3, null, $amber,
+                array(1402)),
+            array('104.21.34.77', 'ip-dst', $network, 1,
+                array('Team-CIRCL'), '2025-06-02', 4, null, $green,
+                array(1356)),
+            array('https://verify-account-lu.net/otp', 'url', $network, 1,
+                array('ORGNAME'), '2025-05-27', 0, null, $amber,
+                array(1341)),
+            array('mybank-lu.click', 'domain', $network, 1,
+                array('ORGNAME'), '2025-05-21', 0, null, $green,
+                array(1341)),
+            array('otp_form.php', 'filename', $payload, 1,
+                array('CIRCL'), '2025-05-14', 3, null, $amber,
+                array(1402)),
+            array('e0b71cd4a8253f09617ac0d3b8e42159'
+                . 'cd7f03a6b18e945207cf3a61d8b0e472', 'sha256', $payload,
+                1, array('CIRCL'), '2025-05-06', 3, null, $amber,
+                array(1309)),
+            array('bank-lu-secure.info', 'domain', $network, 1,
+                array('CthulhuSPRL.be'), '2025-04-28', 1, null, $amber,
+                array(1388)),
+            array('104.21.35.14', 'ip-dst', $network, 1,
+                array('CIRCL'), '2025-04-19', 3, null, $green,
+                array(1402)),
+            array('https://mybank-lu-support.com/reset', 'url', $network,
+                1, array('CthulhuSPRL.be'), '2025-04-11', 1, null,
+                $amberOsint, array(1388)),
+            array('session_keeper.js', 'filename', $payload, 1,
+                array('CIRCL'), '2025-04-02', 3, null, $amber,
+                array(1309)),
+            array('cdn-mybank-lu.net', 'domain', $network, 1,
+                array('Team-CIRCL'), '2025-03-25', 4, null, $green,
+                array(1356)),
+            array('a3f80c62b91d47e50a28c6f1b70d9e43'
+                . '82c05a7e61bd39f048ac2b57e0d813f6', 'sha256', $payload,
+                1, array('ORGNAME'), '2025-03-18', 0, null, $amber,
+                array(1341)),
+            array('secure-lu-banking.top', 'domain', $network, 1,
+                array('CIRCL'), '2025-03-12', 3, null, $amber,
+                array(1309)),
+            array('104.21.33.240', 'ip-dst', $network, 1,
+                array('CthulhuSPRL.be'), '2025-03-04', 1, null, $green,
+                array(1388)),
+            array('phish_bundle.tar.gz', 'filename', $payload, 1,
+                array('CIRCL'), '2025-02-24', 3, null, $amber,
+                array(1402)),
+        ));
+    }
+
+    /**
+     * The counts that do not move when the list pages.
+     *
+     * This is the graft's whole justification, so the numbers are
+     * deliberately larger than anything the pane renders: `Event 1402`
+     * says 812 while the page shows eight rows. A count of the page
+     * would say eight, and would be wrong in a way the reader could not
+     * see.
+     *
+     * @return array
+     */
+    private static function conflictedRelationFacets()
+    {
+        return array(
+            'event' => array(
+                self::facetRow('#1402 Phishing campaign impersonating a bank',
+                    '1402', 812),
+                self::facetRow('#1388 Gamaredon infrastructure', '1388', 486),
+                self::facetRow('#1341 Suspicious traffic, member portal',
+                    '1341', 271),
+                self::facetRow('#1309 Phishing kit reuse', '1309', 149),
+                self::facetRow('#1356 Cloudflare-fronted C2 survey',
+                    '1356', 29),
+            ),
+            'organisation' => array(
+                self::facetRow('CIRCL', 'circl', 733),
+                self::facetRow('CthulhuSPRL.be', 'cthulhusprl-be', 402),
+                self::facetRow('ORGNAME', 'orgname', 341),
+                self::facetRow('Team-CIRCL', 'team-circl', 96),
+            ),
+            'type' => array(
+                self::facetRow('domain', 'domain', 981),
+                self::facetRow('url', 'url', 274),
+                self::facetRow('ip-dst', 'ip-dst', 118),
+                self::facetRow('sha256', 'sha256', 63),
+                self::facetRow('filename', 'filename', 26),
+            ),
+            'object' => array(
+                self::facetRow('domain-ip', 'domain-ip', 749),
+            ),
+            'tag' => array(
+                self::tagFacet('tlp:amber', '#FFC000', 0,
+                    'tlp-amber', 1104),
+                self::tagFacet('tlp:green', '#33FF00', 0,
+                    'tlp-green', 358),
+                self::tagFacet('type:OSINT', '#004646', 0,
+                    'type-osint', 212),
+            ),
+            'distribution' => array(
+                self::distributionFacet(3, 796),
+                self::distributionFacet(1, 402),
+                self::distributionFacet(0, 235),
+                self::distributionFacet(4, 29),
+            ),
+        );
+    }
+
+    /**
+     * The resolver everybody has: past `MISP.correlation_limit`, so
+     * MISP stored nothing at all.
+     *
+     * 21,904 is not a row count. It is the `occurrence` column of the
+     * `over_correlating_values` row MISP wrote instead of correlating —
+     * which is why the first section renders a suppressed band and not
+     * an empty state. "No rows" here means "too many to store", the
+     * opposite of "none".
+     *
+     * The other two sections are untouched by that. CIDR containment is
+     * re-derived at render time from the network-block attributes and
+     * never reads the correlation table, and an analyst claim is not a
+     * correlation at all — so both still have rows on a value whose
+     * correlations were never written.
+     *
+     * @return array
+     */
+    private static function benignRelationships()
+    {
+        return array(
+            'summary' => array(
+                /*
+                 * `correlations` is what the tab bar and the Overview
+                 * print; `cooccurrence` is what MISP actually stored,
+                 * which is nothing. `recorded` is the number the two
+                 * differ by — the `occurrence` column of the
+                 * `over_correlating_values` row written in place of
+                 * the correlations. The tab's job here is to make that
+                 * gap legible rather than to hide it behind a zero.
+                 */
+                'correlations' => 21904,
+                'cooccurrence' => 0,
+                'near' => 3,
+                'asserted' => 2,
+                'recorded' => 21904,
+            ),
+            'cooccurrence' => array(
+                'suppressed' => true,
+                'stored' => 0,
+                'visible' => 0,
+                'hidden' => 0,
+                'distinct_values' => 0,
+                'events' => 0,
+                'page_size' => 8,
+                'siblings' => self::relSiblingRows(array(
+                    array(90886, 'domain-ip', 'domain', 'dns.google',
+                        'domain', 1298, 'CthulhuSPRL.be'),
+                )),
+                'rollups' => array(
+                    'value' => array('total' => 0, 'rows' => array()),
+                    'event' => array('total' => 0, 'rows' => array()),
+                    'object' => array('total' => 0, 'rows' => array()),
+                ),
+                'facets' => null,
+                'categories' => array(),
+            ),
+            'near' => array(
+                'matches' => 3,
+                'engines_active' => 1,
+                'engines_idle' => 2,
+                'threshold' => 40,
+                'engines' => array(
+                    array(
+                        'id' => 'cidr',
+                        'state' => 'active',
+                        'rows' => self::relCidrRows(array(
+                            array('8.8.8.0/24', 24, 1288, 'Team-CIRCL', 3),
+                            array('8.8.0.0/16', 16, 1276, 'ORGNAME', 3),
+                            array('8.0.0.0/9', 9, 1259, 'Botvrij.eu', 3),
+                        )),
+                    ),
+                    array(
+                        'id' => 'ssdeep',
+                        'state' => 'not_applicable',
+                        'rows' => array(),
+                    ),
+                    array(
+                        'id' => 'tld',
+                        'state' => 'absent',
+                        'rows' => array(),
+                    ),
+                ),
+            ),
+            'asserted' => array(
+                'total' => 2,
+                'orgs' => 2,
+                'hidden' => 0,
+                'occurrences' => 9,
+                'claims' => self::relClaims(array(
+                    array(
+                        'related-to',
+                        'outbound',
+                        'Event',
+                        1288,
+                        'DNS tunnelling attempt against a member',
+                        __(
+                            'The resolver is the carrier, not the'
+                            . ' target. Recorded so the event keeps its'
+                            . ' shape; the address itself is Google'
+                            . ' Public DNS and should never be blocked.'
+                        ),
+                        'Team-CIRCL',
+                        '2025-06-14',
+                        3,
+                    ),
+                    array(
+                        'similar-to',
+                        'inbound',
+                        'Attribute',
+                        4884560,
+                        'ip-src · 8.8.4.4',
+                        __(
+                            'Its sibling resolver. Both are on every'
+                            . ' allowlist worth having, and both keep'
+                            . ' turning up in exfiltration captures for'
+                            . ' the same uninteresting reason.'
+                        ),
+                        'CIRCL',
+                        '2025-02-27',
+                        3,
+                    ),
+                )),
+            ),
+            'graph' => array(
+                'edges' => 4,
+                'nodes' => array(
+                    'co' => array(),
+                    'near' => array('network-block', 'network-block'),
+                    'human' => array('Event', 'Attribute'),
+                ),
+            ),
+            'settings' => array(
+                'correlation_limit' => 20,
+                'ssdeep_threshold' => 40,
+                'excluded' => false,
+            ),
+        );
+    }
+
+    /**
+     * Every panel of the tab in its own empty state.
+     *
+     * Not one shared "nothing here": the three notions fail differently
+     * and a reader has to be able to tell "the engine stored nothing"
+     * from "no engine applies" from "nobody has said anything". The
+     * settings card is the exception — what MISP is configured to count
+     * is true whether or not this value has anything to count.
+     *
+     * @return array
+     */
+    private static function emptyRelationships()
+    {
+        return array(
+            'summary' => array(
+                'correlations' => 0,
+                'cooccurrence' => 0,
+                'near' => 0,
+                'asserted' => 0,
+                'recorded' => null,
+            ),
+            'cooccurrence' => array(
+                'suppressed' => false,
+                'stored' => 0,
+                'visible' => 0,
+                'hidden' => 0,
+                'distinct_values' => 0,
+                'events' => 0,
+                'page_size' => 8,
+                'siblings' => array(),
+                'rollups' => array(
+                    'value' => array('total' => 0, 'rows' => array()),
+                    'event' => array('total' => 0, 'rows' => array()),
+                    'object' => array('total' => 0, 'rows' => array()),
+                ),
+                // Null rather than groups of zeroes: a facet bar of
+                // zeroes claims there are rows to narrow.
+                'facets' => null,
+                'categories' => array(),
+            ),
+            'near' => array(
+                'matches' => 0,
+                'engines_active' => 0,
+                'engines_idle' => 0,
+                'threshold' => 40,
+                'engines' => array(),
+            ),
+            'asserted' => array(
+                'total' => 0,
+                'orgs' => 0,
+                'hidden' => 0,
+                'occurrences' => 0,
+                'claims' => array(),
+            ),
+            'graph' => array(
+                'edges' => 0,
+                'nodes' => array(
+                    'co' => array(),
+                    'near' => array(),
+                    'human' => array(),
+                ),
+            ),
+            'settings' => array(
+                'correlation_limit' => 20,
+                'ssdeep_threshold' => 40,
+                'excluded' => false,
+            ),
+        );
     }
 }

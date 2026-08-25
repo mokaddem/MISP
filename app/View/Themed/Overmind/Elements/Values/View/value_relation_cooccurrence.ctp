@@ -1,0 +1,926 @@
+<?php
+/**
+ * Section one of the Relationships tab: what the correlation engine
+ * stored about this value.
+ *
+ * Machine-derived, statistical, and the only section that grows without
+ * bound — so it is the only one that carries `R3`'s narrowing bar and
+ * pages rather than caps. The cut is always stated in words above the
+ * rows: a table that silently shows the top eight of 1,462 is a table
+ * that lies by omission.
+ *
+ * Three things share this panel and are not the same thing:
+ *
+ *   object siblings   a join on `Attribute.object_id` over occurrences
+ *                     the page already holds. Structural, not
+ *                     statistical, and unaffected by anything the
+ *                     correlation engine does or fails to do — which is
+ *                     why it still renders under a suppressed band.
+ *   the roll-ups      the stored correlations, counted three ways.
+ *   the facet bar     a `GROUP BY` on the correlation table. Its counts
+ *                     do not move when the list pages, and saying so is
+ *                     the whole reason the bar is here.
+ *
+ * Lazily loaded from ValuesController::viewRelationCooccurrence.
+ *
+ * @var array $valueProfile
+ * @var string $valueB64
+ */
+$profile = $valueProfile;
+$relations = $profile['relationships'];
+$co = $relations['cooccurrence'];
+$summary = $relations['summary'];
+$siblings = $co['siblings'];
+$facets = $co['facets'];
+
+$noWrites = __(
+    'Disabled in this pass — the Value Profile page does not write to'
+    . ' the database yet.'
+);
+
+$view = $this;
+
+/**
+ * @param string $text
+ * @return string
+ */
+$slug = function ($text) {
+    return trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($text)), '-');
+};
+
+/*
+ * The objects this value is itself part of, taken from the sibling
+ * join rather than guessed: a correlated value sitting in a `file`
+ * object is not a sibling of ours unless we are in that same object.
+ */
+$siblingObjects = array();
+foreach ($siblings as $sibling) {
+    $siblingObjects[$sibling['object']['name']] = true;
+}
+
+/**
+ * The tokens the facet bar and the filter row match on.
+ *
+ * @param array $row
+ * @return string
+ */
+$valueTokens = function ($row) use ($slug, $siblingObjects) {
+    $tokens = array(
+        'type:' . $slug($row['type']),
+        'category:' . $slug($row['category']),
+        'distribution:' . (int)$row['distribution'],
+    );
+    foreach ($row['orgs'] as $org) {
+        $tokens[] = 'organisation:' . $slug($org);
+    }
+    foreach ($row['events'] as $event) {
+        $tokens[] = 'event:' . $event;
+    }
+    foreach ($row['tags'] as $tag) {
+        $tokens[] = 'tag:' . $slug($tag['name']);
+    }
+    if ($row['object'] !== null) {
+        $tokens[] = 'object:' . $slug($row['object']);
+        if (isset($siblingObjects[$row['object']])) {
+            $tokens[] = 'sibling:yes';
+        }
+    }
+    return implode(' ', $tokens);
+};
+
+/**
+ * A row's two orderings, as numbers the sort can read without parsing
+ * a date out of a cell.
+ *
+ * @param int $weight
+ * @param string $date
+ * @return string
+ */
+$numbers = function ($weight, $date) {
+    return 'shared:' . (int)$weight
+        . ' recent:' . str_replace('-', '', substr($date, 0, 10));
+};
+
+/**
+ * MISP's own distribution badge, so the level is never printed as the
+ * bare integer it is stored as.
+ *
+ * @param array $row
+ * @return string
+ */
+$distributionBadge = function ($row) use ($view) {
+    return $view->element(
+        'genericElementsBS5/Badges/distribution',
+        array('distribution' => (int)$row['distribution'], 'full' => false)
+    );
+};
+
+/**
+ * @param array $tags
+ * @return string
+ */
+$tagChips = function ($tags) use ($view) {
+    if (empty($tags)) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    $out = '';
+    foreach ($tags as $tag) {
+        $out .= $view->element(
+            'genericElementsBS5/Badges/tag',
+            array(
+                'tag' => $tag,
+                'local' => false,
+                'hiddenClass' => '',
+                'showFavourite' => false,
+            )
+        );
+    }
+    return $out;
+};
+
+/**
+ * The type, through MISP's own badge, re-flowed for a dense row by
+ * `.vp-rel-type` rather than by a second rendering of the same fact.
+ *
+ * @param string $type
+ * @return string
+ */
+$typeBadge = function ($type) use ($view) {
+    return '<span class="vp-rel-type">'
+        . $view->element(
+            'genericElementsBS5/Badges/type',
+            array('type' => $type, 'full' => true)
+        )
+        . '</span>';
+};
+
+/**
+ * A weight, on the page's own bar. Strengths are only ever compared
+ * inside one roll-up, never across the three notions.
+ *
+ * @param int $weight
+ * @param int $max
+ * @return string
+ */
+$weightBar = function ($weight, $max) {
+    $share = $max > 0 ? round(($weight / $max) * 100) : 0;
+    return '<span class="vp-rel-bar"'
+        . ' style="--vp-seg-color: var(--vp-rel-co);">'
+        . '<span class="vp-weight-track"><span class="vp-weight-fill"'
+        . ' style="width: ' . h($share) . '%;"></span></span>'
+        . '<span class="vp-rel-bar-read">' . h(number_format($weight))
+        . '</span></span>';
+};
+
+/*
+ * The six groups, in the order the bar prints them. A key the fixture
+ * left out renders nothing at all, which is what `value_facet_group`
+ * already enforces for a group of zeroes.
+ */
+$facetGroups = array(
+    array('key' => 'event', 'title' => __('Event'),
+        'icon' => 'misp-icon misp-icon-event misp-simple'),
+    array('key' => 'organisation', 'title' => __('Organisation'),
+        'icon' => 'fas fa-building'),
+    array('key' => 'type', 'title' => __('Type'),
+        'icon' => 'misp-icon misp-icon-attribute misp-simple'),
+    array('key' => 'object', 'title' => __('Object'),
+        'icon' => 'misp-icon misp-icon-object misp-simple'),
+    array('key' => 'tag', 'title' => __('Tag'),
+        'icon' => 'misp-icon misp-icon-tag misp-simple'),
+    array('key' => 'distribution', 'title' => __('Distribution'),
+        'icon' => 'fas fa-globe'),
+);
+
+$valueRows = $co['rollups']['value']['rows'];
+$eventRows = $co['rollups']['event']['rows'];
+$objectRows = $co['rollups']['object']['rows'];
+$hasRows = !empty($valueRows);
+
+$maxShared = 0;
+foreach ($valueRows as $row) {
+    $maxShared = max($maxShared, (int)$row['shared_events']);
+}
+$maxEventShared = 0;
+foreach ($eventRows as $row) {
+    $maxEventShared = max($maxEventShared, (int)$row['shared_values']);
+}
+$maxObjectValues = 0;
+foreach ($objectRows as $row) {
+    $maxObjectValues = max($maxObjectValues, (int)$row['values']);
+}
+
+ob_start();
+?>
+    <select class="form-select form-select-sm w-auto" data-vp-sort
+            aria-label="<?= __('Rank the rows') ?>">
+        <option value="shared"><?= __('Most shared first') ?></option>
+        <option value="recent"><?= __('Most recent first') ?></option>
+    </select>
+    <select class="form-select form-select-sm w-auto" data-vp-group
+            aria-label="<?= __('Roll the correlations up by') ?>">
+        <option value="value"><?= __('Group by value') ?></option>
+        <option value="event"><?= __('Group by event') ?></option>
+        <option value="object"><?= __('Group by object') ?></option>
+    </select>
+<?php
+$headerExtra = ob_get_clean();
+if (!$hasRows) {
+    // Ranking and rolling up nothing is a control that cannot do
+    // anything, which is worse than one that is absent.
+    $headerExtra = null;
+}
+
+ob_start();
+?>
+    <span class="vp-rel-tag me-1">
+        <i class="fas fa-link"></i><?= h(__('Co-occurrence')) ?>
+    </span>
+    <?php if ($co['suppressed']): ?>
+        <?= h(sprintf(
+            __('%s recorded occurrences · no correlation stored'),
+            number_format($summary['recorded'])
+        )) ?>
+    <?php elseif ($hasRows): ?>
+        <span data-vp-list-shown><?= h(count($valueRows)) ?></span>
+        <?= h(sprintf(
+            __('of %1$s distinct values across %2$d events'),
+            number_format($co['distinct_values']),
+            $co['events']
+        )) ?>
+    <?php else: ?>
+        <?= h(__('Nothing the correlation engine has stored')) ?>
+    <?php endif; ?>
+    &nbsp;·&nbsp;<?= h(__('correlation engine')) ?>&nbsp;·&nbsp;
+    <span class="vp-rel-prov"><i class="fas fa-gauge"></i><?=
+        h(__('Machine-derived')) ?></span>
+<?php
+$headerSub = ob_get_clean();
+?>
+<div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
+     style="--vp-panel-color: var(--vp-rel-co);"
+     data-vp-list
+     data-vp-group-active="value">
+
+    <?= $this->element('Values/View/value_panel_header', array(
+        'panelTitle' => __('Co-occurrence'),
+        'panelIcon' => 'fas fa-link',
+        'panelColor' => 'var(--vp-rel-co)',
+        'panelSub' => $headerSub,
+        'panelExtra' => $headerExtra,
+    )) ?>
+
+    <?php if ($co['suppressed']): ?>
+
+        <?php
+        /*
+         * Not an empty state. Past `MISP.correlation_limit` MISP
+         * writes the value to `over_correlating_values` and stores no
+         * correlation at all, so "no rows" here means "too many to
+         * store" — the opposite claim, and one a reader who saw an
+         * empty table would get exactly backwards.
+         */
+        ?>
+        <div class="vp-suppressed">
+            <i class="fas fa-circle-exclamation"></i>
+            <div>
+                <span class="vp-suppressed-badge">
+                    <?= __('Suppressed by MISP') ?>
+                </span>
+                <div class="mt-2">
+                    <?= sprintf(
+                        __(
+                            'This value occurs %1$s times — past'
+                            . ' %2$s, which is %3$d. MISP stored'
+                            . ' %4$s and recorded the value in'
+                            . ' %5$s instead.'
+                        ),
+                        '<strong>' . h(number_format($summary['recorded']))
+                            . '</strong>',
+                        '<code>MISP.correlation_limit</code>',
+                        $relations['settings']['correlation_limit'],
+                        '<strong>' . h(__('no correlation at all'))
+                            . '</strong>',
+                        '<code>over_correlating_values</code>'
+                    ) ?>
+                </div>
+                <div class="mt-2">
+                    <?= h(__(
+                        'The tab bar and the Overview both print that'
+                        . ' number, so it is worth being exact about'
+                        . ' what it counts: it is the occurrence count'
+                        . ' MISP kept, not a number of rows anybody can'
+                        . ' list. Nothing was hidden from you here, and'
+                        . ' nothing is missing — there is nothing to'
+                        . ' show.'
+                    )) ?>
+                </div>
+            </div>
+        </div>
+
+    <?php elseif (!$hasRows): ?>
+
+        <div class="p-3">
+            <div class="vp-empty">
+                <i class="fas fa-link"></i>
+                <span>
+                    <?= __('No correlation the engine has stored for'
+                        . ' this value.') ?>
+                </span>
+            </div>
+        </div>
+
+    <?php else: ?>
+
+        <div class="vp-rel-cap">
+            <i class="fas fa-filter"></i>
+            <span>
+                <?php if ($co['distinct_values'] > count($valueRows)): ?>
+                    <?= sprintf(
+                        __(
+                            '%1$s. The pane paginates rather than caps,'
+                            . ' so the cut is a page and not a ranking'
+                            . ' threshold — and the facet counts below'
+                            . ' stay exact at %2$s, as they would at'
+                            . ' 21,904.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __('%1$s of %2$s distinct values are carried'),
+                            number_format(count($valueRows)),
+                            number_format($co['distinct_values'])
+                        )) . '</strong>',
+                        h(number_format($co['distinct_values']))
+                    ) ?>
+                <?php else: ?>
+                    <?= sprintf(
+                        __(
+                            '%1$s. %2$d of the %3$d stored correlation'
+                            . ' rows are visible to you.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __('All %d distinct values are listed'),
+                            $co['distinct_values']
+                        )) . '</strong>',
+                        $co['visible'],
+                        $co['stored']
+                    ) ?>
+                <?php endif; ?>
+            </span>
+        </div>
+
+        <?php
+        /*
+         * The narrowing block belongs to the value roll-up and says so
+         * when it is not showing. A facet on `type` is a property of a
+         * correlated value; an event row is not a value, and narrowing
+         * it by the type of one would be a filter that means nothing.
+         */
+        ?>
+        <div data-vp-group-only="value">
+
+            <div class="p-3 border-bottom d-flex flex-wrap gap-2
+                        align-items-center">
+                <div class="input-group input-group-sm" style="width: 15rem">
+                    <span class="input-group-text">
+                        <i class="fas fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" class="form-control"
+                           data-vp-filter-text
+                           aria-label="<?= __('Search the listed values') ?>"
+                           placeholder="<?= h(__('Search value')) ?>">
+                </div>
+
+                <?php
+                $selects = array(
+                    array('key' => 'type', 'any' => __('Any type'),
+                        'rows' => $facets['type']),
+                    array('key' => 'organisation',
+                        'any' => __('Any organisation'),
+                        'rows' => $facets['organisation']),
+                    array('key' => 'event', 'any' => __('Any event'),
+                        'rows' => $facets['event']),
+                );
+                ?>
+                <select class="form-select form-select-sm w-auto"
+                        data-vp-filter-key="category"
+                        aria-label="<?= __('Category') ?>">
+                    <option value=""><?= __('Any category') ?></option>
+                    <?php foreach ($co['categories'] as $category): ?>
+                        <option value="<?= h($slug($category)) ?>">
+                            <?= h($category) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php foreach ($selects as $select): ?>
+                    <select class="form-select form-select-sm w-auto"
+                            data-vp-filter-key="<?= h($select['key']) ?>"
+                            aria-label="<?= h($select['any']) ?>">
+                        <option value=""><?= h($select['any']) ?></option>
+                        <?php foreach ($select['rows'] as $facet): ?>
+                            <option value="<?= h($facet['value']) ?>">
+                                <?= h($facet['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endforeach; ?>
+
+                <div class="input-group input-group-sm" style="width: 12rem">
+                    <span class="input-group-text">
+                        <?= __('Shared events') ?> &ge;
+                    </span>
+                    <input type="number" class="form-control" min="1"
+                           value="1" data-vp-filter-min="shared"
+                           aria-label="<?= __('Minimum shared events') ?>">
+                </div>
+
+                <div class="form-check form-switch mb-0 ms-1">
+                    <input class="form-check-input" type="checkbox"
+                           role="switch" id="vp-rel-siblings-only"
+                           data-vp-facet-key="sibling" value="yes">
+                    <label class="form-check-label small text-muted"
+                           for="vp-rel-siblings-only">
+                        <?= __('Object siblings only') ?>
+                    </label>
+                </div>
+
+                <?php
+                /*
+                 * "No filter applied" and "3 filters" are one line in
+                 * two states rather than two lines, so the reader's eye
+                 * does not have to move when the first control is set.
+                 * It counts every narrowing control — a select and a
+                 * threshold narrow the table exactly as a ticked facet
+                 * does, and a count that ignored them would let the
+                 * panel claim nothing was applied while three were.
+                 */
+                ?>
+                <span class="small text-muted ms-auto"
+                      data-vp-facet-summary>
+                    <span class="vp-facet-summary-none">
+                        <?= __('No filter applied') ?>
+                    </span>
+                    <span class="vp-facet-summary-some">
+                        <span data-vp-facet-count-active>0</span>
+                        <?= __('filters') ?>
+                        &middot;
+                        <span data-vp-facet-rows><?=
+                            h(count($valueRows)) ?></span>
+                        <?= __('rows') ?>
+                    </span>
+                </span>
+
+                <button type="button" class="btn btn-sm btn-link"
+                        data-vp-facet-clear disabled>
+                    <?= __('Reset') ?>
+                </button>
+            </div>
+
+            <div class="p-3 border-bottom d-flex flex-wrap gap-2
+                        align-items-center">
+                <span class="vp-subhead mb-0 me-1"><?= __('Narrow by') ?></span>
+
+                <?php foreach ($facetGroups as $group): ?>
+                    <?php if (empty($facets[$group['key']])) {
+                        continue;
+                    } ?>
+                    <div class="dropdown">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary
+                                       dropdown-toggle vp-rel-facet"
+                                data-bs-toggle="dropdown"
+                                data-bs-auto-close="outside"
+                                aria-expanded="false">
+                            <?= h($group['title']) ?>
+                            <span class="badge text-bg-secondary ms-1">
+                                <?= h(count($facets[$group['key']])) ?>
+                            </span>
+                        </button>
+                        <div class="dropdown-menu vp-rel-facetmenu p-2">
+                            <?= $this->element(
+                                'Values/View/value_facet_group',
+                                array(
+                                    'key' => $group['key'],
+                                    'title' => $group['title'],
+                                    'icon' => $group['icon'],
+                                    'values' => $facets[$group['key']],
+                                )
+                            ) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <span class="small text-muted ms-2 vp-min-w-0">
+                    <?= sprintf(
+                        __(
+                            'Facet counts are exact at every count —'
+                            . ' they are a %s on the correlation table,'
+                            . ' not a count of the page.'
+                        ),
+                        '<span class="font-monospace">GROUP BY</span>'
+                    ) ?>
+                </span>
+            </div>
+
+        </div>
+
+        <div class="vp-rel-cap d-none" data-vp-group-not="value">
+            <i class="fas fa-circle-info"></i>
+            <span>
+                <?= __('Narrowing applies to the value roll-up. A facet'
+                    . ' like Type is a property of a correlated value;'
+                    . ' an event row is not a value, and filtering one'
+                    . ' by the type of the other would be a control that'
+                    . ' means nothing.') ?>
+            </span>
+        </div>
+
+    <?php endif; ?>
+
+    <?php if (!empty($siblings)): ?>
+
+        <?php
+        /*
+         * Listed above the ranked table because it is the only
+         * co-occurrence here that is structural rather than
+         * statistical, and because it survives everything: the object
+         * join reads attributes the page already fetched, so it is
+         * unaffected by the correlation limit that suppressed the
+         * section above it.
+         */
+        ?>
+        <div class="px-3 pt-3">
+            <div class="vp-subhead d-flex align-items-center gap-2">
+                <span class="misp-icon misp-icon-object misp-simple"></span>
+                <?= __('Object siblings — the same object, other relations') ?>
+                <span class="badge text-bg-secondary">
+                    <?= h(count($siblings)) ?>
+                </span>
+            </div>
+            <div class="small text-muted mb-2">
+                <?= __('A join on the object id over occurrences this page'
+                    . ' has already fetched — not a correlation, and not'
+                    . ' the engine\'s to suppress.') ?>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover vp-table align-middle
+                          mb-0">
+                <thead>
+                    <tr>
+                        <th><?= __('Object') ?></th>
+                        <th><?= __('Relation') ?></th>
+                        <th><?= __('Sibling value') ?></th>
+                        <th><?= __('Type') ?></th>
+                        <th><?= __('Event') ?></th>
+                        <th><?= __('Reported by') ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($siblings as $sibling): ?>
+                        <tr class="vp-rel-stripe vp-rel-k-co">
+                            <td class="text-nowrap">
+                                <span class="misp-icon misp-icon-object
+                                             misp-simple me-1"></span>
+                                <span class="font-monospace small">
+                                    <?= h($sibling['object']['name']) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="vp-relation">
+                                    <?= h($sibling['relation']) ?>
+                                </span>
+                            </td>
+                            <td class="font-monospace vp-rel-cell">
+                                <?= h($sibling['value']) ?>
+                            </td>
+                            <td><?= $typeBadge($sibling['type']) ?></td>
+                            <td class="text-nowrap">
+                                <a href="<?= $baseurl ?>/events/view2/<?=
+                                    h($sibling['event']) ?>"
+                                   class="font-monospace small">
+                                    #<?= h($sibling['event']) ?>
+                                </a>
+                            </td>
+                            <td class="text-nowrap">
+                                <?= h($sibling['org']) ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+    <?php endif; ?>
+
+    <?php if ($hasRows): ?>
+
+        <div data-vp-list-rows>
+
+            <div data-vp-group-pane="value">
+                <div class="px-3 pt-3 mt-2 border-top">
+                    <div class="vp-subhead d-flex align-items-center gap-2">
+                        <i class="fas fa-link"></i>
+                        <?= __('Values that appear in the same events') ?>
+                        <span class="badge text-bg-secondary">
+                            <?= h(number_format($co['distinct_values'])) ?>
+                        </span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover vp-table
+                                  align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="vp-rel-pick">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           data-vp-rel-select-all
+                                           aria-label="<?=
+                                               __('Select every listed row')
+                                           ?>">
+                                </th>
+                                <th><?= __('Value') ?></th>
+                                <th><?= __('Type') ?></th>
+                                <th class="vp-rel-num">
+                                    <?= __('Shared events') ?>
+                                </th>
+                                <th><?= __('Organisations') ?></th>
+                                <th><?= __('Last together') ?></th>
+                                <th><?= __('Distribution') ?></th>
+                                <th><?= __('Tags') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($valueRows as $row): ?>
+                                <tr class="vp-rel-stripe vp-rel-k-co"
+                                    data-vp-group="value"
+                                    data-vp-facet="<?= h($valueTokens($row)) ?>"
+                                    data-vp-num="<?= h($numbers(
+                                        $row['shared_events'],
+                                        $row['last_together']
+                                    )) ?>"
+                                    data-vp-text="<?= h(strtolower(
+                                        $row['value']
+                                    )) ?>">
+                                    <td class="vp-rel-pick">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               data-vp-rel-select
+                                               aria-label="<?= h(sprintf(
+                                                   __('Select %s'),
+                                                   $row['value']
+                                               )) ?>">
+                                    </td>
+                                    <td class="font-monospace vp-rel-cell">
+                                        <?= h($row['value']) ?>
+                                    </td>
+                                    <td><?= $typeBadge($row['type']) ?></td>
+                                    <td><?= $weightBar(
+                                        $row['shared_events'],
+                                        $maxShared
+                                    ) ?></td>
+                                    <td class="small">
+                                        <?= h(implode(', ', $row['orgs'])) ?>
+                                    </td>
+                                    <td class="font-monospace text-nowrap
+                                               small">
+                                        <?= h($row['last_together']) ?>
+                                    </td>
+                                    <td><?= $distributionBadge($row) ?></td>
+                                    <td><?= $tagChips($row['tags']) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div data-vp-group-pane="event" class="d-none">
+                <div class="px-3 pt-3 mt-2 border-top">
+                    <div class="vp-subhead d-flex align-items-center gap-2">
+                        <span class="misp-icon misp-icon-event
+                                     misp-simple"></span>
+                        <?= __('Events this value shares with something'
+                            . ' else') ?>
+                        <span class="badge text-bg-secondary">
+                            <?= h(number_format(
+                                $co['rollups']['event']['total']
+                            )) ?>
+                        </span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover vp-table
+                                  align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th><?= __('Event') ?></th>
+                                <th><?= __('Date') ?></th>
+                                <th><?= __('Reported by') ?></th>
+                                <th class="vp-rel-num">
+                                    <?= __('Shared values') ?>
+                                </th>
+                                <th><?= __('Distribution') ?></th>
+                                <th><?= __('Tags') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($eventRows as $row): ?>
+                                <tr class="vp-rel-stripe vp-rel-k-co"
+                                    data-vp-group="event"
+                                    data-vp-num="<?= h($numbers(
+                                        $row['shared_values'],
+                                        $row['event']['date']
+                                    )) ?>">
+                                    <td class="vp-min-w-0">
+                                        <a href="<?= $baseurl
+                                            ?>/events/view2/<?=
+                                            h($row['event']['id']) ?>"
+                                           class="font-monospace small">
+                                            #<?= h($row['event']['id']) ?>
+                                        </a>
+                                        <div class="small text-muted
+                                                    vp-rel-cell">
+                                            <?= h($row['event']['info']) ?>
+                                        </div>
+                                    </td>
+                                    <td class="font-monospace text-nowrap
+                                               small">
+                                        <?= h($row['event']['date']) ?>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        <?= h($row['org']) ?>
+                                    </td>
+                                    <td><?= $weightBar(
+                                        $row['shared_values'],
+                                        $maxEventShared
+                                    ) ?></td>
+                                    <td><?= $distributionBadge($row) ?></td>
+                                    <td><?= $tagChips($row['tags']) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div data-vp-group-pane="object" class="d-none">
+                <div class="px-3 pt-3 mt-2 border-top">
+                    <div class="vp-subhead d-flex align-items-center gap-2">
+                        <span class="misp-icon misp-icon-object
+                                     misp-simple"></span>
+                        <?= __('Objects the correlated attributes sit in') ?>
+                        <span class="badge text-bg-secondary">
+                            <?= h(number_format(
+                                $co['rollups']['object']['total']
+                            )) ?>
+                        </span>
+                    </div>
+                    <div class="small text-muted mb-2">
+                        <?= __('Shorter than the other two roll-ups because'
+                            . ' most correlated attributes are not in an'
+                            . ' object at all.') ?>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover vp-table
+                                  align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th><?= __('Object') ?></th>
+                                <th><?= __('Event') ?></th>
+                                <th><?= __('Reported by') ?></th>
+                                <th class="vp-rel-num">
+                                    <?= __('Related values') ?>
+                                </th>
+                                <th><?= __('Relations') ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($objectRows as $row): ?>
+                                <tr class="vp-rel-stripe vp-rel-k-co"
+                                    data-vp-group="object"
+                                    data-vp-num="shared:<?=
+                                        h((int)$row['values']) ?> recent:0">
+                                    <td class="text-nowrap">
+                                        <span class="misp-icon
+                                                     misp-icon-object
+                                                     misp-simple me-1"></span>
+                                        <span class="font-monospace small">
+                                            <?= h($row['object']['name']) ?>
+                                        </span>
+                                        <span class="text-muted small">
+                                            #<?= h($row['object']['id']) ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        <a href="<?= $baseurl
+                                            ?>/events/view2/<?=
+                                            h($row['event']) ?>"
+                                           class="font-monospace small">
+                                            #<?= h($row['event']) ?>
+                                        </a>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        <?= h($row['org']) ?>
+                                    </td>
+                                    <td><?= $weightBar(
+                                        $row['values'],
+                                        $maxObjectValues
+                                    ) ?></td>
+                                    <td>
+                                        <?php foreach (
+                                            $row['relations'] as $relation
+                                        ): ?>
+                                            <span class="vp-relation me-1">
+                                                <?= h($relation) ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+        <?php
+        /*
+         * Only a filter can produce this. The value with no correlation
+         * at all has its own empty state above, and "no row matches
+         * your filter" over it would be a different and false claim.
+         */
+        ?>
+        <div class="p-3 d-none" data-vp-list-empty>
+            <div class="vp-empty vp-empty-inline">
+                <i class="fas fa-filter"></i>
+                <span>
+                    <?= __('No correlation matches the filter you set.') ?>
+                </span>
+            </div>
+        </div>
+
+        <div class="px-3 py-2 border-top">
+            <?= $this->element('Values/View/value_pager', array(
+                'size' => $co['page_size'],
+                'shown' => count($valueRows),
+                'total' => count($valueRows),
+                'noun' => __('rows'),
+            )) ?>
+        </div>
+
+        <div class="p-3 pt-0 d-flex align-items-center gap-2 flex-wrap">
+            <span class="small text-muted me-1">
+                <strong data-vp-rel-selected>0</strong>
+                <?= h(__('selected')) ?>
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-secondary
+                                         disabled"
+                    title="<?= h($noWrites) ?>">
+                <i class="fas fa-hashtag me-1"></i>
+                <?= __('Tag the selection') ?>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary
+                                         disabled"
+                    title="<?= h($noWrites) ?>">
+                <i class="fas fa-folder-plus me-1"></i>
+                <?= __('Add selection to a collection') ?>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary
+                                         ms-auto disabled"
+                    title="<?= h(__(
+                        'Disabled in this pass — the search this would'
+                        . ' open is a restSearch the page does not run'
+                        . ' yet.'
+                    )) ?>">
+                <?= h(sprintf(
+                    __('Open all %s as a search'),
+                    number_format($co['distinct_values'])
+                )) ?>
+                <i class="fas fa-arrow-right ms-1"></i>
+            </button>
+        </div>
+
+    <?php endif; ?>
+
+    <?php if (!empty($co['hidden'])): ?>
+        <div class="vp-acl-note vp-acl-note-band">
+            <i class="fas fa-eye-slash"></i>
+            <span>
+                <?= h(sprintf(
+                    __(
+                        '%1$d further correlations point into events you'
+                        . ' cannot see. They are counted in the %2$s and'
+                        . ' are not listed.'
+                    ),
+                    $co['hidden'],
+                    number_format($summary['correlations'])
+                )) ?>
+            </span>
+        </div>
+    <?php endif; ?>
+
+</div>
