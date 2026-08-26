@@ -228,10 +228,10 @@ $attachChip = function ($target) {
 
 $readsBadge = function ($reads) {
     if ($reads === 'malicious') {
-        return 'danger';
+        return 'success';
     }
     if ($reads === 'benign') {
-        return 'success';
+        return 'danger';
     }
     return 'secondary';
 };
@@ -258,9 +258,9 @@ $renderItem = function ($item, $depth) use (
     );
     $side = 'vpa-side-none';
     if ($item['reads'] === 'malicious') {
-        $side = 'vpa-side-mal';
+        $side = 'vpa-side-agree';
     } elseif ($item['reads'] === 'benign') {
-        $side = 'vpa-side-ben';
+        $side = 'vpa-side-disagree';
     }
 
     $out = '<div class="vp-analyst vp-analyst-'

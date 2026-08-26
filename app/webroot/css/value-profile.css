@@ -4810,12 +4810,12 @@ td.vp-rel-pick {
 /* Which way an item argues about the value, on its own rail. An item
    that rates a note takes the neutral border: it has a score, and the
    score is not about this value. */
-.vp-analyst.vpa-side-mal {
-    border-left-color: var(--vp-mal);
+.vp-analyst.vpa-side-agree {
+    border-left-color: var(--vp-ben);
 }
 
-.vp-analyst.vpa-side-ben {
-    border-left-color: var(--vp-ben);
+.vp-analyst.vpa-side-disagree {
+    border-left-color: var(--vp-mal);
 }
 
 .vp-analyst.vpa-side-none {

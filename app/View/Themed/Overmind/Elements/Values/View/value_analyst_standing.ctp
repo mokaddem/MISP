@@ -87,20 +87,20 @@ $readsWord = function ($reads) {
 
 $readsInk = function ($reads) {
     if ($reads === 'malicious') {
-        return 'var(--vp-mal)';
+        return 'var(--vp-ben)';
     }
     if ($reads === 'benign') {
-        return 'var(--vp-ben)';
+        return 'var(--vp-mal)';
     }
     return 'var(--bs-secondary-color)';
 };
 
 $readsBadge = function ($reads) {
     if ($reads === 'malicious') {
-        return 'danger';
+        return 'success';
     }
     if ($reads === 'benign') {
-        return 'success';
+        return 'danger';
     }
     return 'secondary';
 };
@@ -573,11 +573,13 @@ $headerExtra = $aggregate === null ? null
                     </div>
 
                     <p class="vp-aside-note"><?= __(
-                        'Colour is the reading, not the agreement: above'
-                        . ' 50 argues the value is hostile, below 50'
-                        . ' argues it is not — the two hues the Verdict'
-                        . ' tab already uses. An opinion written on a'
-                        . ' note takes neither.'
+                        'Colour is the agreement, not the reading: green'
+                        . ' above 50 agrees with what the value asserts,'
+                        . ' red below 50 disputes it. This is the scale'
+                        . ' MISP itself puts on an opinion, and the same'
+                        . ' hues the Overview card uses for the bands it'
+                        . ' names. An opinion written on a note takes'
+                        . ' neither.'
                     ) ?></p>
                 </div>
 
