@@ -5605,3 +5605,26 @@ td.vp-rel-pick {
 .vp-audit-mix > span:last-child {
     box-shadow: none;
 }
+
+/* The period bounds. Label above input rather than beside it: the rail
+   is three columns wide and a date control does not survive sharing a
+   line with its own label there. */
+.vp-audit-period {
+    display: grid;
+    gap: 2px 0;
+    margin-bottom: 10px;
+}
+
+.vp-audit-period .form-label {
+    margin: 4px 0 0;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-audit-period .form-label:first-child {
+    margin-top: 0;
+}
+
+.vp-audit-period input {
+    font-size: 0.78rem;
+}

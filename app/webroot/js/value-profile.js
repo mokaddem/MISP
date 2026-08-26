@@ -150,6 +150,8 @@
      *                                 until something reveals it
      *     input[data-vp-facet-key]   a facet checkbox
      *     input[data-vp-reveal]      reveals rows hidden by that token
+     *     tr[data-vp-time]           the row's own `YmdHi` digits
+     *     [data-vp-filter-from|-to]  period bounds against that time
      *     [data-vp-pager]            page control, data-vp-page-size
      *     [data-vp-list-empty]       shown when a filter empties the list
      *
@@ -265,6 +267,67 @@
     }
 
     /**
+     * The period bounds, as the same `YmdHi` integer the rows carry.
+     *
+     * Digits of the printed wall clock rather than epochs: a row's time
+     * is rendered server-side, so comparing epochs would hand a reader
+     * in another timezone a different set of rows for the period they
+     * picked than the times on those rows say it holds.
+     *
+     * @param {Element} list
+     * @return {{from: number|null, to: number|null}}
+     */
+    function activePeriod(list) {
+        return {
+            from: periodBound(list, '[data-vp-filter-from]', '0000'),
+            to: periodBound(list, '[data-vp-filter-to]', '2359')
+        };
+    }
+
+    /**
+     * @param {Element} list
+     * @param {string} selector
+     * @param {string} fill Clock digits for a bound given as a date
+     * @return {number|null}
+     */
+    function periodBound(list, selector, fill) {
+        var input = list.querySelector(selector);
+        if (!input || input.value === '') {
+            return null;
+        }
+        var digits = input.value.replace(/\D/g, '');
+        if (digits.length < 8) {
+            return null;
+        }
+        if (digits.length < 12) {
+            digits = digits.slice(0, 8) + fill;
+        }
+        return parseInt(digits.slice(0, 12), 10);
+    }
+
+    /**
+     * A row carrying no time is dropped once a bound is set, for the
+     * reason a thresholded row without a number is: the control is
+     * asking something that row cannot answer, and keeping it would
+     * make the period look like it did nothing.
+     *
+     * @param {Element} row
+     * @param {Object} period
+     * @return {boolean}
+     */
+    function rowMatchesPeriod(row, period) {
+        if (period.from === null && period.to === null) {
+            return true;
+        }
+        var at = parseInt(row.dataset.vpTime || '', 10);
+        if (isNaN(at)) {
+            return false;
+        }
+        return (period.from === null || at >= period.from)
+            && (period.to === null || at <= period.to);
+    }
+
+    /**
      * @param {Element} row
      * @param {string} key
      * @return {number|null}
@@ -315,6 +378,7 @@
         var selects = activeSelects(list);
         var minimums = activeMinimums(list);
         var text = activeText(list);
+        var period = activePeriod(list);
         var revealed = revealedTokens(list);
         // A roll-up the reader is not looking at is excluded before
         // anything else: its rows are a different kind of row, and
@@ -333,6 +397,7 @@
                 keep = rowMatches(row, active)
                     && rowMatchesSelects(row, selects)
                     && rowMatchesMinimums(row, minimums)
+                    && rowMatchesPeriod(row, period)
                     && rowMatchesText(row, text);
             }
             if (keep) {
@@ -347,6 +412,8 @@
         }, 0)
             + Object.keys(selects).length
             + Object.keys(minimums).length
+            + (period.from === null ? 0 : 1)
+            + (period.to === null ? 0 : 1)
             + (text === '' ? 0 : 1);
 
         sortRows(list, filtered);
@@ -488,6 +555,10 @@
         list.querySelectorAll('[data-vp-filter-min]')
             .forEach(function (input) {
                 input.value = input.min === '' ? '0' : input.min;
+            });
+        list.querySelectorAll('[data-vp-filter-from], [data-vp-filter-to]')
+            .forEach(function (input) {
+                input.value = '';
             });
     }
 
@@ -2929,7 +3000,8 @@
             if (event.target.matches
                 && event.target.matches(
                     '[data-vp-facet-key], [data-vp-reveal],'
-                    + ' [data-vp-filter-key], [data-vp-filter-min]'
+                    + ' [data-vp-filter-key], [data-vp-filter-min],'
+                    + ' [data-vp-filter-from], [data-vp-filter-to]'
                 )) {
                 var list = event.target.closest('[data-vp-list]');
                 if (list) {
@@ -2949,7 +3021,8 @@
                 return;
             }
             if (event.target.matches(
-                '[data-vp-filter-text], [data-vp-filter-min]'
+                '[data-vp-filter-text], [data-vp-filter-min],'
+                + ' [data-vp-filter-from], [data-vp-filter-to]'
             )) {
                 var typedList = event.target.closest('[data-vp-list]');
                 if (typedList) {

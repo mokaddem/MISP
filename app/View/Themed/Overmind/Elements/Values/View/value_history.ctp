@@ -448,6 +448,7 @@ $renderRow = function ($row) use ($baseurl, $fmt) {
     <div class="vp-audit-row"
          data-vp-list-row
          data-vp-facet="<?= h(implode(' ', $tokens)) ?>"
+         data-vp-time="<?= h($fmt($row['created'], 'YmdHi')) ?>"
          data-vp-text="<?= h($blob) ?>"
          <?= $row['renamed'] ? 'data-vp-audit-renamed' : '' ?>>
 
@@ -772,6 +773,24 @@ ob_start();
     </button>
 <?php
 $headerExtra = ob_get_clean();
+
+/*
+ * The period control's bounds, taken from the rows rather than written
+ * down. An input offering a month the log cannot hold invites a reader
+ * to filter to an empty panel and read it as a quiet month.
+ */
+$stamps = array();
+foreach ($history['groups'] as $group) {
+    foreach ($group['entries'] as $entry) {
+        $stamps[] = $entry['created'];
+    }
+}
+foreach (($history['event_entries'] ?? array()) as $entry) {
+    $stamps[] = $entry['created'];
+}
+sort($stamps);
+$periodFirst = empty($stamps) ? null : $stamps[0];
+$periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
 ?>
 
 <div class="row" data-vp-list data-vp-audit>
@@ -812,6 +831,39 @@ $headerExtra = ob_get_clean();
                         . ' rows here than you do.'
                     ) ?>
                 </div>
+                <?php if ($periodFirst !== null): ?>
+                    <div class="vp-facetgrp">
+                        <div class="vp-subhead">
+                            <i class="fas fa-clock me-1"></i>
+                            <?= __('Period') ?>
+                        </div>
+                        <div class="vp-facet-note">
+                            <?= h(sprintf(
+                                __('The log runs %1$s to %2$s. Both'
+                                    . ' bounds are inclusive, and either'
+                                    . ' one alone is a filter.'),
+                                $fmt($periodFirst, 'j M Y'),
+                                $fmt($periodLast, 'j M Y')
+                            )) ?>
+                        </div>
+                        <div class="vp-audit-period">
+                            <label class="form-label"
+                                   for="vp-audit-from"><?= __('From') ?></label>
+                            <input type="datetime-local"
+                                   class="form-control form-control-sm"
+                                   id="vp-audit-from" data-vp-filter-from
+                                   min="<?= h($fmt($periodFirst, 'Y-m-d\TH:i')) ?>"
+                                   max="<?= h($fmt($periodLast, 'Y-m-d\TH:i')) ?>">
+                            <label class="form-label"
+                                   for="vp-audit-to"><?= __('To') ?></label>
+                            <input type="datetime-local"
+                                   class="form-control form-control-sm"
+                                   id="vp-audit-to" data-vp-filter-to
+                                   min="<?= h($fmt($periodFirst, 'Y-m-d\TH:i')) ?>"
+                                   max="<?= h($fmt($periodLast, 'Y-m-d\TH:i')) ?>">
+                        </div>
+                    </div>
+                <?php endif; ?>
                 <?php foreach ($railGroups as $group): ?>
                     <?= $this->element(
                         'Values/View/value_facet_group',
