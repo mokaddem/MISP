@@ -61,16 +61,25 @@ window.addEventListener('load', function () {
                  + (act.length === 1 ? '' : ' (' + act.length + ' active)'));
       });
 
+      // Four is the brief; more than four is a deck that also carries a
+      // composite drawn after review, which is legitimate.
       var cands = document.querySelectorAll('.vp-cand');
-      out.push((cands.length === 4 ? 'ok    ' : 'WARN  ') + 'candidates          '
-               + cands.length + (cands.length === 4 ? '' : ' (expected 4)'));
+      out.push((cands.length >= 4 ? 'ok    ' : 'WARN  ') + 'candidates          '
+               + cands.length + (cands.length >= 4 ? '' : ' (expected 4+)'));
 
+      // Measure the scaler, not the viewport box. The box is the scaler
+      // times --vp-scale, and 'fit' divides the lane by the candidate
+      // count -- so the same candidate measures smaller in a deck of five
+      // than in a deck of four, and a fixed pixel floor on the box starts
+      // failing candidates for the size of the deck they are in. The
+      // scaler's own height is what the assertion is actually about:
+      // whether the candidate has a body at all.
       cands.forEach(function (c) {
-        var view = c.querySelector('.vp-cand-view');
-        var h = view ? Math.round(view.getBoundingClientRect().height) : 0;
+        var inner = c.querySelector('.vp-cand-scaler');
+        var h = inner ? Math.round(inner.offsetHeight) : 0;
         var id = c.id || '?';
-        out.push((h > 200 ? 'ok    ' : 'FAIL  ') + 'candidate ' + id
-                 + '        body height ' + h + 'px');
+        out.push((h > 500 ? 'ok    ' : 'FAIL  ') + 'candidate ' + id
+                 + '        body height ' + h + 'px (unscaled)');
       });
 
       var off = document.querySelectorAll(

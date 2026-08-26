@@ -1251,41 +1251,78 @@ through the kit's theme bridge. Sources are `prd/phase7/mockups/timeline.html`
 and `.../history.html`; `inline-kit.py` produces the published copies and
 `check-mockup.sh` passes on both in light and dark.
 
-Two things the kit needed nothing for: `#tab-timeline` and `#tab-history`
-already exist in the chrome's nine-tab bar, so `data-vp-tab` activates them
-with no change to the frame or its script.
+The frame and its script needed nothing: `#tab-timeline` and `#tab-history`
+already exist in the chrome's nine-tab bar, so `data-vp-tab` activates them as
+they stand.
 
-| Tab | Artifact | Candidates | Axis | Recommended |
-|---|---|---|---|---|
-| Timeline | [7c2bbad2](https://claude.ai/code/artifact/7c2bbad2-fcf2-49c8-8bf3-b60f122cadbb) | `T1`–`T4` | How much of the record's absence the reader has to look at | **`T1`** + `T4`'s precision chip |
-| History | [41280107](https://claude.ai/code/artifact/41280107-5222-435c-8d48-5b51b8acd1d3) | `H1`–`H4` | The organising unit: the stream, the occurrence, the actor, the field | **`H2`** + `H1`'s facet rail |
+`check-mockup.sh` needed one correction, found by the fifth candidate. It
+asserted a fixed pixel floor on `.vp-cand-view`, which is the scaler times
+`--vp-scale` — and `fit` divides the lane by the candidate count, so the same
+candidate measures smaller in a deck of five than in a deck of four. `T2`
+started failing for the size of the deck it was in rather than for anything
+about `T2`. The assertion now measures the scaler's own unscaled height, which
+is what it was always about: whether the candidate has a body. All five earlier
+decks pass unchanged under it, and the candidate-count check now accepts four or
+more, since a deck may legitimately carry a composite drawn after review.
+
+| Tab | Artifact | Candidates | Axis | **Chosen** | Spec |
+|---|---|---|---|---|---|
+| Timeline | [7c2bbad2](https://claude.ai/code/artifact/7c2bbad2-fcf2-49c8-8bf3-b60f122cadbb) | `T1`–`T4`, `T-final` | How much of the record's absence the reader has to look at | **`T-final`** | [phase 15](value-profile-tabs/06-timeline.md) |
+| History | [41280107](https://claude.ai/code/artifact/41280107-5222-435c-8d48-5b51b8acd1d3) | `H1`–`H4` | The organising unit: the stream, the occurrence, the actor, the field | **`H2`** + `H1`'s facet rail | [phase 16](value-profile-tabs/07-history.md) |
+
+Decided 2026-08-26. The Timeline pick is not one of the four: the review asked
+for the composite instead, and `T-final` was drawn and added to the deck as a
+fifth frame so the four it is assembled from stay readable beside it.
 
 **Timeline.** T1 is one uninterrupted stream with the undated facts as
 explained rail cards; T2 gives all seven promised sources a lane and hatches
 the three that have no record, at full size; T3 makes a twelve-month density
 spine the tab and puts the undated on one strip beneath it; T4 abandons the
 timeline shape for a ledger where how well a fact is dated is a column.
-Recommended: T1, because it is the only candidate that is a chronology first
-and cheap second — its stream is `Logs/timeline.ctp` with one extra column —
-grafted with T4's per-row precision chip, which fixes T1's real weakness
-(absence sits in the margin) without costing the chronology. T3 is rejected on
-a specific ground rather than on taste: a density spine cannot tell a quiet
-month from an unrecorded one, and on the demo value December is the second.
-T2 is the most honest of the four and the one to revisit if the undated sources
-ever become datable.
+Chosen: **`T-final`**, the composite. Each of the four solves one third of the
+tab and loses the other two — T3 knows *when* and cannot say *from whom*, T2
+knows *from whom* and shows no entry, T1 lists the entries with no way to find a
+period, T4 is honest about every fact and has no shape. `T-final` stacks all
+four against **one** selection: the spine sets a window, the seven source lanes
+report what that window holds, the chronology lists it, and every row carries
+its own precision chip. Nothing is duplicated because each level answers a
+different question about the same window.
+
+It also settles §8.2 in three places rather than one, which is the point of
+assembling it this way. The two sources MISP can never date keep a full-size
+hatched lane **and** a chip on the off-axis strip, so neither a reader who scans
+the chart nor one who scans the lanes can miss them; the truncated edit lane
+carries its own hatch naming the setting that would fill it; and "latest only"
+sits on the row it qualifies rather than in a caption three panels away. T3's
+own objection — that a density spine cannot tell a quiet month from an
+unrecorded one — is answered rather than ignored, because the spine no longer
+stands alone and the lanes beneath it say which sources could have recorded the
+months it draws.
+
+The cost is real and recorded: it is the tallest of the five and the most
+expensive to build — a lane primitive, a brush driving two panels, and three
+aggregates over one set where T1 needs one list and an existing element. If
+phase 15 has to be small, `T1` with `T4`'s precision chip is the fallback and
+remains a defensible tab.
 
 **History.** H1 is the shared audit-timeline element value-scoped with a
 counted facet rail; H2 groups by occurrence with a per-occurrence action mix;
 H3 groups by organisation and actor; H4 unpacks each entry into one row per
-changed field. Recommended: H2, because §8.5's test is what a value-scoped
-history adds over the seven per-event ones an analyst already has, and grouping
-by occurrence is that addition — it can say 4831022 has nine entries and
-4828810 has two, which no per-event log can. H1 is the right answer to
-"ship it this week" and the wrong one to that test. H3 asks the best question
+changed field. Chosen: **`H2`** with `H1`'s facet rail, because §8.5's test is what a
+value-scoped history adds over the seven per-event ones an analyst already has,
+and grouping by occurrence is that addition — it can say 4831022 has nine
+entries and 4828810 has two, which no per-event log can. H1 is the right answer
+to "ship it this week" and the wrong one to that test. H3 asks the best question
 and cannot answer it for most readers: `__applyAuditAcl` collapses three of its
 four cards to *unnamed users* for anyone who is not a site admin. H4 is
 rejected on cost — it needs `audit_logs.change` decoded for every row at render
 time, which is what `fullChange` exists to avoid.
+
+One thing the pick costs that §8.3 above assumed it would not: the shared
+`Logs/timeline.ctp` groups by calendar day, so `H2` does **not** get it as a
+free body — only its action vocabulary, extracted into a new
+`AuditActionMeta`. [Phase 16](value-profile-tabs/07-history.md) §2 records that
+and why the shared element is left alone in a fixture-first phase.
 
 Two grafts are recommended into whichever History candidate wins, because both
 are §8.2 findings made visible rather than design preferences: H1's and H4's

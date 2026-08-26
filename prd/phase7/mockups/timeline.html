@@ -352,7 +352,7 @@ body {
     align-items: stretch;
 }
 .vpt-lane-label {
-    padding: .5rem .6rem;
+    padding: .6rem .6rem;
     border-top: 1px solid var(--bs-border-color-translucent);
     font-size: .8rem;
 }
@@ -361,8 +361,10 @@ body {
     border-top: 1px solid var(--bs-border-color-translucent);
     border-left: 1px solid var(--bs-border-color);
     border-right: 1px solid var(--bs-border-color);
-    padding: .35rem .3rem;
-    min-height: 2.7rem;
+    padding: .45rem .3rem;
+    /* Seven stacked lanes at 2.7rem left the hatched lanes' explanation
+     * wrapping against their own chips. A chart lane needs the room. */
+    min-height: 3.3rem;
 }
 .vpt-lane-count {
     padding: .5rem .6rem;
@@ -379,6 +381,23 @@ body {
     color: var(--bs-secondary-color);
     padding: 0 .6rem .3rem;
 }
+/* A lane's words go in HTML over the axis, never inside the SVG: the
+ * axis is drawn with preserveAspectRatio="none", which stretches glyphs
+ * with it and turns an explanation into a smear. */
+.vpt-lane-fill {
+    position: absolute;
+    inset: .45rem .3rem;
+    display: flex;
+    align-items: center;
+}
+.vpt-lane-tag {
+    position: absolute;
+    top: .1rem;
+    font-size: .68rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
 .vpt-gutter {
     position: absolute;
     top: 0; bottom: 0; right: 0;
@@ -437,8 +456,8 @@ body {
 <div class="vp-deck" data-mode="compare">
 
   <header class="vp-deck-head">
-    <h1>Timeline — four candidates</h1>
-    <p class="vp-deck-sub">The tab promises a merged chronology of seven sources. Two of them have no timestamp in MISP on any instance, two more are truncated to first-and-last, and one is null on half this value&rsquo;s occurrences (PRD §8.2). The four candidates disagree about how much of that absence the reader should have to look at.</p>
+    <h1>Timeline — five candidates</h1>
+    <p class="vp-deck-sub">The tab promises a merged chronology of seven sources. Two of them have no timestamp in MISP on any instance, two more are truncated to first-and-last, and one is null on half this value&rsquo;s occurrences (PRD §8.2). T1&ndash;T4 disagree about how much of that absence the reader should have to look at. <strong>T-final</strong> is the composite drawn after review, and is the one to read first: the spine from T3 setting one window, the source lanes from T2 reporting it, the chronology from T1 listing it, and the precision chips from T4 on every row.</p>
   </header>
 
   <div class="vp-deck-controls">
@@ -463,6 +482,7 @@ body {
       <a class="btn btn-sm btn-outline-secondary" href="#T2">T2</a>
       <a class="btn btn-sm btn-outline-secondary" href="#T3">T3</a>
       <a class="btn btn-sm btn-outline-secondary" href="#T4">T4</a>
+      <a class="btn btn-sm btn-outline-secondary" href="#T-final">T-final</a>
     </div>
   </div>
 
@@ -1291,11 +1311,12 @@ body {
                   </div>
                   <div class="vpt-lane-axis">
                     <div class="vpt-gutter"></div>
+                    <div class="vpt-undated vpt-lane-fill" style="right:35%">
+                      <span class="small text-secondary ps-2">
+                        no record kept &mdash; <code>MISP.log_new_audit</code> is off
+                      </span>
+                    </div>
                     <svg width="100%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
-                      <rect x="0" y="10" width="540" height="18" fill="url(#hatch)"/>
-                      <text x="8" y="23" font-size="9" fill="currentColor" opacity=".55">
-                        no record kept &mdash; MISP.log_new_audit is off
-                      </text>
                       <rect x="556" y="13" width="3" height="12" rx="1.5" fill="var(--bs-primary)" opacity="0.8"/>
 <rect x="604" y="13" width="3" height="12" rx="1.5" fill="var(--bs-primary)" opacity="0.8"/>
 <rect x="648" y="13" width="3" height="12" rx="1.5" fill="var(--bs-primary)" opacity="0.8"/>
@@ -2266,6 +2287,574 @@ body {
     </article>
     <!-- =================== END CANDIDATE =================== -->
 
+    <!-- ===================== CANDIDATE ===================== -->
+    <article class="vp-cand" id="T-final">
+      <div class="vp-cand-head">
+        <div>
+          <span class="vp-cand-id">T-final</span>
+          <span class="vp-cand-thesis">The composite: the spine sets one window, the seven source lanes report what that window holds, and the chronology lists it &mdash; with how well each row is dated on the row.</span>
+        </div>
+        <dl class="vp-cand-reckoning">
+          <dt>Optimises for</dt><dd>One window, three depths. The spine answers <em>when was this value busy</em>, the lanes answer <em>which sources say so</em>, the chronology answers <em>what exactly happened</em> &mdash; and all three are the same selection.</dd>
+          <dt>Gives up</dt><dd>Vertical space. It is the tallest of the five, and the spine and the lanes overlap in what they encode for the four dated sources.</dd>
+          <dt>At scale</dt><dd>Spine is O(bins) · lanes bin daily inside the window · only the chronology pages, so <strong>1,847</strong> costs one list · at <strong>zero dated</strong> the spine flattens, the four dated lanes empty, and the two hatched lanes and the off-axis strip still carry the tab.</dd>
+          <dt>Data</dt><dd>Monthly counts per source for the spine, daily counts per source for the lanes, and the windowed union for the list &mdash; three aggregates over one set, none of which MISP returns today.</dd>
+          <dt>Size</dt><dd>L &mdash; the lane primitive and a brush that drives two panels, against T1&rsquo;s S.</dd>
+        </dl>
+      </div>
+      <div class="vp-cand-view">
+        <div class="vp-cand-scaler">
+<div class="vp-frame" data-vp-tab="timeline">
+<div class="vp-frame-tag">Page chrome — context, not the design</div>
+<div class="vp-frame-chrome">
+<div class="container-fluid py-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <div class="d-flex flex-column align-items-start">
+                            <span class="text-muted text-uppercase fw-semibold mb-1"
+                        style="font-size:0.68rem; letter-spacing:0.07em;">
+                    Data points &gt; Value Profile                </span>
+                        <div class="d-flex align-items-center gap-2 ">
+                <h1 class="mb-0 fw-bold lh-1 d-flex" style="font-size:2rem; word-break:break-word; max-width:100%;">
+                    <span class="vp-value font-monospace user-select-all">185.234.219.24</span><button type="button" class="vp-type-chip" data-vp-type="ip-dst" data-vp-type-slug="ip-dst" aria-pressed="false" title="7 occurrences of type ip-dst — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-dst</span><span class="vp-type-chip-count">7</span></button><button type="button" class="vp-type-chip" data-vp-type="ip-src" data-vp-type-slug="ip-src" aria-pressed="false" title="2 occurrences of type ip-src — show only these rows in the occurrence table"><span class="vp-type-chip-name">ip-src</span><span class="vp-type-chip-count">2</span></button><button type="button" class="vp-type-chip" data-vp-type="domain|ip" data-vp-type-slug="domain-ip" aria-pressed="false" title="1 occurrence of type domain|ip — show only these rows in the occurrence table"><span class="vp-type-chip-name">domain|ip</span><span class="vp-type-chip-count">1</span></button>                </h1>
+                                            </div>
+
+                            <p class="text-muted mt-1" style="font-size:0.85rem;">
+                    1 occurrence has it as the second half of a domain|ip                </p>
+                    </div>
+
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    
+                                            <a href="#" class="btn btn-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-eye"></i>Add sighting</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-primary disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-wand-magic-sparkles"></i>Enrich</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-folder-plus"></i>Add to collection</a>
+                    
+                                    
+                                            <a href="#" class="btn btn-outline-dark disabled fw-semibold d-flex align-items-center gap-2" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-bell"></i>Watch</a>
+                    
+                                    
+                    
+                        <div class="dropdown">
+                            <button class="btn btn-outline-dark fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                                    type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-file-export"></i>
+                                                                Export                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield-halved me-2"></i>STIX 2.1</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-shield me-2"></i>Suricata</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-network-wired me-2"></i>Zeek</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-ban me-2"></i>RPZ</a></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-file-csv me-2"></i>CSV</a></li><li><hr class="dropdown-divider"></li><li><a href="#" class="dropdown-item disabled" title="Disabled in this pass — the Value Profile page does not write to the database yet."><i class="fas fa-code me-2"></i>Copy the restSearch query</a></li></ul>                        </div>
+
+                    
+                            </div>
+                                
+    </div>
+
+    
+</div>
+
+                <link rel="stylesheet" href="/css/value-profile.css?v=203">
+
+
+
+</div>
+<div class="container-fluid">
+    <div class="vp-fact-strip">
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">First seen</span>
+                <span class="vp-fact-value">2024-09-14</span>
+                                    <span class="vp-fact-sub">11 months ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-timeline">
+                <span class="vp-fact-label">Last seen</span>
+                <span class="vp-fact-value">2025-08-19</span>
+                                    <span class="vp-fact-sub">5 days ago</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Occurrences</span>
+                <span class="vp-fact-value">10</span>
+                                    <span class="vp-fact-sub">3 types</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-occurrences">
+                <span class="vp-fact-label">Events</span>
+                <span class="vp-fact-value">7</span>
+                                    <span class="vp-fact-sub">5 published</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-verdict">
+                <span class="vp-fact-label">Organisations</span>
+                <span class="vp-fact-value">4</span>
+                                    <span class="vp-fact-sub">CIRCL + 3</span>
+                            </a>
+                                <a class="vp-fact" href="#tab-sightings">
+                <span class="vp-fact-label">Sightings</span>
+                <span class="vp-fact-value">47</span>
+                                    <span class="vp-fact-sub">1 false positive</span>
+                            </a>
+            </div>
+</div>
+<div class="container-fluid">
+    <div class="vp-pivot-rail">
+        <span class="vp-pivot-rail-label">Pivot to</span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Containing CIDR</span>
+                <span class="vp-pivot-hint">185.234.216.0/22</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">ASN</span>
+                <span class="vp-pivot-hint">AS204428 SS-Net</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Geolocation</span>
+                <span class="vp-pivot-hint">Sofia, BG</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Ports seen</span>
+                <span class="vp-pivot-hint">443, 8080, 8443</span>
+            </span>
+                    <span class="vp-pivot" title="Pivot targets are not resolved in this pass.">
+                <span class="vp-pivot-label">Passive DNS</span>
+                <span class="vp-pivot-hint">6 hostnames</span>
+            </span>
+            </div>
+</div>
+<div class="container-fluid">
+    <ul class="nav nav-tabs mb-3 fs-5" role="tablist">
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark active"
+                    data-bs-toggle="tab"
+                    href="#tab-general"
+                    role="tab"
+                    aria-selected="true">
+
+                                            <i class="fas fa-info-circle"></i>
+                    
+                                            Overview                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-verdict"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-gavel"></i>
+                    
+                                            Verdict                    
+                    
+                                                                <span class="nav-view-badge" style="--nav-view-badge-color: var(--vp-mal);">
+                                                            <span class="nav-view-badge-dot"></span>
+                                                        MALICIOUS 84                        </span>
+                                    </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-occurrences"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-attribute misp-simple"></i>
+                    
+                                            Occurrences                    
+                                            <span> (10) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-sightings"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-sighting misp-simple"></i>
+                    
+                                            Sightings                    
+                                            <span> (47) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-relationships"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-link"></i>
+                    
+                                            Relationships                    
+                                            <span> (31) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-enrichment"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-wand-magic-sparkles"></i>
+                    
+                                            Enrichment                    
+                                            <span> (9) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-analyst"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="misp-icon misp-icon-analyst-note misp-simple"></i>
+                    
+                                            Analyst data                    
+                                            <span> (6) </span>
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-timeline"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-clock"></i>
+                    
+                                            Timeline                    
+                    
+                                                        </a>
+            </li>
+                                <li class="nav-item"  role="presentation">
+                <a class="nav-view nav-link d-flex align-items-center gap-2 bg-light text-dark "
+                    data-bs-toggle="tab"
+                    href="#tab-history"
+                    role="tab"
+                    aria-selected="false">
+
+                                            <i class="fas fa-history"></i>
+                    
+                                            History                    
+                    
+                                                        </a>
+            </li>
+            </ul>
+
+    
+    <div class="tab-content">
+      <div class="tab-pane fade show active" role="tabpanel">
+        <div class="row">
+          <div class="col-12">
+
+            <!-- 1. The spine. It is a control, not a second chart: every
+                 count below it is scoped to what is brushed here. -->
+            <div class="card mb-3">
+              <div class="card-body pb-2">
+                <div class="d-flex justify-content-between align-items-end mb-1">
+                  <div>
+                    <span class="fw-semibold">Activity on this value</span>
+                    <div class="vpt-sub">
+                      67 dated entries by month, stacked by source. Drag to set
+                      the window &mdash; the lanes and the chronology below both
+                      follow it.
+                    </div>
+                  </div>
+                  <div class="d-flex gap-3 small">
+                    <span><span class="badge" style="background:var(--bs-primary)">&nbsp;</span> Sightings</span>
+                    <span><span class="badge" style="background:var(--bs-info)">&nbsp;</span> Publications</span>
+                    <span><span class="badge" style="background:var(--bs-success)">&nbsp;</span> Notes</span>
+                    <span><span class="badge" style="background:var(--bs-warning)">&nbsp;</span> Opinions</span>
+                    <span><span class="badge" style="background:var(--bs-secondary)">&nbsp;</span> Edits</span>
+                    <span><span class="badge" style="background:var(--bs-danger)">&nbsp;</span> False positive</span>
+                  </div>
+                </div>
+
+                <div style="position:relative">
+                  <svg class="sk-chart" viewBox="0 0 144 72" height="118"
+                       preserveAspectRatio="none" role="img">
+                    <line x1="0" y1="64" x2="144" y2="64"
+                          stroke="var(--bs-border-color)" stroke-width=".5"/>
+                    <rect x="4" y="60" width="6.5" height="4" fill="var(--bs-primary)"/><rect x="16" y="63" width="6.5" height="1" fill="var(--bs-primary)"/><rect x="16" y="60" width="6.5" height="3" fill="var(--bs-info)"/><rect x="28" y="60" width="6.5" height="4" fill="var(--bs-primary)"/><rect x="52" y="63" width="6.5" height="1" fill="var(--bs-primary)"/><rect x="64" y="61" width="6.5" height="3" fill="var(--bs-primary)"/><rect x="64" y="58" width="6.5" height="3" fill="var(--bs-info)"/><rect x="76" y="58" width="6.5" height="6" fill="var(--bs-primary)"/><rect x="88" y="56" width="6.5" height="8" fill="var(--bs-primary)"/><rect x="88" y="53" width="6.5" height="3" fill="var(--bs-info)"/><rect x="100" y="51" width="6.5" height="13" fill="var(--bs-primary)"/><rect x="100" y="48" width="6.5" height="3" fill="var(--bs-info)"/><rect x="100" y="44" width="6.5" height="4" fill="var(--bs-secondary)"/><rect x="112" y="44" width="6.5" height="20" fill="var(--bs-primary)"/><rect x="112" y="41" width="6.5" height="3" fill="var(--bs-info)"/><rect x="112" y="38" width="6.5" height="3" fill="var(--bs-secondary)"/><rect x="124" y="49" width="6.5" height="15" fill="var(--bs-primary)"/><rect x="124" y="45" width="6.5" height="4" fill="var(--bs-danger)"/><rect x="136" y="30" width="6.5" height="34" fill="var(--bs-primary)"/><rect x="136" y="26" width="6.5" height="4" fill="var(--bs-info)"/><rect x="136" y="18" width="6.5" height="8" fill="var(--bs-success)"/><rect x="136" y="12" width="6.5" height="6" fill="var(--bs-warning)"/>
+                  </svg>
+                  <div class="vpt-brush" style="left:91.7%;right:0"></div>
+                </div>
+
+                <div class="d-flex justify-content-between vpt-why pt-1">
+                  <span>Sep 2024</span><span>Dec</span><span>Mar 2025</span>
+                  <span>Jun</span><span>Aug 2025</span>
+                </div>
+
+                <div class="vpt-offaxis mt-2">
+                  <i class="fas fa-circle-info"></i>
+                  <span class="fw-semibold">Never on this axis:</span>
+                  <span class="vpt-undated px-2 py-1">Tags <strong>6</strong> &mdash; no date column</span>
+                  <span class="vpt-undated px-2 py-1">Galaxy clusters <strong>3</strong> &mdash; no date column</span>
+                  <span class="vpt-undated px-2 py-1">Feed appearances <strong>2</strong> &mdash; as of last cache</span>
+                  <span class="ms-auto vpt-why">
+                    The December gap is a gap in the record, not a quiet month.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. The lanes, windowed. Seven promised sources; the three
+                 with no record keep a full-size hatched lane. -->
+            <div class="card mb-3">
+              <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <div>
+                  <span class="fw-semibold">Sources in this window</span>
+                  <div class="vpt-sub">
+                    1 &ndash; 24 August 2025 &middot; 23 entries &middot; every
+                    source the tab promises gets a lane, whether or not MISP
+                    records it
+                  </div>
+                </div>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-secondary" disabled>Daily bins</button>
+                  <button class="btn btn-sm btn-outline-secondary" disabled>Reset window</button>
+                </div>
+              </div>
+              <div class="card-body pt-2">
+
+                <div class="vpt-lanes">
+                  <div class="vpt-lane-head">Source</div>
+                  <div class="vpt-lane-head d-flex justify-content-between">
+                    <span>1 Aug</span><span>8</span><span>15</span>
+                    <span>22</span><span>24</span>
+                  </div>
+                  <div class="vpt-lane-head text-end">In window</div>
+                </div>
+
+                <div class="vpt-lanes">
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-sight">Sightings</span>
+                    <div class="vpt-why">date_sighting, exact</div>
+                  </div>
+                  <div class="vpt-lane-axis">
+                    <svg width="100%%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
+                      <rect x="41.3" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="103.9" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="135.2" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="197.8" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="260.4" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="291.7" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="354.3" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="385.6" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="416.9" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="479.5" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="510.8" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="542.1" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="573.4" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="604.7" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="636.0" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="667.3" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="698.6" y="12" width="5" height="13" rx="1.5" fill="var(--bs-primary)" opacity="1"/>
+                      <rect x="10.0" y="12" width="5" height="13" rx="1.5" fill="var(--bs-danger)"/>
+                    </svg>
+                  </div>
+                  <div class="vpt-lane-count">17<div class="vpt-why">+1 FP</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-pub">Publications</span>
+                    <div class="vpt-why">first &amp; last only</div>
+                  </div>
+                  <div class="vpt-lane-axis">
+                    <svg width="100%%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
+                      <rect x="604.7" y="12" width="5" height="13" rx="1.5" fill="var(--bs-info)" opacity="1"/>
+                    </svg>
+                  </div>
+                  <div class="vpt-lane-count">1<div class="vpt-why">event 1284</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-note">Notes</span> <span class="vpt-src vpt-src-op">Opinions</span>
+                    <div class="vpt-why">created, exact</div>
+                  </div>
+                  <div class="vpt-lane-axis">
+                    <svg width="100%%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
+                      <rect x="667.3" y="12" width="5" height="13" rx="1.5" fill="var(--bs-success)" opacity="1"/>
+                      <rect x="542.1" y="12" width="5" height="13" rx="1.5" fill="var(--bs-warning)" opacity="1"/>
+                      <rect x="636.0" y="12" width="5" height="13" rx="1.5" fill="var(--bs-warning)" opacity="1"/>
+                    </svg>
+                  </div>
+                  <div class="vpt-lane-count">3<div class="vpt-why">1 note, 2 opinions</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-edit">Edits</span>
+                    <div class="vpt-why">latest per occurrence</div>
+                  </div>
+                  <div class="vpt-lane-axis">
+                    <div class="vpt-undated vpt-lane-fill">
+                      <span class="small text-secondary ps-2">
+                        Nothing before each occurrence&rsquo;s latest edit is
+                        recorded &mdash; <code>MISP.log_new_audit</code> is off.
+                      </span>
+                    </div>
+                    <svg width="100%%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
+                      <rect x="570.4" y="9" width="11" height="19" rx="2" fill="var(--bs-body-bg)"/>
+                      <rect x="573.4" y="12" width="5" height="13" rx="1.5" fill="var(--bs-secondary)" opacity="1"/>
+                    </svg>
+                  </div>
+                  <div class="vpt-lane-count">1<div class="vpt-why">of ?</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-seen">Seen spans</span>
+                    <div class="vpt-why">3 of 6 occurrences carry one</div>
+                  </div>
+                  <div class="vpt-lane-axis">
+                    <span class="vpt-lane-tag" style="left:47.9%">4831022 &middot; 12 &rarr; 19 Aug</span>
+                    <svg width="100%%" height="38" viewBox="0 0 740 38" preserveAspectRatio="none">
+                      <rect x="354.3" y="19" width="219.1" height="7" rx="3" fill="var(--bs-primary)" opacity=".5"/>
+                    </svg>
+                  </div>
+                  <div class="vpt-lane-count">1<div class="vpt-why">1 span, closed</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-none">Tags</span>
+                    <div class="vpt-why">no column exists, any instance</div>
+                  </div>
+                  <div class="vpt-lane-axis vpt-undated">
+                    <div class="d-flex justify-content-end align-items-center gap-1 h-100">
+                      <span class="me-auto small text-secondary ps-1">
+                        6 tags on this value. MISP stores no date for any of
+                        them, so none can be placed in this window or any other.
+                      </span>
+                      <span class="badge" style="background:#FFC000;color:#000">tlp:amber</span>
+                      <span class="badge" style="background:#33FF00;color:#000">tlp:green</span>
+                      <span class="badge bg-secondary">+4</span>
+                    </div>
+                  </div>
+                  <div class="vpt-lane-count">6<div class="vpt-why">undated</div></div>
+
+                  <div class="vpt-lane-label">
+                    <span class="vpt-src vpt-src-none">Feed appearances</span>
+                    <div class="vpt-why">one date per feed, moves on refresh</div>
+                  </div>
+                  <div class="vpt-lane-axis vpt-undated">
+                    <div class="d-flex justify-content-end align-items-center gap-1 h-100">
+                      <span class="me-auto small text-secondary ps-1">
+                        Only &ldquo;as of the last cache&rdquo; &mdash; one
+                        timestamp per feed, shared by every value it carries.
+                      </span>
+                      <span class="badge bg-secondary">CIRCL OSINT</span>
+                      <span class="badge bg-secondary">Botvrij.eu</span>
+                    </div>
+                  </div>
+                  <div class="vpt-lane-count">2<div class="vpt-why">3h ago</div></div>
+                </div>
+
+                <svg width="0" height="0" style="position:absolute">
+                  <defs>
+                    <pattern id="hatch2" patternUnits="userSpaceOnUse"
+                             width="8" height="8" patternTransform="rotate(135)">
+                      <line x1="0" y1="0" x2="0" y2="8"
+                            stroke="var(--bs-border-color)" stroke-width="3"/>
+                    </pattern>
+                  </defs>
+                </svg>
+
+                <div class="vpt-why pt-2">
+                  Four lanes carry marks in this window · one is truncated and
+                  says where · two are structurally empty and always will be
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. The chronology, filtered by the same window, with each
+                 row carrying how well it is dated. -->
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <div>
+                  <span class="fw-semibold">Chronology</span>
+                  <div class="vpt-sub">
+                    The 23 entries in the window, newest first. Click a lane
+                    above to narrow to one source.
+                  </div>
+                </div>
+                <div class="d-flex gap-1 align-items-center">
+                  <span class="vpt-prec vpt-prec-exact">exact 21</span>
+                  <span class="vpt-prec vpt-prec-part">partial 2</span>
+                </div>
+              </div>
+              <div class="card-body pt-2">
+
+                <div class="vpt-day">Friday, 22 August 2025</div>
+              <div class="vpt-row">
+                <div class="vpt-time">08:41</div>
+                <div class="vpt-dot"><i class="fas fa-note-sticky"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-note">Note</span> alice@circl.lu &mdash; &ldquo;Still answering on 8080 as of this morning. The TLS certificate is the same self-signed one the June infrastructure used.&rdquo; <span class="vpt-prec vpt-prec-exact">exact</span></div><div class="vpt-sub">CIRCL · attached to attribute 4831022 · event 1284</div></div>
+              </div>
+              <div class="vpt-row">
+                <div class="vpt-time">06:12</div>
+                <div class="vpt-dot"><i class="fas fa-eye"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-sight">Sighting</span> CIRCL &mdash; source <code>honeypot-lu-3</code> <span class="vpt-prec vpt-prec-exact">exact</span></div><div class="vpt-sub">Sighting 47 of 47</div></div>
+              </div>
+
+                <div class="vpt-day">Thursday, 21 August 2025</div>
+              <div class="vpt-row">
+                <div class="vpt-time">17:20</div>
+                <div class="vpt-dot"><i class="fas fa-comment-dots"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-op">Opinion</span> CIRCL &mdash; 85 / 100, &ldquo;confirmed C2, seen live&rdquo; <span class="vpt-prec vpt-prec-exact">exact</span></div></div>
+              </div>
+              <div class="vpt-collapsed">
+                <i class="fas fa-eye me-1"></i>3 sightings collapsed &mdash;
+                CIRCL 2, Team-CIRCL 1
+                <button class="btn btn-link btn-sm p-0 ms-1" disabled>expand</button>
+              </div>
+
+                <div class="vpt-day">Wednesday, 20 August 2025</div>
+              <div class="vpt-row">
+                <div class="vpt-time">11:04</div>
+                <div class="vpt-dot"><i class="fas fa-paper-plane"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-pub">Published</span> event 1284 &mdash; OSINT - Emotet malspam campaign targeting .lu <span class="vpt-prec vpt-prec-part">first &amp; last only</span></div><div class="vpt-sub">CIRCL · its second publication. The first was 12 Aug; nothing between the two is recorded.</div></div>
+              </div>
+
+                <div class="vpt-day">Tuesday, 19 August 2025</div>
+              <div class="vpt-row">
+                <div class="vpt-time">21:22</div>
+                <div class="vpt-dot"><i class="fas fa-pencil"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-edit">Edit</span> attribute 4831022 &mdash; <code>to_ids</code> 0 &rarr; 1 <span class="vpt-prec vpt-prec-part">latest only</span></div><div class="vpt-sub">attributes.timestamp. Earlier edits to this occurrence are not recorded.</div></div>
+              </div>
+              <div class="vpt-row">
+                <div class="vpt-time">21:02</div>
+                <div class="vpt-dot"><i class="far fa-clock"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-seen">Last seen</span> attribute 4831022 &mdash; closes the span opened 12 Aug <span class="vpt-prec vpt-prec-exact">exact</span></div><div class="vpt-sub">A claim about the value, not a change to the record.</div></div>
+              </div>
+
+                <div class="vpt-day">Friday, 1 August 2025</div>
+              <div class="vpt-row">
+                <div class="vpt-time">09:30</div>
+                <div class="vpt-dot"><i class="fas fa-thumbs-down"></i></div>
+                <div><div class="vpt-main"><span class="vpt-src vpt-src-fp">False positive</span> ORGNAME &mdash; source <code>soc-triage</code> <span class="vpt-prec vpt-prec-exact">exact</span></div><div class="vpt-sub">Type 1. Moves no decay score: MISP resets the clock on type-0 sightings only.</div></div>
+              </div>
+
+                <div class="text-center pt-2">
+                  <button class="btn btn-sm btn-outline-secondary" disabled>
+                    14 more in this window
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+        </div>
+      </div>
+    </article>
+    <!-- =================== END CANDIDATE =================== -->
+
   </div>
 
   <section class="vp-deck-foot">
@@ -2282,6 +2871,7 @@ body {
         <tr><td class="fw-semibold">T2</td><td>You want to know which sources MISP actually records</td><td>You want detail, or vertical space is scarce</td><td>L</td></tr>
         <tr><td class="fw-semibold">T3</td><td>You want the shape of a year and then a window</td><td>A gap in the record has to be told apart from a quiet month</td><td>M</td></tr>
         <tr><td class="fw-semibold">T4</td><td>You want every fact and its provenance, exhaustively</td><td>You want a sense of rhythm or duration</td><td>S</td></tr>
+        <tr><td class="fw-semibold">T-final</td><td>You want all of the above and have the vertical space</td><td>You need this tab cheaply, or the page is already long</td><td>L</td></tr>
       </tbody>
     </table>
 
@@ -2329,42 +2919,58 @@ body {
           <td>One row standing for all of it</td>
           <td>Rows, precision <em>never set</em></td>
         </tr>
+        <tr class="table-active">
+          <td class="fw-semibold">T-final</td>
+          <td>A hatched lane <em>and</em> an off-axis chip</td>
+          <td>A hatched lane <em>and</em> an off-axis chip</td>
+          <td>Hatch across its own lane, naming the setting</td>
+          <td>Its own lane; the window says how many of the 3 fall inside</td>
+        </tr>
       </tbody>
     </table>
 
     <h2 class="h5 mt-4">Recommendation</h2>
 
     <p>
-      <strong>T1</strong>, with T4&rsquo;s precision column grafted onto its
-      stream rows.
+      <strong>T-final</strong> &mdash; the composite, drawn after the four were
+      reviewed. It is the fifth frame above and the one this deck recommends.
     </p>
     <p class="small">
-      T1 is the only candidate that is a timeline first and cheap second: its
-      stream is <code>Logs/timeline.ctp</code> with one extra column, and its
-      rail is four static cards, so it is the one design here that phase 15
-      could land without a new primitive. Its weakness is the honest one &mdash;
-      absence sits in the margin &mdash; and T4 fixes exactly that without
-      costing the chronology, because a per-row precision chip is a renderer
-      and not a layout. Grafted, the stream says <em>latest only</em> on the
-      edit rows and <em>span open</em> on 4831577 where today it would say
-      nothing.
+      The four originals each solve one third of the tab and lose the other two.
+      T3 knows when the value was busy and cannot say which source says so. T2
+      knows which sources have a record and cannot show a single entry. T1 lists
+      the entries and gives the reader no way to find a period. T4 is honest
+      about every fact and has no shape at all. T-final is those four stacked
+      against <em>one</em> selection: brush the spine and the seven lanes
+      re-report, brush it again and the chronology re-lists. Nothing is
+      duplicated because each level answers a different question about the same
+      window &mdash; <em>when</em>, then <em>from whom</em>, then <em>what</em>.
     </p>
     <p class="small">
-      T2 is the most honest of the four and the argument for it is real: it is
-      the only one where turning <code>MISP.log_new_audit</code> on visibly
-      changes the tab, which is a thing an analyst should be able to see. It
-      loses on cost and on density &mdash; seven lanes, a shared axis and a
-      binning rule, for a page whose other eight tabs each carry more
-      information per pixel. Worth keeping as the design to revisit if the
-      undated sources ever become datable, at which point its lanes stop being
-      hatched and it becomes the better tab.
+      It also settles §8.2 in three places rather than one, which is the point
+      of assembling it this way. The two sources MISP can never date keep a
+      full-size hatched lane <em>and</em> a chip on the off-axis strip, so
+      neither a reader who scans the chart nor one who scans the lanes can miss
+      them. The truncated edit lane carries its own hatch, naming the setting
+      that would fill it. And every chronology row states its own precision, so
+      &ldquo;latest only&rdquo; sits on the row it qualifies instead of in a
+      caption three panels away.
     </p>
     <p class="small">
-      T3 is rejected on the specific ground that it is the one candidate that
-      can mislead. A density spine over months the record does not cover reads
-      as &ldquo;quiet&rdquo;, and on this value December is not quiet &mdash; it
-      is unrecorded. A chart that cannot tell those apart is worse than no
-      chart on a page whose whole argument is provenance.
+      What it costs is real and should be said plainly: it is the tallest of the
+      five and the most expensive to build &mdash; a lane primitive, a brush
+      driving two panels, and three aggregates over one set where T1 needs one
+      list and an existing element. If phase 15 has to be small, T1 with T4&rsquo;s
+      precision chip is the fallback and remains a defensible tab. T-final is
+      what the tab should be, not the cheapest thing that would pass.
+    </p>
+    <p class="small">
+      T3 alone stays rejected for the reason it was rejected on its own: a
+      density spine cannot tell a quiet month from an unrecorded one, and on
+      this value December is the second. Inside T-final that objection is
+      answered rather than ignored &mdash; the spine no longer stands alone, and
+      the lanes underneath it say which sources were even capable of recording
+      the months it draws.
     </p>
 
   </section>
