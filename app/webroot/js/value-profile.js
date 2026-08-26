@@ -1022,6 +1022,134 @@
     window.VP.chart = { resolve: resolveChartColours, boot: bootChart };
 
     /* ==================================================================
+     * The brush
+     * ------------------------------------------------------------------
+     * Drag a range over an activity chart. Three tabs offer that
+     * gesture and each shipped its own copy of it: the Sightings
+     * navigator hides table rows, the Timeline spine moves the window
+     * two regions read, and the History months write the two date
+     * inputs. What differs between them is what a range *means*, which
+     * is the callback. What does not is the pointer arithmetic, the
+     * clamping and the two masks.
+     *
+     * The bucket unit is deliberately not this layer's business. A bar
+     * is a day, a week or a month depending on what the caller's data
+     * can honestly claim — that decision belongs to
+     * `ValueProfileBuckets`, and the drag is index arithmetic whichever
+     * way it goes. The unit does decide how many buckets there are,
+     * which is why the count is asked for on every gesture rather than
+     * captured when the brush is wired: the Sightings range select
+     * changes it underneath.
+     * ================================================================== */
+
+    /*
+     * Travel, in pixels, under which a drag is a click.
+     *
+     * Two of the three shipped a different rule — a click was the
+     * pointer coming up on the bucket it went down on — and this one
+     * replaces it rather than averaging with it. That rule makes a
+     * one-bucket range unselectable, because releasing inside the
+     * bucket you pressed always clears; on the History tab's monthly
+     * chart it meant two months was the finest period anyone could
+     * brush, which is not a control.
+     */
+    var BRUSH_CLICK_SLOP = 4;
+
+    /**
+     * Move the masks and the window over the buckets `bounds` covers.
+     *
+     * @param {Element} root Anything containing the brush's parts
+     * @param {{from: number, to: number}} bounds Bucket indices
+     * @param {number} count How many buckets the chart has
+     */
+    function paintBrush(root, bounds, count) {
+        var left = (100 * bounds.from) / count;
+        var right = (100 * (count - 1 - bounds.to)) / count;
+        var parts = [
+            ['[data-vp-brush-mask-left]', { width: left + '%' }],
+            ['[data-vp-brush-mask-right]', { width: right + '%' }],
+            ['[data-vp-brush-handle]', {
+                left: left + '%',
+                right: right + '%',
+            }],
+        ];
+        parts.forEach(function (part) {
+            var el = root.querySelector(part[0]);
+            if (!el) {
+                return;
+            }
+            Object.keys(part[1]).forEach(function (property) {
+                el.style[property] = part[1][property];
+            });
+        });
+    }
+
+    /**
+     * @param {Element|null} strip The layer the drag is read off
+     * @param {Object} on `count()` returns how many buckets there are;
+     *     `range(from, to)` is called for every pointer move of a real
+     *     drag; `clear()` for a click; `settle()` optionally once on
+     *     release, for a caller whose answer to a range is too
+     *     expensive to give per move — History's re-fetch is one.
+     */
+    function attachBrush(strip, on) {
+        if (!strip) {
+            return;
+        }
+        var anchor = null;
+        var origin = 0;
+        var moved = false;
+
+        function bucketAt(event) {
+            var box = strip.getBoundingClientRect();
+            var count = on.count();
+            var fraction = (event.clientX - box.left) / box.width;
+            var index = Math.floor(fraction * count);
+            return Math.max(0, Math.min(count - 1, index));
+        }
+
+        strip.addEventListener('pointerdown', function (event) {
+            if (on.count() < 1) {
+                return;
+            }
+            anchor = bucketAt(event);
+            origin = event.clientX;
+            moved = false;
+            strip.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+
+        strip.addEventListener('pointermove', function (event) {
+            if (anchor === null) {
+                return;
+            }
+            if (Math.abs(event.clientX - origin) >= BRUSH_CLICK_SLOP) {
+                moved = true;
+            }
+            var to = bucketAt(event);
+            on.range(Math.min(anchor, to), Math.max(anchor, to));
+        });
+
+        strip.addEventListener('pointerup', function () {
+            if (anchor === null) {
+                return;
+            }
+            anchor = null;
+            if (!moved) {
+                on.clear();
+            } else if (on.settle) {
+                on.settle();
+            }
+        });
+
+        strip.addEventListener('pointercancel', function () {
+            anchor = null;
+        });
+    }
+
+    window.VP.brush = { attach: attachBrush, paint: paintBrush };
+
+    /* ==================================================================
      * Sightings tab
      * ------------------------------------------------------------------
      * One overlay and one brush. The chart and the list arrive as two
@@ -1328,9 +1456,7 @@
 
         var axis = panel.querySelector('[data-vp-sight-axis-left]');
         if (axis) {
-            axis.textContent = range.step === 1
-                ? sight.data.labels.perDay
-                : sight.data.labels.perWeek;
+            axis.textContent = sight.data.labels.perUnit[range.unit];
         }
     }
 
@@ -1355,26 +1481,12 @@
      * @param {Element} panel
      */
     function paintSightBrush(panel) {
-        var range = sightRange();
-        var count = range.labels.length;
-        var from = sight.brush ? sight.brush.from : 0;
-        var to = sight.brush ? sight.brush.to : count - 1;
-        var left = (100 * from) / count;
-        var right = (100 * (count - 1 - to)) / count;
-
-        var maskLeft = panel.querySelector('[data-vp-sight-mask-left]');
-        var maskRight = panel.querySelector('[data-vp-sight-mask-right]');
-        var handle = panel.querySelector('[data-vp-sight-handle]');
-        if (maskLeft) {
-            maskLeft.style.width = left + '%';
-        }
-        if (maskRight) {
-            maskRight.style.width = right + '%';
-        }
-        if (handle) {
-            handle.style.left = left + '%';
-            handle.style.right = right + '%';
-        }
+        var count = sightRange().labels.length;
+        window.VP.brush.paint(
+            panel,
+            sight.brush || { from: 0, to: count - 1 },
+            count
+        );
 
         var window_ = sightWindow();
         var label = panel.querySelector('[data-vp-sight-window]');
@@ -1474,59 +1586,33 @@
     }
 
     /**
-     * Drag on the navigator strip. A drag that does not move is a
-     * click, and a click clears the brush — the same gesture the
-     * `Clear` button offers, for a reader who never found it.
+     * Drag on the navigator strip. A click clears the brush — the same
+     * gesture the `Clear` button offers, for a reader who never found
+     * it.
+     *
+     * The count is a callback because the range select changes it: 90
+     * daily buckets become 43 weekly ones without the brush being
+     * rewired.
      *
      * @param {Element} panel
      */
     function wireSightBrush(panel) {
-        var strip = panel.querySelector('[data-vp-sight-brush]');
-        if (!strip) {
-            return;
-        }
-        var anchor = null;
-
-        function bucketAt(event) {
-            var box = strip.getBoundingClientRect();
-            var count = sightRange().labels.length;
-            var fraction = (event.clientX - box.left) / box.width;
-            var index = Math.floor(fraction * count);
-            return Math.max(0, Math.min(count - 1, index));
-        }
-
-        strip.addEventListener('pointerdown', function (event) {
-            anchor = bucketAt(event);
-            strip.setPointerCapture(event.pointerId);
-            event.preventDefault();
-        });
-
-        strip.addEventListener('pointermove', function (event) {
-            if (anchor === null) {
-                return;
-            }
-            var to = bucketAt(event);
-            sight.brush = {
-                from: Math.min(anchor, to),
-                to: Math.max(anchor, to),
-            };
-            sight.expanded = false;
-            paintSightBrush(panel);
-            refreshSightList();
-        });
-
-        strip.addEventListener('pointerup', function (event) {
-            if (anchor !== null && bucketAt(event) === anchor) {
+        window.VP.brush.attach(panel.querySelector('[data-vp-brush]'), {
+            count: function () {
+                return sightRange().labels.length;
+            },
+            range: function (from, to) {
+                sight.brush = { from: from, to: to };
+                sight.expanded = false;
+                paintSightBrush(panel);
+                refreshSightList();
+            },
+            clear: function () {
                 sight.brush = null;
                 sight.expanded = false;
                 paintSightBrush(panel);
                 refreshSightList();
-            }
-            anchor = null;
-        });
-
-        strip.addEventListener('pointercancel', function () {
-            anchor = null;
+            },
         });
     }
 
@@ -2115,24 +2201,7 @@
      * @param {Element} panel
      */
     function tlPaintBrush(panel) {
-        var count = tl.data.bins.length;
-        var bounds = tlBins();
-        var left = (100 * bounds.from) / count;
-        var right = (100 * (count - 1 - bounds.to)) / count;
-
-        var maskLeft = panel.querySelector('[data-vp-tl-mask-left]');
-        var maskRight = panel.querySelector('[data-vp-tl-mask-right]');
-        var handle = panel.querySelector('[data-vp-tl-handle]');
-        if (maskLeft) {
-            maskLeft.style.width = left + '%';
-        }
-        if (maskRight) {
-            maskRight.style.width = right + '%';
-        }
-        if (handle) {
-            handle.style.left = left + '%';
-            handle.style.right = right + '%';
-        }
+        window.VP.brush.paint(panel, tlBins(), tl.data.bins.length);
 
         var reset = panel.querySelector('[data-vp-tl-reset]');
         if (reset) {
@@ -2464,57 +2533,30 @@
     }
 
     /**
-     * Drag on the spine. A drag that does not move is a click, and a
-     * click clears the brush — the same thing `Reset window` offers, for
-     * a reader who never found it.
+     * Drag on the spine. A click clears the brush — the same thing
+     * `Reset window` offers, for a reader who never found it.
+     *
+     * The spine stays monthly however narrow the brush gets: four of
+     * this tab's seven sources cannot be dated to the day, so a finer
+     * bar would claim a precision the data has not got.
      *
      * @param {Element} panel
      */
     function wireTimelineBrush(panel) {
-        var strip = panel.querySelector('[data-vp-tl-brush]');
-        if (!strip) {
-            return;
-        }
-        var anchor = null;
-
-        function binAt(event) {
-            var box = strip.getBoundingClientRect();
-            var count = tl.data.bins.length;
-            var fraction = (event.clientX - box.left) / box.width;
-            var index = Math.floor(fraction * count);
-            return Math.max(0, Math.min(count - 1, index));
-        }
-
-        strip.addEventListener('pointerdown', function (event) {
-            anchor = binAt(event);
-            strip.setPointerCapture(event.pointerId);
-            event.preventDefault();
-        });
-
-        strip.addEventListener('pointermove', function (event) {
-            if (anchor === null) {
-                return;
-            }
-            var to = binAt(event);
-            tl.brush = {
-                from: Math.min(anchor, to),
-                to: Math.max(anchor, to),
-            };
-            tl.showAll = false;
-            refreshTimeline(panel);
-        });
-
-        strip.addEventListener('pointerup', function (event) {
-            if (anchor !== null && binAt(event) === anchor) {
+        window.VP.brush.attach(panel.querySelector('[data-vp-brush]'), {
+            count: function () {
+                return tl.data.bins.length;
+            },
+            range: function (from, to) {
+                tl.brush = { from: from, to: to };
+                tl.showAll = false;
+                refreshTimeline(panel);
+            },
+            clear: function () {
                 tl.brush = null;
                 tl.showAll = false;
                 refreshTimeline(panel);
-            }
-            anchor = null;
-        });
-
-        strip.addEventListener('pointercancel', function () {
-            anchor = null;
+            },
         });
     }
 
@@ -2642,23 +2684,7 @@
         if (!bounds) {
             return;
         }
-        var count = audit.data.months.length;
-        var left = (100 * bounds.from) / count;
-        var right = (100 * (count - 1 - bounds.to)) / count;
-
-        var maskLeft = list.querySelector('[data-vp-audit-mask-left]');
-        var maskRight = list.querySelector('[data-vp-audit-mask-right]');
-        var handle = list.querySelector('[data-vp-audit-handle]');
-        if (maskLeft) {
-            maskLeft.style.width = left + '%';
-        }
-        if (maskRight) {
-            maskRight.style.width = right + '%';
-        }
-        if (handle) {
-            handle.style.left = left + '%';
-            handle.style.right = right + '%';
-        }
+        window.VP.brush.paint(list, bounds, audit.data.months.length);
     }
 
     /**
@@ -2807,78 +2833,33 @@
     }
 
     /**
-     * Drag on the chart. A drag that does not move is a click, and a
-     * click clears the period — the same gesture the Sightings and
-     * Timeline brushes offer, and the one this tab's `Clear all` offers
-     * to a reader who found the button instead.
+     * Drag on the chart. A click clears the period — the same gesture
+     * the Sightings and Timeline brushes offer, and the one this tab's
+     * `Clear all` offers to a reader who found the button instead.
      *
-     * Where this differs from those two, deliberately: they read the
-     * click off *which bucket the pointer came up on*, so releasing on
-     * the bucket you pressed is always a clear and a one-bucket range
-     * cannot be selected at all. On a monthly chart that would mean the
-     * finest period a reader could brush is two months, which is not a
-     * control — so a click here is a pointer that did not travel, in
-     * pixels. Phase 20 folds all three into one primitive and this is
-     * the rule it should carry.
+     * This is the caller that needs `settle`: a range inside the
+     * fetched window is instant, and one past it is a request, so the
+     * check runs once on release rather than every few pixels of the
+     * drag.
      *
      * @param {Element} list
      */
     function wireAuditBrush(list) {
-        var strip = list.querySelector('[data-vp-audit-brush]');
-        if (!strip) {
-            return;
-        }
-        var anchor = null;
-        var origin = 0;
-        var moved = false;
-
-        function binAt(event) {
-            var box = strip.getBoundingClientRect();
-            var count = audit.data.months.length;
-            var fraction = (event.clientX - box.left) / box.width;
-            var index = Math.floor(fraction * count);
-            return Math.max(0, Math.min(count - 1, index));
-        }
-
-        strip.addEventListener('pointerdown', function (event) {
-            anchor = binAt(event);
-            origin = event.clientX;
-            moved = false;
-            strip.setPointerCapture(event.pointerId);
-            event.preventDefault();
-        });
-
-        strip.addEventListener('pointermove', function (event) {
-            if (anchor === null) {
-                return;
-            }
-            if (Math.abs(event.clientX - origin) > 3) {
-                moved = true;
-            }
-            var to = binAt(event);
-            writeAuditPeriod(
-                list,
-                Math.min(anchor, to),
-                Math.max(anchor, to)
-            );
-        });
-
-        strip.addEventListener('pointerup', function (event) {
-            if (anchor === null) {
-                return;
-            }
-            anchor = null;
-            if (!moved) {
+        window.VP.brush.attach(list.querySelector('[data-vp-brush]'), {
+            count: function () {
+                return audit.data.months.length;
+            },
+            range: function (from, to) {
+                writeAuditPeriod(list, from, to);
+            },
+            clear: function () {
                 clearAuditPeriod(list);
-            } else if (!auditWithinWindow(list)) {
-                // On release and not during the drag: a fetch per
-                // pointermove would be a request every few pixels.
-                fetchAuditPeriod(list);
-            }
-        });
-
-        strip.addEventListener('pointercancel', function () {
-            anchor = null;
+            },
+            settle: function () {
+                if (!auditWithinWindow(list)) {
+                    fetchAuditPeriod(list);
+                }
+            },
         });
     }
 
@@ -3320,7 +3301,7 @@
         audit.chart = window.VP.chart.boot('vp-audit-months', buildAuditMonths);
         // Rendered hidden, because without this script it would frame an
         // empty canvas and offer a gesture that does nothing.
-        var brush = list.querySelector('[data-vp-audit-brush]');
+        var brush = list.querySelector('[data-vp-brush]');
         if (brush) {
             brush.hidden = false;
         }
@@ -3352,7 +3333,7 @@
         // The brush is rendered hidden, because without this script it
         // would frame an empty canvas and offer a gesture that does
         // nothing.
-        var brush = panel.querySelector('[data-vp-tl-brush]');
+        var brush = panel.querySelector('[data-vp-brush]');
         if (brush) {
             brush.hidden = false;
         }

@@ -953,14 +953,13 @@ $chartPayload = array(
                              * which is worse than offering none.
                              */
                             ?>
-                            <div class="vp-audit-brush"
-                                 data-vp-audit-brush hidden>
-                                <div class="vp-audit-mask"
-                                     data-vp-audit-mask-left></div>
-                                <div class="vp-audit-window"
-                                     data-vp-audit-handle></div>
-                                <div class="vp-audit-mask"
-                                     data-vp-audit-mask-right></div>
+                            <div class="vp-brush" data-vp-brush hidden>
+                                <div class="vp-brush-mask"
+                                     data-vp-brush-mask-left></div>
+                                <div class="vp-brush-window"
+                                     data-vp-brush-handle></div>
+                                <div class="vp-brush-mask"
+                                     data-vp-brush-mask-right></div>
                             </div>
                         </div>
                         <div class="vp-audit-chart-axis">

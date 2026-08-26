@@ -1,5 +1,6 @@
 <?php
 App::uses('AuditActionMeta', 'Tools');
+App::uses('ValueProfileBuckets', 'Tools');
 
 /**
  * Hardcoded Value Profile data, keyed by value.
@@ -37,6 +38,15 @@ class ValueProfileFixture
      * and the sightings series buckets up to it.
      */
     const TODAY = '2025-08-24';
+
+    /**
+     * The grain of the History tab's activity chart. Monthly
+     * because the log spans fourteen months and the rail it sits
+     * in is three columns wide, not because anything about an
+     * audit entry resists a finer bucket — every entry carries a
+     * timestamp, so this is the one caller free to change it.
+     */
+    const AUDIT_UNIT = ValueProfileBuckets::MONTH;
 
     /**
      * MISP's sighting types, as ints. They are not degrees of one thing:
@@ -4155,54 +4165,45 @@ class ValueProfileFixture
         $from = $days === null
             ? $created
             : self::addDays(self::TODAY, -($days - 1));
-        // Daily columns only make sense while there are fewer of them
-        // than the chart has pixels; past a quarter the bucket is a week
-        // and the caption says so rather than leaving the reader to
-        // infer it from bar widths.
-        $step = ($days !== null && $days <= 90) ? 1 : 7;
+        // This is the one caller whose data supports choosing the
+        // grain from the span, so it is the one that opts in to the
+        // rule: daily columns only make sense while there are fewer of
+        // them than the chart has pixels, and past a quarter the
+        // bucket is a week.
+        $unit = ValueProfileBuckets::unitForSpan($days);
 
-        $buckets = array();
-        $cursor = self::TODAY;
-        while (self::dayDiff($from, $cursor) >= 0) {
-            $start = self::addDays($cursor, -($step - 1));
-            if (self::dayDiff($from, $start) < 0) {
-                $start = $from;
-            }
-            array_unshift($buckets, array(
-                'from' => $start,
-                'to' => $cursor,
-                'label' => self::bucketLabel($cursor),
-                'by_org' => array_fill(0, count($orgs), 0),
-                'fp' => 0,
-                'expiration' => 0,
-            ));
-            $cursor = self::addDays($start, -1);
+        // Anchored to today, not to the span's start: a range that
+        // says `last 90 days` has to have its last bucket end today,
+        // or the bar the reader looks at first is a partial week.
+        $buckets = ValueProfileBuckets::series(
+            $from,
+            self::TODAY,
+            $unit,
+            ValueProfileBuckets::END
+        );
+        foreach ($buckets as $i => $bucket) {
+            $buckets[$i]['by_org'] = array_fill(0, count($orgs), 0);
+            $buckets[$i]['fp'] = 0;
+            $buckets[$i]['expiration'] = 0;
         }
         $buckets[count($buckets) - 1]['label'] = __('today');
 
         $index = array_flip($orgs);
+        $at = ValueProfileBuckets::locate($buckets);
         $inRange = 0;
         foreach ($rows as $row) {
             $day = substr($row['date'], 0, 10);
-            if (self::dayDiff($from, $day) < 0) {
+            if (!isset($at[$day])) {
                 continue;
             }
-            foreach ($buckets as $i => $bucket) {
-                if (self::dayDiff($day, $bucket['to']) < 0) {
-                    continue;
-                }
-                if (self::dayDiff($bucket['from'], $day) < 0) {
-                    continue;
-                }
-                $inRange++;
-                if ($row['type'] === self::FALSE_POSITIVE) {
-                    $buckets[$i]['fp']++;
-                } elseif ($row['type'] === self::EXPIRATION) {
-                    $buckets[$i]['expiration']++;
-                } else {
-                    $buckets[$i]['by_org'][$index[$row['org']]]++;
-                }
-                break;
+            $i = $at[$day];
+            $inRange++;
+            if ($row['type'] === self::FALSE_POSITIVE) {
+                $buckets[$i]['fp']++;
+            } elseif ($row['type'] === self::EXPIRATION) {
+                $buckets[$i]['expiration']++;
+            } else {
+                $buckets[$i]['by_org'][$index[$row['org']]]++;
             }
         }
 
@@ -4224,10 +4225,8 @@ class ValueProfileFixture
             'days' => $days,
             'from' => $from,
             'to' => self::TODAY,
-            'step' => $step,
-            'step_label' => $step === 1
-                ? __('one column per day')
-                : __('one column per week'),
+            'unit' => $unit,
+            'unit_label' => self::columnLabel($unit),
             'buckets' => $buckets,
             'curves' => $curves,
             'in_range' => $inRange,
@@ -4235,16 +4234,21 @@ class ValueProfileFixture
     }
 
     /**
-     * @param string $date `Y-m-d`
+     * What one column of the navigator stands for, by unit. A keyed
+     * list rather than a ternary so that adding a unit is adding a
+     * line here, not finding every `if` that assumed there were two.
+     *
+     * @param string $unit
      * @return string
      */
-    private static function bucketLabel($date)
+    private static function columnLabel($unit)
     {
-        $d = new DateTimeImmutable(
-            $date . ' 00:00:00',
-            new DateTimeZone('UTC')
+        $captions = array(
+            ValueProfileBuckets::DAY => __('one column per day'),
+            ValueProfileBuckets::WEEK => __('one column per week'),
+            ValueProfileBuckets::MONTH => __('one column per month'),
         );
-        return $d->format('j M');
+        return $captions[$unit];
     }
 
     /**
@@ -8376,33 +8380,19 @@ class ValueProfileFixture
         if ($span === null) {
             return array();
         }
-        $utc = new DateTimeZone('UTC');
-        $cursor = new DateTimeImmutable(
-            substr($span['from'], 0, 7) . '-01 00:00:00',
-            $utc
+        $months = ValueProfileBuckets::series(
+            $span['from'],
+            self::TODAY,
+            self::AUDIT_UNIT
         );
-        $end = (new DateTimeImmutable(self::TODAY . ' 00:00:00', $utc))
-            ->format('Y-m');
-        $months = array();
-        $index = array();
-        while ($cursor->format('Y-m') <= $end) {
-            $stop = $cursor->modify('last day of this month')
-                ->format('Y-m-d');
-            $index[$cursor->format('Y-m')] = count($months);
-            $months[] = array(
-                'key' => $cursor->format('Y-m'),
-                'label' => $cursor->format('M'),
-                'title' => $cursor->format('F Y'),
-                'from' => $cursor->format('Y-m-d'),
-                'to' => min($stop, self::TODAY),
-                'total' => 0,
-            );
-            $cursor = $cursor->modify('first day of next month');
+        $at = ValueProfileBuckets::locate($months);
+        foreach ($months as $i => $month) {
+            $months[$i]['total'] = 0;
         }
         foreach ($rows as $row) {
-            $key = substr((string)$row['created'], 0, 7);
-            if (isset($index[$key])) {
-                $months[$index[$key]]['total']++;
+            $day = substr((string)$row['created'], 0, 10);
+            if (isset($at[$day])) {
+                $months[$at[$day]]['total']++;
             }
         }
         return $months;

@@ -142,8 +142,8 @@ if ($series !== null) {
             'key' => $range['key'],
             'from' => $range['from'],
             'to' => $range['to'],
-            'step' => $range['step'],
-            'stepLabel' => $range['step_label'],
+            'unit' => $range['unit'],
+            'unitLabel' => $range['unit_label'],
             'labels' => array_column($range['buckets'], 'label'),
             'starts' => array_column($range['buckets'], 'from'),
             'ends' => array_column($range['buckets'], 'to'),
@@ -164,8 +164,17 @@ if ($series !== null) {
         'models' => $decay,
         'labels' => array(
             'threshold' => __('threshold %s'),
-            'perDay' => __('Sightings per day, stacked by organisation'),
-            'perWeek' => __('Sightings per week, stacked by organisation'),
+            'perUnit' => array(
+                'day' => __(
+                    'Sightings per day, stacked by organisation'
+                ),
+                'week' => __(
+                    'Sightings per week, stacked by organisation'
+                ),
+                'month' => __(
+                    'Sightings per month, stacked by organisation'
+                ),
+            ),
             'falsePositive' => __('False positive'),
             'expiration' => __('Expiration'),
         ),
@@ -240,10 +249,10 @@ if ($series !== null) {
                             'All sightings in the selected range, as a'
                             . ' navigator'
                         )) ?>"></canvas>
-                <div class="vp-sight-brush" data-vp-sight-brush>
-                    <div class="vp-sight-mask" data-vp-sight-mask-left></div>
-                    <div class="vp-sight-window" data-vp-sight-handle></div>
-                    <div class="vp-sight-mask" data-vp-sight-mask-right></div>
+                <div class="vp-brush" data-vp-brush>
+                    <div class="vp-brush-mask" data-vp-brush-mask-left></div>
+                    <div class="vp-brush-window" data-vp-brush-handle></div>
+                    <div class="vp-brush-mask" data-vp-brush-mask-right></div>
                 </div>
             </div>
 

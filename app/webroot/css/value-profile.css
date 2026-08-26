@@ -457,6 +457,57 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
+ * The brush
+ * ------------------------------------------------------------------
+ * A control over a chart, not part of one. It sits in its own layer
+ * above the canvas, so a drag never has to be read out of Chart.js's
+ * hit testing and the masks can dim what is outside the range without
+ * touching a dataset.
+ *
+ * Three charts wear it — the Sightings navigator, the Timeline spine
+ * and the History months — and all they vary is how far up from the
+ * bottom it stops and how hard it dims. Both are custom properties
+ * with a default, so a fourth caller needs no CSS of its own.
+ * ================================================================== */
+
+.vp-brush {
+    position: absolute;
+    inset: 0 0 var(--vp-brush-floor, 0) 0;
+    display: flex;
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+/* Outside the range is dimmed rather than hidden: the reader has to be
+ * able to see what they are not looking at, or a brush is just a
+ * shorter chart. */
+.vp-brush-mask {
+    width: 0;
+    background: color-mix(in srgb,
+        var(--bs-body-bg) var(--vp-brush-dim, 62%), transparent);
+    pointer-events: none;
+}
+
+/* The two masks are flex items and the window between them is
+ * absolute, so without this they pack from the left and leave the
+ * undimmed strip at the far right instead of under the window —
+ * invisible on a range sitting at the end of its chart, which is where
+ * two of the three land by default, and wrong everywhere else. */
+.vp-brush-mask[data-vp-brush-mask-right] {
+    margin-left: auto;
+}
+
+.vp-brush-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    pointer-events: none;
+}
+
+/* ==================================================================
  * Occurrence table
  * ================================================================== */
 
@@ -3028,33 +3079,6 @@ tr.vp-occ-deleted .vp-occ-orgdot {
     inset: 0;
 }
 
-.vp-sight-brush {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    cursor: ew-resize;
-    touch-action: none;
-}
-
-/* Outside the window is dimmed rather than hidden: the reader has to be
- * able to see what they are not looking at, or a brush is just a
- * shorter chart. */
-.vp-sight-mask {
-    background: color-mix(in srgb,
-        var(--bs-body-bg) 62%, transparent);
-    pointer-events: none;
-}
-
-.vp-sight-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 2px solid var(--primary);
-    border-right: 2px solid var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
-    pointer-events: none;
-}
-
 .vp-sight-nav-caption {
     display: flex;
     align-items: baseline;
@@ -5059,34 +5083,9 @@ td.vp-rel-pick {
 .vp-tl-spine {
     position: relative;
     height: 132px;
-}
-
-/*
- * The brush is a control over the chart, not part of it. It sits in
- * its own layer so a drag never has to be read out of Chart.js's own
- * hit-testing, and so the masks can dim what is outside the window
- * without touching a dataset.
- */
-.vp-tl-brush {
-    position: absolute;
-    inset: 0 0 22px 0;
-    display: flex;
-    cursor: ew-resize;
-}
-
-.vp-tl-mask {
-    background: color-mix(in srgb, var(--bs-body-bg) 62%, transparent);
-    width: 0;
-}
-
-.vp-tl-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 2px solid var(--primary);
-    border-right: 2px solid var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
-    pointer-events: none;
+    /* The 22px the month labels below the bars occupy: the brush ends
+       where the plot area does, not where the canvas does. */
+    --vp-brush-floor: 22px;
 }
 
 /*
@@ -5641,44 +5640,11 @@ td.vp-rel-pick {
     position: relative;
     height: 64px;
     margin-bottom: 2px;
-}
-
-/* Same construction as the Timeline's spine brush: its own layer over
-   the canvas, so a drag never has to be read out of Chart.js's hit
-   testing and the masks can dim what is outside the period without
-   touching a dataset. Phase 20 collapses the three into one. */
-.vp-audit-brush {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    cursor: ew-resize;
-}
-
-/* Heavier than the Timeline's 62%: that mask dims a 132px chart with
-   axes and gridlines to read against, and this one has 64px of bare
-   bars. At 62% the difference between inside and outside the period was
-   not visible in either theme. */
-.vp-audit-mask {
-    background: color-mix(in srgb, var(--bs-body-bg) 80%, transparent);
-    width: 0;
-}
-
-/* The two masks are flex items and the window between them is absolute,
-   so without this they sit side by side from the left and leave the
-   uncovered strip at the far right instead of under the window. Visible
-   the moment the period is anywhere but the end of the chart. */
-.vp-audit-brush [data-vp-audit-mask-right] {
-    margin-left: auto;
-}
-
-.vp-audit-window {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    border-left: 2px solid var(--primary);
-    border-right: 2px solid var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
-    pointer-events: none;
+    /* Heavier than the 62% default: that dims a 132px chart with axes
+       and gridlines to read against, and this is 64px of bare bars. At
+       62% the difference between inside and outside the period was not
+       visible in either theme. */
+    --vp-brush-dim: 80%;
 }
 
 /* Both ends of the span, named. The chart has no x axis — fifteen

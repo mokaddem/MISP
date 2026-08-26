@@ -32,6 +32,19 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueProfileBuckets', 'Tools');
+
+/*
+ * The spine's grain and its width. Monthly and not finer for the
+ * reason every hatched lane below states: MISP cannot date four of
+ * this tab's seven sources to the day, so a daily bar would be a
+ * precision the data does not have. This is the caller §12.2 has in
+ * mind when it says the unit is given and not derived — however far
+ * the spine is narrowed, it stays monthly.
+ */
+$spineUnit = ValueProfileBuckets::MONTH;
+$spineBins = 12;
+
 $timeline = isset($valueProfile['timeline'])
     ? $valueProfile['timeline']
     : null;
@@ -166,22 +179,15 @@ $earliest = null;
 if ($window !== null) {
     $end = new DateTimeImmutable($window['to'] . ' 00:00:00', $utc);
     $first = $end->modify('first day of this month')
-        ->modify('-11 months');
-    for ($i = 0; $i < 12; $i++) {
-        $start = $first->modify('+' . $i . ' months');
-        $stop = $start->modify('last day of this month');
-        if ($stop->format('Y-m-d') > $window['to']) {
-            $stop = $end;
-        }
-        $bins[] = array(
-            'key' => $start->format('Y-m'),
-            'label' => $start->format('M'),
-            'title' => $start->format('F Y'),
-            'from' => $start->format('Y-m-d'),
-            'to' => $stop->format('Y-m-d'),
-            'counts' => array(),
-            'total' => 0,
-        );
+        ->modify('-' . ($spineBins - 1) . ' months');
+    $bins = ValueProfileBuckets::series(
+        $first->format('Y-m-d'),
+        $window['to'],
+        $spineUnit
+    );
+    foreach ($bins as $i => $bin) {
+        $bins[$i]['counts'] = array();
+        $bins[$i]['total'] = 0;
     }
 
     /*
@@ -190,24 +196,21 @@ if ($window !== null) {
      * exact failure this tab exists to avoid, so if the spine cannot
      * hold the value's whole history it says so under itself.
      */
-    $floor = $first->format('Y-m-d') . ' 00:00:00';
-    $index = array();
-    foreach ($bins as $i => $bin) {
-        $index[$bin['key']] = $i;
-    }
+    $floor = $bins[0]['from'];
+    $index = ValueProfileBuckets::locate($bins);
     foreach ($entries as $entry) {
-        if ($entry['at'] < $floor) {
+        $day = substr($entry['at'], 0, 10);
+        if ($day < $floor) {
             $before++;
             if ($earliest === null || $entry['at'] < $earliest) {
                 $earliest = $entry['at'];
             }
             continue;
         }
-        $month = substr($entry['at'], 0, 7);
-        if (!isset($index[$month])) {
+        if (!isset($index[$day])) {
             continue;
         }
-        $at = $index[$month];
+        $at = $index[$day];
         $source = $entry['source'];
         if (!isset($bins[$at]['counts'][$source])) {
             $bins[$at]['counts'][$source] = 0;
@@ -629,12 +632,12 @@ $subtitle = $timeline === null
                      * offering none.
                      */
                     ?>
-                    <div class="vp-tl-brush" data-vp-tl-brush hidden>
-                        <div class="vp-tl-mask" data-vp-tl-mask-left>
+                    <div class="vp-brush" data-vp-brush hidden>
+                        <div class="vp-brush-mask" data-vp-brush-mask-left>
                         </div>
-                        <div class="vp-tl-window" data-vp-tl-handle>
+                        <div class="vp-brush-window" data-vp-brush-handle>
                         </div>
-                        <div class="vp-tl-mask" data-vp-tl-mask-right>
+                        <div class="vp-brush-mask" data-vp-brush-mask-right>
                         </div>
                     </div>
                 </div>
