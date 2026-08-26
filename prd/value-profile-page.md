@@ -437,6 +437,15 @@ the shared list machinery needed to carry two paged sections in one panel, and
 `45.155.205.233` — a fourth demo value with 812 occurrences, over-correlating,
 so the section §9 bounds is the only content left on its tab.
 
+**Phase 19** is §11, and takes the finding phase 18 measured rather than
+predicted: the History tab renders one section per occurrence, so the fourth
+value renders 748 of them. It is the first phase whose design came out of an
+interview rather than a candidate deck, and §11.2 records the ten decisions.
+
+**Phase 20** is §12: collapsing the three brushable activity charts into one.
+Pure cleanup, no new behaviour, and blocked on phase 19 — the third of the
+three is what phase 19 writes.
+
 ---
 
 ## 4. Key design decisions
@@ -1779,3 +1788,220 @@ values render as they did.
   that is a design call this phase had no mandate to make.
 - **A sibling row's own object ids**, and **cross-value sibling ranking**, both
   unchanged from §9.12.
+
+---
+
+## 11. Phase 19 — History at occurrence scale
+
+Phase 18 §10.4 measured what §9.8 had predicted: the History tab renders one
+collapsible section per occurrence, so `45.155.205.233` renders **748 sections
+in a 2.4 MB fragment — from three audit entries**. This phase is that, and it is
+the first phase whose design was settled by interview rather than by a candidate
+deck, because §9.9's test comes out the other way here: the treatment is not
+prescribed by the data, and four defensible answers existed.
+
+### 11.1 What is actually wrong
+
+Not the payload, though 2.4 MB is bad. **The organising unit stops organising.**
+Phase 16 chose one section per occurrence deliberately, and renders one for
+every occurrence whether or not anything happened to it — *"an occurrence
+nobody has touched is a fact about the value, and a missing section would read
+as one fewer copy of it."* That is a good argument at ten occurrences. At 812 it
+means a tab whose job is "show me what happened" makes the reader scroll past
+745 places where nothing did.
+
+Phase 16's reasoning is not overturned here. It is scoped: it was right about a
+value with ten copies and silent about a value with eight hundred.
+
+### 11.2 The ten decisions, and why
+
+1. **The occurrence stays the organising unit.** It is still the thing a
+   value-scoped history adds over the per-event logs, which was §8's whole test.
+2. **An occurrence with no entries gets no section — it becomes a stated
+   count.** Phase 16's objection is answered by naming the number rather than by
+   drawing 745 boxes. This is a server-side reduction: 748 sections become the
+   ~190 that were actually touched.
+3. **A brushable monthly activity chart is added**, driving the period. This came
+   from review rather than from the design: the tab already has a period filter
+   (`5033cd7b5`), and an audit trail's natural narrowing axis is time.
+4. **A section the brushed period empties is dropped, not dimmed.** Today
+   `setAuditCount` (`value-profile.js:2567`) dims it to `opacity-50`; at 190
+   sections the dimmed ones are the whole problem restated. The count that
+   replaces them names the period, so the reader sees a filter narrowing rather
+   than data vanishing.
+5. **The brush and the existing from/to inputs are one control.** Brushing
+   writes the dates and fires `change`, so `activePeriod()` and the entire
+   existing filter path run unchanged. The brush becomes a second way to set a
+   value the tab already honours — and the window stays statable as two dates,
+   which is what the empty-window copy needs.
+6. **On landing the brush covers a fixed recent window**, as the Timeline's does
+   (its `window` is a per-value literal, `2025-08-01 → TODAY` on three values).
+   The chart draws the value's whole span regardless, so activity outside the
+   window is visible rather than inferred. An empty window gets its own state:
+   what is outside it, when the most recent change was, and `show all time`.
+7. **The facet rail's counts follow the brushed period**, and say so. This
+   reverses the recommendation this phase's interview started from, and the
+   reversal is recorded because the argument for the other answer is seductive:
+   *the rail is the only thing that can tell you 18 deletes sit outside your
+   window*. True of the pre-brush design, and false the moment the chart exists
+   — the chart is that signal. Every log browser in this class (Kibana, Splunk,
+   Datadog Logs, Loki, Sentry, CloudWatch Insights) scopes sidebar counts to the
+   selected range; none keeps corpus-wide counts. Two numbers per facet was
+   considered and rejected: no tool in this class does it, it doubles the width
+   of every row in a four-group rail, and it answers a comparison nobody asked
+   for. The corpus total stays on screen **once**, in the header, which
+   `value_history.ctp:700` already renders as `Showing <filtered> of <all>`.
+
+   **This does not contradict the co-occurrence facet doctrine.** That rule was
+   never *counts must not move*; it was *counts describe the value, not the
+   page*. Paging is not a semantic narrowing, so counts that moved when you paged
+   would lie. A time window **is** one — "this value, in March" is a real
+   subject — and the co-occurrence bar has no time control, so it has nothing to
+   scope to.
+8. **The window is applied server-side.** This is the actual fix and the reason
+   the phase is worth doing: ~30 KB rather than the ~600 KB that decision 2
+   alone would leave, against 2.4 MB today. Per-section overhead measured at
+   ~3.2 KB from phase 18's probe.
+9. **`show all time` returns every changed occurrence and pages in the
+   browser.** No new request pattern. The tab is bounded on landing and
+   unbounded only when a reader explicitly asks for everything, which is a
+   different proposition from 2.4 MB unasked. Recorded in §11.6 beside the
+   existing client-side-paging entry rather than counted as fixed.
+10. **The third brush is written here; collapsing all three is §12.** Each phase
+    keeps to one kind of risk, and the two shipped brushes stay verified.
+
+Two calls made without interview: the chart's bars are **monthly**, matching the
+Timeline's spine over a 14-month span; and the **per-section entry pagers stay**,
+appearing only where one occurrence has more than eight changes. A pager over
+sections can coexist with them only because of phase 18 §10.2's nesting fix.
+
+### 11.3 The five states, and which value shows each
+
+Which state the tab renders follows from the value's data, so a state without a
+demo value is a state nobody can look at.
+
+| State | Renders | Demo |
+|---|---|---|
+| no `history` key | the sparse page | unknown value |
+| `recorded === false` | the log is off; what the page still knows | **none** |
+| recorded, no entries | the log runs, nothing for this value | **none** after this phase |
+| populated | sections | `185.234.219.24`, `104.21.34.198`, `45.155.205.233` |
+| populated, window empty | what is outside, and `show all time` | `8.8.8.8` |
+
+The `recorded === false` gap is **pre-existing** — all four values pass
+`'recorded' => true` — and it is the state `value_history.ctp:98` itself calls
+*"the common case rather than the edge one: `MISP.log_new_audit` defaults to
+false, so this is what a default instance renders"*.
+
+Neither gap gets a demo value. A state only has to be **displayed once**: render
+it by flipping the fixture, capture it, revert, and write the flip down. Two
+one-line flips reach both:
+
+```
+recorded === false    fluxHistory():   'recorded' => false
+recorded, no entries  benignHistory(): drop the six entries §11.4 adds
+```
+
+Authoring a fifth demo value — which by §9.7.5's rule renders all nine tabs —
+to host one empty state is disproportionate, and rewriting a verified tab to
+host one is the move §9.7.5 already declined.
+
+### 11.4 What ships
+
+**Fixture.** `45.155.205.233` gets a real fourteen-month audit history: a few
+hundred entries over roughly 190 of its 748 occurrences, with recent activity so
+it lands populated. It must land populated — 748 occurrences arriving
+continuously means `add` entries arriving continuously, so a value sighted
+yesterday cannot have a log that went quiet in March. `8.8.8.8` gets six entries
+in Feb–Mar 2025 and nothing since, so it lands on the empty-window state: a
+public resolver whose tags were tidied once and never touched again.
+
+**Server.** `viewHistory` takes a period. `history()` builds sections only for
+occurrences with entries inside it; an occurrence with no entries at all gets
+none at any period. `hidden` stays `total_occurrences` minus the occurrences the
+panel was given, so the ACL footer keeps stating the ACL's number and not the
+window's — which is why the window is applied to *sections*, not by handing the
+builder a subset. The monthly bar data covers the whole span regardless of
+window. The empty-window state and `show all time`.
+
+**Template.** The chart above the existing date inputs; a pager over sections;
+the dropped-occurrence counts, naming the period; the header's existing
+`<filtered> of <all> entries`; the rail's note rewritten to name the period its
+counts cover.
+
+**Browser.** History's own brush, modelled on the Sightings one (which already
+hides rows). It writes the date inputs and fires `change`. The rail re-tallies
+from the `data-vp-facet` tokens rows already carry (`value_history.ctp:416-450`),
+inside the loop `refreshList` already runs.
+
+### 11.5 Verification
+
+1. `php -l` and `node --check`; no added line over 80 columns.
+2. The three existing values' History tabs unchanged in section content and
+   count — the two populated ones have **no** silent occurrences, so decision 2
+   is invisible on them, and that is the check.
+3. `45.155.205.233`: lands on the window, sections bounded, payload measured
+   against 2.4 MB.
+4. `8.8.8.8`: lands on the empty-window state, with the outside count, the date
+   of the most recent change, and `show all time` reaching the sections.
+5. Brushing: inside the rendered window is instant; the rail's counts follow;
+   the dropped count names the period; the date inputs and the brush stay in
+   step in both directions.
+6. `show all time` on `45.155.205.233`: every changed occurrence, paged in the
+   browser, payload recorded.
+7. The two undemoed states, each rendered once via §11.3's flip, captured, and
+   the fixture reverted.
+8. All nine tabs of all four values still 200, and the sparse page.
+9. Both themes.
+
+### 11.6 Exit criterion
+
+`45.155.205.233`'s History tab lands on a bounded window rather than 748
+sections, states how many occurrences it left out and why — never touched, or
+not touched in this period — and lets the reader reach any period by brushing. A
+value whose log went quiet says so on landing instead of looking empty. The three
+existing values render as they did.
+
+### 11.7 Deferred
+
+- **Payload on explicit request**, per decision 9. `show all time` on a
+  190-occurrence value is ~600 KB. This joins §10.6's entry: the Occurrences,
+  Timeline and Sightings panels each ship every row they will ever page through,
+  and whichever phase makes the page fetch pages settles all of them.
+- **The two undemoed states**, per §11.3. Displayed once and written down, not
+  garrisoned.
+- **`recorded === false` has no demo and is the default-instance rendering.**
+  Recorded as a gap this phase inherited rather than created.
+
+---
+
+## 12. Phase 20 — one brush, three callers
+
+Pure cleanup, no new behaviour, and **blocked on phase 19**: it exists to
+collapse three implementations of one gesture into one, and the third is what
+phase 19 writes.
+
+### 12.1 What is duplicated
+
+| Caller | Where | What it drives |
+|---|---|---|
+| Sightings | `value-profile.js:1020` (`sight` state, `sight.brush`) | hides table rows |
+| Timeline | `value-profile.js:2456`, `:2770` (`[data-vp-tl-brush]`) | two regions from one spine |
+| History | written by phase 19 | writes the period inputs |
+
+Three renderings of the same gesture — drag a range over an activity chart —
+with three sets of pointer handling, three clamping rules and three ways of
+saying where the brush currently sits.
+
+### 12.2 Why after, not before
+
+The extraction is only obvious with three cases in front of you. With two, the
+shared shape is a guess; the third caller is what shows which parts vary — and
+phase 19's is the one that differs most, because it writes its result into
+existing form inputs rather than filtering directly.
+
+### 12.3 Exit criterion
+
+One brush primitive, three callers, and the Sightings, Timeline and History tabs
+all re-verified in both themes with no behavioural change any of the three
+tabs' own verification steps can detect.
