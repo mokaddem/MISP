@@ -273,6 +273,27 @@ class ValuesController extends AppController
     }
 
     /**
+     * The Timeline tab: the spine, the source lanes and the
+     * chronology, in one panel.
+     *
+     * One endpoint for all three, against every other multi-card tab
+     * on this page, because the brush is a single control driving two
+     * regions that must already exist when it fires. Three `.ajax-card`
+     * requests resolve independently, so a spine that arrived first
+     * would be a brush wired to nothing.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewTimeline($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_timeline'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

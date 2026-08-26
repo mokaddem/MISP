@@ -1,6 +1,7 @@
 # PRD: Value Profile — Timeline tab
 
-**Phase 15.** Implements candidate **`T-final`**, chosen 2026-08-26.
+**Phase 15 — built 2026-08-26.** Implements candidate **`T-final`**, chosen
+2026-08-26.
 Artifact: <https://claude.ai/code/artifact/7c2bbad2-fcf2-49c8-8bf3-b60f122cadbb>
 Depends on `00-shared.md`, and on `prd/value-profile-page.md` §8.2 for what MISP
 can and cannot date.
@@ -287,3 +288,93 @@ which three are hatched with their reasons, and a chronology whose counts
 provably derive from the same array as the other two; brushing moves all three
 together; and with no dated entries at all the tab still tells the reader which
 sources MISP was never able to date.
+
+## 15. What was built, and what changed on the way
+
+Every §13 item passes. What follows is only what the build decided that the
+spec left open, or found to be wrong.
+
+**The entries are derived, not typed.** §7 asks for one array; it does not say
+where the array comes from. `ValueProfileFixture::timeline()` builds it from
+data the page already carries rather than from a second copy: the sightings are
+`maliciousSightingRows()` and friends, the edits are each occurrence's own
+`attributes.timestamp`, and the seen spans are their `first_seen` / `last_seen`.
+Only the publication dates are new, because MISP's `first_publication` and
+`publish_timestamp` had no fixture representation yet. The result is that the
+tab's biggest number cannot drift from the Sightings tab's: 46 sightings + 1
+false positive is the 47 the fact strip claims, 52 + 9 + 2 is the conflicted
+value's 63, and 6 + 11 is the benign value's 17.
+
+**`expiration` joins the source vocabulary.** §7 lists seven source values and
+omits it, but the conflicted value has two expiration sightings and MISP has
+three sighting types. Dropping them would have deleted two real dated facts
+from the one tab that exists to not do that. It draws in the sightings lane in
+the quiet grey the Sightings tab already uses for it.
+
+**An edit row names no field.** The mockup's edit row reads `to_ids 0 → 1`.
+That cannot be honest: with `MISP.log_new_audit` off, `attributes.timestamp`
+says *when* an occurrence last changed and never *what* changed. The row names
+the occurrence and stops, and its sub-line says so.
+
+**The empty run is derived and named, not hardcoded.** The mockup's caption
+says *the December gap*. The demo value's actual empty run is November 2024 to
+March 2025, so the strip computes the longest empty run **between** two months
+that do carry entries and names it — a leading run is the time before the value
+existed, and a trailing one is the present. Neither is a gap in the record.
+
+**Entries older than the spine are counted out loud.** Twelve monthly bins
+cannot always hold a value's whole history. Where they cannot, a line under the
+spine says how many entries are older and how old the oldest is, rather than
+letting a chart begin silently after the beginning.
+
+### Three defects the build found, all of them in the invisible half
+
+1. **The token whose name did not match its key.** The lane redraw builds a
+   colour name from the entry's `source`, so `false_positive` looked for
+   `--vp-tl-false_positive` while the sheet defined `--vp-tl-fp`. The false
+   positive drew black on both themes — the one mark on the tab whose colour
+   carries a claim. Fixed by renaming the token so the match is structural:
+   every token is `--vp-tl-<source>`, spelled exactly as the key.
+2. **The hatch painted over the mark it was meant to contrast with.**
+   `.vp-lane-fill` is absolutely positioned and the axis is not, so the single
+   recorded edit rendered *underneath* the explanation of why there are no
+   others — losing §8.2's stated point exactly. Fixed with a stacking order on
+   `.vp-lane-svg`, and the browser check now hit-tests the mark's own centre
+   rather than trusting that it is drawn.
+3. **A collapsed run stopped being counted.** The first draft of the JavaScript
+   counted only the rows it displayed, so collapsing three sightings dropped
+   them from the chronology's header and its precision tally — leaving the
+   header saying 24 while the lanes above it still said 27. That is precisely
+   the disagreement §7 forbids. The count is now taken over the window before
+   anything is decided about how to display it.
+
+All three were invisible to a reading of the source and to the PHP checks. They
+were caught by rendering the panel with MISP's real stylesheets and real
+`value-profile.js` in headless Chrome, and asserting on computed styles and hit
+tests in both themes.
+
+### Verification
+
+- `php -l` over all five changed PHP files and `node --check` over the
+  JavaScript. `parallel-lint` is not installed in this checkout
+  (`app/Vendor/` is absent), so §13.1 ran as `php -l`.
+- The panel rendered for all four fixture values and checked with 19 assertions
+  each: seven lanes, three hatched, every lane count derived from the same rows
+  the chronology lists, the tally summing to the window count with no *no date*
+  bucket, and the spine's total equal to the whole entry set.
+- §13.3 run as a mutation: one entry added to the array moves the spine total,
+  the lane count, the chronology header and the precision tally by exactly one.
+- 46 browser assertions in both themes, including the brush moving the lanes
+  and the chronology while the off-axis strip stays put, reset restoring the
+  window, and the tally still summing after a brush.
+- State 2 (nothing dated) and state 5 (a value MISP has never held) rendered
+  and read.
+- The no-JavaScript render checked directly: the brush ships `hidden` and the
+  script reveals it, a `<noscript>` line says the chart needs a script, and the
+  default window's counts are already correct in the HTML.
+
+**Not verified end to end.** The panel was rendered outside CakePHP, against a
+stub `View`, and through the dev container's live-synced worktree — but not
+fetched from `/values/viewTimeline/<b64>` as a logged-in user, because this
+session had no valid MISP session cookie. The ACL entry was confirmed by
+reading it, which `00-shared.md` §3.1 accepts in place of a non-admin fetch.

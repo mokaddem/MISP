@@ -4953,3 +4953,493 @@ td.vp-rel-pick {
 .vpa-kindswitch .nav-link.disabled {
     opacity: 0.75;
 }
+
+/* ==================================================================
+ * Timeline tab — the spine, the source lanes and the chronology
+ * ------------------------------------------------------------------
+ * One window, three depths, and one palette across all three: §11's
+ * rule is that a lane mark and its stack segment must be the same
+ * colour, or the two regions read as two subjects. Every colour below
+ * comes from a token, and the templates pass `var(--vp-tl-…)` into
+ * Chart.js so the canvas — which cannot inherit a variable — resolves
+ * the same value the SVG did.
+ *
+ * The sources keep the vocabulary the rest of the page already
+ * taught: a sighting is the Sightings panel's purple, a false positive
+ * is the benign green it is on the Sightings chart, an expiration is
+ * the quiet grey, a note is the Analyst tab's plum and an opinion is
+ * the conflict amber. A reader who has seen one tab recognises the
+ * next.
+ * ================================================================== */
+
+:root {
+    /*
+     * Every token here is named `--vp-tl-<source>`, exactly as the
+     * `source` key on an entry spells it — the lane redraw builds the
+     * name from the key, so a token whose name did not match would
+     * resolve to nothing and draw black.
+     */
+    --vp-tl-sighting: var(--sighting);
+    --vp-tl-false_positive: var(--vp-sight-fp);
+    --vp-tl-expiration: var(--vp-sight-exp);
+    --vp-tl-publication: var(--event);
+    --vp-tl-note: var(--analystData);
+    --vp-tl-opinion: var(--vp-conflict);
+    --vp-tl-edit: var(--object);
+    --vp-tl-seen: var(--attribute);
+}
+
+/*
+ * Three of the eight are too dark to read as a small mark on a dark
+ * ground, and one of them — the edit — is the single mark that has to
+ * survive being drawn over its own hatch.
+ */
+[data-bs-theme="dark"] {
+    --vp-tl-sighting: #c05fcc;
+    --vp-tl-note: #c26189;
+    --vp-tl-edit: #a2938f;
+}
+
+.vp-tl-card {
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.vp-tl-card:last-child {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: 0;
+}
+
+.vp-tl-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+/*
+ * The quiet line. Italic rather than merely small: on this tab it is
+ * almost always the sentence saying what MISP could not record, and
+ * that is a different kind of statement from the number above it.
+ */
+.vp-tl-why {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--bs-secondary-color);
+}
+
+/* ------------------------------------------------------------------
+ * The spine
+ * ------------------------------------------------------------------ */
+
+.vp-tl-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 0.75rem;
+}
+
+.vp-tl-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.vp-tl-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--vp-tl-hue);
+}
+
+.vp-tl-spine {
+    position: relative;
+    height: 132px;
+}
+
+/*
+ * The brush is a control over the chart, not part of it. It sits in
+ * its own layer so a drag never has to be read out of Chart.js's own
+ * hit-testing, and so the masks can dim what is outside the window
+ * without touching a dataset.
+ */
+.vp-tl-brush {
+    position: absolute;
+    inset: 0 0 22px 0;
+    display: flex;
+    cursor: ew-resize;
+}
+
+.vp-tl-mask {
+    background: color-mix(in srgb, var(--bs-body-bg) 62%, transparent);
+    width: 0;
+}
+
+.vp-tl-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    pointer-events: none;
+}
+
+/*
+ * The off-axis strip. Deliberately not conditional on the brush:
+ * nothing on it is in any window, because nothing on it has a date to
+ * be in one with.
+ */
+.vp-tl-offaxis {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    margin-top: 10px;
+    padding: 7px 10px;
+    border-top: 1px dashed var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    border-radius: 6px;
+}
+
+.vp-tl-undated-chip {
+    padding: 2px 8px;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 5px;
+    background-image: repeating-linear-gradient(135deg,
+        var(--bs-secondary-bg) 0 6px, transparent 6px 12px);
+}
+
+/* ------------------------------------------------------------------
+ * The lanes
+ * ------------------------------------------------------------------
+ * A label, an axis and a count, seven times. The axis is one viewBox
+ * stretched to whatever width the panel has — which is why not one
+ * word on this grid lives inside the SVG.
+ * ------------------------------------------------------------------ */
+
+.vp-lanes {
+    display: grid;
+    grid-template-columns: 15rem 1fr 7rem;
+    align-items: stretch;
+}
+
+.vp-lane-head {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    padding: 0 10px 5px;
+}
+
+.vp-lane-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-lane-label {
+    padding: 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.8rem;
+}
+
+.vp-lane-axis {
+    position: relative;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    border-left: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--bs-border-color);
+    padding: 7px 5px;
+    /*
+     * Seven stacked lanes at 2.7rem left the hatched lanes' own
+     * explanation wrapping against their chips. A lane that has to
+     * carry a sentence needs the room.
+     */
+    min-height: 3.3rem;
+}
+
+/*
+ * Above the hatch, and that is not cosmetic. `.vp-lane-fill` is
+ * absolutely positioned, so without a stacking order of its own the
+ * axis — which is in normal flow — paints underneath it, and the one
+ * recorded edit disappears behind the explanation of why there are no
+ * others. That mark against that background is the lane's whole point.
+ */
+.vp-lane-svg {
+    display: block;
+    width: 100%;
+    height: 38px;
+    position: relative;
+    z-index: 1;
+}
+
+/*
+ * The marks take their colour through a custom property rather than a
+ * `fill` attribute: a presentation attribute does not resolve
+ * `var()`, and the whole palette here is custom properties so a lane
+ * mark and its stack segment cannot drift apart.
+ */
+.vp-lane-mark {
+    fill: var(--vp-tl-hue);
+}
+
+.vp-lane-span {
+    fill: var(--vp-tl-hue);
+    opacity: 0.55;
+}
+
+/* The ground a mark needs when its own lane is hatched. */
+.vp-lane-ground {
+    fill: var(--bs-body-bg);
+}
+
+.vp-lane-count {
+    padding: 9px 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * A claim the tab cannot date. Hatched, never coloured: this is not a
+ * severity, it is a hole in the record, and the two must not be able
+ * to be mistaken for each other.
+ */
+.vp-lane-undated,
+.vp-lane-fill {
+    background-image: repeating-linear-gradient(135deg,
+        var(--bs-secondary-bg) 0 6px, transparent 6px 12px);
+}
+
+.vp-lane-undated {
+    border-top-color: var(--bs-border-color);
+}
+
+.vp-lane-undated-body {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    min-height: 38px;
+}
+
+.vp-lane-undated-text,
+.vp-lane-fill-text {
+    font-size: 0.74rem;
+    color: var(--bs-secondary-color);
+    margin-right: auto;
+    padding-left: 4px;
+}
+
+/*
+ * A lane's words go in HTML over the axis, never inside the SVG: the
+ * axis is drawn with preserveAspectRatio="none", which stretches
+ * glyphs with it and turns an explanation into a smear.
+ */
+.vp-lane-fill {
+    position: absolute;
+    inset: 7px 5px;
+    display: flex;
+    align-items: center;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 5px;
+}
+
+.vp-lane-tag {
+    position: absolute;
+    top: 1px;
+    z-index: 2;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* ------------------------------------------------------------------
+ * Source chips
+ * ------------------------------------------------------------------ */
+
+.vp-tl-src {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    color: var(--vp-tl-hue);
+    background: color-mix(in srgb, var(--vp-tl-hue) 14%,
+        var(--bs-body-bg));
+}
+
+/* The lane keys. */
+.vp-tl-src-sightings { --vp-tl-hue: var(--vp-tl-sighting); }
+.vp-tl-src-publications { --vp-tl-hue: var(--vp-tl-publication); }
+.vp-tl-src-analyst { --vp-tl-hue: var(--vp-tl-note); }
+.vp-tl-src-edits { --vp-tl-hue: var(--vp-tl-edit); }
+
+/* The entry keys. */
+.vp-tl-src-sighting { --vp-tl-hue: var(--vp-tl-sighting); }
+.vp-tl-src-false_positive {
+    --vp-tl-hue: var(--vp-tl-false_positive);
+}
+.vp-tl-src-expiration { --vp-tl-hue: var(--vp-tl-expiration); }
+.vp-tl-src-publication { --vp-tl-hue: var(--vp-tl-publication); }
+.vp-tl-src-note { --vp-tl-hue: var(--vp-tl-note); }
+.vp-tl-src-opinion { --vp-tl-hue: var(--vp-tl-opinion); }
+.vp-tl-src-edit { --vp-tl-hue: var(--vp-tl-edit); }
+.vp-tl-src-seen { --vp-tl-hue: var(--vp-tl-seen); }
+
+/*
+ * A source MISP cannot date gets an outline and no fill. It is a lane
+ * heading that has to look like an absence rather than a category.
+ */
+.vp-tl-src-none {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    border: 1px dashed var(--bs-border-color);
+}
+
+.vp-tl-src-btn {
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.vp-tl-src-btn[aria-pressed="true"] .vp-tl-src {
+    outline: 2px solid var(--vp-tl-hue);
+    outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------
+ * The precision chip
+ * ------------------------------------------------------------------
+ * How well the row beside it is dated, on the row rather than in a
+ * caption three panels away. `latest only` and `first & last only` are
+ * the two ways MISP truncates a history, and both are partial rather
+ * than wrong.
+ * ------------------------------------------------------------------ */
+
+.vp-prec {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.66rem;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--bs-border-color);
+    white-space: nowrap;
+}
+
+.vp-prec-exact {
+    border-color: color-mix(in srgb, var(--vp-ben) 55%,
+        var(--bs-border-color));
+    color: var(--vp-ben-ink);
+    background: color-mix(in srgb, var(--vp-ben) 10%, var(--bs-body-bg));
+}
+
+.vp-prec-part {
+    border-color: color-mix(in srgb, var(--vp-conflict) 55%,
+        var(--bs-border-color));
+    color: var(--vp-conflict-ink);
+    background: color-mix(in srgb, var(--vp-conflict) 12%,
+        var(--bs-body-bg));
+}
+
+.vp-prec-none {
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
+    background: var(--bs-secondary-bg);
+}
+
+/* ------------------------------------------------------------------
+ * The chronology
+ * ------------------------------------------------------------------
+ * `.vp-audit-row` is shared with the History tab, which draws the same
+ * shape — a timestamped thing with a glyph and a sub-line. Defined
+ * here because this phase landed first; phase 16 reuses it and does
+ * not redefine it.
+ * ------------------------------------------------------------------ */
+
+.vp-tl-day {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    padding: 3px 9px;
+    border-radius: 4px;
+    margin: 14px 0 6px;
+}
+
+.vp-audit-row {
+    display: grid;
+    grid-template-columns: 3.4rem 1.6rem 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 5px 4px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.vp-audit-row:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-tl-time {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color);
+    text-align: right;
+}
+
+.vp-tl-dot {
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.vp-tl-main {
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
+.vp-tl-collapsed {
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color);
+    padding: 4px 4px 4px 5rem;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.vp-tl-foot {
+    text-align: center;
+    padding-top: 10px;
+}
+
+.vp-tl-blank {
+    margin-top: 12px;
+}

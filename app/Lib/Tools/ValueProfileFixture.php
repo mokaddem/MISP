@@ -77,6 +77,44 @@ class ValueProfileFixture
             self::maliciousAnalystData(),
             self::maliciousAnalystTab()
         );
+        /*
+         * Hoisted rather than built inside the return array: the
+         * Timeline tab derives its entries and its undated facts from
+         * exactly these, so a second call here would be a second copy
+         * of the numbers the rest of the page already claims.
+         */
+        $occurrences = self::maliciousOccurrences();
+        $tags = self::maliciousTags();
+        $galaxies = array(
+            array(
+                'name' => 'APT28',
+                'kind' => __('Threat actor') . ' · Sofacy',
+                'n' => 2,
+            ),
+            array(
+                'name' => 'Emotet',
+                'kind' => __('Malware'),
+                'n' => 1,
+            ),
+            array(
+                'name' => 'T1071.001',
+                'kind' => __('Attack pattern')
+                    . ' · Application Layer Protocol: Web Protocols',
+                'n' => 3,
+            ),
+        );
+        $feeds = array(
+            array(
+                'name' => 'CIRCL OSINT Feed',
+                'provider' => 'CIRCL',
+                'events' => 3,
+            ),
+            array(
+                'name' => 'Botvrij.eu Data',
+                'provider' => 'Botvrij.eu',
+                'events' => 1,
+            ),
+        );
 
         return array(
             'value' => '185.234.219.24',
@@ -162,7 +200,7 @@ class ValueProfileFixture
                     'hint' => __('6 hostnames'),
                 ),
             ),
-            'occurrences' => self::maliciousOccurrences(),
+            'occurrences' => $occurrences,
             'occurrence_stats' => array(
                 'total' => 10,
                 'shown' => 6,
@@ -176,25 +214,8 @@ class ValueProfileFixture
                 . ' rules on events owned by other organisations.'
             ),
             'occurrence_facets' => self::maliciousOccurrenceFacets(),
-            'tags' => self::maliciousTags(),
-            'galaxies' => array(
-                array(
-                    'name' => 'APT28',
-                    'kind' => __('Threat actor') . ' · Sofacy',
-                    'n' => 2,
-                ),
-                array(
-                    'name' => 'Emotet',
-                    'kind' => __('Malware'),
-                    'n' => 1,
-                ),
-                array(
-                    'name' => 'T1071.001',
-                    'kind' => __('Attack pattern')
-                        . ' · Application Layer Protocol: Web Protocols',
-                    'n' => 3,
-                ),
-            ),
+            'tags' => $tags,
+            'galaxies' => $galaxies,
             'analyst' => $analyst,
             'sightings' => array(
                 'total' => 47,
@@ -228,21 +249,38 @@ class ValueProfileFixture
             'relationships' => self::maliciousRelationships(),
             'enrichment' => $enrichment,
             'external' => array(
-                'feeds' => array(
-                    array(
-                        'name' => 'CIRCL OSINT Feed',
-                        'provider' => 'CIRCL',
-                        'events' => 3,
-                    ),
-                    array(
-                        'name' => 'Botvrij.eu Data',
-                        'provider' => 'Botvrij.eu',
-                        'events' => 1,
-                    ),
-                ),
+                'feeds' => $feeds,
                 'servers' => 2,
                 'sightingdb' => 1204,
             ),
+            /*
+             * Seven events hold this value and four of its ten
+             * occurrences are hidden, so this is the publication
+             * record of the six the viewer can see. Event 1265 is
+             * unpublished and contributes nothing — which is the
+             * honest reading of an event that has never been
+             * published, not a gap.
+             */
+            'timeline' => self::timeline(array(
+                'occurrences' => $occurrences,
+                'sightings' => $rows,
+                'analyst' => $analyst,
+                'tags' => $tags,
+                'galaxies' => $galaxies,
+                'feeds' => $feeds,
+                'publications' => self::maliciousPublications(),
+                'window' => array(
+                    'from' => '2025-08-01',
+                    'to' => self::TODAY,
+                ),
+                'feeds_as_of' => '2025-08-24 05:30:00',
+                'acl_note' => __(
+                    'Four of this value\'s ten occurrences are on'
+                    . ' events you cannot see. Nothing they contribute'
+                    . ' is in this chronology, and how much that is'
+                    . ' cannot be counted.'
+                ),
+            )),
             /*
              * The rail card's second line is the NIDS decay score, and
              * it is handed in rather than drawn again here: the Verdict
@@ -1284,6 +1322,40 @@ class ValueProfileFixture
             self::conflictedAnalystData(),
             self::conflictedAnalystTab()
         );
+        /*
+         * Hoisted rather than built inside the return array: the
+         * Timeline tab derives its entries and its undated facts from
+         * exactly these, so a second copy here would be a second set
+         * of the numbers the rest of the page already claims.
+         */
+        $occurrences = self::conflictedOccurrences();
+        $tags = self::conflictedTags();
+        $galaxies = array(
+            array(
+                'name' => 'Gamaredon',
+                'kind' => __('Threat actor') . ' · Primitive Bear',
+                'n' => 1,
+            ),
+            array(
+                'name' => 'T1583.003',
+                'kind' => __('Attack pattern')
+                    . ' · Acquire Infrastructure: Virtual Private'
+                    . ' Server',
+                'n' => 2,
+            ),
+        );
+        $feeds = array(
+            array(
+                'name' => 'Phishtank OSINT Feed',
+                'provider' => 'Phishtank',
+                'events' => 6,
+            ),
+            array(
+                'name' => 'Botvrij.eu Data',
+                'provider' => 'Botvrij.eu',
+                'events' => 2,
+            ),
+        );
 
         return array(
             'value' => '104.21.34.198',
@@ -1362,7 +1434,7 @@ class ValueProfileFixture
                     'hint' => __('2,411 hostnames'),
                 ),
             ),
-            'occurrences' => self::conflictedOccurrences(),
+            'occurrences' => $occurrences,
             'occurrence_stats' => array(
                 'total' => 9,
                 'shown' => 5,
@@ -1376,21 +1448,8 @@ class ValueProfileFixture
                 . ' rules on events owned by other organisations.'
             ),
             'occurrence_facets' => self::conflictedOccurrenceFacets(),
-            'tags' => self::conflictedTags(),
-            'galaxies' => array(
-                array(
-                    'name' => 'Gamaredon',
-                    'kind' => __('Threat actor') . ' · Primitive Bear',
-                    'n' => 1,
-                ),
-                array(
-                    'name' => 'T1583.003',
-                    'kind' => __('Attack pattern')
-                        . ' · Acquire Infrastructure: Virtual Private'
-                        . ' Server',
-                    'n' => 2,
-                ),
-            ),
+            'tags' => $tags,
+            'galaxies' => $galaxies,
             'analyst' => $analyst,
             'sightings' => array(
                 'total' => 63,
@@ -1433,21 +1492,35 @@ class ValueProfileFixture
             'relationships' => self::conflictedRelationships(),
             'enrichment' => $enrichment,
             'external' => array(
-                'feeds' => array(
-                    array(
-                        'name' => 'Phishtank OSINT Feed',
-                        'provider' => 'Phishtank',
-                        'events' => 6,
-                    ),
-                    array(
-                        'name' => 'Botvrij.eu Data',
-                        'provider' => 'Botvrij.eu',
-                        'events' => 2,
-                    ),
-                ),
+                'feeds' => $feeds,
                 'servers' => 3,
                 'sightingdb' => 84109,
             ),
+            /*
+             * The busiest timeline of the three, and the one where the
+             * spine earns its place: nine occurrences over six months
+             * on shared infrastructure, so the question a reader
+             * arrives with is *when*, not *whether*.
+             */
+            'timeline' => self::timeline(array(
+                'occurrences' => $occurrences,
+                'sightings' => $rows,
+                'analyst' => $analyst,
+                'tags' => $tags,
+                'galaxies' => $galaxies,
+                'feeds' => $feeds,
+                'publications' => self::conflictedPublications(),
+                'window' => array(
+                    'from' => '2025-08-01',
+                    'to' => self::TODAY,
+                ),
+                'feeds_as_of' => '2025-08-24 04:15:00',
+                'acl_note' => __(
+                    'Four of this value\'s nine occurrences are on'
+                    . ' events you cannot see, and nothing they'
+                    . ' contribute is in this chronology.'
+                ),
+            )),
             /*
              * The opinion distribution is handed in rather than
              * written again: the Verdict tab's histogram and the
@@ -1987,6 +2060,14 @@ class ValueProfileFixture
             ),
             'relationships' => self::emptyRelationships(),
             /*
+             * Null, and deliberately not an empty timeline. An empty
+             * one is a value MISP watched and recorded nothing about;
+             * this is a value MISP has never held. Drawing twelve
+             * empty months and seven lanes over it would be inventing
+             * a period of silence that never happened.
+             */
+            'timeline' => null,
+            /*
              * A value with no occurrence still gets the full rail.
              * There is no attribute row to read a type from, so the
              * type is inferred from the value's own shape and the
@@ -2470,6 +2551,14 @@ class ValueProfileFixture
             self::benignAnalystData(),
             self::benignAnalystTab()
         );
+        /*
+         * Hoisted rather than built inside the return array: the
+         * Timeline tab derives its entries and its undated facts from
+         * exactly these, so a second copy here would be a second set
+         * of the numbers the rest of the page already claims.
+         */
+        $occurrences = self::benignOccurrences();
+        $tags = self::benignTags();
 
         return array(
             'value' => '8.8.8.8',
@@ -2552,7 +2641,7 @@ class ValueProfileFixture
                     'hint' => __('1 hostname'),
                 ),
             ),
-            'occurrences' => self::benignOccurrences(),
+            'occurrences' => $occurrences,
             'occurrence_stats' => array(
                 'total' => 9,
                 'shown' => 5,
@@ -2569,7 +2658,7 @@ class ValueProfileFixture
                 . ' rules on events owned by other organisations.'
             ),
             'occurrence_facets' => self::benignOccurrenceFacets(),
-            'tags' => self::benignTags(),
+            'tags' => $tags,
             /*
              * Deliberately empty, and load-bearing: "nothing has ever
              * been attributed to this address" is one of the signals in
@@ -2623,6 +2712,32 @@ class ValueProfileFixture
                 'servers' => 1,
                 'sightingdb' => 0,
             ),
+            /*
+             * No galaxy cluster and no feed carries this value, so two
+             * of the three undated kinds simply do not arise — which
+             * is why the off-axis strip is built from what the value
+             * has rather than from a fixed list of three. An empty
+             * strip on a resolver is the truth; three zeroes would be
+             * an insinuation.
+             */
+            'timeline' => self::timeline(array(
+                'occurrences' => $occurrences,
+                'sightings' => $rows,
+                'analyst' => $analyst,
+                'tags' => $tags,
+                'galaxies' => array(),
+                'feeds' => array(),
+                'publications' => self::benignPublications(),
+                'window' => array(
+                    'from' => '2025-08-01',
+                    'to' => self::TODAY,
+                ),
+                'acl_note' => __(
+                    'Four of this value\'s nine occurrences are on'
+                    . ' events you cannot see, and nothing they'
+                    . ' contribute is in this chronology.'
+                ),
+            )),
             'verdict' => self::benignVerdict(
                 self::decaySpan($rows, $created, $decay[0])
             ),
@@ -7125,4 +7240,588 @@ class ValueProfileFixture
             )
         );
     }
+
+
+    /**
+     * The publication record of the six occurrences the viewer can
+     * see, keyed by event.
+     *
+     * Two dates per event and no more, because `first_publication` and
+     * `publish_timestamp` are the only two MISP keeps. Where they are
+     * the same the event was published once; where they differ, every
+     * publication between them happened and is not recorded anywhere
+     * outside the audit log.
+     *
+     * Event 1265 is absent because it has never been published, which
+     * is a different fact from an event whose publications are not
+     * recorded.
+     *
+     * @return array
+     */
+    private static function maliciousPublications()
+    {
+        return array(
+            1251 => array(
+                'info' => 'OSINT - Emotet infrastructure, autumn 2024',
+                'org' => 'CIRCL',
+                'first' => '2024-09-16 10:00:00',
+                'last' => '2024-10-01 11:20:00',
+            ),
+            1272 => array(
+                'info' => 'Mass scanning activity against .lu netblocks',
+                'org' => 'Team-CIRCL',
+                'first' => '2025-06-19 12:05:00',
+                'last' => '2025-06-19 12:05:00',
+            ),
+            1279 => array(
+                'info' => 'OSINT - Emotet infrastructure, June 2025',
+                'org' => 'CIRCL',
+                'first' => '2025-06-03 09:40:00',
+                'last' => '2025-06-27 08:15:00',
+            ),
+            1291 => array(
+                'info' => 'Phishing kit hosted on compromised WordPress',
+                'org' => 'CthulhuSPRL.be',
+                'first' => '2025-07-31 09:12:00',
+                'last' => '2025-07-31 09:12:00',
+            ),
+            1284 => array(
+                'info' => 'OSINT - Emotet malspam campaign targeting .lu',
+                'org' => 'CIRCL',
+                'first' => '2025-08-12 10:30:00',
+                'last' => '2025-08-20 11:04:00',
+            ),
+        );
+    }
+
+    /**
+     * Every event holding the CDN edge is published, and the two most
+     * recent were republished — which is what a value on shared
+     * infrastructure looks like: the events move on without it.
+     *
+     * @return array
+     */
+    private static function conflictedPublications()
+    {
+        return array(
+            1309 => array(
+                'info' => 'Phishing kit reuse across .lu targets',
+                'org' => 'CIRCL',
+                'first' => '2025-02-04 09:00:00',
+                'last' => '2025-03-11 11:05:00',
+            ),
+            1341 => array(
+                'info' => 'Suspicious traffic against a member portal',
+                'org' => 'ORGNAME',
+                'first' => '2025-05-14 15:45:00',
+                'last' => '2025-05-14 15:45:00',
+            ),
+            1388 => array(
+                'info' => 'Gamaredon infrastructure, July batch',
+                'org' => 'CthulhuSPRL.be',
+                'first' => '2025-07-03 10:15:00',
+                'last' => '2025-07-29 08:40:00',
+            ),
+            1402 => array(
+                'info' => 'Phishing campaign impersonating a .lu bank',
+                'org' => 'CIRCL',
+                'first' => '2025-08-18 08:00:00',
+                'last' => '2025-08-23 20:10:00',
+            ),
+        );
+    }
+
+    /**
+     * The resolver's events, one of them a feed import — which is the
+     * ordinary way a benign value ends up in MISP at all.
+     *
+     * @return array
+     */
+    private static function benignPublications()
+    {
+        return array(
+            1259 => array(
+                'info' => 'Botvrij.eu feed import 2024-11-02',
+                'org' => 'Botvrij.eu',
+                'first' => '2024-11-02 09:30:00',
+                'last' => '2024-11-02 09:30:00',
+            ),
+            1276 => array(
+                'info' => 'Exfiltration over DNS - incident 2025-0442',
+                'org' => 'ORGNAME',
+                'first' => '2025-04-19 08:05:00',
+                'last' => '2025-04-19 08:05:00',
+            ),
+            1288 => array(
+                'info' => 'DNS tunnelling attempt against a member',
+                'org' => 'Team-CIRCL',
+                'first' => '2025-06-11 09:40:00',
+                'last' => '2025-06-12 14:20:00',
+            ),
+            1298 => array(
+                'info' => 'AsyncRAT sample analysis - config dump',
+                'org' => 'CthulhuSPRL.be',
+                'first' => '2025-07-30 16:00:00',
+                'last' => '2025-07-30 16:00:00',
+            ),
+            1301 => array(
+                'info' => 'Emotet malspam campaign - full IOC set',
+                'org' => 'CIRCL',
+                'first' => '2025-08-14 10:10:00',
+                'last' => '2025-08-21 19:05:00',
+            ),
+        );
+    }
+
+    /* ==================================================================
+     * Timeline tab
+     * ------------------------------------------------------------------
+     * One array of dated entries, and one of the facts that carry no
+     * date at all. The panel derives its spine, its lanes and its
+     * chronology from these two and from nothing else, so a count it
+     * charts cannot disagree with a count it lists.
+     *
+     * Almost nothing here is typed in. The sightings are the same rows
+     * the Sightings tab draws, the edits are the occurrences' own
+     * `timestamp`, and the seen spans are their `first_seen` and
+     * `last_seen` — because a chronology holding its own copy of those
+     * dates is a chronology that can contradict the tab beside it.
+     * ================================================================== */
+
+    /**
+     * @param array $spec Keys: occurrences, sightings, analyst, tags,
+     *                    galaxies, feeds, publications, window, and
+     *                    optionally audit_recorded, acl_note,
+     *                    feeds_as_of
+     * @return array
+     */
+    private static function timeline(array $spec)
+    {
+        $entries = array_merge(
+            self::timelineSightings($spec['sightings']),
+            self::timelinePublications($spec['publications']),
+            self::timelineAnalyst($spec['analyst']),
+            self::timelineEdits($spec['occurrences']),
+            self::timelineSpans($spec['occurrences'])
+        );
+
+        usort($entries, function ($a, $b) {
+            return strcmp($a['at'], $b['at']);
+        });
+
+        return array(
+            'entries' => $entries,
+            'undated' => self::timelineUndated($spec),
+            'window' => $spec['window'],
+            /*
+             * `MISP.log_new_audit` defaults to false, so this is false
+             * on every value here. It gates the edit lane's hatch
+             * rather than the lane itself: one point per occurrence is
+             * still a point, and hiding it would overstate the loss.
+             */
+            'audit_recorded' => !empty($spec['audit_recorded']),
+            'acl_note' => isset($spec['acl_note'])
+                ? $spec['acl_note']
+                : null,
+        );
+    }
+
+    /**
+     * One entry per sighting, from the rows the Sightings tab already
+     * has. Exact to the minute, and the only source on this tab that
+     * is.
+     *
+     * @param array $rows `sightingRow()` shapes
+     * @return array
+     */
+    private static function timelineSightings(array $rows)
+    {
+        $sources = array(
+            self::SIGHTING => 'sighting',
+            self::FALSE_POSITIVE => 'false_positive',
+            self::EXPIRATION => 'expiration',
+        );
+        $notes = array(
+            self::SIGHTING => null,
+            self::FALSE_POSITIVE => __(
+                'Type 1. Moves no decay score: MISP resets the clock on'
+                . ' type-0 sightings only.'
+            ),
+            self::EXPIRATION => __(
+                'Type 2. An organisation retiring the value, not'
+                . ' contradicting it.'
+            ),
+        );
+
+        $out = array();
+        $total = count($rows);
+        $n = 0;
+        foreach ($rows as $row) {
+            $n++;
+            $type = (int)$row['type'];
+            $title = $row['org'];
+            if ($row['source'] !== null) {
+                $title = sprintf(
+                    __('%1$s — source %2$s'),
+                    $row['org'],
+                    $row['source']
+                );
+            }
+            $note = $notes[$type];
+            if ($note === null) {
+                $note = sprintf(
+                    __('Sighting %1$s of %2$s'),
+                    $n,
+                    $total
+                );
+            }
+            $out[] = array(
+                'at' => $row['date'] . ':00',
+                'source' => $sources[$type],
+                'precision' => 'exact',
+                'title' => $title,
+                'note' => $note,
+                'org' => $row['org'],
+                'ref' => array(
+                    'attribute' => null,
+                    'event' => $row['against']['event'],
+                ),
+                'span_to' => null,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Two points per event, and never a history.
+     *
+     * `events.first_publication` and `events.publish_timestamp` are the
+     * only two publications MISP keeps; an event published five times
+     * still has exactly these. Where they are the same the event was
+     * published once, and one entry is the whole truth.
+     *
+     * @param array $events Event id => info, org, first, last
+     * @return array
+     */
+    private static function timelinePublications(array $events)
+    {
+        $out = array();
+        foreach ($events as $id => $event) {
+            $title = sprintf(
+                __('event %1$s — %2$s'),
+                $id,
+                $event['info']
+            );
+            $once = $event['first'] === $event['last'];
+            $out[] = array(
+                'at' => $event['first'],
+                'source' => 'publication',
+                'precision' => 'first_last',
+                'title' => $title,
+                'note' => $once
+                    ? __('Its only publication.')
+                    : sprintf(
+                        __(
+                            'Its first publication. The latest is %s,'
+                            . ' and nothing between the two is'
+                            . ' recorded.'
+                        ),
+                        substr($event['last'], 0, 10)
+                    ),
+                'org' => $event['org'],
+                'ref' => array('attribute' => null, 'event' => $id),
+                'span_to' => null,
+            );
+            if ($once) {
+                continue;
+            }
+            $out[] = array(
+                'at' => $event['last'],
+                'source' => 'publication',
+                'precision' => 'first_last',
+                'title' => $title,
+                'note' => sprintf(
+                    __(
+                        'Its latest publication. The first was %s, and'
+                        . ' nothing between the two is recorded.'
+                    ),
+                    substr($event['first'], 0, 10)
+                ),
+                'org' => $event['org'],
+                'ref' => array('attribute' => null, 'event' => $id),
+                'span_to' => null,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Notes and opinions, from the records that carry a `created`.
+     *
+     * These are the rows the Overview preview and the Analyst data tab
+     * both show, so the chronology quotes the text a reader has already
+     * met rather than a second version of it.
+     *
+     * @param array $analyst The value's `analyst` array
+     * @return array
+     */
+    private static function timelineAnalyst(array $analyst)
+    {
+        $out = array();
+        foreach ($analyst['Note'] as $note) {
+            $out[] = array(
+                'at' => $note['created'],
+                'source' => 'note',
+                'precision' => 'exact',
+                'title' => sprintf(
+                    __('%1$s — “%2$s”'),
+                    $note['authors'],
+                    $note['note']
+                ),
+                'note' => sprintf(
+                    __('%s · analyst note'),
+                    $note['Org']['name']
+                ),
+                'org' => $note['Org']['name'],
+                'ref' => array('attribute' => null, 'event' => null),
+                'span_to' => null,
+            );
+        }
+        foreach ($analyst['Opinion'] as $opinion) {
+            $out[] = array(
+                'at' => $opinion['created'],
+                'source' => 'opinion',
+                'precision' => 'exact',
+                'title' => sprintf(
+                    __('%1$s — %2$s / 100, “%3$s”'),
+                    $opinion['Org']['name'],
+                    $opinion['opinion'],
+                    $opinion['comment']
+                ),
+                'note' => sprintf(
+                    __('%s · analyst opinion'),
+                    $opinion['authors']
+                ),
+                'org' => $opinion['Org']['name'],
+                'ref' => array('attribute' => null, 'event' => null),
+                'span_to' => null,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * One point per occurrence, and it is the latest one.
+     *
+     * `attributes.timestamp` says *when* an occurrence last changed and
+     * never *what* changed or *how many times* — that is the audit log,
+     * and it is off by default. So the title names the occurrence and
+     * stops: an edit row claiming a field and a value would be
+     * inventing the record this tab exists to be honest about.
+     *
+     * @param array $occurrences `fetchAttributes` shapes
+     * @return array
+     */
+    private static function timelineEdits(array $occurrences)
+    {
+        $out = array();
+        foreach ($occurrences as $occurrence) {
+            $attribute = $occurrence['Attribute'];
+            $out[] = array(
+                'at' => gmdate('Y-m-d H:i:s', $attribute['timestamp']),
+                'source' => 'edit',
+                'precision' => 'latest',
+                'title' => sprintf(
+                    __('attribute %1$s in event %2$s — last modified'),
+                    $attribute['id'],
+                    $attribute['event_id']
+                ),
+                'note' => __(
+                    'attributes.timestamp. What changed, and every'
+                    . ' earlier edit, is not recorded.'
+                ),
+                'org' => $occurrence['Event']['Orgc']['name'],
+                'ref' => array(
+                    'attribute' => $attribute['id'],
+                    'event' => $attribute['event_id'],
+                ),
+                'span_to' => null,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * One row per occurrence that carries a `first_seen`, and no
+     * merging.
+     *
+     * Ten occurrences can hold ten different spans for one value, and
+     * flattening them into one needs an aggregation rule nobody has
+     * agreed on. The rule here is to invent none: each span stays its
+     * own row, labelled with the occurrence it came from.
+     *
+     * A span is also a different kind of claim from everything else on
+     * this axis — when the value was *active*, not when the record
+     * changed — and the note says so on every row.
+     *
+     * @param array $occurrences `fetchAttributes` shapes
+     * @return array
+     */
+    private static function timelineSpans(array $occurrences)
+    {
+        $out = array();
+        foreach ($occurrences as $occurrence) {
+            $attribute = $occurrence['Attribute'];
+            if (empty($attribute['first_seen'])) {
+                continue;
+            }
+            $from = self::plainTime($attribute['first_seen']);
+            $to = empty($attribute['last_seen'])
+                ? null
+                : self::plainTime($attribute['last_seen']);
+            if ($to === $from) {
+                $to = null;
+                $note = __(
+                    'One instant, not a span. A claim about the value,'
+                    . ' not a change to the record.'
+                );
+            } elseif ($to === null) {
+                $note = __(
+                    'The span is open — no last_seen. A claim about the'
+                    . ' value, not a change to the record.'
+                );
+            } else {
+                $note = sprintf(
+                    __(
+                        'Closes %s. A claim about the value, not a'
+                        . ' change to the record.'
+                    ),
+                    substr($to, 0, 10)
+                );
+            }
+            $out[] = array(
+                'at' => $from,
+                'source' => 'seen',
+                'precision' => 'exact',
+                'title' => sprintf(
+                    __('attribute %1$s — first seen'),
+                    $attribute['id']
+                ),
+                'note' => $note,
+                'org' => $occurrence['Event']['Orgc']['name'],
+                'ref' => array(
+                    'attribute' => $attribute['id'],
+                    'event' => $attribute['event_id'],
+                ),
+                'span_to' => $to,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * What the tab promises and MISP cannot place on any axis.
+     *
+     * Three kinds, and they are not the same kind of missing. Tags and
+     * galaxy clusters have no date column in any schema MISP ships, so
+     * no setting and no upgrade would date them. Feed appearances have
+     * exactly one timestamp per feed, rewritten on every refresh, which
+     * dates the fetch rather than the value — a real timestamp that
+     * answers a different question, which is why it is carried as
+     * `as_of` and never as `at`.
+     *
+     * @param array $spec As given to `timeline()`
+     * @return array
+     */
+    private static function timelineUndated(array $spec)
+    {
+        $out = array();
+
+        $tags = array();
+        foreach ($spec['tags'] as $taxonomy) {
+            foreach ($taxonomy['tags'] as $tag) {
+                $tags[] = array(
+                    'label' => $tag['name'],
+                    'colour' => $tag['colour'],
+                );
+            }
+        }
+        if (!empty($tags)) {
+            $out[] = array(
+                'kind' => __('Tags'),
+                'count' => count($tags),
+                'reason' => __(
+                    'attribute_tags and event_tags carry no created or'
+                    . ' modified column, on any instance. A tag can be'
+                    . ' dated only by an audit_logs row.'
+                ),
+                'chips' => $tags,
+                'as_of' => null,
+            );
+        }
+
+        $clusters = array();
+        foreach ($spec['galaxies'] as $galaxy) {
+            $clusters[] = array(
+                'label' => $galaxy['name'],
+                'colour' => null,
+            );
+        }
+        if (!empty($clusters)) {
+            $out[] = array(
+                'kind' => __('Galaxy clusters'),
+                'count' => count($clusters),
+                'reason' => __(
+                    'Cluster attachments are tags underneath, and'
+                    . ' inherit the same missing column.'
+                ),
+                'chips' => $clusters,
+                'as_of' => null,
+            );
+        }
+
+        $feeds = array();
+        foreach ($spec['feeds'] as $feed) {
+            $feeds[] = array(
+                'label' => $feed['name'],
+                'colour' => null,
+            );
+        }
+        if (!empty($feeds)) {
+            $out[] = array(
+                'kind' => __('Feed appearances'),
+                'count' => count($feeds),
+                'reason' => __(
+                    'The feed cache is a Redis set of hashes with one'
+                    . ' timestamp for the whole feed, rewritten on'
+                    . ' every refresh. It dates the fetch, not the'
+                    . ' value.'
+                ),
+                'chips' => $feeds,
+                'as_of' => isset($spec['feeds_as_of'])
+                    ? $spec['feeds_as_of']
+                    : null,
+            );
+        }
+
+        return $out;
+    }
+
+    /**
+     * `2025-08-12T09:14:00+00:00` to `2025-08-12 09:14:00`.
+     *
+     * The occurrence rows carry ISO-8601 because that is what MISP
+     * stores in `first_seen`; the timeline sorts and bins on plain
+     * strings, so it needs the one shape every entry shares.
+     *
+     * @param string $iso
+     * @return string
+     */
+    private static function plainTime($iso)
+    {
+        $at = new DateTimeImmutable($iso);
+        return $at->setTimezone(new DateTimeZone('UTC'))
+            ->format('Y-m-d H:i:s');
+    }
+
 }

@@ -1825,6 +1825,647 @@
         return false;
     }
 
+
+    /* ==================================================================
+     * Timeline tab
+     * ------------------------------------------------------------------
+     * One window, and two regions that read it. The spine is a control:
+     * brushing it sets the window, and the lanes and the chronology both
+     * re-scope to whatever it says. Neither of the two owns the window —
+     * they read a shared object, which is why they can never disagree
+     * about which entries they are describing.
+     *
+     * Everything is client-side against rows already in the DOM. The
+     * lanes are redrawn because a mark's position is a fraction of the
+     * window and the window moves; the chronology is only shown and
+     * hidden, because a day is wholly inside a window or wholly outside
+     * it and its grouping therefore never changes.
+     * ================================================================== */
+
+    var tl = {
+        data: null,
+        // Bin index bounds of the brush, or null while the window is the
+        // one the panel was rendered with.
+        brush: null,
+        // A lane key, or null for every source.
+        filter: null,
+        // Runs the reader has opened, by their run id.
+        expanded: null,
+        // Whether the reader asked past the display limit.
+        showAll: false,
+        spine: null,
+    };
+
+    var TL_LIMIT = 14;
+
+    /**
+     * The window the whole tab is currently describing.
+     *
+     * @return {{from: string, to: string, moved: boolean}|null}
+     */
+    function tlWindow() {
+        if (!tl.data) {
+            return null;
+        }
+        if (!tl.brush) {
+            return {
+                from: tl.data.window.from,
+                to: tl.data.window.to,
+                moved: false,
+            };
+        }
+        return {
+            from: tl.data.bins[tl.brush.from].from,
+            to: tl.data.bins[tl.brush.to].to,
+            moved: true,
+        };
+    }
+
+    /**
+     * Which bins the current window covers, so the brush can be painted
+     * over the window the panel was rendered with and not only over one
+     * the reader dragged.
+     *
+     * @return {{from: number, to: number}}
+     */
+    function tlBins() {
+        if (tl.brush) {
+            return tl.brush;
+        }
+        var window_ = tl.data.window;
+        var from = null;
+        var to = null;
+        tl.data.bins.forEach(function (bin, index) {
+            if (bin.to >= window_.from && bin.from <= window_.to) {
+                if (from === null) {
+                    from = index;
+                }
+                to = index;
+            }
+        });
+        return {
+            from: from === null ? 0 : from,
+            to: to === null ? tl.data.bins.length - 1 : to,
+        };
+    }
+
+    /**
+     * Every dated entry, read off the rows the template rendered.
+     *
+     * The rows are the one copy of the entry set: the lanes derive their
+     * marks from these and the chronology *is* these, so the two cannot
+     * describe different sets.
+     *
+     * @param {Element} panel
+     * @return {Array}
+     */
+    function tlEntries(panel) {
+        var out = [];
+        panel.querySelectorAll('[data-vp-tl-at]').forEach(function (row) {
+            var main = row.querySelector('.vp-tl-main');
+            out.push({
+                at: row.dataset.vpTlAt,
+                day: row.dataset.vpTlDay,
+                source: row.dataset.vpTlSource,
+                precision: row.dataset.vpTlPrecision,
+                spanTo: row.dataset.vpTlSpanTo || null,
+                ref: row.dataset.vpTlRef || '',
+                title: main ? main.textContent.trim() : '',
+            });
+        });
+        return out;
+    }
+
+    /**
+     * @param {string} text
+     * @return {string}
+     */
+    function tlEscape(text) {
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /**
+     * @param {string} at `Y-m-d H:i:s`, which the fixture writes in UTC
+     * @return {number} Epoch milliseconds
+     */
+    function tlStamp(at) {
+        return Date.parse(at.replace(' ', 'T') + 'Z');
+    }
+
+    /**
+     * Paint the brush over the bins the window covers, and show the
+     * reset control only once the reader has moved it.
+     *
+     * @param {Element} panel
+     */
+    function tlPaintBrush(panel) {
+        var count = tl.data.bins.length;
+        var bounds = tlBins();
+        var left = (100 * bounds.from) / count;
+        var right = (100 * (count - 1 - bounds.to)) / count;
+
+        var maskLeft = panel.querySelector('[data-vp-tl-mask-left]');
+        var maskRight = panel.querySelector('[data-vp-tl-mask-right]');
+        var handle = panel.querySelector('[data-vp-tl-handle]');
+        if (maskLeft) {
+            maskLeft.style.width = left + '%';
+        }
+        if (maskRight) {
+            maskRight.style.width = right + '%';
+        }
+        if (handle) {
+            handle.style.left = left + '%';
+            handle.style.right = right + '%';
+        }
+
+        var reset = panel.querySelector('[data-vp-tl-reset]');
+        if (reset) {
+            reset.hidden = !tl.brush;
+        }
+    }
+
+    /**
+     * Redraw every lane's marks for the current window, and recount it.
+     *
+     * A lane that MISP cannot date has no axis element at all, so it is
+     * untouched here — its hatch and its count are properties of the
+     * schema rather than of the window, and moving the brush must not
+     * make them flicker.
+     *
+     * @param {Element} panel
+     * @param {Array} entries
+     */
+    function tlDrawLanes(panel, entries) {
+        var window_ = tlWindow();
+        var geometry = tl.data.lane;
+        var from = tlStamp(window_.from + ' 00:00:00');
+        var to = tlStamp(window_.to + ' 23:59:59');
+        var span = Math.max(1, to - from);
+
+        function xFor(at) {
+            var fraction = (tlStamp(at) - from) / span;
+            fraction = Math.max(0, Math.min(1, fraction));
+            return Math.round(
+                fraction * (geometry.width - geometry.mark) * 10
+            ) / 10;
+        }
+
+        panel.querySelectorAll('[data-vp-tl-axis]').forEach(function (axis) {
+            var sources = (axis.dataset.vpTlSources || '').split(',');
+            var spans = axis.dataset.vpTlDraw === 'spans';
+            var hatched = !!axis.querySelector('.vp-lane-fill');
+            var svg = axis.querySelector('[data-vp-tl-marks]');
+            var mine = entries.filter(function (entry) {
+                return sources.indexOf(entry.source) !== -1
+                    && entry.day >= window_.from
+                    && entry.day <= window_.to;
+            });
+
+            if (svg) {
+                var marks = '';
+                mine.forEach(function (entry) {
+                    var x = xFor(entry.at);
+                    var hue = 'var(--vp-tl-' + entry.source + ')';
+                    var title = '<title>' + tlEscape(entry.title)
+                        + '</title>';
+                    if (spans) {
+                        var end = xFor(entry.spanTo || entry.at);
+                        var width = Math.max(geometry.mark, end - x);
+                        marks += '<rect class="vp-lane-span" x="' + x
+                            + '" y="19" width="' + width
+                            + '" height="7" rx="3" style="--vp-tl-hue: '
+                            + hue + ';">' + title + '</rect>';
+                        return;
+                    }
+                    if (hatched) {
+                        // A mark on a hatch needs a ground, or the one
+                        // recorded edit disappears into the reason there
+                        // are no others.
+                        marks += '<rect class="vp-lane-ground" x="'
+                            + (x - 3) + '" y="9" width="11" height="19"'
+                            + ' rx="2"></rect>';
+                    }
+                    marks += '<rect class="vp-lane-mark" x="' + x
+                        + '" y="12" width="' + geometry.mark
+                        + '" height="13" rx="1.5" style="--vp-tl-hue: '
+                        + hue + ';">' + title + '</rect>';
+                });
+                svg.innerHTML = marks;
+            }
+
+            // The span labels are HTML over the axis, never SVG text:
+            // the axis is stretched with preserveAspectRatio="none",
+            // which would smear a word along with it.
+            axis.querySelectorAll('.vp-lane-tag').forEach(function (tag) {
+                tag.remove();
+            });
+            if (spans) {
+                mine.forEach(function (entry) {
+                    var tag = document.createElement('span');
+                    tag.className = 'vp-lane-tag';
+                    tag.style.left =
+                        (100 * xFor(entry.at)) / geometry.width + '%';
+                    tag.textContent = entry.ref;
+                    axis.insertBefore(tag, svg);
+                });
+            }
+
+            var key = axis.dataset.vpTlAxis;
+            var cell = panel.querySelector(
+                '[data-vp-tl-count="' + key + '"]'
+            );
+            if (!cell) {
+                return;
+            }
+            setText(cell, '[data-vp-tl-count-n]', mine.length);
+            var breakdown = {};
+            mine.forEach(function (entry) {
+                breakdown[entry.source] = (breakdown[entry.source] || 0) + 1;
+            });
+            var parts = [];
+            Object.keys(breakdown).forEach(function (source) {
+                parts.push(breakdown[source] + ' ' + tlLabel(source));
+            });
+            setText(cell, '[data-vp-tl-count-why]', parts.join(', '));
+        });
+    }
+
+    /**
+     * @param {string} source
+     * @return {string} The label the spine's legend already uses, so one
+     *                  source is never named two ways on one tab.
+     */
+    function tlLabel(source) {
+        var found = source;
+        tl.data.datasets.forEach(function (dataset) {
+            if (dataset.source === source) {
+                found = dataset.label;
+            }
+        });
+        return found;
+    }
+
+    /**
+     * How many entries a collapsed run stands for.
+     *
+     * @param {Element} list
+     * @param {string} run
+     * @return {number}
+     */
+    function tlRunSize(list, run) {
+        return list.querySelectorAll(
+            '[data-vp-tl-in-run="' + run + '"]'
+        ).length;
+    }
+
+    /**
+     * Show the entries in the window, hide the rest, and keep every
+     * count that describes them in step.
+     *
+     * @param {Element} panel
+     */
+    function tlRefreshList(panel) {
+        var list = panel.querySelector('[data-vp-tl-list]');
+        if (!list) {
+            return;
+        }
+        var window_ = tlWindow();
+        var sources = tl.filter === null ? null : tl.filter.split(',');
+
+        /*
+         * What the window holds, counted before anything is decided
+         * about how to show it. Collapsing a run is a display device:
+         * its entries are still in the window, and counting them only
+         * when they are on screen is how this header would come to
+         * disagree with the lanes above it.
+         */
+        var matched = 0;
+        var tally = { exact: 0, partial: 0 };
+        list.querySelectorAll('[data-vp-tl-at]').forEach(function (row) {
+            var day = row.dataset.vpTlDay;
+            if (day < window_.from || day > window_.to) {
+                return;
+            }
+            if (sources
+                && sources.indexOf(row.dataset.vpTlSource) === -1) {
+                return;
+            }
+            matched++;
+            tally[row.dataset.vpTlPrecision]++;
+        });
+
+        // What is on screen, and how many entries that accounts for —
+        // which is not the same number, because one summary row stands
+        // for a whole run.
+        var units = 0;
+        var covered = 0;
+        list.querySelectorAll('[data-vp-tl-row]').forEach(function (row) {
+            var run = row.dataset.vpTlRun;
+            var inRun = row.dataset.vpTlInRun;
+            var day = row.dataset.vpTlDay;
+            var keep = day >= window_.from && day <= window_.to;
+            if (keep && sources) {
+                keep = sources.indexOf(row.dataset.vpTlSource) !== -1;
+            }
+            // A summary row and the rows it stands for are never both
+            // on screen: one of them is the reader's current answer.
+            if (keep && run) {
+                keep = !tl.expanded[run];
+            }
+            if (keep && inRun) {
+                keep = !!tl.expanded[inRun];
+            }
+            if (!keep) {
+                row.hidden = true;
+                return;
+            }
+            if (!tl.showAll && units >= TL_LIMIT) {
+                row.hidden = true;
+                return;
+            }
+            units++;
+            covered += run ? tlRunSize(list, run) : 1;
+            row.hidden = false;
+        });
+
+        // A day heading with nothing under it is a claim that something
+        // happened that day.
+        list.querySelectorAll('[data-vp-tl-day-head]').forEach(
+            function (head) {
+                var day = head.dataset.vpTlDayHead;
+                var visible = list.querySelector(
+                    '[data-vp-tl-day="' + day + '"]:not([hidden])'
+                );
+                head.hidden = !visible;
+            }
+        );
+
+        setText(list, '[data-vp-tl-tally-exact]', tally.exact);
+        setText(list, '[data-vp-tl-tally-part]', tally.partial);
+        setText(panel, '[data-vp-tl-window-count]', matched);
+        var label = panel.querySelector('[data-vp-tl-window-label]');
+        if (label) {
+            label.textContent = window_.from + ' → ' + window_.to;
+        }
+
+        var foot = list.querySelector('[data-vp-tl-foot]');
+        if (foot) {
+            foot.hidden = covered >= matched;
+            setText(foot, '[data-vp-tl-more-n]', matched - covered);
+        }
+
+        // Only a brush or a filter can empty this list. A value with
+        // nothing dated has its own empty state from the template, and
+        // "none in this window" over it would be a different claim.
+        var blank = list.querySelector('[data-vp-tl-blank]');
+        if (blank) {
+            blank.hidden = matched > 0
+                || !list.querySelector('[data-vp-tl-at]');
+        }
+
+        var note = list.querySelector('[data-vp-tl-filter-note]');
+        if (note) {
+            note.hidden = tl.filter === null;
+        }
+    }
+
+    /**
+     * @param {Element} panel
+     */
+    function refreshTimeline(panel) {
+        if (!tl.data) {
+            return;
+        }
+        tlPaintBrush(panel);
+        tlDrawLanes(panel, tlEntries(panel));
+        tlRefreshList(panel);
+    }
+
+    /**
+     * The spine. Stacked bars, one segment per source, over twelve
+     * months — and the colours are the tokens the lanes read, so a
+     * segment and the lane beneath it are the same colour by
+     * construction rather than by being kept in step.
+     *
+     * @param {Element} canvas
+     * @return {Chart}
+     */
+    function buildTimelineSpine(canvas) {
+        var config = window.VP.chart.resolve({
+            type: 'bar',
+            data: {
+                labels: tl.data.bins.map(function (bin) {
+                    return bin.label;
+                }),
+                datasets: tl.data.datasets.map(function (dataset) {
+                    return {
+                        label: dataset.label,
+                        data: dataset.data,
+                        backgroundColor: dataset.colour,
+                        borderWidth: 0,
+                        barPercentage: 0.72,
+                        categoryPercentage: 0.86,
+                    };
+                }),
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: {
+                            color: 'var(--bs-secondary-color)',
+                            font: { size: 10 },
+                        },
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: { color: 'var(--bs-border-color-translucent)' },
+                        ticks: {
+                            color: 'var(--bs-secondary-color)',
+                            font: { size: 10 },
+                            precision: 0,
+                        },
+                    },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function (items) {
+                                return tl.data.bins[items[0].dataIndex].title;
+                            },
+                        },
+                    },
+                },
+            },
+        }, canvas);
+        return new Chart(canvas, config);
+    }
+
+    /**
+     * Drag on the spine. A drag that does not move is a click, and a
+     * click clears the brush — the same thing `Reset window` offers, for
+     * a reader who never found it.
+     *
+     * @param {Element} panel
+     */
+    function wireTimelineBrush(panel) {
+        var strip = panel.querySelector('[data-vp-tl-brush]');
+        if (!strip) {
+            return;
+        }
+        var anchor = null;
+
+        function binAt(event) {
+            var box = strip.getBoundingClientRect();
+            var count = tl.data.bins.length;
+            var fraction = (event.clientX - box.left) / box.width;
+            var index = Math.floor(fraction * count);
+            return Math.max(0, Math.min(count - 1, index));
+        }
+
+        strip.addEventListener('pointerdown', function (event) {
+            anchor = binAt(event);
+            strip.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+
+        strip.addEventListener('pointermove', function (event) {
+            if (anchor === null) {
+                return;
+            }
+            var to = binAt(event);
+            tl.brush = {
+                from: Math.min(anchor, to),
+                to: Math.max(anchor, to),
+            };
+            tl.showAll = false;
+            refreshTimeline(panel);
+        });
+
+        strip.addEventListener('pointerup', function (event) {
+            if (anchor !== null && binAt(event) === anchor) {
+                tl.brush = null;
+                tl.showAll = false;
+                refreshTimeline(panel);
+            }
+            anchor = null;
+        });
+
+        strip.addEventListener('pointercancel', function () {
+            anchor = null;
+        });
+    }
+
+    /**
+     * @param {Element} root Either the whole page or a fragment
+     */
+    function initTimeline(root) {
+        var panel = (root || document).querySelector('[data-vp-tl]');
+        if (!panel) {
+            return;
+        }
+        var payload = panel.querySelector('[data-vp-tl-data]');
+        if (!payload) {
+            return;
+        }
+        tl.data = JSON.parse(payload.textContent);
+        tl.brush = null;
+        tl.filter = null;
+        tl.expanded = {};
+        tl.showAll = false;
+        tl.spine = window.VP.chart.boot('vp-tl-spine', buildTimelineSpine);
+        // The brush is rendered hidden, because without this script it
+        // would frame an empty canvas and offer a gesture that does
+        // nothing.
+        var brush = panel.querySelector('[data-vp-tl-brush]');
+        if (brush) {
+            brush.hidden = false;
+        }
+        wireTimelineBrush(panel);
+        refreshTimeline(panel);
+    }
+
+    /**
+     * @param {Event} event
+     * @return {void}
+     */
+    function onTimelineClick(event) {
+        var panel = event.target.closest
+            ? event.target.closest('[data-vp-tl]')
+            : null;
+        if (!panel || !tl.data) {
+            return;
+        }
+
+        var lane = event.target.closest('[data-vp-tl-lane]');
+        if (lane) {
+            // Pressing the lane that is already showing lets it go,
+            // which is the same gesture the type chips in the banner
+            // use.
+            var sources = lane.dataset.vpTlSources;
+            var already = tl.filter === sources;
+            panel.querySelectorAll('[data-vp-tl-lane]').forEach(
+                function (button) {
+                    button.setAttribute('aria-pressed', 'false');
+                }
+            );
+            tl.filter = already ? null : sources;
+            if (!already) {
+                lane.setAttribute('aria-pressed', 'true');
+            }
+            tl.showAll = false;
+            var name = panel.querySelector('[data-vp-tl-filter-name]');
+            if (name) {
+                name.textContent = lane.textContent.trim();
+            }
+            tlRefreshList(panel);
+            return;
+        }
+
+        if (event.target.closest('[data-vp-tl-filter-clear]')) {
+            tl.filter = null;
+            tl.showAll = false;
+            panel.querySelectorAll('[data-vp-tl-lane]').forEach(
+                function (button) {
+                    button.setAttribute('aria-pressed', 'false');
+                }
+            );
+            tlRefreshList(panel);
+            return;
+        }
+
+        if (event.target.closest('[data-vp-tl-reset]')) {
+            tl.brush = null;
+            tl.showAll = false;
+            refreshTimeline(panel);
+            return;
+        }
+
+        if (event.target.closest('[data-vp-tl-more]')) {
+            tl.showAll = true;
+            tlRefreshList(panel);
+            return;
+        }
+
+        var expand = event.target.closest('[data-vp-tl-expand]');
+        if (expand) {
+            var row = expand.closest('[data-vp-tl-run]');
+            if (row) {
+                tl.expanded[row.dataset.vpTlRun] = true;
+                tlRefreshList(panel);
+            }
+        }
+    }
+
     function init() {
         if (!onValuePage()) {
             return;
@@ -1880,6 +2521,8 @@
             if (onAnalystClick(event)) {
                 return;
             }
+
+            onTimelineClick(event);
 
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
@@ -2061,6 +2704,7 @@
             initSightings(event.target);
             initEnrichment(event.target);
             initAnalyst(event.target);
+            initTimeline(event.target);
         });
 
         refreshOccurrences();
@@ -2068,6 +2712,7 @@
         initSightings(document);
         initEnrichment(document);
         initAnalyst(document);
+        initTimeline(document);
     }
 
     if (document.readyState === 'loading') {

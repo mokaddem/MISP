@@ -336,10 +336,21 @@ $tabRegistry = array(
         'id' => 'timeline',
         'title' => __('Timeline'),
         'icon' => 'fas fa-clock',
-        'note' => __(
-            'One merged chronology: publications, first and last seen,'
-            . ' sightings, tags, opinions, feed appearances and edits.'
+        /*
+         * No count. "67 dated entries" is the *viewer's* count —
+         * `Sightings_policy` can hide whole sightings and
+         * `Sightings_anonymise` refiles foreign orgs — so two users
+         * would read two numbers off one value's tab bar.
+         *
+         * One full-width slot, and the panel owns its own three cards.
+         * Not this page's 9/3 and not three panels: the brush is one
+         * control driving two regions that must already exist when it
+         * fires, and three `.ajax-card`s resolve independently.
+         */
+        'left' => array(
+            $panel('viewTimeline'),
         ),
+        'right' => null,
     ),
     array(
         'id' => 'history',
