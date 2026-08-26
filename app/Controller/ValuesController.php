@@ -294,6 +294,28 @@ class ValuesController extends AppController
     }
 
     /**
+     * The History tab: the counted rail and the occurrence sections it
+     * narrows, in one panel.
+     *
+     * One endpoint, for the Occurrences tab's reason rather than the
+     * Timeline tab's. The facet control wires its checkboxes to rows by
+     * walking up to the nearest `data-vp-list` region, so the rail and
+     * the rows have to arrive inside one container: split across two
+     * `.ajax-card`s they resolve independently, and a rail whose rows
+     * have not landed yet is a rail wired to nothing.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewHistory($b64value = null)
+    {
+        $this->renderPanel(
+            $this->profileFor($b64value),
+            'value_history'
+        );
+    }
+
+    /**
      * The Verdict tab body.
      *
      * A value whose signals contradict each other needs a different

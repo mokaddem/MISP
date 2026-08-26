@@ -90,13 +90,31 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
         // The tail is folded, not dropped: `n more` reveals these in
         // place, so the group never silently under-reports itself.
         $overflow = $index >= $limit;
+        /*
+         * A zero inside a group that has a total is not the same thing
+         * as a group of zeroes. Where the caller counts against a
+         * vocabulary rather than against what turned up, *undelete 0*
+         * is the answer to a question the reader came with, so the row
+         * stays — dimmed, and not offering a filter that could only
+         * ever empty the list.
+         */
+        $zero = $count === 0;
         ?>
-        <label class="vp-facet<?= $overflow ? ' d-none' : '' ?>"
-               <?= $overflow ? 'data-vp-facet-overflow' : '' ?>>
+        <label class="vp-facet<?= $overflow ? ' d-none' : '' ?><?=
+                   $zero ? ' opacity-50' : '' ?>"
+               <?= $overflow ? 'data-vp-facet-overflow' : '' ?>
+               <?= $zero ? 'data-vp-facet-zero' : '' ?>
+               <?= $zero
+                   ? 'title="' . h(sprintf(
+                       __('No entry in this panel is a %s'),
+                       $facet['label'] ?? $value
+                   )) . '"'
+                   : '' ?>>
             <input type="checkbox"
                    class="form-check-input"
                    data-vp-facet-key="<?= h($key) ?>"
                    value="<?= h($value) ?>"
+                   <?= $zero ? 'disabled' : '' ?>
                    id="<?= h($groupId . '-' . $index) ?>">
             <span class="vp-facet-label">
                 <?= isset($facet['html']) ? $facet['html'] : h($label) ?>

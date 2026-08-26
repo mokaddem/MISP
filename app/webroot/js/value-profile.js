@@ -350,7 +350,13 @@
             + (text === '' ? 0 : 1);
 
         sortRows(list, filtered);
-        paginate(list, filtered);
+        // The History tab pages inside each section instead of over
+        // the union of them; everything before this point is shared.
+        if (list.hasAttribute('data-vp-audit')) {
+            paginateAuditSections(list, filtered, activeCount);
+        } else {
+            paginate(list, filtered);
+        }
         updateListNotes(list, filtered.length, activeCount);
     }
 
@@ -2365,6 +2371,252 @@
         });
     }
 
+    /* --------------------------------------------------------------
+     * The History tab
+     * --------------------------------------------------------------
+     * The facets, the reveals, the search and the row set are all the
+     * shared list contract (`00-shared.md` §5) and add nothing here.
+     * Two behaviours the contract does not cover, and this panel does:
+     *
+     * 1. A section whose rows are all filtered out collapses to a
+     *    greyed header reading `0 of 9`. It is not removed — a section
+     *    disappearing under a filter would misreport how many
+     *    occurrences this value has.
+     * 2. Rows page inside their own section and never across the
+     *    union, because a union of N event-scoped queries has no
+     *    stable ordering key to page on.
+     * -------------------------------------------------------------- */
+
+    /**
+     * Whether the reader has this section open, remembered on the
+     * element so a filter can close it and clearing the filter can put
+     * it back the way they left it.
+     *
+     * @param {Element} section
+     * @return {boolean}
+     */
+    function auditOpen(section) {
+        if (section.dataset.vpAuditOpen === undefined) {
+            var body = section.querySelector('[data-vp-audit-body]');
+            section.dataset.vpAuditOpen =
+                body && !body.classList.contains('d-none') ? '1' : '0';
+        }
+        return section.dataset.vpAuditOpen === '1';
+    }
+
+    /**
+     * @param {Element} section
+     */
+    function applyAuditOpen(section) {
+        var blank = section.dataset.vpAuditBlank === '1';
+        var open = auditOpen(section) && !blank;
+        var body = section.querySelector('[data-vp-audit-body]');
+        if (body) {
+            body.classList.toggle('d-none', !open);
+        }
+        var toggle = section.querySelector('[data-vp-audit-toggle]');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        var chevron = section.querySelector('[data-vp-audit-chevron]');
+        if (chevron) {
+            chevron.classList.toggle('fa-chevron-down', open);
+            chevron.classList.toggle('fa-chevron-right', !open);
+        }
+    }
+
+    /**
+     * The section's own count line: `9 entries` with no filter set,
+     * `3 of 9 entries` with one. Two numbers that disagree — a header
+     * still claiming nine over three visible rows — is the thing this
+     * exists to prevent.
+     *
+     * @param {Element} section
+     * @param {number} shown
+     * @param {number} activeCount
+     */
+    function setAuditCount(section, shown, activeCount) {
+        var total = parseInt(section.dataset.vpAuditTotal || '0', 10);
+        var blank = activeCount > 0 && shown === 0;
+        section.dataset.vpAuditBlank = blank ? '1' : '0';
+        section.classList.toggle('opacity-50', blank);
+
+        var label = section.querySelector('[data-vp-audit-count]');
+        if (label) {
+            label.textContent = activeCount === 0
+                ? (label.dataset.vpAuditPlain || label.textContent)
+                : (label.dataset.vpAuditTpl || '')
+                    .replace('%1$s', shown)
+                    .replace('%2$s', total);
+        }
+        applyAuditOpen(section);
+    }
+
+    /**
+     * Page each section over its own surviving rows.
+     *
+     * Replaces the list-level `paginate()` for this panel rather than
+     * running beside it: one pager over a union of sections would page
+     * rows out of one section to make room for another's, and the range
+     * it printed would belong to neither.
+     *
+     * @param {Element} list
+     * @param {Array<Element>} filtered
+     * @param {number} activeCount
+     */
+    function paginateAuditSections(list, filtered, activeCount) {
+        var bySection = new Map();
+        filtered.forEach(function (row) {
+            var section = row.closest('[data-vp-audit-section]');
+            if (!section) {
+                return;
+            }
+            if (!bySection.has(section)) {
+                bySection.set(section, []);
+            }
+            bySection.get(section).push(row);
+        });
+
+        list.querySelectorAll('[data-vp-audit-section]')
+            .forEach(function (section) {
+                var rows = bySection.get(section) || [];
+                var pager = section.querySelector('[data-vp-pager]');
+                var size = pager
+                    ? parseInt(pager.dataset.vpPageSize, 10)
+                    : 0;
+
+                if (!pager || !size || size < 1) {
+                    rows.forEach(function (row) {
+                        row.classList.remove('d-none');
+                    });
+                } else {
+                    var pages = Math.max(1, Math.ceil(rows.length / size));
+                    var page = Math.min(
+                        parseInt(section.dataset.vpAuditPage || '1', 10),
+                        pages
+                    );
+                    section.dataset.vpAuditPage = page;
+                    var from = (page - 1) * size;
+                    var to = Math.min(from + size, rows.length);
+                    rows.forEach(function (row, index) {
+                        row.classList.toggle(
+                            'd-none',
+                            index < from || index >= to
+                        );
+                    });
+                    setText(
+                        section,
+                        '[data-vp-page-from]',
+                        rows.length ? from + 1 : 0
+                    );
+                    setText(section, '[data-vp-page-to]', to);
+                    setText(section, '[data-vp-page-of]', rows.length);
+                    renderPager(pager, page, pages);
+                }
+                setAuditCount(section, rows.length, activeCount);
+            });
+    }
+
+    /**
+     * Narrowing changes how many pages a section has, so every section
+     * goes back to page one rather than to a page that may no longer
+     * exist.
+     *
+     * @param {Element} list
+     */
+    function resetAuditPages(list) {
+        list.querySelectorAll('[data-vp-audit-section]')
+            .forEach(function (section) {
+                section.dataset.vpAuditPage = 1;
+            });
+    }
+
+    /**
+     * @param {Element} button
+     */
+    function toggleAuditSection(button) {
+        var section = button.closest('[data-vp-audit-section]');
+        if (!section) {
+            return;
+        }
+        section.dataset.vpAuditOpen = auditOpen(section) ? '0' : '1';
+        applyAuditOpen(section);
+    }
+
+    /**
+     * One control, two states: it opens everything while anything is
+     * closed, and closes everything once nothing is.
+     *
+     * @param {Element} button
+     */
+    function toggleAuditAll(button) {
+        var list = button.closest('[data-vp-list]');
+        if (!list) {
+            return;
+        }
+        var sections = list.querySelectorAll('[data-vp-audit-section]');
+        var opening = false;
+        sections.forEach(function (section) {
+            if (!auditOpen(section)) {
+                opening = true;
+            }
+        });
+        sections.forEach(function (section) {
+            section.dataset.vpAuditOpen = opening ? '1' : '0';
+            applyAuditOpen(section);
+        });
+        var label = button.querySelector('[data-vp-audit-expand-label]');
+        if (label) {
+            label.textContent = opening
+                ? (button.dataset.vpAuditLabelCollapse || '')
+                : (button.dataset.vpAuditLabelExpand || '');
+        }
+    }
+
+    /**
+     * @param {Element} button
+     */
+    function toggleAuditDiff(button) {
+        var row = button.closest('.vp-audit-row');
+        if (!row) {
+            return;
+        }
+        var diff = row.querySelector('.vp-audit-diff');
+        if (!diff) {
+            return;
+        }
+        var closed = diff.classList.toggle('d-none');
+        button.setAttribute('aria-expanded', closed ? 'false' : 'true');
+        var icon = button.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('fa-chevron-down', closed);
+            icon.classList.toggle('fa-chevron-up', !closed);
+        }
+    }
+
+    /**
+     * @param {Event} event
+     * @return {boolean} Whether the click was this panel's
+     */
+    function onAuditClick(event) {
+        var toggle = event.target.closest('[data-vp-audit-toggle]');
+        if (toggle) {
+            toggleAuditSection(toggle);
+            return true;
+        }
+        var all = event.target.closest('[data-vp-audit-expand-all]');
+        if (all) {
+            toggleAuditAll(all);
+            return true;
+        }
+        var diff = event.target.closest('[data-vp-audit-diff]');
+        if (diff) {
+            toggleAuditDiff(diff);
+            return true;
+        }
+        return false;
+    }
+
     /**
      * @param {Element} root Either the whole page or a fragment
      */
@@ -2503,8 +2755,14 @@
             var page = event.target.closest('[data-vp-page]');
             if (page && !page.disabled) {
                 var pageList = page.closest('[data-vp-list]');
-                if (pageList) {
+                var pageSection = page.closest('[data-vp-audit-section]');
+                if (pageSection) {
+                    pageSection.dataset.vpAuditPage =
+                        parseInt(page.dataset.vpPage, 10);
+                } else if (pageList) {
                     listPages.set(pageList, parseInt(page.dataset.vpPage, 10));
+                }
+                if (pageList) {
                     refreshList(pageList);
                 }
                 return;
@@ -2522,6 +2780,10 @@
                 return;
             }
 
+            if (onAuditClick(event)) {
+                return;
+            }
+
             onTimelineClick(event);
 
             var more = event.target.closest('[data-vp-facet-more]');
@@ -2536,6 +2798,7 @@
                 if (clearList) {
                     clearListFilters(clearList);
                     listPages.set(clearList, 1);
+                    resetAuditPages(clearList);
                     refreshList(clearList);
                 }
             }
@@ -2671,6 +2934,7 @@
                 var list = event.target.closest('[data-vp-list]');
                 if (list) {
                     listPages.set(list, 1);
+                    resetAuditPages(list);
                     refreshList(list);
                 }
             }
@@ -2690,6 +2954,7 @@
                 var typedList = event.target.closest('[data-vp-list]');
                 if (typedList) {
                     listPages.set(typedList, 1);
+                    resetAuditPages(typedList);
                     refreshList(typedList);
                 }
             }

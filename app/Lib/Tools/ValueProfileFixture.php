@@ -1,4 +1,5 @@
 <?php
+App::uses('AuditActionMeta', 'Tools');
 
 /**
  * Hardcoded Value Profile data, keyed by value.
@@ -281,6 +282,12 @@ class ValueProfileFixture
                     . ' cannot be counted.'
                 ),
             )),
+            /*
+             * Grouped by occurrence, which is the one thing the seven
+             * per-event audit logs cannot do: each of them only ever
+             * sees one copy of this value.
+             */
+            'history' => self::maliciousHistory($occurrences),
             /*
              * The rail card's second line is the NIDS decay score, and
              * it is handed in rather than drawn again here: the Verdict
@@ -1522,6 +1529,13 @@ class ValueProfileFixture
                 ),
             )),
             /*
+             * One of the five sections carries twenty-eight entries,
+             * which is what the conflict looks like as a record rather
+             * than as a score — and the only section on this page that
+             * pages.
+             */
+            'history' => self::conflictedHistory($occurrences),
+            /*
              * The opinion distribution is handed in rather than
              * written again: the Verdict tab's histogram and the
              * Analyst tab's are the same ten buckets over the same
@@ -2067,6 +2081,14 @@ class ValueProfileFixture
              * a period of silence that never happened.
              */
             'timeline' => null,
+            /*
+             * No `history` key at all, where the Timeline gets an
+             * explicit null. A value MISP has never held has nothing
+             * for an audit log to have recorded or failed to record,
+             * so the panel has no state to choose between: the tab's
+             * own placeholder is the answer, and a `recorded` flag
+             * here would make the question look answerable.
+             */
             /*
              * A value with no occurrence still gets the full rail.
              * There is no attribute row to read a type from, so the
@@ -2738,6 +2760,12 @@ class ValueProfileFixture
                     . ' contribute is in this chronology.'
                 ),
             )),
+            /*
+             * Recorded and empty, which is not the same as unrecorded:
+             * audit logging came on after everything that has ever
+             * happened to a resolver everybody already trusts.
+             */
+            'history' => self::benignHistory($occurrences),
             'verdict' => self::benignVerdict(
                 self::decaySpan($rows, $created, $decay[0])
             ),
@@ -7824,4 +7852,1134 @@ class ValueProfileFixture
             ->format('Y-m-d H:i:s');
     }
 
+
+    /* ==================================================================
+     * History tab
+     * ------------------------------------------------------------------
+     * One list of audit entries per occurrence, plus one list of the
+     * entries that belong to the value's events rather than to any
+     * single copy of it. Every number the panel shows — the header, the
+     * section counts, the action mixes, the four facet groups — is
+     * tallied from those two lists here, so no count on the tab can
+     * disagree with the rows underneath it.
+     *
+     * What a row is filed under is the point of the tab, and it is not
+     * always this value: `AuditLogBehavior` files an edit under the
+     * title the edit *produced*, so occurrence 4830441's first three
+     * entries name the address it held before someone corrected a
+     * typo'd octet. They are in scope because the scope is the
+     * attribute id. A `model_title` match would have dropped them.
+     * ================================================================== */
+
+    /**
+     * @param array $spec Keys: recorded, occurrences, groups (attribute
+     *                    id => rows, newest first), event_entries,
+     *                    total_occurrences, viewer_org, vocab
+     * @return array
+     */
+    private static function history(array $spec)
+    {
+        $occurrences = $spec['occurrences'];
+        $authored = isset($spec['groups']) ? $spec['groups'] : array();
+        $eventEntries = isset($spec['event_entries'])
+            ? $spec['event_entries']
+            : array();
+
+        $groups = array();
+        $all = $eventEntries;
+        /*
+         * One section per occurrence the viewer can open, not one per
+         * occurrence that happens to have entries: an occurrence
+         * nobody has touched since audit logging came on is a fact
+         * about the value, and a missing section would read as one
+         * fewer copy of it.
+         */
+        foreach ($occurrences as $occurrence) {
+            $id = (int)$occurrence['Attribute']['id'];
+            $entries = isset($authored[$id]) ? $authored[$id] : array();
+            $group = array(
+                'attribute_id' => $id,
+                'event_id' => (int)$occurrence['Attribute']['event_id'],
+                'event_info' => $occurrence['Event']['info'],
+                'org' => $occurrence['Event']['Orgc']['name'],
+                'deleted' => !empty($occurrence['Attribute']['deleted']),
+                'count' => count($entries),
+                'last' => null,
+                'mix' => array(),
+                'entries' => array(),
+            );
+            foreach ($entries as $row) {
+                $row['event_id'] = $group['event_id'];
+                $row['event_info'] = $group['event_info'];
+                $row['attribute_id'] = $id;
+                $group['entries'][] = $row;
+                $action = $row['action'];
+                $group['mix'][$action] = (isset($group['mix'][$action])
+                    ? $group['mix'][$action]
+                    : 0) + 1;
+                if ($group['last'] === null
+                    || $row['created'] > $group['last']
+                ) {
+                    $group['last'] = $row['created'];
+                }
+            }
+            $groups[] = $group;
+            $all = array_merge($all, $group['entries']);
+        }
+
+        usort($groups, function ($a, $b) {
+            return strcmp((string)$b['last'], (string)$a['last']);
+        });
+
+        $events = array();
+        $first = null;
+        $last = null;
+        foreach ($all as $row) {
+            $events[$row['event_id']] = true;
+            if ($first === null || $row['created'] < $first) {
+                $first = $row['created'];
+            }
+            if ($last === null || $row['created'] > $last) {
+                $last = $row['created'];
+            }
+        }
+        /*
+         * The band's two numbers count the events that *hold* a visible
+         * occurrence, not the events that produced an entry. An event
+         * of the viewer's own with nothing logged against it is still
+         * an event they see every entry on, and counting entries here
+         * would make the ACL statement move with the audit log.
+         */
+        $viewerEvents = array();
+        $otherEvents = array();
+        foreach ($groups as $group) {
+            if ($group['org'] === $spec['viewer_org']) {
+                $viewerEvents[$group['event_id']] = true;
+            } else {
+                $otherEvents[$group['event_id']] = true;
+            }
+        }
+
+        $visible = count($occurrences);
+        return array(
+            'recorded' => !empty($spec['recorded']),
+            'entries' => count($all),
+            'occurrences' => $visible,
+            'events' => count($events),
+            /*
+             * How many occurrences the viewer cannot open. Their entry
+             * counts are not obtainable either — the count is itself a
+             * fact about an event they may not read — which is why the
+             * footer states the number of occurrences and stops.
+             */
+            'hidden' => $spec['total_occurrences'] - $visible,
+            'total_occurrences' => $spec['total_occurrences'],
+            'viewer_org' => $spec['viewer_org'],
+            'viewer_events' => count($viewerEvents),
+            'other_events' => count($otherEvents),
+            'first' => $first,
+            'last' => $last,
+            'facets' => self::auditFacets($all, $spec['vocab']),
+            /*
+             * Carried through so the panel orders an occurrence's
+             * action-mix segments the same way in every section. Two
+             * bars a reader is meant to compare have to put the same
+             * action in the same place.
+             */
+            'vocab' => $spec['vocab'],
+            'groups' => $groups,
+            'event_entries' => $eventEntries,
+        );
+    }
+
+    /**
+     * The four counted facet groups, tallied over every row the panel
+     * holds.
+     *
+     * Action and model are counted against a vocabulary rather than
+     * against what turned up, so a zero survives into the rail: *no
+     * undelete* and *no object entry* are both things the reader came
+     * here to learn, and a row that is simply absent tells them
+     * nothing. Organisation and actor have no vocabulary — an
+     * organisation that never touched this value is not a fact about
+     * it — so those two are what the rows carry, largest first.
+     *
+     * @param array $entries
+     * @param array $vocab Keys: action, model
+     * @return array Four lists of `facetRow()` shapes
+     */
+    private static function auditFacets(array $entries, array $vocab)
+    {
+        $tallies = array(
+            'action' => array_fill_keys($vocab['action'], 0),
+            'model' => array_fill_keys($vocab['model'], 0),
+            'org' => array(),
+            'actor' => array(),
+        );
+        foreach ($entries as $row) {
+            foreach (array('action', 'model', 'org') as $key) {
+                $value = $row[$key];
+                $tallies[$key][$value] = (isset($tallies[$key][$value])
+                    ? $tallies[$key][$value]
+                    : 0) + 1;
+            }
+            $actor = self::auditActor($row);
+            $tallies['actor'][$actor] = (isset($tallies['actor'][$actor])
+                ? $tallies['actor'][$actor]
+                : 0) + 1;
+        }
+        arsort($tallies['org']);
+        arsort($tallies['actor']);
+
+        $out = array();
+        foreach ($tallies as $key => $counts) {
+            $rows = array();
+            foreach ($counts as $value => $count) {
+                $rows[] = self::facetRow(
+                    $key === 'action'
+                        ? AuditActionMeta::label($value)
+                        : $value,
+                    self::auditSlug((string)$value),
+                    $count
+                );
+            }
+            $out[$key] = $rows;
+        }
+        return $out;
+    }
+
+    /**
+     * Who a row is attributed to.
+     *
+     * `AuditLogsController::__applyAuditAcl` hands a non-site-admin the
+     * user only where the user is in their own organisation, so
+     * everyone else is their organisation and nothing finer. Filed
+     * under the organisation rather than under *unknown*, because which
+     * organisation acted is the part that survived.
+     *
+     * @param array $row
+     * @return string
+     */
+    private static function auditActor(array $row)
+    {
+        if (!empty($row['actor'])) {
+            return $row['actor'];
+        }
+        return sprintf(__('%s (unnamed)'), $row['org']);
+    }
+
+    /**
+     * @param string $text
+     * @return string A facet token: the rail and the rows both use this
+     *                one function, so they cannot slug differently.
+     */
+    private static function auditSlug($text)
+    {
+        return trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($text)), '-');
+    }
+
+    /**
+     * One audit row, with everything optional defaulted.
+     *
+     * @param array $spec Keys: created, action, org; optionally model,
+     *                    model_id, model_title, actor, request_type,
+     *                    change, renamed, subject, note
+     * @return array
+     */
+    private static function auditRow(array $spec)
+    {
+        $row = array(
+            'created' => $spec['created'],
+            'action' => $spec['action'],
+            'model' => isset($spec['model']) ? $spec['model'] : 'Attribute',
+            'model_id' => isset($spec['model_id'])
+                ? $spec['model_id']
+                : null,
+            'model_title' => isset($spec['model_title'])
+                ? $spec['model_title']
+                : null,
+            'actor' => isset($spec['actor']) ? $spec['actor'] : null,
+            'org' => $spec['org'],
+            'request_type' => isset($spec['request_type'])
+                ? $spec['request_type']
+                : 0,
+            'change' => isset($spec['change']) ? $spec['change'] : null,
+            'renamed' => !empty($spec['renamed']),
+            /*
+             * What the row is about beyond its action: a tag name, a
+             * cluster. An edit needs none — the field names in `change`
+             * already say what it touched, and writing them twice is
+             * how the two come to disagree.
+             */
+            'subject' => isset($spec['subject']) ? $spec['subject'] : null,
+            'note' => isset($spec['note']) ? $spec['note'] : null,
+        );
+        $row['event_id'] = isset($spec['event_id'])
+            ? $spec['event_id']
+            : null;
+        $row['event_info'] = isset($spec['event_info'])
+            ? $spec['event_info']
+            : null;
+        $row['attribute_id'] = null;
+        return $row;
+    }
+
+    /**
+     * One field of a diff.
+     *
+     * @param string $field
+     * @param string $was Empty string where the field had no value
+     * @param string $is
+     * @return array
+     */
+    private static function auditChange($field, $was, $is)
+    {
+        return array('field' => $field, 'was' => $was, 'is' => $is);
+    }
+
+    /**
+     * The publication entries, from the same array the Timeline tab
+     * draws its publication lane from.
+     *
+     * `first` and `last` are the only two publications MISP keeps
+     * outside the audit log, so where they differ this produces two
+     * rows and not the unknown number that actually happened. That is
+     * the same reading the Timeline tab gives them, arrived at from the
+     * same array rather than from a second copy of it.
+     *
+     * @param array $events Event id => info, org, first, last
+     * @param array $actors Event id => actor, absent where the
+     *                      publishing organisation is not the viewer's
+     * @return array
+     */
+    private static function auditPublications(array $events, array $actors)
+    {
+        $out = array();
+        foreach ($events as $id => $event) {
+            $dates = $event['first'] === $event['last']
+                ? array($event['first'])
+                : array($event['first'], $event['last']);
+            foreach ($dates as $index => $date) {
+                $out[] = self::auditRow(array(
+                    'created' => $date,
+                    'action' => 'publish',
+                    'model' => 'Event',
+                    'model_id' => $id,
+                    'model_title' => $event['info'],
+                    'actor' => isset($actors[$id]) ? $actors[$id] : null,
+                    'org' => $event['org'],
+                    'event_id' => $id,
+                    'event_info' => $event['info'],
+                    'note' => count($dates) === 1
+                        ? __('Its only publication.')
+                        : ($index === 0
+                            ? __(
+                                'Its first publication. Any between'
+                                . ' this and the latest are not'
+                                . ' recorded.'
+                            )
+                            : __(
+                                'Its latest publication. Any between'
+                                . ' the first and this are not'
+                                . ' recorded.'
+                            )),
+                ));
+            }
+        }
+        usort($out, function ($a, $b) {
+            return strcmp($b['created'], $a['created']);
+        });
+        return $out;
+    }
+
+    /**
+     * The action and model vocabularies the rail counts against.
+     *
+     * Ten actions rather than `AuditActionMeta`'s sixteen: the local
+     * variants and `publish_sightings` and `instantiate` cannot reach
+     * an attribute or its event by any path this page describes, and a
+     * rail of six permanent zeroes would bury the three that mean
+     * something.
+     *
+     * @return array
+     */
+    private static function auditVocab()
+    {
+        return array(
+            'action' => array(
+                'add', 'edit', 'tag', 'remove_tag', 'galaxy',
+                'remove_galaxy', 'publish', 'soft_delete', 'undelete',
+                'delete',
+            ),
+            'model' => array(
+                'Attribute', 'Event', 'Object', 'ShadowAttribute',
+            ),
+        );
+    }
+
+    /**
+     * The C2 address's audit record: thirty-eight entries over six
+     * visible occurrences and the five events that carry them.
+     *
+     * Read as a story it is one address that four organisations kept
+     * disagreeing about the IDS flag on, one occurrence whose value was
+     * a typo for five weeks, and one that was soft-deleted a year ago
+     * and never restored.
+     *
+     * @param array $occurrences The value's visible occurrences
+     * @return array
+     */
+    private static function maliciousHistory(array $occurrences)
+    {
+        $value = '185.234.219.24';
+        $typo = 'cdn-status.top|185.234.219.240';
+        $fixed = 'cdn-status.top|185.234.219.24';
+
+        $groups = array(
+            4831022 => array(
+                self::auditRow(array(
+                    'created' => '2025-08-19 21:22:00',
+                    'action' => 'edit',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                    'request_type' => 1,
+                    'change' => array(
+                        self::auditChange('to_ids', '0', '1'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-19 21:20:00',
+                    'action' => 'edit',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange(
+                            'comment',
+                            'Seen in Emotet malspam',
+                            'C2 confirmed by sandbox run'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 14:05:00',
+                    'action' => 'tag',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'subject' => 'tlp:amber',
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 14:04:00',
+                    'action' => 'galaxy',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'subject' => 'Sofacy',
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-15 09:12:00',
+                    'action' => 'edit',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'actor' => 'bob@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange(
+                            'first_seen',
+                            '',
+                            '2025-08-12T09:14:00+00:00'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-14 16:40:00',
+                    'action' => 'remove_tag',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'subject' => 'tlp:green',
+                    'actor' => 'bob@circl.lu',
+                    'org' => 'CIRCL',
+                    'note' => __(
+                        'Added a minute earlier and taken off again —'
+                        . ' the audit log keeps both, and the'
+                        . ' occurrence shows neither.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-14 16:39:00',
+                    'action' => 'tag',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'subject' => 'tlp:green',
+                    'actor' => 'bob@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-13 11:02:00',
+                    'action' => 'edit',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                    'request_type' => 1,
+                    'change' => array(
+                        self::auditChange(
+                            'comment',
+                            '',
+                            'Seen in Emotet malspam'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-12 10:28:00',
+                    'action' => 'add',
+                    'model_id' => 4831022,
+                    'model_title' => $value,
+                    'actor' => 'alice@circl.lu',
+                    'org' => 'CIRCL',
+                    'request_type' => 1,
+                )),
+            ),
+            4831577 => array(
+                self::auditRow(array(
+                    'created' => '2025-07-30 14:00:00',
+                    'action' => 'edit',
+                    'model_id' => 4831577,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'change' => array(
+                        self::auditChange('to_ids', '1', '0'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-30 13:58:00',
+                    'action' => 'edit',
+                    'model_id' => 4831577,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'change' => array(
+                        self::auditChange(
+                            'comment',
+                            'Phishing kit C2',
+                            'Shared hosting - IDS flag cleared'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-29 10:22:00',
+                    'action' => 'tag',
+                    'model_id' => 4831577,
+                    'model_title' => $value,
+                    'subject' => 'tlp:amber',
+                    'org' => 'CthulhuSPRL.be',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-29 09:40:00',
+                    'action' => 'add',
+                    'model' => 'ShadowAttribute',
+                    'model_id' => 21877,
+                    'model_title' => $value,
+                    'actor' => 'erin@circl.lu',
+                    'org' => 'CIRCL',
+                    'note' => __(
+                        'A proposal against this occurrence, by an'
+                        . ' organisation that cannot edit it. Still'
+                        . ' pending — nothing here changed the'
+                        . ' attribute.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-28 18:44:00',
+                    'action' => 'edit',
+                    'model_id' => 4831577,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'change' => array(
+                        self::auditChange(
+                            'category',
+                            'Network activity',
+                            'Payload delivery'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-27 08:30:00',
+                    'action' => 'add',
+                    'model_id' => 4831577,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'request_type' => 1,
+                )),
+            ),
+            4830441 => array(
+                self::auditRow(array(
+                    'created' => '2025-06-27 08:00:00',
+                    'action' => 'edit',
+                    'model_id' => 4830441,
+                    'model_title' => $fixed,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange(
+                            'last_seen',
+                            '2025-06-14T00:00:00+00:00',
+                            '2025-06-27T08:00:00+00:00'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-14 11:47:00',
+                    'action' => 'edit',
+                    'model_id' => 4830441,
+                    'model_title' => $fixed,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'renamed' => true,
+                    'change' => array(
+                        self::auditChange('value', $typo, $fixed),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-05 09:20:00',
+                    'action' => 'tag',
+                    'model_id' => 4830441,
+                    'model_title' => $typo,
+                    'subject' => 'type:OSINT',
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-03 09:35:00',
+                    'action' => 'edit',
+                    'model_id' => 4830441,
+                    'model_title' => $typo,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange('to_ids', '0', '1'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-02 08:05:00',
+                    'action' => 'add',
+                    'model_id' => 4830441,
+                    'model_title' => $typo,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+            ),
+            4829903 => array(
+                self::auditRow(array(
+                    'created' => '2025-06-19 12:00:00',
+                    'action' => 'edit',
+                    'model_id' => 4829903,
+                    'model_title' => $value,
+                    'org' => 'Team-CIRCL',
+                    'change' => array(
+                        self::auditChange('to_ids', '1', '0'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-18 16:20:00',
+                    'action' => 'tag',
+                    'model_id' => 4829903,
+                    'model_title' => $value,
+                    'subject' => 'tlp:green',
+                    'org' => 'Team-CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-18 16:10:00',
+                    'action' => 'add',
+                    'model_id' => 4829903,
+                    'model_title' => $value,
+                    'org' => 'Team-CIRCL',
+                    'request_type' => 1,
+                )),
+            ),
+            4828810 => array(
+                self::auditRow(array(
+                    'created' => '2025-04-10 00:00:00',
+                    'action' => 'edit',
+                    'model_id' => 4828810,
+                    'model_title' => $value,
+                    'org' => 'ORGNAME',
+                    'change' => array(
+                        self::auditChange('to_ids', '0', '1'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-04-09 15:32:00',
+                    'action' => 'add',
+                    'model_id' => 4828810,
+                    'model_title' => $value,
+                    'org' => 'ORGNAME',
+                )),
+            ),
+            4827334 => array(
+                self::auditRow(array(
+                    'created' => '2024-10-01 00:00:00',
+                    'action' => 'soft_delete',
+                    'model_id' => 4827334,
+                    'model_title' => $value,
+                    'actor' => 'dave@circl.lu',
+                    'org' => 'CIRCL',
+                    'note' => __(
+                        'History from here on rather than current'
+                        . ' state. Never restored.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2024-09-16 09:55:00',
+                    'action' => 'tag',
+                    'model_id' => 4827334,
+                    'model_title' => $value,
+                    'subject' => 'tlp:amber',
+                    'actor' => 'dave@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2024-09-14 08:20:00',
+                    'action' => 'add',
+                    'model_id' => 4827334,
+                    'model_title' => $value,
+                    'actor' => 'dave@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+            ),
+        );
+
+        /*
+         * The two event tags, and the publications derived from the
+         * array the Timeline tab uses. Both belong to the value's story
+         * and to none of its occurrences: repeating six of them inside
+         * six sections would turn six entries into thirty-six.
+         */
+        $eventEntries = array_merge(
+            array(
+                self::auditRow(array(
+                    'created' => '2025-06-27 08:10:00',
+                    'action' => 'tag',
+                    'model' => 'Event',
+                    'model_id' => 1279,
+                    'model_title' => 'OSINT - Emotet infrastructure,'
+                        . ' June 2025',
+                    'subject' => 'type:OSINT',
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'event_id' => 1279,
+                    'note' => __(
+                        'Five minutes before the republication below,'
+                        . ' which is what it was for.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-06-19 11:58:00',
+                    'action' => 'tag',
+                    'model' => 'Event',
+                    'model_id' => 1272,
+                    'model_title' => 'Mass scanning activity against'
+                        . ' .lu netblocks',
+                    'subject' => 'tlp:green',
+                    'org' => 'Team-CIRCL',
+                    'event_id' => 1272,
+                )),
+            ),
+            self::auditPublications(
+                self::maliciousPublications(),
+                array(
+                    1284 => 'alice@circl.lu',
+                    1279 => 'carol@circl.lu',
+                    1251 => 'dave@circl.lu',
+                )
+            )
+        );
+
+        return self::history(array(
+            'recorded' => true,
+            'occurrences' => $occurrences,
+            'groups' => $groups,
+            'event_entries' => $eventEntries,
+            'total_occurrences' => 10,
+            'viewer_org' => 'CIRCL',
+            'vocab' => self::auditVocab(),
+        ));
+    }
+
+    /**
+     * The CDN edge's audit record, and the reason this tab pages.
+     *
+     * One of its five occurrences carries twenty-eight entries on its
+     * own — twenty-two of them the same argument about the IDS flag —
+     * which is what a value on shared infrastructure looks like when
+     * the disagreement is written as a record instead of a score. Two
+     * of the five sit on one event, which is the case no per-event
+     * audit log can separate.
+     *
+     * @param array $occurrences The value's visible occurrences
+     * @return array
+     */
+    private static function conflictedHistory(array $occurrences)
+    {
+        $value = '104.21.34.198';
+        $pair = 'secure-login-lu.example|104.21.34.198';
+        $old = 'account-verify-lu.example|104.21.34.198';
+
+        $groups = array(
+            5102884 => array(
+                self::auditRow(array(
+                    'created' => '2025-08-23 19:05:00',
+                    'action' => 'edit',
+                    'model_id' => 5102884,
+                    'model_title' => $value,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange(
+                            'last_seen',
+                            '2025-08-22T11:00:00+00:00',
+                            '2025-08-23T19:45:00+00:00'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-20 09:30:00',
+                    'action' => 'tag',
+                    'model_id' => 5102884,
+                    'model_title' => $value,
+                    'subject' => 'tlp:green',
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 07:02:00',
+                    'action' => 'edit',
+                    'model_id' => 5102884,
+                    'model_title' => $value,
+                    'actor' => 'erin@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange('to_ids', '0', '1'),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 06:45:00',
+                    'action' => 'add',
+                    'model_id' => 5102884,
+                    'model_title' => $value,
+                    'actor' => 'erin@circl.lu',
+                    'org' => 'CIRCL',
+                    'request_type' => 1,
+                )),
+            ),
+            5103011 => array(
+                self::auditRow(array(
+                    'created' => '2025-08-23 19:06:00',
+                    'action' => 'edit',
+                    'model_id' => 5103011,
+                    'model_title' => $pair,
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange(
+                            'last_seen',
+                            '2025-08-22T11:00:00+00:00',
+                            '2025-08-23T19:45:00+00:00'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 06:50:00',
+                    'action' => 'edit',
+                    'model_id' => 5103011,
+                    'model_title' => $pair,
+                    'actor' => 'erin@circl.lu',
+                    'org' => 'CIRCL',
+                    'change' => array(
+                        self::auditChange('to_ids', '1', '0'),
+                    ),
+                    'note' => __(
+                        'The same analyst set the flag on the other'
+                        . ' occurrence of this value on this event five'
+                        . ' minutes later.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-08-18 06:31:00',
+                    'action' => 'add',
+                    'model_id' => 5103011,
+                    'model_title' => $pair,
+                    'actor' => 'erin@circl.lu',
+                    'org' => 'CIRCL',
+                    'request_type' => 1,
+                )),
+            ),
+            5098720 => array(
+                self::auditRow(array(
+                    'created' => '2025-07-29 08:12:00',
+                    'action' => 'edit',
+                    'model_id' => 5098720,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'change' => array(
+                        self::auditChange(
+                            'last_seen',
+                            '2025-07-20T09:00:00+00:00',
+                            '2025-07-29T08:12:00+00:00'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-14 10:40:00',
+                    'action' => 'galaxy',
+                    'model_id' => 5098720,
+                    'model_title' => $value,
+                    'subject' => 'Gamaredon',
+                    'org' => 'CthulhuSPRL.be',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-04 08:15:00',
+                    'action' => 'tag',
+                    'model_id' => 5098720,
+                    'model_title' => $value,
+                    'subject' => 'tlp:amber',
+                    'org' => 'CthulhuSPRL.be',
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-02 11:20:00',
+                    'action' => 'edit',
+                    'model_id' => 5098720,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'change' => array(
+                        self::auditChange(
+                            'category',
+                            'Network activity',
+                            'Payload delivery'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-07-02 11:05:00',
+                    'action' => 'add',
+                    'model_id' => 5098720,
+                    'model_title' => $value,
+                    'org' => 'CthulhuSPRL.be',
+                    'request_type' => 1,
+                )),
+            ),
+            5076193 => array(
+                self::auditRow(array(
+                    'created' => '2025-05-14 08:00:00',
+                    'action' => 'edit',
+                    'model_id' => 5076193,
+                    'model_title' => $value,
+                    'org' => 'ORGNAME',
+                    'change' => array(
+                        self::auditChange(
+                            'comment',
+                            'Seen in web logs',
+                            'Seen in web logs - likely just the CDN'
+                        ),
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-05-14 07:55:00',
+                    'action' => 'add',
+                    'model_id' => 5076193,
+                    'model_title' => $value,
+                    'org' => 'ORGNAME',
+                )),
+            ),
+            5061455 => self::conflictedChurn($old),
+        );
+
+        $eventEntries = array_merge(
+            array(
+                self::auditRow(array(
+                    'created' => '2025-08-18 08:00:00',
+                    'action' => 'tag',
+                    'model' => 'Event',
+                    'model_id' => 1402,
+                    'model_title' => 'Phishing campaign impersonating'
+                        . ' a .lu bank',
+                    'subject' => 'tlp:green',
+                    'actor' => 'carol@circl.lu',
+                    'org' => 'CIRCL',
+                    'event_id' => 1402,
+                )),
+                self::auditRow(array(
+                    'created' => '2025-05-14 15:40:00',
+                    'action' => 'tag',
+                    'model' => 'Event',
+                    'model_id' => 1341,
+                    'model_title' => 'Suspicious traffic against a'
+                        . ' member portal',
+                    'subject' => 'tlp:clear',
+                    'org' => 'ORGNAME',
+                    'event_id' => 1341,
+                )),
+            ),
+            self::auditPublications(
+                self::conflictedPublications(),
+                array(
+                    1402 => 'carol@circl.lu',
+                    1309 => 'carol@circl.lu',
+                )
+            )
+        );
+
+        return self::history(array(
+            'recorded' => true,
+            'occurrences' => $occurrences,
+            'groups' => $groups,
+            'event_entries' => $eventEntries,
+            'total_occurrences' => 9,
+            'viewer_org' => 'CIRCL',
+            'vocab' => self::auditVocab(),
+        ));
+    }
+
+    /**
+     * Twenty-eight entries on occurrence 5061455, twenty-two of which
+     * are `to_ids` set, cleared and set again over the five weeks
+     * between the value arriving and the event's last publication.
+     *
+     * The flips are generated rather than typed out: spelling
+     * twenty-two of them says nothing the loop does not, and it is the
+     * even count that matters — an odd one would leave the occurrence
+     * on a flag the Occurrences tab does not show.
+     *
+     * @param string $title The value the occurrence held then
+     * @return array
+     */
+    private static function conflictedChurn($title)
+    {
+        $rows = array(
+            self::auditRow(array(
+                'created' => '2025-03-11 12:00:00',
+                'action' => 'edit',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'actor' => 'carol@circl.lu',
+                'org' => 'CIRCL',
+                'change' => array(
+                    self::auditChange(
+                        'comment',
+                        'account-verify-lu.example - CDN?',
+                        'account-verify-lu.example'
+                    ),
+                ),
+                'note' => __(
+                    'The last word on it. The flag stayed set, and'
+                    . ' three organisations still disagree.'
+                ),
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-20 09:01:00',
+                'action' => 'tag',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'subject' => 'tlp:green',
+                'actor' => 'erin@circl.lu',
+                'org' => 'CIRCL',
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-20 09:00:00',
+                'action' => 'remove_tag',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'subject' => 'tlp:clear',
+                'actor' => 'erin@circl.lu',
+                'org' => 'CIRCL',
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-04 10:00:00',
+                'action' => 'galaxy',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'subject' => 'T1583.003',
+                'actor' => 'carol@circl.lu',
+                'org' => 'CIRCL',
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-03 08:45:00',
+                'action' => 'tag',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'subject' => 'tlp:clear',
+                'actor' => 'carol@circl.lu',
+                'org' => 'CIRCL',
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-03 08:40:00',
+                'action' => 'add',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'actor' => 'carol@circl.lu',
+                'org' => 'CIRCL',
+                'request_type' => 1,
+            )),
+        );
+
+        $actors = array(
+            'carol@circl.lu', 'erin@circl.lu', 'frank@circl.lu',
+        );
+        $start = new DateTimeImmutable('2025-02-06 09:00:00');
+        for ($i = 0; $i < 22; $i++) {
+            $to = $i % 2 === 0 ? '0' : '1';
+            $rows[] = self::auditRow(array(
+                'created' => $start
+                    ->add(new DateInterval('PT' . ($i * 2160) . 'M'))
+                    ->format('Y-m-d H:i:s'),
+                'action' => 'edit',
+                'model_id' => 5061455,
+                'model_title' => $title,
+                'actor' => $actors[$i % 3],
+                'org' => 'CIRCL',
+                'request_type' => $i % 4 === 0 ? 1 : 0,
+                'change' => array(
+                    self::auditChange(
+                        'to_ids',
+                        $to === '0' ? '1' : '0',
+                        $to
+                    ),
+                ),
+            ));
+        }
+
+        usort($rows, function ($a, $b) {
+            return strcmp($b['created'], $a['created']);
+        });
+        return $rows;
+    }
+
+    /**
+     * The resolver's audit record, which is empty.
+     *
+     * `MISP.log_new_audit` was turned on after everything that has ever
+     * happened to this value, so the log works and has nothing to say
+     * about it. That is a different claim from the log not running, and
+     * §9's two states are worded to keep them apart.
+     *
+     * @param array $occurrences
+     * @return array
+     */
+    private static function benignHistory(array $occurrences)
+    {
+        return self::history(array(
+            'recorded' => true,
+            'occurrences' => $occurrences,
+            'groups' => array(),
+            'event_entries' => array(),
+            'total_occurrences' => 9,
+            'viewer_org' => 'CIRCL',
+            'vocab' => self::auditVocab(),
+        ));
+    }
 }

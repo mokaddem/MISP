@@ -159,10 +159,11 @@ echo $this->element('Values/View/value_pivot_rail', array(
  * ------------------------------------------------------------------
  * Tabs
  * ------------------------------------------------------------------
- * Overview, Verdict, Occurrences and Sightings are assembled from
- * lazily-loaded panels, one endpoint each, so a slow panel never holds
- * up the rest of the page and each one's live implementation stays a
- * local change. The remaining five tabs are still stubbed inline.
+ * Every tab is assembled from lazily-loaded panels, one endpoint each,
+ * so a slow panel never holds up the rest of the page and each one's
+ * live implementation stays a local change. None is stubbed any more;
+ * the whole-tab placeholder below stays because a tab that names no
+ * panel should still say so rather than render an empty column.
  */
 $counts = $profile['counts'];
 
@@ -356,10 +357,23 @@ $tabRegistry = array(
         'id' => 'history',
         'title' => __('History'),
         'icon' => 'fas fa-history',
-        'note' => __(
-            'The audit log across every occurrence, with actor and'
-            . ' organisation.'
+        /*
+         * No count, and for a stronger reason than the Timeline tab's.
+         * An audit-entry count is the *viewer's*: a plain analyst, an
+         * org admin and a site admin get three different numbers for
+         * one value. And on a default instance `MISP.log_new_audit` is
+         * off, so it is 0 for a reason that has nothing to do with the
+         * value. A number meaning three things and usually zero is
+         * worse than no number.
+         *
+         * One full-width slot, and the panel owns its rail: the facet
+         * control binds checkboxes to rows through the nearest
+         * `data-vp-list` ancestor, so the two cannot be separate cards.
+         */
+        'left' => array(
+            $panel('viewHistory'),
         ),
+        'right' => null,
     ),
 );
 

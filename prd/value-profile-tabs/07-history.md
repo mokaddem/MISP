@@ -1,7 +1,7 @@
 # PRD: Value Profile — History tab
 
-**Phase 16.** Implements candidate **`H2`** with `H1`'s facet rail grafted,
-chosen 2026-08-26.
+**Phase 16 — built 2026-08-26.** Implements candidate **`H2`** with `H1`'s
+facet rail grafted, chosen 2026-08-26.
 Artifact: <https://claude.ai/code/artifact/41280107-5222-435c-8d48-5b51b8acd1d3>
 Depends on `00-shared.md`, and on `prd/value-profile-page.md` §8.2 for what MISP
 does and does not record.
@@ -334,3 +334,133 @@ event-level section whose counts provably sum to the header, the facet rail
 narrows them without any number in the panel contradicting another, the rename
 row explains itself, and flipping `recorded` to false replaces the panel with a
 state that a reader cannot mistake for "nothing happened to this value".
+
+## 15. What was built, and what changed on the way
+
+Every §13 item passes. What follows is only what the build decided that the
+spec left open, or found to be wrong.
+
+**Every number is derived; §7's are illustrative.** §7 sketches `entries => 34`
+with a facet breakdown, and also says every number must be tallied from
+`groups` and `event_entries`. Those two cannot both hold, and the second is the
+one that matters — so `ValueProfileFixture::history()` counts the rows and the
+sketch's totals moved. The C2 value carries **38** entries: 28 across six
+occurrence sections and 10 event-level. The differences are all consequences of
+agreeing with the rest of the page rather than with the sketch:
+
+- **The publications are the Timeline tab's.** §7 has `publish => 4`;
+  `auditPublications()` reads the same `maliciousPublications()` array the
+  Timeline draws, which holds a first and a last per event and so yields
+  **8** rows over five published events. A second, smaller count of the same
+  publications was the one thing this tab could not afford.
+- **`publish` is not in a section's mix.** §7's example `mix` includes it,
+  which contradicts §1's own rule that event-level actions live in their own
+  section. §1 wins; the mixes hold attribute-scoped actions only.
+- **`6 occurrences, 6 events`, not 5.** The value's six visible occurrences
+  sit on six distinct events. §7's `events => 5` is the number of *published*
+  events, which is what the event-level section spans — event 1265 has never
+  been published and contributes nothing to it. Both numbers are now derived
+  from the rows, so they disagree honestly rather than by accident.
+- **The ACL band counts 3 and 3.** §8 writes 4 and 3. The band's numbers are
+  now derived from the occurrence set against the viewer's organisation, and
+  CIRCL created three of the six events holding a visible occurrence. The
+  wording also follows `__createEventIndexConditions` more closely than §8
+  did: on someone else's event you see the event-level rows *and* the parts of
+  it you may fetch, not only the latter.
+
+**Sixteen actions, six colours.** §2 says `AuditActionMeta` resolves through
+`--bs-*-bg-subtle` / `--bs-*-text-emphasis`. Only Bootstrap's eight theme
+colours actually have those, and only in both themes — MISP's own palette
+entries (`--bs-tag`, `--bs-galaxy`, …) are *referenced* by the component
+variants but never defined, in either theme, so they were not candidates. The
+class therefore groups the sixteen actions onto six usable colours by the kind
+of change — green creates or restores, blue modifies or distributes, cyan
+annotates, grey removes an annotation, amber removes reversibly, red removes
+for good — and lets the glyph name the action. Two neighbouring segments in a
+mix bar can then share a colour, so the segments carry a separator.
+
+**`.vp-audit-row` was not written here.** Phase 15 built it for the Timeline's
+chronology and reserved it for this tab in a comment, because both draw the
+same shape. So §6's four classes are three new ones plus that reuse, and the
+row markup on this tab is that grid's three children. The only adjustment is a
+wider first track, scoped to `[data-vp-audit]`: this tab's sections span
+months, so a row needs a date as well as a time where the Timeline's chronology
+is already grouped by day.
+
+**Zero-count facet rows moved into the shared element.** §8 asks for them;
+`value_facet_group.ctp` rendered every row alike. It now dims a zero row and
+disables its checkbox, which is additive — the other two callers build their
+groups from values that turned up, so none of them has a zero. The group-level
+rule is untouched: a group whose total is zero still renders nothing.
+
+**The section behaviour is new JavaScript, and §10 is right that the rest is
+not.** Facets, reveals, search and the row set are the shared contract
+unchanged. What this panel adds is the two behaviours §8 names — per-section
+`n of m` counts, and an emptied section collapsing to a greyed header instead
+of vanishing — plus per-section paging, which replaces the list-level
+`paginate()` for this list rather than running beside it. One pager over a
+union of sections would page rows out of one section to make room for
+another's.
+
+**The pager is exercised, not just written.** No section of the C2 value
+reaches §6's 25-row threshold, so the conflicted value was given a section that
+does: 28 entries on occurrence 5061455, 22 of them `to_ids` set and cleared and
+set again over the five weeks to that event's last publication. That is what
+this value's conflict looks like written as a record instead of a score, and it
+is the only section on the page that pages. Its two occurrences on event 1402
+also cover the case no per-event audit log can separate.
+
+### Two defects the build found, both in the geometry
+
+1. **The diff table collapsed to one character per line.** `word-break:
+   break-word` puts a cell's minimum content width at one character, and a
+   `<table>` shrinks to fit — so a diff on `last_seen` rendered 115px wide and
+   436px tall, an ISO timestamp set vertically. The first fix was wrong in an
+   instructive way: stretching the table to `width: 100%` did not remove the
+   collapse, it moved it to whichever column auto layout then squeezed, and a
+   comment broke instead. The fix is `overflow-wrap: break-word`, which allows
+   the same break without lowering the minimum, so a column is as wide as its
+   longest word and only a word too long for the row is broken at all.
+2. **`.vp-audit-row` was already a grid.** The first draft laid the row out
+   with its own flex line, not knowing phase 15 had defined the class. The two
+   definitions did not collide visibly — the row still looked right — but the
+   diff table inside it was a grid item sized to a min-content track, which is
+   what made defect 1 reachable at all. Found by printing the parent's
+   computed `display`, not by reading either file.
+
+Both were invisible to `php -l`, to the fixture's own consistency check, and to
+a reading of the source. They were caught by rendering the panel with MISP's
+real stylesheets and real `value-profile.js` in headless Chrome and measuring
+`offsetWidth` / `offsetHeight`.
+
+### Verification
+
+- `php -l` over the five changed PHP and `.ctp` files and `node --check` over
+  the JavaScript. `parallel-lint` is not installed in this checkout
+  (`app/Vendor/` is absent), so §13.1 ran as `php -l`.
+- A standalone consistency check over the fixture: for all four values, the
+  header equals the sum of the section counts plus the event-level entries,
+  every section's mix sums to its own count, each of the four facet groups sums
+  to the entry total, every value a row carries has a facet row, sections are
+  ordered newest-first and so are the rows inside them.
+- 37 structural assertions over the rendered panel HTML, and 37 (C2) / 40
+  (conflicted) driven assertions per theme in headless Chrome: section
+  disclosure and its `aria-expanded`, expand-all in both directions, the row
+  diff opening to a measured height, a facet switching all seven sections to
+  `n of m` with each count equal to its own visible rows, an emptied section
+  greyed and still occupying space, the mix bars unmoved across filter and
+  clear, the header total equal to the sum of the sections, the free-text
+  filter, the filtered-to-nothing state, and the 28-row section paging to 25
+  and then 3 without touching its neighbours.
+- §13.9's trap answered with MISP's own audit rather than a grep:
+  `/values/queryACL/findMissingFunctionNames` reports only the controller's
+  four private helpers, so `viewHistory` is registered.
+- State 2 rendered by flipping `recorded` to false, checked for the rail card
+  and the records-forward sentence, and reverted.
+- Both themes by computed style: the action glyph resolves to a real fill and a
+  contrasting ink in each (`rgb(207, 226, 255)` / `rgb(5, 44, 101)` light,
+  `rgb(3, 22, 51)` / `rgb(110, 168, 254)` dark), and the rename row keeps its
+  amber rule against both grounds. No `[data-bs-theme="dark"]` block was
+  needed and none was written, because every colour resolves through a token
+  both themes define — recorded in the stylesheet so the absence reads as a
+  decision rather than an omission.

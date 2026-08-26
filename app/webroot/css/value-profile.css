@@ -5443,3 +5443,165 @@ td.vp-rel-pick {
 .vp-tl-blank {
     margin-top: 12px;
 }
+
+/* ==================================================================
+ * The History tab
+ * ------------------------------------------------------------------
+ * Three of the four classes §6 names, and `.vp-audit-row` is not
+ * redefined: phase 15 built it for the Timeline's chronology and
+ * reserved it here, because both tabs draw the same shape — a
+ * timestamped thing with a glyph and a sub-line. The row markup on
+ * this tab is that grid's three children, so the only thing this
+ * panel adjusts is the width of the first track, and only inside
+ * itself.
+ *
+ * No `[data-bs-theme="dark"]` counterpart, and that is not an
+ * oversight. Every colour below resolves through a `--bs-*` token that
+ * both themes define, including the per-action pair
+ * `AuditActionMeta::style()` hands in, so there is nothing here for a
+ * dark block to override. Verified by computed style in both themes,
+ * not by reading.
+ * ================================================================== */
+
+/*
+ * A wider first track and a left rule, both scoped to this panel. Its
+ * sections span months, so a row carries a date as well as a time
+ * where the Timeline's chronology is already grouped by day and needs
+ * only the time; and the left rule is the gutter the rename callout
+ * paints into.
+ */
+[data-vp-audit] .vp-audit-row {
+    grid-template-columns: 5.2rem 1.6rem 1fr;
+    padding: 6px 12px 6px 9px;
+    border-left: 3px solid transparent;
+}
+
+[data-vp-audit] .vp-audit-row:last-child {
+    border-bottom: 0;
+}
+
+/*
+ * The one row that explains why this tab is scoped by attribute id and
+ * not by value. An attribute selector rather than a fifth class: the
+ * row already carries the marker for the template's own branch, and a
+ * class would be a second way of saying the same thing.
+ */
+.vp-audit-row[data-vp-audit-renamed] {
+    border-left-color: var(--bs-warning);
+    background: color-mix(in srgb, var(--bs-warning) 6%,
+        var(--bs-body-bg));
+}
+
+.vp-audit-row[data-vp-audit-renamed]:hover {
+    background: color-mix(in srgb, var(--bs-warning) 11%,
+        var(--bs-body-bg));
+}
+
+/*
+ * The round action glyph, in the row grid's second track. Its three
+ * colours arrive as custom properties, so this is the only rule in the
+ * sheet and there is no per-action variant of it.
+ */
+.vp-audit-act {
+    width: 1.45rem;
+    height: 1.45rem;
+    margin-top: 1px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    background: var(--vp-audit-bg, var(--bs-secondary-bg));
+    color: var(--vp-audit-fg, var(--bs-secondary-color));
+    border: 1px solid var(--vp-audit-edge, var(--bs-border-color));
+}
+
+/* ------------------------------------------------------------------
+ * The diff
+ * ------------------------------------------------------------------ */
+
+/*
+ * The table shrinks to its content and is capped at the row, and the
+ * cells use `overflow-wrap` rather than `word-break`. That pairing is
+ * the point of this block, and both halves were found by measuring.
+ *
+ * `word-break: break-word` puts a cell's minimum content width at one
+ * character, so the table collapsed to 115px wide and 436px tall — an
+ * ISO timestamp set one letter per line. Stretching the table to
+ * `width: 100%` did not fix it, it only moved it: auto layout then
+ * squeezed whichever column was not pinned and that one broke instead.
+ * `overflow-wrap: break-word` allows the same break without lowering
+ * the minimum, so a column is as wide as its longest word and only a
+ * word too long for the row is broken at all.
+ *
+ * The indent comes from the row grid's third track, so there is none
+ * here.
+ */
+.vp-audit-diff {
+    max-width: 100%;
+    margin: 6px 0 2px;
+    font-size: 0.72rem;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+.vp-audit-diff th,
+.vp-audit-diff td {
+    padding: 2px 8px 2px 0;
+    vertical-align: top;
+    font-weight: 400;
+    text-align: left;
+}
+
+.vp-audit-diff th {
+    font-family: var(--bs-font-monospace);
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vp-audit-diff s {
+    color: var(--bs-secondary-color);
+}
+
+/* A `domain|ip` pair or a comment wraps rather than widening the row. */
+.vp-audit-diff td {
+    overflow-wrap: break-word;
+}
+
+.vp-audit-diff td > i {
+    color: var(--bs-secondary-color);
+    font-size: 0.6rem;
+}
+
+/* ------------------------------------------------------------------
+ * The per-occurrence action mix
+ * ------------------------------------------------------------------ */
+
+/*
+ * What kinds of change this occurrence has seen, at a glance and in the
+ * same order in every section so two of them can be compared. Never
+ * re-proportioned by the rail: it describes the occurrence, and
+ * redrawing it under a filter would make the filter look like history.
+ */
+.vp-audit-mix {
+    display: flex;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: var(--bs-secondary-bg);
+}
+
+.vp-audit-mix > span {
+    flex: 0 0 var(--vp-audit-share, 0%);
+    background: var(--vp-audit-hue, var(--bs-secondary-color));
+    /*
+     * Two neighbouring actions can share a colour — sixteen actions
+     * against the six theme colours that have a subtle pair — so the
+     * segments are separated rather than left to merge into one block.
+     */
+    box-shadow: inset -1px 0 0 var(--bs-body-bg);
+}
+
+.vp-audit-mix > span:last-child {
+    box-shadow: none;
+}
