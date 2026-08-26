@@ -1908,6 +1908,12 @@ host one is the move §9.7.5 already declined.
 
 ### 11.4 What ships
 
+**The numbers, so they are not re-decided.** The default window is **30 days**
+back from `TODAY`. Sections page at **eight**, the size every other list on the
+tab uses. The chart's bars are **monthly** over the value's whole span. The
+sibling join's `SIBLING_JOIN_CAP` has no counterpart here: the window is the
+bound, and it is a date rather than a count.
+
 **Fixture.** `45.155.205.233` gets a real fourteen-month audit history: a few
 hundred entries over roughly 190 of its 748 occurrences, with recent activity so
 it lands populated. It must land populated — 748 occurrences arriving
