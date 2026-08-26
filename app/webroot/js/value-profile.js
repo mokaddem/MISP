@@ -162,6 +162,13 @@
      * Soft-deleted rows are not a facet value: they are excluded
      * until revealed, because filtering *to* deleted rows and
      * including them alongside the rest are different questions.
+     *
+     * Lists nest. A `[data-vp-list]` inside another owns its rows, its
+     * pager and its range, and the outer one leaves them alone — the
+     * Relationships tab's object-siblings section pages separately from
+     * the ranked table under it. Narrowing controls are not nested in
+     * this pass: the inner section has none, and one that grew them
+     * would need the facet lookups scoped the same way.
      * ============================================================== */
 
     // Current page per list, keyed by the element so several lists on
@@ -169,16 +176,67 @@
     var listPages = new WeakMap();
 
     /**
+     * The nodes a list owns, which is not the same as the nodes inside
+     * it. A panel may hold a second `[data-vp-list]` — the
+     * Relationships tab's object-siblings section pages independently
+     * of the ranked table below it — and an unscoped query would let
+     * the outer control page the inner section's rows and print a
+     * range that belongs to neither.
+     *
+     * @param {Element} list
+     * @param {string} selector
+     * @return {Array<Element>}
+     */
+    function ownNodes(list, selector) {
+        return ownedBy(list, list.querySelectorAll(selector));
+    }
+
+    /**
+     * @param {Element} list
+     * @param {NodeList} nodes
+     * @return {Array<Element>}
+     */
+    function ownedBy(list, nodes) {
+        return Array.prototype.slice.call(nodes).filter(function (node) {
+            return node.closest('[data-vp-list]') === list;
+        });
+    }
+
+    /**
+     * @param {Element} list
+     * @param {string} selector
+     * @return {?Element}
+     */
+    function ownNode(list, selector) {
+        return ownNodes(list, selector)[0] || null;
+    }
+
+    /**
+     * @param {Element} list
+     * @param {string} selector
+     * @param {number|string} value
+     */
+    function setOwnText(list, selector, value) {
+        var target = ownNode(list, selector);
+        if (target) {
+            target.textContent = value;
+        }
+    }
+
+    /**
      * @param {Element} list
      * @return {Array<Element>}
      */
     function listRows(list) {
-        var host = list.querySelector('[data-vp-list-rows]') || list;
-        var explicit = host.querySelectorAll('[data-vp-list-row]');
+        var host = ownNode(list, '[data-vp-list-rows]') || list;
+        var explicit = ownedBy(
+            list,
+            host.querySelectorAll('[data-vp-list-row]')
+        );
         if (explicit.length) {
-            return Array.prototype.slice.call(explicit);
+            return explicit;
         }
-        return Array.prototype.slice.call(host.querySelectorAll('tbody tr'));
+        return ownedBy(list, host.querySelectorAll('tbody tr'));
     }
 
     /**
@@ -482,7 +540,7 @@
      * @param {Array<Element>} filtered
      */
     function sortRows(list, filtered) {
-        var select = list.querySelector('[data-vp-sort]');
+        var select = ownNode(list, '[data-vp-sort]');
         if (!select || filtered.length < 2) {
             return;
         }
@@ -603,7 +661,7 @@
      * @param {Array<Element>} filtered
      */
     function paginate(list, filtered) {
-        var pager = list.querySelector('[data-vp-pager]');
+        var pager = ownNode(list, '[data-vp-pager]');
         var size = pager ? parseInt(pager.dataset.vpPageSize, 10) : 0;
 
         if (!pager || !size || size < 1) {
@@ -684,9 +742,9 @@
      * @param {number} of
      */
     function setListRange(list, from, to, of) {
-        setText(list, '[data-vp-page-from]', from);
-        setText(list, '[data-vp-page-to]', to);
-        setText(list, '[data-vp-page-of]', of);
+        setOwnText(list, '[data-vp-page-from]', from);
+        setOwnText(list, '[data-vp-page-to]', to);
+        setOwnText(list, '[data-vp-page-of]', of);
     }
 
     /**
@@ -701,21 +759,21 @@
      * @param {number} activeCount
      */
     function updateListNotes(list, shown, activeCount) {
-        setText(list, '[data-vp-list-shown]', shown);
-        setText(list, '[data-vp-facet-rows]', shown);
-        setText(list, '[data-vp-facet-count-active]', activeCount);
+        setOwnText(list, '[data-vp-list-shown]', shown);
+        setOwnText(list, '[data-vp-facet-rows]', shown);
+        setOwnText(list, '[data-vp-facet-count-active]', activeCount);
 
-        var summary = list.querySelector('[data-vp-facet-summary]');
+        var summary = ownNode(list, '[data-vp-facet-summary]');
         if (summary) {
             summary.classList.toggle('vp-facet-summary-on', activeCount > 0);
         }
 
-        var clear = list.querySelector('[data-vp-facet-clear]');
+        var clear = ownNode(list, '[data-vp-facet-clear]');
         if (clear) {
             clear.disabled = activeCount === 0;
         }
 
-        var empty = list.querySelector('[data-vp-list-empty]');
+        var empty = ownNode(list, '[data-vp-list-empty]');
         // Only a filter can produce this: a list that was empty to
         // begin with has its own empty state from the template, and
         // saying "no rows match" over it would be a different claim.
@@ -723,7 +781,7 @@
         if (empty) {
             empty.classList.toggle('d-none', !blank);
         }
-        var rows = list.querySelector('[data-vp-list-rows]');
+        var rows = ownNode(list, '[data-vp-list-rows]');
         if (rows && empty) {
             rows.classList.toggle('d-none', blank);
         }

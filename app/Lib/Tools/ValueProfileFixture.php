@@ -22,6 +22,13 @@ class ValueProfileFixture
         '185.234.219.24' => 'MALICIOUS',
         '104.21.34.198' => 'CONFLICTED',
         '8.8.8.8' => 'BENIGN',
+        /*
+         * The same disposition as the first, and here for a different
+         * axis: 812 occurrences rather than ten, which is the count
+         * every panel on the page scales on and none of the first three
+         * exercise.
+         */
+        '45.155.205.233' => 'MALICIOUS',
     );
 
     /**
@@ -41,6 +48,17 @@ class ValueProfileFixture
     const EXPIRATION = 2;
 
     /**
+     * How many object ids the object-sibling join is allowed to read.
+     *
+     * The aggregate is over every occurrence the viewer can see rather
+     * than over the Occurrences tab's current page, so it needs a
+     * ceiling. When the ceiling bites the section says so and every
+     * count under it reads as a floor — an unlabelled aggregate over a
+     * truncated set is the one thing it must not produce.
+     */
+    const SIBLING_JOIN_CAP = 500;
+
+    /**
      * @param string $value A refanged value, as MISP stores it.
      * @return array
      */
@@ -54,6 +72,9 @@ class ValueProfileFixture
         }
         if ($value === '8.8.8.8') {
             return self::benign();
+        }
+        if ($value === '45.155.205.233') {
+            return self::flux();
         }
         return self::unknown($value);
     }
@@ -4644,6 +4665,168 @@ class ValueProfileFixture
     }
 
     /**
+     * The sibling section, aggregated from the raw join.
+     *
+     * One row per `(object template, relation, sibling value)` triple
+     * with a distinct-object count beside it, which is the whole of
+     * phase 18: the same sibling seen five hundred times is one row
+     * that says five hundred, and five hundred distinct siblings rank
+     * and page instead of scrolling.
+     *
+     * Small values keep their raw table here rather than a hand-written
+     * aggregate, so that the aggregation of three rows demonstrably
+     * stays three rows.
+     *
+     * @param array $table Raw rows, as relSiblingRows reads them.
+     * @param array $meta Overrides — `hidden`, `page_size`, `cap`.
+     * @return array
+     */
+    private static function relSiblings(array $table, array $meta = array())
+    {
+        $groups = array();
+        $objects = array();
+        foreach (self::relSiblingRows($table) as $row) {
+            $template = $row['object']['name'];
+            $key = $template . "\0" . $row['relation'] . "\0" . $row['value'];
+            if (!isset($groups[$key])) {
+                $groups[$key] = array(
+                    'object' => $template,
+                    'relation' => $row['relation'],
+                    'value' => $row['value'],
+                    'type' => $row['type'],
+                    'objects' => array(),
+                    'events' => array(),
+                    'orgs' => array(),
+                );
+            }
+            $groups[$key]['objects'][$row['object']['id']] = true;
+            $groups[$key]['events'][$row['event']] = true;
+            $groups[$key]['orgs'][$row['org']] = true;
+            $objects[$row['object']['id']] = true;
+        }
+
+        $rows = array();
+        foreach ($groups as $group) {
+            $events = array_keys($group['events']);
+            $held = count($group['objects']);
+            $rows[] = array(
+                'object' => $group['object'],
+                'relation' => $group['relation'],
+                'value' => $group['value'],
+                'type' => $group['type'],
+                'objects' => $held,
+                'events' => count($events),
+                /*
+                 * Aggregating to a triple loses the object ids, so
+                 * "which object" becomes a drill-down this pass does
+                 * not build. The event link survives only where the
+                 * row stands for a single object and so cannot be
+                 * ambiguous about which event it means.
+                 */
+                'event' => $held === 1 && count($events) === 1
+                    ? $events[0]
+                    : null,
+                'orgs' => array_keys($group['orgs']),
+                'org_total' => count($group['orgs']),
+            );
+        }
+
+        return self::relSiblingSection($rows, $meta + array(
+            'total' => count($rows),
+            'raw' => count($table),
+            'objects' => count($objects),
+            'in_objects' => count($objects),
+        ));
+    }
+
+    /**
+     * The same section for a value whose raw join is too large to write
+     * down, given as the aggregate a `GROUP BY` would return.
+     *
+     * The listed rows are a ranked prefix and the totals are the real
+     * ones, which is the idiom the co-occurrence pane beside it already
+     * uses for 1,462 correlations — `1–8 of 32 (494 in total)` states
+     * the cut instead of implying there is none.
+     *
+     * Columns: template · relation · value · type · objects · events ·
+     * organisations · distinct organisations.
+     *
+     * @param array $table
+     * @param array $meta
+     * @return array
+     */
+    private static function relSiblingGroups(array $table, array $meta)
+    {
+        $rows = array();
+        foreach ($table as $row) {
+            $rows[] = array(
+                'object' => $row[0],
+                'relation' => $row[1],
+                'value' => $row[2],
+                'type' => $row[3],
+                'objects' => (int)$row[4],
+                'events' => (int)$row[5],
+                'event' => null,
+                'orgs' => $row[6],
+                'org_total' => isset($row[7])
+                    ? (int)$row[7]
+                    : count($row[6]),
+            );
+        }
+        return self::relSiblingSection($rows, $meta);
+    }
+
+    /**
+     * Rank the rows and state the section's own bounds.
+     *
+     * PHP 8's sort is stable, so rows holding the same number of
+     * objects keep the order they were authored in — which is what
+     * lets a three-row value render exactly as it did before the
+     * aggregation existed.
+     *
+     * @param array $rows
+     * @param array $meta
+     * @return array
+     */
+    private static function relSiblingSection(array $rows, array $meta)
+    {
+        usort($rows, function ($a, $b) {
+            return $b['objects'] - $a['objects'];
+        });
+
+        $inObjects = (int)$meta['in_objects'];
+        $limit = isset($meta['cap'])
+            ? (int)$meta['cap']
+            : self::SIBLING_JOIN_CAP;
+
+        return array(
+            'rows' => $rows,
+            /*
+             * Distinct triples the value has, listed or not. The badge
+             * prints this and not `count($rows)`: phase 17 §9.4 found
+             * the old badge stating a page as if it were a total.
+             */
+            'total' => (int)$meta['total'],
+            'raw' => (int)$meta['raw'],
+            'objects' => (int)$meta['objects'],
+            'in_objects' => $inObjects,
+            'cap' => array(
+                'limit' => $limit,
+                'applied' => $inObjects > $limit,
+            ),
+            /*
+             * Sibling attributes inside an object the viewer can open
+             * whose own distribution still keeps them out. Counted
+             * where it can be, named where it cannot.
+             */
+            'hidden' => isset($meta['hidden']) ? (int)$meta['hidden'] : 0,
+            'page_size' => isset($meta['page_size'])
+                ? (int)$meta['page_size']
+                : 8,
+        );
+    }
+
+    /**
      * A CIDR containment row, re-derived rather than read.
      *
      * The correlation table records no provenance, so nothing in it
@@ -5028,15 +5211,15 @@ class ValueProfileFixture
     /**
      * The other attributes of the two objects this value is part of.
      *
-     * The highest-signal rows on the tab and the cheapest to compute:
-     * the page has already fetched the occurrences, so this is a join
-     * on `object_id` and nothing more.
+     * Ten occurrences sit in two objects, so the aggregate is the raw
+     * join: three triples, one object each. The section reads the same
+     * as it did before phase 18 and its badge still says three.
      *
      * @return array
      */
     private static function maliciousRelationSiblings()
     {
-        return self::relSiblingRows(array(
+        return self::relSiblings(array(
             array(89771, 'domain-ip', 'domain', 'update.cdn-analytics.net',
                 'domain', 1279, 'CIRCL'),
             array(89771, 'domain-ip', 'first-seen',
@@ -5146,7 +5329,7 @@ class ValueProfileFixture
                 'distinct_values' => 1462,
                 'events' => 5,
                 'page_size' => 8,
-                'siblings' => self::relSiblingRows(array(
+                'siblings' => self::relSiblings(array(
                     array(96331, 'domain-ip', 'domain',
                         'secure-mybank-lu.com', 'domain', 1402, 'CIRCL'),
                     array(96331, 'domain-ip', 'first-seen',
@@ -5497,7 +5680,7 @@ class ValueProfileFixture
                 'distinct_values' => 0,
                 'events' => 0,
                 'page_size' => 8,
-                'siblings' => self::relSiblingRows(array(
+                'siblings' => self::relSiblings(array(
                     array(90886, 'domain-ip', 'domain', 'dns.google',
                         'domain', 1298, 'CthulhuSPRL.be'),
                 )),
@@ -5621,7 +5804,7 @@ class ValueProfileFixture
                 'distinct_values' => 0,
                 'events' => 0,
                 'page_size' => 8,
-                'siblings' => array(),
+                'siblings' => self::relSiblings(array()),
                 'rollups' => array(
                     'value' => array('total' => 0, 'rows' => array()),
                     'event' => array('total' => 0, 'rows' => array()),
@@ -8981,5 +9164,1983 @@ class ValueProfileFixture
             'viewer_org' => 'CIRCL',
             'vocab' => self::auditVocab(),
         ));
+    }
+
+    /* ==================================================================
+     * The fourth demo value — occurrence scale
+     * ------------------------------------------------------------------
+     * `45.155.205.233` exists because of what phase 17 §9.2 found: the
+     * first three demo values carry 10, 9 and 9 occurrences, so every
+     * panel that scales on the occurrence count was designed and
+     * verified against a value that never stressed it. This one carries
+     * 812, and it is over-correlating, so the Relationships tab's
+     * correlation band says nothing was stored and the object-siblings
+     * section is the only content left on it.
+     *
+     * Almost nothing here is typed in row by row. The occurrences are
+     * generated from an explicit plan — 601 `ip-dst`, 402 at
+     * distribution 3, 683 inside an object — and every count the page
+     * states about them is tallied back from the rows that were
+     * generated, so the plan and the page cannot drift apart.
+     *
+     * The permutations are index arithmetic on multipliers coprime with
+     * 748 rather than anything random: the fixture has to render the
+     * same page twice.
+     * ================================================================== */
+
+    /**
+     * The 23 organisations that have reported this address.
+     *
+     * Index plus one is the `Orgc.id`, which is what the facet rail
+     * matches an organisation on.
+     *
+     * @return array
+     */
+    private static function fluxOrgs()
+    {
+        return array(
+            'CIRCL', 'CthulhuSPRL.be', 'Team-CIRCL', 'ORGNAME',
+            'Botvrij.eu', 'CERT-EU', 'NCSC-NL', 'CERT.PL', 'CERT-SE',
+            'CIRCL-Sandbox', 'ANSSI', 'CERT-Bund', 'NASK', 'SK-CERT',
+            'CERT-LV', 'CSIRT-IE', 'CERT-EE', 'CIRCL-Partners',
+            'GOVCERT.LU', 'CERT-RO', 'CERT-GR', 'CERT-SI', 'CERT-MT',
+        );
+    }
+
+    /**
+     * The tags an occurrence of this value can carry, in MISP's
+     * `AttributeTag` shape.
+     *
+     * @return array
+     */
+    private static function fluxTagPool()
+    {
+        return array(
+            'amber' => array(
+                'local' => 0,
+                'Tag' => array(
+                    'name' => 'tlp:amber',
+                    'colour' => '#FFC000',
+                    'is_galaxy' => false,
+                ),
+            ),
+            'green' => array(
+                'local' => 0,
+                'Tag' => array(
+                    'name' => 'tlp:green',
+                    'colour' => '#33FF00',
+                    'is_galaxy' => false,
+                ),
+            ),
+            'osint' => array(
+                'local' => 0,
+                'Tag' => array(
+                    'name' => 'type:OSINT',
+                    'colour' => '#004646',
+                    'is_galaxy' => false,
+                ),
+            ),
+            'pap' => array(
+                'local' => 0,
+                'Tag' => array(
+                    'name' => 'PAP:AMBER',
+                    'colour' => '#FFC000',
+                    'is_galaxy' => false,
+                ),
+            ),
+            'qakbot' => array(
+                'local' => 0,
+                'Tag' => array(
+                    'name' => 'misp-galaxy:malware="QakBot"',
+                    'colour' => '#8B5CF6',
+                    'is_galaxy' => true,
+                ),
+            ),
+            'reviewed' => array(
+                'local' => 1,
+                'Tag' => array(
+                    'name' => 'workflow:state="reviewed"',
+                    'colour' => '#3F51B5',
+                    'is_galaxy' => false,
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The 748 occurrences the viewer can open, of 812 the value has.
+     *
+     * Shaped exactly like `maliciousOccurrences()` — a
+     * `fetchAttributes` result — so the Occurrences tab, the Timeline's
+     * edit lane and the History tab read it without knowing it was
+     * generated.
+     *
+     * The plan, and it is the plan the rest of the page states:
+     *
+     *   type          601 ip-dst · 118 ip-src · 29 domain|ip
+     *   category      664 Network activity · 71 Payload delivery
+     *                 · 13 External analysis
+     *   to_ids        592 set · 156 unset
+     *   distribution  402 all · 96 connected · 171 community
+     *                 · 52 sharing group · 27 own org
+     *   objects       683 in one — 397 domain-ip, 229
+     *                 network-connection, 57 ip-port — and 65 bare
+     *   deleted       11
+     *
+     * @return array
+     */
+    private static function fluxOccurrences()
+    {
+        $orgs = self::fluxOrgs();
+        $tags = self::fluxTagPool();
+        $titles = array(
+            'Fast-flux C2 rotation, batch %d',
+            'QakBot distribution infrastructure, week %d',
+            'Bulletproof hosting sweep %d',
+            'OSINT - C2 panel harvest %d',
+            'Member-reported beaconing, case %d',
+            'Sinkhole telemetry export %d',
+            'Phishing kit callback set %d',
+            'Botnet tracker snapshot %d',
+        );
+        $comments = array(
+            'Beaconing every 300s, TLS on 8443',
+            'Same self-signed certificate as the June set',
+            'Seen in a QakBot config dump',
+            'Reported by a member, not independently confirmed',
+            'Panel answered until the provider pulled the range',
+        );
+
+        $n = 748;
+        $events = 137;
+        $from = '2024-06-11';
+        $span = self::dayDiff($from, '2025-08-23');
+        $rows = array();
+
+        /*
+         * Type is assigned up front rather than inside the loop,
+         * because two of the plan's rules constrain each other: a
+         * `domain|ip` composite has no object slot to sit in, so the 29
+         * composites have to come out of the 65 occurrences that are
+         * not in an object. Deciding type independently and correcting
+         * it afterwards is what makes 29 collapse to 2.
+         */
+        $types = array_fill(0, $n, 'ip-dst');
+        $bare = array();
+        for ($k = 0; $k < $n; $k++) {
+            if ((($k * 401) % $n) >= 683) {
+                $bare[] = $k;
+            }
+        }
+        foreach (array_slice($bare, 0, 29) as $k) {
+            $types[$k] = 'domain|ip';
+        }
+        $sources = 0;
+        for ($k = 0; $k < $n && $sources < 118; $k++) {
+            $slot = ($k * 313) % $n;
+            if ($types[$slot] === 'ip-dst') {
+                $types[$slot] = 'ip-src';
+                $sources++;
+            }
+        }
+
+        for ($i = 0; $i < $n; $i++) {
+            /*
+             * Newest first, and the event index descends with it, so
+             * the higher event id is the more recent one — which is
+             * what a reader assumes of an id MISP hands out in order.
+             */
+            $e = $events - 1 - intdiv($i * $events, $n);
+            $eventId = 1500 + $e;
+            $orgIndex = $e % count($orgs);
+            $day = self::addDays($from, $span - intdiv($i * $span, $n - 1));
+
+            $catSlot = ($i * 97) % $n;
+            $idsSlot = ($i * 587) % $n;
+            $distSlot = ($i * 199) % $n;
+            $objSlot = ($i * 401) % $n;
+            $delSlot = ($i * 461) % $n;
+            $tagSlot = ($i * 137) % $n;
+
+            $type = $types[$i];
+
+            if ($catSlot < 664) {
+                $category = 'Network activity';
+            } elseif ($catSlot < 735) {
+                $category = 'Payload delivery';
+            } else {
+                $category = 'External analysis';
+            }
+
+            if ($distSlot < 402) {
+                $distribution = 3;
+            } elseif ($distSlot < 498) {
+                $distribution = 2;
+            } elseif ($distSlot < 669) {
+                $distribution = 1;
+            } elseif ($distSlot < 721) {
+                $distribution = 4;
+            } else {
+                $distribution = 0;
+            }
+
+            $objectId = 0;
+            $template = null;
+            $relation = null;
+            if ($objSlot < 683) {
+                if ($objSlot < 397) {
+                    $template = 'domain-ip';
+                    $relation = 'ip';
+                } elseif ($objSlot < 626) {
+                    $template = 'network-connection';
+                    $relation = 'ip-dst';
+                } else {
+                    $template = 'ip-port';
+                    $relation = 'ip';
+                }
+                $objectId = 92000 + $objSlot;
+            }
+
+            $unset = ($i % 37) === 0;
+            $clock = sprintf('%02d:%02d:00+00:00', ($i * 7) % 24,
+                ($i * 13) % 60);
+            $firstSeen = $unset ? null : $day . 'T' . $clock;
+            $lastSeen = (!$unset && ($i % 5) !== 0)
+                ? self::addDays($day, 1 + ($i % 9)) . 'T' . $clock
+                : null;
+
+            $attributeTags = array();
+            if ($tagSlot < 431) {
+                $attributeTags[] = $tags['amber'];
+            } elseif ($tagSlot < 578) {
+                $attributeTags[] = $tags['green'];
+            }
+            if (($i % 3) === 0) {
+                $attributeTags[] = $tags['osint'];
+            }
+            if (($i % 5) === 0) {
+                $attributeTags[] = $tags['pap'];
+            }
+            if (($i % 7) === 0) {
+                $attributeTags[] = $tags['qakbot'];
+            }
+            if (($i % 23) === 0) {
+                $attributeTags[] = $tags['reviewed'];
+            }
+
+            $row = array(
+                'Attribute' => array(
+                    'id' => 5200000 + $i * 7,
+                    'uuid' => sprintf(
+                        '%08x-%04x-4%03x-8%03x-%012x',
+                        3400000 + $i * 7919,
+                        ($i * 31) % 0xffff,
+                        $i % 0xfff,
+                        ($i * 17) % 0xfff,
+                        5200000000 + $i * 104729
+                    ),
+                    'event_id' => $eventId,
+                    'object_id' => $objectId,
+                    'type' => $type,
+                    'category' => $category,
+                    'to_ids' => $idsSlot < 592 ? 1 : 0,
+                    'distribution' => $distribution,
+                    'sharing_group_id' => $distribution === 4 ? 7 : 0,
+                    'comment' => ($i % 6) === 0
+                        ? $comments[intdiv($i, 6) % count($comments)]
+                        : '',
+                    'first_seen' => $firstSeen,
+                    'last_seen' => $lastSeen,
+                    'timestamp' => self::plainStamp($day),
+                    'deleted' => $delSlot < 11 ? 1 : 0,
+                    'object_relation' => $relation,
+                ),
+                'Event' => array(
+                    'id' => $eventId,
+                    'info' => sprintf(
+                        $titles[$e % count($titles)],
+                        1 + intdiv($e, count($titles))
+                    ),
+                    'published' => ($e % 9) === 0 ? 0 : 1,
+                    'orgc_id' => $orgIndex + 1,
+                    'user_id' => 3 + ($e % 17),
+                    'Orgc' => array(
+                        'id' => $orgIndex + 1,
+                        'name' => $orgs[$orgIndex],
+                    ),
+                ),
+                'Object' => array('id' => $objectId ?: null,
+                    'name' => $template),
+                'SharingGroup' => $distribution === 4
+                    ? array('id' => 7, 'name' => 'CIRCL private sector')
+                    : array('id' => null, 'name' => null),
+                'AttributeTag' => $attributeTags,
+            );
+
+            // A handful carry a pending proposal, so the `state` facet
+            // group has something to narrow on at this scale too.
+            if (($i % 149) === 0) {
+                $row['proposal_count'] = 1;
+            }
+
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A `Y-m-d` at midday UTC, as an integer timestamp.
+     *
+     * Midday rather than midnight so a timezone the reader's browser
+     * applies cannot move the day.
+     *
+     * @param string $day
+     * @return int
+     */
+    private static function plainStamp($day)
+    {
+        $d = new DateTimeImmutable(
+            $day . ' 12:00:00',
+            new DateTimeZone('UTC')
+        );
+        return (int)$d->format('U');
+    }
+
+    /**
+     * Every count the Occurrences tab states, tallied from the rows.
+     *
+     * Nothing here is a second copy of the plan in `fluxOccurrences()`:
+     * a tally that disagreed with the rows would be a tally this method
+     * could not produce.
+     *
+     * @param array $occurrences
+     * @return array
+     */
+    private static function fluxTally(array $occurrences)
+    {
+        $tally = array(
+            'type' => array(),
+            'category' => array(),
+            'ids' => array('set' => 0, 'unset' => 0),
+            'distribution' => array(),
+            'organisation' => array(),
+            'sharing_group' => array(),
+            'tag' => array(),
+            'state' => array('proposal' => 0),
+            'orgs' => array(),
+            'events' => array(),
+            'published' => array(),
+            'objects' => array(),
+            'templates' => array(),
+            'deleted' => 0,
+            'seen_unset' => 0,
+        );
+
+        foreach ($occurrences as $row) {
+            $attribute = $row['Attribute'];
+            $event = $row['Event'];
+            $type = $attribute['type'];
+            $category = $attribute['category'];
+            $level = (int)$attribute['distribution'];
+            $orgId = (int)$event['Orgc']['id'];
+
+            $tally['type'][$type] = 1 + (isset($tally['type'][$type])
+                ? $tally['type'][$type] : 0);
+            $tally['category'][$category] = 1
+                + (isset($tally['category'][$category])
+                    ? $tally['category'][$category] : 0);
+            $tally['ids'][empty($attribute['to_ids'])
+                ? 'unset' : 'set']++;
+            $tally['distribution'][$level] = 1
+                + (isset($tally['distribution'][$level])
+                    ? $tally['distribution'][$level] : 0);
+            $tally['organisation'][$orgId] = 1
+                + (isset($tally['organisation'][$orgId])
+                    ? $tally['organisation'][$orgId] : 0);
+            $tally['orgs'][$event['Orgc']['name']] = 1
+                + (isset($tally['orgs'][$event['Orgc']['name']])
+                    ? $tally['orgs'][$event['Orgc']['name']] : 0);
+            $tally['events'][$event['id']] = true;
+            if (!empty($event['published'])) {
+                $tally['published'][$event['id']] = true;
+            }
+            if ($level === 4 && !empty($row['SharingGroup']['id'])) {
+                $sg = (int)$row['SharingGroup']['id'];
+                $tally['sharing_group'][$sg] = 1
+                    + (isset($tally['sharing_group'][$sg])
+                        ? $tally['sharing_group'][$sg] : 0);
+            }
+            foreach ($row['AttributeTag'] as $attributeTag) {
+                // Galaxy tags are not a facet: the column does not
+                // draw them, and a filter on something invisible is
+                // not a filter.
+                if (!empty($attributeTag['Tag']['is_galaxy'])) {
+                    continue;
+                }
+                $name = $attributeTag['Tag']['name'];
+                if (!isset($tally['tag'][$name])) {
+                    $tally['tag'][$name] = array(
+                        'colour' => $attributeTag['Tag']['colour'],
+                        'local' => (int)$attributeTag['local'],
+                        'count' => 0,
+                    );
+                }
+                $tally['tag'][$name]['count']++;
+            }
+            if (!empty($row['proposal_count'])) {
+                $tally['state']['proposal']++;
+            }
+            if (!empty($attribute['deleted'])) {
+                $tally['deleted']++;
+            }
+            if (empty($attribute['first_seen'])
+                && empty($attribute['last_seen'])
+            ) {
+                $tally['seen_unset']++;
+            }
+            if (!empty($attribute['object_id'])) {
+                $tally['objects'][$attribute['object_id']] = true;
+                $name = $row['Object']['name'];
+                $tally['templates'][$name] = 1
+                    + (isset($tally['templates'][$name])
+                        ? $tally['templates'][$name] : 0);
+            }
+        }
+
+        arsort($tally['type']);
+        arsort($tally['category']);
+        arsort($tally['distribution']);
+        arsort($tally['organisation']);
+        arsort($tally['orgs']);
+        arsort($tally['templates']);
+        uasort($tally['tag'], function ($a, $b) {
+            return $b['count'] - $a['count'];
+        });
+
+        return $tally;
+    }
+
+    /**
+     * Forty buckets across the value's seen span, each counting the
+     * occurrences whose first/last-seen interval covers it.
+     *
+     * @param array $occurrences
+     * @param string $from
+     * @param string $to
+     * @return array
+     */
+    private static function fluxSeenSpark(array $occurrences, $from, $to)
+    {
+        $buckets = array_fill(0, 40, 0);
+        $span = max(1, self::dayDiff($from, $to));
+        foreach ($occurrences as $row) {
+            $first = $row['Attribute']['first_seen'];
+            $last = $row['Attribute']['last_seen'];
+            if (empty($first) && empty($last)) {
+                continue;
+            }
+            $start = substr($first ?: $last, 0, 10);
+            $end = substr($last ?: $first, 0, 10);
+            $a = (int)floor(self::dayDiff($from, $start) * 40 / $span);
+            $b = (int)floor(self::dayDiff($from, $end) * 40 / $span);
+            for ($k = max(0, $a); $k <= min(39, $b); $k++) {
+                $buckets[$k]++;
+            }
+        }
+        return $buckets;
+    }
+
+    /**
+     * The facet rail, built from the tally.
+     *
+     * `visible` is the occurrences the viewer can open, which at this
+     * scale is also the number of rows the table holds — the rail's own
+     * note promises the counts cover them, and it has to be able to
+     * keep that promise.
+     *
+     * @param array $occurrences
+     * @param array $tally
+     * @return array
+     */
+    private static function fluxOccurrenceFacets(
+        array $occurrences,
+        array $tally
+    ) {
+        $orgs = self::fluxOrgs();
+
+        $organisation = array();
+        foreach ($tally['organisation'] as $id => $count) {
+            $organisation[] = self::facetRow(
+                $orgs[$id - 1],
+                (string)$id,
+                $count
+            );
+        }
+
+        $type = array();
+        foreach ($tally['type'] as $name => $count) {
+            $type[] = self::facetRow(
+                $name,
+                trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)),
+                    '-'),
+                $count
+            );
+        }
+
+        $category = array();
+        foreach ($tally['category'] as $name => $count) {
+            $category[] = self::facetRow(
+                $name,
+                trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)),
+                    '-'),
+                $count
+            );
+        }
+
+        $distribution = array();
+        foreach ($tally['distribution'] as $level => $count) {
+            $distribution[] = self::distributionFacet($level, $count);
+        }
+
+        $sharingGroup = array();
+        foreach ($tally['sharing_group'] as $id => $count) {
+            $sharingGroup[] = self::facetRow(
+                'CIRCL private sector',
+                (string)$id,
+                $count
+            );
+        }
+
+        $tag = array();
+        foreach ($tally['tag'] as $name => $row) {
+            $tag[] = self::tagFacet(
+                $name,
+                $row['colour'],
+                $row['local'],
+                trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($name)),
+                    '-'),
+                $row['count']
+            );
+        }
+
+        $state = array();
+        if (!empty($tally['state']['proposal'])) {
+            $state[] = self::facetRow(
+                __('With a pending proposal'),
+                'proposal',
+                $tally['state']['proposal']
+            );
+        }
+
+        return array(
+            'visible' => count($occurrences),
+            'total' => 812,
+            'groups' => array(
+                'organisation' => $organisation,
+                'type' => $type,
+                'category' => $category,
+                'ids' => array(
+                    self::facetRow(__('to_ids set'), 'set',
+                        $tally['ids']['set']),
+                    self::facetRow(__('to_ids unset'), 'unset',
+                        $tally['ids']['unset']),
+                ),
+                'distribution' => $distribution,
+                'sharing_group' => $sharingGroup,
+                'tag' => $tag,
+                'state' => $state,
+            ),
+            'seen_spark' => self::fluxSeenSpark(
+                $occurrences,
+                '2024-06-11',
+                '2025-08-23'
+            ),
+            'seen_from' => '2024-06-11',
+            'seen_to' => '2025-08-23',
+            'seen_unset' => $tally['seen_unset'],
+            'deleted' => $tally['deleted'],
+            'banner_note' => array(
+                'chip' => 'ip-dst',
+                'banner' => 649,
+                'rail' => isset($tally['type']['ip-dst'])
+                    ? $tally['type']['ip-dst']
+                    : 0,
+            ),
+        );
+    }
+
+    /**
+     * Tags aggregated across every occurrence, grouped by taxonomy.
+     *
+     * @param array $tally
+     * @return array
+     */
+    private static function fluxTags(array $tally)
+    {
+        $count = function ($name) use ($tally) {
+            return isset($tally['tag'][$name])
+                ? $tally['tag'][$name]['count']
+                : 0;
+        };
+
+        return array(
+            array(
+                'taxonomy' => 'tlp',
+                /*
+                 * A conflict at 23 reporters, and still a conflict: the
+                 * panel's job is to say the two readings are both in
+                 * use, not to decide that at this scale it stops
+                 * mattering.
+                 */
+                'conflict' => true,
+                'tags' => array(
+                    array(
+                        'name' => 'tlp:amber',
+                        'colour' => '#FFC000',
+                        'count' => $count('tlp:amber'),
+                        'local' => false,
+                        'orgs' => array('CIRCL', 'CthulhuSPRL.be',
+                            'CERT-EU'),
+                    ),
+                    array(
+                        'name' => 'tlp:green',
+                        'colour' => '#33FF00',
+                        'count' => $count('tlp:green'),
+                        'local' => false,
+                        'orgs' => array('Team-CIRCL', 'Botvrij.eu'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'pap',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'PAP:AMBER',
+                        'colour' => '#FFC000',
+                        'count' => $count('PAP:AMBER'),
+                        'local' => false,
+                        'orgs' => array('CIRCL'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'type',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'type:OSINT',
+                        'colour' => '#004646',
+                        'count' => $count('type:OSINT'),
+                        'local' => false,
+                        'orgs' => array('CIRCL', 'Botvrij.eu'),
+                    ),
+                ),
+            ),
+            array(
+                'taxonomy' => 'workflow',
+                'conflict' => false,
+                'tags' => array(
+                    array(
+                        'name' => 'workflow:state="reviewed"',
+                        'colour' => '#3F51B5',
+                        'count' => $count('workflow:state="reviewed"'),
+                        'local' => true,
+                        'orgs' => array('CIRCL'),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * 418 sightings over the fourteen months, skewed towards the four
+     * organisations that watch this range closely and thinning out
+     * across the other nineteen.
+     *
+     * Nine false positives and one expiration, so all three type
+     * toggles have something to toggle.
+     *
+     * @return array
+     */
+    private static function fluxSightingRows()
+    {
+        $orgs = self::fluxOrgs();
+        $n = 418;
+        $from = '2024-06-11';
+        $span = self::dayDiff($from, '2025-08-23');
+        $falsePositives = array(37, 84, 121, 168, 203, 259, 301, 355, 394);
+        $expiration = 276;
+        $types = array('ip-dst', 'ip-dst', 'ip-dst', 'ip-src', 'ip-dst',
+            'domain|ip', 'ip-dst', 'ip-src');
+        $table = array();
+
+        for ($j = 0; $j < $n; $j++) {
+            $day = self::addDays($from, intdiv($j * $span, $n - 1));
+            $weight = ($j * 17) % 100;
+            if ($weight < 26) {
+                $org = $orgs[0];
+            } elseif ($weight < 45) {
+                $org = $orgs[1];
+            } elseif ($weight < 60) {
+                $org = $orgs[2];
+            } elseif ($weight < 72) {
+                $org = $orgs[3];
+            } else {
+                $org = $orgs[4 + ($j % 19)];
+            }
+
+            if (in_array($j, $falsePositives, true)) {
+                $type = self::FALSE_POSITIVE;
+            } elseif ($j === $expiration) {
+                $type = self::EXPIRATION;
+            } else {
+                $type = self::SIGHTING;
+            }
+
+            $table[] = array(
+                $day . sprintf(' %02d:%02d', ($j * 11) % 24, ($j * 29) % 60),
+                $org,
+                $type,
+                1500 + intdiv($j * 137, $n),
+                $types[$j % count($types)],
+                ($j % 61) === 0 ? 'sightingdb' : null,
+            );
+        }
+
+        return self::sightingRows($table);
+    }
+
+    /**
+     * @return array
+     */
+    private static function fluxModels()
+    {
+        return array(
+            array(
+                'model' => 'NIDS Simple Decaying Model',
+                'base' => 93,
+                'lifetime' => 30,
+                'decay_rate' => 0.3,
+                'threshold' => 60,
+            ),
+            array(
+                'model' => 'Phishing Model',
+                'base' => 71,
+                'lifetime' => 21,
+                'decay_rate' => 0.3,
+                'threshold' => 50,
+            ),
+        );
+    }
+
+    /**
+     * Who reported it and who has seen it, per organisation, tallied
+     * from the rows rather than restated beside them.
+     *
+     * @param array $tally
+     * @param array $sightings
+     * @return array
+     */
+    private static function fluxVerdictOrgs(array $tally, array $sightings)
+    {
+        $seen = array();
+        $fp = array();
+        foreach ($sightings as $row) {
+            $org = $row['org'];
+            $seen[$org] = 1 + (isset($seen[$org]) ? $seen[$org] : 0);
+            if ($row['type'] === self::FALSE_POSITIVE) {
+                $fp[$org] = 1 + (isset($fp[$org]) ? $fp[$org] : 0);
+            }
+        }
+
+        /*
+         * Opinion, to_ids stance and reliability are editorial and are
+         * not derivable from a row count, so they are given for the
+         * four organisations the summary names and defaulted for the
+         * nineteen it does not.
+         */
+        $stance = array(
+            'CIRCL' => array(90, 'yes', 'B'),
+            'CthulhuSPRL.be' => array(85, 'yes', 'B'),
+            'Team-CIRCL' => array(80, 'mixed', 'B'),
+            'ORGNAME' => array(45, 'no', 'D'),
+        );
+
+        $rows = array();
+        foreach ($tally['orgs'] as $org => $occurrences) {
+            $own = isset($stance[$org])
+                ? $stance[$org]
+                : array(70, 'yes', 'C');
+            $rows[] = array(
+                'org' => $org,
+                'occurrences' => $occurrences,
+                'sightings' => isset($seen[$org]) ? $seen[$org] : 0,
+                'fp' => isset($fp[$org]) ? $fp[$org] : 0,
+                'opinion' => $own[0],
+                'to_ids' => __($own[1]),
+                'reliability' => $own[2],
+            );
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The object-siblings section at the scale phase 18 exists for.
+     *
+     * The listed rows are the ranked prefix; the totals are the real
+     * ones. The arithmetic, so that a later reader can check it rather
+     * than take it:
+     *
+     *   683 objects hold the value, the join reads the most recent 500
+     *   500 objects hold 926 sibling attributes:
+     *     domain-ip           291 × domain, 96 × first-seen
+     *     network-connection  168 × dst-port, 168 × layer4-protocol,
+     *                         121 × hostname
+     *     ip-port             41 × dst-port, 41 × first-seen
+     *   those 926 collapse to 494 distinct triples, of which 32 are
+     *   listed and account for 459 of the 926
+     *
+     * Two shapes of "too many" in one table, which is the whole reason
+     * one aggregation serves both: `layer4-protocol tcp` is 168 objects
+     * carrying one fact and collapses to a single row, while the flux
+     * domains are 247 distinct facts and rank and page.
+     *
+     * @return array
+     */
+    private static function fluxSiblings()
+    {
+        $everyone = array('CIRCL', 'CthulhuSPRL.be');
+        $nc = 'network-connection';
+
+        return self::relSiblingGroups(
+            array(
+                array($nc, 'layer4-protocol', 'tcp', 'text', 168, 61,
+                    $everyone, 19),
+                array($nc, 'dst-port', '8443', 'port', 138, 52,
+                    $everyone, 17),
+                array('ip-port', 'dst-port', '8443', 'port', 33, 19,
+                    array('CIRCL', 'CERT-EU'), 9),
+                array($nc, 'dst-port', '443', 'port', 19, 14,
+                    array('Team-CIRCL', 'NCSC-NL'), 7),
+                array($nc, 'dst-port', '9001', 'port', 11, 8,
+                    array('CIRCL', 'CERT.PL'), 5),
+                array('domain-ip', 'domain', 'cdn-edge-7.flux-a.top',
+                    'domain', 9, 7, $everyone, 4),
+                array('ip-port', 'dst-port', '8080', 'port', 8, 6,
+                    array('Botvrij.eu', 'CERT-SE'), 4),
+                array('domain-ip', 'domain', 'update-check.flux-a.top',
+                    'domain', 7, 6, array('CIRCL', 'CERT-EU'), 3),
+                array($nc, 'hostname', 'panel.flux-a.top', 'hostname',
+                    6, 5, $everyone, 3),
+                array('domain-ip', 'domain', 'stat-collect.flux-b.top',
+                    'domain', 5, 4, array('CthulhuSPRL.be'), 2),
+                array('domain-ip', 'domain', 'img-cache.flux-b.top',
+                    'domain', 4, 4, array('CIRCL'), 2),
+                array('domain-ip', 'domain', 'ocsp-relay.flux-c.top',
+                    'domain', 4, 3, array('NASK', 'CERT-PL'), 2),
+                array($nc, 'hostname', 'c2-b.flux-a.top', 'hostname',
+                    4, 3, array('Team-CIRCL'), 2),
+                array('domain-ip', 'domain', 'push-api.flux-c.top',
+                    'domain', 3, 3, array('CIRCL'), 1),
+                array('domain-ip', 'domain', 'ntp-sync.flux-c.top',
+                    'domain', 3, 2, array('ANSSI'), 1),
+                array('domain-ip', 'domain', 'font-cdn.flux-d.top',
+                    'domain', 3, 2, array('CERT-Bund'), 1),
+                array($nc, 'hostname', 'gate.flux-b.top', 'hostname',
+                    3, 3, array('CIRCL'), 1),
+                array($nc, 'hostname', 'relay.flux-c.top', 'hostname',
+                    3, 2, array('GOVCERT.LU'), 1),
+                array('domain-ip', 'domain', 'api-v2.flux-d.top',
+                    'domain', 2, 2, array('CIRCL'), 1),
+                array('domain-ip', 'domain', 'assets.flux-d.top',
+                    'domain', 2, 2, array('CERT-EE'), 1),
+                array('domain-ip', 'domain', 'beacon.flux-e.top',
+                    'domain', 2, 1, array('SK-CERT'), 1),
+                array('domain-ip', 'domain', 'check-in.flux-e.top',
+                    'domain', 2, 2, array('CERT-LV'), 1),
+                array('domain-ip', 'domain', 'dl-stage.flux-e.top',
+                    'domain', 2, 2, array('CSIRT-IE'), 1),
+                array('domain-ip', 'domain', 'health.flux-f.top',
+                    'domain', 2, 1, array('CERT-RO'), 1),
+                array('domain-ip', 'domain', 'log-drop.flux-f.top',
+                    'domain', 2, 2, array('CERT-GR'), 1),
+                array('domain-ip', 'domain', 'mirror.flux-f.top',
+                    'domain', 2, 2, array('CERT-SI'), 1),
+                array('domain-ip', 'domain', 'node-14.flux-g.top',
+                    'domain', 2, 1, array('CERT-MT'), 1),
+                array('domain-ip', 'domain', 'ping.flux-g.top',
+                    'domain', 2, 2, array('CIRCL-Partners'), 1),
+                array($nc, 'hostname', 'edge-1.flux-d.top', 'hostname',
+                    2, 2, array('CIRCL'), 1),
+                array($nc, 'hostname', 'edge-2.flux-d.top', 'hostname',
+                    2, 1, array('CERT-EU'), 1),
+                array($nc, 'hostname', 'sink.flux-e.top', 'hostname',
+                    2, 2, array('NCSC-NL'), 1),
+                array($nc, 'hostname', 'tunnel.flux-f.top', 'hostname',
+                    2, 2, array('Botvrij.eu'), 1),
+            ),
+            array(
+                'total' => 494,
+                'raw' => 926,
+                'objects' => 500,
+                'in_objects' => 683,
+                /*
+                 * Attributes inside an object the viewer can open whose
+                 * own distribution still keeps them out. Countable,
+                 * unlike the occurrences behind an unreadable event, so
+                 * it is counted.
+                 */
+                'hidden' => 57,
+                'page_size' => 8,
+            )
+        );
+    }
+
+    /**
+     * The Relationships tab for a value the engine gave up on.
+     *
+     * `over_correlating` is true, so section one stores nothing and
+     * renders the suppressed band: the siblings section above it is the
+     * only content on the tab, which is exactly the case phase 17 §9.3
+     * said had to be looked at rather than inferred.
+     *
+     * @param array $tally
+     * @return array
+     */
+    private static function fluxRelationships(array $tally)
+    {
+        return array(
+            'summary' => array(
+                'correlations' => 0,
+                'recorded' => 812,
+                'near' => 4,
+                'asserted' => 3,
+                'siblings' => 494,
+                'cooccurrence' => 0,
+            ),
+            'cooccurrence' => array(
+                'suppressed' => true,
+                'stored' => 0,
+                'visible' => 0,
+                'hidden' => 0,
+                'distinct_values' => 0,
+                'events' => 0,
+                'page_size' => 8,
+                'siblings' => self::fluxSiblings(),
+                'rollups' => array(
+                    'value' => array('total' => 0, 'rows' => array()),
+                    'event' => array('total' => 0, 'rows' => array()),
+                    'object' => array('total' => 0, 'rows' => array()),
+                ),
+                'facets' => null,
+                'categories' => array(),
+            ),
+            'near' => array(
+                'matches' => 4,
+                'engines_active' => 1,
+                'engines_idle' => 2,
+                'engines' => array(
+                    array(
+                        'id' => 'cidr',
+                        'state' => 'active',
+                        'rows' => self::relCidrRows(array(
+                            array('45.155.205.0/24', 24, 1636,
+                                'CIRCL', 3),
+                            array('45.155.204.0/22', 22, 1621,
+                                'CERT-EU', 3),
+                            array('45.155.192.0/19', 19, 1588,
+                                'NCSC-NL', 1),
+                            array('45.155.0.0/16', 16, 1547,
+                                'ORGNAME', 1),
+                        )),
+                    ),
+                    array(
+                        'id' => 'ssdeep',
+                        'state' => 'not_applicable',
+                        'rows' => array(),
+                    ),
+                    array(
+                        'id' => 'tld',
+                        'state' => 'absent',
+                        'rows' => array(),
+                    ),
+                ),
+            ),
+            'asserted' => array(
+                'total' => 3,
+                'orgs' => 2,
+                'hidden' => 1,
+                'occurrences' => 812,
+                'claims' => self::relClaims(array(
+                    array(
+                        'related-to',
+                        'outbound',
+                        'GalaxyCluster',
+                        'QakBot',
+                        'Malware',
+                        __(
+                            'Every occurrence we hold sits in a QakBot'
+                            . ' distribution event. The address rotates'
+                            . ' faster than the campaign does, which is'
+                            . ' what the fast-flux reading rests on.'
+                        ),
+                        'CIRCL',
+                        '2025-07-02',
+                        41,
+                    ),
+                    array(
+                        'similar-to',
+                        'outbound',
+                        'Attribute',
+                        '45.155.205.198',
+                        'ip-dst',
+                        __(
+                            'Same /24, same three ports, same reseller.'
+                            . ' Similarity, and deliberately not'
+                            . ' attribution.'
+                        ),
+                        'CERT-EU',
+                        '2025-05-14',
+                        9,
+                    ),
+                    array(
+                        'derived-from',
+                        'inbound',
+                        'Object',
+                        92417,
+                        'network-connection',
+                        __(
+                            'Extracted from a beacon capture rather than'
+                            . ' reported directly.'
+                        ),
+                        'CthulhuSPRL.be',
+                        '2025-03-28',
+                        2,
+                    ),
+                )),
+            ),
+            'settings' => array(
+                'correlation_limit' => 20,
+                'ssdeep_threshold' => 40,
+                'excluded' => false,
+            ),
+            /*
+             * The `co` band is empty and the other two are not, which
+             * is the sketch of a suppressed value: nothing the engine
+             * stored, four blocks the CIDR pass re-derives, three
+             * things an analyst asserted.
+             */
+            'graph' => array(
+                'edges' => 7,
+                'nodes' => array(
+                    'co' => array(),
+                    'near' => array('network-block', 'network-block',
+                        'network-block', 'network-block'),
+                    'human' => array('GalaxyCluster', 'Attribute',
+                        'Object'),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * @return array
+     */
+    private static function fluxEnrichment()
+    {
+        $ran = '2025-08-24 07:55';
+        $previous = '2025-08-17 07:55';
+        $modules = self::ipModules(array(
+            'virustotal' => array(
+                'ok', 8, 3, $ran, $ran, 2.6, 'misp_standard', 0),
+            'shodan' => array(
+                'ok', 4, 1, $ran, $ran, 3.1, 'misp_standard', 0),
+            'circl_passivedns' => array(
+                'ok', 12, 4, $ran, $ran, 1.9, 'misp_standard', 0),
+            'ipasn' => array(
+                'ok', 1, 0, $ran, $ran, 0.3, 'simplified', 0),
+            'reversedns' => array(
+                'none', 0, 0, $ran, $ran, 0.2, null, 0),
+            'urlhaus' => array(
+                'ok', 3, 1, $ran, $ran, 1.1, 'misp_standard', 0),
+            'rbl' => array(
+                'ok', 2, 0, $ran, $ran, 2.9, 'simplified', 0),
+        ));
+
+        $results = array(
+            'virustotal' => array(
+                'delta' => array(
+                    'new' => 3,
+                    'previous_run' => $previous,
+                    'unchanged' => 5,
+                ),
+                'objects' => array(
+                    self::enrichObject('virustotal-report', false, array(
+                        array('permalink', 'link', 41),
+                        array('detection-ratio', 'text', 12),
+                    )),
+                ),
+                'attributes' => self::enrichAttrRows(array(
+                    array('domain', true, '2025-08-24', 'new', 3,
+                        array('circl_passivedns')),
+                    array('url', true, '2025-08-24', 'new', 2),
+                )),
+                'dismissed' => 1,
+            ),
+            'circl_passivedns' => array(
+                'delta' => array(
+                    'new' => 4,
+                    'previous_run' => $previous,
+                    'unchanged' => 8,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('domain', true, '2025-08-24', 'new', 6,
+                        array('virustotal')),
+                    array('domain', false, '2025-08-24', 'known', 9),
+                )),
+                'dismissed' => 3,
+            ),
+            'ipasn' => array(
+                'delta' => array(
+                    'new' => 0,
+                    'previous_run' => $previous,
+                    'unchanged' => 1,
+                ),
+                'objects' => array(),
+                'attributes' => self::enrichAttrRows(array(
+                    array('AS', false, '2025-08-24', null, 7),
+                )),
+                'dismissed' => 0,
+            ),
+        );
+
+        return self::enrichment(array(
+            'type' => 'ip-dst',
+            'last_run' => $ran,
+            'service' => array(
+                'reachable' => true,
+                'checked' => '2025-08-24 08:10',
+                'note' => null,
+            ),
+            'modules' => $modules,
+            'results' => $results,
+        ));
+    }
+
+    /**
+     * @return array
+     */
+    private static function fluxAnalystData()
+    {
+        return array(
+            'total' => 5,
+            'notes' => 2,
+            'opinions' => 3,
+            'Note' => array(
+                array(
+                    'uuid' => 'a7b8c9d0-1122-4334-b556-7788990011ff',
+                    'note' => 'The /24 has been rotating hostnames every'
+                        . ' few hours since June 2024. Treat the address'
+                        . ' as infrastructure, not as a campaign'
+                        . ' indicator.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-23 09:12:40',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'b8c9d0e1-2233-4445-c667-8899001122ff',
+                    'note' => 'Provider stopped answering abuse mail in'
+                        . ' March. Nothing has been taken down.',
+                    'authors' => 'bob@cthulhu.example',
+                    'created' => '2025-06-30 14:05:11',
+                    'distribution' => 3,
+                    'Org' => array('id' => 2, 'name' => 'CthulhuSPRL.be'),
+                ),
+            ),
+            'Opinion' => array(
+                array(
+                    'uuid' => 'c9d0e1f2-3344-4556-d778-9900112233ff',
+                    'opinion' => 90,
+                    'comment' => 'Continuous beaconing from three of our'
+                        . ' sensors.',
+                    'authors' => 'alice@circl.lu',
+                    'created' => '2025-08-22 16:40:00',
+                    'distribution' => 3,
+                    'Org' => array('id' => 1, 'name' => 'CIRCL'),
+                ),
+                array(
+                    'uuid' => 'd0e1f203-4455-4667-e889-0011223344ff',
+                    'opinion' => 45,
+                    'comment' => 'Ours were all scanner noise. The'
+                        . ' address is real, the C2 reading is not ours'
+                        . ' to make.',
+                    'authors' => 'carol@orgname.example',
+                    'created' => '2025-08-09 10:21:05',
+                    'distribution' => 3,
+                    'Org' => array('id' => 4, 'name' => 'ORGNAME'),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * Five items, one reply. Short on purpose: this value is here for
+     * occurrence scale, and an argument at 812 occurrences is the same
+     * argument as at ten.
+     *
+     * @return array
+     */
+    private static function fluxAnalystTab()
+    {
+        $preview = self::fluxAnalystData();
+        $notes = $preview['Note'];
+        $opinions = $preview['Opinion'];
+
+        $thread = array(
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CIRCL',
+                'author' => $notes[0]['authors'],
+                'date' => $notes[0]['created'],
+                'body' => $notes[0]['note'],
+                'children' => array(
+                    self::analystItem(array(
+                        'kind' => 'opinion',
+                        'org' => 'CIRCL',
+                        'author' => $opinions[0]['authors'],
+                        'date' => $opinions[0]['created'],
+                        'score' => $opinions[0]['opinion'],
+                        'body' => $opinions[0]['comment'],
+                        'attached_to' => array('kind' => 'note'),
+                        'rates' => 'value',
+                    )),
+                ),
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'org' => 'ORGNAME',
+                'author' => $opinions[1]['authors'],
+                'date' => $opinions[1]['created'],
+                'score' => $opinions[1]['opinion'],
+                'body' => $opinions[1]['comment'],
+                'rates' => 'value',
+            )),
+            self::analystItem(array(
+                'kind' => 'note',
+                'org' => 'CthulhuSPRL.be',
+                'author' => $notes[1]['authors'],
+                'date' => $notes[1]['created'],
+                'body' => $notes[1]['note'],
+            )),
+            self::analystItem(array(
+                'kind' => 'opinion',
+                'org' => 'CERT-EU',
+                'author' => 'ops@cert.europa.example',
+                'date' => '2025-05-14 11:02:00',
+                'score' => 80,
+                'body' => 'Consistent with the /24 assertion we filed.',
+                'rates' => 'value',
+            )),
+        );
+
+        return array_merge($preview, self::analystTab(
+            array(
+                'CIRCL' => array('score' => 90, 'date' => '2025-08-22'),
+                'ORGNAME' => array('score' => 45, 'date' => '2025-08-09'),
+                'CERT-EU' => array('score' => 80, 'date' => '2025-05-14'),
+            ),
+            $thread,
+            __(
+                'Organisations whose events you cannot open may have'
+                . ' argued about this value too. 64 of its 812'
+                . ' occurrences are behind that line.'
+            )
+        ));
+    }
+
+    /**
+     * The publication record of every published event that holds this
+     * value, dated from the occurrences themselves.
+     *
+     * All 121, not a recent slice: the Timeline's lane counters count
+     * what falls inside the window, so a slice would be consistent at
+     * 30 days and would quietly lose 110 publications the moment a
+     * reader widened it to all time.
+     *
+     * @param array $occurrences
+     * @return array
+     */
+    private static function fluxPublications(array $occurrences)
+    {
+        $out = array();
+        foreach ($occurrences as $row) {
+            $event = $row['Event'];
+            if (empty($event['published'])) {
+                continue;
+            }
+            /*
+             * From the attribute's own timestamp and not from
+             * `first_seen`: 21 occurrences carry no seen dates at all,
+             * and a fallback day would file their events under whatever
+             * that day happened to be.
+             */
+            $day = gmdate('Y-m-d', (int)$row['Attribute']['timestamp']);
+            $id = $event['id'];
+            /*
+             * An event is published once, after the last thing in it
+             * was written, so the newest occurrence in it dates the
+             * publication and the oldest is not a second one.
+             */
+            if (!isset($out[$id]) || $day > $out[$id]['day']) {
+                $out[$id] = array(
+                    'day' => $day,
+                    'info' => $event['info'],
+                    'org' => $event['Orgc']['name'],
+                );
+            }
+        }
+
+        $publications = array();
+        foreach ($out as $id => $row) {
+            $at = self::addDays($row['day'], 1) . ' 08:00:00';
+            $publications[$id] = array(
+                'info' => $row['info'],
+                'org' => $row['org'],
+                'first' => $at,
+                'last' => $at,
+            );
+        }
+        return $publications;
+    }
+
+    /**
+     * The audit rail, over the occurrences it can afford to detail.
+     *
+     * `history()` renders one collapsible section per occurrence it is
+     * handed, and `hidden` is `total_occurrences` minus the ones it was
+     * given — so handing it a sample would make the panel's footer
+     * state a number of ACL-hidden occurrences that is not the ACL's.
+     * It gets all 748, and 748 sections is phase 17 §9.8's prediction
+     * rendered rather than argued.
+     *
+     * @param array $occurrences
+     * @return array
+     */
+    private static function fluxHistory(array $occurrences)
+    {
+        return self::history(array(
+            'recorded' => true,
+            'occurrences' => $occurrences,
+            'groups' => array(),
+            'event_entries' => array(),
+            'total_occurrences' => 812,
+            'viewer_org' => 'CIRCL',
+            'vocab' => self::auditVocab(),
+        ));
+    }
+
+    /**
+     * @return array
+     */
+    private static function fluxVerdictCurve()
+    {
+        $curve = array();
+        for ($d = 0; $d < 90; $d++) {
+            /*
+             * A value sighted almost daily never gets to decay: the
+             * curve is a slow climb with the shallow saw of the gaps,
+             * which is the honest shape for continuous reporting.
+             */
+            $curve[] = 82 + (int)round(11 * $d / 89) - (($d % 7) === 6
+                ? 2
+                : 0);
+        }
+        return $curve;
+    }
+
+    /**
+     * @return array
+     */
+    private static function fluxLedger()
+    {
+        return array(
+            array(
+                'kind' => __('Reporting'),
+                'note' => __('who reported it, and how widely'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'strong',
+                        'contribution' => 31,
+                        'signal' => __(
+                            '23 independent organisations reported it'
+                        ),
+                        'evidence' => __(
+                            '748 occurrences across 137 events, no'
+                            . ' single organisation holding more than a'
+                            . ' tenth of them'
+                        ),
+                        'source' => __('Occurrences'),
+                        'as_of' => '2025-08-23',
+                    ),
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'moderate',
+                        'contribution' => 7,
+                        'signal' => __('121 of 137 events are published'),
+                        'evidence' => __(
+                            'Published events carry more weight than'
+                            . ' drafts'
+                        ),
+                        'source' => __('Occurrences'),
+                        'as_of' => '2025-08-23',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Sightings'),
+                'note' => __('who has seen it, and how recently'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'strong',
+                        'contribution' => 24,
+                        'signal' => __(
+                            '418 sightings from 23 orgs, last yesterday'
+                        ),
+                        'evidence' => __(
+                            'Reported almost daily for fourteen months,'
+                            . ' so the decay clock never runs'
+                        ),
+                        'source' => __('Sightings'),
+                        'as_of' => '2025-08-23',
+                    ),
+                    array(
+                        'direction' => 'down',
+                        'weight' => 'moderate',
+                        'contribution' => -5,
+                        'signal' => __(
+                            '9 false-positive sightings from 6 orgs'
+                        ),
+                        'evidence' => __(
+                            'Scanner noise against a whole /24, which is'
+                            . ' what a shared bulletproof range produces'
+                        ),
+                        'source' => __('Sightings'),
+                        'as_of' => '2025-08-14',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Attribution'),
+                'note' => __('what it has been tied to'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'strong',
+                        'contribution' => 17,
+                        'signal' => __('QakBot, on 107 occurrences'),
+                        'evidence' => __(
+                            'One galaxy cluster, asserted by CIRCL and'
+                            . ' carried on the occurrences themselves'
+                        ),
+                        'source' => __('Relationships'),
+                        'as_of' => '2025-07-02',
+                    ),
+                ),
+            ),
+            array(
+                'kind' => __('Lifecycle'),
+                'note' => __('how long, and how continuously'),
+                'signals' => array(
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'moderate',
+                        'contribution' => 12,
+                        'signal' => __(
+                            'Fourteen months without a month of silence'
+                        ),
+                        'evidence' => '2024-06-11 → 2025-08-23',
+                        'source' => __('Timeline'),
+                        'as_of' => '2025-08-23',
+                    ),
+                    array(
+                        'direction' => 'up',
+                        'weight' => 'moderate',
+                        'contribution' => 7,
+                        'signal' => __('Last reported yesterday'),
+                        'evidence' => __(
+                            'Recency, on a value whose last sighting is'
+                            . ' never old'
+                        ),
+                        'source' => __('Sightings'),
+                        'as_of' => '2025-08-23',
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The verdict for a value the correlation engine gave up on.
+     *
+     * The score rests on breadth, sightings and continuity, and on
+     * nothing the engine stored — because for this value the engine
+     * stored nothing. `not_counted` says so rather than leaving a
+     * reader to notice the Relationships tab is empty and wonder
+     * whether the score used it.
+     *
+     * @param array $nidsCurve
+     * @param array $tally
+     * @param array $sightings
+     * @return array
+     */
+    private static function fluxVerdict(
+        array $nidsCurve,
+        array $tally,
+        array $sightings
+    ) {
+        return array(
+            'disposition' => 'MALICIOUS',
+            'score' => 93,
+            'confidence' => 'high',
+            'summary' => __(
+                'Twenty-three organisations report this address as'
+                . ' fast-flux command-and-control infrastructure, over'
+                . ' 748 occurrences in 137 events and fourteen months of'
+                . ' near-daily sightings. It hits no warninglist. It is'
+                . ' also past MISP.correlation_limit, so the engine'
+                . ' stored no correlation for it at all — the disposition'
+                . ' rests on reporting breadth and continuity, and the'
+                . ' ledger says which signals were available.'
+            ),
+            'profile' => 'default-v3',
+            'computed_at' => null,
+            'acl_note' => __(
+                '64 occurrences you cannot see were excluded from this'
+                . ' assessment.'
+            ),
+            'ledger' => self::fluxLedger(),
+            'conflicts' => array(
+                array(
+                    'kind' => 'to_ids',
+                    'title' => __(
+                        'to_ids disagreement: 592 yes / 156 no'
+                    ),
+                    'note' => __(
+                        'Not netted off, and at this many reporters it is'
+                        . ' not an anomaly either: whether a shared'
+                        . ' bulletproof address should fire an IDS rule'
+                        . ' is a per-occurrence editorial call.'
+                    ),
+                    'yes' => 592,
+                    'no' => 156,
+                    'evidence' => __(
+                        '592 occurrences set yes, 156 set no, across 23'
+                        . ' organisations'
+                    ),
+                    'expanded' => false,
+                    'rows' => array(),
+                    'actions' => array(),
+                    'confirm_note' => null,
+                ),
+                array(
+                    'kind' => 'tlp',
+                    'title' => __('TLP disagreement: amber vs green'),
+                    'note' => __(
+                        'Both readings are in use. With 137 events from'
+                        . ' 23 organisations, a single TLP is the'
+                        . ' unlikely outcome.'
+                    ),
+                    'yes' => isset($tally['tag']['tlp:amber'])
+                        ? $tally['tag']['tlp:amber']['count']
+                        : 0,
+                    'no' => isset($tally['tag']['tlp:green'])
+                        ? $tally['tag']['tlp:green']['count']
+                        : 0,
+                    'evidence' => __(
+                        'Counted over the occurrences you can open'
+                    ),
+                    'expanded' => false,
+                    'rows' => array(),
+                    'actions' => array(),
+                    'confirm_note' => null,
+                ),
+            ),
+            'orgs' => self::fluxVerdictOrgs($tally, $sightings),
+            'composition' => array(
+                array(
+                    'label' => __('Reporting breadth'),
+                    'points' => 38,
+                    'colour' => 'var(--event)',
+                ),
+                array(
+                    'label' => __('Sightings'),
+                    'points' => 24,
+                    'colour' => 'var(--sighting)',
+                ),
+                array(
+                    'label' => __('Attribution'),
+                    'points' => 17,
+                    'colour' => 'var(--galaxy)',
+                ),
+                array(
+                    'label' => __('Lifecycle'),
+                    'points' => 19,
+                    'colour' => 'var(--correlation)',
+                ),
+                array(
+                    'label' => __('Signals against'),
+                    'points' => -5,
+                    'colour' => 'var(--bs-danger)',
+                ),
+            ),
+            'composition_note' => __(
+                'Weights come from the default-v3 profile. Correlation'
+                . ' contributes nothing here, and not because it scored'
+                . ' zero: there was nothing stored to score.'
+            ),
+            'curves' => array(
+                array(
+                    'label' => __('Synthesised verdict'),
+                    'colour' => 'var(--vp-mal)',
+                    'data' => self::fluxVerdictCurve(),
+                ),
+                array(
+                    'label' => __('NIDS decay score'),
+                    'colour' => 'var(--vp-conflict)',
+                    'dashed' => true,
+                    'data' => $nidsCurve,
+                ),
+            ),
+            'curves_span' => __('90 days'),
+            'curves_note' => __(
+                'Almost flat, and that is the finding: a value sighted'
+                . ' every few days never decays, so the curve records'
+                . ' continuity rather than events.'
+            ),
+            'not_counted' => array(
+                array(
+                    'title' => __('64 occurrences'),
+                    'note' => __(
+                        'Outside your ACL — excluded, not hidden. The'
+                        . ' score you see is the score for your'
+                        . ' permissions.'
+                    ),
+                ),
+                array(
+                    'title' => __('Every correlation'),
+                    'note' => __(
+                        'The value is past MISP.correlation_limit, so'
+                        . ' MISP stored none. Nothing was weighed and'
+                        . ' found wanting; there was nothing to weigh.'
+                    ),
+                ),
+                array(
+                    'title' => __('Object siblings'),
+                    'note' => __(
+                        '494 distinct siblings across 683 objects are'
+                        . ' structure, not corroboration: the same'
+                        . ' reporter filing the same object shape 300'
+                        . ' times is one practice, not 300 signals.'
+                    ),
+                ),
+            ),
+            'changers' => array(
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'A warninglist hit of category known → CONFLICTED'
+                        . ' immediately, whatever the score.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'No sighting for 30 days → decay takes the NIDS'
+                        . ' score under its 60 threshold.'
+                    ),
+                ),
+                array(
+                    'direction' => 'down',
+                    'text' => __(
+                        'The provider withdrawing the range would leave'
+                        . ' the reporting breadth and remove the'
+                        . ' continuity — which is the signal doing most'
+                        . ' of the work here.'
+                    ),
+                ),
+            ),
+            'changer_actions' => array(
+                array(
+                    'label' => __('Mark false positive'),
+                    'icon' => 'fas fa-flag',
+                    'colour' => 'var(--vp-mal)',
+                    'emphasis' => true,
+                ),
+                array(
+                    'label' => __('Record an opinion'),
+                    'icon' => 'fas fa-scale-balanced',
+                    'colour' => 'var(--analystData)',
+                ),
+                array(
+                    'label' => __('Notify me if the verdict changes'),
+                    'icon' => 'fas fa-bell',
+                    'colour' => 'var(--correlation)',
+                ),
+            ),
+        );
+    }
+
+    /**
+     * A fast-flux C2 node at occurrence scale: 812 occurrences, 137
+     * events, 23 organisations, and past `MISP.correlation_limit` so
+     * the engine stored nothing.
+     *
+     * @return array
+     */
+    private static function flux()
+    {
+        $created = '2024-06-11';
+        $occurrences = self::fluxOccurrences();
+        $tally = self::fluxTally($occurrences);
+        $rows = self::fluxSightingRows();
+        $decay = self::decayModels($rows, $created, self::fluxModels());
+        $enrichment = self::fluxEnrichment();
+        $analyst = self::fluxAnalystTab();
+        $tags = self::fluxTags($tally);
+        $galaxies = array(
+            array(
+                'name' => 'QakBot',
+                'kind' => __('Malware') . ' · Qbot',
+                'n' => 107,
+            ),
+            array(
+                'name' => 'T1071.001',
+                'kind' => __('Attack pattern')
+                    . ' · Application Layer Protocol: Web Protocols',
+                'n' => 41,
+            ),
+        );
+        $feeds = array(
+            array(
+                'name' => 'CIRCL OSINT Feed',
+                'provider' => 'CIRCL',
+                'events' => 31,
+            ),
+            array(
+                'name' => 'Botvrij.eu Data',
+                'provider' => 'Botvrij.eu',
+                'events' => 12,
+            ),
+            array(
+                'name' => 'URLhaus C2 export',
+                'provider' => 'abuse.ch',
+                'events' => 6,
+            ),
+        );
+        $orgCount = count($tally['orgs']);
+        $eventCount = count($tally['events']);
+
+        return array(
+            'value' => '45.155.205.233',
+            'types' => array(
+                array('type' => 'ip-dst',
+                    'count' => $tally['type']['ip-dst']),
+                array('type' => 'ip-src',
+                    'count' => $tally['type']['ip-src']),
+                array('type' => 'domain|ip',
+                    'count' => $tally['type']['domain|ip']),
+            ),
+            'value2_note' => sprintf(
+                __('%d occurrences have it as the second half of a'
+                    . ' domain|ip'),
+                $tally['type']['domain|ip']
+            ),
+            'counts' => array(
+                'occurrences' => 812,
+                'sightings' => count($rows),
+                /*
+                 * The engine stored nothing, so what the Relationships
+                 * tab has to list is the siblings, the near-matches and
+                 * the assertions. A zero here would send a reader past
+                 * a tab that has 501 rows on it.
+                 */
+                'relationships' => 501,
+                'enrichment' => $enrichment['pending'],
+                'analyst' => $analyst['counts']['items'],
+            ),
+            'facts' => array(
+                array(
+                    'label' => __('First seen'),
+                    'value' => $created,
+                    'sub' => __('14 months ago'),
+                    'tab' => 'timeline',
+                ),
+                array(
+                    'label' => __('Last seen'),
+                    'value' => '2025-08-23',
+                    'sub' => __('yesterday'),
+                    'tab' => 'timeline',
+                ),
+                array(
+                    'label' => __('Occurrences'),
+                    'value' => '812',
+                    'sub' => __('3 types'),
+                    'tab' => 'occurrences',
+                ),
+                array(
+                    'label' => __('Events'),
+                    'value' => (string)$eventCount,
+                    'sub' => sprintf(
+                        __('%d published'),
+                        count($tally['published'])
+                    ),
+                    'tab' => 'occurrences',
+                ),
+                array(
+                    'label' => __('Organisations'),
+                    'value' => (string)$orgCount,
+                    'sub' => sprintf(__('CIRCL + %d'), $orgCount - 1),
+                    'tab' => 'verdict',
+                ),
+                array(
+                    'label' => __('Sightings'),
+                    'value' => (string)count($rows),
+                    'sub' => __('9 false positives'),
+                    'tab' => 'sightings',
+                ),
+            ),
+            'pivots' => array(
+                array(
+                    'label' => __('Containing CIDR'),
+                    'hint' => '45.155.205.0/24',
+                ),
+                array(
+                    'label' => __('ASN'),
+                    'hint' => 'AS204601 Flux-Host',
+                ),
+                array(
+                    'label' => __('Geolocation'),
+                    'hint' => __('Chișinău, MD'),
+                ),
+                array(
+                    'label' => __('Ports seen'),
+                    'hint' => '443, 8080, 8443, 9001',
+                ),
+                array(
+                    'label' => __('Passive DNS'),
+                    'hint' => __('247 hostnames'),
+                ),
+            ),
+            'occurrences' => $occurrences,
+            'occurrence_stats' => array(
+                'total' => 812,
+                'shown' => count($occurrences),
+                'hidden' => 812 - count($occurrences),
+                'events' => $eventCount,
+                'orgs' => $orgCount,
+                'deleted' => $tally['deleted'],
+            ),
+            'occurrence_acl_note' => sprintf(
+                __(
+                    'Showing %1$d of 812 occurrences. %2$d are hidden by'
+                    . ' distribution rules on events owned by other'
+                    . ' organisations.'
+                ),
+                count($occurrences),
+                812 - count($occurrences)
+            ),
+            'occurrence_facets' => self::fluxOccurrenceFacets(
+                $occurrences,
+                $tally
+            ),
+            'tags' => $tags,
+            'galaxies' => $galaxies,
+            'analyst' => $analyst,
+            'sightings' => array(
+                'total' => count($rows),
+                'fp' => 9,
+                'expiration' => 1,
+                'spark' => self::sightingSpark($rows),
+                'reporters' => self::fluxReporters($rows),
+                'last' => __('yesterday'),
+            ),
+            'sighting_rows' => $rows,
+            'sighting_series' => self::sightingSeries($rows, $decay, $created),
+            'sighting_notes' => self::sightingNotes(__(
+                'Nine false positives over fourteen months, none of them'
+                . ' consecutive. MISP resets the decay clock on type-0'
+                . ' sightings only, so they are visible on the axis and'
+                . ' move no score.'
+            )),
+            'decay' => $decay,
+            'warninglists' => array(),
+            'warninglists_checked' => 84,
+            'correlations' => array(
+                'count' => 0,
+                'over_correlating' => true,
+                'threshold' => 50,
+            ),
+            'relationships' => self::fluxRelationships($tally),
+            'enrichment' => $enrichment,
+            'external' => array(
+                'feeds' => $feeds,
+                'servers' => 4,
+                'sightingdb' => 18402,
+            ),
+            'timeline' => self::timeline(array(
+                'occurrences' => $occurrences,
+                'sightings' => $rows,
+                'analyst' => $analyst,
+                'tags' => $tags,
+                'galaxies' => $galaxies,
+                'feeds' => $feeds,
+                'publications' => self::fluxPublications($occurrences),
+                'window' => array(
+                    'from' => '2025-07-26',
+                    'to' => self::TODAY,
+                ),
+                'feeds_as_of' => '2025-08-24 05:30:00',
+                'acl_note' => __(
+                    '64 of this value\'s 812 occurrences are on events'
+                    . ' you cannot see. Nothing they contribute is in'
+                    . ' this chronology, and how much that is cannot be'
+                    . ' counted.'
+                ),
+            )),
+            'history' => self::fluxHistory($occurrences),
+            'verdict' => self::fluxVerdict(
+                self::decaySpan($rows, $created, $decay[0]),
+                $tally,
+                $rows
+            ),
+        );
+    }
+
+    /**
+     * Who has reported seeing it, in order, tallied from the rows.
+     *
+     * @param array $rows
+     * @return array
+     */
+    private static function fluxReporters(array $rows)
+    {
+        $seen = array();
+        foreach ($rows as $row) {
+            $seen[$row['org']] = 1
+                + (isset($seen[$row['org']]) ? $seen[$row['org']] : 0);
+        }
+        arsort($seen);
+        $out = array();
+        foreach ($seen as $org => $count) {
+            $out[] = array('org' => $org, 'count' => $count);
+        }
+        return $out;
     }
 }

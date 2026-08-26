@@ -54,8 +54,8 @@ $slug = function ($text) {
  * object is not a sibling of ours unless we are in that same object.
  */
 $siblingObjects = array();
-foreach ($siblings as $sibling) {
-    $siblingObjects[$sibling['object']['name']] = true;
+foreach ($siblings['rows'] as $sibling) {
+    $siblingObjects[$sibling['object']] = true;
 }
 
 /**
@@ -536,79 +536,242 @@ $headerSub = ob_get_clean();
 
     <?php endif; ?>
 
-    <?php if (!empty($siblings)): ?>
+    <?php if (!empty($siblings['rows'])): ?>
 
         <?php
         /*
          * Listed above the ranked table because it is the only
          * co-occurrence here that is structural rather than
          * statistical, and because it survives everything: the object
-         * join reads attributes the page already fetched, so it is
+         * join reads attributes rather than correlations, so it is
          * unaffected by the correlation limit that suppressed the
          * section above it.
+         *
+         * Its own `data-vp-list` rather than a second control inside
+         * the panel's: it pages on a different set of rows than the
+         * ranked table, and one pager over the union of the two would
+         * print a range belonging to neither.
+         *
+         * The section scales on how many objects the value sits in,
+         * which is a function of the occurrence count and not of the
+         * correlation count — so it can be the longest thing on the
+         * tab on exactly the value whose correlations were suppressed.
+         * Everything below states its own bound for that reason.
          */
+        $sibCapped = !empty($siblings['cap']['applied']);
+        // A count taken over a capped join is a floor, and says so.
+        $sibFloor = $sibCapped ? '≥&nbsp;' : '';
         ?>
-        <div class="px-3 pt-3">
-            <div class="vp-subhead d-flex align-items-center gap-2">
-                <span class="misp-icon misp-icon-object misp-simple"></span>
-                <?= __('Object siblings — the same object, other relations') ?>
-                <span class="badge text-bg-secondary">
-                    <?= h(count($siblings)) ?>
-                </span>
-            </div>
-            <div class="small text-muted mb-2">
-                <?= __('A join on the object id over occurrences this page'
-                    . ' has already fetched — not a correlation, and not'
-                    . ' the engine\'s to suppress.') ?>
-            </div>
-        </div>
+        <div data-vp-list>
 
-        <div class="table-responsive">
-            <table class="table table-sm table-hover vp-table align-middle
-                          mb-0">
-                <thead>
-                    <tr>
-                        <th><?= __('Object') ?></th>
-                        <th><?= __('Relation') ?></th>
-                        <th><?= __('Sibling value') ?></th>
-                        <th><?= __('Type') ?></th>
-                        <th><?= __('Event') ?></th>
-                        <th><?= __('Reported by') ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($siblings as $sibling): ?>
-                        <tr class="vp-rel-stripe vp-rel-k-co">
-                            <td class="text-nowrap">
-                                <span class="misp-icon misp-icon-object
-                                             misp-simple me-1"></span>
-                                <span class="font-monospace small">
-                                    <?= h($sibling['object']['name']) ?>
-                                </span>
-                            </td>
-                            <td>
-                                <span class="vp-relation">
-                                    <?= h($sibling['relation']) ?>
-                                </span>
-                            </td>
-                            <td class="font-monospace vp-rel-cell">
-                                <?= h($sibling['value']) ?>
-                            </td>
-                            <td><?= $typeBadge($sibling['type']) ?></td>
-                            <td class="text-nowrap">
-                                <a href="<?= $baseurl ?>/events/view2/<?=
-                                    h($sibling['event']) ?>"
-                                   class="font-monospace small">
-                                    #<?= h($sibling['event']) ?>
-                                </a>
-                            </td>
-                            <td class="text-nowrap">
-                                <?= h($sibling['org']) ?>
-                            </td>
+            <div class="px-3 pt-3">
+                <div class="vp-subhead d-flex align-items-center gap-2">
+                    <span class="misp-icon misp-icon-object
+                                 misp-simple"></span>
+                    <?= __('Object siblings — the same object, other'
+                        . ' relations') ?>
+                    <?php
+                    /*
+                     * The value's own number of distinct siblings, not
+                     * the number of rows this fragment carries. The
+                     * badge used to print the row count and read as a
+                     * total, which is the defect this section is here
+                     * to fix.
+                     */
+                    ?>
+                    <span class="badge text-bg-secondary">
+                        <?= $sibFloor ?><?=
+                            h(number_format($siblings['total'])) ?>
+                    </span>
+                </div>
+                <div class="small text-muted mb-2">
+                    <?= __('A join on the object id over every occurrence'
+                        . ' you can see — not a correlation, and not the'
+                        . ' engine\'s to suppress. One row per object'
+                        . ' template, relation and sibling value, so a'
+                        . ' sibling seen many times is one row that says'
+                        . ' how many.') ?>
+                </div>
+            </div>
+
+            <?php if ($sibCapped): ?>
+                <?php
+                /*
+                 * §9.6's resolution, stated rather than inferred. The
+                 * aggregate is over the viewer's whole occurrence set
+                 * and not over the Occurrences tab's current page, so
+                 * it needs a ceiling — and an aggregate over a
+                 * truncated set that does not say so is the one thing
+                 * this section must not produce.
+                 */
+                ?>
+                <div class="vp-rel-cap">
+                    <i class="fas fa-circle-info"></i>
+                    <span>
+                        <?= sprintf(
+                            __(
+                                'Aggregated over %1$s of the %2$s objects'
+                                . ' this value sits in, most recent'
+                                . ' first. Every count in this section'
+                                . ' is a floor rather than a total, and'
+                                . ' is written %3$s to say so.'
+                            ),
+                            '<strong>' . h(number_format(
+                                $siblings['objects']
+                            )) . '</strong>',
+                            '<strong>' . h(number_format(
+                                $siblings['in_objects']
+                            )) . '</strong>',
+                            '<code>&ge;</code>'
+                        ) ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+
+            <div class="table-responsive" data-vp-list-rows>
+                <table class="table table-sm table-hover vp-table
+                              align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th><?= __('Object') ?></th>
+                            <th><?= __('Relation') ?></th>
+                            <th><?= __('Sibling value') ?></th>
+                            <th><?= __('Type') ?></th>
+                            <th class="text-end"><?= __('Objects') ?></th>
+                            <?php
+                            /*
+                             * A right-aligned number immediately left of
+                             * a left-aligned name reads as one field, so
+                             * the count keeps its own gutter.
+                             */
+                            ?>
+                            <th class="text-end pe-4"><?= __('Events') ?></th>
+                            <th><?= __('Reported by') ?></th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($siblings['rows'] as $sibling): ?>
+                            <tr class="vp-rel-stripe vp-rel-k-co">
+                                <td class="text-nowrap">
+                                    <span class="misp-icon misp-icon-object
+                                                 misp-simple me-1"></span>
+                                    <span class="font-monospace small">
+                                        <?= h($sibling['object']) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="vp-relation">
+                                        <?= h($sibling['relation']) ?>
+                                    </span>
+                                </td>
+                                <td class="font-monospace vp-rel-cell">
+                                    <?= h($sibling['value']) ?>
+                                </td>
+                                <td><?= $typeBadge($sibling['type']) ?></td>
+                                <?php
+                                /*
+                                 * The collapse, as a number and not a
+                                 * bar: it is how many objects this one
+                                 * row stands for, which a reader has to
+                                 * be able to read exactly.
+                                 */
+                                ?>
+                                <td class="text-end font-monospace small
+                                           text-nowrap">
+                                    <?= $sibling['objects'] > 1
+                                        ? $sibFloor
+                                        : '' ?><?=
+                                        h(number_format(
+                                            $sibling['objects']
+                                        )) ?>
+                                </td>
+                                <td class="text-end pe-4 text-nowrap">
+                                    <?php
+                                    /*
+                                     * Aggregating to a triple loses the
+                                     * object ids, so a row standing for
+                                     * many objects can only give the
+                                     * count. A row standing for one is
+                                     * unambiguous and keeps the link it
+                                     * had before the aggregation.
+                                     */
+                                    ?>
+                                    <?php if ($sibling['event'] !== null): ?>
+                                        <a href="<?= $baseurl
+                                            ?>/events/view2/<?=
+                                            h($sibling['event']) ?>"
+                                           class="font-monospace small">
+                                            #<?= h($sibling['event']) ?>
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="font-monospace small">
+                                            <?= $sibFloor ?><?=
+                                                h(number_format(
+                                                    $sibling['events']
+                                                )) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-nowrap">
+                                    <?= h(implode(', ', array_slice(
+                                        $sibling['orgs'],
+                                        0,
+                                        2
+                                    ))) ?>
+                                    <?php
+                                    $sibMore = $sibling['org_total']
+                                        - min(2, count($sibling['orgs']));
+                                    ?>
+                                    <?php if ($sibMore > 0): ?>
+                                        <span class="text-muted small">
+                                            <?= h(sprintf(
+                                                __('+%d more'),
+                                                $sibMore
+                                            )) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-3 py-2 border-top">
+                <?= $this->element('Values/View/value_pager', array(
+                    'size' => $siblings['page_size'],
+                    'shown' => count($siblings['rows']),
+                    'total' => $siblings['total'],
+                    'noun' => __('siblings'),
+                )) ?>
+            </div>
+
+            <?php if (!empty($siblings['hidden'])): ?>
+                <?php
+                /*
+                 * An object the viewer can open still holds attributes
+                 * with their own distribution, so the aggregate is over
+                 * visible siblings only. Counted here because it can
+                 * be; the occurrences the viewer cannot open at all are
+                 * the tab's own note, not this section's.
+                 */
+                ?>
+                <div class="vp-acl-note vp-acl-note-band">
+                    <i class="fas fa-eye-slash"></i>
+                    <span>
+                        <?= h(sprintf(
+                            __(
+                                '%d further attributes sit in these'
+                                . ' objects but carry a distribution'
+                                . ' that does not reach you. They are'
+                                . ' neither listed nor counted above.'
+                            ),
+                            $siblings['hidden']
+                        )) ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+
         </div>
 
     <?php endif; ?>
