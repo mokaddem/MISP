@@ -59,22 +59,43 @@ class ValueProfileFixture
     const SIBLING_JOIN_CAP = 500;
 
     /**
+     * How many days of audit log the History tab lands on.
+     *
+     * A date rather than a count, which is the whole difference between
+     * this bound and `SIBLING_JOIN_CAP`. The reader is asking what has
+     * happened lately, and a ceiling of two hundred entries answers a
+     * question about the log's volume instead — worse, it answers it
+     * differently on a quiet value and a busy one.
+     */
+    const HISTORY_WINDOW_DAYS = 30;
+
+    /**
      * @param string $value A refanged value, as MISP stores it.
+     * @param array $options Per-panel options. `history_window` is
+     *                       `all`, a from/to pair of `Y-m-d`, or absent
+     *                       for the default window — the History panel
+     *                       is fetched on its own, so the period it was
+     *                       asked for arrives here rather than being
+     *                       applied to a profile that was built without
+     *                       it.
      * @return array
      */
-    public static function forValue($value)
+    public static function forValue($value, array $options = array())
     {
+        $window = isset($options['history_window'])
+            ? $options['history_window']
+            : null;
         if ($value === '185.234.219.24') {
-            return self::malicious();
+            return self::malicious($window);
         }
         if ($value === '104.21.34.198') {
-            return self::conflicted();
+            return self::conflicted($window);
         }
         if ($value === '8.8.8.8') {
-            return self::benign();
+            return self::benign($window);
         }
         if ($value === '45.155.205.233') {
-            return self::flux();
+            return self::flux($window);
         }
         return self::unknown($value);
     }
@@ -83,9 +104,10 @@ class ValueProfileFixture
      * A C2 IP: many sightings, an APT galaxy, four organisations, a high
      * decay score and a `to_ids` disagreement.
      *
+     * @param mixed $window The History tab's period; see forValue()
      * @return array
      */
-    private static function malicious()
+    private static function malicious($window = null)
     {
         $created = '2024-09-14';
         $rows = self::maliciousSightingRows();
@@ -308,7 +330,7 @@ class ValueProfileFixture
              * per-event audit logs cannot do: each of them only ever
              * sees one copy of this value.
              */
-            'history' => self::maliciousHistory($occurrences),
+            'history' => self::maliciousHistory($occurrences, $window),
             /*
              * The rail card's second line is the NIDS decay score, and
              * it is handed in rather than drawn again here: the Verdict
@@ -1334,9 +1356,10 @@ class ValueProfileFixture
      * layout: the evidence is real on both sides, and averaging it away
      * would destroy the only useful thing the page can say.
      *
+     * @param mixed $window The History tab's period; see forValue()
      * @return array
      */
-    private static function conflicted()
+    private static function conflicted($window = null)
     {
         $created = '2025-02-03';
         $rows = self::conflictedSightingRows();
@@ -1555,7 +1578,7 @@ class ValueProfileFixture
              * than as a score — and the only section on this page that
              * pages.
              */
-            'history' => self::conflictedHistory($occurrences),
+            'history' => self::conflictedHistory($occurrences, $window),
             /*
              * The opinion distribution is handed in rather than
              * written again: the Verdict tab's histogram and the
@@ -2582,9 +2605,10 @@ class ValueProfileFixture
      * table, same arithmetic — which is why it shares the layout rather
      * than getting a third one.
      *
+     * @param mixed $window The History tab's period; see forValue()
      * @return array
      */
-    private static function benign()
+    private static function benign($window = null)
     {
         $created = '2024-11-02';
         $rows = self::benignSightingRows();
@@ -2786,7 +2810,7 @@ class ValueProfileFixture
              * audit logging came on after everything that has ever
              * happened to a resolver everybody already trusts.
              */
-            'history' => self::benignHistory($occurrences),
+            'history' => self::benignHistory($occurrences, $window),
             'verdict' => self::benignVerdict(
                 self::decaySpan($rows, $created, $decay[0])
             ),
@@ -8057,7 +8081,9 @@ class ValueProfileFixture
     /**
      * @param array $spec Keys: recorded, occurrences, groups (attribute
      *                    id => rows, newest first), event_entries,
-     *                    total_occurrences, viewer_org, vocab
+     *                    total_occurrences, viewer_org, vocab;
+     *                    optionally window — `all`, a from/to pair of
+     *                    `Y-m-d`, or absent for the default period
      * @return array
      */
     private static function history(array $spec)
@@ -8067,26 +8093,56 @@ class ValueProfileFixture
         $eventEntries = isset($spec['event_entries'])
             ? $spec['event_entries']
             : array();
+        $window = self::auditWindow(
+            isset($spec['window']) ? $spec['window'] : null
+        );
 
-        $groups = array();
-        $all = $eventEntries;
         /*
-         * One section per occurrence the viewer can open, not one per
-         * occurrence that happens to have entries: an occurrence
-         * nobody has touched since audit logging came on is a fact
-         * about the value, and a missing section would read as one
-         * fewer copy of it.
+         * Two row sets, and the distance between them is this phase.
+         * `$corpus` is every entry in scope over the value's whole log:
+         * it is what the header counts `of`, what the chart bars and
+         * what the period control's bounds are read from, because all
+         * three describe the log rather than the window. `$all` is what
+         * the panel renders.
          */
+        $corpus = array();
+        $all = array();
+        $groups = array();
+        /*
+         * Phase 16 built one section per occurrence whether or not
+         * anything had happened to it, on the argument that an
+         * untouched occurrence is a fact about the value and a missing
+         * section would read as one fewer copy of it. That is right at
+         * ten occurrences and unreadable at 748, so the fact is now
+         * named as a count instead of drawn as a box. The two counts
+         * are separate because they are different answers: an
+         * occurrence with no entries at all has none at any period, and
+         * one whose entries all fall outside the window is reachable by
+         * moving it.
+         */
+        $silent = 0;
+        $outside = 0;
         foreach ($occurrences as $occurrence) {
             $id = (int)$occurrence['Attribute']['id'];
             $entries = isset($authored[$id]) ? $authored[$id] : array();
+            if (empty($entries)) {
+                $silent++;
+                continue;
+            }
             $group = array(
                 'attribute_id' => $id,
                 'event_id' => (int)$occurrence['Attribute']['event_id'],
                 'event_info' => $occurrence['Event']['info'],
                 'org' => $occurrence['Event']['Orgc']['name'],
                 'deleted' => !empty($occurrence['Attribute']['deleted']),
-                'count' => count($entries),
+                'count' => 0,
+                /*
+                 * The occurrence's whole-log count, which the section
+                 * header states beside the window's so a reader can see
+                 * that they are looking at three of eleven changes and
+                 * not at all of them.
+                 */
+                'total' => count($entries),
                 'last' => null,
                 'mix' => array(),
                 'entries' => array(),
@@ -8095,6 +8151,10 @@ class ValueProfileFixture
                 $row['event_id'] = $group['event_id'];
                 $row['event_info'] = $group['event_info'];
                 $row['attribute_id'] = $id;
+                $corpus[] = $row;
+                if (!self::auditInWindow($row, $window)) {
+                    continue;
+                }
                 $group['entries'][] = $row;
                 $action = $row['action'];
                 $group['mix'][$action] = (isset($group['mix'][$action])
@@ -8106,9 +8166,23 @@ class ValueProfileFixture
                     $group['last'] = $row['created'];
                 }
             }
+            if (empty($group['entries'])) {
+                $outside++;
+                continue;
+            }
+            $group['count'] = count($group['entries']);
             $groups[] = $group;
             $all = array_merge($all, $group['entries']);
         }
+
+        $shownEvents = array();
+        foreach ($eventEntries as $row) {
+            $corpus[] = $row;
+            if (self::auditInWindow($row, $window)) {
+                $shownEvents[] = $row;
+            }
+        }
+        $all = array_merge($shownEvents, $all);
 
         usort($groups, function ($a, $b) {
             return strcmp((string)$b['last'], (string)$a['last']);
@@ -8128,32 +8202,61 @@ class ValueProfileFixture
         }
         /*
          * The band's two numbers count the events that *hold* a visible
-         * occurrence, not the events that produced an entry. An event
-         * of the viewer's own with nothing logged against it is still
-         * an event they see every entry on, and counting entries here
-         * would make the ACL statement move with the audit log.
+         * occurrence, not the events that produced an entry, and they
+         * are counted over every visible occurrence rather than over
+         * the sections the window left standing. An event of the
+         * viewer's own with nothing logged against it is still an event
+         * they see every entry on, and a number that moved with the
+         * period would make the ACL statement a property of the period.
          */
         $viewerEvents = array();
         $otherEvents = array();
-        foreach ($groups as $group) {
-            if ($group['org'] === $spec['viewer_org']) {
-                $viewerEvents[$group['event_id']] = true;
+        foreach ($occurrences as $occurrence) {
+            $event = (int)$occurrence['Attribute']['event_id'];
+            if ($occurrence['Event']['Orgc']['name']
+                === $spec['viewer_org']
+            ) {
+                $viewerEvents[$event] = true;
             } else {
-                $otherEvents[$group['event_id']] = true;
+                $otherEvents[$event] = true;
             }
         }
 
         $visible = count($occurrences);
         return array(
             'recorded' => !empty($spec['recorded']),
-            'entries' => count($all),
-            'occurrences' => $visible,
+            /*
+             * The applied period, or null for the whole log. Null is a
+             * state the reader has to ask for: `show all time` is the
+             * one request on this tab that is deliberately unbounded.
+             */
+            'window' => $window,
+            'default_window' => self::auditWindow(null),
+            /*
+             * The log's own bounds, which is what the period control
+             * offers and what the note above it states. Read from the
+             * corpus and never from the window: an input that only
+             * reached the month the reader has already landed on could
+             * not reach the rest of the log.
+             */
+            'span' => self::auditSpan($corpus),
+            'months' => self::auditMonths($corpus),
+            'entries' => count($corpus),
+            'shown' => count($all),
+            'occurrences' => count($groups),
+            'visible' => $visible,
+            'silent' => $silent,
+            'outside' => $outside,
             'events' => count($events),
             /*
              * How many occurrences the viewer cannot open. Their entry
              * counts are not obtainable either — the count is itself a
              * fact about an event they may not read — which is why the
              * footer states the number of occurrences and stops.
+             *
+             * The window is applied to sections rather than by handing
+             * this builder a subset of the occurrences, which is what
+             * keeps this the ACL's number and never the period's.
              */
             'hidden' => $spec['total_occurrences'] - $visible,
             'total_occurrences' => $spec['total_occurrences'],
@@ -8162,6 +8265,12 @@ class ValueProfileFixture
             'other_events' => count($otherEvents),
             'first' => $first,
             'last' => $last,
+            /*
+             * Tallied over the rendered rows, so the rail describes the
+             * period the reader is in. The corpus total is on screen
+             * once, in the header, and the rail says which period its
+             * own numbers cover.
+             */
             'facets' => self::auditFacets($all, $spec['vocab']),
             /*
              * Carried through so the panel orders an occurrence's
@@ -8171,8 +8280,132 @@ class ValueProfileFixture
              */
             'vocab' => $spec['vocab'],
             'groups' => $groups,
-            'event_entries' => $eventEntries,
+            'event_entries' => $shownEvents,
+            'event_total' => count($eventEntries),
         );
+    }
+
+    /**
+     * The window `history()` applies, resolved.
+     *
+     * @param mixed $spec `all` for the whole log, a from/to pair of
+     *                    `Y-m-d`, or null for the default period
+     * @return array|null Null means the whole log
+     */
+    private static function auditWindow($spec)
+    {
+        if ($spec === 'all') {
+            return null;
+        }
+        if (is_array($spec) && isset($spec['from']) && isset($spec['to'])) {
+            return array(
+                'from' => (string)$spec['from'],
+                'to' => (string)$spec['to'],
+            );
+        }
+        return array(
+            'from' => self::addDays(
+                self::TODAY,
+                1 - self::HISTORY_WINDOW_DAYS
+            ),
+            'to' => self::TODAY,
+        );
+    }
+
+    /**
+     * Whole days on both ends, because that is what the reader picked.
+     * A window given to the minute would drop entries from the day they
+     * named, which reads as the log having lost them.
+     *
+     * @param array $row
+     * @param array|null $window
+     * @return bool
+     */
+    private static function auditInWindow(array $row, $window)
+    {
+        if ($window === null) {
+            return true;
+        }
+        $day = substr((string)$row['created'], 0, 10);
+        return $day >= $window['from'] && $day <= $window['to'];
+    }
+
+    /**
+     * The log's own bounds for this value, as days.
+     *
+     * @param array $rows
+     * @return array|null
+     */
+    private static function auditSpan(array $rows)
+    {
+        $from = null;
+        $to = null;
+        foreach ($rows as $row) {
+            $day = substr((string)$row['created'], 0, 10);
+            if ($from === null || $day < $from) {
+                $from = $day;
+            }
+            if ($to === null || $day > $to) {
+                $to = $day;
+            }
+        }
+        return $from === null
+            ? null
+            : array('from' => $from, 'to' => $to);
+    }
+
+    /**
+     * One bar per month, from the log's first month to the current one.
+     *
+     * To this month rather than to the log's last: a value whose log
+     * went quiet in March lands on a window in August, and the reader
+     * has to be able to see that the window is off the right-hand end
+     * of the value's own activity. A chart that stopped in March would
+     * put the window nowhere at all.
+     *
+     * The last bar stops today rather than at the end of its month, for
+     * the reason the Timeline's spine does — a bar drawn over days that
+     * have not happened invites the reader to read a dip in it.
+     *
+     * @param array $rows The corpus, over the whole log
+     * @return array
+     */
+    private static function auditMonths(array $rows)
+    {
+        $span = self::auditSpan($rows);
+        if ($span === null) {
+            return array();
+        }
+        $utc = new DateTimeZone('UTC');
+        $cursor = new DateTimeImmutable(
+            substr($span['from'], 0, 7) . '-01 00:00:00',
+            $utc
+        );
+        $end = (new DateTimeImmutable(self::TODAY . ' 00:00:00', $utc))
+            ->format('Y-m');
+        $months = array();
+        $index = array();
+        while ($cursor->format('Y-m') <= $end) {
+            $stop = $cursor->modify('last day of this month')
+                ->format('Y-m-d');
+            $index[$cursor->format('Y-m')] = count($months);
+            $months[] = array(
+                'key' => $cursor->format('Y-m'),
+                'label' => $cursor->format('M'),
+                'title' => $cursor->format('F Y'),
+                'from' => $cursor->format('Y-m-d'),
+                'to' => min($stop, self::TODAY),
+                'total' => 0,
+            );
+            $cursor = $cursor->modify('first day of next month');
+        }
+        foreach ($rows as $row) {
+            $key = substr((string)$row['created'], 0, 7);
+            if (isset($index[$key])) {
+                $months[$index[$key]]['total']++;
+            }
+        }
+        return $months;
     }
 
     /**
@@ -8410,10 +8643,13 @@ class ValueProfileFixture
      * and never restored.
      *
      * @param array $occurrences The value's visible occurrences
+     * @param mixed $window The period; see forValue()
      * @return array
      */
-    private static function maliciousHistory(array $occurrences)
-    {
+    private static function maliciousHistory(
+        array $occurrences,
+        $window = null
+    ) {
         $value = '185.234.219.24';
         $typo = 'cdn-status.top|185.234.219.240';
         $fixed = 'cdn-status.top|185.234.219.24';
@@ -8791,6 +9027,7 @@ class ValueProfileFixture
             'total_occurrences' => 10,
             'viewer_org' => 'CIRCL',
             'vocab' => self::auditVocab(),
+            'window' => $window,
         ));
     }
 
@@ -8805,10 +9042,13 @@ class ValueProfileFixture
      * audit log can separate.
      *
      * @param array $occurrences The value's visible occurrences
+     * @param mixed $window The period; see forValue()
      * @return array
      */
-    private static function conflictedHistory(array $occurrences)
-    {
+    private static function conflictedHistory(
+        array $occurrences,
+        $window = null
+    ) {
         $value = '104.21.34.198';
         $pair = 'secure-login-lu.example|104.21.34.198';
         $old = 'account-verify-lu.example|104.21.34.198';
@@ -9025,6 +9265,7 @@ class ValueProfileFixture
             'total_occurrences' => 9,
             'viewer_org' => 'CIRCL',
             'vocab' => self::auditVocab(),
+            'window' => $window,
         ));
     }
 
@@ -9143,26 +9384,113 @@ class ValueProfileFixture
     }
 
     /**
-     * The resolver's audit record, which is empty.
+     * The resolver's audit record: six entries in six weeks of early
+     * 2025, and nothing since.
      *
-     * `MISP.log_new_audit` was turned on after everything that has ever
-     * happened to this value, so the log works and has nothing to say
-     * about it. That is a different claim from the log not running, and
-     * §9's two states are worded to keep them apart.
+     * A public resolver whose tags were tidied once. That makes it the
+     * demo for the state phase 19 §11.3 has no other value for — a log
+     * that runs, holds entries, and holds none inside the period the
+     * tab lands on. The occurrence is the November feed import, which
+     * is the only one of the five that already existed in February;
+     * every entry on it is a tag operation, which is what lets them sit
+     * before an attribute `timestamp` of November without contradicting
+     * it. `AttributeTag` is its own model and tagging does not touch
+     * the attribute.
      *
      * @param array $occurrences
+     * @param mixed $window The period; see forValue()
      * @return array
      */
-    private static function benignHistory(array $occurrences)
-    {
+    private static function benignHistory(
+        array $occurrences,
+        $window = null
+    ) {
+        $value = '8.8.8.8';
+        $feed = 4855731;
+        $event = 1259;
+        $info = 'Botvrij.eu feed import 2024-11-02';
+        $org = 'Botvrij.eu';
+
+        $groups = array(
+            $feed => array(
+                self::auditRow(array(
+                    'created' => '2025-03-04 11:06:00',
+                    'action' => 'remove_tag',
+                    'model_id' => $feed,
+                    'model_title' => $value,
+                    'subject' => 'workflow:state="incomplete"',
+                    'org' => $org,
+                )),
+                self::auditRow(array(
+                    'created' => '2025-03-04 11:02:00',
+                    'action' => 'tag',
+                    'model_id' => $feed,
+                    'model_title' => $value,
+                    'subject' => 'type:OSINT',
+                    'org' => $org,
+                )),
+                self::auditRow(array(
+                    'created' => '2025-02-11 09:14:00',
+                    'action' => 'remove_tag',
+                    'model_id' => $feed,
+                    'model_title' => $value,
+                    'subject' => 'tlp:white',
+                    'org' => $org,
+                    'note' => __(
+                        'The second half of the tlp:white to tlp:clear'
+                        . ' rename, a minute after the first. The'
+                        . ' occurrence shows only the tag it ended'
+                        . ' with.'
+                    ),
+                )),
+                self::auditRow(array(
+                    'created' => '2025-02-11 09:13:00',
+                    'action' => 'tag',
+                    'model_id' => $feed,
+                    'model_title' => $value,
+                    'subject' => 'tlp:clear',
+                    'org' => $org,
+                )),
+            ),
+        );
+
+        $eventEntries = array(
+            self::auditRow(array(
+                'created' => '2025-02-11 09:21:00',
+                'action' => 'remove_tag',
+                'model' => 'Event',
+                'model_id' => $event,
+                'model_title' => $info,
+                'subject' => 'tlp:white',
+                'org' => $org,
+                'event_id' => $event,
+            )),
+            self::auditRow(array(
+                'created' => '2025-02-11 09:20:00',
+                'action' => 'tag',
+                'model' => 'Event',
+                'model_id' => $event,
+                'model_title' => $info,
+                'subject' => 'tlp:clear',
+                'org' => $org,
+                'event_id' => $event,
+                'note' => __(
+                    'The same rename on the event that holds the'
+                    . ' occurrence. It is counted here once rather than'
+                    . ' repeated in the section above.'
+                ),
+            )),
+        );
+
         return self::history(array(
             'recorded' => true,
             'occurrences' => $occurrences,
-            'groups' => array(),
-            'event_entries' => array(),
+            'groups' => $groups,
+            'event_entries' => $eventEntries,
             'total_occurrences' => 9,
             'viewer_org' => 'CIRCL',
             'vocab' => self::auditVocab(),
+            'window' => $window,
         ));
     }
 
@@ -10519,29 +10847,250 @@ class ValueProfileFixture
     }
 
     /**
-     * The audit rail, over the occurrences it can afford to detail.
+     * The audit rail at occurrence scale.
      *
-     * `history()` renders one collapsible section per occurrence it is
-     * handed, and `hidden` is `total_occurrences` minus the ones it was
-     * given — so handing it a sample would make the panel's footer
-     * state a number of ACL-hidden occurrences that is not the ACL's.
-     * It gets all 748, and 748 sections is phase 17 §9.8's prediction
-     * rendered rather than argued.
+     * Still handed all 748 occurrences, for the reason it always was:
+     * `hidden` is `total_occurrences` minus the ones this builder was
+     * given, so a sample would make the panel's footer state a number
+     * of ACL-hidden occurrences that is not the ACL's. What changed in
+     * phase 19 is that being handed 748 no longer means drawing 748
+     * boxes — 190 of them have entries, the rest are a count, and the
+     * period narrows the 190 further.
      *
      * @param array $occurrences
+     * @param mixed $window The period; see forValue()
      * @return array
      */
-    private static function fluxHistory(array $occurrences)
-    {
+    private static function fluxHistory(
+        array $occurrences,
+        $window = null
+    ) {
         return self::history(array(
             'recorded' => true,
             'occurrences' => $occurrences,
-            'groups' => array(),
-            'event_entries' => array(),
+            'groups' => self::fluxAuditGroups($occurrences),
+            'event_entries' => self::auditPublications(
+                self::fluxPublications($occurrences),
+                self::fluxAuditActors($occurrences)
+            ),
             'total_occurrences' => 812,
             'viewer_org' => 'CIRCL',
             'vocab' => self::auditVocab(),
+            'window' => $window,
         ));
+    }
+
+    /**
+     * Fourteen months of audit log over 190 of the 748 occurrences.
+     *
+     * Generated from the occurrences by the same index arithmetic the
+     * rest of this value uses, so the fixture renders the same page
+     * twice. Three rules it has to obey, and they are the reason it is
+     * generated rather than sampled:
+     *
+     * Every entry hangs off its own occurrence's day. This value is
+     * reported almost daily, so occurrences keep arriving, so `add`
+     * entries keep arriving — a log that went quiet in March would
+     * contradict a value sighted yesterday, and the tab would land on
+     * an empty window that is an artefact of the fixture rather than a
+     * fact about the value.
+     *
+     * The 11 soft-deleted occurrences are in the set whether the
+     * arithmetic picked them or not, and their newest entry is the
+     * `soft_delete`. An occurrence the Occurrences tab badges as
+     * deleted, with a section here that never mentions it, is two tabs
+     * disagreeing.
+     *
+     * Nothing invents a `soft_delete` on a live occurrence, and nothing
+     * invents an `undelete` or a hard `delete` at all. Those two stay
+     * at zero in the rail, where a zero counted against a vocabulary is
+     * the statement that nothing here was ever restored or purged.
+     *
+     * @param array $occurrences
+     * @return array Attribute id => rows, newest first
+     */
+    private static function fluxAuditGroups(array $occurrences)
+    {
+        $value = '45.155.205.233';
+        $actors = array(
+            'alice@circl.lu', 'bob@circl.lu', 'carol@circl.lu',
+            'dave@circl.lu',
+        );
+        /*
+         * What happens to an occurrence after it is added, in the order
+         * a reader would recognise: the tag it arrived with, the IDS
+         * flag someone set, the galaxy someone attached, the tag the
+         * next analyst took off again.
+         */
+        $shapes = array(
+            array('action' => 'tag', 'subject' => 'tlp:amber'),
+            array(
+                'action' => 'edit',
+                'change' => array('to_ids', '0', '1'),
+            ),
+            array('action' => 'galaxy', 'subject' => 'QakBot'),
+            array('action' => 'remove_tag', 'subject' => 'tlp:green'),
+            array(
+                'action' => 'edit',
+                'change' => array(
+                    'comment',
+                    '',
+                    'Beaconing every 300s, TLS on 8443',
+                ),
+            ),
+            array(
+                'action' => 'tag',
+                'subject' => 'workflow:state="reviewed"',
+            ),
+        );
+
+        $n = count($occurrences);
+        $groups = array();
+        foreach ($occurrences as $i => $occurrence) {
+            $deleted = !empty($occurrence['Attribute']['deleted']);
+            // 271 is coprime with 748, so this is a permutation and the
+            // 190 is exact rather than approximate.
+            if ((($i * 271) % $n) >= 190 && !$deleted) {
+                continue;
+            }
+            $id = (int)$occurrence['Attribute']['id'];
+            $org = $occurrence['Event']['Orgc']['name'];
+            /*
+             * The user only where the organisation is the viewer's,
+             * which is what `__applyAuditAcl` hands a non-site-admin.
+             * Everyone else is their organisation and nothing finer.
+             */
+            $actor = $org === 'CIRCL'
+                ? $actors[($i * 7) % count($actors)]
+                : null;
+            $day = gmdate(
+                'Y-m-d',
+                (int)$occurrence['Attribute']['timestamp']
+            );
+
+            $rows = array(self::auditRow(array(
+                'created' => self::auditClock($day, $i, 0),
+                'action' => 'add',
+                'model_id' => $id,
+                'model_title' => $value,
+                'actor' => $actor,
+                'org' => $org,
+                'request_type' => ($i % 4) === 0 ? 1 : 0,
+            )));
+
+            $extra = ($i * 13) % 4;
+            for ($k = 0; $k < $extra; $k++) {
+                $shape = $shapes[($i + $k * 5) % count($shapes)];
+                $rows[] = self::auditRow(array(
+                    'created' => self::auditClock(
+                        self::auditLater($day, 1 + $k * 3 + ($i % 5)),
+                        $i,
+                        $k + 1
+                    ),
+                    'action' => $shape['action'],
+                    'model_id' => $id,
+                    'model_title' => $value,
+                    'subject' => isset($shape['subject'])
+                        ? $shape['subject']
+                        : null,
+                    'change' => isset($shape['change'])
+                        ? array(self::auditChange(
+                            $shape['change'][0],
+                            $shape['change'][1],
+                            $shape['change'][2]
+                        ))
+                        : null,
+                    'actor' => $actor,
+                    'org' => $org,
+                ));
+            }
+
+            if ($deleted) {
+                $rows[] = self::auditRow(array(
+                    'created' => self::auditClock(
+                        self::auditLater($day, 4 + ($i % 11)),
+                        $i,
+                        9
+                    ),
+                    'action' => 'soft_delete',
+                    'model_id' => $id,
+                    'model_title' => $value,
+                    'actor' => $actor,
+                    'org' => $org,
+                    'note' => __(
+                        'Still on its event as history, which is why'
+                        . ' the Occurrences tab lists it with a Del'
+                        . ' badge rather than dropping it.'
+                    ),
+                ));
+            }
+
+            usort($rows, function ($a, $b) {
+                return strcmp($b['created'], $a['created']);
+            });
+            $groups[$id] = $rows;
+        }
+        return $groups;
+    }
+
+    /**
+     * Who published, for the events whose organisation is the viewer's.
+     *
+     * @param array $occurrences
+     * @return array Event id => actor
+     */
+    private static function fluxAuditActors(array $occurrences)
+    {
+        $actors = array(
+            'alice@circl.lu', 'bob@circl.lu', 'carol@circl.lu',
+            'dave@circl.lu',
+        );
+        $out = array();
+        foreach ($occurrences as $i => $occurrence) {
+            if ($occurrence['Event']['Orgc']['name'] !== 'CIRCL') {
+                continue;
+            }
+            $id = (int)$occurrence['Attribute']['event_id'];
+            if (!isset($out[$id])) {
+                $out[$id] = $actors[$id % count($actors)];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * A day after an occurrence's own, never past today: an entry
+     * dated into next week is a fixture artefact the chart would draw
+     * a bar for.
+     *
+     * @param string $day `Y-m-d`
+     * @param int $offset
+     * @return string
+     */
+    private static function auditLater($day, $offset)
+    {
+        $at = self::addDays($day, $offset);
+        return $at > self::TODAY ? self::TODAY : $at;
+    }
+
+    /**
+     * A stamp inside a day, later for each step, so an occurrence's
+     * entries order the same way whether or not two of them were
+     * clamped onto the same day.
+     *
+     * @param string $day `Y-m-d`
+     * @param int $i Occurrence index, which spreads the minutes
+     * @param int $k Step within the occurrence, which orders the hours
+     * @return string `Y-m-d H:i:s`
+     */
+    private static function auditClock($day, $i, $k)
+    {
+        return sprintf(
+            '%s %02d:%02d:00',
+            $day,
+            min(23, 6 + $k * 3),
+            ($i * 17 + $k * 11) % 60
+        );
     }
 
     /**
@@ -10902,9 +11451,10 @@ class ValueProfileFixture
      * events, 23 organisations, and past `MISP.correlation_limit` so
      * the engine stored nothing.
      *
+     * @param mixed $window The History tab's period; see forValue()
      * @return array
      */
-    private static function flux()
+    private static function flux($window = null)
     {
         $created = '2024-06-11';
         $occurrences = self::fluxOccurrences();
@@ -11114,7 +11664,7 @@ class ValueProfileFixture
                     . ' counted.'
                 ),
             )),
-            'history' => self::fluxHistory($occurrences),
+            'history' => self::fluxHistory($occurrences, $window),
             'verdict' => self::fluxVerdict(
                 self::decaySpan($rows, $created, $decay[0]),
                 $tally,

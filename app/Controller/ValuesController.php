@@ -304,15 +304,54 @@ class ValuesController extends AppController
      * `.ajax-card`s they resolve independently, and a rail whose rows
      * have not landed yet is a rail wired to nothing.
      *
+     * The only panel on this page that takes a period, and it takes it
+     * in the path because it is the panel's identity rather than a
+     * filter over it: what the endpoint returns for one window is a
+     * different fragment, and `reloadAjaxTabIndex` re-fetches a
+     * container by URL. Everything else on the tab narrows client-side
+     * over rows this already sent.
+     *
      * @param string $b64value
+     * @param string $from `Y-m-d`, or the literal `all`
+     * @param string $to `Y-m-d`
      * @return void
      */
-    public function viewHistory($b64value = null)
+    public function viewHistory($b64value = null, $from = null, $to = null)
     {
         $this->renderPanel(
-            $this->profileFor($b64value),
+            $this->profileFor(
+                $b64value,
+                array('history_window' => self::period($from, $to))
+            ),
             'value_history'
         );
+    }
+
+    /**
+     * A period out of two path segments.
+     *
+     * Anything that is not a well-formed pair falls back to the default
+     * window rather than to the whole log: a typo'd URL should land the
+     * reader on the bounded page, which is the one that always renders.
+     *
+     * @param string $from
+     * @param string $to
+     * @return mixed `all`, a from/to pair, or null for the default
+     */
+    private static function period($from, $to)
+    {
+        if ($from === 'all') {
+            return 'all';
+        }
+        $shape = '/^\d{4}-\d{2}-\d{2}$/';
+        if (!preg_match($shape, (string)$from)
+            || !preg_match($shape, (string)$to)
+        ) {
+            return null;
+        }
+        return $from <= $to
+            ? array('from' => $from, 'to' => $to)
+            : array('from' => $to, 'to' => $from);
     }
 
     /**
@@ -358,11 +397,16 @@ class ValuesController extends AppController
 
     /**
      * @param string $b64value
+     * @param array $options Per-panel options; see
+     *                       ValueProfileFixture::forValue
      * @return array
      */
-    private function profileFor($b64value)
+    private function profileFor($b64value, array $options = array())
     {
-        return ValueProfileFixture::forValue($this->decodeValue($b64value));
+        return ValueProfileFixture::forValue(
+            $this->decodeValue($b64value),
+            $options
+        );
     }
 
     /**

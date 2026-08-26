@@ -39,10 +39,22 @@ $panelIcon = 'fas fa-history';
 /*
  * Rows page inside their own section and never across the union: a
  * server-side Paginator over N event-scoped queries has no stable
- * ordering key, and this is where that lands. Twenty-five is the point
- * past which a section stops being something a reader scrolls.
+ * ordering key, and this is where that lands.
+ *
+ * Eight rather than phase 16's twenty-five, and the same eight the
+ * sections themselves page at. A pager over sections and a pager over
+ * rows are two controls a reader meets in one column, and giving them
+ * different strides makes the second one read as a different kind of
+ * thing than the first.
  */
-$pageSize = 25;
+$pageSize = 8;
+
+/*
+ * How many occurrence sections a page of them holds. Not a count of
+ * entries — an occurrence with four changes and one with forty are one
+ * section each, and this control is over sections.
+ */
+$sectionSize = 8;
 
 /**
  * @param string $stamp `Y-m-d H:i:s`
@@ -262,13 +274,18 @@ $deletedBadge = function () {
         </div>
     </div>
 
-<?php elseif ($history['occurrences'] === 0): ?>
+<?php elseif ($history['visible'] === 0): ?>
     <?php
     /*
      * State 4 taken to its limit — every occurrence hidden. The
      * suppressed band rather than the empty state, because the panel
      * knows the number it cannot show, and "nothing here" would be the
      * one reading that is false.
+     *
+     * Keyed on the occurrences the viewer may open and not on the
+     * sections that got built: since phase 19 those are different
+     * numbers, and a value whose window happens to be quiet is not a
+     * value whose occurrences are hidden.
      */
     ?>
     <div class="card shadow-sm mb-3 vp-panel"
@@ -311,6 +328,14 @@ $deletedBadge = function () {
      * claim about the value, where state 2 is a claim about the
      * instance. The wording has to make that the first thing the
      * reader takes away, because the two look identical otherwise.
+     *
+     * Keyed on the corpus and not on the window, so it stays a claim
+     * about the value: an empty *period* over a log that has entries is
+     * the state further down, and it says something different.
+     *
+     * No demo value renders this since phase 19 — both the resolver and
+     * the flux node have logs now. §11.3 records the one-line fixture
+     * flip that reaches it.
      */
     ?>
     <div class="card shadow-sm mb-3 vp-panel"
@@ -323,9 +348,9 @@ $deletedBadge = function () {
                 __n(
                     '%d occurrence, nothing logged',
                     '%d occurrences, nothing logged',
-                    $history['occurrences']
+                    $history['visible']
                 ),
-                $history['occurrences']
+                $history['visible']
             )),
         )) ?>
         <div class="vp-empty">
@@ -341,9 +366,9 @@ $deletedBadge = function () {
                         . ' has no entry for this value. None of its %d'
                         . ' visible occurrences has been touched since'
                         . ' recording began.',
-                        $history['occurrences']
+                        $history['visible']
                     ),
-                    $history['occurrences']
+                    $history['visible']
                 )) ?>
             </span>
         </div>
@@ -695,10 +720,61 @@ $railGroups = array(
     ),
 );
 
+/*
+ * The window the panel was rendered for, and the log it was cut out
+ * of. Null is the whole log, which the reader has to ask for.
+ */
+$window = $history['window'];
+$span = $history['span'];
+$allTime = $window === null;
+$historyBase = $baseurl . '/values/viewHistory/' . $valueB64;
+
+/*
+ * How long the default window is, measured off the window itself rather
+ * than written down here. The number belongs to whoever set it, and a
+ * second copy of it in this template is a second thing to change.
+ */
+$windowDays = 1 + (int)round(
+    (strtotime($history['default_window']['to'])
+        - strtotime($history['default_window']['from'])) / 86400
+);
+
+/**
+ * @param array $window
+ * @return string
+ */
+$windowLabel = function ($window) use ($fmt) {
+    /*
+     * Non-breaking spaces inside each date. The panel header puts this
+     * on a line it shares with the search box and the grouping control,
+     * and a wrap between the day and the month reads as two separate
+     * facts rather than one date.
+     */
+    $day = function ($at) use ($fmt) {
+        return str_replace(
+            ' ',
+            "\xc2\xa0",
+            $fmt($at . ' 00:00:00', 'j M Y')
+        );
+    };
+    return sprintf(
+        '%1$s → %2$s',
+        $day($window['from']),
+        $day($window['to'])
+    );
+};
+
+/*
+ * The corpus total is on screen exactly once, here. Every other number
+ * on the tab — the rail's counts, the section headers, the pagers —
+ * describes the period, which is what decision 7 buys by scoping the
+ * rail: one place to look for *how much is there altogether*, and no
+ * pair of numbers inviting a comparison nobody asked for.
+ */
 $headerLine = implode(' &nbsp;·&nbsp; ', array(
     sprintf(
         __('Showing %1$s of %2$s entries'),
-        '<span data-vp-list-shown>' . h($history['entries']) . '</span>',
+        '<span data-vp-list-shown>' . h($history['shown']) . '</span>',
         h($history['entries'])
     ),
     h(sprintf(
@@ -710,11 +786,9 @@ $headerLine = implode(' &nbsp;·&nbsp; ', array(
         $history['occurrences'],
         $history['events']
     )),
-    h(sprintf(
-        '%1$s → %2$s',
-        $fmt($history['first'], 'j M Y'),
-        $fmt($history['last'], 'j M Y')
-    )),
+    $allTime
+        ? h(__('all time'))
+        : h($windowLabel($window)),
 ));
 
 ob_start();
@@ -775,25 +849,24 @@ ob_start();
 $headerExtra = ob_get_clean();
 
 /*
- * The period control's bounds, taken from the rows rather than written
- * down. An input offering a month the log cannot hold invites a reader
- * to filter to an empty panel and read it as a quiet month.
+ * The period control's bounds are the log's, never the window's. Phase
+ * 16 took them from the rendered rows, which was the same thing then
+ * and is not now: an input that could only reach the month the reader
+ * already landed on could not reach the rest of the log.
+ *
+ * What the chart is handed. `months` covers the whole log regardless of
+ * the window, so activity outside the period is visible rather than
+ * inferred — which is the point of drawing it at all.
  */
-$stamps = array();
-foreach ($history['groups'] as $group) {
-    foreach ($group['entries'] as $entry) {
-        $stamps[] = $entry['created'];
-    }
-}
-foreach (($history['event_entries'] ?? array()) as $entry) {
-    $stamps[] = $entry['created'];
-}
-sort($stamps);
-$periodFirst = empty($stamps) ? null : $stamps[0];
-$periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
+$chartPayload = array(
+    'months' => $history['months'],
+    'window' => $window,
+    'span' => $span,
+);
 ?>
 
-<div class="row" data-vp-list data-vp-audit>
+<div class="row" data-vp-list data-vp-audit
+     data-vp-audit-base="<?= h($historyBase) ?>">
 
     <div class="col-lg-3">
         <div class="card shadow-sm mb-3 vp-panel"
@@ -817,7 +890,7 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                 'panelSub' => sprintf(
                     __('%1$s entries · %2$s filters set'),
                     '<span data-vp-facet-rows>'
-                        . h($history['entries']) . '</span>',
+                        . h($history['shown']) . '</span>',
                     '<span data-vp-facet-count-active>0</span>'
                 ),
                 'panelExtra' => $railExtra,
@@ -826,12 +899,15 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
             <div class="p-3">
                 <div class="vp-facet-note">
                     <?= __(
-                        'Every count is what you may read, never what'
-                        . ' the instance holds. A site admin sees more'
-                        . ' rows here than you do.'
+                        'Every count below covers the period and nothing'
+                        . ' outside it, so moving the period moves them.'
+                        . ' They are also what you may read rather than'
+                        . ' what the instance holds — a site admin sees'
+                        . ' more rows here than you do. The log\'s own'
+                        . ' total is in the panel header.'
                     ) ?>
                 </div>
-                <?php if ($periodFirst !== null): ?>
+                <?php if ($span !== null): ?>
                     <div class="vp-facetgrp">
                         <div class="vp-subhead">
                             <i class="fas fa-clock me-1"></i>
@@ -842,25 +918,130 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                                 __('The log runs %1$s to %2$s. Both'
                                     . ' bounds are inclusive, and either'
                                     . ' one alone is a filter.'),
-                                $fmt($periodFirst, 'j M Y'),
-                                $fmt($periodLast, 'j M Y')
+                                $fmt($span['from'] . ' 00:00:00', 'j M Y'),
+                                $fmt($span['to'] . ' 00:00:00', 'j M Y')
                             )) ?>
                         </div>
+
+                        <?php
+                        /*
+                         * The chart and the two inputs are one control,
+                         * not a chart above a control: the brush writes
+                         * the inputs and fires their own `change`, so
+                         * the window stays statable as two dates and
+                         * the whole existing filter path runs unchanged.
+                         * That is also why they are next to each other
+                         * — a reader has to be able to see the gesture
+                         * land somewhere.
+                         */
+                        ?>
+                        <script type="application/json"
+                                data-vp-audit-data><?=
+                            json_encode($chartPayload) ?></script>
+
+                        <div class="vp-audit-chart" data-vp-audit-chart>
+                            <canvas id="vp-audit-months" role="img"
+                                    aria-label="<?= h(__(
+                                        'Audit entries per month over'
+                                        . ' the whole log'
+                                    )) ?>"></canvas>
+                            <?php
+                            /*
+                             * Hidden until the chart it controls
+                             * exists. A brush framing an empty canvas
+                             * offers a gesture that cannot do anything,
+                             * which is worse than offering none.
+                             */
+                            ?>
+                            <div class="vp-audit-brush"
+                                 data-vp-audit-brush hidden>
+                                <div class="vp-audit-mask"
+                                     data-vp-audit-mask-left></div>
+                                <div class="vp-audit-window"
+                                     data-vp-audit-handle></div>
+                                <div class="vp-audit-mask"
+                                     data-vp-audit-mask-right></div>
+                            </div>
+                        </div>
+                        <div class="vp-audit-chart-axis">
+                            <span><?= h($fmt(
+                                $history['months'][0]['from'] . ' 00:00:00',
+                                'M Y'
+                            )) ?></span>
+                            <span><?= h($fmt(
+                                $history['months'][
+                                    count($history['months']) - 1
+                                ]['from'] . ' 00:00:00',
+                                'M Y'
+                            )) ?></span>
+                        </div>
+                        <div class="vp-facet-note">
+                            <?= h(__(
+                                'One bar per month, over the whole log.'
+                                . ' Drag it to set the period; click it'
+                                . ' to go back to the period the panel'
+                                . ' was fetched for.'
+                            )) ?>
+                        </div>
+
                         <div class="vp-audit-period">
                             <label class="form-label"
                                    for="vp-audit-from"><?= __('From') ?></label>
                             <input type="datetime-local"
                                    class="form-control form-control-sm"
                                    id="vp-audit-from" data-vp-filter-from
-                                   min="<?= h($fmt($periodFirst, 'Y-m-d\TH:i')) ?>"
-                                   max="<?= h($fmt($periodLast, 'Y-m-d\TH:i')) ?>">
+                                   min="<?= h($fmt(
+                                       $span['from'] . ' 00:00:00',
+                                       'Y-m-d\TH:i'
+                                   )) ?>"
+                                   max="<?= h($fmt(
+                                       $span['to'] . ' 23:59:00',
+                                       'Y-m-d\TH:i'
+                                   )) ?>">
                             <label class="form-label"
                                    for="vp-audit-to"><?= __('To') ?></label>
                             <input type="datetime-local"
                                    class="form-control form-control-sm"
                                    id="vp-audit-to" data-vp-filter-to
-                                   min="<?= h($fmt($periodFirst, 'Y-m-d\TH:i')) ?>"
-                                   max="<?= h($fmt($periodLast, 'Y-m-d\TH:i')) ?>">
+                                   min="<?= h($fmt(
+                                       $span['from'] . ' 00:00:00',
+                                       'Y-m-d\TH:i'
+                                   )) ?>"
+                                   max="<?= h($fmt(
+                                       $span['to'] . ' 23:59:00',
+                                       'Y-m-d\TH:i'
+                                   )) ?>">
+                        </div>
+
+                        <?php
+                        /*
+                         * The one control on this tab that re-queries,
+                         * and it says so. A window is what makes the
+                         * panel bounded; asking for the whole log is a
+                         * different request and gets a different
+                         * fragment rather than a filter that reveals
+                         * rows the page was never sent.
+                         */
+                        ?>
+                        <div class="vp-audit-scope">
+                            <?php if ($allTime): ?>
+                                <button type="button"
+                                        class="vp-filter-clear"
+                                        data-vp-audit-scope="">
+                                    <i class="fas fa-compress me-1"></i>
+                                    <?= h(sprintf(
+                                        __('back to the last %d days'),
+                                        $windowDays
+                                    )) ?>
+                                </button>
+                            <?php else: ?>
+                                <button type="button"
+                                        class="vp-filter-clear"
+                                        data-vp-audit-scope="all">
+                                    <i class="fas fa-expand me-1"></i>
+                                    <?= __('show all time') ?>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -926,6 +1107,173 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                 </span>
             </div>
 
+            <?php
+            /*
+             * What is not a section, and why. Above the sections rather
+             * than under them, because it is the sentence that stops
+             * seventeen boxes from reading as seventeen copies of this
+             * value.
+             *
+             * Three counts and three reasons, because they are three
+             * different answers. An occurrence nobody has ever touched
+             * has nothing to show at any period; one that was touched
+             * outside the window is reachable by moving it; one the
+             * filters emptied is reachable by clearing them. Phase 16
+             * dimmed all three to `opacity-50` and kept them on screen,
+             * which at 190 sections is the problem restated rather than
+             * fixed.
+             */
+            ?>
+            <?php if ($history['silent'] > 0
+                || $history['outside'] > 0
+                || $history['occurrences'] > 0
+            ): ?>
+                <div class="vp-acl-note vp-acl-note-band"
+                     data-vp-audit-elided>
+                    <i class="fas fa-list-ul"></i>
+                    <span>
+                        <?php if ($history['silent'] > 0): ?>
+                            <?= h(sprintf(
+                                __n(
+                                    '%1$d of the %2$d occurrences you can'
+                                    . ' read has nothing logged against'
+                                    . ' it at all, so it has no section'
+                                    . ' here.',
+                                    '%1$d of the %2$d occurrences you can'
+                                    . ' read have nothing logged against'
+                                    . ' them at all, so they have no'
+                                    . ' sections here.',
+                                    $history['silent']
+                                ),
+                                $history['silent'],
+                                $history['visible']
+                            )) ?>
+                        <?php endif; ?>
+                        <?php if ($history['outside'] > 0): ?>
+                            <?= h(sprintf(
+                                __n(
+                                    '%1$d more was changed, outside'
+                                    . ' %2$s.',
+                                    '%1$d more were changed, outside'
+                                    . ' %2$s.',
+                                    $history['outside']
+                                ),
+                                $history['outside'],
+                                $windowLabel($window)
+                            )) ?>
+                        <?php endif; ?>
+                        <?php
+                        /*
+                         * Written by the browser as the reader narrows,
+                         * and empty until they do. The period variant
+                         * names the dates, because a section vanishing
+                         * has to read as a filter narrowing and not as
+                         * data going missing.
+                         */
+                        ?>
+                        <span class="d-none" data-vp-audit-dropped
+                              data-vp-audit-drop-period="<?= h(__n(
+                                  '%1$s of the sections below has no'
+                                      . ' entry between %2$s and %3$s.',
+                                  '%1$s of the sections below have no'
+                                      . ' entry between %2$s and %3$s.',
+                                  $history['occurrences']
+                              )) ?>"
+                              data-vp-audit-drop-plain="<?= h(__n(
+                                  '%1$s of the sections below has no'
+                                      . ' entry matching these filters.',
+                                  '%1$s of the sections below have no'
+                                      . ' entry matching these filters.',
+                                  $history['occurrences']
+                              )) ?>"></span>
+                    </span>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($history['shown'] === 0 && !$allTime): ?>
+                <?php
+                /*
+                 * The window is empty and the log is not. Its own state
+                 * rather than the filter one below, because no filter
+                 * produced it: the panel was fetched for a period the
+                 * value has no entries in, and "no entry matches these
+                 * filters" over an untouched control would be a false
+                 * claim about a control the reader never used.
+                 *
+                 * What it has to say is where the entries are, not that
+                 * there are none. A tab that renders nothing here is
+                 * indistinguishable from a value with no history at
+                 * all, and those are the two states §11.3 exists to
+                 * keep apart.
+                 */
+                $quiet = $span === null
+                    ? null
+                    : (int)round(
+                        (strtotime($window['from'] . ' 00:00:00')
+                            - strtotime($span['to'] . ' 00:00:00'))
+                        / 86400
+                    );
+                ?>
+                <div class="vp-audit-quiet">
+                    <i class="fas fa-calendar-xmark"></i>
+                    <div>
+                        <div class="fw-semibold">
+                            <?= h(sprintf(
+                                __(
+                                    'Nothing was logged against this'
+                                    . ' value between %1$s and %2$s.'
+                                ),
+                                $fmt(
+                                    $window['from'] . ' 00:00:00',
+                                    'j M Y'
+                                ),
+                                $fmt($window['to'] . ' 00:00:00', 'j M Y')
+                            )) ?>
+                        </div>
+                        <?php if ($span !== null): ?>
+                            <div class="vp-audit-quiet-note">
+                                <?= h(sprintf(
+                                    __n(
+                                        'Its log holds %1$d entry, the'
+                                        . ' most recent on %2$s — %3$s'
+                                        . ' before this period begins.',
+                                        'Its log holds %1$d entries, the'
+                                        . ' most recent on %2$s — %3$s'
+                                        . ' before this period begins.',
+                                        $history['entries']
+                                    ),
+                                    $history['entries'],
+                                    $fmt(
+                                        $span['to'] . ' 00:00:00',
+                                        'j M Y'
+                                    ),
+                                    sprintf(
+                                        __n('%d day', '%d days', $quiet),
+                                        $quiet
+                                    )
+                                )) ?>
+                            </div>
+                            <div class="vp-audit-quiet-note">
+                                <?= h(__(
+                                    'The chart in the rail is drawn over'
+                                    . ' the whole log, so where those'
+                                    . ' entries are is on it — the'
+                                    . ' window is simply past their'
+                                    . ' right-hand end.'
+                                )) ?>
+                            </div>
+                        <?php endif; ?>
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary
+                                       mt-2"
+                                data-vp-audit-scope="all">
+                            <i class="fas fa-expand me-1"></i>
+                            <?= __('show all time') ?>
+                        </button>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div data-vp-list-rows>
 
                 <?php foreach ($history['groups'] as $index => $group): ?>
@@ -985,8 +1333,32 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                                     $group['mix'],
                                     $group['count']
                                 ) ?>
+                                <?php
+                                /*
+                                 * The count is the window's, because
+                                 * the rows under it are. The whole-log
+                                 * number is a tooltip rather than a
+                                 * second figure on the line: three
+                                 * numbers in eight and a half rems is
+                                 * how a header stops being readable.
+                                 */
+                                ?>
                                 <div class="text-muted"
                                      style="font-size: 0.7rem;"
+                                     <?= $group['total'] > $group['count']
+                                         ? 'title="' . h(sprintf(
+                                             __n(
+                                                 '%d entry on this'
+                                                 . ' occurrence over the'
+                                                 . ' whole log',
+                                                 '%d entries on this'
+                                                 . ' occurrence over the'
+                                                 . ' whole log',
+                                                 $group['total']
+                                             ),
+                                             $group['total']
+                                         )) . '"'
+                                         : '' ?>
                                      data-vp-audit-count
                                      data-vp-audit-plain="<?= h(sprintf(
                                          __n(
@@ -1059,6 +1431,37 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                     </div>
                 <?php endforeach; ?>
 
+                <?php if ($history['occurrences'] > $sectionSize): ?>
+                    <?php
+                    /*
+                     * A pager over sections, which can only sit beside
+                     * the per-section entry pagers because phase 18
+                     * §10.2 scoped a nested list's controls to its own
+                     * rows. Before that, one of the two would have been
+                     * paging the other's.
+                     *
+                     * `total` is the sections this window holds and not
+                     * the value's occurrence count: what the window
+                     * left out is the sentence above, where it can name
+                     * a reason, and repeating it as a bare number here
+                     * would invite the reader to read the difference as
+                     * sections they could page to.
+                     */
+                    ?>
+                    <div class="px-3 py-2 border-top"
+                         data-vp-audit-sectionpager>
+                        <?= $this->element(
+                            'Values/View/value_pager',
+                            array(
+                                'size' => $sectionSize,
+                                'shown' => $history['occurrences'],
+                                'total' => $history['occurrences'],
+                                'noun' => __('occurrences'),
+                            )
+                        ) ?>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($history['event_entries'])): ?>
                     <?php
                     /*
@@ -1068,11 +1471,17 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                      * six sections would read as sixty things having
                      * happened; dropping them would lose every
                      * publication this value has.
+                     *
+                     * Pinned: the section pager above pages occurrences,
+                     * and this is not one of them. A reader who paged
+                     * the publications off the bottom of page one would
+                     * have to guess which page they went to.
                      */
                     $eventTotal = count($history['event_entries']);
                     ?>
                     <div class="border-top border-2"
                          data-vp-audit-section
+                         data-vp-audit-pinned
                          data-vp-audit-total="<?= h($eventTotal) ?>">
 
                         <div class="d-flex align-items-center gap-3
@@ -1168,10 +1577,11 @@ $periodLast = empty($stamps) ? null : $stamps[count($stamps) - 1];
                 <i class="fas fa-filter"></i>
                 <span>
                     <?= __(
-                        'No entry matches these filters. The sections'
-                        . ' above are still listed, because how many'
-                        . ' occurrences this value has does not depend'
-                        . ' on what you filtered.'
+                        'No entry matches these filters, so no section'
+                        . ' is listed. How many occurrences this value'
+                        . ' has is unchanged and is stated above the'
+                        . ' sections; only what is drawn as a box'
+                        . ' follows the filters.'
                     ) ?>
                 </span>
             </div>

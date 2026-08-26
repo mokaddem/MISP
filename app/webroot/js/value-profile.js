@@ -479,6 +479,12 @@
         // the union of them; everything before this point is shared.
         if (list.hasAttribute('data-vp-audit')) {
             paginateAuditSections(list, filtered, activeCount);
+            // Both read the period rather than the filtered set, so
+            // they run here and not inside the pager: the brush shows
+            // where the period is and the rail counts what is in it,
+            // whatever else is ticked.
+            retallyAuditFacets(list, period);
+            paintAuditBrush(list);
         } else {
             paginate(list, filtered);
         }
@@ -968,6 +974,18 @@
             }
             if (chart) {
                 chart.destroy();
+            }
+            /*
+             * A fragment that is re-fetched brings a new canvas under
+             * the same id, and the previous boot's theme observer is
+             * still watching it. Whatever is attached to the element
+             * goes first, or Chart.js refuses the second instance.
+             */
+            if (typeof Chart.getChart === 'function') {
+                var attached = Chart.getChart(el);
+                if (attached) {
+                    attached.destroy();
+                }
             }
             chart = build(el);
             return true;
@@ -2505,16 +2523,480 @@
      * --------------------------------------------------------------
      * The facets, the reveals, the search and the row set are all the
      * shared list contract (`00-shared.md` §5) and add nothing here.
-     * Two behaviours the contract does not cover, and this panel does:
+     * Five behaviours the contract does not cover, and this panel does:
      *
-     * 1. A section whose rows are all filtered out collapses to a
-     *    greyed header reading `0 of 9`. It is not removed — a section
-     *    disappearing under a filter would misreport how many
-     *    occurrences this value has.
+     * 1. A section the filters empty is dropped and counted, not
+     *    dimmed. Phase 16 greyed it to `0 of 9` and kept it, which is
+     *    right at six sections; at a hundred and ninety the dimmed ones
+     *    are the whole problem restated, so the fact that they exist is
+     *    now a sentence above the list.
      * 2. Rows page inside their own section and never across the
      *    union, because a union of N event-scoped queries has no
      *    stable ordering key to page on.
+     * 3. Sections page too, over whichever of them the filters left.
+     * 4. The rail's counts follow the period and nothing else. Not the
+     *    facet selections: a count that followed its own group would
+     *    drop every sibling to zero the moment one was ticked, which is
+     *    a rail nobody can use twice.
+     * 5. A brush over a monthly chart writes the two date inputs and
+     *    fires their `change`, so the whole existing filter path runs
+     *    unchanged and the period stays statable as two dates. Where it
+     *    reaches past the window the panel was fetched for, it re-fetches
+     *    — the one control on this tab that goes back to the server.
      * -------------------------------------------------------------- */
+
+    var audit = {
+        // The months, the rendered window and the log's span, as the
+        // panel was sent them.
+        data: null,
+        chart: null,
+    };
+
+    /**
+     * The period the reader currently has set, as days, or nulls where
+     * they have set none.
+     *
+     * Read off the same two inputs `activePeriod()` reads, because they
+     * are the same control: the brush is a second way to write them and
+     * never a second place the period lives.
+     *
+     * @param {Element} list
+     * @return {{from: string|null, to: string|null}}
+     */
+    function auditTypedPeriod(list) {
+        function day(selector) {
+            var input = list.querySelector(selector);
+            if (!input || input.value === '') {
+                return null;
+            }
+            return input.value.slice(0, 10);
+        }
+        return {
+            from: day('[data-vp-filter-from]'),
+            to: day('[data-vp-filter-to]'),
+        };
+    }
+
+    /**
+     * The period the panel is describing: what the reader typed or
+     * brushed, falling back to the window it was fetched for and then to
+     * the whole chart.
+     *
+     * @param {Element} list
+     * @return {{from: string, to: string}|null}
+     */
+    function auditPeriod(list) {
+        if (!audit.data || !audit.data.months.length) {
+            return null;
+        }
+        var months = audit.data.months;
+        var typed = auditTypedPeriod(list);
+        var rendered = audit.data.window;
+        return {
+            from: typed.from
+                || (rendered ? rendered.from : months[0].from),
+            to: typed.to
+                || (rendered ? rendered.to : months[months.length - 1].to),
+        };
+    }
+
+    /**
+     * Which month bars the period covers, so the brush can be painted
+     * over a window the reader never dragged as well as over one they
+     * did.
+     *
+     * @param {Element} list
+     * @return {{from: number, to: number}|null}
+     */
+    function auditBins(list) {
+        var period = auditPeriod(list);
+        if (!period) {
+            return null;
+        }
+        var from = null;
+        var to = null;
+        audit.data.months.forEach(function (month, index) {
+            if (month.to >= period.from && month.from <= period.to) {
+                if (from === null) {
+                    from = index;
+                }
+                to = index;
+            }
+        });
+        // A period entirely off the end of the chart covers no bar. The
+        // brush collapses onto the nearest edge rather than vanishing:
+        // the reader has to be able to see where they are.
+        if (from === null) {
+            var last = audit.data.months.length - 1;
+            var edge = period.to < audit.data.months[0].from ? 0 : last;
+            return { from: edge, to: edge };
+        }
+        return { from: from, to: to };
+    }
+
+    /**
+     * @param {Element} list
+     */
+    function paintAuditBrush(list) {
+        var bounds = auditBins(list);
+        if (!bounds) {
+            return;
+        }
+        var count = audit.data.months.length;
+        var left = (100 * bounds.from) / count;
+        var right = (100 * (count - 1 - bounds.to)) / count;
+
+        var maskLeft = list.querySelector('[data-vp-audit-mask-left]');
+        var maskRight = list.querySelector('[data-vp-audit-mask-right]');
+        var handle = list.querySelector('[data-vp-audit-handle]');
+        if (maskLeft) {
+            maskLeft.style.width = left + '%';
+        }
+        if (maskRight) {
+            maskRight.style.width = right + '%';
+        }
+        if (handle) {
+            handle.style.left = left + '%';
+            handle.style.right = right + '%';
+        }
+    }
+
+    /**
+     * The monthly bars. No axes, for the reason the Sightings navigator
+     * has none: the brush over it is positioned as a plain fraction of
+     * the strip's width, and an axis would put the bars somewhere other
+     * than where the drag maths says they are.
+     *
+     * @param {Element} canvas
+     * @return {Object}
+     */
+    function buildAuditMonths(canvas) {
+        var months = audit.data.months;
+        var config = window.VP.chart.resolve({
+            type: 'bar',
+            data: {
+                labels: months.map(function (month) {
+                    return month.label;
+                }),
+                datasets: [{
+                    data: months.map(function (month) {
+                        return month.total;
+                    }),
+                    backgroundColor: 'var(--bs-secondary-color)',
+                    borderWidth: 0,
+                    barPercentage: 1,
+                    categoryPercentage: 0.88,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                layout: { padding: 0 },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        displayColors: false,
+                        callbacks: {
+                            title: function (items) {
+                                return months[items[0].dataIndex].title;
+                            },
+                        },
+                    },
+                },
+            },
+        }, canvas);
+        return new Chart(canvas, config);
+    }
+
+    /**
+     * Write a brushed range into the two date inputs and let their own
+     * `change` do the rest.
+     *
+     * The whole point of decision 5: `activePeriod()`, `refreshList()`,
+     * the pagers and the rail all run exactly as they do when someone
+     * types, so there is one filter path and not two.
+     *
+     * @param {Element} list
+     * @param {number} from Month index
+     * @param {number} to Month index
+     */
+    function writeAuditPeriod(list, from, to) {
+        var months = audit.data.months;
+        var pairs = [
+            ['[data-vp-filter-from]', months[from].from + 'T00:00'],
+            ['[data-vp-filter-to]', months[to].to + 'T23:59'],
+        ];
+        pairs.forEach(function (pair) {
+            var input = list.querySelector(pair[0]);
+            if (input) {
+                input.value = pair[1];
+            }
+        });
+        listPages.set(list, 1);
+        resetAuditPages(list);
+        refreshList(list);
+    }
+
+    /**
+     * @param {Element} list
+     */
+    function clearAuditPeriod(list) {
+        list.querySelectorAll(
+            '[data-vp-filter-from], [data-vp-filter-to]'
+        ).forEach(function (input) {
+            input.value = '';
+        });
+        listPages.set(list, 1);
+        resetAuditPages(list);
+        refreshList(list);
+    }
+
+    /**
+     * Whether the period the reader has asked for is inside the window
+     * the panel was fetched for.
+     *
+     * Inside is instant, because the rows are already here. Outside is a
+     * request, because they are not — and pretending otherwise would
+     * show them an empty period over a log that has entries in it.
+     *
+     * @param {Element} list
+     * @return {boolean}
+     */
+    function auditWithinWindow(list) {
+        if (!audit.data || audit.data.window === null) {
+            return true;
+        }
+        var typed = auditTypedPeriod(list);
+        var window_ = audit.data.window;
+        return (typed.from === null || typed.from >= window_.from)
+            && (typed.to === null || typed.to <= window_.to);
+    }
+
+    /**
+     * Re-fetch the panel for a period, or for the whole log.
+     *
+     * @param {Element} list
+     * @param {string} scope `all`, or `from/to`
+     */
+    function fetchAuditScope(list, scope) {
+        var base = list.dataset.vpAuditBase;
+        var container = list.closest('.ajax-tab-content');
+        if (!base || !container || !window.reloadAjaxTabIndex) {
+            return;
+        }
+        window.reloadAjaxTabIndex(
+            container,
+            scope === '' ? base : base + '/' + scope
+        );
+    }
+
+    /**
+     * @param {Element} list
+     */
+    function fetchAuditPeriod(list) {
+        var typed = auditTypedPeriod(list);
+        var months = audit.data.months;
+        var from = typed.from || months[0].from;
+        var to = typed.to || months[months.length - 1].to;
+        fetchAuditScope(list, from + '/' + to);
+    }
+
+    /**
+     * Drag on the chart. A drag that does not move is a click, and a
+     * click clears the period — the same gesture the Sightings and
+     * Timeline brushes offer, and the one this tab's `Clear all` offers
+     * to a reader who found the button instead.
+     *
+     * Where this differs from those two, deliberately: they read the
+     * click off *which bucket the pointer came up on*, so releasing on
+     * the bucket you pressed is always a clear and a one-bucket range
+     * cannot be selected at all. On a monthly chart that would mean the
+     * finest period a reader could brush is two months, which is not a
+     * control — so a click here is a pointer that did not travel, in
+     * pixels. Phase 20 folds all three into one primitive and this is
+     * the rule it should carry.
+     *
+     * @param {Element} list
+     */
+    function wireAuditBrush(list) {
+        var strip = list.querySelector('[data-vp-audit-brush]');
+        if (!strip) {
+            return;
+        }
+        var anchor = null;
+        var origin = 0;
+        var moved = false;
+
+        function binAt(event) {
+            var box = strip.getBoundingClientRect();
+            var count = audit.data.months.length;
+            var fraction = (event.clientX - box.left) / box.width;
+            var index = Math.floor(fraction * count);
+            return Math.max(0, Math.min(count - 1, index));
+        }
+
+        strip.addEventListener('pointerdown', function (event) {
+            anchor = binAt(event);
+            origin = event.clientX;
+            moved = false;
+            strip.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        });
+
+        strip.addEventListener('pointermove', function (event) {
+            if (anchor === null) {
+                return;
+            }
+            if (Math.abs(event.clientX - origin) > 3) {
+                moved = true;
+            }
+            var to = binAt(event);
+            writeAuditPeriod(
+                list,
+                Math.min(anchor, to),
+                Math.max(anchor, to)
+            );
+        });
+
+        strip.addEventListener('pointerup', function (event) {
+            if (anchor === null) {
+                return;
+            }
+            anchor = null;
+            if (!moved) {
+                clearAuditPeriod(list);
+            } else if (!auditWithinWindow(list)) {
+                // On release and not during the drag: a fetch per
+                // pointermove would be a request every few pixels.
+                fetchAuditPeriod(list);
+            }
+        });
+
+        strip.addEventListener('pointercancel', function () {
+            anchor = null;
+        });
+    }
+
+    /**
+     * Re-tally the rail against the period, over every row the panel
+     * holds rather than over the ones a pager left on screen.
+     *
+     * The facet selections are deliberately not applied. A group whose
+     * counts followed its own ticks would drop every sibling to zero as
+     * soon as one was ticked; a group that followed the *other* groups
+     * would answer a different question in each of the four. The period
+     * is a narrowing of the subject — this value, in March — and that is
+     * what every log browser in this class scopes its sidebar to.
+     *
+     * @param {Element} list
+     * @param {Object} period From `activePeriod()`
+     */
+    function retallyAuditFacets(list, period) {
+        var counts = {};
+        listRows(list).forEach(function (row) {
+            if (!rowMatchesPeriod(row, period)) {
+                return;
+            }
+            (row.dataset.vpFacet || '').split(/\s+/).forEach(function (t) {
+                if (t !== '') {
+                    counts[t] = (counts[t] || 0) + 1;
+                }
+            });
+        });
+
+        list.querySelectorAll('[data-vp-facet-group]')
+            .forEach(function (group) {
+                var max = 0;
+                var rows = [];
+                group.querySelectorAll('.vp-facet').forEach(function (row) {
+                    var box = row.querySelector('[data-vp-facet-key]');
+                    if (!box) {
+                        return;
+                    }
+                    var token = box.dataset.vpFacetKey + ':' + box.value;
+                    var count = counts[token] || 0;
+                    max = Math.max(max, count);
+                    rows.push({ row: row, box: box, count: count });
+                });
+                rows.forEach(function (entry) {
+                    setText(entry.row, '.vp-facet-count', entry.count);
+                    var bar = entry.row.querySelector('.vp-facet-bar');
+                    if (bar) {
+                        bar.style.setProperty(
+                            '--vp-facet-share',
+                            (max > 0
+                                ? Math.round((entry.count / max) * 100)
+                                : 0) + '%'
+                        );
+                    }
+                    var zero = entry.count === 0;
+                    entry.row.classList.toggle('opacity-50', zero);
+                    // Never disable a box the reader has ticked: taking
+                    // the control away would strand the filter it is
+                    // still applying.
+                    entry.box.disabled = zero && !entry.box.checked;
+                });
+            });
+    }
+
+    /**
+     * How many sections the filters emptied, said out loud.
+     *
+     * The period variant names the dates, because decision 4 turns on
+     * it: a box disappearing has to read as a filter narrowing, and a
+     * count that named no period would read as data going missing.
+     *
+     * @param {Element} list
+     * @param {number} dropped
+     */
+    function updateAuditDropped(list, dropped) {
+        var note = list.querySelector('[data-vp-audit-dropped]');
+        if (!note) {
+            return;
+        }
+        note.classList.toggle('d-none', dropped === 0);
+        if (dropped === 0) {
+            note.textContent = '';
+            return;
+        }
+        var typed = auditTypedPeriod(list);
+        if (typed.from !== null || typed.to !== null) {
+            var period = auditPeriod(list);
+            note.textContent = (note.dataset.vpAuditDropPeriod || '')
+                .replace('%1$s', dropped)
+                .replace('%2$s', auditDate(period.from))
+                .replace('%3$s', auditDate(period.to));
+            return;
+        }
+        note.textContent = (note.dataset.vpAuditDropPlain || '')
+            .replace('%1$s', dropped);
+    }
+
+    /**
+     * A `Y-m-d` as the day the rest of the tab prints.
+     *
+     * Built from the chart's own month titles rather than from a locale
+     * call, so a bar's tooltip and the sentence naming the period it
+     * covers say the same month in the same words.
+     *
+     * @param {string} day
+     * @return {string}
+     */
+    function auditDate(day) {
+        var months = audit.data ? audit.data.months : [];
+        for (var i = 0; i < months.length; i++) {
+            if (months[i].key === day.slice(0, 7)) {
+                return parseInt(day.slice(8, 10), 10) + ' '
+                    + months[i].title;
+            }
+        }
+        return day;
+    }
 
     /**
      * Whether the reader has this section open, remembered on the
@@ -2560,15 +3042,22 @@
      * still claiming nine over three visible rows — is the thing this
      * exists to prevent.
      *
+     * A section the filters empty is taken off the list rather than
+     * dimmed. Phase 16 dimmed it, which is the right call at six
+     * sections and the wrong one at a hundred and ninety: the dimmed
+     * ones become the list. What it was — a section with nothing in it
+     * for this period — is a sentence above the sections instead, where
+     * one line covers all of them.
+     *
      * @param {Element} section
      * @param {number} shown
      * @param {number} activeCount
+     * @return {boolean} Whether the filters emptied it
      */
     function setAuditCount(section, shown, activeCount) {
         var total = parseInt(section.dataset.vpAuditTotal || '0', 10);
         var blank = activeCount > 0 && shown === 0;
         section.dataset.vpAuditBlank = blank ? '1' : '0';
-        section.classList.toggle('opacity-50', blank);
 
         var label = section.querySelector('[data-vp-audit-count]');
         if (label) {
@@ -2579,10 +3068,12 @@
                     .replace('%2$s', total);
         }
         applyAuditOpen(section);
+        return blank;
     }
 
     /**
-     * Page each section over its own surviving rows.
+     * Page each section over its own surviving rows, then page the
+     * sections themselves.
      *
      * Replaces the list-level `paginate()` for this panel rather than
      * running beside it: one pager over a union of sections would page
@@ -2606,6 +3097,8 @@
             bySection.get(section).push(row);
         });
 
+        var standing = [];
+        var dropped = 0;
         list.querySelectorAll('[data-vp-audit-section]')
             .forEach(function (section) {
                 var rows = bySection.get(section) || [];
@@ -2642,14 +3135,64 @@
                     setText(section, '[data-vp-page-of]', rows.length);
                     renderPager(pager, page, pages);
                 }
-                setAuditCount(section, rows.length, activeCount);
+                var blank = setAuditCount(section, rows.length, activeCount);
+                if (blank) {
+                    dropped++;
+                }
+                /*
+                 * The event-level section is pinned rather than paged.
+                 * It is not an occurrence, and a reader who paged the
+                 * publications off the bottom of page one would have to
+                 * guess which page they went to.
+                 */
+                if (!section.hasAttribute('data-vp-audit-pinned')) {
+                    standing.push(section);
+                }
+                section.classList.toggle('d-none', blank);
             });
+
+        pageAuditSections(list, standing);
+        updateAuditDropped(list, dropped);
+    }
+
+    /**
+     * Page the sections the filters left standing.
+     *
+     * @param {Element} list
+     * @param {Array<Element>} standing Blank ones already excluded
+     */
+    function pageAuditSections(list, standing) {
+        var host = ownNode(list, '[data-vp-audit-sectionpager]');
+        var pager = host ? host.querySelector('[data-vp-pager]') : null;
+        if (!pager) {
+            return;
+        }
+        var size = parseInt(pager.dataset.vpPageSize, 10);
+        if (!size || size < 1) {
+            return;
+        }
+        var pages = Math.max(1, Math.ceil(standing.length / size));
+        var page = Math.min(
+            parseInt(list.dataset.vpAuditSectionPage || '1', 10),
+            pages
+        );
+        list.dataset.vpAuditSectionPage = page;
+        var from = (page - 1) * size;
+        var to = Math.min(from + size, standing.length);
+        standing.forEach(function (section, index) {
+            section.classList.toggle('d-none', index < from || index >= to);
+        });
+        setText(host, '[data-vp-page-from]', standing.length ? from + 1 : 0);
+        setText(host, '[data-vp-page-to]', to);
+        setText(host, '[data-vp-page-of]', standing.length);
+        renderPager(pager, page, pages);
+        host.classList.toggle('d-none', standing.length === 0);
     }
 
     /**
      * Narrowing changes how many pages a section has, so every section
      * goes back to page one rather than to a page that may no longer
-     * exist.
+     * exist. The section pager goes with them, for the same reason.
      *
      * @param {Element} list
      */
@@ -2658,6 +3201,7 @@
             .forEach(function (section) {
                 section.dataset.vpAuditPage = 1;
             });
+        list.dataset.vpAuditSectionPage = 1;
     }
 
     /**
@@ -2743,7 +3287,48 @@
             toggleAuditDiff(diff);
             return true;
         }
+        var scope = event.target.closest('[data-vp-audit-scope]');
+        if (scope) {
+            var list = scope.closest('[data-vp-audit]');
+            if (list) {
+                fetchAuditScope(list, scope.dataset.vpAuditScope);
+            }
+            return true;
+        }
         return false;
+    }
+
+    /**
+     * @param {Element} root Either the whole page or a fragment
+     */
+    function initHistory(root) {
+        var list = (root || document).querySelector('[data-vp-audit]');
+        if (!list) {
+            return;
+        }
+        var payload = list.querySelector('[data-vp-audit-data]');
+        if (!payload) {
+            // The log has no entries at all, so there is no span to
+            // draw and no period to pick inside it.
+            audit.data = null;
+            return;
+        }
+        audit.data = JSON.parse(payload.textContent);
+        if (!audit.data.months.length) {
+            return;
+        }
+        audit.chart = window.VP.chart.boot('vp-audit-months', buildAuditMonths);
+        // Rendered hidden, because without this script it would frame an
+        // empty canvas and offer a gesture that does nothing.
+        var brush = list.querySelector('[data-vp-audit-brush]');
+        if (brush) {
+            brush.hidden = false;
+        }
+        wireAuditBrush(list);
+        // `refreshAllLists` paints and re-tallies on the same pass, so
+        // the panel lands with the brush over the window it was fetched
+        // for rather than over the whole chart.
+        refreshList(list);
     }
 
     /**
@@ -2885,7 +3470,12 @@
             if (page && !page.disabled) {
                 var pageList = page.closest('[data-vp-list]');
                 var pageSection = page.closest('[data-vp-audit-section]');
-                if (pageSection) {
+                var pageSections = page
+                    .closest('[data-vp-audit-sectionpager]');
+                if (pageSections && pageList) {
+                    pageList.dataset.vpAuditSectionPage =
+                        parseInt(page.dataset.vpPage, 10);
+                } else if (pageSection) {
                     pageSection.dataset.vpAuditPage =
                         parseInt(page.dataset.vpPage, 10);
                 } else if (pageList) {
@@ -3101,6 +3691,7 @@
             initEnrichment(event.target);
             initAnalyst(event.target);
             initTimeline(event.target);
+            initHistory(event.target);
         });
 
         refreshOccurrences();
@@ -3109,6 +3700,7 @@
         initEnrichment(document);
         initAnalyst(document);
         initTimeline(document);
+        initHistory(document);
     }
 
     if (document.readyState === 'loading') {

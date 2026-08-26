@@ -5628,3 +5628,92 @@ td.vp-rel-pick {
 .vp-audit-period input {
     font-size: 0.78rem;
 }
+
+/* The monthly activity chart, in the rail above the period bounds it
+   writes. Short, because it is a control and not a reading surface —
+   the tab's reading surface is the sections, and a chart tall enough to
+   compete with them would be a second answer to the same question.
+
+   In the rail rather than across the panel for one reason: the brush
+   writes the two inputs below it, and a gesture whose result lands
+   somewhere the reader cannot see is a gesture they cannot learn. */
+.vp-audit-chart {
+    position: relative;
+    height: 64px;
+    margin-bottom: 2px;
+}
+
+/* Same construction as the Timeline's spine brush: its own layer over
+   the canvas, so a drag never has to be read out of Chart.js's hit
+   testing and the masks can dim what is outside the period without
+   touching a dataset. Phase 20 collapses the three into one. */
+.vp-audit-brush {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    cursor: ew-resize;
+}
+
+/* Heavier than the Timeline's 62%: that mask dims a 132px chart with
+   axes and gridlines to read against, and this one has 64px of bare
+   bars. At 62% the difference between inside and outside the period was
+   not visible in either theme. */
+.vp-audit-mask {
+    background: color-mix(in srgb, var(--bs-body-bg) 80%, transparent);
+    width: 0;
+}
+
+/* The two masks are flex items and the window between them is absolute,
+   so without this they sit side by side from the left and leave the
+   uncovered strip at the far right instead of under the window. Visible
+   the moment the period is anywhere but the end of the chart. */
+.vp-audit-brush [data-vp-audit-mask-right] {
+    margin-left: auto;
+}
+
+.vp-audit-window {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    pointer-events: none;
+}
+
+/* Both ends of the span, named. The chart has no x axis — fifteen
+   month labels do not fit in a three-column rail — so the two dates
+   that bound it are stated instead of drawn. */
+.vp-audit-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 4px;
+}
+
+.vp-audit-scope {
+    margin: -4px 0 10px;
+}
+
+/* The window is empty and the log is not. Not `.vp-empty`: that state
+   is centred and one line, and this one has to say three things and
+   offer a way out of the period. */
+.vp-audit-quiet {
+    display: flex;
+    gap: 12px;
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+.vp-audit-quiet > i {
+    font-size: 1.1rem;
+    color: var(--bs-secondary-color);
+    margin-top: 2px;
+}
+
+.vp-audit-quiet-note {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+    margin-top: 3px;
+}
