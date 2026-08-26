@@ -442,9 +442,16 @@ predicted: the History tab renders one section per occurrence, so the fourth
 value renders 748 of them. It is the first phase whose design came out of an
 interview rather than a candidate deck, and §11.2 records the ten decisions.
 
-**Phase 20** is §12: collapsing the three brushable activity charts into one.
-Pure cleanup, no new behaviour, and blocked on phase 19 — the third of the
-three is what phase 19 writes.
+**Phase 20** is §12: collapsing the three brushable activity charts into one,
+with the bucket unit as a parameter — the three callers bucket by three
+different rules, so the parameter is what makes one primitive possible rather
+than an extra. No new behaviour for the reader, and blocked on phase 19, which
+writes the third of the three.
+
+**Phase 21** is §13: zooming that chart, so a month holding a thousand entries
+can be opened. Blocked on phase 20, and it inherits one decision phase 19 makes
+awkward — the drag gesture is already spent on selecting a period, so zoom needs
+its own.
 
 ---
 
@@ -1983,31 +1990,120 @@ existing values render as they did.
 
 ## 12. Phase 20 — one brush, three callers
 
-Pure cleanup, no new behaviour, and **blocked on phase 19**: it exists to
+No new behaviour *for the reader*, and **blocked on phase 19**: it exists to
 collapse three implementations of one gesture into one, and the third is what
 phase 19 writes.
 
+Not "no new code", though, and an earlier draft of this section was wrong to
+imply it. The three callers bucket their bars by three different rules, so a
+primitive that cannot be told its bucket unit cannot serve them — the parameter
+is a requirement of the extraction, not an extra.
+
 ### 12.1 What is duplicated
 
-| Caller | Where | What it drives |
-|---|---|---|
-| Sightings | `value-profile.js:1020` (`sight` state, `sight.brush`) | hides table rows |
-| Timeline | `value-profile.js:2456`, `:2770` (`[data-vp-tl-brush]`) | two regions from one spine |
-| History | written by phase 19 | writes the period inputs |
+| Caller | Where | What it drives | Bucket |
+|---|---|---|---|
+| Sightings | `value-profile.js:1020` (`sight` state, `sight.brush`) | hides table rows | **adaptive**, day ≤ 90d else week |
+| Timeline | `value-profile.js:2456`, `:2770` (`[data-vp-tl-brush]`) | two regions from one spine | month, twelve bins |
+| History | written by phase 19 | writes the period inputs | month, whole span |
 
 Three renderings of the same gesture — drag a range over an activity chart —
 with three sets of pointer handling, three clamping rules and three ways of
 saying where the brush currently sits.
 
-### 12.2 Why after, not before
+### 12.2 The bucket unit is a parameter
+
+`sightingRange` (`ValueProfileFixture.php:4128-4150`) already switches unit by
+range, with the reasoning in its own comment — *"than the chart has pixels; past
+a quarter the bucket is a week"*:
+
+```php
+$step = ($days !== null && $days <= 90) ? 1 : 7;
+```
+
+That is the right instinct hardcoded in one caller. The extracted primitive takes
+the unit — `day`, `week`, `month` — and optionally a rule mapping visible span
+to unit, so Sightings' day/week switch becomes configuration rather than an `if`,
+and Timeline and History pass `month` outright.
+
+The reason the unit has to be settable and not merely derived: the three callers
+disagree about what a bar *means*. A Sightings bar is a count of reports, and a
+day is the honest grain because a report has a timestamp. A Timeline bar is a
+density over sources that cannot all be dated to the day (§8's whole hatching
+argument), so a monthly bar is the finest claim it can make. Deriving the unit
+from the span alone would let the Timeline draw daily bars it has no right to.
+
+So: unit is given, and the span-to-unit rule is an *option* a caller may use
+where its data supports it.
+
+### 12.3 Why after, not before
 
 The extraction is only obvious with three cases in front of you. With two, the
 shared shape is a guess; the third caller is what shows which parts vary — and
 phase 19's is the one that differs most, because it writes its result into
 existing form inputs rather than filtering directly.
 
-### 12.3 Exit criterion
+### 12.4 Exit criterion
 
-One brush primitive, three callers, and the Sightings, Timeline and History tabs
-all re-verified in both themes with no behavioural change any of the three
-tabs' own verification steps can detect.
+One brush primitive, three callers, each passing its own bucket unit, and the
+Sightings, Timeline and History tabs all re-verified in both themes with no
+behavioural change any of the three tabs' own verification steps can detect.
+Switching History's unit from `month` to `day` is a one-argument change and the
+tab still renders — the check that the parameter is real and not a constant in
+disguise.
+
+---
+
+## 13. Phase 21 — zooming the activity chart
+
+The follow-up phase 20's parameter makes possible: when a month holds a thousand
+entries, being able to look inside that month. Blocked on phase 20, because
+zooming without a shared primitive means writing it three times.
+
+### 13.1 Why this is cheaper than it sounds
+
+The instinct is that zooming needs a fetch per zoom level, because phase 19 §11.2
+went to some trouble to stop shipping what it will not show. That reasoning does
+not transfer, and the difference is worth stating plainly: **sections are markup
+and bars are numbers.** 748 sections cost 2.4 MB at ~3.2 KB each. A bar is a
+label and a count. Shipping the value's whole span at the finest grain its data
+supports is tens of KB against the hundreds that sections cost, so the chart can
+hold every bucket and re-aggregate in the browser.
+
+That is the thing to measure first, before any zoom behaviour is designed: render
+`45.155.205.233`'s chart at daily grain over 438 days and record the bytes. If it
+is small, zoom is client-side arithmetic and this phase is small. The Sightings
+chart already ships 90 daily buckets, so there is a measurement to scale from.
+
+### 13.2 Zoom and adaptive bucketing are one mechanism
+
+If the chart holds the finest grain and derives the drawn unit from the visible
+span, then "choose the unit" and "zoom in" are the same feature seen twice: zoom
+narrows the visible span, and the span picks the unit. `sightingRange`'s
+`$days <= 90 ? 1 : 7` is that rule with two steps and no zoom to drive it.
+
+So phase 21 does not add a second mechanism to phase 20's. It gives phase 20's
+span-to-unit option a gesture, and §12.2's constraint carries over: a caller
+whose data cannot honestly claim a finer grain — the Timeline, per §8 — declines
+the option and stays monthly however far it is zoomed.
+
+### 13.3 The decision this phase must not fudge
+
+**Brushing and zooming are two gestures on one chart, and phase 19 already spent
+the drag.** There, dragging *selects a period to filter by*; zoom *changes what
+the chart shows*. Conflating them would mean a reader who wants to look closer
+at March cannot avoid also filtering the tab to March, and a reader who wants to
+filter to March cannot avoid losing sight of the rest of the year.
+
+The options are a real fork and this section does not settle it, because it wants
+the measurement from §13.1 first: drag-to-select with a separate zoom control
+(scroll, buttons, or double-click); drag-to-zoom with a separate period control,
+which means undoing §11.2's decision 5; or a modifier on the drag, which is
+discoverable by nobody. Whichever wins, it applies to all three callers at once —
+which is the argument for it being its own phase rather than a graft onto 20.
+
+### 13.4 Exit criterion
+
+A month holding a thousand entries can be opened to show its distribution within
+that month, on every caller whose data supports the finer grain, without the
+gesture that does it colliding with the gesture that filters.
