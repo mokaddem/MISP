@@ -199,11 +199,21 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
          * already applied, and "no bound" must not render the same as
          * "the widest bound".
          */
+        /*
+         * The same words `value_zoom` uses for a grain, so the two
+         * captions on this page name a bucket the same way.
+         */
+        $grainWords = array(
+            'day' => __('one bar a day'),
+            'week' => __('one bar a week'),
+            'month' => __('one bar a month'),
+        );
         $ranges = array(
             array(
                 'key' => 'timestamp',
                 'label' => __('Attribute last modified'),
                 'span' => $facets['time_spans']['timestamp'],
+                'buckets' => $facets['time_buckets']['timestamp'],
                 'absent' => __('No occurrence here carries a'
                     . ' modification time.'),
                 'note' => null,
@@ -212,6 +222,7 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                 'key' => 'published',
                 'label' => __('Event published'),
                 'span' => $facets['time_spans']['published'],
+                'buckets' => $facets['time_buckets']['published'],
                 'absent' => __('None of these occurrences sits on a'
                     . ' published event.'),
                 /*
@@ -256,10 +267,101 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                             </div>
                         </div>
                     <?php else: ?>
+                        <?php
+                        $histogram = $range['buckets'];
+                        $caption = $histogram === null
+                            ? sprintf(
+                                __('%1$s to %2$s'),
+                                $range['span']['from'],
+                                $range['span']['to']
+                            )
+                            : sprintf(
+                                __('%1$s · %2$s to %3$s'),
+                                $grainWords[$histogram['unit']],
+                                $range['span']['from'],
+                                $range['span']['to']
+                            );
+                        ?>
                         <div>
                             <div class="small text-muted mb-1">
                                 <?= h($range['label']) ?>
                             </div>
+
+                            <?php if ($histogram !== null): ?>
+                                <?php
+                                /*
+                                 * The same brush the History chart and
+                                 * the Sightings navigator use, over a
+                                 * strip of CSS bars rather than a
+                                 * canvas: `00-shared.md` §7 keeps bars
+                                 * as the standing exception to the
+                                 * Chart.js rule, and this needs to be a
+                                 * third the height of History's chart to
+                                 * sit in a `col-lg-3` rail beside eight
+                                 * other groups.
+                                 *
+                                 * Drag to pick a range, click to clear.
+                                 * The gesture writes the two date inputs
+                                 * below and fires their own `change`, so
+                                 * the window stays statable as two dates
+                                 * and one filter path runs whether the
+                                 * reader brushed or typed — which is the
+                                 * same reason the History chart sits
+                                 * directly above its own inputs.
+                                 */
+                                ?>
+                                <div class="vp-timebrush"
+                                     data-vp-timebrush="<?=
+                                         h($range['key']) ?>">
+                                    <div class="vp-spark vp-spark-attribute
+                                                vp-spark-flush"
+                                         role="img"
+                                         aria-label="<?= h(sprintf(
+                                             __(
+                                                 'Occurrences by %1$s,'
+                                                 . ' %2$s. Drag to pick a'
+                                                 . ' range.'
+                                             ),
+                                             mb_strtolower($range['label']),
+                                             $grainWords[$histogram['unit']]
+                                         )) ?>">
+                                        <?php foreach (
+                                            $histogram['bars'] as $bar
+                                        ): ?>
+                                            <span class="vp-spark-bar<?=
+                                                $bar['count'] === 0
+                                                    ? ' vp-spark-bar-empty'
+                                                    : '' ?>"
+                                                  style="--vp-spark-h: <?=
+                                                      h($histogram['max'] > 0
+                                                          ? round(
+                                                              $bar['count']
+                                                              / $histogram['max']
+                                                              * 100
+                                                          )
+                                                          : 0) ?>%"
+                                                  data-vp-bucket-from="<?=
+                                                      h($bar['from']) ?>"
+                                                  data-vp-bucket-to="<?=
+                                                      h($bar['to']) ?>"
+                                                  data-vp-bucket-label="<?=
+                                                      h($bar['label']) ?>"
+                                                  data-vp-bucket-count="<?=
+                                                      h($bar['count']) ?>">
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                    <div class="vp-brush" data-vp-brush>
+                                        <div class="vp-brush-mask"
+                                             data-vp-brush-mask-left></div>
+                                        <div class="vp-brush-window"
+                                             data-vp-brush-handle></div>
+                                        <div class="vp-brush-mask"
+                                             data-vp-brush-mask-right></div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
                             <div class="input-group input-group-sm">
                                 <input type="date" class="form-control"
                                        data-vp-range-from="<?=
@@ -283,12 +385,22 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                                            $range['label']
                                        )) ?>">
                             </div>
-                            <div class="small text-muted mt-1">
-                                <?= h(sprintf(
-                                    __('%1$s to %2$s'),
-                                    $range['span']['from'],
-                                    $range['span']['to']
-                                )) ?>
+                            <?php
+                            /*
+                             * States the grain, and names the bucket
+                             * under the pointer while the reader is over
+                             * the strip. A bar three pixels wide is not
+                             * self-describing, and the brush layer sits
+                             * on top of the bars so their own `title`
+                             * never reaches the reader.
+                             */
+                            ?>
+                            <div class="small text-muted mt-1"
+                                 data-vp-timebrush-caption="<?=
+                                     h($range['key']) ?>"
+                                 data-vp-caption-default="<?=
+                                     h($caption) ?>">
+                                <?= h($caption) ?>
                             </div>
                             <?php if ($range['note'] !== null): ?>
                                 <div class="small text-muted mt-1">

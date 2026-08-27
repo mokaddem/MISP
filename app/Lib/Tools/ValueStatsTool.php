@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueProfileBuckets', 'Tools');
 
 /**
  * The cross-cutting aggregates the Value Profile page's panels share:
@@ -490,6 +491,7 @@ class ValueStatsTool
     private static function timeSpans(array $rows)
     {
         $spans = array('timestamp' => null, 'published' => null);
+        $days = array('timestamp' => array(), 'published' => array());
         $unpublished = 0;
         foreach ($rows as $row) {
             $stamps = array(
@@ -506,6 +508,10 @@ class ValueStatsTool
                     continue;
                 }
                 $day = date('Y-m-d', (int)$stamp);
+                if (!isset($days[$key][$day])) {
+                    $days[$key][$day] = 0;
+                }
+                $days[$key][$day]++;
                 if ($spans[$key] === null) {
                     $spans[$key] = array('from' => $day, 'to' => $day);
                     continue;
@@ -514,9 +520,78 @@ class ValueStatsTool
                 $spans[$key]['to'] = max($spans[$key]['to'], $day);
             }
         }
+        $buckets = array();
+        foreach ($spans as $key => $span) {
+            $buckets[$key] = $span === null
+                ? null
+                : self::timeHistogram($span, $days[$key]);
+        }
         return array(
             'time_spans' => $spans,
+            'time_buckets' => $buckets,
             'published_unset' => $unpublished,
+        );
+    }
+
+    /**
+     * How many occurrences fall in each calendar bucket of a span, so
+     * the rail can draw the shape of a date before the reader picks a
+     * range out of it.
+     *
+     * **`ValueProfileBuckets` is reused here**, unlike the forty-slice
+     * sparkline beside it (see `seenDensity()`). The difference is the
+     * data: a `timestamp` is an instant, so this is a `Y-m-d` count map
+     * tallied into calendar buckets, which is exactly the shape
+     * `series()` and `locate()` were built for. The sparkline's input is
+     * a set of *intervals*, which is what did not fit.
+     *
+     * The unit follows the span by a rule this caller owns, per the
+     * tool's own contract. The default rule stops at weeks, which draws
+     * a two-year span as a hundred-odd bars — legible in a full-width
+     * chart and not in a `col-lg-3` rail, so months are added past a
+     * year. Bars still thin out on a span of many years; the caption
+     * states the grain so a thin bar is readable as a month rather than
+     * as a gap.
+     *
+     * @param array $span `from` and `to`, `Y-m-d`
+     * @param array $days `Y-m-d` => count
+     * @return array `unit`, `max`, and `bars` of from/to/label/count
+     */
+    private static function timeHistogram(array $span, array $days)
+    {
+        $spanDays = 1 + (int)round(
+            (strtotime($span['to']) - strtotime($span['from'])) / 86400
+        );
+        $unit = ValueProfileBuckets::unitForSpan($spanDays, array(
+            array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
+            array('days' => 370, 'unit' => ValueProfileBuckets::WEEK),
+            array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+        ));
+        $series = ValueProfileBuckets::series(
+            $span['from'],
+            $span['to'],
+            $unit
+        );
+        $index = ValueProfileBuckets::locate($series);
+        $counts = array_fill(0, count($series), 0);
+        foreach ($days as $day => $count) {
+            if (isset($index[$day])) {
+                $counts[$index[$day]] += $count;
+            }
+        }
+        $bars = array();
+        foreach ($series as $position => $bucket) {
+            $bars[] = array(
+                'from' => $bucket['from'],
+                'to' => $bucket['to'],
+                'label' => $bucket['title'],
+                'count' => $counts[$position],
+            );
+        }
+        return array(
+            'unit' => $unit,
+            'max' => empty($counts) ? 0 : max($counts),
+            'bars' => $bars,
         );
     }
 

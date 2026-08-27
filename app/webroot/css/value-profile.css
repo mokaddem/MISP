@@ -3097,6 +3097,48 @@ tr.vp-occ-deleted .vp-occ-orgdot {
 }
 
 /*
+ * A brushable date strip in the occurrence rail.
+ *
+ * 32px, against the History chart's 64px: two of these sit in a
+ * `col-lg-3` rail alongside eight facet groups, a sparkline and a page
+ * of controls, and at History's height they would push the row-state
+ * group off the bottom of most screens. It is a range picker that shows
+ * its shape, not a chart — no axes, no gridlines, no zoom.
+ *
+ * `position: relative` because `.vp-brush` pins itself to this box.
+ */
+.vp-timebrush {
+    position: relative;
+    height: 32px;
+    margin-bottom: 6px;
+    /*
+     * Heavier than the 62% default, for the reason `.vp-audit-chart`
+     * gives at 64px and more so at 32: there are no gridlines here to
+     * read the dimming against, only bare bars.
+     */
+    --vp-brush-dim: 80%;
+}
+
+/*
+ * `.vp-spark` is 40px on its own, which is the seen-density strip's
+ * size. Inside a brush box the height belongs to the box.
+ *
+ * And a tighter gap than the 2px the sparkline uses. The sparkline draws
+ * a fixed forty bars; this draws one per calendar bucket, and a value
+ * whose occurrences were last modified across nine years is 112 monthly
+ * bars — at 2px, the gaps would take 222px of a 300px rail and the bars
+ * would be sub-pixel. `min-width` keeps a bar drawable at that count.
+ */
+.vp-spark-flush {
+    height: 100%;
+    gap: 1px;
+}
+
+.vp-spark-flush .vp-spark-bar {
+    min-width: 1px;
+}
+
+/*
  * A sortable column heading. A real button, so it is reachable and
  * operable from the keyboard, but carrying none of a button's chrome —
  * the heading has to keep looking like a heading.

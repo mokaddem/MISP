@@ -802,6 +802,261 @@
         });
     }
 
+    /* ==================================================================
+     * The occurrence rail's time brushes
+     * ------------------------------------------------------------------
+     * Two small brushable strips — one per date the rail cuts on —
+     * sharing the brush primitive with the History chart and the
+     * Sightings navigator. What they do not share is a canvas: these are
+     * CSS bars a third the height of History's chart, because they sit
+     * in a `col-lg-3` rail beside eight other facet groups.
+     *
+     * The gesture writes the two date inputs and lets their own `change`
+     * do the filtering, so there is one filter path whether the reader
+     * brushed or typed — the same decision the History chart made, for
+     * the same reason.
+     *
+     * Bounds are applied on `settle` rather than on every pointer move.
+     * History repaints its own chart as the drag goes; here a move would
+     * re-filter and repage up to three hundred rows, sixty times a
+     * second. The window still paints live; only the filter waits for
+     * the pointer to come up.
+     * ================================================================== */
+
+    // Pending selection per strip while a drag is in flight.
+    var timeBrushDrag = new WeakMap();
+
+    /**
+     * @param {Element|Document} root
+     */
+    function initTimeBrushes(root) {
+        (root || document).querySelectorAll('[data-vp-timebrush]')
+            .forEach(initTimeBrush);
+    }
+
+    /**
+     * @param {Element} strip A [data-vp-timebrush]
+     * @return {Array<Element>} Its bars, in order
+     */
+    function timeBrushBars(strip) {
+        return Array.prototype.slice.call(
+            strip.querySelectorAll('[data-vp-bucket-from]')
+        );
+    }
+
+    /**
+     * Wire one strip. Drag picks a range, click clears it.
+     *
+     * @param {Element} strip A [data-vp-timebrush]
+     */
+    function initTimeBrush(strip) {
+        if (strip.dataset.vpTimebrushReady) {
+            return;
+        }
+        strip.dataset.vpTimebrushReady = '1';
+        var key = strip.dataset.vpTimebrush;
+
+        window.VP.brush.attach(strip.querySelector('[data-vp-brush]'), {
+            count: function () {
+                return timeBrushBars(strip).length;
+            },
+            range: function (from, to) {
+                timeBrushDrag.set(strip, { from: from, to: to });
+                window.VP.brush.paint(
+                    strip,
+                    { from: from, to: to },
+                    timeBrushBars(strip).length
+                );
+                captionBucket(strip, from, to);
+            },
+            settle: function () {
+                var bounds = timeBrushDrag.get(strip);
+                if (bounds) {
+                    writeTimeBrush(strip, key, bounds.from, bounds.to);
+                }
+                timeBrushDrag.delete(strip);
+            },
+            clear: function () {
+                timeBrushDrag.delete(strip);
+                clearTimeBrush(strip, key);
+            },
+        });
+
+        /*
+         * A three-pixel bar is not self-describing, and the brush layer
+         * covers the bars so their own `title` never reaches the reader.
+         * The caption under the inputs names whatever is under the
+         * pointer instead, and goes back to stating the grain on the way
+         * out.
+         */
+        strip.addEventListener('pointermove', function (event) {
+            if (timeBrushDrag.has(strip)) {
+                return;
+            }
+            var bars = timeBrushBars(strip);
+            if (!bars.length) {
+                return;
+            }
+            var box = strip.getBoundingClientRect();
+            var at = Math.floor(
+                ((event.clientX - box.left) / box.width) * bars.length
+            );
+            at = Math.max(0, Math.min(bars.length - 1, at));
+            captionBucket(strip, at, at);
+        });
+
+        strip.addEventListener('pointerleave', function () {
+            if (!timeBrushDrag.has(strip)) {
+                captionDefault(strip);
+            }
+        });
+    }
+
+    /**
+     * @param {Element} strip
+     * @return {Element|null} The strip's caption
+     */
+    function timeBrushCaption(strip) {
+        var list = strip.closest('[data-vp-list]') || document;
+        return list.querySelector(
+            '[data-vp-timebrush-caption="' + strip.dataset.vpTimebrush + '"]'
+        );
+    }
+
+    /**
+     * Name the bucket, or the span of buckets, under the pointer.
+     *
+     * @param {Element} strip
+     * @param {number} from Bar index
+     * @param {number} to Bar index
+     */
+    function captionBucket(strip, from, to) {
+        var caption = timeBrushCaption(strip);
+        var bars = timeBrushBars(strip);
+        if (!caption || !bars[from] || !bars[to]) {
+            return;
+        }
+        var total = 0;
+        for (var i = from; i <= to; i++) {
+            total += parseInt(bars[i].dataset.vpBucketCount, 10) || 0;
+        }
+        var span = from === to
+            ? bars[from].dataset.vpBucketLabel
+            : bars[from].dataset.vpBucketLabel + ' – '
+                + bars[to].dataset.vpBucketLabel;
+        caption.textContent = span + ' · ' + total;
+    }
+
+    /**
+     * @param {Element} strip
+     */
+    function captionDefault(strip) {
+        var caption = timeBrushCaption(strip);
+        if (caption) {
+            caption.textContent = caption.dataset.vpCaptionDefault || '';
+        }
+    }
+
+    /**
+     * Write a brushed range into the strip's two date inputs.
+     *
+     * @param {Element} strip
+     * @param {string} key The range's name
+     * @param {number} from Bar index
+     * @param {number} to Bar index
+     */
+    function writeTimeBrush(strip, key, from, to) {
+        var list = strip.closest('[data-vp-list]');
+        var bars = timeBrushBars(strip);
+        if (!list || !bars[from] || !bars[to]) {
+            return;
+        }
+        var pairs = [
+            ['[data-vp-range-from="' + key + '"]',
+                bars[from].dataset.vpBucketFrom],
+            ['[data-vp-range-to="' + key + '"]',
+                bars[to].dataset.vpBucketTo],
+        ];
+        pairs.forEach(function (pair) {
+            var input = list.querySelector(pair[0]);
+            if (input) {
+                input.value = pair[1];
+            }
+        });
+        listPages.set(list, 1);
+        refreshList(list);
+    }
+
+    /**
+     * @param {Element} strip
+     * @param {string} key
+     */
+    function clearTimeBrush(strip, key) {
+        var list = strip.closest('[data-vp-list]');
+        if (!list) {
+            return;
+        }
+        list.querySelectorAll(
+            '[data-vp-range-from="' + key + '"],'
+            + ' [data-vp-range-to="' + key + '"]'
+        ).forEach(function (input) {
+            input.value = '';
+        });
+        listPages.set(list, 1);
+        refreshList(list);
+    }
+
+    /**
+     * Paint every strip in a list from what its inputs currently say, so
+     * the window follows a typed date and a cleared one as well as a
+     * brushed one. The bounds are the buckets the dates fall in, which
+     * is the coarsest honest reading of a date the strip can draw.
+     *
+     * @param {Element} list
+     */
+    function paintTimeBrushes(list) {
+        list.querySelectorAll('[data-vp-timebrush]').forEach(
+            function (strip) {
+                var key = strip.dataset.vpTimebrush;
+                var bars = timeBrushBars(strip);
+                if (!bars.length) {
+                    return;
+                }
+                var from = list.querySelector(
+                    '[data-vp-range-from="' + key + '"]'
+                );
+                var to = list.querySelector(
+                    '[data-vp-range-to="' + key + '"]'
+                );
+                var lower = from && from.value ? from.value : null;
+                var upper = to && to.value ? to.value : null;
+                if (lower === null && upper === null) {
+                    window.VP.brush.paint(strip, null, bars.length);
+                    captionDefault(strip);
+                    return;
+                }
+                var first = bars.length - 1;
+                var last = 0;
+                bars.forEach(function (bar, index) {
+                    var start = bar.dataset.vpBucketFrom;
+                    var stop = bar.dataset.vpBucketTo;
+                    // Any overlap between the bucket and the window.
+                    if ((upper === null || start <= upper)
+                        && (lower === null || stop >= lower)
+                    ) {
+                        first = Math.min(first, index);
+                        last = Math.max(last, index);
+                    }
+                });
+                window.VP.brush.paint(
+                    strip,
+                    first <= last ? { from: first, to: last } : null,
+                    bars.length
+                );
+            }
+        );
+    }
+
     /**
      * Repage what is already on screen at a size the reader picked.
      *
@@ -1047,6 +1302,12 @@
         var rows = ownNode(list, '[data-vp-list-rows]');
         if (rows && empty) {
             rows.classList.toggle('d-none', blank);
+        }
+        // The brush windows are a second reading of the same two dates,
+        // so they are repainted wherever those can have changed —
+        // brushed, typed or cleared — rather than only where they were.
+        if (ownNode(list, '[data-vp-timebrush]')) {
+            paintTimeBrushes(list);
         }
     }
 
@@ -4977,6 +5238,7 @@
         document.addEventListener('misp:container-loaded', function (event) {
             markDisabled(event.target);
             refreshOccurrences();
+            initTimeBrushes(event.target);
             refreshAllLists(event.target);
             initSightings(event.target);
             initEnrichment(event.target);
@@ -4986,6 +5248,8 @@
         });
 
         refreshOccurrences();
+        // Before the first refresh, so the windows paint with the rest.
+        initTimeBrushes(document);
         refreshAllLists(document);
         initSightings(document);
         initEnrichment(document);
