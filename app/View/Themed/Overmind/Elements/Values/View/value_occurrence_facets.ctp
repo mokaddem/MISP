@@ -90,8 +90,14 @@ foreach ($groups['tag'] as &$facet) {
 }
 unset($facet);
 
+/*
+ * Empty when no occurrence carries either seen date. Forty zero bars and
+ * two date inputs pre-filled from nothing would claim there was nothing
+ * to see; what is true is that nobody recorded when, and the line under
+ * the group is what says so.
+ */
 $spark = $facets['seen_spark'];
-$sparkMax = max(1, max($spark));
+$sparkMax = empty($spark) ? 1 : max(1, max($spark));
 
 /*
  * A date range over a column that is frequently empty needs to say so,
@@ -147,28 +153,17 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
         'panelExtra' => $headerExtra,
     )) ?>
 
-    <div class="p-3 pb-0">
-        <div class="vp-facet-note">
-            <?= sprintf(
-                __(
-                    'Counts cover the %1$s. The banner counts all %2$s — it'
-                    . ' says %3$s, this rail says %4$s.'
-                ),
-                '<strong>' . h(sprintf(
-                    __('%d occurrences you can see'),
-                    $facets['visible']
-                )) . '</strong>',
-                h($facets['total']),
-                '<strong>' . h(sprintf(
-                    '%s %d',
-                    $facets['banner_note']['chip'],
-                    $facets['banner_note']['banner']
-                )) . '</strong>',
-                '<strong>' . h($facets['banner_note']['rail']) . '</strong>'
-            ) ?>
-        </div>
-    </div>
-
+    <?php
+    /*
+     * There used to be a `.vp-facet-note` here spelling out the gap
+     * between the banner's instance-wide chip count and this rail's
+     * viewer-scoped one. §14.6 made every count on the page the
+     * viewer's, so banner and rail now agree by construction and there
+     * is no gap left to explain. The sentence is gone rather than
+     * reworded: a note that exists only to reconcile two numbers has
+     * nothing to say once they cannot differ.
+     */
+    ?>
     <div class="card-body py-0 px-3">
 
         <?php foreach ($defined as $group): ?>
@@ -191,31 +186,34 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
         <div class="vp-facetgrp">
             <div class="vp-subhead"><?= __('First / last seen') ?></div>
             <div class="d-flex flex-column gap-2">
-                <div class="vp-spark vp-spark-attribute"
-                     role="img"
-                     aria-label="<?= h(sprintf(
-                         __('Occurrences seen between %1$s and %2$s'),
-                         $facets['seen_from'],
-                         $facets['seen_to']
-                     )) ?>">
-                    <?php foreach ($spark as $bucket): ?>
-                        <span class="vp-spark-bar<?=
-                            $bucket === 0 ? ' vp-spark-bar-empty' : '' ?>"
-                              style="--vp-spark-h: <?=
-                                  h(round(($bucket / $sparkMax) * 100)) ?>%">
-                        </span>
-                    <?php endforeach; ?>
-                </div>
-                <div class="input-group input-group-sm"
-                     title="<?= h($seenDisabled) ?>">
-                    <input type="date" class="form-control"
-                           value="<?= h($facets['seen_from']) ?>"
-                           aria-label="<?= __('Seen from') ?>" disabled>
-                    <span class="input-group-text"><?= __('to') ?></span>
-                    <input type="date" class="form-control"
-                           value="<?= h($facets['seen_to']) ?>"
-                           aria-label="<?= __('Seen to') ?>" disabled>
-                </div>
+                <?php if (!empty($spark)): ?>
+                    <div class="vp-spark vp-spark-attribute"
+                         role="img"
+                         aria-label="<?= h(sprintf(
+                             __('Occurrences seen between %1$s and %2$s'),
+                             $facets['seen_from'],
+                             $facets['seen_to']
+                         )) ?>">
+                        <?php foreach ($spark as $bucket): ?>
+                            <span class="vp-spark-bar<?=
+                                $bucket === 0 ? ' vp-spark-bar-empty' : '' ?>"
+                                  style="--vp-spark-h: <?=
+                                      h(round(($bucket / $sparkMax) * 100))
+                                  ?>%">
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="input-group input-group-sm"
+                         title="<?= h($seenDisabled) ?>">
+                        <input type="date" class="form-control"
+                               value="<?= h($facets['seen_from']) ?>"
+                               aria-label="<?= __('Seen from') ?>" disabled>
+                        <span class="input-group-text"><?= __('to') ?></span>
+                        <input type="date" class="form-control"
+                               value="<?= h($facets['seen_to']) ?>"
+                               aria-label="<?= __('Seen to') ?>" disabled>
+                    </div>
+                <?php endif; ?>
                 <?php if (!empty($facets['seen_unset'])): ?>
                     <?php
                     /*

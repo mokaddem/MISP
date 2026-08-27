@@ -2,9 +2,10 @@
 /**
  * The write, disabled — and the sentence that says what it would do.
  *
- * `Sighting::saveSightings(false, [$value], ...)` matches on
- * `Attribute.value1`/`value2` and writes one row per attribute the
- * caller can reach. On a value page that is a fan-out: one click here
+ * `Sighting::saveSightings(false, [$value], ...)` matches either side of
+ * a composite — the same identity rule `Value::conditionsFor` states —
+ * and writes one row per attribute the caller can reach. On a value page
+ * that is a fan-out: one click here
  * becomes as many rows as this value has visible occurrences, across
  * however many events and organisations those sit in.
  *

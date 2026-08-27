@@ -19,6 +19,8 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueStatsTool', 'Tools');
+
 $profile = $valueProfile;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
@@ -42,15 +44,19 @@ $view = $this;
 
 /**
  * Tokens are matched by the rail, so they are derived from the row's own
- * domain values by the same rule the fixture used to write the facet
- * `value` down. A MISP type can hold characters an attribute value
- * should not — `domain|ip` — so everything is slugged.
+ * domain values by the same rule the rail counted by.
+ *
+ * The rule lives in `ValueStatsTool` rather than here because it has two
+ * callers: this stamps the token on the row, and the tool counts the
+ * facet the token matches. While the counts were fixture data one side
+ * was a regex and the other was slugs written down by hand, and nothing
+ * would have noticed the two drifting apart.
  *
  * @param string $text
  * @return string
  */
 $slug = function ($text) {
-    return trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($text)), '-');
+    return ValueStatsTool::facetToken($text);
 };
 
 /**
@@ -551,18 +557,33 @@ $headerExtra = ob_get_clean();
 
             <?php endif; ?>
 
-            <?php if (!empty($profile['occurrence_acl_note'])): ?>
+            <?php if (!empty($profile['occurrence_cap'])): ?>
                 <?php
                 /*
-                 * The count that exists and is not shown. A different
-                 * sentence from the empty state above, and the two must
-                 * not merge: one says nothing is here, the other says
-                 * something is and you cannot have it.
+                 * A cap, not a permission — which is why this band
+                 * survived §14.6 and the ACL note that used to sit here
+                 * did not. Every count on this panel is now the
+                 * viewer's, so there is no gap between what the
+                 * instance holds and what the table shows for the page
+                 * to explain; what is left to say is that a value with
+                 * tens of thousands of occurrences is not served whole,
+                 * and how many of them the rail beside it describes.
+                 *
+                 * Both numbers, not a ratio. "1,000 of 33,110" is a
+                 * fact the reader can act on; "3% shown" is not.
                  */
                 ?>
                 <div class="vp-acl-note">
-                    <i class="fas fa-eye-slash"></i>
-                    <span><?= h($profile['occurrence_acl_note']) ?></span>
+                    <i class="fas fa-layer-group"></i>
+                    <span><?= h(sprintf(
+                        __(
+                            'This table and the filters beside it'
+                            . ' describe the %1$s most recent of %2$s'
+                            . ' occurrences you can see.'
+                        ),
+                        $profile['occurrence_cap']['shown'],
+                        $profile['occurrence_cap']['total']
+                    )) ?></span>
                 </div>
             <?php endif; ?>
 

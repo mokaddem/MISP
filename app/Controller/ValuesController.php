@@ -10,8 +10,11 @@ App::uses('ValueProfileFixture', 'Tools');
  * a domain — not a single attribute row. The same value exists as many
  * attribute rows across many events, and this controller aggregates them.
  *
- * Read-only: nothing here writes, and every number is fixture data until
- * the per-panel model queries land.
+ * Read-only: nothing here writes. Every number is fixture data except on
+ * the Occurrences tab, which phase 22 took live — the live campaign
+ * converts one panel at a time, so the two regimes sit side by side
+ * until it finishes. `prd/value-profile-live/00-contract.md` §14.12 is
+ * the record of which panels have moved.
  */
 class ValuesController extends AppController
 {
@@ -90,13 +93,23 @@ class ValuesController extends AppController
      * fetch or they can disagree with each other, and two endpoints
      * against a moving attribute set is exactly how that happens.
      *
+     * **Live since phase 22** — the first panel on this page to read the
+     * database rather than `ValueProfileFixture`. It is also why the
+     * whole-profile shape below no longer serves every endpoint: the
+     * live facade answers per panel, per
+     * prd/value-profile-live/22-occurrences.md.
+     *
      * @param string $b64value
      * @return void
      */
     public function viewOccurrenceTable($b64value = null)
     {
+        $this->loadModel('ValueProfile');
         $this->renderPanel(
-            $this->profileFor($b64value),
+            $this->ValueProfile->forOccurrenceTable(
+                $this->Auth->user(),
+                $this->decodeValue($b64value)
+            ),
             'value_occurrence_table'
         );
     }

@@ -2062,13 +2062,21 @@ class MispAttribute extends AppModel
         if (isset($options['contain'])) {
             $params['contain'] = $options['contain'];
         }
-        return $this->find('all', array(
+        $query = array(
             'conditions' => $params['conditions'],
             'recursive' => -1,
             'fields' => $params['fields'],
             'contain' => $params['contain'],
             'order' => false,
-        ));
+        );
+        // Optional and guarded: a caller that passes none of these
+        // reaches the same unordered, unbounded query it always did.
+        foreach (array('order', 'limit', 'page') as $key) {
+            if (isset($options[$key])) {
+                $query[$key] = $options[$key];
+            }
+        }
+        return $this->find('all', $query);
     }
 
     /**
