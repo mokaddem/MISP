@@ -55,8 +55,8 @@ their own content; nothing on the page is a placeholder.
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
 follow the "Written up in" column rather than assuming §N is phase N.
-In that column `tabs/` is `prd/value-profile-tabs/` and `phases/` is
-`prd/value-profile-phases/`.
+In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
+`prd/value-profile-phases/` and `live/` is `prd/value-profile-live/`.
 
 | Phase | What | Written up in | Status |
 |---|---|---|---|
@@ -77,8 +77,25 @@ In that column `tabs/` is `prd/value-profile-tabs/` and `phases/` is
 | 19 | History at occurrence scale | `phases/19-history-scale.md` (§11) | built |
 | 20 | One brush primitive, three callers | `phases/20-one-brush.md` (§12) | built |
 | 21 | Zooming the activity chart | `phases/21-chart-zoom.md` (§13) | built |
-| — | Going live: the wiring contract | §14 | **contract only — nothing is wired to the database** |
+| — | Going live: the wiring contract | `live/00-contract.md` (§14) | **contract only — nothing is wired to the database** |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
+
+Then the live campaign, one phase per tab. **This is the table to update as each
+lands** — it is the only tab-level record, and `live/00-contract.md` §14.12
+carries the panel-level board beneath it. The order is not fixed; whichever tab
+goes first argues why in its own document.
+
+| Phase | Converts | Document | Status |
+|---|---|---|---|
+| 22+ | Overview | — | not started |
+| 22+ | Verdict | — | not started |
+| 22+ | Occurrences | — | not started |
+| 22+ | Sightings | — | not started |
+| 22+ | Relationships | — | not started |
+| 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
+| 22+ | Analyst data | — | not started |
+| 22+ | Timeline | — | not started |
+| 22+ | History | — | not started |
 
 #### What a fresh session must not break
 
@@ -533,12 +550,14 @@ level fetches. History and Sightings converted; the Timeline declines, because
 twelve monthly bins is not a span that needs opening.
 
 
-Every phase to here has been fixture-first. **§14 is not a phase**: it is the
-contract for taking the nine tabs live — the model layer, the seam the coming
-`attributes.value` table moves behind, the fetcher and aggregation rules, and
-the UI reuse test. Live phases inherit it the way phases 9–13 inherited
-`value-profile-tabs/00-shared.md`, and it deliberately does not sequence them.
-Writes are a separate document,
+Every phase to here has been fixture-first. The contract for taking the nine
+tabs live is `live/00-contract.md`, still numbered §14 — the model layer, the
+seam the coming `attributes.value` table moves behind, the fetcher and
+aggregation rules, viewer-scoped counts, and the UI reuse test. **It is not a
+phase**: unlike `value-profile-tabs/00-shared.md`, which was phase 8 because it
+built primitives, it builds nothing. Live phases inherit it and start at 22;
+§14 deliberately does not sequence them, and §1.4 is where their progress is
+recorded. Writes are a separate document,
 [`value-profile-writes.md`](value-profile-writes.md).
 
 ---
@@ -1483,414 +1502,26 @@ from this one.
 
 ---
 
-## 14. Going live — the wiring contract
+## Going live — moved to `value-profile-live/`
 
-Every phase from 8 onwards has been fixture-first: real templates, real ajax
-endpoints, real interactions, and no model query behind any of them. All nine
-tabs now render that way. This section is the contract for taking them live —
-the rules a phase follows when it replaces `ValueProfileFixture` with the
-database, and the reasoning behind each one.
+§14 was the contract for taking the nine tabs live: the model layer, the seam
+the coming `attributes.value` table moves behind, the fetcher and aggregation
+rules, viewer-scoped counts, and the UI reuse test. It now opens its own
+directory, because the campaign it governs will run for several phases and each
+one needs somewhere to record its decisions beside the rules it followed —
+which is what `value-profile-tabs/` did for the fixture campaign.
 
-**It is not a phase.** §7 through §13 are each a phase brief; this is what they
-inherit, in the role `value-profile-tabs/00-shared.md` played for the fixture
-passes. Nine tabs across fifty-one elements is not one phase's work, and these
-rules have to hold for whichever of them goes first.
-
-Writes are not here either. The analyst's own tags, opinions and notes on a
-value need new storage and touch sync, which is a different risk profile from
-replacing a read; they are specified in
-[`value-profile-writes.md`](value-profile-writes.md). Under §14 the page still
-reads only, and every disabled control stays disabled.
-
-### 14.1 What this replaces, and what it must not disturb
-
-Replaced: the data source. Nothing else.
-
-Untouched by a live phase — and a live phase that changes one of these has
-grown out of its remit: the nine-tab registry (§2.5), the element names and
-their locations, the 27 endpoint URLs, the five honest states, the disabled
-treatment of every write control, and the both-themes requirement.
-
-The one structural change is *where* the fixture is read.
-`ValuesController::profileFor()` calls `ValueProfileFixture::forValue()`, which
-builds **every** tab's data and hands the whole array to whichever endpoint
-asked for it. With a fixture that is one array literal and costs nothing. Live
-it is nine tabs of queries per panel request, twenty-odd panel requests per tab
-visit. So the live facade answers **per panel**, and `profileFor()`'s
-whole-profile shape does not survive the transition.
-
-That is the only place the skeleton was built around a property a fixture has
-and a database does not. Everywhere else, §1.3's *"fixture shaped like the real
-thing"* held: the templates read MISP's own array shapes and field names, so a
-panel going live is a data source swapped under an unchanged template.
-
-### 14.2 Two models, and what each owns
-
-`ValuesController` already declares `public $uses = array()` with a comment
-saying the subject is a value rather than a row of one table, so panels load
-their own models as they land. This is that, and it keeps the page inside
-MISP's MVC rather than beside it.
-
-**Why two models and not one.** §4 refused to build this page inside
-`AttributesController` on the grounds that ~3,800 lines across 40+ actions is
-not somewhere to add a feature. A single `Value` model carrying nine tabs of
-panel assembly reaches the same size by the same route, and the refusal would
-have bought nothing.
-
-```
-app/Model/Value.php          identity and value→occurrence resolution.
-                             Small, and deliberately kept small.
-app/Model/ValueProfile.php   useTable = false. The per-panel facade:
-                             one public method per panel, returning the
-                             array shape that panel's template already
-                             reads.
-```
-
-A table-less model is established practice here — `Community`, `Module` and
-`EventLock` all set `useTable = false`.
-
-| Layer | Owns | Must not |
-|---|---|---|
-| `Value` | the value's identity, its ACL'd occurrence set, which part of a composite matched | assemble a panel, know what a tab looks like |
-| `ValueProfile` | per-panel assembly: call `Value` for the occurrence set, the domain models for their own data, the tools for aggregates | issue its own SQL against attribute value storage |
-| domain models (`Sighting`, `AnalystData`, `AuditLog`, `MispObject`, `DecayingModel`) | their own data and their own ACL, as they do for every other page | be bypassed because a value-scoped query would be shorter |
-| `app/Lib/Tools/Value*` | computation over data handed to them | accept `$user`, or fetch anything |
-
-The swap is then one line per endpoint:
-
-```php
-// before
-$this->renderPanel($this->profileFor($b64value), 'value_sighting_chart');
-// after
-$this->renderPanel(
-    $this->ValueProfile->forSightingChart($this->Auth->user(), $value, $opts),
-    'value_sighting_chart'
-);
-```
-
-Tools are constructed by the model that owns the data, which is MISP's own
-convention — `new TrendingTool($this)` inside `Event.php:9969`.
-
-### 14.3 The value-identity seam
-
-There is a feature coming that moves `attributes.value` into a table of its own
-— possibly several tables, split by type where that helps. **This page does not
-build it, does not wait for it, and does not assume its shape.** What it must do
-is arrange that when it lands, one file changes.
-
-The rule, and it is the whole of §14.3:
-
-> **`Value` is the only file in this feature that names `value1` or `value2`.**
-
-Three accessors, each with a today form and a tomorrow form:
-
-```php
-// A condition fragment. Composes with buildConditions($user) untouched,
-// so every existing ACL fetcher keeps working exactly as it does today.
-Value::conditionsFor($value, array $options = [])
-    today     ['OR' => ['Attribute.value1' => $v, 'Attribute.value2' => $v]]
-    tomorrow  a subquery or join against the value table(s)
-
-// An ACL'd id set, for the aggregation path in §14.4 tier 2.
-Value::occurrenceIdsFor(array $user, $value, array $options = [])
-
-// Which side of a composite matched, per occurrence.
-Value::occurrencePartsFor(array $user, $value)   → [attribute_id => 1|2]
-```
-
-`$options['types']` exists for the split: a caller that knows which types it
-wants passes them and a per-type table can be selected; a caller that does not
-gets the union. Adding it now costs a parameter nobody has to use; retrofitting
-it means revisiting every call site.
-
-The part indicator is not a storage detail leaking upward. §2.3 already renders
-`value2_note` — *"1 occurrence has it as value2 of domain|ip"* — and
-`Sighting::saveSightings` (`Sighting.php:795`) already matches `value1` OR
-`value2` when writing a sighting by value. Which side matched is something the
-page states; it belongs in the seam's answer.
-
-**Identity is the value, not the pair `(type, value)`.** STIX's `ipv4-addr` has
-one id-contributing property, MISP's correlation engine already correlates
-across types, and §2.3's `types` array already treats type as a facet of the
-value rather than part of what the value *is*. A composite attribute therefore
-contributes two identities, which is the same reading `saveSightings` takes.
-
-`Value::uuidFor($value)` lives here too. It is the deterministic identity the
-writes document needs, and keeping it beside the resolution logic means reads
-and writes normalise a value through one function rather than two that drift.
-
-Today's lookup is index-backed but the indexes are prefixes —
-`KEY value1 (value1(255))` over a `text` column. MySQL uses the prefix and then
-rechecks the row, so `value1 = ?` stays exact; the cost is selectivity for
-values sharing a 255-character prefix, not correctness. Worth knowing before
-someone reads a slow query as a wrong one.
-
-**Verification is a grep**, which is the point of stating the rule this way:
-
-```
-grep -rn "value1\|value2" app/Model/ValueProfile.php \
-    app/Lib/Tools/Value*.php app/Controller/ValuesController.php \
-    app/View/Themed/Overmind/Elements/Values/
-```
-
-must return nothing.
-
-### 14.4 Rows come from fetchers; counts may use their own SQL
-
-Three tiers, and a live phase states which one each of its panels used.
-
-**Tier 1 — the default. MISP's existing ACL fetchers, and nothing else.**
-They already handle who may see what, and that is code with years of use behind
-it. The ones this page needs:
-
-| Need | Fetcher | Note |
-|---|---|---|
-| occurrence rows | `MispAttribute::fetchAttributes` / `fetchAttributesSimple` | `fetchAttributesSimple` scopes via `buildConditions($user)` (`MispAttribute.php:2052`) |
-| event metadata for N events | `Event::fetchSimpleEvents($user, $params, $includeOrgc)` | **one** ACL'd query for all N (`Event.php:2862`); `recursive => -1` |
-| the full event graph | `Event::fetchEvent($user, ['eventid' => [...]])` | the id goes into an `IN (…)`, so this also takes a list |
-| sightings | `Sighting::listSightings` / `attributesStatistics` | carries `Sightings_policy` and anonymisation |
-| notes and opinions | `AnalystData::fetchChildNotesAndOpinions` | depth 2 is a fetch limit, per §7.9 |
-| audit rows | the ACL model §8.2 settled | per-event, not `model_title` |
-
-**Never one call per event.** A value in seven events is one
-`fetchSimpleEvents` — or one `fetchEvent` with seven ids — and not seven calls.
-§8.2 measured the alternative at seven `fetchEvent()`s before a single audit row
-is read, and that was with `fetchSimpleEvents` unaccounted for. This is the one
-performance rule §14 does commit to, and it is a batching rule rather than an
-optimisation: the cost of getting it wrong grows with the value.
-
-**Tier 2 — permitted, with a written reason. An aggregate query over an
-already-ACL'd id set.** Allowed only where the answer is a count or a group and
-materialising rows to count them in PHP would be the wrong shape. It lives in a
-model or a tool, never in a controller, and it receives the id set from
-`Value::occurrenceIdsFor($user, …)` — so permissions were settled before the
-aggregate ran.
-
-Counting in PHP is not the safe fallback it looks like. §7.9 already found why:
-*"tallying the fetched page works at ten rows and stops being honest the moment
-the table paginates"* — you are then counting one page and labelling it a total.
-§10.4 (phase 18) records the same trap from the other side, noting that the
-facet rail and the row list agree today only because the fragment carries all
-748 rows.
-
-**Tier 3 — forbidden.** Any query that applies its own ACL. Any query that
-reaches attribute value storage outside `Value`. Any panel whose query count
-grows per occurrence without a stated cap — §9 is a worked example of what that
-costs when nobody checks.
-
-**Caching is deliberately not in this contract.** Optimisation is a later stage,
-and a cache over permission-scoped data is the wrong thing to add before the
-uncached shape is measured. The batching rule above is the mitigation §14 takes
-now. When optimisation happens, the risk to weigh first is that a cache key
-must capture everything affecting what a viewer may see; missing one component
-shows one user another's view, which is the worst defect this page could carry.
-
-### 14.5 Aggregation tools take no `$user`
-
-> **No tool under `app/Lib/Tools/Value*` accepts a `$user` parameter.**
-
-The owning model pre-scopes and hands the tool a set that is already filtered.
-A tool therefore *cannot* leak data the viewer may not see, and that is
-checkable rather than argued.
-
-This is already the house pattern rather than a new rule.
-`ValueProfileBuckets` — shipped in phase 20, three callers — is a pure static
-class whose `tally()` and `sparse()` aggregate over arrays handed to them, and
-it has never needed a user. Two shapes are acceptable, and the invariant is the
-same for both:
-
-- **Pure and static**, like `ValueProfileBuckets`, when the tool computes over
-  data it is given. Preferred.
-- **Model-injected**, like `TrendingTool`, when the tool issues its own tier-2
-  aggregate SQL and needs a connection. Still no `$user`.
-
-New:
-
-| Tool | Owns |
+| Was | Now |
 |---|---|
-| `ValueStatsTool` | facet counts, org and type rollups, histograms, the verdict's composition segments — the cross-cutting aggregates several tabs share |
-| `ValueDecayTool` | the decay series: §11's hourly-to-daily/weekly resampling, and the **still-undecided** aggregation of ten per-attribute curves into one per-value score |
+| §14 | [`value-profile-live/00-contract.md`](value-profile-live/00-contract.md) |
 
-`ValueDecayTool` exists partly so that decision has one home. §7.9 recorded
-that `DecayingModel::getScoreOvertime()` is per attribute, that there is no
-value-scoped endpoint and no aggregation rule, and that the phase 7 deck
-proposed *max across occurrences, labelled with its occurrence*.
-`02-sightings.md` §16 sharpened it and left it open. It is still open, and it is
-now a named function's contract rather than a paragraph.
+**Its section numbers are unchanged**, so `§14.3`, `§14.6` and `§14.9` still
+name real headings — 29 references, none rewritten.
 
-Reused rather than rebuilt: `Sighting::attributesStatistics()` (already groups
-org × attribute × type × date in SQL — §7.9), `ValueProfileBuckets`,
-`AuditActionMeta`, `CustomPaginationTool`, `CidrTool`, `ValueDisposition`.
+It gained two tables in the move. **§14.12**, a board of all twenty-seven
+endpoints and the element each renders, is the fine-grained record of which
+panels are still fixture-backed. **§14.13** is the phase index. Tab-level status
+stays in §1.4 of this document: **§1.4 says whether, the contract says what.**
 
-### 14.6 Every count on the page is the viewer's
-
-**Decided.** Every number the page renders counts only what the viewer may see.
-The page states nothing about data hidden from them — not a count, not a
-proportion, and not the bare fact that something is hidden.
-
-**Why.** The URL takes any value the reader types. A count that includes
-invisible occurrences therefore turns the page into a membership oracle: anyone
-can probe any indicator and learn whether it exists on the instance, regardless
-of distribution. Subtracting the viewer-scoped facet rail from an
-instance-wide banner leaks the *types* of the hidden rows as well. A note that
-appears only when something is hidden is the same disclosure at one bit — its
-presence is the signal. This is also the posture MISP already takes elsewhere:
-§7.9 records that the sightings count is the viewer's, because
-`Sightings_policy` hides whole sightings and the number reflects only what may
-be seen.
-
-**Required changes.** These are consequences to be applied by the live phases
-that own them, not defects:
-
-| Location | Today | Under §14.6 |
-|---|---|---|
-| §2.3 fixture contract `:147` | `occurrence_acl_note` → *"Showing 6 of 10 … 4 are hidden by distribution rules"* | key removed |
-| §2.3 fixture contract `:165` | verdict `acl_note` → *"4 occurrences you cannot see were excluded"* | key removed |
-| §2.6, Overview preview panel footer | `.vp-acl-note` band carrying the truncation note | band removed |
-| `01-occurrences.md` §7, tab table footer | `.vp-acl-note` → *"Showing 6 of 10 occurrences. 4 are hidden by …"* | band removed |
-| `01-occurrences.md` §6, facet rail | `.vp-facet-note` explaining that the banner counts 10 while the rail counts 4 | sentence removed — there is no longer a gap to explain |
-| `01-occurrences.md` §8, states | *"everything hidden by ACL"* as a distinct rendered state | collapses into the empty state |
-| §8.7, History footer graft | *"four of the ten occurrences are ACL-hidden"* | graft withdrawn |
-| §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn |
-| §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
-| tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction |
-
-**The one exception: a permanent line on the Verdict tab.** Always shown, on
-every value, identical for every reader — including values with nothing hidden.
-Because it never varies, its presence carries no information, which is exactly
-what separates it from the notes above. It exists because the Verdict tab
-renders a *computed judgement*, and two readers can honestly get different
-verdicts for the same value; without this line, neither has any way to know why.
-Nowhere else on the page carries it.
-
-**What this costs, stated plainly.** §1.3 founded the page on three visually
-distinct states — *not implemented*, *nothing to show*, *hidden from you by
-ACL* — later grown to five. §14.6 removes the third from every panel except the
-Verdict tab's standing caveat: a panel where everything is hidden now renders
-identically to a panel where nothing exists. That is a real loss of a founding
-principle, taken deliberately in exchange for a page that cannot be used as an
-existence oracle. It is recorded here rather than glossed, and it is the
-decision to revisit first if the oracle risk is ever judged acceptable.
-
-### 14.7 UI elements — the three-part test
-
-§1.3 requires that every edit outside this feature leave existing callers
-rendering byte-identically. §14.7 makes that a test with one answer.
-
-**Small — make the change in place.** It adds a new optional input, guarded so
-it is skipped when absent, and every existing caller renders byte-for-byte
-identically. The phase names those callers and re-checks them. This is how
-`view_layout`'s `badge` key, `headerSection`'s `$headerBreadcrumb` and the
-`.ajax-card` fix all landed (§2.7).
-
-**Not small — fork it.** Any change that alters an existing caller's output,
-*including improving it*, gets a Value-Profile-owned element under
-`app/View/Themed/Overmind/Elements/Values/View/` instead. Phase 16 already took
-this route: `Logs/timeline.ctp` groups by calendar day, `H2` needed grouping by
-occurrence, and the shared element was left alone with only its action
-vocabulary extracted into `AuditActionMeta`.
-
-**A brand-new file in a shared folder — always fine.** It breaks nobody. New
-field renderers go to
-`genericElementsBS5/IndexTable/Fields/`, as `value_object_context.ctp` already
-did.
-
-**A defect in shared code — report it, do not fix it here.** A live phase's
-review is about queries; a shared-element fix needs a review covering every
-other page that uses it. The standing list from §7.9 —
-`multi_select_toolbar.ctp:18`'s `bg-light` bulk bar, `Badges/type.ctp:12`'s
-`border border-dark` — stays unfixed and stays recorded.
-
-One live-data pressure point is already settled and needs no new decision.
-Pagination: `00-shared.md` §6 built the page control as real Bootstrap
-`pagination` markup operating on rows already in the DOM, and stated that when
-these panels go live *"this is where `Paginator` inside an ajax action lands.
-The markup is shaped for it now so that change is local."* It lands there.
-Wiring real pagination into the shared `index_table` instead would change
-existing callers, which the test above makes a fork rather than an edit.
-
-### 14.8 What the fixture becomes
-
-`ValueProfileFixture` is **not** deleted and **not** a runtime fallback. A page
-that invents threat intelligence when the database is empty is the opposite of
-everything §1.3 set out.
-
-It becomes a **unit-test double**. Its arrays are handed straight to the
-elements, so a test renders a panel with no database at all.
-
-What that covers:
-
-- every template still renders against MISP's real array shapes;
-- the cross-panel number checks stay runnable — the ledger rows summing to the
-  hero's score, the sibling `objects` column reconciling with its header count,
-  a tab badge equalling its row count. These are what caught the Verdict tab
-  claiming seven opinions its own organisation table contradicted (§7.8, phase
-  13 §15).
-
-What it does not cover, and this is stated rather than implied: **query
-correctness.** No fixture-backed test proves that `Value::conditionsFor` selects
-the right rows, that an aggregate respects the id set it was given, or that a
-fetcher was ACL-correct. That verification is manual, per phase, against real
-data — and because the four demo values will hold nothing on a real instance,
-each live phase states which values it verified against and what it observed.
-No seeder is built.
-
-The traps from earlier verification passes still apply and are not re-litigated
-here: §6.1's harness must still assert `--vp-mal` resolves before it asserts
-any colour, because an unstyled page passes a colour check for the wrong reason.
-
-### 14.9 What every live phase must state
-
-A live phase's write-up carries this, and a phase that cannot fill a row has
-found something worth knowing:
-
-1. **Which panels it converts**, by element name.
-2. **Per panel: query count, what the count scales with, and its tier** — with
-   the written reason where that is tier 2.
-3. **Which fetchers it used**, and for any event access, that it is one call
-   rather than N.
-4. **Which shared elements it touched**, the callers re-verified, and which
-   changes were forks instead.
-5. **Which of §14.6's required changes it applied.**
-6. **What it deferred, with the cost named** — the §9.1 failure was a claim
-   about query cost read as a claim about result size, and this row exists to
-   make that distinction explicit.
-7. **Which values it verified against**, since the demo values no longer supply
-   data.
-8. **Both themes.**
-
-### 14.10 Hazards this contract inherits, and two found writing it
-
-§7.9 and §8.2 are the standing ledger of what MISP cannot supply, and every item
-in them still stands. §14 adds two, both found while writing it:
-
-**No shipped warninglist sets `category` explicitly.** `warninglists.category`
-is `NOT NULL DEFAULT 'false_positive'`, and across the 71 shipped lists checked,
-none sets the key in its `list.json` — so all of them import as
-`false_positive`. `Warninglist.php:12-13` defines `CATEGORY_KNOWN` and
-`:44` validates against both, so the category exists as a concept. But §2.6's
-conflicted layout argues specifically that *"a `known`-category hit means shared
-infrastructure rather than benign"*, and there may be no shipped list that
-produces one. Whoever wires the warninglist band has to check that before the
-argument can be rendered from real data.
-
-**`Event::fetchSimpleEvents` exists.** §8.2 costed the per-event ACL model at
-one `fetchEvent()` per event and concluded *"there is no value-scoped equivalent
-and no cheaper path."* That is true of the full event graph and not of event
-metadata: `fetchSimpleEvents($user, $params, $includeOrgc)` (`Event.php:2862`)
-is one ACL'd query for N events at `recursive => -1`. The panels that need only
-event info, orgc and publication timestamps have a cheap path §8.2 did not
-account for.
-
-### 14.11 Out of scope
-
-- **Writes.** [`value-profile-writes.md`](value-profile-writes.md). Under §14
-  the page still reads only.
-- **Caching and query optimisation.** A later stage, per §14.4. The batching
-  rule is the only performance commitment made here.
-- **The value table itself.** §14.3 prepares for it; building it is another
-  feature's work.
-- **A verdict scoring engine.** Still out, as §5 has it. §14 wires the display
-  of a verdict; what computes one is not decided by this contract.
-- **The decay aggregation rule.** Named, given an owner in
-  `ValueDecayTool`, and still undecided.
+Unlike `value-profile-tabs/00-shared.md`, which was phase 8, the contract
+carries no phase number — it builds nothing. The first live phase is 22.
