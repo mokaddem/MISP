@@ -4129,122 +4129,190 @@ class ValueProfileFixture
         }
         $windows[] = null;
 
-        $ranges = array();
+        /*
+         * One series over the value's whole life, at every grain the
+         * rule permits, and one tally per day. Phase 21 §13.1 measured
+         * the reason this replaced three precomputed ranges: those were
+         * three aggregations of the same rows — 90 daily buckets, 53
+         * weekly and 63 weekly, each with a decay curve sampled per
+         * bucket — for 39.8 KB, where the whole span as parallel arrays
+         * of daily counts is 21.6 KB. The tab that looked most
+         * expensive to give a zoom to is the one that got smaller.
+         *
+         * Anchored to the end, not the start: a span called `last 90
+         * days` has to have its last bucket end today, or the bar the
+         * reader looks at first is a partial week.
+         */
+        $plan = ValueProfileBuckets::plan(
+            $created,
+            self::TODAY,
+            ValueProfileBuckets::$spanRule,
+            ValueProfileBuckets::END
+        );
+        /*
+         * The last bucket of every grain is today, whichever grain is
+         * drawn — the label the navigator has always carried on its
+         * right-hand column. A bucket that is not the last one keeps
+         * its own date, which is what makes this a relabelling of the
+         * end rather than of `now`.
+         */
+        foreach ($plan['grains'] as $unit => $grain) {
+            $end = count($grain['label']) - 1;
+            $plan['grains'][$unit]['label'][$end] = __('today');
+        }
+
+        $orgKeys = array_keys($orgs);
+        $at = array_flip($orgKeys);
+        $perOrg = array_fill(0, count($orgKeys), array());
+        $perFp = array();
+        $perExpiration = array();
+        foreach ($rows as $row) {
+            $day = substr($row['date'], 0, 10);
+            if ($row['type'] === self::FALSE_POSITIVE) {
+                $perFp[$day] = ($perFp[$day] ?? 0) + 1;
+            } elseif ($row['type'] === self::EXPIRATION) {
+                $perExpiration[$day] = ($perExpiration[$day] ?? 0) + 1;
+            } else {
+                $i = $at[$row['org']];
+                $perOrg[$i][$day] = ($perOrg[$i][$day] ?? 0) + 1;
+            }
+        }
+        /*
+         * Sparse rather than dense, which is the opposite of History's
+         * choice and for the reason `sparse()` sets out: these are
+         * twenty-three parallel series over fourteen months, and a few
+         * hundred reports between them, so each is nearly all zero.
+         * Dense cost 21 KB of the payload against 3 KB like this.
+         */
+        $daily = array(
+            'org' => array(),
+            'fp' => ValueProfileBuckets::sparse(
+                $created,
+                self::TODAY,
+                $perFp
+            ),
+            'expiration' => ValueProfileBuckets::sparse(
+                $created,
+                self::TODAY,
+                $perExpiration
+            ),
+        );
+        foreach ($perOrg as $i => $byDay) {
+            $daily['org'][$i] = ValueProfileBuckets::sparse(
+                $created,
+                self::TODAY,
+                $byDay
+            );
+        }
+
+        /*
+         * The decay score sampled once a day rather than once a bucket.
+         * A count sums when bars are merged and a score does not — it
+         * is the value as of a date — so the browser picks the sample
+         * at each drawn bar's last day, which is what the per-range
+         * curves were sampled at.
+         */
+        $everyDay = ValueProfileBuckets::series(
+            $created,
+            self::TODAY,
+            ValueProfileBuckets::DAY
+        );
+        $curves = array();
+        foreach ($models as $model) {
+            $curves[] = array(
+                'model' => $model['model'],
+                'threshold' => $model['threshold'],
+                'points' => self::decayCurve(
+                    $rows,
+                    $created,
+                    $model,
+                    array_column($everyDay, 'to')
+                ),
+            );
+        }
+
+        /*
+         * The presets that used to be the three ranges. They set the
+         * span the chart shows; the zoom's buttons refine it, and the
+         * grain follows from whatever span results (§13.2). So the
+         * control the reader already had keeps its labels and its
+         * meaning, and stops being the only way to change the span.
+         */
+        $spans = array();
         $default = null;
         foreach ($windows as $days) {
-            $range = self::sightingRange(
-                $rows,
-                $models,
-                $created,
-                $days,
-                array_keys($orgs)
+            $from = $days === null
+                ? $created
+                : self::addDays(self::TODAY, -($days - 1));
+            if (strcmp($from, $created) < 0) {
+                $from = $created;
+            }
+            $held = self::sightingsInSpan($daily, $plan, $from);
+            $spans[] = array(
+                'key' => $days === null ? 'all' : (string)$days,
+                'label' => $days === null
+                    ? sprintf(__('All time · from %s'), $created)
+                    : sprintf(__('Last %s days'), $days),
+                'days' => $days,
+                'from' => $from,
+                'to' => self::TODAY,
             );
-            $ranges[] = $range;
-            if ($default === null && $range['in_range'] === $totals['total']) {
-                $default = $range['key'];
+            if ($default === null && $held === $totals['total']) {
+                $default = $days === null ? 'all' : (string)$days;
             }
         }
 
         return array(
             'today' => self::TODAY,
             'first' => $created,
-            'orgs' => array_keys($orgs),
+            'orgs' => $orgKeys,
             'org_counts' => $orgs,
             'totals' => $totals,
             'last' => $latest,
-            'ranges' => $ranges,
-            // A value with no sightings still has ranges to look at, and
+            'plan' => $plan,
+            'daily' => $daily,
+            'curves' => $curves,
+            'spans' => $spans,
+            // A value with no sightings still has spans to look at, and
             // the last of them is the one that holds its whole history.
-            'default_range' => $default === null ? 'all' : $default,
+            'default_span' => $default === null ? 'all' : $default,
         );
     }
 
     /**
-     * One range of the series: its buckets, its curves and its label.
+     * How many reports fall on or after `$from`, over every series.
      *
-     * @param array $rows
-     * @param array $models
-     * @param string $created
-     * @param int|null $days null for all time
-     * @param array $orgs Stack order
-     * @return array
+     * Only the default preset needs this — the narrowest span that
+     * holds every sighting — and it is counted off the daily tallies
+     * rather than by walking the rows again, so there is one place that
+     * decides which day a report lands on.
+     *
+     * @param array $daily `org`, `fp`, `expiration`
+     * @param array $plan From `ValueProfileBuckets::plan()`
+     * @param string $from `Y-m-d`
+     * @return int
      */
-    private static function sightingRange(
-        array $rows,
-        array $models,
-        $created,
-        $days,
-        array $orgs
+    private static function sightingsInSpan(
+        array $daily,
+        array $plan,
+        $from
     ) {
-        $from = $days === null
-            ? $created
-            : self::addDays(self::TODAY, -($days - 1));
-        // This is the one caller whose data supports choosing the
-        // grain from the span, so it is the one that opts in to the
-        // rule: daily columns only make sense while there are fewer of
-        // them than the chart has pixels, and past a quarter the
-        // bucket is a week.
-        $unit = ValueProfileBuckets::unitForSpan($days);
-
-        // Anchored to today, not to the span's start: a range that
-        // says `last 90 days` has to have its last bucket end today,
-        // or the bar the reader looks at first is a partial week.
-        $buckets = ValueProfileBuckets::series(
-            $from,
-            self::TODAY,
-            $unit,
-            ValueProfileBuckets::END
+        $start = self::dayDiff($plan['from'], $from);
+        $series = array_merge(
+            array_values($daily['org']),
+            array($daily['fp'], $daily['expiration'])
         );
-        foreach ($buckets as $i => $bucket) {
-            $buckets[$i]['by_org'] = array_fill(0, count($orgs), 0);
-            $buckets[$i]['fp'] = 0;
-            $buckets[$i]['expiration'] = 0;
-        }
-        $buckets[count($buckets) - 1]['label'] = __('today');
-
-        $index = array_flip($orgs);
-        $at = ValueProfileBuckets::locate($buckets);
-        $inRange = 0;
-        foreach ($rows as $row) {
-            $day = substr($row['date'], 0, 10);
-            if (!isset($at[$day])) {
-                continue;
-            }
-            $i = $at[$day];
-            $inRange++;
-            if ($row['type'] === self::FALSE_POSITIVE) {
-                $buckets[$i]['fp']++;
-            } elseif ($row['type'] === self::EXPIRATION) {
-                $buckets[$i]['expiration']++;
-            } else {
-                $buckets[$i]['by_org'][$index[$row['org']]]++;
+        $held = 0;
+        foreach ($series as $counts) {
+            // The tallies are sparse, so this walks the days that
+            // carry something rather than every day of the span.
+            foreach ($counts as $offset => $count) {
+                if ($offset >= $start) {
+                    $held += $count;
+                }
             }
         }
-
-        $dates = array_column($buckets, 'to');
-        $curves = array();
-        foreach ($models as $model) {
-            $curves[] = array(
-                'model' => $model['model'],
-                'threshold' => $model['threshold'],
-                'points' => self::decayCurve($rows, $created, $model, $dates),
-            );
-        }
-
-        return array(
-            'key' => $days === null ? 'all' : (string)$days,
-            'label' => $days === null
-                ? sprintf(__('All time · from %s'), $created)
-                : sprintf(__('Last %s days'), $days),
-            'days' => $days,
-            'from' => $from,
-            'to' => self::TODAY,
-            'unit' => $unit,
-            'unit_label' => self::columnLabel($unit),
-            'buckets' => $buckets,
-            'curves' => $curves,
-            'in_range' => $inRange,
-        );
+        return $held;
     }
 
     /**
@@ -4252,17 +4320,19 @@ class ValueProfileFixture
      * list rather than a ternary so that adding a unit is adding a
      * line here, not finding every `if` that assumed there were two.
      *
-     * @param string $unit
-     * @return string
+     * All of them rather than the drawn one, because after phase 21 the
+     * drawn one is a fact about how far the reader has zoomed and the
+     * browser is what knows it.
+     *
+     * @return array
      */
-    private static function columnLabel($unit)
+    public static function columnLabels()
     {
-        $captions = array(
+        return array(
             ValueProfileBuckets::DAY => __('one column per day'),
             ValueProfileBuckets::WEEK => __('one column per week'),
             ValueProfileBuckets::MONTH => __('one column per month'),
         );
-        return $captions[$unit];
     }
 
     /**

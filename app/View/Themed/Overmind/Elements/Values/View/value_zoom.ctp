@@ -55,6 +55,17 @@ $steps = array(
 <div class="vp-zoom" data-vp-zoom hidden role="group"
      aria-label="<?= h($zoomLabel) ?>">
     <div class="vp-zoom-where">
+        <?php
+        /*
+         * The span is labelled because it is not the only span a caller
+         * may be stating. The Sightings navigator's own caption names
+         * the range the table follows, one line above this one, and
+         * two unlabelled date pairs on adjacent lines read as two
+         * facts in two notations rather than as what they are: what
+         * the chart shows, and what the list is filtered to.
+         */
+        ?>
+        <span class="vp-zoom-lead"><?= h(__('showing')) ?></span>
         <span class="vp-zoom-range" data-vp-zoom-range></span>
         <span class="vp-zoom-grain" data-vp-zoom-grain></span>
         <?php

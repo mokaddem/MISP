@@ -1299,10 +1299,20 @@
          * One drawn bar: the label and title the server wrote, and the
          * dates this side worked out.
          *
-         * The dates are clamped into the span because the month grain's
-         * first bucket is a whole calendar month and so may begin
-         * before the log's first day — a bar the reader may brush, but
-         * not one they may filter to days the log does not cover.
+         * The dates are clipped to the visible span, which does two
+         * jobs. The month grain's first bucket is a whole calendar
+         * month and so may begin before the log's first day — a bar the
+         * reader may brush, but not one they may filter to days the log
+         * does not cover. And where the visible span is a *named* one
+         * rather than a zoomed one, its edge bars are clipped to it
+         * exactly as the server used to clip them: a range called
+         * `last 365 days` covers 365 days, so its first weekly bar is
+         * however much of that week falls inside.
+         *
+         * `index` is the bar's place in the grain rather than in the
+         * drawn window, because a caller whose data is parallel arrays
+         * — one per organisation, on the Sightings navigator — indexes
+         * them by that and not by what happens to be on screen.
          *
          * @param {string} which
          * @param {number} index
@@ -1311,8 +1321,8 @@
          */
         function describe(which, index, span) {
             var grain = plan.grains[which];
-            var lo = Math.max(0, span.from);
-            var hi = Math.min(last, span.to);
+            var lo = Math.max(Math.max(0, view.from), span.from);
+            var hi = Math.min(Math.min(last, view.to), span.to);
             return {
                 bucket: {
                     label: grain.label[index],
@@ -1320,6 +1330,7 @@
                     from: zoomYmd(epoch + lo),
                     to: zoomYmd(epoch + hi),
                 },
+                index: index,
                 from: lo,
                 to: hi,
             };
@@ -1362,17 +1373,28 @@
 
         /**
          * Move to a requested span: pick the unit it asks for, then
-         * snap to that unit's buckets.
+         * either snap to that unit's buckets or take the span as given.
+         *
+         * The two callers want different things and the difference is
+         * not a detail. A zoom step has no span to honour — it halves
+         * what is on screen — so its edges are arbitrary and snapping
+         * them out to whole buckets is what keeps a bar labelled `Mar`
+         * from being part of March. A *named* span is the opposite: the
+         * reader picked `last 365 days`, so its edges are the point and
+         * widening them to 371 would make the label wrong. Its edge
+         * bars are clipped instead, which is what the server did when
+         * it built those ranges itself.
          *
          * @param {number} from Day offset
          * @param {number} to Day offset
+         * @param {boolean} exact Take the span as given
          */
-        function settle(from, to) {
+        function settle(from, to, exact) {
             var lo = Math.max(0, Math.min(from, last));
             var hi = Math.min(last, Math.max(to, 0));
             var wanted = zoomUnitFor(plan.rule, hi - lo + 1);
             unit = wanted;
-            view = snap(wanted, lo, hi);
+            view = exact ? { from: lo, to: hi } : snap(wanted, lo, hi);
         }
 
         /**
@@ -1456,6 +1478,41 @@
             whole: function () {
                 return view.from === 0 && view.to === last;
             },
+            /**
+             * The two ends of the visible span, in words.
+             *
+             * Off the daily grain's titles, indexed by day offset,
+             * rather than off the first and last drawn buckets': a
+             * weekly bucket's own title is a range — `19 Aug – 25 Aug
+             * 2024` — so a caption built from two of them reads as four
+             * dates with three dashes. A daily title is one date, and
+             * it is still a string this file did not format.
+             *
+             * A caller whose rule has no daily grain falls back to the
+             * bucket titles, which for a monthly grain are single
+             * tokens and read correctly.
+             *
+             * @return {{from: string, to: string}|null}
+             */
+            spanText: function () {
+                var shown = drawn();
+                if (!shown.length) {
+                    return null;
+                }
+                var first = shown[0];
+                var final = shown[shown.length - 1];
+                var day = plan.grains.day;
+                if (day && day.title && !day.starts) {
+                    return {
+                        from: day.title[first.from],
+                        to: day.title[final.to],
+                    };
+                }
+                return {
+                    from: first.bucket.title,
+                    to: final.bucket.title,
+                };
+            },
             /** @return {{from: string, to: string}} `Y-m-d` bounds */
             span: function () {
                 var shown = drawn();
@@ -1537,8 +1594,9 @@
                 settle(from, to);
             },
             /**
-             * Show a date range — the shortcut for a reader who has
-             * already brushed the range they want to look inside.
+             * Show a named date range: one of a caller's presets, or
+             * the range a reader has already brushed and wants to look
+             * inside. Taken exactly, per `settle`.
              *
              * @param {string} from `Y-m-d`
              * @param {string} to `Y-m-d`
@@ -1546,7 +1604,8 @@
             to: function (from, to) {
                 settle(
                     zoomEpochDay(from) - epoch,
-                    zoomEpochDay(to) - epoch
+                    zoomEpochDay(to) - epoch,
+                    true
                 );
             },
             reset: function () {
@@ -1636,13 +1695,16 @@
                 button.disabled = !can[button.dataset.vpZoomStep];
             }
         );
-        var shown = zoom.window();
         var range = root.querySelector('[data-vp-zoom-range]');
         if (range) {
-            range.textContent = shown.length
-                ? shown[0].bucket.title + ' – '
-                    + shown[shown.length - 1].bucket.title
-                : '';
+            var ends = zoom.spanText();
+            if (ends === null) {
+                range.textContent = '';
+            } else if (ends.from === ends.to) {
+                range.textContent = ends.from;
+            } else {
+                range.textContent = ends.from + ' → ' + ends.to;
+            }
         }
         var grain = root.querySelector('[data-vp-zoom-grain]');
         if (grain && labels && labels.grain) {
@@ -1671,9 +1733,15 @@
      * one of them reaching into the other.
      *
      * Everything is client-side against data the fragments already
-     * carry: changing the range redraws from an array the template
-     * transposed, and dragging the brush hides table rows. Nothing
+     * carry: the span presets and the zoom both re-aggregate one daily
+     * tally, and dragging the brush hides table rows. Nothing
      * re-queries, and nothing writes.
+     *
+     * Phase 21 replaced three precomputed ranges with that one tally.
+     * The tab reads its bars, its stacks and its curves through
+     * `sightRange()` and always did, so the conversion is behind that
+     * one function: what changed is that it derives the range from the
+     * visible span rather than looking one up.
      * ================================================================== */
 
     var sight = {
@@ -1688,25 +1756,157 @@
         expanded: false,
         main: null,
         nav: null,
+        // The visible span, which the presets and the four buttons both
+        // set. Null until the panel has a plan.
+        zoom: null,
+        labels: null,
+        // `sightRange()`'s answer, and the zoom state it was computed
+        // for. Rebuilt on a change rather than on every read: a repaint
+        // asks for it from the chart, the navigator, the legend and the
+        // list, and summing 23 organisations' worth of days four times
+        // over is work nobody asked for.
+        range: null,
+        rangeAt: null,
     };
 
     var SIGHT_ORG_COLOURS = 6;
     var SIGHT_CURVE_COLOURS = 2;
 
     /**
+     * Turn the sparse per-day tallies into dense arrays, once.
+     *
+     * The wire format is sparse because these series are — twenty-three
+     * organisations over fourteen months, a few hundred reports between
+     * them — and the runtime format is dense because everything above
+     * it sums slices, which wants a plain array. Only the wire differs.
+     *
+     * @param {Object} data The payload
+     */
+    function sightInflate(data) {
+        var days = data.plan.days;
+
+        function dense(at) {
+            var counts = new Array(days);
+            var i;
+            for (i = 0; i < days; i += 1) {
+                counts[i] = 0;
+            }
+            Object.keys(at || {}).forEach(function (offset) {
+                var slot = Number(offset);
+                if (slot >= 0 && slot < days) {
+                    counts[slot] = at[offset];
+                }
+            });
+            return counts;
+        }
+
+        data.daily.fp = dense(data.daily.fp);
+        data.daily.expiration = dense(data.daily.expiration);
+        data.daily.org = Object.keys(data.daily.org).map(function (key) {
+            return dense(data.daily.org[key]);
+        });
+    }
+
+    /**
+     * Sum one daily series over the days a bar covers.
+     *
+     * @param {Array} counts One count per day of the plan's span
+     * @param {{from: number, to: number}} bar Day offsets
+     * @return {number}
+     */
+    function sightSum(counts, bar) {
+        var total = 0;
+        for (var i = bar.from; i <= bar.to; i += 1) {
+            total += counts[i] || 0;
+        }
+        return total;
+    }
+
+    /**
+     * The range the chart is drawing: one entry per visible bar, in the
+     * shape every consumer on this tab already read.
+     *
+     * Built rather than looked up, which is the whole of phase 21 on
+     * this tab. The three precomputed ranges were three aggregations of
+     * the same rows, so the browser can make any of them — and any span
+     * between them — by summing a slice of the daily tally per bar.
+     *
+     * The curves are sampled, not summed. A count is additive and a
+     * decay score is not: it is the value as of a date, so a bar that
+     * covers a week takes the score at the end of that week, which is
+     * where the per-range curves used to be sampled.
+     *
      * @return {Object|null}
      */
     function sightRange() {
-        if (!sight.data) {
+        if (!sight.data || !sight.zoom) {
             return null;
         }
-        var found = null;
-        sight.data.ranges.forEach(function (range) {
-            if (range.key === sight.rangeKey) {
-                found = range;
-            }
+        var span = sight.zoom.span();
+        var stamp = span.from + '/' + span.to + '/' + sight.zoom.unit();
+        if (sight.range !== null && sight.rangeAt === stamp) {
+            return sight.range;
+        }
+        var bars = sight.zoom.window();
+        var daily = sight.data.daily;
+        var org = daily.org.map(function (counts) {
+            return bars.map(function (bar) {
+                return sightSum(counts, bar);
+            });
         });
-        return found || sight.data.ranges[0];
+        var fp = bars.map(function (bar) {
+            return sightSum(daily.fp, bar);
+        });
+        var expiration = bars.map(function (bar) {
+            return sightSum(daily.expiration, bar);
+        });
+        function total(series) {
+            return series.reduce(function (a, b) {
+                return a + b;
+            }, 0);
+        }
+        sight.range = {
+            unit: sight.zoom.unit(),
+            unitLabel: sight.data.labels.perColumn[sight.zoom.unit()],
+            from: span.from,
+            to: span.to,
+            labels: bars.map(function (bar) {
+                return bar.bucket.label;
+            }),
+            starts: bars.map(function (bar) {
+                return bar.bucket.from;
+            }),
+            ends: bars.map(function (bar) {
+                return bar.bucket.to;
+            }),
+            org: org,
+            orgCounts: org.map(total),
+            fp: fp,
+            fpCount: total(fp),
+            expiration: expiration,
+            expirationCount: total(expiration),
+            curves: sight.data.curves.map(function (curve) {
+                return {
+                    model: curve.model,
+                    threshold: curve.threshold,
+                    points: bars.map(function (bar) {
+                        return curve.points[bar.to];
+                    }),
+                };
+            }),
+            inRange: total(org.map(total)) + total(fp)
+                + total(expiration),
+        };
+        sight.rangeAt = stamp;
+        return sight.range;
+    }
+
+    /**
+     * Throw away the derived range, so the next read rebuilds it.
+     */
+    function sightInvalidate() {
+        sight.range = null;
+        sight.rangeAt = null;
     }
 
     /**
@@ -2093,6 +2293,7 @@
         if (sight.nav) {
             sight.nav.refresh();
         }
+        paintSightZoom(panel);
         updateSightLegend(panel);
         paintSightBrush(panel);
         refreshSightList();
@@ -2130,6 +2331,74 @@
     }
 
     /**
+     * Show one of the presets the select offers.
+     *
+     * @param {string} key `90`, `365` or `all`
+     */
+    function sightToSpan(key) {
+        if (!sight.zoom || !sight.data) {
+            return;
+        }
+        var wanted = null;
+        sight.data.spans.forEach(function (span) {
+            if (span.key === key) {
+                wanted = span;
+            }
+        });
+        if (wanted === null) {
+            sight.zoom.reset();
+        } else {
+            sight.zoom.to(wanted.from, wanted.to);
+        }
+        sightInvalidate();
+    }
+
+    /**
+     * Move the preset select onto whichever preset the drawn span is,
+     * if it is one of them.
+     *
+     * Otherwise it is left alone. The two controls answer different
+     * questions once a zoom exists — the select is a span the reader
+     * asked for by name, the caption is the span on screen — and the
+     * caption is the one that is always right, which is why it states
+     * the dates and goes bold once they are not the whole span. But
+     * `show the whole span` *is* one of the presets, so leaving the
+     * select on `last 90 days` after that button had been pressed would
+     * be a control contradicting the chart it drives.
+     *
+     * @param {Element} panel
+     */
+    function syncSightPreset(panel) {
+        var select = panel.querySelector('[data-vp-sight-range]');
+        if (!select || !sight.zoom || !sight.data) {
+            return;
+        }
+        var span = sight.zoom.span();
+        sight.data.spans.forEach(function (preset) {
+            if (preset.from === span.from && preset.to === span.to) {
+                select.value = preset.key;
+                sight.rangeKey = preset.key;
+            }
+        });
+    }
+
+    /**
+     * Paint the zoom control, and say when the brushed range has gone
+     * off screen — which on this tab means the list below is filtered
+     * to something the chart is no longer showing.
+     *
+     * @param {Element} panel
+     */
+    function paintSightZoom(panel) {
+        var zoom = panel.querySelector('[data-vp-zoom]');
+        if (!zoom || !sight.zoom) {
+            return;
+        }
+        var labels = sight.labels || {};
+        window.VP.zoom.paint(zoom, sight.zoom, labels, null);
+    }
+
+    /**
      * @param {Element} root Either the whole page or a fragment
      */
     function initSightings(root) {
@@ -2140,9 +2409,16 @@
                 return;
             }
             sight.data = JSON.parse(payload.textContent);
+            sightInflate(sight.data);
             sight.rangeKey = sight.data['default'];
             sight.brush = null;
             sight.expanded = false;
+            sight.zoom = window.VP.zoom.make(sight.data.plan);
+            sightInvalidate();
+            // The default preset is the narrowest span holding every
+            // sighting, and it is what the select is rendered on, so
+            // the chart has to land on the same one.
+            sightToSpan(sight.rangeKey);
             sight.shown = { sighting: true, fp: true, expiration: true };
             panel.querySelectorAll('[data-vp-sight-type]')
                 .forEach(function (button) {
@@ -2153,8 +2429,24 @@
             sight.main = window.VP.chart.boot('vp-sight-main', buildSightMain);
             sight.nav = window.VP.chart.boot('vp-sight-nav', buildSightNav);
             wireSightBrush(panel);
+            var zoom = panel.querySelector('[data-vp-zoom]');
+            if (zoom) {
+                var spec = zoom.querySelector('[data-vp-zoom-labels]');
+                sight.labels = spec ? JSON.parse(spec.textContent) : null;
+                zoom.hidden = false;
+                window.VP.zoom.wire(zoom, sight.zoom, function () {
+                    // A zoom is a different set of bars, so a brush
+                    // drawn over the old ones points at nothing the
+                    // reader chose — the same reason a preset clears it.
+                    sight.brush = null;
+                    sight.expanded = false;
+                    syncSightPreset(panel);
+                    refreshSight(panel);
+                });
+            }
             updateSightLegend(panel);
             paintSightBrush(panel);
+            paintSightZoom(panel);
         }
         // The list can land before or after the chart, so it is caught
         // here either way: with the chart's state if there is one, and
@@ -4222,6 +4514,7 @@
                 sight.rangeKey = event.target.value;
                 sight.brush = null;
                 sight.expanded = false;
+                sightToSpan(sight.rangeKey);
                 var sightPanel = document.querySelector('[data-vp-sight]');
                 if (sightPanel) {
                     refreshSight(sightPanel);

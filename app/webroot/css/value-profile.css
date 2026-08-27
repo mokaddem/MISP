@@ -558,6 +558,11 @@ a.vp-fact:hover .vp-fact-value {
     flex: 1 1 var(--vp-zoom-where-basis, 100%);
 }
 
+.vp-zoom-lead {
+    flex: none;
+    opacity: 0.8;
+}
+
 .vp-zoom-range {
     flex: none;
     white-space: nowrap;
@@ -3202,6 +3207,15 @@ tr.vp-occ-deleted .vp-occ-orgdot {
 .vp-sight-nav > canvas {
     position: absolute;
     inset: 0;
+}
+
+/* The navigator is full width, so the caption fits beside the buttons
+   rather than taking a line of its own — which is what the property
+   the shared rule reads is for. */
+.vp-sight-zoom {
+    --vp-zoom-where-basis: auto;
+    margin-top: 2px;
+    margin-bottom: 10px;
 }
 
 .vp-sight-nav-caption {

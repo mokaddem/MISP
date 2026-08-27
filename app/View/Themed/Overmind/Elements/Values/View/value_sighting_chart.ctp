@@ -72,16 +72,22 @@ foreach ($toggles as $toggle) {
         . h($toggle['count']) . '</span></button>';
 }
 
-if ($series !== null && count($series['ranges']) > 1) {
+/*
+ * The presets that used to be three precomputed ranges. They set the
+ * span; the zoom's buttons under the navigator refine it, and the
+ * grain follows from whatever span results. So this control keeps its
+ * labels and stops being the only way to change what the chart shows.
+ */
+if ($series !== null && count($series['spans']) > 1) {
     $controls .= '<select class="form-select form-select-sm'
         . ' vp-sight-range" data-vp-sight-range'
         . ' aria-label="' . h(__('Time range')) . '">';
-    foreach ($series['ranges'] as $range) {
-        $controls .= '<option value="' . h($range['key']) . '"'
-            . ($range['key'] === $series['default_range']
+    foreach ($series['spans'] as $span) {
+        $controls .= '<option value="' . h($span['key']) . '"'
+            . ($span['key'] === $series['default_span']
                 ? ' selected'
                 : '')
-            . '>' . h($range['label']) . '</option>';
+            . '>' . h($span['label']) . '</option>';
     }
     $controls .= '</select>';
 }
@@ -113,54 +119,25 @@ $subtitle = $sightings['total'] === 0
     ));
 
 /*
- * Chart.js wants one array per dataset, and the fixture stores one
- * bucket per column, so the transpose happens here rather than in
- * JavaScript: the template is where the shape of the data is already
- * known, and a range switch should not re-derive it every time.
+ * The whole span at every grain the rule permits, plus one count per
+ * day per series. The transpose that used to happen here is gone with
+ * the three precomputed ranges it transposed: the browser sums a slice
+ * of these per drawn bar, so a zoom step and a preset switch are the
+ * same arithmetic rather than a re-fetch or a re-derive (§13.1).
+ *
+ * The decay curve is one sample a day rather than one a bucket, and
+ * the browser reads the sample at each bar's last day. A count sums
+ * when bars are merged; a score does not.
  */
 $payload = null;
 if ($series !== null) {
-    $ranges = array();
-    foreach ($series['ranges'] as $range) {
-        $orgSeries = array();
-        $orgCounts = array();
-        foreach ($series['orgs'] as $i => $org) {
-            $orgSeries[$i] = array();
-            $orgCounts[$i] = 0;
-        }
-        $fp = array();
-        $expiration = array();
-        foreach ($range['buckets'] as $bucket) {
-            foreach ($series['orgs'] as $i => $org) {
-                $orgSeries[$i][] = $bucket['by_org'][$i];
-                $orgCounts[$i] += $bucket['by_org'][$i];
-            }
-            $fp[] = $bucket['fp'];
-            $expiration[] = $bucket['expiration'];
-        }
-        $ranges[] = array(
-            'key' => $range['key'],
-            'from' => $range['from'],
-            'to' => $range['to'],
-            'unit' => $range['unit'],
-            'unitLabel' => $range['unit_label'],
-            'labels' => array_column($range['buckets'], 'label'),
-            'starts' => array_column($range['buckets'], 'from'),
-            'ends' => array_column($range['buckets'], 'to'),
-            'org' => array_values($orgSeries),
-            'orgCounts' => array_values($orgCounts),
-            'fp' => $fp,
-            'fpCount' => array_sum($fp),
-            'expiration' => $expiration,
-            'expirationCount' => array_sum($expiration),
-            'curves' => $range['curves'],
-            'inRange' => $range['in_range'],
-        );
-    }
     $payload = array(
         'orgs' => $series['orgs'],
-        'ranges' => $ranges,
-        'default' => $series['default_range'],
+        'plan' => $series['plan'],
+        'daily' => $series['daily'],
+        'curves' => $series['curves'],
+        'spans' => $series['spans'],
+        'default' => $series['default_span'],
         'models' => $decay,
         'labels' => array(
             'threshold' => __('threshold %s'),
@@ -175,6 +152,7 @@ if ($series !== null) {
                     'Sightings per month, stacked by organisation'
                 ),
             ),
+            'perColumn' => ValueProfileFixture::columnLabels(),
             'falsePositive' => __('False positive'),
             'expiration' => __('Expiration'),
         ),
@@ -262,10 +240,25 @@ if ($series !== null) {
                         . ' below follows it') ?>
                 </span>
                 <span class="vp-sight-nav-window" data-vp-sight-window>
-                    <?= h($series['ranges'][0]['from']) ?>
+                    <?= h($series['spans'][0]['from']) ?>
                     →
                     <?= h($series['today']) ?>
                 </span>
+            </div>
+
+            <?php
+            /*
+             * Under the navigator rather than over it, because the
+             * navigator is what it moves. Full width here, so the
+             * caption sits beside the buttons instead of above them.
+             */
+            ?>
+            <div class="vp-sight-zoom">
+                <?= $this->element('Values/View/value_zoom', array(
+                    'zoomLabel' => __('Zoom the navigator'),
+                    'zoomAway' => __('the range is not in view'),
+                    'grain' => ValueProfileFixture::columnLabels(),
+                )) ?>
             </div>
 
             <div class="vp-sight-legend" data-vp-sight-legend>

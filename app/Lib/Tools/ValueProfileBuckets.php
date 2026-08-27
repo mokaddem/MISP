@@ -238,6 +238,45 @@ class ValueProfileBuckets
     }
 
     /**
+     * The same tally as `tally()`, keyed by the offsets that carry
+     * something and leaving out the ones that do not.
+     *
+     * Which encoding is smaller depends entirely on the series, and
+     * §13.1 measured both regimes. One series counting every audit
+     * entry a value has is dense — 82% of days carry one on the busiest
+     * value — and a sparse map of it costs three times what a dense
+     * array does. A series counting *one organisation's* sighting
+     * reports is the opposite: a couple of hundred reports spread over
+     * twenty-three organisations and fourteen months leaves each one
+     * touching a handful of days, and twenty-three dense arrays are
+     * twenty-three rows of mostly zero.
+     *
+     * So the choice is the caller's and it is a statement about what
+     * the series is, not a size heuristic: History's one series is
+     * dense, and the Sightings navigator's per-organisation ones are
+     * sparse. The browser inflates these to dense once when the panel
+     * lands, so only the wire format differs.
+     *
+     * @param string $from `Y-m-d`
+     * @param string $to `Y-m-d`
+     * @param array $days `Y-m-d` => count, for the days that have one
+     * @return array Offset from `$from` => count
+     */
+    public static function sparse($from, $to, array $days)
+    {
+        $span = self::diff($from, $to) + 1;
+        $at = array();
+        foreach ($days as $day => $count) {
+            $offset = self::diff($from, $day);
+            if ($offset >= 0 && $offset < $span && $count !== 0) {
+                $at[$offset] = ($at[$offset] ?? 0) + $count;
+            }
+        }
+        ksort($at);
+        return $at;
+    }
+
+    /**
      * @param string $unit
      * @return int Days per bucket
      */
