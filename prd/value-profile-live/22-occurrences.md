@@ -54,8 +54,11 @@ is one of §14.12's four blocked rows. Phase 22 is one row of the board.
 | Aggregation | `app/Lib/Tools/ValueStatsTool.php` | new |
 | Endpoint | `ValuesController::viewOccurrenceTable` | rewired |
 | Fetcher | `MispAttribute::fetchAttributesSimple` | extended, §7 |
-| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13 |
-| Interactions | `app/webroot/js/value-profile.js` | extended, §13.2 |
+| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13, §14 |
+| Interactions | `app/webroot/js/value-profile.js` | extended, §13.2 and §14.2 |
+| Shared header | `IndexTable/headers.ctp` | one guarded key, §14.2 |
+| Pager | `value_pager.ctp` | one optional slot, §14.1 |
+| Styles | `app/webroot/css/value-profile.css` | the sort affordance, §14.2 |
 
 `ValueProfileFixture` is untouched. Every other endpoint still calls
 `profileFor()` and still renders fixture data; §14.8's unit-test-double future
@@ -275,16 +278,19 @@ that required.
 
 ## 6. The cap, and the one promise this phase renegotiates
 
-**Decided: the panel fetches at most `ValueProfile::OCCURRENCE_CAP = 100`
-rows, ordered `Attribute.timestamp DESC`, and says so on the page when the cap
-bites.**
+**Decided: the panel fetches at most `ValueProfile::OCCURRENCE_CAP` rows,
+ordered `Attribute.timestamp DESC`, and says so on the page when the cap bites.**
+
+**The cap is 300**, raised from the 100 this section first argued for once §14.2
+made the page size the reader's choice — the number below is the reasoning, and
+§14.1 records why it moved.
 
 Two regimes, one code path:
 
 | | Rows fetched | The rail counts | The page says |
 |---|---|---|---|
-| total ≤ 100 | all of them | the whole viewer-scoped set | nothing extra |
-| total > 100 | the most recent 100 | those 100 | a footer band naming both numbers |
+| total ≤ cap | all of them | the whole viewer-scoped set | nothing extra |
+| total > cap | the most recent `cap` | those rows | a footer band naming both numbers |
 
 **Why a cap at all.** On the instance this was verified against, `443` resolves
 to 48,255 occurrences and `0.0.0.0` to 33,109 — `443` because it is the port
@@ -296,12 +302,13 @@ slow page but a page that does not arrive: measured before the cap was settled,
 "whose query count grows per occurrence without a stated cap"; the query count
 here does not grow at all, but the *result size* does, and §14.9 row 6 exists
 precisely because §9.1 once read a claim about query cost as a claim about result
-size. The cap is on the result: at 100 rows the same value renders 556 KB.
+size. The cap is on the result: at 100 rows the same value renders 556 KB, at
+300 it renders 1.85 MB.
 
-**Why 100, and not more.** Because that is what the panel can draw. The page
-control renders one button per page inline, so the button count is rows/10 and it
-shares the panel header with the subtitle. Measured at a 1500px viewport by
-trimming the rendered control one button at a time:
+**Why not more.** Because of what the panel can draw. The page control renders
+one button per page inline, so the button count is rows ÷ page size and it shares
+the panel header with the subtitle. Measured at a 1500px viewport by trimming the
+rendered control one button at a time:
 
 | Buttons | Rows | The subtitle |
 |---|---|---|
@@ -312,10 +319,12 @@ trimming the rendered control one button at a time:
 | 25 | 230 | destroyed, and the panel overflows horizontally by 96px |
 | 102 | 1,000 | destroyed, 2,573px of overflow |
 
-100 rows is ten pages, which is twelve buttons. **This ceiling is the page
-control's, not the query's** — see §12 for the defect and who owns it. A cap
-this phase chooses should not routinely put the reader in a regime the panel
-cannot render, which is the whole argument for the number.
+**This ceiling is the page control's, not the query's** — see §12.1 for the
+defect and who owns it. A cap this phase chooses should not routinely put the
+reader in a regime the panel cannot render, which is the whole argument for the
+number: at the default page size of 60, a 300-row cap is five pages and seven
+buttons, and the smallest size the picker offers keeps it inside the measured
+band. §14.2 records why 25 rows per page is not on that list.
 
 **What the cap costs, stated plainly.** `01-occurrences.md` §8 promised that the
 rail's counts *"come from the whole set, not the page — which is a promise the
@@ -348,7 +357,7 @@ means the band inherits its measured contrast unchanged: 13.01:1 light and
 8.84:1 dark, the same figures `01-occurrences.md` §11 recorded for the ACL band
 it replaces.
 
-It says *"the 100 most recent of 48255 occurrences you can see"* — both numbers,
+It says *"the 300 most recent of 48255 occurrences you can see"* — both numbers,
 because a ratio is not something a reader can act on, and `you can see` because
 under §14.6 the total is the viewer's own and not the instance's. Plain
 integers, no thousands separators, matching every other count on the page.
@@ -917,3 +926,147 @@ In the table the badge is glyph-only, where AA asks 3:1 of a graphical object, s
 the shortfall is the rail's label alone. The harness asserts the 3:1 floor and
 that level 1 is the only value below 4.5:1, so a future change to those tints
 cannot pass unnoticed.
+
+---
+
+## 14. After review: sortable columns, and a page the reader sizes
+
+Two more changes asked for after §13. Both are about the table rather than the
+data, and between them they move the cap.
+
+### 14.1 Rows per page: 10 → 60, and the cap 100 → 300
+
+**The comment.** *"Instead of showing 10 entries in the table, could we go for
+more?"*
+
+**60, because that is MISP's own.** `AttributesController::$paginate['limit']`
+and `EventsController`'s are both 60, so a reader arriving from an attribute
+index now finds the same number of rows rather than a sixth of them. Ten was
+never argued for — it was the fixture's six-row demo value never needing a second
+page.
+
+**And the reader can change it**: a `Per page` picker beside the page control,
+offering **60 / 150 / 300**, default 60. `value_pager` takes an optional `sizes`
+list; its other two callers pass none and render exactly as before. Changing it
+repages what is already on screen and returns to page one, because page four of
+sixty-row pages is not page four of a hundred and fifty.
+
+**This is what let the cap rise.** §6 set `OCCURRENCE_CAP` at 100 for one
+reason: the page control draws one button per page, and 100 rows at 10 per page
+was ten pages, which was the most the panel header could carry. A bigger page is
+fewer buttons, so the same measured band now allows three times the rows —
+**300**, which at the default is five pages and seven buttons. The cap moved
+because its binding constraint moved, not because the constraint was wrong.
+
+**The new bound is fragment weight, which is the more honest place for it.** A
+row costs about 5.7 KB of markup, so 300 rows of `443` is 1.85 MB against the
+5.9 MB that 1,000 rows produced when this phase started. Raising it further is
+now a question about how much HTML one ajax fragment should carry.
+
+**Why 25 is not offered**, though it was at first: 300 rows at 25 is twelve pages
+and fourteen buttons, and measured with the picker also in the header that
+squeezes the subtitle to a 156px column across four lines. Every size the picker
+offers has to leave a header that renders, which is the same rule §6 applied to
+the cap. The harness measures the subtitle at all three.
+
+**One thing the bigger cap gives back.** §6 recorded that at 100 rows no value on
+the verification instance reached the fifty distinct values past which
+`value_facet_group` turns a group into a search box, so that state was reachable
+only from the fixture. At 300 it is reachable again: `443` draws 93 distinct tag
+facets and `193.161.193.99` draws 73.
+
+### 14.2 Sortable columns
+
+**The comment.** *"Also allowing ordering on the column would be nice."*
+
+All twelve columns, clicking the heading, three states: ascending, descending,
+then back to the order the model sent.
+
+**Three states and not two.** MISP's paginated headings toggle asc/desc and stop
+there. This table's default order is itself meaningful — most recently modified
+first — and `Attribute.timestamp` is not one of the twelve columns, so without a
+third click the reader could sort once and never get the default back.
+
+**`client_sort`, not `sort`.** `headers.ctp` already has a `sort` key, and it
+builds a `$paginator->sort()` link carrying `?sort=&direction=` and reloads the
+page — which this panel cannot use, because it pages client-side over rows it
+already holds and the request would arrive with no idea what the fragment was
+showing. Added beside it: `client_sort` renders the same affordance as a button
+naming its column, reusing MISP's own `sortable-header` and `sort-icon` classes
+so a sortable heading here looks like a sortable heading anywhere. Guarded and
+new, so none of `headers.ctp`'s many callers across MISP reaches it — §14.7's
+three-part test, and the same shape phase 9 used to add `header_class` to this
+very element.
+
+**What gets compared, and why it is not the cell.** Cell text cannot do this.
+Three columns render a glyph and no words at all — IDS, Distribution, State — an
+event id sorts as `10, 9` when compared as text, and a distribution's audience
+has an order (`0, 4, 1, 2, 3`) that neither its label nor its level number
+expresses. So each row carries one token per column in `data-vp-sort-<column>`,
+built server-side to sort lexicographically: zero-padded numbers, `YmdHi` dates,
+lowercased text. The script needs one comparison and no per-column knowledge.
+
+Distribution sorts by the rank `ValueStatsTool` resolved the chain with, which is
+why `effectiveDistribution()` now returns it — the order stays decided in one
+place. Sorting that column tightest-audience-first is visible in the browser as
+the red *Your organisation only* badges rising to the top of a column that has no
+text in it at all.
+
+**An empty token sorts last in both directions.** It means the row has no value
+for that column, and "no last-seen date" is not earlier than every date; putting
+it at the top of an ascending sort would bury the rows the reader asked to see.
+
+**Reordering is destructive, so the default order is carried.** Sorting moves the
+rows in the DOM, so clearing the sort cannot simply stop comparing — the order is
+already gone. Each row therefore carries `data-vp-sort-default`, its position in
+the model's order, and "unsorted" is a sort by that. This was a real bug in the
+first cut of the change, found by the assertion that a third click restores the
+first ordering.
+
+**`aria-sort` on the sorted heading is the only marker.** It is what a screen
+reader announces, and the caret styling keys off it, so the visual and the
+announced state cannot disagree. The heading is a real `<button>`, so it is
+reachable and operable from the keyboard, and carries a focus ring — but none of
+a button's chrome, because a heading has to keep looking like a heading.
+
+**One naming bug worth recording**, because it is the kind that would recur: the
+sort state was first written as `list.dataset.vpSortCol`, which puts
+`data-vp-sort-col` on the list element — where a
+`querySelector('[data-vp-sort-col="org"]')` finds the container before the button
+it was looking for. The state attributes are `vp-sorted-col` / `vp-sorted-dir`;
+the controls keep `vp-sort-col`. A state attribute must not share a name with the
+control it describes.
+
+### 14.3 What was verified
+
+**419 assertions across six harnesses**, all passing:
+
+| Harness | Assertions | What |
+|---|---|---|
+| structural | 228 | nine live fragments |
+| browser | 156 | interactions and contrast, both themes |
+| rule | 14 | `effectiveDistribution()`, including the rank order |
+| shared-code regression | 35 | the additions are inert in four other panels |
+| History regression | 10 | the unnamed period still cuts |
+| relations regression | 7 | the numeric threshold and its select still work |
+
+**Sorting is checked against the rows' own tokens**, read out of the DOM, so an
+assertion cannot agree with a wrong implementation. Ascending is ordered,
+descending is its reverse, a third click restores the original sequence exactly,
+the same rows are still present after each, only one column is ever marked, a
+glyph-only column orders correctly, blanks stay last in both directions, and a
+facet still narrows a table that is sorted.
+
+**The page size is driven, not assumed**: each offered size shows that many rows,
+produces the expected button count, moves the range line, returns to page one,
+and leaves a subtitle wider than 200px with no horizontal overflow — measured at
+all three sizes.
+
+**The shared additions are shown inert rather than argued to be.** Four other
+fixture-backed panels that render through `headers.ctp`, `value_pager` or the
+sort path — History, co-occurrence, near-matches and the Overview's occurrence
+preview — were rendered and asserted to carry no sort buttons, no per-page
+picker, no sort tokens and no named ranges, while keeping their own period,
+threshold, select and pager. For `headers.ctp`, which every index in MISP
+renders, the guard is asserted over the source: exactly one caller sets
+`client_sort`, and Paginator's own branch is untouched.

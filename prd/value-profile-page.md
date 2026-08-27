@@ -96,7 +96,7 @@ goes first argues why in its own document.
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
-| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 100 rows by the page control (§12.1); distribution resolved through the whole chain and two working time ranges added on review (§13) |
+| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), then sortable columns and a reader-chosen page size (§14) |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
@@ -132,7 +132,7 @@ so it need not be reassembled from fourteen sections.
 | Item | Where | Note |
 |---|---|---|
 | §14.6's nine required changes | §14.6 | **four applied by phase 22** (the Occurrences tab's ACL band, its facet-vs-banner sentence, its ACL-hidden state, its counts). Five remain, each owned by the phase that converts its panel |
-| The page control cannot draw a large table | `live/22-occurrences.md` §12.1 | one page button per page, inline: past ~20 the panel header collapses and overflows horizontally. Predates phase 22 — `45.155.205.233` shows it today — and is what caps the live Occurrences table at 100 rows |
+| The page control cannot draw a large table | `live/22-occurrences.md` §12.1, §14.2 | one page button per page, inline: past ~20 the panel header collapses and overflows horizontally. Predates phase 22 — `45.155.205.233` shows it today. A larger page size buys room rather than fixing it, so it still bounds both the 300-row cap and which page sizes may be offered |
 | The decay aggregation rule | §14.5, `tabs/02-sightings.md` §11/§16 | ten per-attribute curves into one per-value score. Undecided; owner is `ValueDecayTool` |
 | Opinion colour contradiction | `tabs/05-analyst.md` §11/§15 | the Overview preview paints "Agree" green, the Verdict histogram paints >50 red. The Overview card is the one that should change |
 | Markdown in notes | `tabs/05-analyst.md` §11 | stored, never rendered; no per-note flag, so enabling it is instance-wide |

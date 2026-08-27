@@ -12,7 +12,7 @@ Four things stated below no longer render, all of them §14.6's viewer-scoped-co
 rule rather than defects: §6's `.vp-facet-note` banner-versus-rail sentence, §7's
 `.vp-acl-note` table footer, §8's *"everything hidden by ACL"* state, and §5's
 `banner_note` and `occurrence_acl_note` fixture keys. In their place §7's footer
-carries a **cap** notice, because the live table shows at most 100 rows and says
+carries a **cap** notice, because the live table shows at most 300 rows and says
 so. §10's list of what live data would hit is answered there.
 
 Three further changes that phase's §13 records, all of them things this brief

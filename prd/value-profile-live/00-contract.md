@@ -535,7 +535,7 @@ phase should expect:
 - **The page control cannot draw a large table**, and could not before this
   phase either: it renders one button per page inline, and past ~20 buttons the
   panel header collapses and overflows horizontally. This is what caps the
-  Occurrences table at 100 rows, and it will cap every other paginating panel
+  Occurrences table at 300 rows, and it will cap every other paginating panel
   the same way. `22-occurrences.md` §12.1.
 - **§14.10's `fetchSimpleEvents` note is now a measurement**: 56 events, one
   query, 1 ms.
@@ -549,6 +549,15 @@ phase should expect:
   `tr[data-vp-times]` plus `[data-vp-range-from|-to]` — alongside the single
   unnamed period it already had. A panel that cuts on more than one date does not
   need to invent it again. §13.2.
+- **And client-side column sorting.** `headers.ctp` takes a guarded
+  `client_sort` key rendering a heading button, rows carry
+  `data-vp-sort-<column>` tokens built to sort lexicographically, and the list
+  keeps `vp-sorted-col`/`vp-sorted-dir`. Three states, the third restoring the
+  order the model sent from a `vp-sort-default` token — reordering moves rows, so
+  the default has to be carried rather than recomputed. §14.2.
+- **`value_pager` takes an optional `sizes` list**, so a panel can let the reader
+  choose its page size. Every size offered must leave a header that renders,
+  which is the same constraint that bounds the cap. §14.1.
 - **`DistributionLevel`'s level-1 tint is 4.09:1**, below AA for text, and its
   tints do not follow the theme. Pre-existing, shared by every page in MISP that
   draws a distribution, and on the §14.7 report-do-not-fix list. §13.3.
