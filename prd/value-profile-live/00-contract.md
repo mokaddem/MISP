@@ -393,11 +393,26 @@ found something worth knowing:
 7. **Which values it verified against**, since the demo values no longer supply
    data.
 8. **Both themes.**
+9. **The three concepts, assessed** — proposals on the value, presence in feeds
+   and sync servers, and event reports on the value's events.
+   [`../value-profile-coverage.md`](../value-profile-coverage.md) §5 carries a
+   starting verdict per phase; the phase records its own, and **`no` with a
+   reason is a complete answer.** The row exists because all three were
+   reachable from panels §2.6 already lists and all three were built to about a
+   third of their depth — a badge, a card title and a markdown parser were
+   enough to make them look handled.
 
 ### 14.10 Hazards this contract inherits, and two found writing it
 
 §7.9 and §8.2 are the standing ledger of what MISP cannot supply, and every item
-in them still stands. §14 adds two, both found while writing it:
+in them still stands. **`value-profile-coverage.md` §7 is the third entry in
+that ledger** — four hazards and one correction to §8.2's datable-source
+scoreboard, found surveying the three concepts §14.9 row 9 now requires every
+phase to assess. One of them is a disclosure risk rather than a gap:
+`Feed::searchCaches()` applies no role check, so a panel that renders its output
+unfiltered shows ordinary users the feed correlations `perm_view_feed_correlations`
+withholds from them everywhere else. §14 adds two of its own, both found while
+writing it:
 
 **No shipped warninglist sets `category` explicitly.** `warninglists.category`
 is `NOT NULL DEFAULT 'false_positive'`, and across the 71 shipped lists checked,
@@ -501,6 +516,18 @@ during it. `viewVerdict` renders one of two elements depending on the value's
 disposition, so it is one endpoint and two conversions. And `viewHistory` takes
 a period in its URL, so its query count is a function of the window as well as
 of the value.
+
+**A third thing to watch, and it is a hole in the rule above.**
+`value-profile-coverage.md` §6 forecasts what the three concepts of §14.9 row 9
+add to this board: one new element for event reports, probably two, and no new
+endpoint for the other two concepts — but proposals **extend `viewOccurrenceTable`,
+a row phase 22 has already filled.** Surfacing a standalone proposal
+(`ShadowAttribute.old_id = 0`) means another fetch, so both the `Q` ceiling of 9
+and the tier table behind it change. The rule as written — *a row moves off `—`
+only when its phase document records the same numbers* — does not say who owns a
+row that a later phase amends. Whoever gets there first: amend the row, and
+record the new numbers in your own document with a pointer from phase 22's, so
+the two still cannot disagree without one being visibly blank.
 
 ### 14.13 The phase index
 

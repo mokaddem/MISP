@@ -86,6 +86,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
+| — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
 
 Then the live campaign, one phase per tab. **This is the table to update as each
 lands** — it is the only tab-level record, and `live/00-contract.md` §14.12
@@ -118,6 +119,13 @@ goes first argues why in its own document.
   because a real instance holds no such attributes and no seeder is built
   (§14.8) — so a live phase names the real values it verified against instead,
   and `live/22-occurrences.md` §10.1 is the pattern.
+- **Every live phase assesses the three concepts.** Proposals, feeds/servers,
+  event reports — `live/00-contract.md` §14.9 row 9, with the survey and a
+  starting verdict per phase in
+  [`value-profile-coverage.md`](value-profile-coverage.md) §5. A phase may
+  overturn a verdict by arguing it; it may not convert a tab without addressing
+  all three. `no` with a reason is a complete answer, and nine of the
+  twenty-four verdicts already are one.
 - **Additive changes to shared code only**, guarded, with existing callers
   re-verified — now a three-part test in §14.7.
 - **Both themes**, and the §6.1 trap: assert `--vp-mal` resolves before
@@ -137,7 +145,12 @@ so it need not be reassembled from fourteen sections.
 | Opinion colour contradiction | `tabs/05-analyst.md` §11/§15 | the Overview preview paints "Agree" green, the Verdict histogram paints >50 red. The Overview card is the one that should change |
 | Markdown in notes | `tabs/05-analyst.md` §11 | stored, never rendered; no per-note flag, so enabling it is instance-wide |
 | A `known`-category warninglist | §14.10 | §2.6's shared-infrastructure argument may have no shipped list behind it |
-| Shared-code defects | §7.9, `live/22-occurrences.md` §13.3 | the `bg-light` bulk bar, the `border-dark` type badge, and `DistributionLevel`'s level-1 tint at 4.09:1 — reported and deliberately unfixed |
+| Shared-code defects | §7.9, `live/22-occurrences.md` §13.3, `value-profile-coverage.md` §7 | the `bg-light` bulk bar, the `border-dark` type badge, `DistributionLevel`'s level-1 tint at 4.09:1, and `EventReport::attachReportCountsToEvents` returning 0 for every event the viewer's org does not own (`EventReport.php:386`, missing `'OR' =>`; shipped, visible on the event index and event view) — all reported and deliberately unfixed |
+| Feed hits are gated one way and searched another | `value-profile-coverage.md` §3.2, §7 | `Feed::searchCaches()` applies no role check while `attachFeedCorrelations()` requires `perm_view_feed_correlations` — which only the site-admin role ships with. A panel rendering `searchCaches` output unfiltered would disclose what the event view hides. The panel must apply the permission itself |
+| The feed cache is written raw and read lowercased | `value-profile-coverage.md` §3.3, §7 | `searchCaches` hashes `md5(strtolower(trim($v)))`, the write paths and `attachFeedCorrelations` hash raw. The two readers disagree in both directions on any value with an uppercase character, and the page's `utf8mb3_bin` identity is a third answer. Not fixable from this page |
+| A proposal-only value renders as unknown | `value-profile-coverage.md` §2.2 | proposals are counted over the occurrence row ids, so a proposed *addition* (`ShadowAttribute.old_id = 0`) is invisible to the whole page. Correct for a badge; a defect against §1.1's claim |
+| §14.3's seam needs an `alias` option | `value-profile-coverage.md` §2.4 | `Value::conditionsFor()` hardcodes the `Attribute` alias; proposals need `ShadowAttribute.value1`/`value2`, which §14.3's rule forbids writing anywhere else. **The one item here that gets more expensive per live phase that ships** |
+| §8.2's datable-source scoreboard is missing two sources | `value-profile-coverage.md` §7 | `shadow_attributes.timestamp` and `event_reports.timestamp` are both `int NOT NULL` and both usable. Changes Timeline's evidence base, not its verdict on tags and feeds |
 | First/last seen has no date filter | `live/22-occurrences.md` §13.2 | the Time ranges cut on instants; an interval needs an overlap test, which is one more matcher |
 | Per-phase deferrals | each phase's Deferred subsection | §9.12, §10.6, §11.7, §12.7, §13.7 |
 
