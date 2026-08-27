@@ -15,6 +15,19 @@ rule rather than defects: §6's `.vp-facet-note` banner-versus-rail sentence, §
 carries a **cap** notice, because the live table shows at most 100 rows and says
 so. §10's list of what live data would hit is answered there.
 
+Three further changes that phase's §13 records, all of them things this brief
+got right against fixture data and wrong against a database:
+
+- **Distribution is now the resolved chain**, not `Attribute.distribution`. That
+  column is *inherit* for 99.99% of real attributes, so §6's distribution facet
+  and §7's Distribution column both read the attribute-object-event conjunction
+  instead, and the sharing-group facet names groups reached through the event.
+- **§6's group list gains a tenth, `Time`**: two working date ranges over the
+  attribute's `timestamp` and its event's `publish_timestamp`.
+- **§6's first/last-seen date inputs stay disabled**, and now say why rather than
+  only that — they are an interval, so cutting them is an overlap test rather
+  than the point test the two ranges above them do.
+
 ## 1. What ships
 
 **A counted facet rail beside the table, so the shape of the value's

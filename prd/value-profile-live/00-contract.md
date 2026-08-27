@@ -331,7 +331,10 @@ did.
 review is about queries; a shared-element fix needs a review covering every
 other page that uses it. The standing list from §7.9 —
 `multi_select_toolbar.ctp:18`'s `bg-light` bulk bar, `Badges/type.ctp:12`'s
-`border border-dark` — stays unfixed and stays recorded.
+`border border-dark` — stays unfixed and stays recorded, and phase 22 adds one:
+`DistributionLevel.php`'s level-1 tint measures **4.09:1**, below AA for text,
+and none of its tints follows the theme. Every page in MISP that draws a
+distribution badge renders it, which is exactly why it is not fixed here.
 
 One live-data pressure point is already settled and needs no new decision.
 Pagination: `00-shared.md` §6 built the page control as real Bootstrap
@@ -454,7 +457,7 @@ document that filled it.
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
-| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 8 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
+| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | — | — | — | — |
 | Sightings | `viewSightingList` | `value_sighting_list` | — | — | — | — |
 | Sightings | `viewSightingDecay` | `value_sighting_decay` | — | — | — | — |
@@ -475,11 +478,12 @@ One row is filled; the rest are `—` because nothing else is wired. A row moves
 off `—` only when its phase document records the same numbers, so the two cannot
 disagree without one of them being visibly blank.
 
-`Q` for the one converted row is its **ceiling**: eight on a cold ACL-conditions
-cache, five or six once warm, and two on a value with no occurrence the viewer
-may see. Two of the eight are `SharingGroup::authorizedIds` inside
-`buildConditions()` rather than queries the panel issues. `22-occurrences.md`
-§4.1 has the breakdown and §10.2 the measurements.
+`Q` for the one converted row is its **ceiling**: nine, of which two are
+`SharingGroup::authorizedIds` inside `buildConditions()` rather than queries the
+panel issues. Seven on a value with no tags and no sharing group, four on a value
+with no occurrence the viewer may see. What varies is which decorations a value
+needs, not how much data it has — the ceiling is reached by a thirteen-row value.
+`22-occurrences.md` §4.1 has the breakdown and §10.2 the measurements.
 
 **Four rows are blocked rather than unstarted**, and they are not all on the
 Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
@@ -535,3 +539,16 @@ phase should expect:
   the same way. `22-occurrences.md` §12.1.
 - **§14.10's `fetchSimpleEvents` note is now a measurement**: 56 events, one
   query, 1 ms.
+- **A distribution is a chain, not a column.** `Attribute.distribution` is level
+  5 — *inherit* — for 3,777,682 of the 3,778,094 attributes on the verification
+  instance, so any panel reporting that column reports nothing.
+  `ValueStatsTool::effectiveDistribution()` resolves the attribute-object-event
+  chain the way `buildConditions()` enforces it, and every panel that shows a
+  distribution should use it. `22-occurrences.md` §13.1.
+- **The row-narrowing JS now supports named date ranges** —
+  `tr[data-vp-times]` plus `[data-vp-range-from|-to]` — alongside the single
+  unnamed period it already had. A panel that cuts on more than one date does not
+  need to invent it again. §13.2.
+- **`DistributionLevel`'s level-1 tint is 4.09:1**, below AA for text, and its
+  tints do not follow the theme. Pre-existing, shared by every page in MISP that
+  draws a distribution, and on the §14.7 report-do-not-fix list. §13.3.

@@ -96,7 +96,7 @@ goes first argues why in its own document.
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
-| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 100 rows by the page control, §12.1 |
+| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 100 rows by the page control (§12.1); distribution resolved through the whole chain and two working time ranges added on review (§13) |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
@@ -137,7 +137,8 @@ so it need not be reassembled from fourteen sections.
 | Opinion colour contradiction | `tabs/05-analyst.md` §11/§15 | the Overview preview paints "Agree" green, the Verdict histogram paints >50 red. The Overview card is the one that should change |
 | Markdown in notes | `tabs/05-analyst.md` §11 | stored, never rendered; no per-note flag, so enabling it is instance-wide |
 | A `known`-category warninglist | §14.10 | §2.6's shared-infrastructure argument may have no shipped list behind it |
-| Shared-code defects | §7.9 | the `bg-light` bulk bar and `border-dark` type badge, reported and deliberately unfixed |
+| Shared-code defects | §7.9, `live/22-occurrences.md` §13.3 | the `bg-light` bulk bar, the `border-dark` type badge, and `DistributionLevel`'s level-1 tint at 4.09:1 — reported and deliberately unfixed |
+| First/last seen has no date filter | `live/22-occurrences.md` §13.2 | the Time ranges cut on instants; an interval needs an overlap test, which is one more matcher |
 | Per-phase deferrals | each phase's Deferred subsection | §9.12, §10.6, §11.7, §12.7, §13.7 |
 
 ---

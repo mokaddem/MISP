@@ -54,7 +54,8 @@ is one of §14.12's four blocked rows. Phase 22 is one row of the board.
 | Aggregation | `app/Lib/Tools/ValueStatsTool.php` | new |
 | Endpoint | `ValuesController::viewOccurrenceTable` | rewired |
 | Fetcher | `MispAttribute::fetchAttributesSimple` | extended, §7 |
-| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8 |
+| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13 |
+| Interactions | `app/webroot/js/value-profile.js` | extended, §13.2 |
 
 `ValueProfileFixture` is untouched. Every other endpoint still calls
 `profileFor()` and still renders fixture data; §14.8's unit-test-double future
@@ -119,7 +120,7 @@ It returns exactly the four keys `value_occurrence_table.ctp` reads —
 whole-profile array is not built, which is §14.1's one structural change,
 arriving with the first panel that needs it.
 
-### 4.1 The queries — at most eight, and none of them per-occurrence
+### 4.1 The queries — at most nine, and none of them per-occurrence
 
 Per §14.9 row 2. **The count is constant in the number of occurrences** —
 it does not grow with the value, which is the one performance rule §14.4
@@ -133,8 +134,9 @@ commits to.
 | 4 | the tag records behind them | `MispAttribute::attachTagsToAttributes` | 1 |
 | 5 | `Event.Orgc` for the N events | `Event::fetchSimpleEvents($user, …, true)` — **one** call for all N | 1 |
 | 6 | pending proposals per row | `ShadowAttribute` grouped count over the row ids | 2 |
+| 7 | sharing group names, only where a row resolves to level 4 | `SharingGroup::fetchAllAuthorised($user, 'name')` | 1 |
 
-Six of ours, and **two more that belong to MISP's ACL builder**:
+Seven of ours, and **two more that belong to MISP's ACL builder**:
 `buildConditions()` calls `SharingGroup::authorizedIds($user)`, which is two
 selects over `sharing_group_servers` and `sharing_group_orgs`. They are absent
 for a site admin, whose conditions are empty, and `MispAttribute`'s own
@@ -142,10 +144,12 @@ for a site admin, whose conditions are empty, and `MispAttribute`'s own
 `buildConditions()` call. Counted rather than glossed, because §14.9 row 2 asks
 for the panel's query count and not for the count of queries this phase wrote.
 
-Measured (§10): 8 for a small value on a cold cache, 5–6 once warm, and **2 for
-a value with no occurrence the viewer may see** — nothing is decorated when
-there are no rows to decorate. Queries 4, 5 and 6 skip themselves on an empty
-input, so the floor is the count and the row fetch.
+Measured (§10.2): **9 at the ceiling**, 7 on a value with no tags and no
+sharing group, and **4 for a value with no occurrence the viewer may see** —
+nothing is decorated when there are no rows to decorate, so the floor is the two
+ACL queries plus the count and the row fetch. Queries 4 to 7 each skip
+themselves when their input is empty: no tags means no tag-record query, no
+level-4 row means no sharing-group query.
 
 **Query 1's tier-2 reason.** The answer is a single number. Materialising rows
 to count them is precisely the trap §7.9 named — and worse here, because the
@@ -195,9 +199,10 @@ so it cannot leak what the viewer may not see, and that is checkable by reading
 its signature rather than by tracing its callers.
 
 ```php
-ValueStatsTool::facetToken($text)                    the slug rule
-ValueStatsTool::occurrenceStats(array $rows, $total) the header's numbers
+ValueStatsTool::facetToken($text)                     the slug rule
+ValueStatsTool::occurrenceStats(array $rows, $total)  the header's numbers
 ValueStatsTool::occurrenceFacets(array $rows, $total) the rail
+ValueStatsTool::effectiveDistribution($row, $sgNames) who can see a row (§13.1)
 ```
 
 **`facetToken` is the reason this tool exists at all.** The rail's counts and
@@ -460,16 +465,26 @@ and no page says a word about the three it is not showing.
 Read off the datasource log, per §14.9 row 2. Wall time is the facade call, not
 the render.
 
+One process per value, so every row is a cold ACL-conditions cache and includes
+its two `authorizedIds` queries.
+
 | Value | Occurrences | Queries | Wall | Cap |
 |---|---|---|---|---|
-| `no-such-value-at-all` | 0 | 2 | 1 ms | — |
-| `github.com` | 21 | 5 | 3 ms | — |
-| `2.2.2.2` | 13 | 8 (cold ACL cache) | 22 ms | — |
-| `443` | 48,255 | 6 | 197 ms | 100 of 48255 |
-| `0.0.0.0` | 33,109 | 5 | 592 ms | 100 of 33109 |
+| `no-such-value-at-all` | 0 | 4 | 22 ms | — |
+| `jane.doe@hotel.com` | 2 | 7 | 22 ms | — |
+| `github.com` | 21 | 7 | 33 ms | — |
+| `2.2.2.2` | 13 | **9** | 32 ms | — |
+| `193.161.193.99` | 335 | 8 | 24 ms | 100 of 335 |
+| `443` | 48,255 | 8 | 191 ms | 100 of 48255 |
+| `0.0.0.0` | 33,109 | 7 | 167 ms | 100 of 33109 |
 
-The count is flat while the occurrence count moves by four orders of magnitude.
-Per-query, on `443`:
+The count is flat while the occurrence count moves by four orders of magnitude —
+and it is `2.2.2.2`, with thirteen occurrences, that hits the ceiling, because
+what varies is which decorations a value needs rather than how much data it has.
+
+Per-query, on `443` (measured before the cap was lowered to 100, so the row
+fetch is the 1,000-row one; the two heavy queries scale with the value, not the
+cap):
 
 ```
 369 ms  COUNT(*)                       the whole 48,255-row set
@@ -673,7 +688,23 @@ without distinguishing them, and only one of them works here.
 **Retired: §14.10's `fetchSimpleEvents` note is now measured rather than
 predicted.** 56 events, one query, 1 ms. §10.2.
 
-### 12.6 One number in §14.1 was wrong in the reassuring direction
+### 12.6 The rail's distribution facet was useless, and review caught it
+
+Recorded here because the *first* implementation of this phase shipped it and
+§13.1 is what replaced it. The rail counted `Attribute.distribution` — the
+column — which on the verification instance is level 5 for 3,777,682 of
+3,778,094 attributes. The facet therefore read `Inherited: 12 / Sharing group: 1`
+on the phase's own primary verification value, and every row in the Distribution
+column drew the same purple fork glyph.
+
+Nothing was wrong with the wiring; the number was faithfully what the column
+said. It is a reminder that a live phase's job includes noticing when a
+fixture-shaped design stops meaning anything against real data — the fixture's
+demo values spread themselves across levels 0, 1, 3 and 4, so this looked
+informative for fourteen phases and could not have looked otherwise until the
+database was behind it.
+
+### 12.7 One number in §14.1 was wrong in the reassuring direction
 
 §14.1 estimated the live cost of the whole-profile shape at *"nine tabs of
 queries per panel request, twenty-odd panel requests per tab visit"*. The first
@@ -681,3 +712,208 @@ converted panel needs at most eight queries for itself, so the multiplier is
 real but the base was a guess. Worth restating with a measurement now that there
 is one, because the argument for a per-panel facade did not need the number to
 be large and should not rest on one nobody checked.
+
+---
+
+## 13. After review: the effective distribution, and a time filter
+
+Two changes asked for after the phase first shipped. Both are the same kind of
+finding — a control that was defensible against fixture data and says nothing
+against a database.
+
+### 13.1 Distribution is the whole chain, not the attribute's column
+
+**The comment.** *"There're multiple distribution: the attribute itself, its
+potential object and its event. These combined can dramatically change the
+'final' distribution. I'd reflect the final distribution instead of what's
+defined on the attribute (which will be 99% of the time `inherited`)."*
+
+It is 99.99%: on the verification instance **3,777,682 of 3,778,094 attributes
+are at level 5**. §12.6 records what the rail looked like because of it.
+
+**The rule, and where it comes from.** MISP has no packaged helper for this, so
+the rule is stated once in `ValueStatsTool::effectiveDistribution()` and derived
+from the authority that already exists — `MispAttribute::buildConditions()`,
+which decides whether a row is visible at all by requiring the **event** to
+allow the viewer *and* the attribute *and* the object, with level 5 passing
+through. Effective distribution is that same conjunction, reported instead of
+enforced.
+
+Two steps:
+
+1. **Resolve inheritance.** A link at level 5 states nothing and defers outward.
+   An event can never be 5, so at least one link always states a level.
+2. **The tightest stated level wins**, by an explicit order: `0, 4, 1, 2, 3`.
+
+**Where the order is honest, and where it is not.** `0` is one organisation and
+is strictly tightest. `1`–`3` widen by community. `4` is a *named list* of
+organisations, which is why it sits second — but it is **not truly comparable**
+with `1`–`3`, because a sharing group can carry an `all_orgs` server entry and so
+be wider than "this community only". A chain mixing the two therefore describes
+an intersection that no single level expresses: *these organisations, and only
+within that community*.
+
+Rather than flatten that silently, the resolution returns `intersects`, and the
+cell draws a `fa-link` marker whose title says *"Both apply, so the real audience
+is narrower than any one of them"*. It is set only where the ambiguity is real: a
+level 0 anywhere dominates every other constraint, and the same sharing group
+stated twice is one constraint, so neither sets it.
+
+**What the reader now gets.** On `2.2.2.2`, the facet went from
+`Inherited: 12 / Sharing group: 1` to:
+
+| Level | Rows |
+|---|---|
+| This community only | 6 |
+| Your organisation only | 3 |
+| Sharing group | 2 |
+| Connected communities | 1 |
+| All communities | 1 |
+
+The Distribution column draws five different badges where it drew one, and the
+sharing-group facet names **two** groups where it named one — the second is an
+*event*-level group, which an attribute-only reading could never have surfaced.
+
+**Three implementation notes.**
+
+- **The chain is in the cell's `title`**: `Attribute: Inherited → Event: This
+  community only`. A level nobody set on the attribute is otherwise untraceable
+  to whoever did set it, and this column is not editable here.
+- **A custom cell, not the shared renderer.** The shared `distribution` field
+  renderer could have been pointed at a computed path, but it has no slot for the
+  chain or the intersection marker. §14.7's test makes that a compose-rather-
+  than-edit: the cell is Value-Profile-owned and calls MISP's own badge element
+  inside.
+- **A row with no object must not be read as an object at level 0.** The `Object`
+  key is always present after a `contain`, holding nulls where the LEFT JOIN
+  found nothing, so the object link counts only when it has an id. This is the
+  one place the resolution could have silently made every standalone attribute
+  organisation-only.
+
+**Cost: one query, conditionally.** Every level needed is already on the row.
+Sharing-group *names* are not, and level 4 can now be reached through the event
+or the object, so names come from `SharingGroup::fetchAllAuthorised($user,
+'name')` — which returns only the groups this viewer is authorised for, so a
+group name cannot be read off a row whose event the reader merely owns. A
+level-4 row whose group does not resolve keeps its badge and loses only the name.
+The query runs only when some row resolves to 4.
+
+### 13.2 A time filter on the attribute's timestamp and the event's publication
+
+**The comment.** *"Add a time filter in the filters panel. We should be able to
+filter on timestamp (of the attribute?) and published timestamp (of the event of
+course)."*
+
+Both, as two independent ranges under a new **Time** group, and both wired.
+`Attribute last modified` is `attributes.timestamp`; `Event published` is
+`events.publish_timestamp`. They are different questions and neither is
+answerable from the other — an occurrence edited yesterday on an event published
+last year is not the reverse.
+
+**The shared JS gained a named range, and nothing else changed.** There was
+already an unnamed period (`data-vp-filter-from|-to` against `tr[data-vp-time]`)
+with exactly one caller, `value_history`'s audit rail, and a named *numeric*
+threshold (`data-vp-filter-min` against `tr[data-vp-num]`) with three. Neither
+supports two independent date ranges. §14.7's three-part test says a change that
+would alter an existing caller gets forked; so rather than generalise the
+period, this adds a parallel concept beside it:
+
+```
+tr[data-vp-times]         `key:YmdHi` pairs
+[data-vp-range-from|-to]  bounds against one of those keys, named by value
+```
+
+`activeRanges()` and `rowMatchesRanges()` are new; `refreshList` gains one `&&`
+that returns true when no range is set; the active-filter count, `Clear all` and
+both delegated handlers gain the two new selectors. The digit-parsing logic is
+extracted from `periodBound()` into `boundDigits()` so both share it — including
+its reason, which is worth keeping: bounds are compared as the digits of the
+**printed wall clock**, not epochs, because a row's time is rendered server-side
+and comparing epochs would hand a reader in another timezone a different set of
+rows than the times on those rows say the window holds.
+
+**Three honest states the ranges need.**
+
+- **A row with no date under a key being cut on is dropped, not kept.** "I do
+  not know when this happened" is not evidence that it happened inside the
+  window.
+- **How many that is sits beside the control**: *"7 occurrences sit on events
+  that were never published, and a date cut here removes them."* Same rule
+  `seen_unset` follows.
+- **A key no row carries gets no control at all.** On `jane.doe@hotel.com` no
+  event is published, so the publication range is replaced by *"None of these
+  occurrences sits on a published event."* — rather than two live-looking inputs
+  over a column that is empty for every row.
+
+**The inputs start empty** and carry the span as `min`/`max`, with the span
+printed underneath. A control pre-filled with the whole span looks like a filter
+already applied, and "no bound" must not render identically to "the widest
+bound".
+
+**First/last seen stays disabled, and now says why.** It sits directly below two
+working ranges, so *"not wired in this pass"* would read as an oversight. It is a
+different question: `timestamp` and `publish_timestamp` are instants and cutting
+them is a point-in-range test, while first/last seen is an **interval** and the
+question a reader asks of it — *was this live during my window* — is an overlap
+test, which the range filter does not do. The title now says that. Wiring it is
+one more matcher and is not in this phase.
+
+### 13.3 What was verified, and one finding
+
+**274 assertions across five harnesses**, all passing:
+
+| Harness | Assertions | What |
+|---|---|---|
+| structural | 121 | nine server-rendered fragments |
+| browser | 123 | interactions and contrast, both themes |
+| rule | 13 | `effectiveDistribution()` against hand-written chains |
+| History regression | 10 | the unnamed period still cuts |
+| relations regression | 7 | the numeric threshold still cuts |
+
+**The resolution rule is unit-tested, not only observed.** The instance has no
+intersecting chain — a survey of every non-inherit attribute found only `3/3`,
+`0/2`, `1/2` and one `4/4` with matching groups — so the thirteen rule cases are
+hand-written against the pure function rather than hunted for in data, and no
+demo row was authored to host a state. They cover both intersecting shapes (a
+sharing group against a community level, and two different sharing groups), the
+level-0-dominates case, and the object link winning.
+
+Two real values carry the cases that *do* exist and both were rendered:
+`jane.doe@hotel.com`, where the attribute's own level 0 beats its event's level 2
+— the conjunction actually biting — and `2.2.2.2`, whose thirteen rows resolve
+across five levels and two sharing groups.
+
+**The time ranges are checked against the rows' own stamps**, read out of the
+DOM, so an assertion cannot agree with a wrong implementation: a lower bound
+leaves exactly the rows at or after it, a single-day window leaves exactly the
+rows inside it, the two keys conjoin, each bound counts as one active filter, and
+`Clear all` empties the date inputs as well as the checkboxes.
+
+**Both existing consumers of the shared JS were driven, not reasoned about.**
+History's period filter still cuts and restores, and phase 22's named ranges have
+not leaked into that panel; the relations' threshold still narrows and restores.
+
+**One finding, in shared code, reported and not fixed.** `DistributionLevel`'s
+tints are hardcoded hex and do not follow the theme, so a badge reads identically
+in light and dark — measured once:
+
+| Level | Contrast |
+|---|---|
+| Sharing group | 12.71:1 |
+| Inherited | 9.50:1 |
+| All communities | 8.06:1 |
+| Your organisation only | 7.08:1 |
+| Connected communities | 6.72:1 |
+| **This community only** | **4.09:1** |
+
+Level 1 misses WCAG AA's 4.5:1 for text. It is **pre-existing** — the shipped
+fixture fragments already draw that badge with those colours — and this phase
+only makes it the level most rows land on. §14.7's posture on a defect in shared
+code applies: `DistributionLevel` is rendered by every page in MISP that shows a
+distribution, so darkening `#b45309` needs a review this phase is not. Added to
+the standing list beside `multi_select_toolbar.ctp:18` and `Badges/type.ctp:12`.
+
+In the table the badge is glyph-only, where AA asks 3:1 of a graphical object, so
+the shortfall is the rail's label alone. The harness asserts the 3:1 floor and
+that level 1 is the only value below 4.5:1, so a future change to those tints
+cannot pass unnoticed.
