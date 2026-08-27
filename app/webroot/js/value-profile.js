@@ -1058,11 +1058,28 @@
     /**
      * Move the masks and the window over the buckets `bounds` covers.
      *
+     * A `bounds` of null is the case phase 21 made routine: the range
+     * the caller has selected lies outside the span the chart is
+     * showing. Everything in view is then outside the selection, so
+     * everything in view is dimmed and no window is drawn — a window
+     * pinned to whichever edge the selection lay beyond would read as a
+     * selection at that edge, which is a lie about a chart the reader
+     * has just zoomed somewhere else.
+     *
      * @param {Element} root Anything containing the brush's parts
-     * @param {{from: number, to: number}} bounds Bucket indices
+     * @param {{from: number, to: number}|null} bounds Bucket indices
      * @param {number} count How many buckets the chart has
      */
     function paintBrush(root, bounds, count) {
+        var strip = root.matches && root.matches('[data-vp-brush]')
+            ? root
+            : root.querySelector('[data-vp-brush]');
+        if (strip) {
+            strip.classList.toggle('vp-brush-empty', bounds === null);
+        }
+        if (bounds === null) {
+            bounds = { from: count, to: count - 1 };
+        }
         var left = (100 * bounds.from) / count;
         var right = (100 * (count - 1 - bounds.to)) / count;
         var parts = [
@@ -1590,11 +1607,20 @@
      * caller shipped — so a reader is never told `Mar` by one formatter
      * and `March` by another.
      *
+     * A caller may pass a `note`, which is the one thing about a
+     * zoomed chart this layer cannot know: whether what the reader has
+     * selected is still on screen. A fully dimmed strip is the truthful
+     * painting of *nothing here is in your range*, and it is also
+     * indistinguishable from an undimmed one, because a uniform dim has
+     * nothing to contrast against — so the fact has to be said in words
+     * or not at all.
+     *
      * @param {Element|null} root The control
      * @param {Object} zoom From `makeZoom`
      * @param {Object} labels `grain` keyed by unit
+     * @param {string|null} note Optional, shown beside the grain
      */
-    function paintZoom(root, zoom, labels) {
+    function paintZoom(root, zoom, labels, note) {
         if (!root) {
             return;
         }
@@ -1621,6 +1647,11 @@
         var grain = root.querySelector('[data-vp-zoom-grain]');
         if (grain && labels && labels.grain) {
             grain.textContent = labels.grain[zoom.unit()] || '';
+        }
+        var aside = root.querySelector('[data-vp-zoom-note]');
+        if (aside) {
+            aside.textContent = note || '';
+            aside.hidden = !note;
         }
         root.classList.toggle('vp-zoom-on', !zoom.whole());
     }
@@ -3185,15 +3216,15 @@
                 to = index;
             }
         });
-        // A period outside the visible span covers no bar. The brush
-        // collapses onto the nearer edge rather than vanishing: the
-        // reader has to be able to see where they are, and after §13.3
-        // this happens for a second reason — they may have zoomed away
-        // from the period rather than filtered away from the chart.
+        // A period outside the visible span covers no bar. Phase 19
+        // collapsed the brush onto the nearer edge, which was a
+        // once-in-a-while state then and a routine one now that the
+        // reader can zoom away from their own period — and an edge
+        // window reads as a selection at that edge. `outside` instead,
+        // which paints as a fully dimmed strip: none of what is on
+        // screen is in the period, which is exactly true.
         if (from === null) {
-            var last = bars.length - 1;
-            var edge = period.to < bars[0].bucket.from ? 0 : last;
-            return { from: edge, to: edge };
+            return 'outside';
         }
         return { from: from, to: to };
     }
@@ -3202,11 +3233,20 @@
      * @param {Element} list
      */
     function paintAuditBrush(list) {
+        var bars = auditBars();
         var bounds = auditBins(list);
-        if (!bounds) {
+        if (bounds === null || !bars.length) {
             return;
         }
-        window.VP.brush.paint(list, bounds, auditBars().length);
+        window.VP.brush.paint(
+            list,
+            bounds === 'outside' ? null : bounds,
+            bars.length
+        );
+        // The period moves without the chart moving — a typed date, a
+        // cleared one, a drag — and whether it is still on screen is
+        // what the zoom's note says, so that goes with it.
+        paintAuditZoom(list);
     }
 
     /**
@@ -3306,12 +3346,29 @@
         if (audit.chart) {
             audit.chart.refresh();
         }
-        window.VP.zoom.paint(
-            list.querySelector('[data-vp-zoom]'),
-            audit.zoom,
-            audit.labels
-        );
+        // Paints the zoom too, because the note is about the pair.
         paintAuditBrush(list);
+    }
+
+    /**
+     * Paint the zoom control, and tell the reader when the period they
+     * have set is no longer on screen.
+     *
+     * @param {Element} list
+     */
+    function paintAuditZoom(list) {
+        var zoom = list.querySelector('[data-vp-zoom]');
+        if (!zoom || !audit.zoom) {
+            return;
+        }
+        var away = auditBins(list) === 'outside';
+        var labels = audit.labels || {};
+        window.VP.zoom.paint(
+            zoom,
+            audit.zoom,
+            labels,
+            away ? (labels.away || null) : null
+        );
     }
 
     /**
@@ -3903,7 +3960,7 @@
         window.VP.zoom.wire(zoom, audit.zoom, function () {
             redrawAuditChart(list);
         });
-        window.VP.zoom.paint(zoom, audit.zoom, audit.labels);
+        paintAuditZoom(list);
         // `refreshAllLists` paints and re-tallies on the same pass, so
         // the panel lands with the brush over the window it was fetched
         // for rather than over the whole chart.

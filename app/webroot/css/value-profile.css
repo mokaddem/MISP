@@ -507,6 +507,14 @@ a.vp-fact:hover .vp-fact-value {
     pointer-events: none;
 }
 
+/* The selection is outside the span on screen, so there is no window
+   to draw — its two rules pinned to an edge would read as a selection
+   at that edge. The masks cover everything instead, which says the
+   true thing: nothing in view is in the range. */
+.vp-brush-empty .vp-brush-window {
+    display: none;
+}
+
 /* ==================================================================
  * The zoom
  * ------------------------------------------------------------------
@@ -537,17 +545,21 @@ a.vp-fact:hover .vp-fact-value {
     color: var(--bs-secondary-color);
 }
 
+/* Wraps rather than shrinks, and every part of it refuses to shrink,
+   because a flex line shrinks its flexible items before it wraps —
+   which truncated the span the caption exists to name. In a
+   three-column rail the note drops to a second line instead. */
 .vp-zoom-where {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 6px;
+    gap: 0 6px;
     min-width: 0;
     flex: 1 1 var(--vp-zoom-where-basis, 100%);
 }
 
 .vp-zoom-range {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: none;
     white-space: nowrap;
 }
 
@@ -565,6 +577,14 @@ a.vp-fact:hover .vp-fact-value {
     flex: none;
     opacity: 0.8;
     white-space: nowrap;
+}
+
+/* The reader's selection has gone off screen. Warning-coloured rather
+   than quiet: it is the one thing on this control that says a gesture
+   they made is no longer showing them anything. */
+.vp-zoom-note {
+    flex: none;
+    color: var(--bs-warning-text-emphasis, var(--bs-body-color));
 }
 
 .vp-zoom-steps {

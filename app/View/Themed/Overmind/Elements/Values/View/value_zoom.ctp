@@ -18,9 +18,11 @@
  *
  * @var array $grain Per-unit wording for what a bar is worth
  * @var string $zoomLabel Names the group for a screen reader
+ * @var string $zoomAway What to say when the selection is off screen
  * @var string $zoomNote Optional sentence under the buttons
  */
 $grain = isset($grain) ? $grain : array();
+$zoomAway = isset($zoomAway) ? $zoomAway : null;
 $zoomNote = isset($zoomNote) ? $zoomNote : null;
 $steps = array(
     array(
@@ -55,6 +57,17 @@ $steps = array(
     <div class="vp-zoom-where">
         <span class="vp-zoom-range" data-vp-zoom-range></span>
         <span class="vp-zoom-grain" data-vp-zoom-grain></span>
+        <?php
+        /*
+         * Whether what the reader has selected is still on screen. It
+         * has to be said in words: the brush paints a selection that
+         * has gone out of view as a fully dimmed strip, which is the
+         * truthful painting and is also indistinguishable from an
+         * undimmed one, because a uniform dim has nothing to contrast
+         * against.
+         */
+        ?>
+        <span class="vp-zoom-note" data-vp-zoom-note hidden></span>
     </div>
     <div class="vp-zoom-steps">
         <?php foreach ($steps as $step): ?>
@@ -74,7 +87,7 @@ $steps = array(
      */
     ?>
     <script type="application/json" data-vp-zoom-labels><?= json_encode(
-        array('grain' => $grain)
+        array('grain' => $grain, 'away' => $zoomAway)
     ) ?></script>
 </div>
 <?php if ($zoomNote !== null): ?>
