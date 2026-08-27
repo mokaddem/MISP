@@ -96,7 +96,7 @@ goes first argues why in its own document.
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
-| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), then sortable columns and a reader-chosen page size (§14) |
+| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), then a brush on each time range (§15) |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |

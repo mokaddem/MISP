@@ -558,6 +558,16 @@ phase should expect:
 - **`value_pager` takes an optional `sizes` list**, so a panel can let the reader
   choose its page size. Every size offered must leave a header that renders,
   which is the same constraint that bounds the cap. §14.1.
+- **Phase 20's brush primitive has two more callers, and they cost no canvas.**
+  A 32px strip of `.vp-spark` bars under `[data-vp-timebrush]` is enough to pick
+  a range and see its shape; `window.VP.brush` needed no change to take it. A
+  panel wanting a range picker does not need Chart.js and does not need
+  History's 64px. §15.1.
+- **`ValueProfileBuckets` buckets an instant well and an interval not at all.**
+  §12.3 declined it for the seen-density sparkline, whose input is a set of
+  intervals; §15.2 uses it for the two time strips, whose input is a `Y-m-d`
+  count map. `series()` plus `locate()` is the pair, and the unit rule belongs
+  to the caller. §15.2.
 - **`DistributionLevel`'s level-1 tint is 4.09:1**, below AA for text, and its
   tints do not follow the theme. Pre-existing, shared by every page in MISP that
   draws a distribution, and on the §14.7 report-do-not-fix list. §13.3.

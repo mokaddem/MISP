@@ -54,11 +54,11 @@ is one of §14.12's four blocked rows. Phase 22 is one row of the board.
 | Aggregation | `app/Lib/Tools/ValueStatsTool.php` | new |
 | Endpoint | `ValuesController::viewOccurrenceTable` | rewired |
 | Fetcher | `MispAttribute::fetchAttributesSimple` | extended, §7 |
-| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13, §14 |
-| Interactions | `app/webroot/js/value-profile.js` | extended, §13.2 and §14.2 |
+| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13, §14, §15 |
+| Interactions | `app/webroot/js/value-profile.js` | extended, §13.2, §14.2, §15 |
 | Shared header | `IndexTable/headers.ctp` | one guarded key, §14.2 |
 | Pager | `value_pager.ctp` | one optional slot, §14.1 |
-| Styles | `app/webroot/css/value-profile.css` | the sort affordance, §14.2 |
+| Styles | `app/webroot/css/value-profile.css` | the sort affordance §14.2, the brush strip §15.1 |
 
 `ValueProfileFixture` is untouched. Every other endpoint still calls
 `profileFor()` and still renders fixture data; §14.8's unit-test-double future
@@ -1070,3 +1070,129 @@ picker, no sort tokens and no named ranges, while keeping their own period,
 threshold, select and pager. For `headers.ctp`, which every index in MISP
 renders, the guard is asserted over the source: exactly one caller sets
 `client_sort`, and Paginator's own branch is untouched.
+
+---
+
+## 15. After review: a brush on each time range
+
+**The comment.** *"In the history tab, we have a datetime picker that you can
+brush. Could you also add it for the timestamp and publish_timestamp? It would
+set the correct value on the date input. Just make sure its height is capped to
+something smaller than what's on the history. We just need an easy way to pick a
+range and be able to peek how the times are bucketed."*
+
+Both ranges from §13.2 now sit under a brushable strip. Drag to pick, click to
+clear, and the gesture writes the two date inputs.
+
+### 15.1 The same brush, a third of the height, and no canvas
+
+**The primitive is shared, unchanged.** Phase 20 built `window.VP.brush` as
+`attach(strip, {count, range, clear, settle})` plus `paint(root, bounds, count)`
+for exactly this — the History chart and the Sightings navigator are its first
+two callers, and this is its fourth and fifth. Nothing in it changed.
+
+**What is not shared is the chart.** History draws a Chart.js canvas with axes,
+gridlines and a four-button zoom, 64px tall. These are **32px** strips of CSS
+bars: `00-shared.md` §7 keeps CSS bars as the standing exception to the Chart.js
+rule, the rail already draws the seen-density sparkline that way, and two
+64px canvases with zoom controls would not fit a `col-lg-3` rail that already
+carries eight facet groups, a sparkline and a page of controls. The cap the
+comment asked for is therefore half of History's, and it is in CSS rather than
+per-caller so a third strip inherits it.
+
+**The bars reuse `.vp-spark-bar`** — same styling, same colour modifier, same
+empty-bucket treatment — with a `.vp-spark-flush` modifier that gives the height
+to the container and tightens the gap from 2px to 1px. The sparkline draws a
+fixed forty bars; these draw one per calendar bucket, and at 2px a
+hundred-bucket strip would spend 200px of a 300px rail on gaps.
+
+### 15.2 How the times are bucketed, and how that is stated
+
+**`ValueProfileBuckets` does the bucketing** — and this is the reuse §12.3
+declined for the sparkline, which is worth noting because the reason it fits
+here is the reason it did not fit there. A `timestamp` is an *instant*, so this
+is a `Y-m-d` count map tallied into calendar buckets through `series()` and
+`locate()`, which is precisely the pair that class documents for a caller
+tallying rows. The sparkline's input is a set of *intervals*, and that is what
+did not fit.
+
+**The unit follows the span, by a rule this caller owns** — which is the
+contract that class states: a caller whose data supports choosing opts in with
+its own rule. The default rule stops at weeks, which draws a two-year span as a
+hundred-odd bars: fine in a full-width chart, not in a rail. So:
+
+| Span | Unit |
+|---|---|
+| ≤ 45 days | one bar a day |
+| ≤ 370 days | one bar a week |
+| longer | one bar a month |
+
+Measured across the verification values: 20 to 112 bars, and 53 bars at 5.25px
+each on `2.2.2.2`. The worst real case is `1.1.1.1`, whose occurrences were last
+modified across nine years — 112 monthly bars at 1.95px. Thin, and drawable;
+`min-width: 1px` is what guarantees the second part.
+
+**The grain is written down**, because a two-pixel bar is not self-describing:
+the caption under each strip reads *"one bar a week · 2025-02-20 to
+2026-02-19"*, using the same words `value_zoom` uses for a grain so the two
+captions on this page name a bucket the same way.
+
+**And the bucket under the pointer replaces it while the reader is over the
+strip** — *"11 Sep – 17 Sep 2025 · 0"*, the bucket's own title and its count.
+This is what answers *peek how the times are bucketed*: the bars carry a `title`
+each, but the brush layer sits on top of them and a native tooltip would never
+reach the reader, so the caption is where a hover can land. It goes back to
+stating the grain on the way out.
+
+### 15.3 The gesture, and the two decisions in it
+
+**It writes the inputs, and the inputs do the filtering.** The same decision the
+History chart made and for the same reason: `activeRanges()`, `refreshList()`,
+the pager and the rail all run exactly as they do when someone types, so there is
+one filter path and not two. The bounds written are always **bucket edges** —
+the brushed buckets' own `from` and `to` — never an interpolated date.
+
+**Bounds are applied on `settle`, not on every `range` call.** History repaints
+its own canvas as the drag goes and filters at the end; here a per-move write
+would re-filter and repage up to three hundred rows sixty times a second. The
+window still paints live on every move, so the gesture feels the same; only the
+filter waits for the pointer to come up. `attachBrush` already had `settle` for
+this.
+
+**The window is painted from the inputs, not from the last gesture.** A typed
+date moves it, a cleared one empties it, and a brushed one is just a third way
+of setting the same two values — repainted from `refreshList`, so the strip
+cannot come to disagree with the inputs under it. Bounds are the buckets the
+window *overlaps*, which is the coarsest honest reading a bar can give of a date
+inside it.
+
+### 15.4 What was verified
+
+**495 assertions across seven harnesses**, all passing:
+
+| Harness | Assertions | What |
+|---|---|---|
+| structural | 228 | nine live fragments |
+| browser | 156 | interactions and contrast, both themes |
+| brush | 45 | the two strips, driven with a real pointer |
+| rule | 14 | `effectiveDistribution()` and its rank order |
+| shared-code regression | 35 | the phase's additions inert in four other panels |
+| History regression | 10 | the unnamed period still cuts |
+| relations regression | 7 | the numeric threshold and its select |
+
+The brush harness drags with `page.mouse` rather than synthesised events, and
+checks the things a wrong implementation would still pass a shallow test on: the
+dates written are bucket edges drawn from the strip's own bars, **every row left
+on screen is inside the window** (recomputed from the rows' `data-vp-times`), a
+click with no drag clears both inputs and the window, typing a date paints a
+window at the right end of the strip, and brushing one strip leaves the other
+alone. Both strips are asserted to be exactly 32px, and the bar width is
+measured at the densest real span.
+
+**One harness finding, not a page bug.** A drag never reaches the page if the
+script calls `scrollIntoView` first: CDP's input pipeline does not pick up a
+programmatic scroll, so the events land where the element used to be.
+`document.elementFromPoint` returns the brush layer correctly at the same
+coordinates, which is how it was told apart from a real hit-testing problem. The
+harness uses a viewport tall enough not to scroll. Worth recording because the
+next person to drive a brush will hit it.
