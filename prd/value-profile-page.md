@@ -2380,20 +2380,54 @@ The follow-up phase 20's parameter makes possible: when a month holds a thousand
 entries, being able to look inside that month. Blocked on phase 20, because
 zooming without a shared primitive means writing it three times.
 
-### 13.1 Why this is cheaper than it sounds
+### 13.1 The measurement, taken
 
-The instinct is that zooming needs a fetch per zoom level, because phase 19 §11.2
-went to some trouble to stop shipping what it will not show. That reasoning does
-not transfer, and the difference is worth stating plainly: **sections are markup
-and bars are numbers.** 748 sections cost 2.4 MB at ~3.2 KB each. A bar is a
-label and a count. Shipping the value's whole span at the finest grain its data
-supports is tens of KB against the hundreds that sections cost, so the chart can
-hold every bucket and re-aggregate in the browser.
+The instinct is that zooming needs a fetch per zoom level, because §11.2 went to
+some trouble to stop shipping what it will not show. That reasoning does not
+transfer, and the difference is worth stating plainly: **sections are markup and
+bars are numbers.** 748 sections cost 2.4 MB at ~3.2 KB each. A bar is a label
+and a count.
 
-That is the thing to measure first, before any zoom behaviour is designed: render
-`45.155.205.233`'s chart at daily grain over 438 days and record the bytes. If it
-is small, zoom is client-side arithmetic and this phase is small. The Sightings
-chart already ships 90 daily buckets, so there is a measurement to scale from.
+So this section asked for a measurement before any zoom behaviour was designed:
+render `45.155.205.233`'s chart at daily grain over its whole span and record
+the bytes. Taken, by flipping `AUDIT_UNIT` the way §12.5.5 did — the span is
+437 days, not the 438 this section guessed:
+
+| grain | buckets | bucket shape as it ships | counts only |
+|---|---|---|---|
+| month — ships today | 15 | 1.5 KB | 92 B |
+| week | 63 | 7.5 KB | 172 B |
+| **day** | **437** | **45.8 KB** | **919 B** |
+
+Against a History panel of 217.5 KB, the finest grain in the shape the bucket
+already has is +21%, and as counts alone it is +0.4%. The hypothesis holds with
+room to spare: **the chart can hold every bucket over the value's whole span
+and re-aggregate in the browser, and this phase is client-side arithmetic.**
+
+Three things the measurement found that this section had not predicted.
+
+**On Sightings the finest grain is cheaper than the status quo.** That tab ships
+three precomputed ranges — 90 daily buckets, 53 weekly, 63 weekly, with a decay
+curve sampled per bucket in each — for **39.8 KB**. One daily series over the
+whole 440-day span, with all 23 organisations, is 75.8 KB in the bucket's own
+shape but **21.6 KB** as parallel arrays of counts. The three ranges are three
+aggregations of the same data, so a browser that can re-aggregate does not need
+them precomputed: the tab that looks most expensive to convert is the one that
+gets smaller.
+
+**Dense beats sparse, and not by enough to think about again.** A sparse map of
+only the days that carry an entry is the obvious saving, and it is a false one.
+Non-zero days run from 1% (`8.8.8.8`, 6 entries) to 82% (`45.155.205.233`, 623
+entries) across the four values, so sparse wins on the quiet values — 54 B — and
+loses on the busy one, 2,810 B against 919 B dense. Dense is bounded at about a
+kilobyte and needs no decode. Take it.
+
+**The fixture has no month holding a thousand entries.** The busiest value
+carries 623 audit entries over 437 days: its busiest month holds 48 and its
+busiest *day* holds 6. The Timeline is denser — 2,018 dated entries over 12
+months, ~168 a month. So the exit criterion is demonstrable as a mechanism and
+the crowding it relieves is not in this data, which is a limit on the
+verification rather than on the phase.
 
 ### 13.2 Zoom and adaptive bucketing are one mechanism
 
@@ -2407,7 +2441,25 @@ span-to-unit option a gesture, and §12.2's constraint carries over: a caller
 whose data cannot honestly claim a finer grain — the Timeline, per §8 — declines
 the option and stays monthly however far it is zoomed.
 
-### 13.3 The decision this phase must not fudge
+**What the measurement forced here, which the paragraph above gets wrong.** One
+rule cannot be shared. `unitForSpan`'s shipped rule maps 437 days to `week`, and
+History's whole span is 437 days drawn at `month`; adopting the shared rule
+would turn its landing chart from 15 monthly bars into 63 weekly ones as a side
+effect of a phase whose reader-visible change is supposed to be a gesture. So
+**the span-to-unit rule is per caller**, chosen so each tab's landing state is
+the one it ships today and the ladder only opens as the reader zooms in:
+
+| caller | finest | rule | at landing |
+|---|---|---|---|
+| History | day | ≤45d day, ≤200d week, else month | 437d → month, unchanged |
+| Sightings | day | ≤90d day, else week — shipped | 90d → day, unchanged |
+| Timeline | month | month always | 12 monthly bins, unchanged |
+
+The Timeline's is §13.2's constraint written as a one-entry rule rather than as
+a special case: it zooms, its bars stay months, and its zoom therefore bottoms
+out at a few of them.
+
+### 13.3 The decision this phase must not fudge, settled
 
 **Brushing and zooming are two gestures on one chart, and phase 19 already spent
 the drag.** There, dragging *selects a period to filter by*; zoom *changes what
@@ -2415,15 +2467,47 @@ the chart shows*. Conflating them would mean a reader who wants to look closer
 at March cannot avoid also filtering the tab to March, and a reader who wants to
 filter to March cannot avoid losing sight of the rest of the year.
 
-The options are a real fork and this section does not settle it, because it wants
-the measurement from §13.1 first: drag-to-select with a separate zoom control
-(scroll, buttons, or double-click); drag-to-zoom with a separate period control,
-which means undoing §11.2's decision 5; or a modifier on the drag, which is
-discoverable by nobody. Whichever wins, it applies to all three callers at once —
-which is the argument for it being its own phase rather than a graft onto 20.
+The measurement settles two of the three options without an interview.
 
-### 13.4 Exit criterion
+**Drag-to-zoom with a separate period control is not just an undoing of §11.2
+decision 5 — it is strictly worse, and for a reason that section did not see.**
+Sightings and the Timeline have no date inputs. Brushing is the *only* range
+control either of them has, so reassigning the drag to zoom would mean inventing
+a period control for two tabs that have never needed one — and this section's
+own rule is that whichever option wins applies to all three callers at once. The
+cost is two new controls, to buy a gesture the other option gets from four
+buttons.
 
-A month holding a thousand entries can be opened to show its distribution within
-that month, on every caller whose data supports the finer grain, without the
-gesture that does it colliding with the gesture that filters.
+**A modifier on the drag** stays dismissed on the grounds already given.
+
+So **the drag keeps selecting, and zoom gets a control of its own.** Which
+control was the remaining question, and the measurement answers it too, because
+what it establishes is that zoom is free arithmetic over data already on the
+page. That rules out the two gestures the original list offered:
+
+- **The wheel** would trap the page. History's chart is a 64px strip in a
+  three-column rail inside a long scrolling page, and capturing `wheel` there
+  stops the page under the reader's pointer. Phase 20 added `touch-action: none`
+  for the drag; a wheel zoom would need more of the same to no better end.
+- **Double-click** collides with the click phase 20 deliberately made the shared
+  rule on all three brushes: a double-click's first click clears the brush. It
+  also offers no way back out.
+
+**Four buttons on the visible span.** `−` and `+` halve and double it around its
+centre, `◀` and `▶` step it sideways by half a window, and the drawn unit
+follows from the span by that caller's rule. It reaches any month in the log,
+which is what the exit criterion asks for and what an end-anchored window
+select — the cheap option, generalising Sightings' shipped `90 / 365 / all` —
+cannot do: no sequence of *last N days* windows reaches March 2024.
+
+**Zoom snaps to bucket boundaries.** Halving a span and landing its edges
+mid-month would draw a bar labelled `Mar` that is not March, which is the thing
+§12.4 already refused for the low end of a series. So the visible span is
+snapped outwards to whole buckets of the drawn unit after every zoom and pan
+step, and the pan step is a whole number of buckets.
+
+**Zoom-to-selection is offered as well, and that is not the conflation this
+section forbids.** The harm named above is that a reader who wants to look
+closer *cannot avoid* filtering; the four buttons are that independent path.
+Once it exists, letting a reader who has already brushed March jump straight to
+it costs nothing and forces nothing.
