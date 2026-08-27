@@ -109,6 +109,7 @@ class ValueStatsTool
             // MISP does not allow. Reported rather than guessed at.
             return array(
                 'level' => null,
+                'rank' => PHP_INT_MAX,
                 'sharing_group_id' => null,
                 'sharing_group_name' => null,
                 'source' => null,
@@ -129,6 +130,10 @@ class ValueStatsTool
 
         return array(
             'level' => $winner['level'],
+            // Position in `$restrictiveness`, so a caller ordering rows
+            // by audience does not have to know the order — the one
+            // place it is decided stays the one place.
+            'rank' => self::restrictionRank($winner['level']),
             'sharing_group_id' => $winner['sharing_group_id'],
             'sharing_group_name' => $winner['sharing_group_id'] !== null
                     && isset($sharingGroupNames[$winner['sharing_group_id']])

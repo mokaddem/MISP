@@ -16,11 +16,14 @@
  * @var int    $shown Rows this panel was given
  * @var int    $total The value's own count, which filtering never changes
  * @var string $noun  Optional label for the range line
+ * @var array  $sizes Optional page sizes to offer; absent for a caller
+ *                    that wants the fixed size it passed
  */
 $size = max(1, (int)($size ?? 10));
 $shown = (int)($shown ?? 0);
 $total = (int)($total ?? $shown);
 $noun = $noun ?? null;
+$sizes = $sizes ?? null;
 
 $pages = max(1, (int)ceil($shown / $size));
 $to = min($size, $shown);
@@ -46,6 +49,32 @@ $from = $shown > 0 ? 1 : 0;
             <?= h(sprintf(__('(%d in total)'), $total)) ?>
         <?php endif; ?>
     </span>
+
+    <?php if ($sizes !== null): ?>
+        <?php
+        /*
+         * How many rows a page holds is the reader's call, not the
+         * panel's. The control rewrites the pager's own
+         * `data-vp-page-size` and the script repages what is already
+         * here — no request, same as every other narrowing control on
+         * this page.
+         */
+        ?>
+        <label class="d-inline-flex align-items-center gap-1 small
+                      text-muted mb-0">
+            <span><?= __('Per page') ?></span>
+            <select class="form-select form-select-sm w-auto"
+                    data-vp-page-size-pick
+                    aria-label="<?= __('Rows per page') ?>">
+                <?php foreach ($sizes as $option): ?>
+                    <option value="<?= h($option) ?>"
+                            <?= (int)$option === $size ? 'selected' : '' ?>>
+                        <?= h($option) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+    <?php endif; ?>
 
     <nav data-vp-pager
          data-vp-page-size="<?= h($size) ?>"

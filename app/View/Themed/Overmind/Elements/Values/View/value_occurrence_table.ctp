@@ -34,12 +34,29 @@ $noWrites = __(
 
 /*
  * Rows are drawn from one page of the panel's own rows, never fetched
- * again: `00-shared.md` §6. Ten is the point past which tallying facet
- * counts in PHP over the fetched set stops being honest, so it is also
- * the point past which this control has to start telling the truth
- * about which regime the reader is in.
+ * again: `00-shared.md` §6.
+ *
+ * Sixty because that is MISP's own index page size —
+ * `AttributesController::$paginate['limit']` and `EventsController`'s
+ * both — so a reader arriving from an attribute index finds the same
+ * number of rows rather than a sixth of them.
+ *
+ * The reader can change it. `$sizes` is offered rather than fixed
+ * because the right answer depends on the screen and on what they are
+ * doing, and because the page control renders one button per page: a
+ * larger page is also what keeps that control small enough for the
+ * panel header to carry it (`22-occurrences.md` §6).
  */
-$pageSize = 10;
+$pageSize = 60;
+/*
+ * Every size offered has to leave a panel header that renders. The page
+ * control draws one button per page, so 300 rows at 60 is five pages and
+ * seven buttons, and at 150 or 300 it is fewer. A 25-row page would be
+ * twelve pages and fourteen buttons, which squeezes the subtitle to a
+ * 156px column beside the picker — measured, and the reason 25 is not on
+ * the list.
+ */
+$pageSizes = array(60, 150, 300);
 
 $view = $this;
 
@@ -101,18 +118,101 @@ $tokens = function ($row) use ($slug) {
     return implode(' ', $tokens);
 };
 
+/**
+ * One sortable token per column, so ordering compares what the column
+ * means rather than what its cell happens to read.
+ *
+ * Cell text would not do it. Three columns render a glyph and no words
+ * at all — IDS, Distribution, State — an event id sorts as `10, 9` when
+ * compared as text, and a distribution's audience has an order (`0, 4,
+ * 1, 2, 3`) that neither its label nor its level number expresses.
+ *
+ * Every token is a string built to sort lexicographically, so the script
+ * needs one comparison and no per-column knowledge: numbers are
+ * zero-padded, dates are `YmdHi` digits, text is lowercased. An empty
+ * token means the row has no value for that column, and the script puts
+ * those last in both directions — `Not set` belongs at the bottom
+ * whichever way the reader is looking.
+ *
+ * @param array $row
+ * @return array `vp-sort-<column>` => token
+ */
+$sortKeys = function ($row) {
+    $attribute = $row['Attribute'];
+    $effective = $row['effective_distribution'];
+    $pad = function ($number, $width = 12) {
+        return str_pad((string)(int)$number, $width, '0', STR_PAD_LEFT);
+    };
+    $stamp = function ($value) {
+        return empty($value) ? '' : date('YmdHi', strtotime($value));
+    };
+    /*
+     * The exception columns first when ascending: a reader sorting by
+     * State is looking for the rows that are not ordinary.
+     */
+    $state = 3;
+    if (!empty($row['proposal_count'])) {
+        $state = 1;
+    } elseif (!empty($attribute['deleted'])) {
+        $state = 2;
+    }
+    $tags = 0;
+    foreach ($row['AttributeTag'] as $attributeTag) {
+        if (empty($attributeTag['Tag']['is_galaxy'])) {
+            $tags++;
+        }
+    }
+    $context = '';
+    if (!empty($row['Object']['name'])) {
+        $context = mb_strtolower(
+            $row['Object']['name'] . ' ' . $attribute['object_relation']
+        );
+    }
+    return array(
+        'vp-sort-state' => (string)$state,
+        'vp-sort-event' => $pad($row['Event']['id']),
+        'vp-sort-org' => mb_strtolower($row['Event']['Orgc']['name']),
+        'vp-sort-type' => mb_strtolower($attribute['type']),
+        'vp-sort-category' => mb_strtolower($attribute['category']),
+        'vp-sort-ids' => empty($attribute['to_ids']) ? '0' : '1',
+        // By audience, tightest first — the order `ValueStatsTool`
+        // resolved the chain by, which is why it hands back a rank.
+        'vp-sort-distribution' => $pad($effective['rank'], 2),
+        'vp-sort-context' => $context,
+        'vp-sort-comment' => mb_strtolower((string)$attribute['comment']),
+        'vp-sort-first-seen' => $stamp($attribute['first_seen'] ?? null),
+        'vp-sort-last-seen' => $stamp($attribute['last_seen'] ?? null),
+        'vp-sort-tags' => $tags === 0 ? '' : $pad($tags, 4),
+    );
+};
+
 /*
  * What the rail matches on, and what the bulk bar's scope line counts.
  * `row_class_callable` could not carry this: a row matched on type and
  * organisation and tag at once cannot say so as a class string without
  * the reader parsing class names back into fields.
  */
-$rowData = function ($row) use ($tokens) {
-    $data = array(
+$defaultOrder = 0;
+$rowData = function ($row) use ($tokens, $sortKeys, &$defaultOrder) {
+    /*
+     * The row's position in the order the model sent — most recently
+     * modified first. Reordering the table moves the rows themselves, so
+     * clearing a column sort has to restore this rather than merely stop
+     * comparing; without it the default order is gone after one click,
+     * and `Attribute.timestamp` is not one of the twelve columns for the
+     * reader to sort back by.
+     */
+    $data = array_merge(array(
         'vp-facet' => $tokens($row),
         'vp-event' => $row['Event']['id'],
         'vp-org' => $row['Event']['Orgc']['name'],
-    );
+        'vp-sort-default' => str_pad(
+            (string)$defaultOrder++,
+            6,
+            '0',
+            STR_PAD_LEFT
+        ),
+    ), $sortKeys($row));
     /*
      * The dates the rail's ranges cut on, as the `YmdHi` digits of the
      * printed wall clock rather than epochs — a row's time is rendered
@@ -486,6 +586,14 @@ foreach ($columns as $column) {
     // column takes its heading with it.
     $field['class'] = implode(' ', $classes);
     $field['header_class'] = implode(' ', $classes);
+    /*
+     * Every column is orderable, including the three that render a glyph
+     * and no text — `$sortKeys` gives each row a token per column, so
+     * what gets compared is the column's meaning rather than its cell.
+     * `client_sort` and not `sort`: the latter is Paginator's and would
+     * reload the page.
+     */
+    $field['client_sort'] = $column['key'];
     $fields[] = $field;
 }
 
@@ -535,6 +643,7 @@ ob_start();
 
     <?= $this->element('Values/View/value_pager', array(
         'size' => $pageSize,
+        'sizes' => $pageSizes,
         'shown' => count($rows),
         'total' => $stats['total'],
     )) ?>

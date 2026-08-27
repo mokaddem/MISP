@@ -649,8 +649,36 @@
      * @param {Array<Element>} filtered
      */
     function sortRows(list, filtered) {
+        if (filtered.length < 2) {
+            return;
+        }
+        /*
+         * A column heading the reader has clicked wins over the panel's
+         * own select, and there is no panel with both.
+         *
+         * `vp-sorted-col` on the list, not `vp-sort-col`: the headings
+         * carry the latter, and writing the state under the same name
+         * would put it on the list element too — where a
+         * `[data-vp-sort-col="x"]` lookup finds the container before the
+         * button it was looking for.
+         */
+        if (list.dataset.vpSortedCol) {
+            sortByColumn(list, filtered, list.dataset.vpSortedCol,
+                list.dataset.vpSortedDir === 'desc' ? -1 : 1);
+            return;
+        }
+        /*
+         * No column sort, but a table that offers one has already had its
+         * rows moved by an earlier click — reordering is destructive, so
+         * "unsorted" has to be restored rather than merely stopped. Each
+         * row carries its server position for exactly this.
+         */
+        if (ownNode(list, '[data-vp-sort-col]')) {
+            sortByColumn(list, filtered, 'default', 1);
+            return;
+        }
         var select = ownNode(list, '[data-vp-sort]');
-        if (!select || filtered.length < 2) {
+        if (!select) {
             return;
         }
         var key = select.value;
@@ -667,6 +695,131 @@
         // the server happened to render.
         filtered.length = 0;
         Array.prototype.push.apply(filtered, ordered);
+    }
+
+    /**
+     * Order rows by the column the reader clicked.
+     *
+     * Compares `data-vp-sort-<column>`, which the template builds to sort
+     * lexicographically — zero-padded numbers, `YmdHi` dates, lowercased
+     * text — so one comparison serves every column and the script needs
+     * no knowledge of what any of them holds.
+     *
+     * **An empty token sorts last in both directions.** It means the row
+     * has no value for that column, and "no last-seen date" is not
+     * earlier than every date; putting it at the top of an ascending sort
+     * would bury the rows the reader asked to see.
+     *
+     * @param {Element} list
+     * @param {Array<Element>} filtered
+     * @param {string} column Column key, or `default` for server order
+     * @param {number} sign 1 ascending, -1 descending
+     */
+    function sortByColumn(list, filtered, column, sign) {
+        var key = 'vpSort' + column.replace(
+            /-([a-z])/g,
+            function (m, c) { return c.toUpperCase(); }
+        ).replace(/^([a-z])/, function (m, c) { return c.toUpperCase(); });
+        var ordered = filtered.slice().sort(function (a, b) {
+            var x = a.dataset[key] || '';
+            var y = b.dataset[key] || '';
+            if (x === y) {
+                return 0;
+            }
+            if (x === '') {
+                return 1;
+            }
+            if (y === '') {
+                return -1;
+            }
+            return x < y ? -sign : sign;
+        });
+        ordered.forEach(function (row) {
+            if (row.parentNode) {
+                row.parentNode.appendChild(row);
+            }
+        });
+        filtered.length = 0;
+        Array.prototype.push.apply(filtered, ordered);
+    }
+
+    /**
+     * Cycle one column heading: ascending, descending, then back to the
+     * order the server sent.
+     *
+     * Three states rather than the two MISP's paginated headings offer,
+     * because this table's default order is itself meaningful — most
+     * recently modified first — and `Attribute.timestamp` is not one of
+     * the twelve columns, so without a way back the reader could not
+     * return to it.
+     *
+     * @param {Element} button A [data-vp-sort-col]
+     */
+    function toggleColumnSort(button) {
+        var list = button.closest('[data-vp-list]');
+        if (!list) {
+            return;
+        }
+        var column = button.dataset.vpSortCol;
+        if (list.dataset.vpSortedCol !== column) {
+            list.dataset.vpSortedCol = column;
+            list.dataset.vpSortedDir = 'asc';
+        } else if (list.dataset.vpSortedDir === 'asc') {
+            list.dataset.vpSortedDir = 'desc';
+        } else {
+            delete list.dataset.vpSortedCol;
+            delete list.dataset.vpSortedDir;
+        }
+        markSortedColumn(list);
+        // A reorder does not change how many rows there are, but page
+        // three of a new order is not the rows the reader was looking at.
+        listPages.set(list, 1);
+        refreshList(list);
+    }
+
+    /**
+     * `aria-sort` on the sorted heading and nowhere else — the attribute
+     * a screen reader announces, and the hook the caret styling keys off,
+     * so there is one source of truth for which column is ordered.
+     *
+     * @param {Element} list
+     */
+    function markSortedColumn(list) {
+        var column = list.dataset.vpSortedCol || null;
+        var direction = list.dataset.vpSortedDir === 'desc'
+            ? 'descending'
+            : 'ascending';
+        list.querySelectorAll('[data-vp-sort-col]').forEach(function (button) {
+            var cell = button.closest('th');
+            if (!cell) {
+                return;
+            }
+            if (button.dataset.vpSortCol === column) {
+                cell.setAttribute('aria-sort', direction);
+            } else {
+                cell.removeAttribute('aria-sort');
+            }
+        });
+    }
+
+    /**
+     * Repage what is already on screen at a size the reader picked.
+     *
+     * @param {Element} select A [data-vp-page-size-pick]
+     */
+    function changePageSize(select) {
+        var list = select.closest('[data-vp-list]');
+        if (!list) {
+            return;
+        }
+        var pager = ownNode(list, '[data-vp-pager]');
+        if (!pager) {
+            return;
+        }
+        pager.dataset.vpPageSize = select.value;
+        // Page four of sixty-row pages is not page four of twenty-five.
+        listPages.set(list, 1);
+        refreshList(list);
     }
 
     /**
@@ -4581,6 +4734,12 @@
                 toggleTypeFilter(chip);
                 return;
             }
+
+            var sortHeader = event.target.closest('[data-vp-sort-col]');
+            if (sortHeader) {
+                toggleColumnSort(sortHeader);
+                return;
+            }
             if (event.target.closest('[data-vp-filter-clear]')) {
                 var active = document.querySelector('.vp-type-chip.active');
                 if (active) {
@@ -4699,6 +4858,12 @@
 
             if (event.target.matches && event.target.matches('[data-vp-col]')) {
                 toggleColumn(event.target);
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-page-size-pick]')) {
+                changePageSize(event.target);
+                return;
             }
 
             if (event.target.matches

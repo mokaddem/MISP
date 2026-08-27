@@ -25,6 +25,28 @@
                 } else {
                     $header_data = $paginator->sort($header['sort']);
                 }
+            } elseif (!empty($header['client_sort'])) {
+                /*
+                 * `sort` above is Paginator's: it builds a link carrying
+                 * ?sort=&direction= and reloads. A panel that pages
+                 * client-side over rows it already holds cannot use that
+                 * — the request would go somewhere with no idea what the
+                 * fragment was showing. This renders the same affordance
+                 * as a button naming its column, for a script on the page
+                 * to act on, and reuses `sortable-header`/`sort-icon` so
+                 * it looks like every other sortable heading in MISP.
+                 *
+                 * Guarded and new, so no existing caller of this element
+                 * reaches it: none passes `client_sort`.
+                 */
+                $header_data = sprintf(
+                    '<button type="button" class="vp-th-sort"'
+                        . ' data-vp-sort-col="%s">'
+                        . '<span class="sortable-header">%s'
+                        . '<i class="sort-icon"></i></span></button>',
+                    h($header['client_sort']),
+                    empty($header['name']) ? '' : $header['name']
+                );
             } else {
                 if (!empty($header['element']) && in_array($header['element'], ['selector', 'checkbox'])) {
                     $selectAllCheckbox = true;

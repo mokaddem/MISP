@@ -44,28 +44,28 @@ class ValueProfile extends AppModel
      * sharing groups and tags is not a slow page but a page that does
      * not arrive.
      *
-     * **100, because that is what the panel can draw.** The page control
-     * renders one button per page inline, so rows/10 buttons share the
-     * header with its subtitle: measured at a 1500px viewport, twelve
-     * buttons still leave the subtitle readable on two lines, twenty
-     * squeeze it to a 16px column, and twenty-five push the whole panel
-     * into horizontal overflow. 100 rows is ten pages, which is twelve
-     * buttons. A cap this phase chooses must not put the reader in a
-     * regime the panel cannot render.
+     * **300.** Two things bound it, and neither is the query — nothing
+     * here scales with occurrence count.
      *
-     * That ceiling is the page control's, not the query's — nothing here
-     * scales with occurrence count. Raising the cap is worth doing and
-     * needs the pager windowed first (first/last plus a window around
-     * the current page), which is the change §14.7 says lands with real
-     * `Paginator` inside the ajax action. The shipped fixture value
-     * `45.155.205.233` already draws 748 rows and 77 buttons, so that
-     * defect predates this phase; the cap is chosen so going live does
-     * not make it the common case.
+     * The page control renders one button per page inline, so the button
+     * count is rows ÷ page size and it shares the panel header with the
+     * subtitle. Measured at a 1500px viewport: twelve buttons leave the
+     * subtitle readable on two lines, twenty squeeze it to a 16px column,
+     * twenty-five push the panel into horizontal overflow. At the default
+     * page size of 60 this cap is five pages, which is seven buttons; at
+     * the smallest the reader can pick, 25, it is twelve.
+     *
+     * The other bound is the fragment. A row costs roughly 5.7 KB of
+     * markup, so 300 rows is about 1.7 MB — against the 5.9 MB that
+     * 1,000 rows of `443` produced when this was first written, which is
+     * a fragment that does not arrive. Raising it further is now a
+     * question about weight rather than about the pager, which is the
+     * more honest place for the limit to sit.
      *
      * When the cap bites, the panel says so — §14.6 keeps cap notices,
      * because a cap is not a permission.
      */
-    const OCCURRENCE_CAP = 100;
+    const OCCURRENCE_CAP = 300;
 
     /**
      * Most recent first. The table's order was never stated while the
