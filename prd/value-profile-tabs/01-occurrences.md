@@ -22,9 +22,12 @@ got right against fixture data and wrong against a database:
   column is *inherit* for 99.99% of real attributes, so §6's distribution facet
   and §7's Distribution column both read the attribute-object-event conjunction
   instead, and the sharing-group facet names groups reached through the event.
-- **§6's group list gains a tenth, `Time`**: two working date ranges over the
-  attribute's `timestamp` and its event's `publish_timestamp`, each under a
-  32px brushable strip that picks the range and shows how it is bucketed.
+- **§6's group list gains two, so its nine groups are eleven.** `Object` sits
+  beside Type, counting the object template each occurrence is in and offering
+  `Standalone attribute` as its complement, so it partitions the rows (§16).
+  `Time` carries two working date ranges over the attribute's `timestamp` and
+  its event's `publish_timestamp`, each under a 32px brushable strip that picks
+  the range and shows how it is bucketed (§13.2, §15).
 - **§6's first/last-seen date inputs stay disabled**, and now say why rather than
   only that — they are an interval, so cutting them is an overlap test rather
   than the point test the two ranges above them do.

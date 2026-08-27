@@ -35,6 +35,17 @@ $defined = array(
         'title' => __('Type'),
         'icon' => 'misp-icon misp-icon-attribute misp-simple',
     ),
+    /*
+     * Beside Type, because they answer the same shape of question — what
+     * kind of thing is this row — and differ in a way the type alone
+     * hides: one `ip-dst` standalone, one inside a `domain-ip` and one
+     * inside a `network-socket` are three different findings.
+     */
+    array(
+        'key' => 'object',
+        'title' => __('Object'),
+        'icon' => 'misp-icon misp-icon-object misp-simple',
+    ),
     array(
         'key' => 'category',
         'title' => __('Category'),

@@ -272,6 +272,7 @@ class ValueStatsTool
         $groups = array(
             'organisation' => array(),
             'type' => array(),
+            'object' => array(),
             'category' => array(),
             'ids' => array(),
             'distribution' => array(),
@@ -297,6 +298,39 @@ class ValueStatsTool
                 self::facetToken($attribute['type']),
                 $attribute['type']
             );
+            /*
+             * The object template the occurrence sits in — `domain-ip`,
+             * `network-socket` — which is a different question from its
+             * type and one the type facet cannot answer: the same
+             * `ip-dst` turns up standalone, inside a `domain-ip` and
+             * inside a `network-socket`, and those are three different
+             * things to have found.
+             *
+             * The template's name and not the object's id: a value's
+             * occurrences are almost never in the *same* object, so
+             * per-instance counts would all be one.
+             *
+             * Standalone rows get a value of their own rather than no
+             * token, so the group partitions the rows and the reader can
+             * ask for the complement — on `8.8.8.8` that is eleven of
+             * twenty-three, which a group summing to twelve could not
+             * have offered. `standalone` cannot collide with a slugged
+             * template name unless somebody ships an object template
+             * called "standalone".
+             */
+            if (empty($row['Object']['name'])) {
+                self::bump(
+                    $groups['object'],
+                    'standalone',
+                    __('Standalone attribute')
+                );
+            } else {
+                self::bump(
+                    $groups['object'],
+                    self::facetToken($row['Object']['name']),
+                    $row['Object']['name']
+                );
+            }
             self::bump(
                 $groups['category'],
                 self::facetToken($attribute['category']),

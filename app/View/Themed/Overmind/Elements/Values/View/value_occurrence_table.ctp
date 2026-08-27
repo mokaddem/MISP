@@ -86,6 +86,12 @@ $tokens = function ($row) use ($slug) {
     $tokens = array(
         'organisation:' . $row['Event']['Orgc']['id'],
         'type:' . $slug($attribute['type']),
+        // The object template, or the standalone value the rail counts
+        // so that group partitions the rows rather than covering only
+        // the occurrences that happen to sit in one.
+        'object:' . (empty($row['Object']['name'])
+            ? 'standalone'
+            : $slug($row['Object']['name'])),
         'category:' . $slug($attribute['category']),
         'ids:' . (!empty($attribute['to_ids']) ? 'set' : 'unset'),
     );

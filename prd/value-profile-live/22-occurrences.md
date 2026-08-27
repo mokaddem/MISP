@@ -54,7 +54,7 @@ is one of §14.12's four blocked rows. Phase 22 is one row of the board.
 | Aggregation | `app/Lib/Tools/ValueStatsTool.php` | new |
 | Endpoint | `ValuesController::viewOccurrenceTable` | rewired |
 | Fetcher | `MispAttribute::fetchAttributesSimple` | extended, §7 |
-| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13, §14, §15 |
+| Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13–§16 |
 | Interactions | `app/webroot/js/value-profile.js` | extended, §13.2, §14.2, §15 |
 | Shared header | `IndexTable/headers.ctp` | one guarded key, §14.2 |
 | Pager | `value_pager.ctp` | one optional slot, §14.1 |
@@ -1205,3 +1205,69 @@ programmatic scroll, so the events land where the element used to be.
 coordinates, which is how it was told apart from a real hit-testing problem. The
 harness uses a viewport tall enough not to scroll. Worth recording because the
 next person to drive a brush will hit it.
+
+---
+
+## 16. After review: an Object facet
+
+**The comment.** *"Another filter we could add is the object itself. For
+`8.8.8.8`, I see we can currently filter on ip-dst, ip-src and ip-dst|port.
+Being able to filter on object domain-ip, network-socket and
+paloalto-threat-event would make sense as well."*
+
+A tenth group in the rail, keyed `object`, counting the object **template** each
+occurrence sits in. On `8.8.8.8`:
+
+| Object | Rows |
+|---|---|
+| Standalone attribute | 11 |
+| domain-ip | 5 |
+| paloalto-threat-event | 5 |
+| network-socket | 2 |
+
+**It sits directly under Type**, because the two answer the same shape of
+question — *what kind of thing is this row* — and differ in a way the type alone
+hides. Sixteen of those twenty-three rows are `ip-dst`; that one type is
+standalone on some, inside a `domain-ip` on others and inside a
+`network-socket` on two more, and those are three different findings about the
+same value. The design order in `01-occurrences.md` §6 moves from nine groups to
+ten to make room for it.
+
+**The template's name, not the object's id.** A value's occurrences are almost
+never in the *same* object, so per-instance counts would be a list of ones.
+
+**Standalone rows get a value of their own.** Without it the group would cover
+twelve of `8.8.8.8`'s twenty-three rows and the reader could not ask for the
+complement — *show me the occurrences that are not in an object* is as real a
+question as the other three. With it the group **partitions** the rows, which
+is the property the coherence check asserts of every group that claims to.
+The row is labelled *Standalone attribute*, the same words the Context column
+already uses, and it is only offered when some row is standalone: every
+occurrence of `github.com` sits in a `url-honeypot-detection` object, so that
+value's group is one template and no standalone row.
+
+The token is `object:standalone`, which cannot collide with a slugged template
+name unless somebody ships an object template called "standalone".
+
+**No new query.** `Object.name` is already on the row from the `contain` the row
+fetch has carried since §4.1.
+
+### 16.1 What was verified
+
+`8.8.8.8` joins the verification set — it is the value the request named, and
+it is the only one that carries three different object templates. **20 structural
+and 17 browser assertions** for this group alone, inside the 495-assertion
+suite:
+
+- The three templates named in the request are offered, with the counts the
+  database gives them, and the four values sum to the row count.
+- Every row carries exactly one `object:` token, and the set of tokens the rows
+  carry is exactly the set the rail offers — neither a facet that matches
+  nothing nor a row the rail cannot reach.
+- Ticking each value leaves exactly the count it claimed, **and the rows left
+  are checked against the Context column** rather than against the tokens that
+  filtered them — the cell the reader would be reading.
+- Two templates together union; a template and a type conjoin. The same rules
+  every other key follows.
+- The inverse case: a value entirely inside objects offers no standalone row and
+  still partitions.
