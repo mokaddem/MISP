@@ -79,6 +79,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 21 | Zooming the activity chart | `phases/21-chart-zoom.md` (§13) | built |
 | — | Going live: the wiring contract | `live/00-contract.md` (§14) | **contract only — nothing is wired to the database** |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
+| — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 
 Then the live campaign, one phase per tab. **This is the table to update as each
 lands** — it is the only tab-level record, and `live/00-contract.md` §14.12
@@ -87,8 +88,8 @@ goes first argues why in its own document.
 
 | Phase | Converts | Document | Status |
 |---|---|---|---|
-| 22+ | Overview | — | not started |
-| 22+ | Verdict | — | not started |
+| 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
+| — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
 | 22+ | Occurrences | — | not started |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
@@ -613,7 +614,11 @@ new UI, and gives tooltips and axes for free when the data becomes real.
   would land on the sparse state.
 - A verdict scoring engine. The page displays a verdict; it does not compute one.
   The weighting-profile name and "not stored, not synchronised" note in the
-  artboard are rendered as given.
+  artboard are rendered as given. This is why the Verdict tab's live phase is
+  **blocked** rather than merely unstarted: it has no data source to swap in,
+  because the fixture there stands in for an algorithm rather than for a query.
+  Scope is recorded in
+  [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md).
 
 ---
 

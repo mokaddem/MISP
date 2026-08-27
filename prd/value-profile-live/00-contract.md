@@ -421,7 +421,10 @@ account for.
 - **The value table itself.** §14.3 prepares for it; building it is another
   feature's work.
 - **A verdict scoring engine.** Still out, as §5 has it. §14 wires the display
-  of a verdict; what computes one is not decided by this contract.
+  of a verdict; what computes one is not decided by this contract — and because
+  nothing computes one, the four rows in §14.12 that render a verdict are
+  blocked rather than merely unstarted. See
+  [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md).
 - **The decay aggregation rule.** Named, given an owner in
   `ValueDecayTool`, and still undecided.
 
@@ -442,13 +445,13 @@ document that filled it.
 | Overview | `viewOccurrences` | `value_occurrences` | — | — | — | — |
 | Overview | `viewContext` | `value_context` | — | — | — | — |
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | — |
-| Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | — |
+| Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
 | Overview | `viewSightings` | `value_sightings` | — | — | — | — |
 | Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
 | Overview | `viewExternal` | `value_external` | — | — | — | — |
-| Verdict | `viewVerdict` | `value_verdict` | — | — | — | — |
-| Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | — |
-| Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | — |
+| Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
+| Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
+| Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
 | Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | — | — | — | — |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | — | — | — | — |
 | Sightings | `viewSightingList` | `value_sighting_list` | — | — | — | — |
@@ -470,6 +473,17 @@ Every row is `—` because nothing is wired. A row moves off `—` only when its
 phase document records the same numbers, so the two cannot disagree without one
 of them being visibly blank.
 
+**Four rows are blocked rather than unstarted**, and they are not all on the
+Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
+top three signals, so it needs the engine as much as the tab does. They cannot
+be wired at all until a verdict engine exists — nothing computes a verdict
+today, so the fixture there stands in for an algorithm rather than for a query.
+Scope is in
+[`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md),
+which needs its own PRD and grilling session before a phase can claim these
+rows. **A live phase that touches the Overview tab must leave that one card
+on the fixture and say so**, rather than treating the tab as indivisible.
+
 Two rows to watch, both named before the campaign starts rather than found
 during it. `viewVerdict` renders one of two elements depending on the value's
 disposition, so it is one endpoint and two conversions. And `viewHistory` takes
@@ -484,6 +498,7 @@ its decisions and deferrals live; this is only the map.
 | Phase | Converts | Document | Status |
 |---|---|---|---|
 | 22 | *first tab, not yet chosen* | — | not started |
+| — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
 and the argument for going first differs by tab: Occurrences is the one whose
