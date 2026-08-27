@@ -47,10 +47,15 @@ here exists to make each of those a local change.
 **Read this first.** §1.2 describes the original skeleton pass; the document has
 since grown to twenty-one phases and this subsection is the current state.
 
-Everything built so far is **fixture-first**: real routing, real templates, real
-ajax endpoints, real interactions — all reading `ValueProfileFixture`. No panel
-issues a model query and nothing writes to the database. All nine tabs render
-their own content; nothing on the page is a placeholder.
+Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
+endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
+render their own content; nothing on the page is a placeholder.
+
+**Phase 22 started the live campaign.** The Occurrences tab now reads the
+database; the other eight tabs still read the fixture, so the two regimes sit
+side by side until the campaign finishes. **Nothing writes**, on either side.
+`live/00-contract.md` §14.12 is the panel-level record — one of twenty-seven
+endpoints has moved.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
@@ -77,7 +82,8 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 19 | History at occurrence scale | `phases/19-history-scale.md` (§11) | built |
 | 20 | One brush primitive, three callers | `phases/20-one-brush.md` (§12) | built |
 | 21 | Zooming the activity chart | `phases/21-chart-zoom.md` (§13) | built |
-| — | Going live: the wiring contract | `live/00-contract.md` (§14) | **contract only — nothing is wired to the database** |
+| — | Going live: the wiring contract | `live/00-contract.md` (§14) | the contract; §14.12's board says which panels have moved |
+| 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 
@@ -90,7 +96,7 @@ goes first argues why in its own document.
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
-| 22+ | Occurrences | — | not started |
+| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 100 rows by the page control, §12.1 |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
@@ -101,12 +107,17 @@ goes first argues why in its own document.
 #### What a fresh session must not break
 
 - **Nothing writes.** Every control that would write renders visibly disabled.
-- **Fixture-first.** Panels read `ValueProfileFixture`, not models. §14 is the
-  contract for changing that; until a live phase runs, this holds.
-- **Four demo values, all four states.** `185.234.219.24` malicious,
-  `104.21.34.198` conflicted, `8.8.8.8` benign, `45.155.205.233` the
-  occurrence-scale case, and anything else the sparse unknown page. A tab that
-  supplies only one of them is not done (`tabs/00-shared.md` §10).
+- **Fixture-first, except where a live phase says otherwise.** Panels read
+  `ValueProfileFixture` unless §14.12's board records them converted. §14 is the
+  contract for changing that, and a change is a phase with a document.
+- **Four demo values, all four states — on the fixture-backed panels.**
+  `185.234.219.24` malicious, `104.21.34.198` conflicted, `8.8.8.8` benign,
+  `45.155.205.233` the occurrence-scale case, and anything else the sparse
+  unknown page. A tab that supplies only one of them is not done
+  (`tabs/00-shared.md` §10). **A converted panel shows those values nothing**,
+  because a real instance holds no such attributes and no seeder is built
+  (§14.8) — so a live phase names the real values it verified against instead,
+  and `live/22-occurrences.md` §10.1 is the pattern.
 - **Additive changes to shared code only**, guarded, with existing callers
   re-verified — now a three-part test in §14.7.
 - **Both themes**, and the §6.1 trap: assert `--vp-mal` resolves before
@@ -120,7 +131,8 @@ so it need not be reassembled from fourteen sections.
 
 | Item | Where | Note |
 |---|---|---|
-| §14.6's nine required changes | §14.6 | **documented, not applied.** Viewer-scoped counts withdraw the ACL notes, the facet-vs-banner sentence and phase 19's suppressed History state |
+| §14.6's nine required changes | §14.6 | **four applied by phase 22** (the Occurrences tab's ACL band, its facet-vs-banner sentence, its ACL-hidden state, its counts). Five remain, each owned by the phase that converts its panel |
+| The page control cannot draw a large table | `live/22-occurrences.md` §12.1 | one page button per page, inline: past ~20 the panel header collapses and overflows horizontally. Predates phase 22 — `45.155.205.233` shows it today — and is what caps the live Occurrences table at 100 rows |
 | The decay aggregation rule | §14.5, `tabs/02-sightings.md` §11/§16 | ten per-attribute curves into one per-value score. Undecided; owner is `ValueDecayTool` |
 | Opinion colour contradiction | `tabs/05-analyst.md` §11/§15 | the Overview preview paints "Agree" green, the Verdict histogram paints >50 red. The Overview card is the one that should change |
 | Markdown in notes | `tabs/05-analyst.md` §11 | stored, never rendered; no per-note flag, so enabling it is instance-wide |

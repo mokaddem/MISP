@@ -15,11 +15,13 @@ and the first live phase is 22.
 
 ## 14. Going live — the wiring contract
 
-Every phase from 8 onwards has been fixture-first: real templates, real ajax
-endpoints, real interactions, and no model query behind any of them. All nine
-tabs now render that way. This section is the contract for taking them live —
-the rules a phase follows when it replaces `ValueProfileFixture` with the
-database, and the reasoning behind each one.
+Every phase from 8 to 21 was fixture-first: real templates, real ajax endpoints,
+real interactions, and no model query behind any of them. All nine tabs render
+that way still, with one exception — **phase 22 took the Occurrences tab live**,
+and §14.12's board is where to see how much of the page that is (one row of
+twenty-seven). This section is the contract for taking the rest live — the rules
+a phase follows when it replaces `ValueProfileFixture` with the database, and the
+reasoning behind each one.
 
 **It is not a phase.** §7 through §13 are each a phase brief; this is what they
 inherit, in the role `value-profile-tabs/00-shared.md` played for the fixture
@@ -277,13 +279,13 @@ that own them, not defects:
 | §2.3 fixture contract `:147` | `occurrence_acl_note` → *"Showing 6 of 10 … 4 are hidden by distribution rules"* | key removed |
 | §2.3 fixture contract `:165` | verdict `acl_note` → *"4 occurrences you cannot see were excluded"* | key removed |
 | §2.6, Overview preview panel footer | `.vp-acl-note` band carrying the truncation note | band removed |
-| `01-occurrences.md` §7, tab table footer | `.vp-acl-note` → *"Showing 6 of 10 occurrences. 4 are hidden by …"* | band removed |
-| `01-occurrences.md` §6, facet rail | `.vp-facet-note` explaining that the banner counts 10 while the rail counts 4 | sentence removed — there is no longer a gap to explain |
-| `01-occurrences.md` §8, states | *"everything hidden by ACL"* as a distinct rendered state | collapses into the empty state |
+| `01-occurrences.md` §7, tab table footer | `.vp-acl-note` → *"Showing 6 of 10 occurrences. 4 are hidden by …"* | band removed — **applied, phase 22** |
+| `01-occurrences.md` §6, facet rail | `.vp-facet-note` explaining that the banner counts 10 while the rail counts 4 | sentence removed — there is no longer a gap to explain — **applied, phase 22** |
+| `01-occurrences.md` §8, states | *"everything hidden by ACL"* as a distinct rendered state | collapses into the empty state — **applied, phase 22** |
 | §8.7, History footer graft | *"four of the ten occurrences are ACL-hidden"* | graft withdrawn |
 | §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn |
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
-| tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction |
+| tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's** |
 
 **The one exception: a permanent line on the Verdict tab.** Always shown, on
 every value, identical for every reader — including values with nothing hidden.
@@ -452,7 +454,7 @@ document that filled it.
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
-| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | — | — | — | — |
+| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 8 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | — | — | — | — |
 | Sightings | `viewSightingList` | `value_sighting_list` | — | — | — | — |
 | Sightings | `viewSightingDecay` | `value_sighting_decay` | — | — | — | — |
@@ -469,9 +471,15 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Every row is `—` because nothing is wired. A row moves off `—` only when its
-phase document records the same numbers, so the two cannot disagree without one
-of them being visibly blank.
+One row is filled; the rest are `—` because nothing else is wired. A row moves
+off `—` only when its phase document records the same numbers, so the two cannot
+disagree without one of them being visibly blank.
+
+`Q` for the one converted row is its **ceiling**: eight on a cold ACL-conditions
+cache, five or six once warm, and two on a value with no occurrence the viewer
+may see. Two of the eight are `SharingGroup::authorizedIds` inside
+`buildConditions()` rather than queries the panel issues. `22-occurrences.md`
+§4.1 has the breakdown and §10.2 the measurements.
 
 **Four rows are blocked rather than unstarted**, and they are not all on the
 Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
@@ -497,7 +505,7 @@ its decisions and deferrals live; this is only the map.
 
 | Phase | Converts | Document | Status |
 |---|---|---|---|
-| 22 | *first tab, not yet chosen* | — | not started |
+| 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
@@ -506,3 +514,24 @@ live shape is best understood, Sightings has the hardest live-data story of the
 nine (`value-profile-tabs/02-sightings.md` §11), and Enrichment cannot go live
 at all without the persistence §7.9 found missing. Whichever goes first states
 why in its own document.
+
+**What phase 22 leaves behind for the phases after it.** Three files every later
+phase inherits — `app/Model/Value.php` (the §14.3 seam),
+`app/Model/ValueProfile.php` (the per-panel facade) and
+`app/Lib/Tools/ValueStatsTool.php` — plus four findings that change what a later
+phase should expect:
+
+- **`fetchAttributes` cannot serve this page.** It forces `deleted = 0` for
+  anyone without `perm_sync` and `object_id = 0` without `flatten`, so it drops
+  soft-deleted occurrences and every occurrence inside an object.
+  `fetchAttributesSimple` has neither behaviour. §14.4's tier-1 table lists both
+  without distinguishing them; only one of them works.
+- **`fetchAttributesSimple` now takes `order`, `limit` and `page`**, guarded, so
+  a later phase does not have to bypass it to paginate.
+- **The page control cannot draw a large table**, and could not before this
+  phase either: it renders one button per page inline, and past ~20 buttons the
+  panel header collapses and overflows horizontally. This is what caps the
+  Occurrences table at 100 rows, and it will cap every other paginating panel
+  the same way. `22-occurrences.md` §12.1.
+- **§14.10's `fetchSimpleEvents` note is now a measurement**: 56 events, one
+  query, 1 ms.

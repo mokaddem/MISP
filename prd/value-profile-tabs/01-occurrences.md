@@ -6,6 +6,15 @@ implementation departs from the sections above.
 Artifact: <https://claude.ai/code/artifact/b9ab9ec9-e3cf-42e4-86b7-d53242c9447f>
 Depends on `00-shared.md`.
 
+**Went live in phase 22** —
+[`../value-profile-live/22-occurrences.md`](../value-profile-live/22-occurrences.md).
+Four things stated below no longer render, all of them §14.6's viewer-scoped-count
+rule rather than defects: §6's `.vp-facet-note` banner-versus-rail sentence, §7's
+`.vp-acl-note` table footer, §8's *"everything hidden by ACL"* state, and §5's
+`banner_note` and `occurrence_acl_note` fixture keys. In their place §7's footer
+carries a **cap** notice, because the live table shows at most 100 rows and says
+so. §10's list of what live data would hit is answered there.
+
 ## 1. What ships
 
 **A counted facet rail beside the table, so the shape of the value's
