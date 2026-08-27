@@ -100,14 +100,19 @@ $spark = $facets['seen_spark'];
 $sparkMax = empty($spark) ? 1 : max(1, max($spark));
 
 /*
- * A date range over a column that is frequently empty needs to say so,
- * and the filter itself is not wired in this pass — §9 lists what does
- * work, and this is not on it. Inert-but-live-looking is the one thing
- * a page of honest states cannot afford.
+ * Still disabled, and now it has to say why rather than only that: two
+ * working date ranges sit directly above it, so "not wired yet" would
+ * read as an oversight. It is a different question. `timestamp` and
+ * `publish_timestamp` are instants, and cutting them is a point-in-range
+ * test; first/last seen is an *interval*, and the question a reader asks
+ * of it — "was this live during my window" — is an overlap test, which
+ * the range filter above does not do.
  */
 $seenDisabled = __(
-    'Date filtering is not wired in this pass — the sparkline and the'
-    . ' counts above describe the same set of rows.'
+    'Not a date cut like the two above: first and last seen are an'
+    . ' interval, so filtering them means asking which occurrences'
+    . ' overlap a window rather than which fall inside one. Not wired'
+    . ' in this pass.'
 );
 
 $hasState = !empty($groups['state']) || !empty($facets['deleted']);
@@ -174,6 +179,127 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                 'values' => $groups[$group['key']],
             )) ?>
         <?php endforeach; ?>
+
+        <?php
+        /*
+         * Two dates a reader genuinely cuts on, and they are different
+         * questions: `timestamp` is when somebody last touched the
+         * attribute, `publish_timestamp` is when its event was last
+         * released. An occurrence edited yesterday on an event published
+         * last year is a different thing from the reverse, and neither
+         * is answerable from the other.
+         *
+         * Ranges rather than facet checkboxes because a date has no
+         * vocabulary to tick, and both are wired — unlike the
+         * first/last-seen control below, which needs an overlap test
+         * rather than a point test and stays disabled.
+         *
+         * The inputs start empty and carry the span as `min`/`max`. A
+         * control pre-filled with the whole span looks like a filter
+         * already applied, and "no bound" must not render the same as
+         * "the widest bound".
+         */
+        $ranges = array(
+            array(
+                'key' => 'timestamp',
+                'label' => __('Attribute last modified'),
+                'span' => $facets['time_spans']['timestamp'],
+                'absent' => __('No occurrence here carries a'
+                    . ' modification time.'),
+                'note' => null,
+            ),
+            array(
+                'key' => 'published',
+                'label' => __('Event published'),
+                'span' => $facets['time_spans']['published'],
+                'absent' => __('None of these occurrences sits on a'
+                    . ' published event.'),
+                /*
+                 * An unpublished event has no publication date, so a cut
+                 * on this drops those rows entirely. How many belongs
+                 * beside the control rather than in the reader's head.
+                 */
+                'note' => empty($facets['published_unset'])
+                    ? null
+                    : sprintf(
+                        __(
+                            '%d occurrences sit on events that were'
+                            . ' never published, and a date cut here'
+                            . ' removes them.'
+                        ),
+                        $facets['published_unset']
+                    ),
+            ),
+        );
+        ?>
+        <div class="vp-facetgrp">
+            <div class="vp-subhead">
+                <i class="fas fa-clock me-1"></i><?= __('Time') ?>
+            </div>
+            <div class="d-flex flex-column gap-3">
+                <?php foreach ($ranges as $range): ?>
+                    <?php if ($range['span'] === null): ?>
+                        <?php
+                        /*
+                         * No row carries this date, so there is nothing
+                         * to bound. A live-looking control over a column
+                         * that is empty for every row is the one thing
+                         * this page's rules rule out.
+                         */
+                        ?>
+                        <div>
+                            <div class="small text-muted mb-1">
+                                <?= h($range['label']) ?>
+                            </div>
+                            <div class="small text-muted">
+                                <?= h($range['absent']) ?>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div>
+                            <div class="small text-muted mb-1">
+                                <?= h($range['label']) ?>
+                            </div>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control"
+                                       data-vp-range-from="<?=
+                                           h($range['key']) ?>"
+                                       min="<?= h($range['span']['from']) ?>"
+                                       max="<?= h($range['span']['to']) ?>"
+                                       aria-label="<?= h(sprintf(
+                                           __('%s from'),
+                                           $range['label']
+                                       )) ?>">
+                                <span class="input-group-text">
+                                    <?= __('to') ?>
+                                </span>
+                                <input type="date" class="form-control"
+                                       data-vp-range-to="<?=
+                                           h($range['key']) ?>"
+                                       min="<?= h($range['span']['from']) ?>"
+                                       max="<?= h($range['span']['to']) ?>"
+                                       aria-label="<?= h(sprintf(
+                                           __('%s to'),
+                                           $range['label']
+                                       )) ?>">
+                            </div>
+                            <div class="small text-muted mt-1">
+                                <?= h(sprintf(
+                                    __('%1$s to %2$s'),
+                                    $range['span']['from'],
+                                    $range['span']['to']
+                                )) ?>
+                            </div>
+                            <?php if ($range['note'] !== null): ?>
+                                <div class="small text-muted mt-1">
+                                    <?= h($range['note']) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
 
         <?php
         /*

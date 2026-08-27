@@ -152,6 +152,10 @@
      *     input[data-vp-reveal]      reveals rows hidden by that token
      *     tr[data-vp-time]           the row's own `YmdHi` digits
      *     [data-vp-filter-from|-to]  period bounds against that time
+     *     tr[data-vp-times]          `key:YmdHi` pairs, for a panel that
+     *                                cuts on more than one date
+     *     [data-vp-range-from|-to]   bounds against one of those keys,
+     *                                named by the attribute's value
      *     [data-vp-pager]            page control, data-vp-page-size
      *     [data-vp-list-empty]       shown when a filter empties the list
      *
@@ -343,6 +347,46 @@
     }
 
     /**
+     * The same thing again, but named, for a panel that filters on more
+     * than one date at once — the Occurrences rail cuts on when an
+     * attribute was last modified *and* on when its event was published,
+     * and those are two independent questions about one row.
+     *
+     * Named rather than a second unnamed pair because there is no limit
+     * on how many dates a row can carry, and separate from `activePeriod`
+     * rather than a generalisation of it because the unnamed period has a
+     * caller already (`value_history`'s audit rail) whose behaviour must
+     * not change to add this.
+     *
+     * @param {Element} list
+     * @return {Object} key => {from, to}
+     */
+    function activeRanges(list) {
+        var active = {};
+        var read = function (selector, edge, fill) {
+            list.querySelectorAll(selector).forEach(function (input) {
+                var key = input.dataset[
+                    edge === 'from' ? 'vpRangeFrom' : 'vpRangeTo'
+                ];
+                if (!key) {
+                    return;
+                }
+                var at = boundDigits(input.value, fill);
+                if (at === null) {
+                    return;
+                }
+                if (!active[key]) {
+                    active[key] = {from: null, to: null};
+                }
+                active[key][edge] = at;
+            });
+        };
+        read('[data-vp-range-from]', 'from', '0000');
+        read('[data-vp-range-to]', 'to', '2359');
+        return active;
+    }
+
+    /**
      * @param {Element} list
      * @param {string} selector
      * @param {string} fill Clock digits for a bound given as a date
@@ -350,10 +394,24 @@
      */
     function periodBound(list, selector, fill) {
         var input = list.querySelector(selector);
-        if (!input || input.value === '') {
+        return input ? boundDigits(input.value, fill) : null;
+    }
+
+    /**
+     * One date or datetime control's value as the `YmdHi` integer the
+     * rows carry, or null when it places no bound. A `type="date"` input
+     * gives eight digits and is filled out to the start or end of that
+     * day, so a one-day range holds the whole day.
+     *
+     * @param {string} value
+     * @param {string} fill Clock digits for a bound given as a date
+     * @return {number|null}
+     */
+    function boundDigits(value, fill) {
+        if (value === '' || value === undefined || value === null) {
             return null;
         }
-        var digits = input.value.replace(/\D/g, '');
+        var digits = String(value).replace(/\D/g, '');
         if (digits.length < 8) {
             return null;
         }
@@ -437,6 +495,7 @@
         var minimums = activeMinimums(list);
         var text = activeText(list);
         var period = activePeriod(list);
+        var ranges = activeRanges(list);
         var revealed = revealedTokens(list);
         // A roll-up the reader is not looking at is excluded before
         // anything else: its rows are a different kind of row, and
@@ -456,6 +515,7 @@
                     && rowMatchesSelects(row, selects)
                     && rowMatchesMinimums(row, minimums)
                     && rowMatchesPeriod(row, period)
+                    && rowMatchesRanges(row, ranges)
                     && rowMatchesText(row, text);
             }
             if (keep) {
@@ -472,6 +532,10 @@
             + Object.keys(minimums).length
             + (period.from === null ? 0 : 1)
             + (period.to === null ? 0 : 1)
+            + Object.keys(ranges).reduce(function (sum, key) {
+                return sum + (ranges[key].from === null ? 0 : 1)
+                    + (ranges[key].to === null ? 0 : 1);
+            }, 0)
             + (text === '' ? 0 : 1);
 
         sortRows(list, filtered);
@@ -518,6 +582,45 @@
             var value = rowNumber(row, key);
             return value !== null && value >= minimums[key];
         });
+    }
+
+    /**
+     * A row against every named date range that is set.
+     *
+     * A row carrying no date under a key the reader has cut on is
+     * dropped, not kept — the same call `rowMatchesPeriod` makes, and for
+     * the same reason: "I do not know when this happened" is not evidence
+     * that it happened inside the window. How many rows that is belongs
+     * beside the control, which is why the rail counts them.
+     *
+     * @param {Element} row
+     * @param {Object} ranges key => {from, to}
+     * @return {boolean}
+     */
+    function rowMatchesRanges(row, ranges) {
+        return Object.keys(ranges).every(function (key) {
+            var range = ranges[key];
+            if (range.from === null && range.to === null) {
+                return true;
+            }
+            var at = rowTime(row, key);
+            if (at === null) {
+                return false;
+            }
+            return (range.from === null || at >= range.from)
+                && (range.to === null || at <= range.to);
+        });
+    }
+
+    /**
+     * @param {Element} row
+     * @param {string} key
+     * @return {number|null} `YmdHi`
+     */
+    function rowTime(row, key) {
+        var match = (row.dataset.vpTimes || '')
+            .match(new RegExp('(?:^|\\s)' + key + ':(\\d{12})'));
+        return match ? parseInt(match[1], 10) : null;
     }
 
     /**
@@ -620,7 +723,8 @@
             .forEach(function (input) {
                 input.value = input.min === '' ? '0' : input.min;
             });
-        list.querySelectorAll('[data-vp-filter-from], [data-vp-filter-to]')
+        list.querySelectorAll('[data-vp-filter-from], [data-vp-filter-to],'
+            + ' [data-vp-range-from], [data-vp-range-to]')
             .forEach(function (input) {
                 input.value = '';
             });
@@ -4669,7 +4773,8 @@
                 && event.target.matches(
                     '[data-vp-facet-key], [data-vp-reveal],'
                     + ' [data-vp-filter-key], [data-vp-filter-min],'
-                    + ' [data-vp-filter-from], [data-vp-filter-to]'
+                    + ' [data-vp-filter-from], [data-vp-filter-to],'
+                    + ' [data-vp-range-from], [data-vp-range-to]'
                 )) {
                 var list = event.target.closest('[data-vp-list]');
                 if (list) {
@@ -4690,7 +4795,8 @@
             }
             if (event.target.matches(
                 '[data-vp-filter-text], [data-vp-filter-min],'
-                + ' [data-vp-filter-from], [data-vp-filter-to]'
+                + ' [data-vp-filter-from], [data-vp-filter-to],'
+                + ' [data-vp-range-from], [data-vp-range-to]'
             )) {
                 var typedList = event.target.closest('[data-vp-list]');
                 if (typedList) {
