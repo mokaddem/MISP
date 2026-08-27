@@ -257,6 +257,7 @@ if ($series !== null) {
                 <?= $this->element('Values/View/value_zoom', array(
                     'zoomLabel' => __('Zoom the navigator'),
                     'zoomAway' => __('the range is not in view'),
+                    'zoomSelection' => __('Look inside the range'),
                     'grain' => ValueProfileFixture::columnLabels(),
                 )) ?>
             </div>

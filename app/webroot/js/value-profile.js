@@ -1254,10 +1254,19 @@
      * for* — deriving it again from the snapped span could pick a
      * different one and the pair would never settle.
      *
+     * `selection` is how the zoom offers *look inside what I have
+     * already picked* without knowing what a selection is on the
+     * caller's tab — a filtered period on the History rail, a brushed
+     * window on the Sightings navigator. A callback rather than a
+     * value, for the reason phase 20 made the brush's bucket count
+     * one: the answer changes under the control, and the control is
+     * wired once.
+     *
      * @param {Object} plan `from`, `to`, `days`, `rule`, `grains`
+     * @param {Function|null} selection Returns `{from, to}` or null
      * @return {Object}
      */
-    function makeZoom(plan) {
+    function makeZoom(plan, selection) {
         var epoch = zoomEpochDay(plan.from);
         var last = plan.days - 1;
         var ranges = {};
@@ -1550,6 +1559,52 @@
                 });
                 return found;
             },
+            /**
+             * Whether looking inside the selection would show anything
+             * different from what is on screen.
+             *
+             * False when there is no selection, when it is not in the
+             * plan at all, and when it already *is* the visible span —
+             * a button that redraws the same chart is one the reader
+             * learns to distrust.
+             *
+             * @return {boolean}
+             */
+            canSelection: function () {
+                if (!selection) {
+                    return false;
+                }
+                var picked = selection();
+                if (!picked || !picked.from || !picked.to) {
+                    return false;
+                }
+                var lo = zoomEpochDay(picked.from) - epoch;
+                var hi = zoomEpochDay(picked.to) - epoch;
+                if (hi < 0 || lo > last || hi < lo) {
+                    return false;
+                }
+                return Math.max(0, lo) > view.from
+                    || Math.min(last, hi) < view.to;
+            },
+            /**
+             * Show the selection. Exact, like a preset: the reader
+             * picked these two dates, so widening them to whole buckets
+             * would show them a span they did not ask for.
+             */
+            stepSelection: function () {
+                if (!selection) {
+                    return;
+                }
+                var picked = selection();
+                if (!picked || !picked.from || !picked.to) {
+                    return;
+                }
+                settle(
+                    zoomEpochDay(picked.from) - epoch,
+                    zoomEpochDay(picked.to) - epoch,
+                    true
+                );
+            },
             /** @return {boolean} */
             canIn: canIn,
             /** @return {boolean} */
@@ -1642,6 +1697,9 @@
             reset: function () {
                 zoom.reset();
             },
+            selection: function () {
+                zoom.stepSelection();
+            },
         };
         root.querySelectorAll('[data-vp-zoom-step]').forEach(
             function (button) {
@@ -1689,6 +1747,7 @@
             left: zoom.canLeft(),
             right: zoom.canRight(),
             reset: !zoom.whole(),
+            selection: zoom.canSelection(),
         };
         root.querySelectorAll('[data-vp-zoom-step]').forEach(
             function (button) {
@@ -2206,6 +2265,9 @@
         if (label) {
             label.textContent = window_.from + ' → ' + window_.to;
         }
+        // The brush *is* this tab's selection, so the step that looks
+        // inside it goes live and dead with the drag.
+        paintSightZoom(panel);
     }
 
     /**
@@ -2413,7 +2475,19 @@
             sight.rangeKey = sight.data['default'];
             sight.brush = null;
             sight.expanded = false;
-            sight.zoom = window.VP.zoom.make(sight.data.plan);
+            sight.zoom = window.VP.zoom.make(
+                sight.data.plan,
+                // The brushed window, and only when it is a brush: the
+                // window covers the whole visible span when nothing is
+                // brushed, and `look inside all of it` is not a step.
+                function () {
+                    if (!sight.brush) {
+                        return null;
+                    }
+                    var picked = sightWindow();
+                    return { from: picked.from, to: picked.to };
+                }
+            );
             sightInvalidate();
             // The default preset is the narrowest span holding every
             // sighting, and it is what the select is rendered on, so
@@ -4227,7 +4301,24 @@
         if (!audit.data.chart || !audit.data.chart.days) {
             return;
         }
-        audit.zoom = window.VP.zoom.make(audit.data.chart);
+        audit.zoom = window.VP.zoom.make(
+            audit.data.chart,
+            // The period, which on this tab is the two date inputs —
+            // so `look inside the selection` and the filter are the
+            // same range by construction, and the reader who only
+            // wanted a closer look still has the four buttons.
+            function () {
+                var typed = auditTypedPeriod(list);
+                if (typed.from === null && typed.to === null) {
+                    return null;
+                }
+                var whole = auditWhole();
+                return {
+                    from: typed.from || whole.from,
+                    to: typed.to || whole.to,
+                };
+            }
+        );
         audit.labels = null;
         var zoom = list.querySelector('[data-vp-zoom]');
         if (zoom) {

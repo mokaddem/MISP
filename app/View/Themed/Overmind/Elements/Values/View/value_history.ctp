@@ -980,6 +980,9 @@ $chartPayload = array(
                         <?= $this->element('Values/View/value_zoom', array(
                             'zoomLabel' => __('Zoom the activity chart'),
                             'zoomAway' => __('the period is not in view'),
+                            'zoomSelection' => __(
+                                'Look inside the period'
+                            ),
                             'grain' => array(
                                 'day' => __('one bar a day'),
                                 'week' => __('one bar a week'),

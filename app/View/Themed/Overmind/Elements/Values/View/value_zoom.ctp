@@ -19,6 +19,8 @@
  * @var array $grain Per-unit wording for what a bar is worth
  * @var string $zoomLabel Names the group for a screen reader
  * @var string $zoomAway What to say when the selection is off screen
+ * @var string $zoomSelection Names the look-inside-the-selection step,
+ *     and its presence is what offers that step at all
  * @var string $zoomNote Optional sentence under the buttons
  */
 $grain = isset($grain) ? $grain : array();
@@ -51,6 +53,20 @@ $steps = array(
         'title' => __('Show the whole span'),
     ),
 );
+/*
+ * Offered only where the caller gave the zoom a selection to read.
+ * It is a shortcut and never the only way in: §13.3's objection to
+ * zoom-by-selection was that a reader who wants a closer look would be
+ * made to filter to get one, and the four buttons above are why that
+ * does not happen here.
+ */
+if (!empty($zoomSelection)) {
+    $steps[] = array(
+        'step' => 'selection',
+        'icon' => 'fas fa-arrows-to-dot',
+        'title' => $zoomSelection,
+    );
+}
 ?>
 <div class="vp-zoom" data-vp-zoom hidden role="group"
      aria-label="<?= h($zoomLabel) ?>">
