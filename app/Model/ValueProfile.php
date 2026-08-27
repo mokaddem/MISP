@@ -131,6 +131,7 @@ class ValueProfile extends AppModel
         $this->attachTags($rows);
         $rows = $this->attachCreatorOrgs($user, $rows);
         $this->attachProposalCounts($rows);
+        $this->attachEffectiveDistribution($user, $rows);
 
         $stats = ValueStatsTool::occurrenceStats($rows, $total);
 
@@ -238,6 +239,60 @@ class ValueProfile extends AppModel
             $kept[] = $row;
         }
         return $kept;
+    }
+
+    /**
+     * Who can actually see each occurrence.
+     *
+     * An attribute's own `distribution` column is level 5 — *inherit* —
+     * for almost every row on a real instance, so reporting it tells the
+     * reader nothing: the level that matters is the conjunction of the
+     * attribute's, its object's and its event's, which is the same rule
+     * `MispAttribute::buildConditions` enforces to decide whether the row
+     * is visible at all. `ValueStatsTool::effectiveDistribution()` owns
+     * the resolution; this stamps the answer on the row so the table's
+     * badge and the rail's facet cannot resolve it differently.
+     *
+     * Every level it needs is already on the row — the attribute's, the
+     * object's from the `contain`, the event's from the same — so this
+     * costs no query. Sharing group *names* do cost one, and only when
+     * some row resolves to level 4.
+     *
+     * `SharingGroup::fetchAllAuthorised($user, 'name')` and not a plain
+     * find: it returns only the groups this viewer is authorised for, so
+     * a group name cannot be read off a row whose event the reader
+     * happens to own. A level-4 row whose group does not resolve keeps
+     * its badge and loses only the name.
+     *
+     * @param array $user
+     * @param array $rows
+     * @return void
+     */
+    private function attachEffectiveDistribution(array $user, array &$rows)
+    {
+        if (empty($rows)) {
+            return;
+        }
+        $names = array();
+        foreach ($rows as $row) {
+            $levels = array(
+                (int)$row['Attribute']['distribution'],
+                (int)($row['Event']['distribution'] ?? -1),
+                empty($row['Object']['id'])
+                    ? -1
+                    : (int)$row['Object']['distribution'],
+            );
+            if (in_array(4, $levels, true)) {
+                $names = $this->model('SharingGroup')
+                    ->fetchAllAuthorised($user, 'name');
+                break;
+            }
+        }
+        foreach ($rows as &$row) {
+            $row['effective_distribution'] =
+                ValueStatsTool::effectiveDistribution($row, $names);
+        }
+        unset($row);
     }
 
     /**

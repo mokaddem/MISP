@@ -20,6 +20,7 @@
  * @var string $valueB64
  */
 App::uses('ValueStatsTool', 'Tools');
+App::uses('DistributionLevel', 'Tools');
 
 $profile = $valueProfile;
 $rows = $profile['occurrences'];
@@ -70,12 +71,21 @@ $tokens = function ($row) use ($slug) {
         'type:' . $slug($attribute['type']),
         'category:' . $slug($attribute['category']),
         'ids:' . (!empty($attribute['to_ids']) ? 'set' : 'unset'),
-        'distribution:' . (int)$attribute['distribution'],
     );
-    if ((int)$attribute['distribution'] === 4
-        && !empty($row['SharingGroup']['id'])
-    ) {
-        $tokens[] = 'sharing_group:' . $row['SharingGroup']['id'];
+    /*
+     * The effective level, matching what the rail counted — never
+     * `Attribute.distribution`, which is `Inherited` on almost every
+     * real row and would put the whole table in one facet.
+     */
+    $effective = $row['effective_distribution'];
+    if ($effective['level'] !== null) {
+        $tokens[] = 'distribution:' . $effective['level'];
+        if ($effective['level'] === 4
+            && !empty($effective['sharing_group_id'])
+        ) {
+            $tokens[] = 'sharing_group:'
+                . $effective['sharing_group_id'];
+        }
     }
     foreach ($row['AttributeTag'] as $attributeTag) {
         // Galaxy tags are not drawn in the Tags column either, and a
@@ -103,6 +113,29 @@ $rowData = function ($row) use ($tokens) {
         'vp-event' => $row['Event']['id'],
         'vp-org' => $row['Event']['Orgc']['name'],
     );
+    /*
+     * The dates the rail's ranges cut on, as the `YmdHi` digits of the
+     * printed wall clock rather than epochs — a row's time is rendered
+     * server-side, so comparing epochs would hand a reader in another
+     * timezone a different set of rows than the times on those rows say
+     * the period holds.
+     *
+     * An unpublished event contributes no `published` key at all, which
+     * is what makes a cut on it drop the row rather than treat "never"
+     * as some particular date. The rail counts how many that is.
+     */
+    $times = array();
+    if (!empty($row['Attribute']['timestamp'])) {
+        $times[] = 'timestamp:'
+            . date('YmdHi', (int)$row['Attribute']['timestamp']);
+    }
+    if (!empty($row['Event']['publish_timestamp'])) {
+        $times[] = 'published:'
+            . date('YmdHi', (int)$row['Event']['publish_timestamp']);
+    }
+    if (!empty($times)) {
+        $data['vp-times'] = implode(' ', $times);
+    }
     if (!empty($row['Attribute']['deleted'])) {
         // A reveal, not a facet value: filtering *to* deleted rows and
         // including them alongside the rest are different questions.
@@ -148,6 +181,97 @@ $stateCell = function ($row) {
         return '<span class="text-muted">&mdash;</span>';
     }
     return implode(' ', $badges);
+};
+
+/**
+ * Who can actually see this occurrence.
+ *
+ * Not `Attribute.distribution`, which is `Inherited` on almost every row
+ * a real instance holds: an attribute's audience is the conjunction of
+ * its own level, its object's and its event's, and that is what the
+ * reader is asking. `ValueStatsTool::effectiveDistribution()` resolves
+ * it and the model stamps it on the row, so this cell and the rail's
+ * facet cannot disagree.
+ *
+ * A custom cell rather than the shared `distribution` field renderer
+ * pointed at a computed path, because two things have to be said that
+ * the shared renderer has no slot for — where the level came from, and
+ * when the badge is understating the restriction. The badge itself is
+ * still MISP's own element.
+ *
+ * @param array $row
+ * @return string
+ */
+$distributionCell = function ($row) use ($view) {
+    $effective = $row['effective_distribution'];
+    if ($effective['level'] === null) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+
+    // "Attribute: Inherited → Event: This community only" — the whole
+    // chain, so a level nobody set on the attribute is traceable to
+    // whoever did set it.
+    $chain = array();
+    $chain[] = sprintf(
+        '%s: %s',
+        __('Attribute'),
+        DistributionLevel::get(
+            (int)$row['Attribute']['distribution']
+        )['label']
+    );
+    if (!empty($row['Object']['id'])) {
+        $chain[] = sprintf(
+            '%s: %s',
+            __('Object'),
+            DistributionLevel::get(
+                (int)$row['Object']['distribution']
+            )['label']
+        );
+    }
+    $chain[] = sprintf(
+        '%s: %s',
+        __('Event'),
+        DistributionLevel::get((int)$row['Event']['distribution'])['label']
+    );
+    $title = implode(' → ', $chain);
+    if ($effective['intersects']) {
+        /*
+         * A sharing group alongside another constraint means the real
+         * audience is an intersection, and no single level says that.
+         * The badge shows the tightest level it can name; this says the
+         * real audience is narrower still.
+         */
+        $title .= ' · ' . __(
+            'Both apply, so the real audience is narrower than any one'
+            . ' of them'
+        );
+    }
+
+    $out = '<span title="' . h($title) . '">'
+        . $view->element(
+            'genericElementsBS5/Badges/distribution',
+            array('distribution' => $effective['level'], 'full' => false)
+        );
+    if ($effective['intersects']) {
+        $out .= '<i class="fas fa-link ms-1 text-warning-emphasis"'
+            . ' aria-hidden="true"></i>';
+    }
+    $out .= '</span>';
+
+    /*
+     * "Sharing group" is the only level that does not say who it means.
+     * Named by whichever link in the chain won, so an attribute
+     * inheriting its event's sharing group names that group rather than
+     * nothing.
+     */
+    if ($effective['level'] === 4
+        && !empty($effective['sharing_group_name'])
+    ) {
+        $out .= '<div class="text-muted small text-truncate mt-1"'
+            . ' title="' . h($effective['sharing_group_name']) . '">'
+            . h($effective['sharing_group_name']) . '</div>';
+    }
+    return $out;
 };
 
 /**
@@ -275,9 +399,8 @@ $columns = array(
         'shown' => true,
         'field' => array(
             'name' => __('Distribution'),
-            'element' => 'distribution',
-            'data_path' => 'Attribute.distribution',
-            'sharing_group_path' => 'SharingGroup.name',
+            'element' => 'custom',
+            'function' => $distributionCell,
         ),
     ),
     array(

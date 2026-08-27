@@ -21,6 +21,167 @@ class ValueStatsTool
      */
     const SPARK_BUCKETS = 40;
 
+    /** MISP's "inherit from the parent" distribution level. */
+    const INHERIT = 5;
+
+    /**
+     * Restrictiveness, tightest first — the order this class resolves a
+     * distribution chain by, and the only place it is decided.
+     *
+     * `0` is one organisation and is strictly tightest. `4` is a named
+     * list of organisations, so it sits next: bounded and explicit,
+     * where `1`–`3` widen by community. **`4` is not truly comparable
+     * with `1`–`3`** — a sharing group can carry an `all_orgs` server
+     * entry and so be wider than "this community only" — which is why a
+     * chain mixing the two is reported as an intersection rather than
+     * silently flattened. See `effectiveDistribution()`.
+     */
+    private static $restrictiveness = array(0 => 0, 4 => 1, 1 => 2,
+        2 => 3, 3 => 4);
+
+    /**
+     * Who can actually see one occurrence, as a single level.
+     *
+     * An attribute carries a distribution, so does the object holding it
+     * and so does the event holding that, and MISP's own visibility rule
+     * is the conjunction of all three — `MispAttribute::buildConditions`
+     * requires the event to allow the viewer *and* the attribute *and*
+     * the object, with level 5 passing through. Reporting the attribute's
+     * own column instead says `Inherited` for almost every row on a real
+     * instance and tells the reader nothing.
+     *
+     * Two steps. **Inheritance is resolved**: a link at level 5 states
+     * nothing of its own and defers outward, and an event can never be 5,
+     * so at least one link always states a level. **Then the tightest
+     * stated level wins**, by `$restrictiveness`.
+     *
+     * `intersects` is the honest part. When a sharing group is one of
+     * several stated constraints, the real audience is an intersection —
+     * that group's members *and* whatever the other constraint allows —
+     * and no single level says that. It is true only where the ambiguity
+     * is real: a level 0 anywhere dominates every other constraint, and
+     * the same sharing group stated twice is one constraint, so neither
+     * of those sets it.
+     *
+     * A row with no object must not be read as an object at level 0. The
+     * `Object` key is always present after a `contain`, holding nulls
+     * where the LEFT JOIN found nothing, so the object link counts only
+     * when it has an id.
+     *
+     * @param array $row fetchAttributes-shaped, with Event contained
+     * @param array $sharingGroupNames id => name, for the groups this
+     *                                 viewer may see
+     * @return array level, sharing_group_id, sharing_group_name, source,
+     *               stated, intersects, inherited
+     */
+    public static function effectiveDistribution(array $row,
+        array $sharingGroupNames = array()
+    ) {
+        $links = array(
+            array('scope' => 'attribute', 'label' => __('Attribute'),
+                'from' => $row['Attribute']),
+        );
+        if (!empty($row['Object']['id'])) {
+            $links[] = array('scope' => 'object', 'label' => __('Object'),
+                'from' => $row['Object']);
+        }
+        $links[] = array('scope' => 'event', 'label' => __('Event'),
+            'from' => $row['Event']);
+
+        $stated = array();
+        foreach ($links as $link) {
+            $level = (int)$link['from']['distribution'];
+            if ($level === self::INHERIT) {
+                continue;
+            }
+            $stated[] = array(
+                'scope' => $link['scope'],
+                'label' => $link['label'],
+                'level' => $level,
+                'sharing_group_id' => $level === 4
+                    ? (int)$link['from']['sharing_group_id']
+                    : null,
+            );
+        }
+
+        if (empty($stated)) {
+            // Only reachable if an event were itself at level 5, which
+            // MISP does not allow. Reported rather than guessed at.
+            return array(
+                'level' => null,
+                'sharing_group_id' => null,
+                'sharing_group_name' => null,
+                'source' => null,
+                'stated' => array(),
+                'intersects' => false,
+                'inherited' => true,
+            );
+        }
+
+        $winner = $stated[0];
+        foreach ($stated as $candidate) {
+            if (self::restrictionRank($candidate['level'])
+                < self::restrictionRank($winner['level'])
+            ) {
+                $winner = $candidate;
+            }
+        }
+
+        return array(
+            'level' => $winner['level'],
+            'sharing_group_id' => $winner['sharing_group_id'],
+            'sharing_group_name' => $winner['sharing_group_id'] !== null
+                    && isset($sharingGroupNames[$winner['sharing_group_id']])
+                ? $sharingGroupNames[$winner['sharing_group_id']]
+                : null,
+            'source' => $winner['scope'],
+            'stated' => $stated,
+            'intersects' => self::intersects($stated, $winner),
+            // The attribute deferred, so this level is somebody else's
+            // decision — worth saying, because it is not editable here.
+            'inherited' => $winner['scope'] !== 'attribute',
+        );
+    }
+
+    /**
+     * @param int $level
+     * @return int
+     */
+    private static function restrictionRank($level)
+    {
+        return isset(self::$restrictiveness[$level])
+            ? self::$restrictiveness[$level]
+            : PHP_INT_MAX;
+    }
+
+    /**
+     * Whether the stated constraints narrow each other in a way one
+     * level cannot express. See `effectiveDistribution()`.
+     *
+     * @param array $stated
+     * @param array $winner
+     * @return bool
+     */
+    private static function intersects(array $stated, array $winner)
+    {
+        if ($winner['level'] === 0) {
+            return false;
+        }
+        $groups = array();
+        $others = 0;
+        foreach ($stated as $constraint) {
+            if ($constraint['level'] === 4) {
+                $groups[$constraint['sharing_group_id']] = true;
+            } elseif ($constraint['level'] !== 0) {
+                $others++;
+            }
+        }
+        if (empty($groups)) {
+            return false;
+        }
+        return count($groups) > 1 || $others > 0;
+    }
+
     /**
      * The token a facet checkbox carries and a row is matched on.
      *
@@ -142,23 +303,43 @@ class ValueStatsTool
                     ? __('to_ids unset')
                     : __('to_ids set')
             );
-            $level = (int)$attribute['distribution'];
-            self::bump(
-                $groups['distribution'],
-                (string)$level,
-                null,
-                array('level' => $level)
-            );
-            // A sharing group is only what the row is distributed by
-            // when the row says so; `sharing_group_id` outlives a
-            // distribution change and the badge would be a claim the
-            // row does not make.
-            if ($level === 4 && !empty($row['SharingGroup']['id'])) {
+            /*
+             * The **effective** level, not `Attribute.distribution`.
+             * Almost every attribute on a real instance is at level 5,
+             * so a rail counting the column says `Inherited: 100` and
+             * answers nobody's question; the resolved chain says who can
+             * actually see each row. `effectiveDistribution()` has the
+             * rule, and the model stamps it on the row so the rail and
+             * the table cannot resolve it differently.
+             */
+            $effective = isset($row['effective_distribution'])
+                ? $row['effective_distribution']
+                : null;
+            $level = $effective === null ? null : $effective['level'];
+            if ($level !== null) {
                 self::bump(
-                    $groups['sharing_group'],
-                    (string)$row['SharingGroup']['id'],
-                    $row['SharingGroup']['name']
+                    $groups['distribution'],
+                    (string)$level,
+                    null,
+                    array('level' => $level)
                 );
+                // Named by whichever link in the chain won, so a row
+                // distributed through its event's sharing group is
+                // counted under that group rather than not at all.
+                if ($level === 4
+                    && !empty($effective['sharing_group_id'])
+                ) {
+                    self::bump(
+                        $groups['sharing_group'],
+                        (string)$effective['sharing_group_id'],
+                        $effective['sharing_group_name'] !== null
+                            ? $effective['sharing_group_name']
+                            : sprintf(
+                                __('Sharing group #%s'),
+                                $effective['sharing_group_id']
+                            )
+                    );
+                }
             }
             foreach ($row['AttributeTag'] as $attributeTag) {
                 if (empty($attributeTag['Tag'])) {
@@ -225,7 +406,8 @@ class ValueStatsTool
                 'groups' => $groups,
                 'deleted' => $deleted,
             ),
-            self::seenDensity($rows)
+            self::seenDensity($rows),
+            self::timeSpans($rows)
         );
     }
 
@@ -280,6 +462,57 @@ class ValueStatsTool
             );
         });
         return $facets;
+    }
+
+    /**
+     * The two dates the rail can cut on, and what they span.
+     *
+     * `timestamp` is when the attribute was last modified and every
+     * attribute has one. `published` is when its event was last
+     * published, and an unpublished event has none — so those rows are
+     * counted rather than quietly dropped, because a date cut over a
+     * column that is sometimes absent has to say how much it removes
+     * (the same rule `seen_unset` follows).
+     *
+     * The spans bound the date inputs. The inputs themselves start empty:
+     * a control pre-filled with the full span looks like a filter that is
+     * already applied, and "no bound" and "the widest bound" should not
+     * render identically.
+     *
+     * @param array $rows
+     * @return array `time_spans`, `published_unset`
+     */
+    private static function timeSpans(array $rows)
+    {
+        $spans = array('timestamp' => null, 'published' => null);
+        $unpublished = 0;
+        foreach ($rows as $row) {
+            $stamps = array(
+                'timestamp' => $row['Attribute']['timestamp'] ?? null,
+                'published' => empty($row['Event']['publish_timestamp'])
+                    ? null
+                    : $row['Event']['publish_timestamp'],
+            );
+            if ($stamps['published'] === null) {
+                $unpublished++;
+            }
+            foreach ($stamps as $key => $stamp) {
+                if (empty($stamp)) {
+                    continue;
+                }
+                $day = date('Y-m-d', (int)$stamp);
+                if ($spans[$key] === null) {
+                    $spans[$key] = array('from' => $day, 'to' => $day);
+                    continue;
+                }
+                $spans[$key]['from'] = min($spans[$key]['from'], $day);
+                $spans[$key]['to'] = max($spans[$key]['to'], $day);
+            }
+        }
+        return array(
+            'time_spans' => $spans,
+            'published_unset' => $unpublished,
+        );
     }
 
     /**
