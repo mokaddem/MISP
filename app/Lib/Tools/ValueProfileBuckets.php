@@ -277,6 +277,32 @@ class ValueProfileBuckets
     }
 
     /**
+     * What one drawn column stands for, by unit.
+     *
+     * A keyed list rather than a ternary, so that adding a unit is
+     * adding a line here and not finding every `if` that assumed there
+     * were two. All of them rather than the drawn one, because after
+     * phase 21 the drawn one is a fact about how far the reader has
+     * zoomed and the browser is what knows it.
+     *
+     * It lives here rather than in `ValueProfileFixture`, where phase 21
+     * put it, because a live panel may not call the fixture: phase 23
+     * moved the Sightings chart onto the database and would otherwise
+     * have taken a test double into production with it. The fixture
+     * delegates, so the two cannot drift.
+     *
+     * @return array
+     */
+    public static function columnLabels()
+    {
+        return array(
+            self::DAY => __('one column per day'),
+            self::WEEK => __('one column per week'),
+            self::MONTH => __('one column per month'),
+        );
+    }
+
+    /**
      * @param string $unit
      * @return int Days per bucket
      */

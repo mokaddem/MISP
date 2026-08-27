@@ -120,6 +120,195 @@ class Value extends AppModel
     }
 
     /**
+     * Four numbers about the whole occurrence set, in one aggregate.
+     *
+     * Tier 2 (§14.4), and the written reason is a measurement. The
+     * Sightings tab needs the value's occurrence, event and organisation
+     * counts for the write card's fan-out sentence and its oldest
+     * occurrence date for the chart's span, and it needs them over
+     * *every* occurrence rather than over a page. Materialising rows to
+     * count them cost 617 ms on `443` — 48,255 occurrences behind three
+     * sightings — and 280 ms on `0.0.0.0`. This is 4 ms on both.
+     *
+     * `orgs` counts creator organisations, matching the fan-out
+     * sentence's wording and the Occurrences rail's organisation facet.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `occurrences`, `events`, `orgs`, `oldest`, `newest`
+     */
+    public function occurrenceSummaryFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'COUNT(DISTINCT Event.id) AS events',
+                'COUNT(DISTINCT Event.orgc_id) AS orgs',
+                'MIN(Attribute.timestamp) AS oldest',
+                'MAX(Attribute.timestamp) AS newest',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+        ));
+        $found = empty($row[0]) ? array() : $row[0];
+        return array(
+            'occurrences' => (int)($found['occurrences'] ?? 0),
+            'events' => (int)($found['events'] ?? 0),
+            'orgs' => (int)($found['orgs'] ?? 0),
+            'oldest' => empty($found['oldest'])
+                ? null
+                : (int)$found['oldest'],
+            'newest' => empty($found['newest'])
+                ? null
+                : (int)$found['newest'],
+        );
+    }
+
+    /**
+     * Only the occurrences that carry at least one sighting.
+     *
+     * The query this tab could not do without, and the one place in this
+     * feature that joins another model's table. **The alternative was
+     * measured and it does not work**: scoping
+     * `Sighting::listSightings` by the value's whole occurrence set
+     * means handing it 48,255 ids on `443`, which it re-resolves through
+     * `fetchAttributes` — 1.6 to 3.4 seconds per panel for three
+     * sightings. Narrowing first turns that into a millisecond.
+     *
+     * Tier 2, and it is an aggregate rather than a fetch: one row per
+     * occurrence that has been reported, and nothing about the reports
+     * themselves. **The sighting policy is not applied here and does not
+     * need to be** — `listSightings` applies it to the rows, and this
+     * set never reaches the page: an occurrence whose only sighting the
+     * reader may not see contributes no row, no count and no curve
+     * distinguishable from an un-sighted one.
+     *
+     * The table name comes off the `Sighting` model rather than being
+     * spelled here, so the model that owns the data still owns where it
+     * lives.
+     *
+     * Soft-deleted occurrences are included, because
+     * `buildConditions()` includes them; the caller filters them before
+     * `listSightings`, which forces `deleted = 0` on its own re-fetch.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array The same shape as occurrenceIdsFor
+     */
+    public function sightedOccurrenceIdsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $sightings = ClassRegistry::init('Sighting');
+        $rows = $attributes->find('all', array(
+            'fields' => array(
+                'Attribute.id',
+                'Attribute.event_id',
+                'Attribute.type',
+                'Attribute.timestamp',
+                'Attribute.last_seen',
+                'Attribute.deleted',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'joins' => array(array(
+                'table' => $sightings->table,
+                'alias' => 'ValueSighting',
+                'type' => 'INNER',
+                'conditions' => array(
+                    'ValueSighting.attribute_id = Attribute.id',
+                ),
+            )),
+            'group' => array('Attribute.id'),
+        ));
+        return self::keyById($rows);
+    }
+
+    /**
+     * The value's occurrences as an id set, with the two columns any
+     * value-scoped aggregate needs to label its own result.
+     *
+     * §14.3 of the contract sketches this as a bare list of ids, and
+     * phase 22 declined to build it because its aggregate already had
+     * the ids from its row fetch. Phase 23 is the caller it was waiting
+     * for, and it needs slightly more than ids: a sighting is filed
+     * against one occurrence, so the list panel's `Reported against`
+     * column is that occurrence's event and type. Re-fetching those
+     * would be a second resolution of the same value, and two
+     * resolutions can disagree.
+     *
+     * `fields` keeps it to six columns rather than the whole row. It
+     * takes `limit` and `order` because its callers cap it: reading
+     * every occurrence a value has is what `occurrenceSummaryFor` is
+     * for, and doing it by materialising rows cost seconds on the two
+     * heaviest values on the instance.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor, plus `limit`/`order`
+     * @return array attribute id => event_id, type, timestamp,
+     *               last_seen, deleted
+     */
+    public function occurrenceIdsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $params = array(
+            'conditions' => $this->conditionsFor($value, $options),
+            'fields' => array(
+                'Attribute.id',
+                'Attribute.event_id',
+                'Attribute.type',
+                'Attribute.timestamp',
+                'Attribute.last_seen',
+                'Attribute.deleted',
+            ),
+            // buildConditions() names Event.* and Object.* directly, so
+            // both have to be joined for the ACL to be expressible.
+            'contain' => array('Event', 'Object'),
+        );
+        foreach (array('limit', 'page', 'order') as $key) {
+            if (isset($options[$key])) {
+                $params[$key] = $options[$key];
+            }
+        }
+        return self::keyById(
+            $this->attributes()->fetchAttributesSimple($user, $params)
+        );
+    }
+
+    /**
+     * The six-column shape both id-set accessors return, keyed by
+     * attribute id.
+     *
+     * @param array $rows
+     * @return array
+     */
+    private static function keyById(array $rows)
+    {
+        $set = array();
+        foreach ($rows as $row) {
+            $set[(int)$row['Attribute']['id']] = array(
+                'event_id' => (int)$row['Attribute']['event_id'],
+                'type' => $row['Attribute']['type'],
+                'timestamp' => (int)$row['Attribute']['timestamp'],
+                'last_seen' => $row['Attribute']['last_seen'] ?? null,
+                'deleted' => !empty($row['Attribute']['deleted']),
+            );
+        }
+        return $set;
+    }
+
+    /**
      * The value's occurrences, as `fetchAttributes` shapes them.
      *
      * `fetchAttributesSimple` rather than `fetchAttributes`, and the

@@ -1,5 +1,6 @@
 <?php
 App::uses('ValueProfileBuckets', 'Tools');
+App::uses('ValueDecayTool', 'Tools');
 
 /**
  * The cross-cutting aggregates the Value Profile page's panels share:
@@ -718,6 +719,507 @@ class ValueStatsTool
             'seen_to' => date('Y-m-d', $max),
             'seen_unset' => $unset,
         );
+    }
+
+
+    /**
+     * The three numbers the tab's headers count, plus who filed them.
+     *
+     * Every count here is the viewer's by construction: the rows arrive
+     * from `Sighting::listSightings`, which has already applied
+     * `Plugin.Sightings_policy` and `Plugin.Sightings_anonymise`. This
+     * class never sees a row the reader may not see, which is what
+     * §14.5's no-`$user` rule buys.
+     *
+     * An anonymised sighting comes back with an empty organisation name
+     * and `org_id` 0, and is filed under one *Others* key rather than
+     * one key per hidden organisation — otherwise the org stack would
+     * leak the number of foreign reporters it is hiding.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @return array
+     */
+    public static function sightingTotals(array $rows)
+    {
+        $counts = array('total' => 0, 'sighting' => 0, 'fp' => 0,
+            'expiration' => 0);
+        $orgs = array();
+        $last = null;
+        $lastFp = null;
+        foreach ($rows as $row) {
+            $type = (int)$row['Sighting']['type'];
+            $counts['total']++;
+            if ($type === 1) {
+                $counts['fp']++;
+            } elseif ($type === 2) {
+                $counts['expiration']++;
+            } else {
+                $counts['sighting']++;
+            }
+            $org = self::sightingOrg($row);
+            $orgs[$org] = ($orgs[$org] ?? 0) + 1;
+            $at = (int)$row['Sighting']['date_sighting'];
+            if ($last === null || $at > $last) {
+                $last = $at;
+            }
+            if ($type === 1 && ($lastFp === null || $at > $lastFp)) {
+                $lastFp = $at;
+            }
+        }
+        arsort($orgs);
+        $reporters = array();
+        foreach ($orgs as $name => $count) {
+            $reporters[] = array('org' => $name, 'count' => $count);
+        }
+        return array(
+            'total' => $counts['total'],
+            'sighting' => $counts['sighting'],
+            'fp' => $counts['fp'],
+            'expiration' => $counts['expiration'],
+            'reporters' => $reporters,
+            'org_counts' => $orgs,
+            'last_stamp' => $last,
+            'last_fp_stamp' => $lastFp,
+        );
+    }
+
+    /**
+     * The individual-sightings table, oldest first.
+     *
+     * Oldest first because `value_sighting_list` reverses what it is
+     * given: the brush indexes rows by date and the chart's series runs
+     * forward, so one direction is chosen here and the panel's display
+     * order is the panel's business.
+     *
+     * `against` is the occurrence the report was filed on, which is the
+     * column a value-scoped list cannot do without — forty-seven
+     * reports with no occurrence column silently merge ten occurrences
+     * into one thing that was seen forty-seven times. It comes from the
+     * id set rather than from a second lookup, so the table and the
+     * chart cannot disagree about which occurrence a report belongs to.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param array $occurrences As
+     *              `Value::sightedOccurrenceIdsFor` returns
+     * @return array
+     */
+    public static function sightingList(array $rows, array $occurrences)
+    {
+        $list = array();
+        foreach ($rows as $row) {
+            $id = (int)$row['Sighting']['attribute_id'];
+            $source = $row['Sighting']['source'];
+            $list[] = array(
+                'org' => self::sightingOrg($row),
+                'source' => ($source === null || $source === '')
+                    ? null
+                    : $source,
+                'date' => date(
+                    'Y-m-d H:i',
+                    (int)$row['Sighting']['date_sighting']
+                ),
+                'stamp' => (int)$row['Sighting']['date_sighting'],
+                'type' => (int)$row['Sighting']['type'],
+                'against' => array(
+                    'event' => isset($occurrences[$id])
+                        ? $occurrences[$id]['event_id']
+                        : (int)$row['Sighting']['event_id'],
+                    'type' => isset($occurrences[$id])
+                        ? $occurrences[$id]['type']
+                        : __('unknown type'),
+                ),
+            );
+        }
+        usort($list, function ($a, $b) {
+            return $a['stamp'] - $b['stamp'];
+        });
+        return $list;
+    }
+
+    /**
+     * The span the chart draws, and whether it was clipped.
+     *
+     * From the value's oldest evidence — the earliest occurrence date or
+     * the earliest report, whichever is older, since a report can
+     * predate the attribute row that now carries the value — to today.
+     * Bounded by `ValueDecayTool::SPAN_CAP_DAYS`, and `clipped` says so
+     * when it was, because a cap is not a permission (§14.6).
+     *
+     * The oldest occurrence date arrives as one number from
+     * `Value::occurrenceSummaryFor` rather than being scanned out of a
+     * row set. It has to be the oldest of *every* occurrence — the
+     * chart's span is a claim about the value, not about the hundred
+     * occurrences the decay envelope happened to score.
+     *
+     * @param array $summary From `Value::occurrenceSummaryFor`
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param string $today `Y-m-d`
+     * @return array|null `from`, `to`, `first`, `clipped`
+     */
+    public static function sightingSpan(array $summary, array $rows,
+        $today
+    ) {
+        $oldest = empty($summary['oldest'])
+            ? null
+            : date('Y-m-d', $summary['oldest']);
+        foreach ($rows as $row) {
+            $day = date('Y-m-d', (int)$row['Sighting']['date_sighting']);
+            if ($oldest === null || $day < $oldest) {
+                $oldest = $day;
+            }
+        }
+        if ($oldest === null) {
+            return null;
+        }
+        if ($oldest > $today) {
+            // An occurrence whose timestamp is in the future of the
+            // clock this page is drawn against. One day of span rather
+            // than a negative one.
+            $oldest = $today;
+        }
+        $floor = date(
+            'Y-m-d',
+            strtotime($today) - (ValueDecayTool::SPAN_CAP_DAYS - 1) * 86400
+        );
+        return array(
+            'from' => max($oldest, $floor),
+            'to' => $today,
+            'first' => $oldest,
+            'clipped' => $oldest < $floor,
+        );
+    }
+
+    /**
+     * The chart's payload: the reports as daily tallies per series, the
+     * grain plan the browser zooms through, and the presets.
+     *
+     * The shape is phase 21's and unchanged — parallel sparse day
+     * tallies plus a `plan` of grains, so a zoom step and a preset
+     * switch are the same arithmetic in the browser rather than a
+     * re-fetch. §13.1 of `22-occurrences.md` measured why: three
+     * precomputed ranges cost 39.8 KB where the whole span as daily
+     * counts costs 21.6 KB.
+     *
+     * `by_org` is positional, aligned with `orgs`, because Chart.js
+     * wants one dataset per organisation and a stack order that does
+     * not change between buckets.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param array $span From sightingSpan
+     * @param array $totals From sightingTotals
+     * @param array $curves One per model: `model`, `threshold`, `points`
+     * @return array
+     */
+    public static function sightingSeries(array $rows, array $span,
+        array $totals, array $curves
+    ) {
+        /*
+         * The stack is the *sightings* stack, so its organisation list
+         * is drawn from type-0 rows alone. `org_counts` beside it counts
+         * every report an organisation filed of any type, which is what
+         * the Reporters card ranks — an organisation that has only ever
+         * contradicted this value belongs in that ranking and does not
+         * belong in the stack's legend carrying a zero. The chart panel
+         * already says in words that the two counts have two scopes.
+         */
+        $stacked = array();
+        foreach ($rows as $row) {
+            if ((int)$row['Sighting']['type'] !== 0) {
+                continue;
+            }
+            $org = self::sightingOrg($row);
+            $stacked[$org] = ($stacked[$org] ?? 0) + 1;
+        }
+        arsort($stacked);
+        $orgKeys = array_keys($stacked);
+        $at = array_flip($orgKeys);
+        $perOrg = array_fill(0, count($orgKeys), array());
+        $perFp = array();
+        $perExpiration = array();
+        foreach ($rows as $row) {
+            $day = date('Y-m-d', (int)$row['Sighting']['date_sighting']);
+            $type = (int)$row['Sighting']['type'];
+            if ($type === 1) {
+                $perFp[$day] = ($perFp[$day] ?? 0) + 1;
+            } elseif ($type === 2) {
+                $perExpiration[$day] = ($perExpiration[$day] ?? 0) + 1;
+            } else {
+                $i = $at[self::sightingOrg($row)];
+                $perOrg[$i][$day] = ($perOrg[$i][$day] ?? 0) + 1;
+            }
+        }
+
+        $plan = ValueProfileBuckets::plan(
+            $span['from'],
+            $span['to'],
+            ValueProfileBuckets::$spanRule,
+            ValueProfileBuckets::END
+        );
+        /*
+         * The last bucket of every grain is today, whichever grain is
+         * drawn. A bucket that is not the last one keeps its own date,
+         * which makes this a relabelling of the end rather than of now.
+         */
+        foreach ($plan['grains'] as $unit => $grain) {
+            $end = count($grain['label']) - 1;
+            $plan['grains'][$unit]['label'][$end] = __('today');
+        }
+
+        /*
+         * Sparse rather than dense: these are one series per
+         * organisation plus two, over a span that can be three years,
+         * and each is nearly all zero. `ValueProfileBuckets::sparse`
+         * documents the measurement behind the choice.
+         */
+        $daily = array(
+            'org' => array(),
+            'fp' => ValueProfileBuckets::sparse(
+                $span['from'],
+                $span['to'],
+                $perFp
+            ),
+            'expiration' => ValueProfileBuckets::sparse(
+                $span['from'],
+                $span['to'],
+                $perExpiration
+            ),
+        );
+        foreach ($perOrg as $i => $byDay) {
+            $daily['org'][$i] = ValueProfileBuckets::sparse(
+                $span['from'],
+                $span['to'],
+                $byDay
+            );
+        }
+
+        return array(
+            'today' => $span['to'],
+            // Where the chart starts, and where the value does. They
+            // differ exactly when the span cap bit, which is the only
+            // thing that makes the clip notice sayable.
+            'from' => $span['from'],
+            'first' => $span['first'],
+            'clipped' => $span['clipped'],
+            'orgs' => $orgKeys,
+            'org_counts' => $stacked,
+            'totals' => array(
+                'total' => $totals['total'],
+                'sighting' => $totals['sighting'],
+                'fp' => $totals['fp'],
+                'expiration' => $totals['expiration'],
+            ),
+            'plan' => $plan,
+            'daily' => $daily,
+            'curves' => $curves,
+            'spans' => self::sightingSpans($span, $daily, $rows),
+            'default_span' => self::defaultSpan($span, $rows),
+        );
+    }
+
+    /**
+     * The presets, derived rather than listed.
+     *
+     * 90 always; 365 only for a span wider than it, because a control
+     * that draws the same chart as the one beside it behind a different
+     * label is worse than one that is absent; all time always. The
+     * fixture reached the same rule and `02-sightings.md` §15 records
+     * why.
+     *
+     * @param array $span From sightingSpan
+     * @param array $daily From sightingSeries
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @return array
+     */
+    private static function sightingSpans(array $span, array $daily,
+        array $rows
+    ) {
+        $days = 1 + (int)round(
+            (strtotime($span['to']) - strtotime($span['from'])) / 86400
+        );
+        $windows = array(90);
+        if ($days > 365) {
+            $windows[] = 365;
+        }
+        $windows[] = null;
+        $spans = array();
+        foreach ($windows as $window) {
+            $from = $window === null
+                ? $span['from']
+                : date(
+                    'Y-m-d',
+                    strtotime($span['to']) - ($window - 1) * 86400
+                );
+            if ($from < $span['from']) {
+                $from = $span['from'];
+            }
+            $spans[] = array(
+                'key' => $window === null ? 'all' : (string)$window,
+                'label' => $window === null
+                    ? ($span['clipped']
+                        ? sprintf(
+                            __('All charted · from %s'),
+                            $span['from']
+                        )
+                        : sprintf(__('All time · from %s'), $span['from']))
+                    : sprintf(__('Last %s days'), $window),
+                'days' => $window,
+                'from' => $from,
+                'to' => $span['to'],
+            );
+        }
+        return $spans;
+    }
+
+    /**
+     * The narrowest preset that holds every report.
+     *
+     * A sparse value opening on 90 days is a nearly empty chart, and the
+     * reader would have to discover the control to learn that it is not
+     * the whole truth.
+     *
+     * @param array $span From sightingSpan
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @return string
+     */
+    private static function defaultSpan(array $span, array $rows)
+    {
+        $oldest = null;
+        foreach ($rows as $row) {
+            $day = date('Y-m-d', (int)$row['Sighting']['date_sighting']);
+            if ($oldest === null || $day < $oldest) {
+                $oldest = $day;
+            }
+        }
+        if ($oldest === null) {
+            return 'all';
+        }
+        $days = 1 + (int)round(
+            (strtotime($span['to']) - strtotime($span['from'])) / 86400
+        );
+        foreach (array(90, 365) as $window) {
+            if ($window === 365 && $days <= 365) {
+                continue;
+            }
+            $from = date(
+                'Y-m-d',
+                strtotime($span['to']) - ($window - 1) * 86400
+            );
+            if ($oldest >= $from) {
+                return (string)$window;
+            }
+        }
+        return 'all';
+    }
+
+    /**
+     * The two sentences the tab must not omit, derived per value.
+     *
+     * The first is the whole argument for the overlay: a contradiction
+     * is drawn on the axis and moves no line. The fixture wrote it by
+     * hand per value; here it names the value's own last false positive,
+     * so a reader can find the bar it is talking about.
+     *
+     * @param array $totals From sightingTotals
+     * @return array
+     */
+    public static function sightingNotes(array $totals)
+    {
+        if ($totals['fp'] > 0) {
+            $fp = sprintf(
+                __n(
+                    'The false positive on %1$s leaves every curve flat.'
+                        . ' MISP resets the decay clock on sightings'
+                        . ' alone, so a contradiction is visible on the'
+                        . ' axis but moves no score.',
+                    'The %2$s false positives, the last of them on %1$s,'
+                        . ' leave every curve flat. MISP resets the decay'
+                        . ' clock on sightings alone, so a contradiction'
+                        . ' is visible on the axis but moves no score.',
+                    $totals['fp']
+                ),
+                date('Y-m-d', $totals['last_fp_stamp']),
+                $totals['fp']
+            );
+        } else {
+            $fp = __(
+                'Nobody has contradicted this value. A false positive'
+                . ' would be drawn on this axis and would move no'
+                . ' curve — MISP resets the decay clock on sightings'
+                . ' alone.'
+            );
+        }
+        return array(
+            'fp_moves_nothing' => $fp,
+            'policy' => __(
+                'Sightings you can see. This instance\'s sighting policy'
+                . ' hides sightings reported by other organisations on'
+                . ' events your organisation does not own, so this count'
+                . ' is yours, not the instance\'s.'
+            ),
+        );
+    }
+
+    /**
+     * How long ago, in the words the panel sub-line uses.
+     *
+     * @param int|null $stamp
+     * @param int $now
+     * @return string
+     */
+    public static function agoPhrase($stamp, $now)
+    {
+        if ($stamp === null) {
+            return __('never');
+        }
+        $days = (int)floor(
+            (strtotime(date('Y-m-d', $now)) - strtotime(date('Y-m-d', $stamp)))
+            / 86400
+        );
+        if ($days <= 0) {
+            return __('today');
+        }
+        if ($days === 1) {
+            return __('yesterday');
+        }
+        if ($days < 31) {
+            return sprintf(__('%s days ago'), $days);
+        }
+        return date('Y-m-d', $stamp);
+    }
+
+    /**
+     * The organisation a report is filed under.
+     *
+     * `Sighting::listSightings` blanks the name and zeroes `org_id` for
+     * a foreign report when `Plugin.Sightings_anonymise` is on. All of
+     * them collapse to one key, because one key per hidden organisation
+     * would put the number of them in the legend.
+     *
+     * @param array $row One `Sighting::listSightings` row
+     * @return string
+     */
+    private static function sightingOrg(array $row)
+    {
+        $name = $row['Organisation']['name'] ?? '';
+        if ($name === '' || empty($row['Sighting']['org_id'])) {
+            return __('Others');
+        }
+        return $name;
+    }
+
+    /**
+     * The date MISP decays an occurrence from when nobody has reported
+     * it: `last_seen` if it has one, else the attribute's own timestamp.
+     * `DecayingModelBase::computeCurrentScore` picks the same pair in
+     * the same order.
+     *
+     * @param array $occurrence One `Value::occurrenceIdsFor` entry
+     * @return int Unix timestamp
+     */
+    public static function anchorStamp(array $occurrence)
+    {
+        $seen = self::stamp($occurrence['last_seen'] ?? null);
+        return $seen === null ? (int)$occurrence['timestamp'] : $seen;
     }
 
     /**

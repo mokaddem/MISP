@@ -24,6 +24,8 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueProfileBuckets', 'Tools');
+
 $series = $valueProfile['sighting_series'];
 $sightings = $valueProfile['sightings'];
 $decay = $valueProfile['decay'];
@@ -152,7 +154,7 @@ if ($series !== null) {
                     'Sightings per month, stacked by organisation'
                 ),
             ),
-            'perColumn' => ValueProfileFixture::columnLabels(),
+            'perColumn' => ValueProfileBuckets::columnLabels(),
             'falsePositive' => __('False positive'),
             'expiration' => __('Expiration'),
         ),
@@ -258,7 +260,7 @@ if ($series !== null) {
                     'zoomLabel' => __('Zoom the navigator'),
                     'zoomAway' => __('the range is not in view'),
                     'zoomSelection' => __('Look inside the range'),
-                    'grain' => ValueProfileFixture::columnLabels(),
+                    'grain' => ValueProfileBuckets::columnLabels(),
                 )) ?>
             </div>
 
@@ -339,6 +341,29 @@ if ($series !== null) {
                 <i class="fas fa-circle-info"></i>
                 <span><?= h($notes['fp_moves_nothing']) ?></span>
             </p>
+
+            <?php if (!empty($series['clipped'])): ?>
+                <?php
+                /*
+                 * A cap, not a permission — §14.6 keeps cap notices for
+                 * exactly this reason. `All time` on a value first seen
+                 * in 2015 would be 3,948 daily curve samples per model,
+                 * so the span is bounded and the label says which
+                 * question it is answering.
+                 */
+                ?>
+                <p class="vp-sight-note">
+                    <i class="fas fa-scissors"></i>
+                    <span><?= h(sprintf(
+                        __('Charted from %1$s. This value was first'
+                            . ' recorded on %2$s; the chart bounds its'
+                            . ' span so the decay curve stays one'
+                            . ' sample a day.'),
+                        $series['from'],
+                        $series['first']
+                    )) ?></span>
+                </p>
+            <?php endif; ?>
 
         </div>
 

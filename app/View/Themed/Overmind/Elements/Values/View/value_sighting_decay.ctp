@@ -133,6 +133,42 @@ $sightings = $valueProfile['sightings'];
                         )) ?>
                     </div>
 
+                    <?php if (!empty($model['held_by']['event_id'])): ?>
+                        <?php
+                        /*
+                         * A value is a set of occurrences and a decay
+                         * score is one attribute's, so a value-scoped
+                         * score needs an aggregation rule. The rule is
+                         * the highest of them, and the second half of
+                         * the rule is saying which one — a reader who
+                         * disagrees with the number has somewhere to go
+                         * and argue with it.
+                         * prd/value-profile-live/23-sightings.md §5.
+                         */
+                        ?>
+                        <div class="vp-decay-prov">
+                            <?= h(sprintf(
+                                __('Highest of %1$s · held by the one in'
+                                    . ' event %2$s'),
+                                __n(
+                                    '%s scored occurrence',
+                                    '%s scored occurrences',
+                                    $model['over'],
+                                    $model['over']
+                                ),
+                                $model['held_by']['event_id']
+                            )) ?>
+                            <?php if ($model['over'] < $model['of']): ?>
+                                ·
+                                <?= h(sprintf(
+                                    __('%1$s of %2$s occurrences scored'),
+                                    $model['over'],
+                                    $model['of']
+                                )) ?>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
                 </div>
             <?php endforeach; ?>
 
@@ -141,6 +177,44 @@ $sightings = $valueProfile['sightings'];
                     'Each line on the chart is this model\'s score. The bar'
                     . ' under each name is the same number now.'
                 )) ?>
+                <?= h(__(
+                    'MISP scores an attribute, not a value, so each of'
+                    . ' these is the highest score any one occurrence of'
+                    . ' the value carries.'
+                )) ?>
+            </p>
+
+            <?php
+            /*
+             * §14.6's one exception, which this phase found has two
+             * members rather than one.
+             *
+             * A decay score is computed from the reports the reader can
+             * see, and `Plugin.Sightings_policy` hides whole reports.
+             * Measured on `2.2.2.2`: a site admin reads NIDS 73 and a
+             * CIRCL org admin reads 59, from the same value on the same
+             * day, because the report that last reset the clock is on an
+             * event CIRCL does not own. That is the Verdict tab's
+             * situation exactly — a computed judgement two readers can
+             * honestly differ on — so it gets the Verdict tab's
+             * treatment: a line that is always shown, identical for
+             * every reader, and therefore carrying no information about
+             * what any particular reader cannot see.
+             *
+             * prd/value-profile-live/23-sightings.md §7.
+             */
+            ?>
+            <p class="vp-acl-note">
+                <i class="fas fa-user-shield"></i>
+                <span><?= h(__(
+                    'A decay score counts the reports you can see. Two'
+                    . ' readers whose sighting visibility differs can'
+                    . ' honestly read different scores for this value on'
+                    . ' the same day.'
+                )) ?></span>
+            </p>
+
+            <p class="vp-aside-note">
                 <?php
                 $contradictions = $sightings['fp']
                     + $sightings['expiration'];

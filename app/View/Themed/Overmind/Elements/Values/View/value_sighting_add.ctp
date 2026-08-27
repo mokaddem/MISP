@@ -10,23 +10,43 @@
  * however many events and organisations those sit in.
  *
  * A control with that reach has to state it before it is ever enabled,
- * which is why the count is computed from the occurrence rows the
- * viewer actually got rather than from the value's own total. The two
- * differ, and it is the smaller one that would be written.
+ * so the count is the one the write would produce: every occurrence of
+ * the value this viewer can see, soft-deleted ones included, because
+ * `saveSightings` resolves through `fetchAttributesSimple` and that
+ * fetcher does not drop them. It is therefore larger than the number of
+ * reports the list beside it can show — `Sighting::listSightings` does
+ * drop them — and it is the write's number that this card owes.
  *
  * Lazily loaded from ValuesController::viewSightingAdd.
  *
  * @var array $valueProfile
  * @var string $valueB64
  */
-$occurrences = $valueProfile['occurrences'];
-$events = array();
-$orgs = array();
-foreach ($occurrences as $occurrence) {
-    $events[$occurrence['Event']['id']] = true;
-    $orgs[$occurrence['Event']['Orgc']['name']] = true;
+/*
+ * Prepared counts when the panel is live, counted from the rows when it
+ * is not. Live, the numbers are three `COUNT(DISTINCT …)` over every
+ * occurrence the viewer has: on `443` that set is 48,255 rows, and
+ * fetching them to count three numbers cost 617 ms. `ValueProfileFixture`
+ * supplies no `sighting_fanout` and still drives this element from its
+ * own occurrence rows, so the guard is what keeps the double honest
+ * (§14.8).
+ */
+if (!empty($valueProfile['sighting_fanout'])) {
+    $fanout = $valueProfile['sighting_fanout'];
+    $visible = $fanout['occurrences'];
+    $eventCount = $fanout['events'];
+    $orgCount = $fanout['orgs'];
+} else {
+    $events = array();
+    $orgs = array();
+    foreach ($valueProfile['occurrences'] as $occurrence) {
+        $events[$occurrence['Event']['id']] = true;
+        $orgs[$occurrence['Event']['Orgc']['name']] = true;
+    }
+    $visible = count($valueProfile['occurrences']);
+    $eventCount = count($events);
+    $orgCount = count($orgs);
 }
-$visible = count($occurrences);
 
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
@@ -93,14 +113,14 @@ $buttons = array(
                     __n(
                         '%s event',
                         '%s events',
-                        count($events),
-                        count($events)
+                        $eventCount,
+                        $eventCount
                     ),
                     __n(
                         '%s organisation',
                         '%s organisations',
-                        count($orgs),
-                        count($orgs)
+                        $orgCount,
+                        $orgCount
                     )
                 )) ?>
             </p>

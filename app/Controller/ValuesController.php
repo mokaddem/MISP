@@ -11,10 +11,11 @@ App::uses('ValueProfileFixture', 'Tools');
  * attribute rows across many events, and this controller aggregates them.
  *
  * Read-only: nothing here writes. Every number is fixture data except on
- * the Occurrences tab, which phase 22 took live — the live campaign
- * converts one panel at a time, so the two regimes sit side by side
- * until it finishes. `prd/value-profile-live/00-contract.md` §14.12 is
- * the record of which panels have moved.
+ * the Occurrences tab, which phase 22 took live, and the Sightings tab,
+ * which phase 23 did — the live campaign converts one panel at a time,
+ * so the two regimes sit side by side until it finishes.
+ * `prd/value-profile-live/00-contract.md` §14.12 is the record of which
+ * panels have moved.
  */
 class ValuesController extends AppController
 {
@@ -123,46 +124,77 @@ class ValuesController extends AppController
      * three rail cards are five readings of the same rows that resolve
      * at their own speed, and the overlay is the slow one.
      *
+     * **Live since phase 23**, and the split earned its keep: the two
+     * panels that draw a decay curve each spend around 200,000 formula
+     * evaluations on it, and the three that do not spend none.
+     * prd/value-profile-live/23-sightings.md.
+     *
      * @param string $b64value
      * @return void
      */
     public function viewSightingChart($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderSightingPanel(
+            $b64value,
+            'forSightingChart',
             'value_sighting_chart'
         );
     }
 
     public function viewSightingList($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderSightingPanel(
+            $b64value,
+            'forSightingList',
             'value_sighting_list'
         );
     }
 
     public function viewSightingDecay($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderSightingPanel(
+            $b64value,
+            'forSightingDecay',
             'value_sighting_decay'
         );
     }
 
     public function viewSightingReporters($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderSightingPanel(
+            $b64value,
+            'forSightingReporters',
             'value_sighting_reporters'
         );
     }
 
     public function viewSightingAdd($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderSightingPanel(
+            $b64value,
+            'forSightingAdd',
             'value_sighting_add'
+        );
+    }
+
+    /**
+     * One line per Sightings endpoint rather than five copies of the
+     * same four, which is what §14.2 promised the swap would cost.
+     *
+     * @param string $b64value
+     * @param string $method A public ValueProfile facade method
+     * @param string $element Name under Elements/Values/View
+     * @return void
+     */
+    private function renderSightingPanel($b64value, $method, $element)
+    {
+        $this->loadModel('ValueProfile');
+        $this->renderPanel(
+            $this->ValueProfile->$method(
+                $this->Auth->user(),
+                $this->decodeValue($b64value)
+            ),
+            $element
         );
     }
 

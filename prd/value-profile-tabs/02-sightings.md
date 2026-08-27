@@ -361,6 +361,19 @@ value.
 
 ## 16. What the live phase still inherits
 
+> **Superseded by phase 23.** The tab went live on 2026-08-27 and every item
+> below is resolved, moot or measured — see
+> [`../value-profile-live/23-sightings.md`](../value-profile-live/23-sightings.md),
+> whose §8.3 answers §11 row by row. Two things are worth carrying back here
+> rather than leaving only in that document. **The aggregation rule is decided**
+> and it is the one this section predicted: the maximum across occurrences,
+> labelled with the occurrence holding it (§5 there). And **one claim in §11 was
+> wrong** — `Sighting::attributesStatistics()` does group org × attribute × type
+> × date in SQL, but its public method collapses the date dimension out of the
+> org breakdown before returning, so the org-stacked histogram *did* need
+> different work. The rest of this section is left as written, because it is the
+> record of what was expected before anything was measured.
+
 §11's list is unchanged and none of it was solved here — this phase is fixture
 work, and the derived curve is a model of `getScoreOvertime`, not a call to it.
 One item is now sharper rather than softer:

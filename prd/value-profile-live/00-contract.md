@@ -241,14 +241,21 @@ New:
 | Tool | Owns |
 |---|---|
 | `ValueStatsTool` | facet counts, org and type rollups, histograms, the verdict's composition segments — the cross-cutting aggregates several tabs share |
-| `ValueDecayTool` | the decay series: §11's hourly-to-daily/weekly resampling, and the **still-undecided** aggregation of ten per-attribute curves into one per-value score |
+| `ValueDecayTool` | the decay series: §11's hourly-to-daily/weekly resampling, and the aggregation of ten per-attribute curves into one per-value score — **decided by phase 23**, `23-sightings.md` §5 |
 
 `ValueDecayTool` exists partly so that decision has one home. §7.9 recorded
 that `DecayingModel::getScoreOvertime()` is per attribute, that there is no
 value-scoped endpoint and no aggregation rule, and that the phase 7 deck
 proposed *max across occurrences, labelled with its occurrence*.
-`02-sightings.md` §16 sharpened it and left it open. It is still open, and it is
-now a named function's contract rather than a paragraph.
+`02-sightings.md` §16 sharpened it and left it open.
+
+**Phase 23 closed it, and took the deck's proposal.** The rule is the per-day
+maximum across occurrences, labelled with the occurrence holding it, and the
+label is half the rule rather than a decoration on it — maximum is not monotone
+in evidence, so a reader who disagrees with the number is owed somewhere to go
+and argue with it. `23-sightings.md` §5 carries the argument, the three bounds
+that make it affordable, and the one case where the base-score grouping behind
+it does not apply.
 
 Reused rather than rebuilt: `Sighting::attributesStatistics()` (already groups
 org × attribute × type × date in SQL — §7.9), `ValueProfileBuckets`,
@@ -286,14 +293,29 @@ that own them, not defects:
 | §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn |
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
 | tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's** |
+| the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
 
-**The one exception: a permanent line on the Verdict tab.** Always shown, on
-every value, identical for every reader — including values with nothing hidden.
-Because it never varies, its presence carries no information, which is exactly
-what separates it from the notes above. It exists because the Verdict tab
-renders a *computed judgement*, and two readers can honestly get different
-verdicts for the same value; without this line, neither has any way to know why.
-Nowhere else on the page carries it.
+**The exception: a permanent line wherever the page renders a computed
+judgement.** Always shown, on every value, identical for every reader —
+including values with nothing hidden. Because it never varies, its presence
+carries no information, which is exactly what separates it from the notes above.
+It exists because a *computed judgement* can honestly differ between two
+readers of the same value, and without the line neither has any way to know why.
+
+**This was written as "the Verdict tab, and nowhere else." Phase 23 found a
+second member.** A decay score is computed from the reports the reader can see,
+and `Plugin.Sightings_policy` hides whole reports — measured on `2.2.2.2`, a
+site admin reads NIDS 73 and a CIRCL org admin reads 59, same value, same day,
+because the report that last reset the clock is on an event CIRCL does not own.
+Two colleagues would read different numbers off the same card in the same
+afternoon. So `value_sighting_decay` carries one too (`23-sightings.md` §7).
+
+The rule to read out of the exception, now that it has two members: **a panel
+that renders a computed judgement gets a permanent caveat; a panel that renders
+a count does not.** A count being viewer-scoped is invisible and harmless — that
+is the whole of §14.6. A judgement being viewer-scoped is a number people
+disagree about out loud. A later phase that computes rather than counts should
+expect to add the third.
 
 **What this costs, stated plainly.** §1.3 founded the page on three visually
 distinct states — *not implemented*, *nothing to show*, *hidden from you by
@@ -426,6 +448,14 @@ infrastructure rather than benign"*, and there may be no shipped list that
 produces one. Whoever wires the warninglist band has to check that before the
 argument can be rendered from real data.
 
+**`MispAttribute::fetchAttributes` resolves organisations one query at a
+time.** `MispAttribute.php:2363` caches each answer in `$this->orgs_cache` but
+fetches each id with its own `Org->find('first')`, so a page whose attributes
+span nine organisations pays nine selects inside one fetcher call. Found by
+phase 23 counting the queries behind `Sighting::listSightings`, which calls it.
+It is the mirror of the note below: a batched form is one `IN (…)`, the fetcher
+does not use it, and every attribute index in MISP pays for that.
+
 **`Event::fetchSimpleEvents` exists.** §8.2 costed the per-event ACL model at
 one `fetchEvent()` per event and concluded *"there is no value-scoped equivalent
 and no cheaper path."* That is true of the full event graph and not of event
@@ -447,8 +477,11 @@ account for.
   nothing computes one, the four rows in §14.12 that render a verdict are
   blocked rather than merely unstarted. See
   [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md).
-- **The decay aggregation rule.** Named, given an owner in
-  `ValueDecayTool`, and still undecided.
+- ~~**The decay aggregation rule.**~~ **Closed by phase 23** — the per-day
+  maximum across occurrences, labelled with the occurrence holding it.
+  `23-sightings.md` §5. Left listed rather than deleted, because three
+  documents in a row restated this gap without closing it and the record of
+  that is worth more than a tidy list.
 
 ### 14.12 The conversion board
 
@@ -475,11 +508,11 @@ document that filled it.
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
 | Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
-| Sightings | `viewSightingChart` | `value_sighting_chart` | — | — | — | — |
-| Sightings | `viewSightingList` | `value_sighting_list` | — | — | — | — |
-| Sightings | `viewSightingDecay` | `value_sighting_decay` | — | — | — | — |
-| Sightings | `viewSightingReporters` | `value_sighting_reporters` | — | — | — | — |
-| Sightings | `viewSightingAdd` | `value_sighting_add` | — | — | — | — |
+| Sightings | `viewSightingChart` | `value_sighting_chart` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
+| Sightings | `viewSightingList` | `value_sighting_list` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
+| Sightings | `viewSightingDecay` | `value_sighting_decay` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
+| Sightings | `viewSightingReporters` | `value_sighting_reporters` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
+| Sightings | `viewSightingAdd` | `value_sighting_add` | 1 | nothing | 2 | **23** |
 | Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | — | — | — | — |
 | Relationships | `viewRelationNearMatch` | `value_relation_near_match` | — | — | — | — |
 | Relationships | `viewRelationAsserted` | `value_relation_asserted` | — | — | — | — |
@@ -491,16 +524,28 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-One row is filled; the rest are `—` because nothing else is wired. A row moves
-off `—` only when its phase document records the same numbers, so the two cannot
-disagree without one of them being visibly blank.
+Six rows are filled; the rest are `—` because nothing else is wired. A row
+moves off `—` only when its phase document records the same numbers, so the two
+cannot disagree without one of them being visibly blank.
 
-`Q` for the one converted row is its **ceiling**: nine, of which two are
-`SharingGroup::authorizedIds` inside `buildConditions()` rather than queries the
-panel issues. Seven on a value with no tags and no sharing group, four on a value
-with no occurrence the viewer may see. What varies is which decorations a value
-needs, not how much data it has — the ceiling is reached by a thirteen-row value.
-`22-occurrences.md` §4.1 has the breakdown and §10.2 the measurements.
+`Q` on every converted row is its **ceiling**, measured, and on every one of
+them the ceiling is reached by a *small* value rather than a large one.
+
+For Occurrences: nine, of which two are `SharingGroup::authorizedIds` inside
+`buildConditions()` rather than queries the panel issues. Seven on a value with
+no tags and no sharing group, four on a value with no occurrence the viewer may
+see. What varies is which decorations a value needs, not how much data it has —
+the ceiling is reached by a thirteen-row value. `22-occurrences.md` §4.1 has the
+breakdown and §10.2 the measurements.
+
+For Sightings: 21 on a 23-occurrence value, 8 on a 33,110-occurrence one. The
+two heaviest values on the instance issue *fewer* queries than `8.8.8.8` and are
+slower anyway, because two of theirs have to touch every occurrence. **What the
+count grows with is the number of organisations** a value's reports and events
+involve — `MispAttribute::fetchAttributes` resolves one per query (§14.10) —
+and not the occurrence count. `23-sightings.md` §4 has the breakdown and §10.2
+the measurements, including the two rewrites §8.2 there records: the first
+version was flat in query count and took 3.4 seconds.
 
 **Four rows are blocked rather than unstarted**, and they are not all on the
 Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
@@ -542,6 +587,7 @@ its decisions and deferrals live; this is only the map.
 | Phase | Converts | Document | Status |
 |---|---|---|---|
 | 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
+| 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built; the browser pass is the one row of §14.9 it could not fill |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
@@ -550,6 +596,12 @@ live shape is best understood, Sightings has the hardest live-data story of the
 nine (`value-profile-tabs/02-sightings.md` §11), and Enrichment cannot go live
 at all without the persistence §7.9 found missing. Whichever goes first states
 why in its own document.
+
+Sightings went second **because of** that hardest-story label rather than in
+spite of it: the hard part was one named, undecided question that three
+documents in a row had restated without closing, and parking a decision while
+easier tabs land is how a campaign accumulates the debt §14.11 lists.
+`23-sightings.md` §1.
 
 **What phase 22 leaves behind for the phases after it.** Three files every later
 phase inherits — `app/Model/Value.php` (the §14.3 seam),
@@ -602,4 +654,44 @@ phase should expect:
   to the caller. §15.2.
 - **`DistributionLevel`'s level-1 tint is 4.09:1**, below AA for text, and its
   tints do not follow the theme. Pre-existing, shared by every page in MISP that
-  draws a distribution, and on the §14.7 report-do-not-fix list. §13.3.
+  draws a distribution, and on the §14.7 report-do-not-fix list.
+
+**What phase 23 leaves behind.** One new file every later phase inherits —
+`app/Lib/Tools/ValueDecayTool.php` — plus two accessors on `Value`, six methods
+on `ValueStatsTool`, and five findings that change what a later phase should
+expect:
+
+- **`Value` has two more accessors, and one of them is the shape to copy.**
+  `occurrenceSummaryFor($user, $value)` returns the occurrence, event and
+  organisation counts plus the oldest and newest occurrence dates in **one
+  grouped aggregate**. Any panel that wants a number about the whole occurrence
+  set should call it rather than fetch rows: fetching them to count three
+  numbers cost 617 ms on `443`, and it is 4 ms. `occurrenceIdsFor` is the light
+  six-column id set, and it now takes `limit` and `order` because its callers
+  cap it.
+- **Do not scope another model's fetcher by the value's whole occurrence set.**
+  `Sighting::listSightings` re-resolves every id it is handed; on `443` that is
+  48,255 ids for three sightings and 1.6–3.4 seconds per panel.
+  `Value::sightedOccurrenceIdsFor` narrows first with a join. The same trap is
+  waiting for any panel that wants notes, correlations or audit rows over a
+  value's occurrences, and none of them will look like a query-count problem —
+  the counts were flat and correct throughout. `23-sightings.md` §8.2.
+- **`Sighting::listSightings` cannot see a report on a soft-deleted
+  occurrence**, because its internal `fetchAttributes` forces
+  `Attribute.deleted = 0`. Measured: six seeded reports on `github.com`, four
+  visible. Phase 22 found the neighbouring half of this. The two together mean
+  **any fetcher going through `fetchAttributes` disagrees with the Occurrences
+  tab about which rows exist.**
+- **`fetchAllAllowedModels($user, true, [], ['enabled' => true])` is the cheap
+  way to ask which decaying models apply.** `getAssociatedModels($user, $type)`
+  — the route `attachScoresToAttribute` takes — asks per attribute type and
+  re-reads every default model each time: thirteen queries where this is two.
+- **`ValueProfileBuckets::columnLabels()` moved out of the fixture.** A live
+  element must not name `ValueProfileFixture`, and that is now a grep in the
+  phase lint pass. Any element a later phase converts should be checked for the
+  same thing.
+- **The chart payload's bulk is bucket labels, not data.** At the 1,095-day span
+  cap a Sightings fragment carries ~43 KB of JSON, of which roughly 26 KB is the
+  day grain's 1,095 labels and titles — all derivable in the browser from
+  `plan.from` plus an offset. Any later panel reusing phase 21's `plan` shape
+  inherits that. `23-sightings.md` §12.1. §13.3.

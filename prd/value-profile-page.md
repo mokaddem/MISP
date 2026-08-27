@@ -45,17 +45,21 @@ here exists to make each of those a local change.
 ### 1.4 Where this stands
 
 **Read this first.** §1.2 describes the original skeleton pass; the document has
-since grown to twenty-one phases and this subsection is the current state.
+since grown to twenty-three phases and this subsection is the current state.
 
 Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
 endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
 render their own content; nothing on the page is a placeholder.
 
-**Phase 22 started the live campaign.** The Occurrences tab now reads the
-database; the other eight tabs still read the fixture, so the two regimes sit
-side by side until the campaign finishes. **Nothing writes**, on either side.
-`live/00-contract.md` §14.12 is the panel-level record — one of twenty-seven
-endpoints has moved.
+**Phases 22 and 23 started the live campaign.** The Occurrences and Sightings
+tabs now read the database; the other seven tabs still read the fixture, so the
+two regimes sit side by side until the campaign finishes. **Nothing writes**, on
+either side. `live/00-contract.md` §14.12 is the panel-level record — six of
+twenty-seven endpoints have moved.
+
+One card on a converted tab is deliberately still fixture-backed: the
+**Overview's** `value_sightings` rail card, which belongs to the Overview's
+phase rather than to the Sightings tab's.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
@@ -84,6 +88,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 21 | Zooming the activity chart | `phases/21-chart-zoom.md` (§13) | built |
 | — | Going live: the wiring contract | `live/00-contract.md` (§14) | the contract; §14.12's board says which panels have moved |
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
+| 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built; the browser pass is still owed |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |

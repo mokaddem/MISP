@@ -4328,11 +4328,7 @@ class ValueProfileFixture
      */
     public static function columnLabels()
     {
-        return array(
-            ValueProfileBuckets::DAY => __('one column per day'),
-            ValueProfileBuckets::WEEK => __('one column per week'),
-            ValueProfileBuckets::MONTH => __('one column per month'),
-        );
+        return ValueProfileBuckets::columnLabels();
     }
 
     /**

@@ -24,7 +24,6 @@
  * @var string $valueB64
  */
 $rows = array_reverse($valueProfile['sighting_rows']);
-$series = $valueProfile['sighting_series'];
 $total = count($rows);
 $pageSize = 10;
 
