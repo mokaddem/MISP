@@ -97,7 +97,7 @@ goes first argues why in its own document.
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
-| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16) |
+| **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | 22+ | Sightings | — | not started |
 | 22+ | Relationships | — | not started |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |

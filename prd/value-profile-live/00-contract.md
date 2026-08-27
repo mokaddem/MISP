@@ -396,8 +396,10 @@ found something worth knowing:
 9. **The three concepts, assessed** — proposals on the value, presence in feeds
    and sync servers, and event reports on the value's events.
    [`../value-profile-coverage.md`](../value-profile-coverage.md) §5 carries a
-   starting verdict per phase; the phase records its own, and **`no` with a
-   reason is a complete answer.** The row exists because all three were
+   starting verdict per phase — and §5.1 the same for Occurrences, which is
+   already converted and still owes two of the three. The phase records its own
+   verdicts, and **`no` with a reason is a complete answer.** The row exists
+   because all three were
    reachable from panels §2.6 already lists and all three were built to about a
    third of their depth — a badge, a card title and a markdown parser were
    enough to make them look handled.
@@ -520,14 +522,17 @@ of the value.
 **A third thing to watch, and it is a hole in the rule above.**
 `value-profile-coverage.md` §6 forecasts what the three concepts of §14.9 row 9
 add to this board: one new element for event reports, probably two, and no new
-endpoint for the other two concepts — but proposals **extend `viewOccurrenceTable`,
-a row phase 22 has already filled.** Surfacing a standalone proposal
-(`ShadowAttribute.old_id = 0`) means another fetch, so both the `Q` ceiling of 9
-and the tier table behind it change. The rule as written — *a row moves off `—`
-only when its phase document records the same numbers* — does not say who owns a
-row that a later phase amends. Whoever gets there first: amend the row, and
-record the new numbers in your own document with a pointer from phase 22's, so
-the two still cannot disagree without one being visibly blank.
+endpoint for the other two concepts — but two of them **extend
+`viewOccurrenceTable`, a row phase 22 has already filled.** Surfacing a
+standalone proposal (`ShadowAttribute.old_id = 0`) means another fetch, and a
+feed column means a Redis pipeline that §14.4's tiers have no vocabulary for, so
+both the `Q` ceiling of 9 and the tier table behind it change. The rule as
+written — *a row moves off `—` only when its phase document records the same
+numbers* — does not say who owns a row that a later phase amends.
+`value-profile-coverage.md` §5.1 is the work list and names two options for
+placing it. Whoever gets there first: amend the row, and record the new numbers
+in your own document with a pointer from phase 22's, so the two still cannot
+disagree without one being visibly blank.
 
 ### 14.13 The phase index
 

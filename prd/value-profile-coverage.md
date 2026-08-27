@@ -442,6 +442,12 @@ Verdicts here are **the assessment, not the decision.** A phase may overturn one
 in its own document by arguing it; what it may not do is convert a tab without
 addressing all three.
 
+**The table covers the eight phases that have not run.** Occurrences is absent
+from it because it has already converted — and that is exactly why it needs
+§5.1: the heaviest proposals finding in this document lands on the one tab with
+no remaining phase to own it. An obligation attached only to future phases would
+route the work nowhere.
+
 | Phase | Proposals | Feeds / servers | Event reports |
 |---|---|---|---|
 | Overview | **yes** — a decision | **yes** — this is its home | **yes** — the count |
@@ -554,6 +560,88 @@ audit log tracks.
 
 ---
 
+### 5.1 The converted tab — what Occurrences still owes
+
+Phase 22 is built and `viewOccurrenceTable` is the one filled row on §14.12's
+board. Its verdicts are **proposals yes, feeds yes, reports no** — and unlike
+every row above, two of those are amendments to shipped code rather than
+decisions for an unwritten phase.
+
+**Proposals — six things, and the first is the only one that changes what a
+reader sees.**
+
+1. **Standalone proposal rows.** §2.2: a proposed addition (`old_id = 0`) is
+   invisible, so a value held only as a proposal renders as §2.12's unknown
+   page. `Event::__attachProposals` already establishes the pattern — edits
+   inline on their target row, standalone proposals as rows of their own — and
+   `Elements/Attributes/index.ctp`'s `is_proposal` flag already suppresses every
+   action on such a row. Neither is callable as-is (§2.3), but neither has to be
+   designed.
+2. **A second `state` token.** The rail's `state` group has one token today,
+   `proposal`, meaning *this row has a pending proposal against it*. A
+   standalone row **is** a proposal, which is a different state, and one token
+   cannot mean both — the facet would filter to a mix of the two.
+3. **The cap, and what the counts count.** §6 fetches at most 300 rows ordered
+   `Attribute.timestamp DESC`. Proposals carry their own `timestamp`, so they
+   interleave without inventing an order — but three questions need answers:
+   whether a standalone proposal consumes cap, whether the header's *"N
+   attribute rows across M events · K organisations"* counts it, and whether the
+   footer band's two numbers stay comparable if it does. The safest reading is
+   that a proposal is not an attribute row and the header should not say it is.
+4. **The looser ACL branch.** §2.2: `buildConditions()` ORs
+   `ShadowAttribute.old_id = '0'` past the whole attribute-and-object
+   distribution test, so a standalone proposal is gated on **event visibility
+   alone**. The occurrence row set's ACL reasoning does not carry over, and
+   phase 22's summary of that model describes only the `old_id != 0` branch.
+5. **`O4`'s proposal diff.** Already recorded as a deliberate deferral in §1.4
+   and `tabs/01-occurrences.md` §10. §2.1 is the news: the data for it is one
+   indexed query, not a schema problem. It is where *what* was proposed renders,
+   as against the fact that something was.
+6. **The seam parameter.** §2.4. The fetch needs
+   `ShadowAttribute.value1`/`value2`, which §14.3's rule permits only inside
+   `Value`, so `conditionsFor` needs its `alias` option before any of the above
+   can be written. **This is the gating item, and the one that gets more
+   expensive with each phase that ships against the current signature.**
+
+**Feeds — and here the tab has a better primitive than the Overview does.**
+§3.2's hazard is that `searchCaches()` enforces no permission. That hazard does
+not apply to this panel, because this panel holds **attribute rows**, and rows
+are what the event view's own reader takes:
+
+```php
+$fakeEventArray = [];
+$this->Feed->attachFeedCorrelations(array_column($rows, 'Attribute'), $user, $fakeEventArray);
+```
+
+That exact call, with that exact fake-event workaround, is already shipped at
+`AttributesController.php:1888` for the attribute index — a flat,
+value-searchable attribute list, structurally the same thing as this table. One
+Redis pipeline for all rows, `perm_view_feed_correlations` enforced by the
+primitive itself (`Feed.php:521`), and the same raw hashing the event view uses,
+so a feed column here **agrees with the event view by construction**.
+
+The consequence is worth stating plainly, because it looks like a bug and is
+not: `value_external` on the Overview has only a bare value to work with, so it
+is stuck with `searchCaches` and must add the permission gate by hand (§3.2) and
+accept the lowercased hash (§3.3). **The two panels will therefore disagree
+about the same value whenever it carries an uppercase character** — the table
+saying hit and the card saying nothing, or the reverse. Two panels, two
+primitives, each correct for its own shape. Whoever wires the second one names
+this rather than discovering it.
+
+**Reports — no.** The Event column could carry a report indicator, but §4.5
+places reports on Overview and Analyst data, and §4.3's helper is broken for
+exactly the cross-org case this table is full of. Nothing to add here.
+
+**Who owns it.** This is the amendment §6 warns about: a filled row whose `Q`
+ceiling of 9 and tier table both change. It is not a new phase's natural work
+and it is too large to fold into an unrelated one, so the honest options are a
+short phase of its own or the next phase that touches `Value` taking the seam
+parameter with it. Either way the numbers move, and phase 22's document needs a
+pointer to wherever they move to.
+
+---
+
 ## 6. What the conversion board gains
 
 §14.12 records **twenty-seven endpoints, and all twenty-seven exist.** Nothing
@@ -564,16 +652,19 @@ What §5 implies for the board, as a forecast rather than a change:
 
 | Concept | Board impact |
 |---|---|
-| Proposals | **no new endpoint.** Extends `viewOccurrenceTable` (already converted at phase 22) with the `old_id = 0` rows, and `viewAnalystThread` / `viewTimeline` / `viewHistory` with a lane each. A converted row being *extended* is a case §14.12 has not had to describe yet — phase 22 owns those numbers, and a later phase changing them has to update the row it did not fill |
-| Feeds and servers | **no new endpoint.** `viewExternal` exists and is unconverted; §3 is its brief |
+| Proposals | **no new endpoint.** Extends `viewOccurrenceTable` (already converted at phase 22) with the `old_id = 0` rows — §5.1 is the full list — and `viewAnalystThread` / `viewTimeline` / `viewHistory` with a lane each. A converted row being *extended* is a case §14.12 has not had to describe yet — phase 22 owns those numbers, and a later phase changing them has to update the row it did not fill |
+| Feeds and servers | **no new endpoint.** `viewExternal` exists and is unconverted; §3 is its brief. §5.1 adds a second, unforeseen caller: a feed column on `viewOccurrenceTable`, which reaches the same cache through `attachFeedCorrelations` rather than `searchCaches` and is the better primitive for it |
 | Event reports | **one new element, probably two.** A count on the Overview (inside `viewExternal`'s neighbourhood or its own card) and a list on Analyst data. The phase that adds them adds the rows |
 
 The proposals line is the one worth flagging now: **it reopens a converted
 row.** Phase 22's `Q = 9` ceiling and its tier table are the record for
-`viewOccurrenceTable`, and adding a standalone-proposal fetch changes both. That
-is not a problem, but it is the first time the campaign will have to amend a
-finished row rather than fill an empty one, and §14.12's rule as written does
-not say who owns that.
+`viewOccurrenceTable`, and adding a standalone-proposal fetch changes both — as
+does the feed column, which adds a Redis pipeline rather than a query and so
+needs a word about how §14.4's tiers count a cache lookup at all. That is not a
+problem, but it is the first time the campaign will have to amend a finished row
+rather than fill an empty one, and §14.12's rule as written does not say who
+owns that. §5.1 lays out the work and names the two honest options for placing
+it.
 
 ---
 
