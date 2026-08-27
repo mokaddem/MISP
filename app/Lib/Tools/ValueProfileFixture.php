@@ -40,13 +40,27 @@ class ValueProfileFixture
     const TODAY = '2025-08-24';
 
     /**
-     * The grain of the History tab's activity chart. Monthly
-     * because the log spans fourteen months and the rail it sits
-     * in is three columns wide, not because anything about an
-     * audit entry resists a finer bucket — every entry carries a
-     * timestamp, so this is the one caller free to change it.
+     * The grain of the History tab's activity chart, as a
+     * span-to-unit rule rather than a unit: phase 21 gave the chart
+     * a zoom, and §13.2 is that zooming and choosing the grain are
+     * one mechanism seen twice.
+     *
+     * The whole log lands on monthly bars, as it always has —
+     * fourteen months in a three-column rail, not because anything
+     * about an audit entry resists a finer bucket. Every entry
+     * carries a timestamp, which is why this is the one caller
+     * whose rule can reach `day` at all.
+     *
+     * The thresholds are the rail's width divided by a readable
+     * bar rather than anything about audit logs: 45 days of daily
+     * bars and 200 of weekly ones both fit, and 437 daily bars
+     * would be 0.68px each (§12.5.5).
      */
-    const AUDIT_UNIT = ValueProfileBuckets::MONTH;
+    const AUDIT_RULE = array(
+        array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
+        array('days' => 200, 'unit' => ValueProfileBuckets::WEEK),
+        array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+    );
 
     /**
      * MISP's sighting types, as ints. They are not degrees of one thing:
@@ -8244,7 +8258,7 @@ class ValueProfileFixture
              * not reach the rest of the log.
              */
             'span' => self::auditSpan($corpus),
-            'months' => self::auditMonths($corpus),
+            'chart' => self::auditChart($corpus),
             'entries' => count($corpus),
             'shown' => count($all),
             'occurrences' => count($groups),
@@ -8359,9 +8373,10 @@ class ValueProfileFixture
     }
 
     /**
-     * One bar per month, from the log's first month to the current one.
+     * The activity chart, at every grain `AUDIT_RULE` permits, from
+     * the log's first day to the current one.
      *
-     * To this month rather than to the log's last: a value whose log
+     * To today rather than to the log's last day: a value whose log
      * went quiet in March lands on a window in August, and the reader
      * has to be able to see that the window is off the right-hand end
      * of the value's own activity. A chart that stopped in March would
@@ -8371,31 +8386,36 @@ class ValueProfileFixture
      * the reason the Timeline's spine does — a bar drawn over days that
      * have not happened invites the reader to read a dip in it.
      *
+     * The bars carry no totals and the days do. One tally per day is
+     * what lets the browser draw any grain the rule permits without
+     * asking for another one (§13.1), and a total per bar at three
+     * grains would be the same 623 entries counted three times.
+     *
      * @param array $rows The corpus, over the whole log
-     * @return array
+     * @return array|null null for a log with no entries
      */
-    private static function auditMonths(array $rows)
+    private static function auditChart(array $rows)
     {
         $span = self::auditSpan($rows);
         if ($span === null) {
-            return array();
+            return null;
         }
-        $months = ValueProfileBuckets::series(
+        $plan = ValueProfileBuckets::plan(
             $span['from'],
             self::TODAY,
-            self::AUDIT_UNIT
+            self::AUDIT_RULE
         );
-        $at = ValueProfileBuckets::locate($months);
-        foreach ($months as $i => $month) {
-            $months[$i]['total'] = 0;
-        }
+        $days = array();
         foreach ($rows as $row) {
             $day = substr((string)$row['created'], 0, 10);
-            if (isset($at[$day])) {
-                $months[$at[$day]]['total']++;
-            }
+            $days[$day] = isset($days[$day]) ? $days[$day] + 1 : 1;
         }
-        return $months;
+        $plan['counts'] = ValueProfileBuckets::tally(
+            $span['from'],
+            self::TODAY,
+            $days
+        );
+        return $plan;
     }
 
     /**

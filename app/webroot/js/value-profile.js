@@ -1150,6 +1150,488 @@
     window.VP.brush = { attach: attachBrush, paint: paintBrush };
 
     /* ==================================================================
+     * The zoom
+     * ------------------------------------------------------------------
+     * Narrow what the chart shows, which is a different question from
+     * the brush's *what do I want to filter by* (§13.3). Both gestures
+     * live on the same strip, so they are kept apart by having only one
+     * of them be a drag: the drag still selects, and zoom is four
+     * buttons.
+     *
+     * Zoom and the bucket unit are one mechanism seen twice (§13.2). A
+     * span of a fortnight has no business being drawn as one monthly
+     * bar, and a span of fourteen months has no business being drawn as
+     * 437 daily ones — §12.5.5 measured the second of those at 0.68px a
+     * bar. So the unit follows from the visible span, by a rule the
+     * caller owns: the History chart draws its whole span monthly and
+     * the Timeline draws every span monthly, and one shared rule could
+     * not do both.
+     *
+     * No fetch, at any zoom level. §13.1 measured the whole span at
+     * every grain at about a kilobyte of counts and a dozen of labels,
+     * so the server ships all of it once and this is arithmetic. Which
+     * is also why the labels are not derived here — they arrive from
+     * `ValueProfileBuckets::plan()` already written, so there is one
+     * formatter rather than two that have to agree.
+     * ================================================================== */
+
+    /*
+     * How few bars the chart may be zoomed down to.
+     *
+     * A chart of two bars is not a chart, and the floor has to be in
+     * bars rather than in days because the Timeline's finest unit is a
+     * month: four is a readable span of days and a readable span of
+     * months, and the same number therefore serves both.
+     */
+    var ZOOM_MIN_BUCKETS = 4;
+
+    /**
+     * @param {string} ymd `Y-m-d`
+     * @return {number} Days since the epoch, UTC
+     */
+    function zoomEpochDay(ymd) {
+        var parts = ymd.split('-');
+        return Math.round(Date.UTC(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+        ) / 86400000);
+    }
+
+    /**
+     * @param {number} day Days since the epoch, UTC
+     * @return {string} `Y-m-d`
+     */
+    function zoomYmd(day) {
+        return new Date(day * 86400000).toISOString().slice(0, 10);
+    }
+
+    /**
+     * The unit a span of this many days is drawn at.
+     *
+     * A mirror of `ValueProfileBuckets::unitForSpan()`, and the only
+     * one this file keeps: the rule itself is shipped rather than
+     * restated, so what is duplicated is the walk over it and not the
+     * thresholds.
+     *
+     * @param {Array} rule `days` and `unit`, first match wins
+     * @param {number} days
+     * @return {string}
+     */
+    function zoomUnitFor(rule, days) {
+        for (var i = 0; i < rule.length; i += 1) {
+            if (rule[i].days === null || days <= rule[i].days) {
+                return rule[i].unit;
+            }
+        }
+        return rule[rule.length - 1].unit;
+    }
+
+    /**
+     * A zoom over one chart's plan.
+     *
+     * The state is a visible span in day offsets from the plan's start,
+     * plus the unit that span is drawn at. The unit is stored rather
+     * than re-derived on read, because every transition snaps the span
+     * outwards to whole buckets *of the unit the requested span asked
+     * for* — deriving it again from the snapped span could pick a
+     * different one and the pair would never settle.
+     *
+     * @param {Object} plan `from`, `to`, `days`, `rule`, `grains`
+     * @return {Object}
+     */
+    function makeZoom(plan) {
+        var epoch = zoomEpochDay(plan.from);
+        var last = plan.days - 1;
+        var ranges = {};
+        var view = { from: 0, to: last };
+        var unit = zoomUnitFor(plan.rule, plan.days);
+
+        /**
+         * Each bucket of a grain as a pair of day offsets, worked out
+         * once per grain and kept.
+         *
+         * The server ships the starts and not the ends, because a
+         * bucket ends where the next one begins and the last ends with
+         * the span — so the ends are arithmetic, and arithmetic is this
+         * side's half of the split `plan()` documents. A `starts` of
+         * null is the identity, which is what a daily grain always is.
+         *
+         * @param {string} which
+         * @return {Array}
+         */
+        function offsets(which) {
+            if (!ranges[which]) {
+                var grain = plan.grains[which];
+                var count = grain ? grain.label.length : 0;
+                var starts = grain && grain.starts;
+                var spans = [];
+                for (var i = 0; i < count; i += 1) {
+                    var from = starts ? starts[i] : i;
+                    var next = i + 1 < count
+                        ? (starts ? starts[i + 1] : i + 1)
+                        : last + 1;
+                    spans.push({ from: from, to: next - 1 });
+                }
+                ranges[which] = spans;
+            }
+            return ranges[which];
+        }
+
+        /**
+         * One drawn bar: the label and title the server wrote, and the
+         * dates this side worked out.
+         *
+         * The dates are clamped into the span because the month grain's
+         * first bucket is a whole calendar month and so may begin
+         * before the log's first day — a bar the reader may brush, but
+         * not one they may filter to days the log does not cover.
+         *
+         * @param {string} which
+         * @param {number} index
+         * @param {{from: number, to: number}} span Day offsets
+         * @return {Object}
+         */
+        function describe(which, index, span) {
+            var grain = plan.grains[which];
+            var lo = Math.max(0, span.from);
+            var hi = Math.min(last, span.to);
+            return {
+                bucket: {
+                    label: grain.label[index],
+                    title: grain.title[index],
+                    from: zoomYmd(epoch + lo),
+                    to: zoomYmd(epoch + hi),
+                },
+                from: lo,
+                to: hi,
+            };
+        }
+
+        /**
+         * Widen `from`..`to` to the whole buckets of `which` it touches.
+         *
+         * Outwards and never inwards, so a bar is always the whole
+         * bucket the server labelled: §12.4 refused a month bucket
+         * starting mid-month on the grounds that it would be a bar
+         * labelled `Mar` that is not March, and an edge left where a
+         * halving put it would be exactly that.
+         *
+         * @param {string} which
+         * @param {number} from Day offset
+         * @param {number} to Day offset
+         * @return {{from: number, to: number}}
+         */
+        function snap(which, from, to) {
+            var spans = offsets(which);
+            var lo = null;
+            var hi = null;
+            spans.forEach(function (span) {
+                if (span.to >= from && span.from <= to) {
+                    if (lo === null) {
+                        lo = span.from;
+                    }
+                    hi = span.to;
+                }
+            });
+            if (lo === null) {
+                return { from: 0, to: last };
+            }
+            return {
+                from: Math.max(0, lo),
+                to: Math.min(last, hi),
+            };
+        }
+
+        /**
+         * Move to a requested span: pick the unit it asks for, then
+         * snap to that unit's buckets.
+         *
+         * @param {number} from Day offset
+         * @param {number} to Day offset
+         */
+        function settle(from, to) {
+            var lo = Math.max(0, Math.min(from, last));
+            var hi = Math.min(last, Math.max(to, 0));
+            var wanted = zoomUnitFor(plan.rule, hi - lo + 1);
+            unit = wanted;
+            view = snap(wanted, lo, hi);
+        }
+
+        /**
+         * The buckets currently drawn, each with the day offsets it
+         * covers so the caller can reduce its own data over them.
+         *
+         * @return {Array} `bucket`, `from`, `to`
+         */
+        function drawn() {
+            var spans = offsets(unit);
+            var out = [];
+            spans.forEach(function (span, index) {
+                if (span.to >= view.from && span.from <= view.to) {
+                    out.push(describe(unit, index, span));
+                }
+            });
+            return out;
+        }
+
+        /**
+         * What halving the visible span would land on, as a span.
+         *
+         * Around the centre, because there is no pointer to zoom
+         * towards — the gesture is a button, not a wheel over a bar.
+         *
+         * @param {number} factor 0.5 to zoom in, 2 to zoom out
+         * @return {{from: number, to: number}}
+         */
+        function scaled(factor) {
+            var days = view.to - view.from + 1;
+            var wanted = Math.max(1, Math.round(days * factor));
+            var centre = (view.from + view.to) / 2;
+            return {
+                from: Math.round(centre - (wanted - 1) / 2),
+                to: Math.round(centre + (wanted - 1) / 2),
+            };
+        }
+
+        /**
+         * Whether zooming in would leave a chart worth drawing.
+         *
+         * Measured on what the step would actually produce rather than
+         * on the day count, because snapping can widen it back: at
+         * monthly bars a halving that lands inside one month snaps out
+         * to that month and the step would do nothing.
+         *
+         * @return {boolean}
+         */
+        function canIn() {
+            var want = scaled(0.5);
+            var wanted = zoomUnitFor(plan.rule, want.to - want.from + 1);
+            var bounds = snap(wanted, Math.max(0, want.from),
+                Math.min(last, want.to));
+            var spans = offsets(wanted);
+            var count = 0;
+            spans.forEach(function (span) {
+                if (span.to >= bounds.from && span.from <= bounds.to) {
+                    count += 1;
+                }
+            });
+            if (count < ZOOM_MIN_BUCKETS) {
+                return false;
+            }
+            return bounds.from > view.from || bounds.to < view.to;
+        }
+
+        return {
+            /** @return {string} */
+            unit: function () {
+                return unit;
+            },
+            /** @return {Array} */
+            window: function () {
+                return drawn();
+            },
+            /** @return {number} */
+            count: function () {
+                return drawn().length;
+            },
+            /** @return {boolean} Whether the whole span is showing */
+            whole: function () {
+                return view.from === 0 && view.to === last;
+            },
+            /** @return {{from: string, to: string}} `Y-m-d` bounds */
+            span: function () {
+                var shown = drawn();
+                if (!shown.length) {
+                    return { from: plan.from, to: plan.to };
+                }
+                return {
+                    from: shown[0].bucket.from,
+                    to: shown[shown.length - 1].bucket.to,
+                };
+            },
+            /**
+             * The title of the bucket of `which` that holds `ymd`,
+             * whether or not it is on screen.
+             *
+             * For a caller that wants to name a date in the same words
+             * a bar names it — the History tab puts a day inside its
+             * month — without keeping its own copy of the grain's
+             * shape.
+             *
+             * @param {string} which Unit
+             * @param {string} ymd `Y-m-d`
+             * @return {string|null}
+             */
+            titleAt: function (which, ymd) {
+                if (!plan.grains[which]) {
+                    return null;
+                }
+                var wanted = zoomEpochDay(ymd) - epoch;
+                var found = null;
+                offsets(which).forEach(function (span, index) {
+                    if (wanted >= span.from && wanted <= span.to) {
+                        found = plan.grains[which].title[index];
+                    }
+                });
+                return found;
+            },
+            /** @return {boolean} */
+            canIn: canIn,
+            /** @return {boolean} */
+            canOut: function () {
+                return !(view.from === 0 && view.to === last);
+            },
+            /** @return {boolean} */
+            canLeft: function () {
+                return view.from > 0;
+            },
+            /** @return {boolean} */
+            canRight: function () {
+                return view.to < last;
+            },
+            stepIn: function () {
+                var want = scaled(0.5);
+                settle(want.from, want.to);
+            },
+            stepOut: function () {
+                var want = scaled(2);
+                settle(want.from, want.to);
+            },
+            /**
+             * Sideways by half a window, and never off the end: a pan
+             * that ran out of span would otherwise shrink the view.
+             *
+             * @param {number} direction -1 or 1
+             */
+            step: function (direction) {
+                var days = view.to - view.from + 1;
+                var by = direction * Math.max(1, Math.round(days / 2));
+                var from = view.from + by;
+                var to = view.to + by;
+                if (from < 0) {
+                    to -= from;
+                    from = 0;
+                }
+                if (to > last) {
+                    from -= to - last;
+                    to = last;
+                }
+                settle(from, to);
+            },
+            /**
+             * Show a date range — the shortcut for a reader who has
+             * already brushed the range they want to look inside.
+             *
+             * @param {string} from `Y-m-d`
+             * @param {string} to `Y-m-d`
+             */
+            to: function (from, to) {
+                settle(
+                    zoomEpochDay(from) - epoch,
+                    zoomEpochDay(to) - epoch
+                );
+            },
+            reset: function () {
+                view = { from: 0, to: last };
+                unit = zoomUnitFor(plan.rule, plan.days);
+            },
+        };
+    }
+
+    /**
+     * Wire one zoom control's buttons.
+     *
+     * @param {Element|null} root The control
+     * @param {Object} zoom From `makeZoom`
+     * @param {Function} changed Called after any step
+     */
+    function wireZoom(root, zoom, changed) {
+        if (!root) {
+            return;
+        }
+        var steps = {
+            in: function () {
+                zoom.stepIn();
+            },
+            out: function () {
+                zoom.stepOut();
+            },
+            left: function () {
+                zoom.step(-1);
+            },
+            right: function () {
+                zoom.step(1);
+            },
+            reset: function () {
+                zoom.reset();
+            },
+        };
+        root.querySelectorAll('[data-vp-zoom-step]').forEach(
+            function (button) {
+                button.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var step = steps[button.dataset.vpZoomStep];
+                    if (step) {
+                        step();
+                        changed();
+                    }
+                });
+            }
+        );
+    }
+
+    /**
+     * Show where the zoom is: which buttons can still do something,
+     * what span is on screen and what a bar is worth.
+     *
+     * Both halves of the caption are the server's own strings — the
+     * first and last drawn buckets' titles, and the grain wording the
+     * caller shipped — so a reader is never told `Mar` by one formatter
+     * and `March` by another.
+     *
+     * @param {Element|null} root The control
+     * @param {Object} zoom From `makeZoom`
+     * @param {Object} labels `grain` keyed by unit
+     */
+    function paintZoom(root, zoom, labels) {
+        if (!root) {
+            return;
+        }
+        var can = {
+            in: zoom.canIn(),
+            out: zoom.canOut(),
+            left: zoom.canLeft(),
+            right: zoom.canRight(),
+            reset: !zoom.whole(),
+        };
+        root.querySelectorAll('[data-vp-zoom-step]').forEach(
+            function (button) {
+                button.disabled = !can[button.dataset.vpZoomStep];
+            }
+        );
+        var shown = zoom.window();
+        var range = root.querySelector('[data-vp-zoom-range]');
+        if (range) {
+            range.textContent = shown.length
+                ? shown[0].bucket.title + ' – '
+                    + shown[shown.length - 1].bucket.title
+                : '';
+        }
+        var grain = root.querySelector('[data-vp-zoom-grain]');
+        if (grain && labels && labels.grain) {
+            grain.textContent = labels.grain[zoom.unit()] || '';
+        }
+        root.classList.toggle('vp-zoom-on', !zoom.whole());
+    }
+
+    window.VP.zoom = {
+        make: makeZoom,
+        wire: wireZoom,
+        paint: paintZoom,
+    };
+
+    /* ==================================================================
      * Sightings tab
      * ------------------------------------------------------------------
      * One overlay and one brush. The chart and the list arrive as two
@@ -2588,11 +3070,48 @@
      * -------------------------------------------------------------- */
 
     var audit = {
-        // The months, the rendered window and the log's span, as the
+        // The plan, the rendered window and the log's span, as the
         // panel was sent them.
         data: null,
         chart: null,
+        // The visible span, which the four zoom buttons move and
+        // nothing else does. Null until the panel has a plan.
+        zoom: null,
+        labels: null,
     };
+
+    /**
+     * The bars currently drawn, each with the day offsets it covers.
+     *
+     * Everything about this chart that used to read a fixed array of
+     * months reads this instead, because after §13.2 there is no fixed
+     * array: what a bar is worth follows from how far the reader has
+     * zoomed in.
+     *
+     * @return {Array} `bucket`, `from`, `to`
+     */
+    function auditBars() {
+        return audit.zoom ? audit.zoom.window() : [];
+    }
+
+    /**
+     * The whole log's bounds, which are not the visible span's.
+     *
+     * The period control offers the log and never the view: zooming
+     * changes what the reader can see, and a filter that silently
+     * narrowed to it would make the two gestures one after all.
+     *
+     * @return {{from: string, to: string}|null}
+     */
+    function auditWhole() {
+        if (!audit.data || !audit.data.chart) {
+            return null;
+        }
+        return {
+            from: audit.data.chart.from,
+            to: audit.data.chart.to,
+        };
+    }
 
     /**
      * The period the reader currently has set, as days, or nulls where
@@ -2628,17 +3147,15 @@
      * @return {{from: string, to: string}|null}
      */
     function auditPeriod(list) {
-        if (!audit.data || !audit.data.months.length) {
+        var whole = auditWhole();
+        if (!whole) {
             return null;
         }
-        var months = audit.data.months;
         var typed = auditTypedPeriod(list);
         var rendered = audit.data.window;
         return {
-            from: typed.from
-                || (rendered ? rendered.from : months[0].from),
-            to: typed.to
-                || (rendered ? rendered.to : months[months.length - 1].to),
+            from: typed.from || (rendered ? rendered.from : whole.from),
+            to: typed.to || (rendered ? rendered.to : whole.to),
         };
     }
 
@@ -2652,25 +3169,30 @@
      */
     function auditBins(list) {
         var period = auditPeriod(list);
-        if (!period) {
+        var bars = auditBars();
+        if (!period || !bars.length) {
             return null;
         }
         var from = null;
         var to = null;
-        audit.data.months.forEach(function (month, index) {
-            if (month.to >= period.from && month.from <= period.to) {
+        bars.forEach(function (bar, index) {
+            if (bar.bucket.to >= period.from
+                && bar.bucket.from <= period.to
+            ) {
                 if (from === null) {
                     from = index;
                 }
                 to = index;
             }
         });
-        // A period entirely off the end of the chart covers no bar. The
-        // brush collapses onto the nearest edge rather than vanishing:
-        // the reader has to be able to see where they are.
+        // A period outside the visible span covers no bar. The brush
+        // collapses onto the nearer edge rather than vanishing: the
+        // reader has to be able to see where they are, and after §13.3
+        // this happens for a second reason — they may have zoomed away
+        // from the period rather than filtered away from the chart.
         if (from === null) {
-            var last = audit.data.months.length - 1;
-            var edge = period.to < audit.data.months[0].from ? 0 : last;
+            var last = bars.length - 1;
+            var edge = period.to < bars[0].bucket.from ? 0 : last;
             return { from: edge, to: edge };
         }
         return { from: from, to: to };
@@ -2684,30 +3206,54 @@
         if (!bounds) {
             return;
         }
-        window.VP.brush.paint(list, bounds, audit.data.months.length);
+        window.VP.brush.paint(list, bounds, auditBars().length);
     }
 
     /**
-     * The monthly bars. No axes, for the reason the Sightings navigator
-     * has none: the brush over it is positioned as a plain fraction of
-     * the strip's width, and an axis would put the bars somewhere other
+     * How many entries fall in one bar, summed out of the per-day
+     * tally the panel was sent.
+     *
+     * The server ships one count per day and no totals per bar, which
+     * is what lets three grains cost one tally rather than three
+     * (§13.1). Summing a slice is the whole of the re-aggregation this
+     * phase needed.
+     *
+     * @param {{from: number, to: number}} bar Day offsets
+     * @return {number}
+     */
+    function auditBarTotal(bar) {
+        var counts = audit.data.chart.counts;
+        var total = 0;
+        for (var i = bar.from; i <= bar.to; i += 1) {
+            total += counts[i] || 0;
+        }
+        return total;
+    }
+
+    /**
+     * The bars. No axes, for the reason the Sightings navigator has
+     * none: the brush over it is positioned as a plain fraction of the
+     * strip's width, and an axis would put the bars somewhere other
      * than where the drag maths says they are.
+     *
+     * Chart.js is handed a fresh dataset on every zoom step rather than
+     * being told to rescale, because a zoom changes how many bars there
+     * are and what each one covers — there is no view transform here,
+     * only a different set of bars.
      *
      * @param {Element} canvas
      * @return {Object}
      */
-    function buildAuditMonths(canvas) {
-        var months = audit.data.months;
+    function buildAuditChart(canvas) {
+        var bars = auditBars();
         var config = window.VP.chart.resolve({
             type: 'bar',
             data: {
-                labels: months.map(function (month) {
-                    return month.label;
+                labels: bars.map(function (bar) {
+                    return bar.bucket.label;
                 }),
                 datasets: [{
-                    data: months.map(function (month) {
-                        return month.total;
-                    }),
+                    data: bars.map(auditBarTotal),
                     backgroundColor: 'var(--bs-secondary-color)',
                     borderWidth: 0,
                     barPercentage: 1,
@@ -2729,7 +3275,8 @@
                         displayColors: false,
                         callbacks: {
                             title: function (items) {
-                                return months[items[0].dataIndex].title;
+                                var bar = bars[items[0].dataIndex];
+                                return bar ? bar.bucket.title : '';
                             },
                         },
                     },
@@ -2737,6 +3284,34 @@
             },
         }, canvas);
         return new Chart(canvas, config);
+    }
+
+    /**
+     * Redraw the chart, the brush over it and the zoom's own caption
+     * after a zoom step.
+     *
+     * The period is deliberately not touched. That is §13.3's whole
+     * point: these buttons change what the chart shows, and a reader
+     * who has filtered to March keeps that filter while they look at
+     * the rest of the year.
+     *
+     * @param {Element} list
+     */
+    function redrawAuditChart(list) {
+        // `boot` hands back a refresh rather than the chart, and it is
+        // the right thing to call: it rebuilds from the same builder,
+        // destroys the instance it replaces, and leaves the theme
+        // observer watching. Booting again per zoom step would stack a
+        // MutationObserver on the canvas each time.
+        if (audit.chart) {
+            audit.chart.refresh();
+        }
+        window.VP.zoom.paint(
+            list.querySelector('[data-vp-zoom]'),
+            audit.zoom,
+            audit.labels
+        );
+        paintAuditBrush(list);
     }
 
     /**
@@ -2748,14 +3323,17 @@
      * types, so there is one filter path and not two.
      *
      * @param {Element} list
-     * @param {number} from Month index
-     * @param {number} to Month index
+     * @param {number} from Bar index, over the drawn bars
+     * @param {number} to Bar index
      */
     function writeAuditPeriod(list, from, to) {
-        var months = audit.data.months;
+        var bars = auditBars();
+        if (!bars.length) {
+            return;
+        }
         var pairs = [
-            ['[data-vp-filter-from]', months[from].from + 'T00:00'],
-            ['[data-vp-filter-to]', months[to].to + 'T23:59'],
+            ['[data-vp-filter-from]', bars[from].bucket.from + 'T00:00'],
+            ['[data-vp-filter-to]', bars[to].bucket.to + 'T23:59'],
         ];
         pairs.forEach(function (pair) {
             var input = list.querySelector(pair[0]);
@@ -2826,9 +3404,9 @@
      */
     function fetchAuditPeriod(list) {
         var typed = auditTypedPeriod(list);
-        var months = audit.data.months;
-        var from = typed.from || months[0].from;
-        var to = typed.to || months[months.length - 1].to;
+        var whole = auditWhole();
+        var from = typed.from || whole.from;
+        var to = typed.to || whole.to;
         fetchAuditScope(list, from + '/' + to);
     }
 
@@ -2847,7 +3425,7 @@
     function wireAuditBrush(list) {
         window.VP.brush.attach(list.querySelector('[data-vp-brush]'), {
             count: function () {
-                return audit.data.months.length;
+                return auditBars().length;
             },
             range: function (from, to) {
                 writeAuditPeriod(list, from, to);
@@ -2969,14 +3547,16 @@
      * @return {string}
      */
     function auditDate(day) {
-        var months = audit.data ? audit.data.months : [];
-        for (var i = 0; i < months.length; i++) {
-            if (months[i].key === day.slice(0, 7)) {
-                return parseInt(day.slice(8, 10), 10) + ' '
-                    + months[i].title;
-            }
+        // The monthly grain by name and not whichever one is drawn:
+        // this wants `June 2024` to put a day inside, and at daily bars
+        // the drawn bucket's own title is already a date.
+        var title = audit.zoom
+            ? audit.zoom.titleAt('month', day.slice(0, 10))
+            : null;
+        if (title === null) {
+            return day;
         }
-        return day;
+        return parseInt(day.slice(8, 10), 10) + ' ' + title;
     }
 
     /**
@@ -3295,17 +3875,35 @@
             return;
         }
         audit.data = JSON.parse(payload.textContent);
-        if (!audit.data.months.length) {
+        if (!audit.data.chart || !audit.data.chart.days) {
             return;
         }
-        audit.chart = window.VP.chart.boot('vp-audit-months', buildAuditMonths);
-        // Rendered hidden, because without this script it would frame an
-        // empty canvas and offer a gesture that does nothing.
+        audit.zoom = window.VP.zoom.make(audit.data.chart);
+        audit.labels = null;
+        var zoom = list.querySelector('[data-vp-zoom]');
+        if (zoom) {
+            var spec = zoom.querySelector('[data-vp-zoom-labels]');
+            audit.labels = spec ? JSON.parse(spec.textContent) : null;
+        }
+        audit.chart = window.VP.chart.boot(
+            'vp-audit-activity',
+            buildAuditChart
+        );
+        // Both controls are rendered hidden, because without this
+        // script they would frame an empty canvas and offer gestures
+        // that do nothing.
         var brush = list.querySelector('[data-vp-brush]');
         if (brush) {
             brush.hidden = false;
         }
+        if (zoom) {
+            zoom.hidden = false;
+        }
         wireAuditBrush(list);
+        window.VP.zoom.wire(zoom, audit.zoom, function () {
+            redrawAuditChart(list);
+        });
+        window.VP.zoom.paint(zoom, audit.zoom, audit.labels);
         // `refreshAllLists` paints and re-tallies on the same pass, so
         // the panel lands with the brush over the window it was fetched
         // for rather than over the whole chart.

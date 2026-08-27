@@ -854,12 +854,14 @@ $headerExtra = ob_get_clean();
  * and is not now: an input that could only reach the month the reader
  * already landed on could not reach the rest of the log.
  *
- * What the chart is handed. `months` covers the whole log regardless of
- * the window, so activity outside the period is visible rather than
- * inferred — which is the point of drawing it at all.
+ * What the chart is handed. The plan covers the whole log regardless
+ * of the window, so activity outside the period is visible rather than
+ * inferred — which is the point of drawing it at all — and it carries
+ * every grain `AUDIT_RULE` permits, so the zoom needs no second
+ * request (§13.1).
  */
 $chartPayload = array(
-    'months' => $history['months'],
+    'chart' => $history['chart'],
     'window' => $window,
     'span' => $span,
 );
@@ -940,10 +942,12 @@ $chartPayload = array(
                             json_encode($chartPayload) ?></script>
 
                         <div class="vp-audit-chart" data-vp-audit-chart>
-                            <canvas id="vp-audit-months" role="img"
+                            <canvas id="vp-audit-activity" role="img"
                                     aria-label="<?= h(__(
-                                        'Audit entries per month over'
-                                        . ' the whole log'
+                                        'Audit entries over the whole'
+                                        . ' log. The zoom control below'
+                                        . ' states the span on screen'
+                                        . ' and what one bar covers.'
                                     )) ?>"></canvas>
                             <?php
                             /*
@@ -962,26 +966,32 @@ $chartPayload = array(
                                      data-vp-brush-mask-right></div>
                             </div>
                         </div>
-                        <div class="vp-audit-chart-axis">
-                            <span><?= h($fmt(
-                                $history['months'][0]['from'] . ' 00:00:00',
-                                'M Y'
-                            )) ?></span>
-                            <span><?= h($fmt(
-                                $history['months'][
-                                    count($history['months']) - 1
-                                ]['from'] . ' 00:00:00',
-                                'M Y'
-                            )) ?></span>
-                        </div>
-                        <div class="vp-facet-note">
-                            <?= h(__(
-                                'One bar per month, over the whole log.'
-                                . ' Drag it to set the period; click it'
-                                . ' to go back to the period the panel'
-                                . ' was fetched for.'
-                            )) ?>
-                        </div>
+                        <?php
+                        /*
+                         * The zoom's caption replaces the static pair
+                         * of axis labels this chart used to carry.
+                         * Those named the log's two ends, which stops
+                         * being what the chart shows the moment it can
+                         * be zoomed — and a caption that reads the
+                         * drawn buckets' own titles cannot drift from
+                         * the bars above it.
+                         */
+                        ?>
+                        <?= $this->element('Values/View/value_zoom', array(
+                            'zoomLabel' => __('Zoom the activity chart'),
+                            'grain' => array(
+                                'day' => __('one bar a day'),
+                                'week' => __('one bar a week'),
+                                'month' => __('one bar a month'),
+                            ),
+                            'zoomNote' => __(
+                                'Drag the chart to set the period; click'
+                                . ' it to go back to the period the'
+                                . ' panel was fetched for. The buttons'
+                                . ' change what the chart shows and'
+                                . ' leave the period alone.'
+                            ),
+                        )) ?>
 
                         <div class="vp-audit-period">
                             <label class="form-label"

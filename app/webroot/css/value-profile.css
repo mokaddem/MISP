@@ -508,6 +508,111 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
+ * The zoom
+ * ------------------------------------------------------------------
+ * Beside the brush and not on it. The brush is a layer over the
+ * canvas because a drag has to be read off the chart's own geometry;
+ * the zoom is five buttons and a caption, and putting them over the
+ * bars would take pixels from the thing they exist to make readable.
+ *
+ * The caption is load-bearing rather than decoration. A zoomed chart
+ * shows a span the reader did not choose by name and bars worth
+ * something they did not pick, so both are stated: the drawn buckets'
+ * own titles, and what one bar covers.
+ *
+ * What the callers vary is whether the caption fits beside the
+ * buttons. In History's three-column rail it does not, so it takes a
+ * line of its own; the Sightings and Timeline charts are full width
+ * and set the basis to `auto`. One custom property, a default that
+ * suits the narrow case, and a fourth caller needs no CSS.
+ * ================================================================== */
+
+.vp-zoom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    margin-bottom: 4px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-zoom-where {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    flex: 1 1 var(--vp-zoom-where-basis, 100%);
+}
+
+.vp-zoom-range {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The span on screen is the one thing on this control that changes
+   without the reader having asked for it by name, so it stops being
+   quiet once it is no longer the whole span. */
+.vp-zoom-on .vp-zoom-range {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+/* What one bar covers. Quieter than the span, because it is a
+   consequence of the zoom rather than a thing the reader set. */
+.vp-zoom-grain {
+    flex: none;
+    opacity: 0.8;
+    white-space: nowrap;
+}
+
+.vp-zoom-steps {
+    display: flex;
+    flex: none;
+    margin-left: auto;
+}
+
+.vp-zoom-step {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--bs-border-color);
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: 0.6rem;
+    line-height: 1;
+}
+
+.vp-zoom-step + .vp-zoom-step {
+    margin-left: -1px;
+}
+
+.vp-zoom-step:first-child {
+    border-radius: 3px 0 0 3px;
+}
+
+.vp-zoom-step:last-child {
+    border-radius: 0 3px 3px 0;
+}
+
+.vp-zoom-step:hover:not(:disabled) {
+    color: var(--bs-body-color);
+    background: var(--bs-tertiary-bg);
+}
+
+/* Disabled rather than hidden, for the reason a zero-count sighting
+   toggle is: `you are already showing everything` and `this chart
+   cannot be zoomed` are facts about where the reader is, and a button
+   that vanished would take the fact with it. */
+.vp-zoom-step:disabled {
+    opacity: 0.4;
+}
+
+/* ==================================================================
  * Occurrence table
  * ================================================================== */
 
@@ -5645,17 +5750,6 @@ td.vp-rel-pick {
        62% the difference between inside and outside the period was not
        visible in either theme. */
     --vp-brush-dim: 80%;
-}
-
-/* Both ends of the span, named. The chart has no x axis — fifteen
-   month labels do not fit in a three-column rail — so the two dates
-   that bound it are stated instead of drawn. */
-.vp-audit-chart-axis {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.68rem;
-    color: var(--bs-secondary-color);
-    margin-bottom: 4px;
 }
 
 .vp-audit-scope {

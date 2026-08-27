@@ -135,6 +135,109 @@ class ValueProfileBuckets
     }
 
     /**
+     * Everything a chart the browser re-aggregates needs: one bucket
+     * series per unit the caller's rule permits, over the same span.
+     *
+     * Phase 21 §13.1 measured why this is affordable at all. A bar is a
+     * label and a count, so the value's whole span at every grain its
+     * data supports is tens of kilobytes where the sections phase 19
+     * stopped shipping were megabytes. The browser can therefore hold
+     * all of it and pick a grain per zoom level without going back to
+     * the server.
+     *
+     * **This class ships every string and the browser computes every
+     * number.** A grain is two arrays of labels and one array of start
+     * offsets, not a list of bucket objects, and the split is the
+     * reason: `j M` and `F Y` are decisions, so duplicating them in
+     * JavaScript would be a second formatter to keep in step with
+     * `describe()`; a bucket's start date and its end date are
+     * arithmetic over the span, so shipping them as text costs bytes
+     * and settles nothing. Sent as objects, a 437-day span cost 45.8 KB
+     * against the 10 KB it costs like this — most of it field names and
+     * `Y-m-d` dates repeated five times a bar.
+     *
+     * `starts` is a day offset from `$from`, and the month grain's
+     * first one is normally negative: a month bucket is a whole
+     * calendar month at the low end, because a bar labelled `Jun` that
+     * begins on the 14th is not June. `null` means the offsets are the
+     * identity, which is what `day` always is.
+     *
+     * A bucket's end is the next bucket's start less one, and the last
+     * one ends with the span. So the buckets tile it exactly, which is
+     * what lets the browser sum a slice per bar and stop.
+     *
+     * The grains carry no totals. A count belongs to what is being
+     * counted and the caller owns that.
+     *
+     * @param string $from `Y-m-d`
+     * @param string $to `Y-m-d`
+     * @param array $rule Span-to-unit rule, as `unitForSpan()` takes
+     * @param string $anchor START or END; `week` only
+     * @return array `from`, `to`, `days`, `rule`, `grains`
+     */
+    public static function plan($from, $to, array $rule,
+        $anchor = self::START)
+    {
+        $grains = array();
+        foreach ($rule as $step) {
+            $unit = $step['unit'];
+            if (isset($grains[$unit])) {
+                continue;
+            }
+            $series = self::series($from, $to, $unit, $anchor);
+            $starts = array();
+            $labels = array();
+            $titles = array();
+            foreach ($series as $bucket) {
+                $starts[] = self::diff($from, $bucket['from']);
+                $labels[] = $bucket['label'];
+                $titles[] = $bucket['title'];
+            }
+            $grains[$unit] = array(
+                'starts' => $unit === self::DAY ? null : $starts,
+                'label' => $labels,
+                'title' => $titles,
+            );
+        }
+        return array(
+            'from' => $from,
+            'to' => $to,
+            'days' => self::diff($from, $to) + 1,
+            'rule' => $rule,
+            'grains' => $grains,
+        );
+    }
+
+    /**
+     * The dense per-day tally the browser sums into whichever grain it
+     * draws, one slot per day of the span.
+     *
+     * Dense rather than a map of only the days that carry something,
+     * which §13.1 measured: non-zero days run from 1% to 82% across the
+     * fixture's four values, so sparse wins on the quiet ones by tens
+     * of bytes and loses on the busy one by two kilobytes. A dense
+     * array is bounded at about a kilobyte over a fourteen-month span
+     * and needs no decode.
+     *
+     * @param string $from `Y-m-d`
+     * @param string $to `Y-m-d`
+     * @param array $days `Y-m-d` => count, for the days that have one
+     * @return array
+     */
+    public static function tally($from, $to, array $days)
+    {
+        $span = self::diff($from, $to) + 1;
+        $counts = array_fill(0, max(0, $span), 0);
+        foreach ($days as $day => $count) {
+            $offset = self::diff($from, $day);
+            if ($offset >= 0 && $offset < $span) {
+                $counts[$offset] += $count;
+            }
+        }
+        return $counts;
+    }
+
+    /**
      * @param string $unit
      * @return int Days per bucket
      */
