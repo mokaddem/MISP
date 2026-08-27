@@ -302,7 +302,7 @@ $stateCell = function ($row) {
  * @param array $row
  * @return string
  */
-$distributionCell = function ($row) use ($view) {
+$distributionCell = function ($row) use ($view, $baseurl) {
     $effective = $row['effective_distribution'];
     if ($effective['level'] === null) {
         return '<span class="text-muted">&mdash;</span>';
@@ -362,14 +362,26 @@ $distributionCell = function ($row) use ($view) {
      * "Sharing group" is the only level that does not say who it means.
      * Named by whichever link in the chain won, so an attribute
      * inheriting its event's sharing group names that group rather than
-     * nothing.
+     * nothing — and linked to it, because "which organisations is that"
+     * is the next question and only the group's own page answers it.
+     *
+     * Safe to link unconditionally: the name is only ever set from
+     * `SharingGroup::fetchAllAuthorised($user, 'name')`, so a name that
+     * resolved is a group this viewer may open. Where it did not
+     * resolve, the badge stands alone and there is nothing to link.
      */
     if ($effective['level'] === 4
         && !empty($effective['sharing_group_name'])
     ) {
-        $out .= '<div class="text-muted small text-truncate mt-1"'
-            . ' title="' . h($effective['sharing_group_name']) . '">'
-            . h($effective['sharing_group_name']) . '</div>';
+        $out .= '<div class="text-muted small text-truncate mt-1">'
+            . '<a class="text-reset" href="' . h($baseurl)
+            . '/sharing_groups/view/'
+            . h($effective['sharing_group_id']) . '" title="'
+            . h(sprintf(
+                __('%s — who this is shared with'),
+                $effective['sharing_group_name']
+            )) . '">'
+            . h($effective['sharing_group_name']) . '</a></div>';
     }
     return $out;
 };

@@ -798,6 +798,15 @@ sharing-group facet names **two** groups where it named one — the second is an
   found nothing, so the object link counts only when it has an id. This is the
   one place the resolution could have silently made every standalone attribute
   organisation-only.
+- **The group's name links to its page**, `/sharing_groups/view/<id>` — MISP's
+  own convention, and *"which organisations is that"* is the next question the
+  name provokes. Linked unconditionally because the name is only ever set from
+  `fetchAllAuthorised($user, 'name')`, so a name that resolved is a group this
+  viewer may open; where it did not resolve the badge stands alone and there is
+  nothing to link. It is the *resolved* group, so a row inheriting its event's
+  sharing group links that one. The rail's sharing-group facets are deliberately
+  **not** linked: they are filter checkboxes, and a link inside one would fight
+  the click.
 
 **Cost: one query, conditionally.** Every level needed is already on the row.
 Sharing-group *names* are not, and level 4 can now be reached through the event
