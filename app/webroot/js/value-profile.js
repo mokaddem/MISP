@@ -756,7 +756,7 @@
      * @param {Element} button A [data-vp-sort-col]
      */
     function toggleColumnSort(button) {
-        var list = button.closest('[data-vp-list]');
+        var list = button.closest('[data-vp-list], [data-vp-sight-list]');
         if (!list) {
             return;
         }
@@ -771,6 +771,20 @@
             delete list.dataset.vpSortedDir;
         }
         markSortedColumn(list);
+        /*
+         * The sightings list is not a faceted list: it pages off `load
+         * the rest` rather than a page control, and its rows are chosen
+         * by the chart's brush. The state above and the comparison below
+         * it are the same; only who redraws differs.
+         *
+         * Nothing to reset there, either — unexpanded it shows the first
+         * ten of whatever order is current, which after a reorder is
+         * exactly what the reader asked for.
+         */
+        if (list.hasAttribute('data-vp-sight-list')) {
+            refreshSightList();
+            return;
+        }
         // A reorder does not change how many rows there are, but page
         // three of a new order is not the rows the reader was looking at.
         listPages.set(list, 1);
@@ -3195,6 +3209,38 @@
     }
 
     /**
+     * Put the sightings list in the order its sorted heading names, and
+     * only when that is not the order the rows are already in.
+     *
+     * The guard is what makes a sortable heading affordable on this
+     * panel. `refreshSightList` runs on every frame of a brush drag, and
+     * reordering is an `appendChild` per row — free to skip, and not
+     * free to repeat a few hundred times a second.
+     *
+     * Every row and not the brushed ones, because the brush is a
+     * visibility filter over a fixed set: leaving the rows outside it
+     * where they were would put the DOM in an order that widening the
+     * brush could not recover.
+     *
+     * @param {Element} list
+     */
+    function applySightOrder(list) {
+        var column = list.dataset.vpSortedCol || 'default';
+        var sign = list.dataset.vpSortedDir === 'desc' ? -1 : 1;
+        var wanted = column + ':' + sign;
+        if (list.dataset.vpSightOrder === wanted) {
+            return;
+        }
+        sortByColumn(
+            list,
+            Array.prototype.slice.call(list.querySelectorAll('tbody tr')),
+            column,
+            sign
+        );
+        list.dataset.vpSightOrder = wanted;
+    }
+
+    /**
      * Row visibility in the sightings list, decided in one place: the
      * brush chooses which rows are candidates and `load the rest`
      * chooses how many of them are on screen.
@@ -3207,6 +3253,11 @@
         var size = parseInt(list.dataset.vpSightPageSize, 10) || 10;
         var window_ = sight.data ? sightWindow() : null;
         var matched = [];
+
+        // Before the rows are collected, so `matched` comes out in the
+        // order the reader is about to see rather than in the order the
+        // model happened to send.
+        applySightOrder(list);
 
         list.querySelectorAll('tbody tr').forEach(function (row) {
             var day = row.dataset.vpSightDate;

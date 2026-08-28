@@ -47,6 +47,87 @@ $types = array(
     ),
 );
 
+/*
+ * The five columns, named once so the headings and the sort tokens
+ * cannot come to disagree about which columns exist or what they sort
+ * on. The key is what the script compares; the label is what it says.
+ */
+$columns = array(
+    'org' => __('Organisation'),
+    'source' => __('Source'),
+    'date' => __('Date'),
+    'type' => __('Type'),
+    'against' => __('Reported against'),
+);
+
+/**
+ * One sortable token per column, built to sort lexicographically, which
+ * is the contract `value_occurrence_table` already writes its rows to:
+ * zero-padded numbers, `YmdHi` dates, lowercased text, so the script
+ * needs one comparison and no knowledge of what any column holds.
+ *
+ * Cell text would not do it. `Event 9` sorts after `Event 10` compared
+ * as text, and the type column reads as three unrelated words where the
+ * order a reader wants is the one MISP itself gives them — a sighting,
+ * then a contradiction, then an expiration.
+ *
+ * An empty token means the row has no value for that column, and the
+ * script puts those last in both directions: a report carrying no
+ * source is not alphabetically first.
+ *
+ * @param array $row
+ * @return array `vp-sort-<column>` => token
+ */
+$sortKeys = function ($row) {
+    return array(
+        'vp-sort-org' => mb_strtolower($row['org']),
+        'vp-sort-source' => mb_strtolower((string)$row['source']),
+        /*
+         * The digits of the printed wall clock rather than the epoch.
+         * The date is rendered server-side, so ordering by epoch would
+         * order the rows by a clock the reader cannot see.
+         */
+        'vp-sort-date' => preg_replace('/\D/', '', $row['date']),
+        'vp-sort-type' => (string)$row['type'],
+        // The event first, so every report filed against one occurrence
+        // lands together — which is the whole reason for the column.
+        'vp-sort-against' => str_pad(
+            (string)(int)$row['against']['event'],
+            12,
+            '0',
+            STR_PAD_LEFT
+        ) . ' ' . mb_strtolower((string)$row['against']['type']),
+    );
+};
+
+/**
+ * The sort tokens as attributes, plus the row's position in the order
+ * the model sent.
+ *
+ * Reordering moves the rows themselves, so "unsorted" has to be
+ * restorable rather than merely stoppable — the third click sorts by
+ * this, and without it the newest-first order would be gone after the
+ * first click with no column left to get it back.
+ *
+ * @param array $row
+ * @param int $index
+ * @return string
+ */
+$rowSort = function ($row, $index) use ($sortKeys) {
+    $data = $sortKeys($row);
+    $data['vp-sort-default'] = str_pad(
+        (string)$index,
+        6,
+        '0',
+        STR_PAD_LEFT
+    );
+    $out = '';
+    foreach ($data as $key => $token) {
+        $out .= ' data-' . $key . '="' . h($token) . '"';
+    }
+    return $out;
+};
+
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
     . ' the database yet.'
@@ -116,23 +197,63 @@ $subtitle = $total === 0
 
         <div class="table-responsive" data-vp-sight-rows>
             <table class="table table-sm align-middle vp-table mb-0">
+                <?php
+                /*
+                 * Every column sorts, clicking the heading: ascending,
+                 * descending, then back to the order the model sent.
+                 * Three states and not two because that order is itself
+                 * meaningful — newest report first — and no column
+                 * would bring it back.
+                 *
+                 * A real button, so the heading is reachable and
+                 * operable from the keyboard, carrying MISP's own
+                 * `sortable-header`/`sort-icon` so a sortable heading
+                 * here looks like one anywhere else on the instance.
+                 */
+                ?>
                 <thead>
                     <tr>
-                        <th><?= __('Organisation') ?></th>
-                        <th><?= __('Source') ?></th>
-                        <th><?= __('Date') ?></th>
-                        <th><?= __('Type') ?></th>
-                        <th><?= __('Reported against') ?></th>
+                        <?php foreach ($columns as $key => $label): ?>
+                            <th>
+                                <button type="button" class="vp-th-sort"
+                                        data-vp-sort-col="<?= h($key) ?>">
+                                    <span class="sortable-header"><?=
+                                        h($label)
+                                    ?><i class="sort-icon"></i></span>
+                                </button>
+                            </th>
+                        <?php endforeach; ?>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($rows as $index => $row): ?>
                         <?php $type = $types[$row['type']]; ?>
                         <tr data-vp-sight-date="<?=
-                                h(substr($row['date'], 0, 10)) ?>"
+                                h(substr($row['date'], 0, 10)) ?>"<?=
+                                $rowSort($row, $index) ?>
                             class="<?= $index >= $pageSize ? 'd-none' : '' ?>">
                             <td class="fw-semibold">
-                                <?= h($row['org']) ?>
+                                <?php
+                                /*
+                                 * Null exactly when there is nowhere to
+                                 * send the reader: `Sightings_anonymise`
+                                 * blanks the name and zeroes the id on a
+                                 * foreign report, and those all print as
+                                 * one `Others`. Linking that label to
+                                 * whichever organisation the row still
+                                 * carried would undo the anonymisation.
+                                 */
+                                ?>
+                                <?php if ($row['org_id'] === null): ?>
+                                    <?= h($row['org']) ?>
+                                <?php else: ?>
+                                    <a href="<?= $baseurl
+                                            ?>/organisations/view/<?=
+                                            h($row['org_id']) ?>"
+                                       class="vp-sight-link">
+                                        <?= h($row['org']) ?>
+                                    </a>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($row['source'] === null): ?>
@@ -151,14 +272,45 @@ $subtitle = $total === 0
                                 </span>
                             </td>
                             <td class="text-nowrap">
-                                <span class="vp-sight-against">
-                                    <?= h(sprintf(
-                                        __('Event %s'),
-                                        $row['against']['event']
-                                    )) ?>
-                                </span>
+                                <?php
+                                /*
+                                 * To the event's Attributes tab and not
+                                 * to the event itself: the column names
+                                 * an occurrence, and that tab is the
+                                 * nearest the event view gets to one —
+                                 * `/attributes/view` redirects to the
+                                 * event and loses which attribute it
+                                 * was asked about.
+                                 *
+                                 * The title carries the occurrence's own
+                                 * id, which is the only thing that tells
+                                 * two occurrences of this value in one
+                                 * event apart; the cell has room for the
+                                 * event and the type and no more.
+                                 */
+                                $against = $row['against'];
+                                $title = $against['attribute'] === null
+                                    ? __('Open the event')
+                                    : sprintf(
+                                        __('Attribute %1$s in event %2$s'),
+                                        $against['attribute'],
+                                        $against['event']
+                                    );
+                                ?>
+                                <a href="<?= $baseurl ?>/events/view2/<?=
+                                        h($against['event'])
+                                    ?>#tab-attributes"
+                                   class="vp-sight-link"
+                                   title="<?= h($title) ?>">
+                                    <span class="vp-sight-against">
+                                        <?= h(sprintf(
+                                            __('Event %s'),
+                                            $against['event']
+                                        )) ?>
+                                    </span>
+                                </a>
                                 <span class="vp-sight-against-type">
-                                    <?= h($row['against']['type']) ?>
+                                    <?= h($against['type']) ?>
                                 </span>
                             </td>
                         </tr>

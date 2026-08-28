@@ -3204,6 +3204,14 @@ tr.vp-occ-deleted .vp-occ-orgdot {
     font: inherit;
     color: inherit;
     text-align: inherit;
+    /*
+     * Reboot resets `text-transform` on every button, and it is not part
+     * of the `font` shorthand, so `font: inherit` does not bring it
+     * back. Without this the sortable headings in a table whose headings
+     * are uppercased — `.vp-table` — render in mixed case beside the
+     * ones that are not sortable.
+     */
+    text-transform: inherit;
     cursor: pointer;
 }
 
@@ -3836,6 +3844,33 @@ th[aria-sort="descending"] .sort-icon::before {
     font-family: var(--bs-font-monospace);
     font-size: 0.66rem;
     color: var(--bs-secondary-color);
+}
+
+/*
+ * The two ways out of this table: the organisation that filed a report,
+ * and the event holding the occurrence it was filed against.
+ *
+ * Underlined on hover only. Two of five columns permanently underlined
+ * turns a ten-row table into a page of links, and the columns either
+ * side of them are not going anywhere.
+ */
+.vp-sight-link {
+    color: var(--bs-link-color);
+    text-decoration: none;
+}
+
+.vp-sight-link:hover,
+.vp-sight-link:focus-visible {
+    text-decoration: underline;
+}
+
+/*
+ * `.vp-sight-against` sets the colour of the text, which is a statement
+ * about the column and not about whether it leads anywhere. Inside a
+ * link the link decides.
+ */
+.vp-sight-link .vp-sight-against {
+    color: inherit;
 }
 
 .vp-sight-foot {

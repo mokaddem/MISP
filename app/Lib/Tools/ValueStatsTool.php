@@ -798,6 +798,11 @@ class ValueStatsTool
      * id set rather than from a second lookup, so the table and the
      * chart cannot disagree about which occurrence a report belongs to.
      *
+     * `org_id` and `against.attribute` are what the table links on, and
+     * they are null exactly when there is nowhere to send the reader:
+     * an anonymised report names no organisation, and an occurrence the
+     * id set does not hold is one this reader may not open.
+     *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @param array $occurrences As
      *              `Value::sightedOccurrenceIdsFor` returns
@@ -809,8 +814,12 @@ class ValueStatsTool
         foreach ($rows as $row) {
             $id = (int)$row['Sighting']['attribute_id'];
             $source = $row['Sighting']['source'];
+            $known = isset($occurrences[$id]);
             $list[] = array(
                 'org' => self::sightingOrg($row),
+                'org_id' => self::sightingHasOrg($row)
+                    ? (int)$row['Sighting']['org_id']
+                    : null,
                 'source' => ($source === null || $source === '')
                     ? null
                     : $source,
@@ -821,10 +830,11 @@ class ValueStatsTool
                 'stamp' => (int)$row['Sighting']['date_sighting'],
                 'type' => (int)$row['Sighting']['type'],
                 'against' => array(
-                    'event' => isset($occurrences[$id])
+                    'attribute' => $known ? $id : null,
+                    'event' => $known
                         ? $occurrences[$id]['event_id']
                         : (int)$row['Sighting']['event_id'],
-                    'type' => isset($occurrences[$id])
+                    'type' => $known
                         ? $occurrences[$id]['type']
                         : __('unknown type'),
                 ),
@@ -1197,11 +1207,26 @@ class ValueStatsTool
      */
     private static function sightingOrg(array $row)
     {
-        $name = $row['Organisation']['name'] ?? '';
-        if ($name === '' || empty($row['Sighting']['org_id'])) {
-            return __('Others');
-        }
-        return $name;
+        return self::sightingHasOrg($row)
+            ? $row['Organisation']['name']
+            : __('Others');
+    }
+
+    /**
+     * Whether the row names an organisation at all.
+     *
+     * One predicate rather than the same two-part guard written twice,
+     * because the label and the link have to agree: a report pooled
+     * under `Others` must not carry a link to whichever organisation
+     * `Sighting.org_id` still happens to hold.
+     *
+     * @param array $row One `Sighting::listSightings` row
+     * @return bool
+     */
+    private static function sightingHasOrg(array $row)
+    {
+        return ($row['Organisation']['name'] ?? '') !== ''
+            && !empty($row['Sighting']['org_id']);
     }
 
     /**

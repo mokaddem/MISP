@@ -148,6 +148,28 @@ of them. `Type` is a badge, with the false-positive row visibly distinct.
 `Reported against` names the occurrence the sighting was filed on, because a
 value-scoped list otherwise loses which of ten occurrences was actually seen.
 
+All five columns sort, clicking the heading, in the occurrence table's three
+states: ascending, descending, then back to the order the model sent — newest
+report first, which no column would otherwise bring back. Comparison is by the
+`data-vp-sort-<column>` tokens the template stamps on each row and not by cell
+text: `Event 9` sorts after `Event 10` as text, and `Type` reads as three
+unrelated words where the order wanted is MISP's own. The sort is a reorder of
+rows the panel already holds, so it composes with the brush rather than
+replacing it — the brush still chooses which rows are candidates, and the
+reorder covers every row so that widening the brush again recovers them in
+order.
+
+Two columns leave the page. `Organisation` links to `/organisations/view/<id>`,
+except where the row has no organisation to name — `Plugin.Sightings_anonymise`
+blanks the name and zeroes the id on a foreign report, and all of those print as
+one unlinked `Others`, so the label and the link cannot disagree about who filed
+it. `Reported against` links to the event's Attributes tab
+(`/events/view2/<id>#tab-attributes`) rather than to the event itself, because
+the column names an occurrence and that tab is the nearest the event view gets
+to one — `/attributes/view` redirects to the event and loses which attribute it
+was asked about. Its title carries the occurrence's own attribute id, which is
+the only thing that tells two occurrences of this value in one event apart.
+
 Footer: `Showing 10 of 20 · load the rest` (client-side), then the
 `.vp-acl-note` carrying the `policy` sentence — the count in the tab title is
 the viewer's, not the instance's, and this is where that is said.
