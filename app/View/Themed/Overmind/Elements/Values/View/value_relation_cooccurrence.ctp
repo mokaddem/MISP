@@ -88,8 +88,14 @@ $valueTokens = function ($row) use ($slug, $siblingObjects) {
     $tokens = array(
         'type:' . $slug($row['type']),
         'category:' . $slug($row['category']),
-        'distribution:' . (int)$row['distribution'],
     );
+    foreach ($row['distributions'] as $audience) {
+        $tokens[] = 'distribution:' . (int)$audience['level'];
+        if (!empty($audience['sharing_group']['id'])) {
+            $tokens[] = 'sharing_group:'
+                . (int)$audience['sharing_group']['id'];
+        }
+    }
     foreach ($row['orgs'] as $org) {
         $tokens[] = 'organisation:' . $slug($org);
     }
@@ -188,17 +194,68 @@ $sortOrgs = function (array $names, $total) use ($sortNum) {
 };
 
 /**
- * MISP's own distribution badge, so the level is never printed as the
- * bare integer it is stored as.
+ * MISP's own distribution badge, once per audience the row has.
+ *
+ * A value roll-up row folds many occurrences, and they state between
+ * them as many audiences as they state — so the cell is a set and not
+ * a badge. Two occurrences at `Your organisation only` are one pill;
+ * two different sharing groups are two, told apart by the name beside
+ * each, because `Sharing group` alone does not say which one. An event
+ * row has a single audience and renders through the same cell.
  *
  * @param array $row
  * @return string
  */
-$distributionBadge = function ($row) use ($view) {
-    return $view->element(
-        'genericElementsBS5/Badges/distribution',
-        array('distribution' => (int)$row['distribution'], 'full' => false)
-    );
+$distributionBadge = function ($row) use ($view, $baseurl) {
+    $audiences = empty($row['distributions'])
+        ? array(array(
+            'level' => (int)$row['distribution'],
+            'sharing_group' => array('id' => null, 'name' => null),
+        ))
+        : $row['distributions'];
+    $shown = array_slice($audiences, 0, 3);
+    $out = '<span class="vp-dist-set">';
+    foreach ($shown as $audience) {
+        $out .= $view->element(
+            'genericElementsBS5/Badges/distribution',
+            array(
+                'distribution' => (int)$audience['level'],
+                'full' => false,
+            )
+        );
+        $group = $audience['sharing_group'];
+        /*
+         * Safe to link, for the reason the Occurrences tab gives: a
+         * name is only ever set from `fetchAllAuthorised`, so a name
+         * that resolved is a group this viewer may open. Where it did
+         * not, the badge stands alone and there is nothing to link.
+         */
+        if ((int)$audience['level'] === 4 && !empty($group['name'])) {
+            $out .= '<a class="vp-dist-sg" href="' . h($baseurl)
+                . '/sharing_groups/view/' . h($group['id'])
+                . '" title="' . h(sprintf(
+                    __('%s — who this is shared with'),
+                    $group['name']
+                )) . '">' . h($group['name']) . '</a>';
+        }
+    }
+    $rest = array_slice($audiences, 3);
+    if (!empty($rest)) {
+        $names = array();
+        foreach ($rest as $audience) {
+            $label = $view->DistributionLevel
+                ->get((int)$audience['level']);
+            $names[] = empty($audience['sharing_group']['name'])
+                ? $label['label']
+                : $label['label'] . ' — '
+                    . $audience['sharing_group']['name'];
+        }
+        $out .= '<span class="text-muted small" title="'
+            . h(implode(', ', $names)) . '">'
+            . h(sprintf(__('+%d more'), count($rest)))
+            . '</span>';
+    }
+    return $out . '</span>';
 };
 
 /**
@@ -263,9 +320,11 @@ $weightBar = function ($weight, $max, $prefix = '') {
 };
 
 /*
- * The six groups, in the order the bar prints them. A key the fixture
+ * The seven groups, in the order the bar prints them. A key the fixture
  * left out renders nothing at all, which is what `value_facet_group`
- * already enforces for a group of zeroes.
+ * already enforces for a group of zeroes — which is also why the
+ * sharing-group dropdown is absent from every value whose neighbours
+ * are distributed by level alone.
  */
 $facetGroups = array(
     array('key' => 'event', 'title' => __('Event'),
@@ -280,6 +339,8 @@ $facetGroups = array(
         'icon' => 'misp-icon misp-icon-tag misp-simple'),
     array('key' => 'distribution', 'title' => __('Distribution'),
         'icon' => 'fas fa-globe'),
+    array('key' => 'sharing_group', 'title' => __('Sharing group'),
+        'icon' => 'misp-icon misp-icon-sharing-group misp-simple'),
 );
 
 /*

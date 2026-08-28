@@ -12,7 +12,7 @@ App::uses('ValueStatsTool', 'Tools');
  * It exists rather than growing `ValueStatsTool` for the same reason
  * `ValueDecayTool` did in phase 23: one tab's notion of *related* is a
  * self-contained argument, and the folding rules below — how a value
- * with two types gets one badge, which distribution a group of
+ * with two types gets one badge, which audiences a group of
  * occurrences reports, how a sibling seen five hundred times becomes
  * one row — are decisions this tab owns and nothing else reads.
  *
@@ -118,21 +118,40 @@ class ValueRelationTool
             }
 
             /*
-             * The widest audience any of the group's occurrences has,
-             * not the tightest. The column answers *how widely may this
-             * pairing be discussed*, and one restricted sighting of a
-             * value that is otherwise public does not make the pairing
-             * restricted.
+             * Every audience the group's occurrences state, and not one
+             * of them standing in for the rest. `effectiveDistribution`
+             * is still what answers it per occurrence — the conjunction
+             * of the attribute, its object and its event, tightest
+             * wins — but a row folds many occurrences and a set of
+             * records spread over events has no single audience. What
+             * used to happen here was a second fold on top of that one,
+             * keeping whichever occurrence was widest, which let a row
+             * read `All communities` while one of the records behind it
+             * was org-only.
+             *
+             * Keyed on the pair, so two occurrences of one sharing
+             * group are one entry and two different sharing groups
+             * stay two — the distinction the level alone cannot make.
              */
             $effective = ValueStatsTool::effectiveDistribution(
                 $row,
                 $sgNames
             );
-            if ($effective['level'] !== null
-                && ($group['distribution'] === null
-                    || $effective['rank'] > $group['distribution']['rank'])
-            ) {
-                $group['distribution'] = $effective;
+            if ($effective['level'] !== null) {
+                $sharingGroup = (int)$effective['sharing_group_id'];
+                $audience = $sharingGroup === 0
+                    ? $effective['level']
+                    : $effective['level'] . '.' . $sharingGroup;
+                if (!isset($group['distributions'][$audience])) {
+                    $group['distributions'][$audience] = array(
+                        'level' => $effective['level'],
+                        'rank' => $effective['rank'],
+                        'sharing_group' => array(
+                            'id' => $effective['sharing_group_id'],
+                            'name' => $effective['sharing_group_name'],
+                        ),
+                    );
+                }
             }
 
             foreach (self::tagsOf($row) as $tag) {
@@ -213,7 +232,7 @@ class ValueRelationTool
             'object_ids' => array(),
             'tags' => array(),
             'last' => 0,
-            'distribution' => null,
+            'distributions' => array(),
             'occurrences' => 0,
         );
     }
@@ -237,7 +256,7 @@ class ValueRelationTool
     {
         $rows = array();
         foreach ($groups as $group) {
-            $distribution = $group['distribution'];
+            $audiences = self::audiences($group['distributions']);
             $names = array();
             foreach (array_keys($group['orgs']) as $orgId) {
                 $names[] = self::orgName($orgs, $orgId);
@@ -252,17 +271,15 @@ class ValueRelationTool
                 'last_together' => $group['last'] > 0
                     ? date('Y-m-d', $group['last'])
                     : '',
-                'distribution' => $distribution === null
+                /*
+                 * The widest of the set, kept for the column sort and
+                 * for a caller that wants one number. The cell reads
+                 * `distributions`.
+                 */
+                'distribution' => empty($audiences)
                     ? 5
-                    : $distribution['level'],
-                'sharing_group' => array(
-                    'id' => $distribution === null
-                        ? null
-                        : $distribution['sharing_group_id'],
-                    'name' => $distribution === null
-                        ? null
-                        : $distribution['sharing_group_name'],
-                ),
+                    : $audiences[0]['level'],
+                'distributions' => $audiences,
                 'object' => empty($group['objects'])
                     ? null
                     : self::dominant($group['objects']),
@@ -311,17 +328,28 @@ class ValueRelationTool
                     isset($meta['orgc_id']) ? $meta['orgc_id'] : 0
                 ),
                 'shared_values' => $shared,
+                /*
+                 * One row is one event here, so its audience is the
+                 * event's own column and there is nothing to fold. The
+                 * list shape is the value roll-up's, so one cell
+                 * renders both.
+                 */
                 'distribution' => isset($meta['distribution'])
                     ? (int)$meta['distribution']
                     : 0,
-                'sharing_group' => array(
-                    'id' => isset($meta['sharing_group_id'])
-                        ? (int)$meta['sharing_group_id']
-                        : null,
-                    'name' => isset($meta['sharing_group_name'])
-                        ? $meta['sharing_group_name']
-                        : null,
-                ),
+                'distributions' => array(array(
+                    'level' => isset($meta['distribution'])
+                        ? (int)$meta['distribution']
+                        : 0,
+                    'sharing_group' => array(
+                        'id' => isset($meta['sharing_group_id'])
+                            ? (int)$meta['sharing_group_id']
+                            : null,
+                        'name' => isset($meta['sharing_group_name'])
+                            ? $meta['sharing_group_name']
+                            : null,
+                    ),
+                )),
                 'tags' => isset($meta['tags']) ? $meta['tags'] : array(),
             );
         }
@@ -387,6 +415,7 @@ class ValueRelationTool
             'object' => array(),
             'tag' => array(),
             'distribution' => array(),
+            'sharing_group' => array(),
         );
         foreach ($groups as $group) {
             foreach (array_keys($group['events']) as $eventId) {
@@ -433,15 +462,33 @@ class ValueRelationTool
                     array('tag' => $tag, 'local' => 0)
                 );
             }
-            $level = $group['distribution'] === null
-                ? null
-                : $group['distribution']['level'];
-            if ($level !== null) {
+            /*
+             * Counted under every audience it has, the way the value is
+             * already counted under every type, org, event and tag it
+             * has. A facet is a membership test, so folding the set to
+             * one would hide a row from a filter it genuinely matches.
+             */
+            foreach ($group['distributions'] as $audience) {
                 self::bump(
                     $facets['distribution'],
-                    (string)$level,
+                    (string)$audience['level'],
                     null,
-                    array('level' => $level)
+                    array('level' => $audience['level'])
+                );
+                if ($audience['level'] !== 4
+                    || empty($audience['sharing_group']['id'])
+                ) {
+                    continue;
+                }
+                self::bump(
+                    $facets['sharing_group'],
+                    (string)$audience['sharing_group']['id'],
+                    $audience['sharing_group']['name'] !== null
+                        ? $audience['sharing_group']['name']
+                        : sprintf(
+                            __('Sharing group #%s'),
+                            $audience['sharing_group']['id']
+                        )
                 );
             }
         }
@@ -776,6 +823,38 @@ class ValueRelationTool
             );
         }
         $group[$token]['count']++;
+    }
+
+    /**
+     * One group's distinct audiences, widest first.
+     *
+     * Widest first so the badge a reader saw when the cell held only
+     * one is still the badge it leads with, and `rank` — the position
+     * `ValueStatsTool` assigns, which is not the level's own number —
+     * is dropped once it has done the ordering.
+     *
+     * @param array $set
+     * @return array
+     */
+    private static function audiences(array $set)
+    {
+        $out = array_values($set);
+        if (count($out) > 1) {
+            usort($out, function ($a, $b) {
+                if ($a['rank'] !== $b['rank']) {
+                    return $b['rank'] - $a['rank'];
+                }
+                return strcmp(
+                    (string)$a['sharing_group']['name'],
+                    (string)$b['sharing_group']['name']
+                );
+            });
+        }
+        foreach ($out as &$audience) {
+            unset($audience['rank']);
+        }
+        unset($audience);
+        return $out;
     }
 
     /**

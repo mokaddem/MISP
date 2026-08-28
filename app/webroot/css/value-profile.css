@@ -4083,6 +4083,26 @@ th[aria-sort="descending"] .sort-icon::before {
 }
 
 /*
+ * A row's audiences: MISP's own badge once per distinct distribution,
+ * and a sharing group named beside its own badge.
+ */
+.vp-dist-set {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.vp-dist-sg {
+    max-width: 9rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
  * The cut, stated. Every region that ranks, caps or pages says so here,
  * above the rows, rather than leaving it to a scrollbar.
  */
