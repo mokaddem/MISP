@@ -112,6 +112,64 @@
     background: color-mix(in srgb, var(--bs-body-bg) 30%, transparent);
 }
 
+/*
+ * A pill group: a label and every option beside it, the current one
+ * filled. Built on `.vp-type-chip`'s conventions rather than beside
+ * them — outlined at rest, filled when set — because a reader who has
+ * learned what a filled chip means on the Occurrences rail should not
+ * have to learn it again here.
+ *
+ * The options are a group and not a row of separate controls, so they
+ * share one border and lose the gap between them; the label sits inside
+ * the group so the two cannot be separated by a wrap.
+ */
+.vp-pillgroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.vp-pillgroup-label {
+    margin-right: 2px;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.vp-pill {
+    padding: 3px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.vp-pill:hover {
+    border-color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 16%, var(--bs-body-bg));
+}
+
+.vp-pill:focus-visible {
+    outline: 2px solid var(--bs-focus-ring-color, #0d6efd);
+    outline-offset: 2px;
+}
+
+.vp-pill.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--bs-body-bg);
+}
+
 .vp-type-chip-name {
     font-family: var(--bs-font-monospace);
 }

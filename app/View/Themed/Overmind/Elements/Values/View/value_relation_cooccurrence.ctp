@@ -348,19 +348,51 @@ foreach ($objectRows as $row) {
     $maxObjectValues = max($maxObjectValues, (int)$row['values']);
 }
 
+/**
+ * A pill group: every option on screen, the current one filled.
+ *
+ * A select hides its alternatives behind a click, which is how the
+ * roll-up came to be the least-used control on the tab — nothing about
+ * `Group by value` says that grouping by event is a thing the panel can
+ * do. Three pills say it without being opened.
+ *
+ * The container carries the same `data-vp-sort` / `data-vp-group` hook
+ * the select did and keeps its choice in `data-vp-value`, so the script
+ * reads one or the other through `controlValue()` and every panel still
+ * using a select is untouched.
+ *
+ * @param string $key `sort` or `group`
+ * @param string $label
+ * @param string $current
+ * @param array $options value => label
+ * @return string
+ */
+$pillGroup = function ($key, $label, $current, array $options) {
+    $out = '<div class="vp-pillgroup" data-vp-' . h($key) . ' '
+        . 'data-vp-value="' . h($current) . '" role="group" '
+        . 'aria-label="' . h($label) . '">';
+    $out .= '<span class="vp-pillgroup-label">' . h($label) . '</span>';
+    foreach ($options as $value => $text) {
+        $on = (string)$value === (string)$current;
+        $out .= '<button type="button" class="vp-pill'
+            . ($on ? ' active' : '') . '" data-vp-pill="' . h($value)
+            . '" aria-pressed="' . ($on ? 'true' : 'false') . '">'
+            . h($text) . '</button>';
+    }
+    return $out . '</div>';
+};
+
 ob_start();
 ?>
-    <select class="form-select form-select-sm w-auto" data-vp-sort
-            aria-label="<?= __('Rank the rows') ?>">
-        <option value="shared"><?= __('Most shared first') ?></option>
-        <option value="recent"><?= __('Most recent first') ?></option>
-    </select>
-    <select class="form-select form-select-sm w-auto" data-vp-group
-            aria-label="<?= __('Roll the neighbourhood up by') ?>">
-        <option value="value"><?= __('Group by value') ?></option>
-        <option value="event"><?= __('Group by event') ?></option>
-        <option value="object"><?= __('Group by object') ?></option>
-    </select>
+    <?= $pillGroup('group', __('Group by'), 'value', array(
+        'value' => __('Value'),
+        'event' => __('Event'),
+        'object' => __('Object'),
+    )) ?>
+    <?= $pillGroup('sort', __('Rank by'), 'shared', array(
+        'shared' => __('Most shared'),
+        'recent' => __('Most recent'),
+    )) ?>
 <?php
 $headerExtra = ob_get_clean();
 if (!$hasRows) {
@@ -1037,24 +1069,48 @@ $headerSub = ob_get_clean();
              * not see — an oversized event is oversized for everybody.
              */
             ?>
+            <?php
+            /*
+             * The budget is named only where it did something. It bounds
+             * the scan on every instance, but on a value whose events
+             * all fitted inside it, it describes a cut that did not
+             * happen — and this sentence's whole job is to say what was
+             * read. `events_unread` counts the events it turned away, so
+             * it is the one field that knows.
+             *
+             * The scope reads `all 3 events` and not `3 of this value's
+             * 3 events`, which is a fraction a reader has to divide
+             * before learning it means everything.
+             */
+            $budgetBit = !empty($scan['events_unread']);
+            $scanScope = $scan['events_read'] === $scan['events_seen']
+                ? __n(
+                    'the one event this value is in',
+                    'all %d events this value is in',
+                    $scan['events_seen'],
+                    $scan['events_seen']
+                )
+                : sprintf(
+                    __('%1$d of this value\'s %2$d events'),
+                    $scan['events_read'],
+                    $scan['events_seen']
+                );
+            ?>
             <div class="vp-rel-cap">
                 <i class="fas fa-circle-info"></i>
                 <span>
                     <?= sprintf(
-                        __(
-                            'Read from %1$s, newest first, within a'
-                            . ' budget of %2$s attribute rows — %3$s'
-                            . ' read.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __n(
-                                'the one event this value is in',
-                                '%1$d of this value\'s %2$d events',
-                                $scan['events_seen'],
-                                $scan['events_read'],
-                                $scan['events_seen']
+                        $budgetBit
+                            ? __(
+                                'Read from %1$s, newest first, within a'
+                                . ' budget of %2$s attribute rows —'
+                                . ' %3$s read.'
                             )
-                        )) . '</strong>',
+                            : __(
+                                'Read from %1$s, newest first — %3$s'
+                                . ' read.'
+                            ),
+                        '<strong>' . h($scanScope) . '</strong>',
                         h(number_format($scan['budget'])),
                         h(__n(
                             '%s row',
@@ -1111,9 +1167,8 @@ $headerSub = ob_get_clean();
          */
         ?>
         <?php if ($headerExtra !== null): ?>
-            <div class="px-3 pt-3 d-flex flex-wrap gap-2
+            <div class="px-3 pt-3 d-flex flex-wrap gap-3
                         align-items-center">
-                <span class="vp-subhead mb-0 me-1"><?= __('Show') ?></span>
                 <?= $headerExtra ?>
             </div>
         <?php endif; ?>

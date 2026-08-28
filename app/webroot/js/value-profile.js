@@ -690,7 +690,7 @@
             }
             return;
         }
-        var key = select.value;
+        var key = controlValue(select);
         var ordered = filtered.slice().sort(function (a, b) {
             var diff = (rowNumber(b, key) || 0) - (rowNumber(a, key) || 0);
             if (diff !== 0) {
@@ -1119,6 +1119,51 @@
     }
 
     /**
+     * What a chooser is currently set to, whether it is a `<select>` or
+     * a pill group. The two carry the same `data-vp-sort` /
+     * `data-vp-group` hook so a caller never has to know which it got.
+     *
+     * @param {Element} control
+     * @return {string}
+     */
+    function controlValue(control) {
+        return control.tagName === 'SELECT'
+            ? control.value
+            : (control.dataset.vpValue || '');
+    }
+
+    /**
+     * Move a pill group to the option that was clicked, then tell the
+     * list the same thing a `change` on a select would have.
+     *
+     * @param {Element} button A [data-vp-pill]
+     */
+    function pickPill(button) {
+        var group = button.closest('[data-vp-sort], [data-vp-group]');
+        if (!group || button.dataset.vpPill === group.dataset.vpValue) {
+            return;
+        }
+        group.dataset.vpValue = button.dataset.vpPill;
+        group.querySelectorAll('[data-vp-pill]').forEach(function (pill) {
+            var on = pill === button;
+            pill.classList.toggle('active', on);
+            pill.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+        if (group.hasAttribute('data-vp-group')) {
+            switchGroup(group);
+            return;
+        }
+        var list = group.closest('[data-vp-list]');
+        if (list) {
+            // A reorder does not change how many rows there are, but
+            // page three of a new order is not the rows the reader was
+            // looking at either.
+            listPages.set(list, 1);
+            refreshList(list);
+        }
+    }
+
+    /**
      * Switch which roll-up is on screen.
      *
      * The narrowing controls belong to the value roll-up and are put
@@ -1126,14 +1171,14 @@
      * value, and an event row is not a value. Anything set is cleared
      * on the way out rather than left applying invisibly.
      *
-     * @param {Element} select A [data-vp-group] select
+     * @param {Element} control A [data-vp-group] select or pill group
      */
-    function switchGroup(select) {
-        var list = select.closest('[data-vp-list]');
+    function switchGroup(control) {
+        var list = control.closest('[data-vp-list]');
         if (!list) {
             return;
         }
-        var group = select.value;
+        var group = controlValue(control);
         list.dataset.vpGroupActive = group;
         list.querySelectorAll('[data-vp-group-pane]').forEach(function (pane) {
             pane.classList.toggle('d-none',
@@ -5652,6 +5697,12 @@
             }
 
             onTimelineClick(event);
+
+            var pill = event.target.closest('[data-vp-pill]');
+            if (pill) {
+                pickPill(pill);
+                return;
+            }
 
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
