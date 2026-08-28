@@ -168,11 +168,13 @@
      * including them alongside the rest are different questions.
      *
      * Lists nest. A `[data-vp-list]` inside another owns its rows, its
-     * pager and its range, and the outer one leaves them alone — the
-     * Relationships tab's object-siblings section pages separately from
-     * the ranked table under it. Narrowing controls are not nested in
-     * this pass: the inner section has none, and one that grew them
-     * would need the facet lookups scoped the same way.
+     * pager, its range and its narrowing controls, and the outer one
+     * leaves them alone — the Relationships tab's object-siblings
+     * section pages and narrows separately from the ranked table under
+     * it. Reading a control therefore goes through `ownNodes` for the
+     * same reason paging does: an unscoped query would let the ranked
+     * table's facet bar filter rows it does not describe, and its
+     * `Reset` clear ticks the reader never made there.
      * ============================================================== */
 
     // Current page per list, keyed by the element so several lists on
@@ -252,7 +254,7 @@
      */
     function activeFacets(list) {
         var active = {};
-        list.querySelectorAll('input[data-vp-facet-key]').forEach(function (box) {
+        ownNodes(list, 'input[data-vp-facet-key]').forEach(function (box) {
             if (!box.checked) {
                 return;
             }
@@ -1126,26 +1128,31 @@
     /**
      * Put every narrowing control in this list back where it started.
      *
+     * Scoped to the controls this list owns. `Reset` under the ranked
+     * table must not silently untick the sibling section's facets: the
+     * two sections narrow different row sets, and a reader who cleared
+     * one has said nothing about the other.
+     *
      * @param {Element} list
      */
     function clearListFilters(list) {
-        list.querySelectorAll('input[data-vp-facet-key]:checked')
+        ownNodes(list, 'input[data-vp-facet-key]:checked')
             .forEach(function (box) {
                 box.checked = false;
             });
-        list.querySelectorAll('select[data-vp-filter-key]')
+        ownNodes(list, 'select[data-vp-filter-key]')
             .forEach(function (select) {
                 select.value = '';
             });
-        list.querySelectorAll('[data-vp-filter-text]')
+        ownNodes(list, '[data-vp-filter-text]')
             .forEach(function (input) {
                 input.value = '';
             });
-        list.querySelectorAll('[data-vp-filter-min]')
+        ownNodes(list, '[data-vp-filter-min]')
             .forEach(function (input) {
                 input.value = input.min === '' ? '0' : input.min;
             });
-        list.querySelectorAll('[data-vp-filter-from], [data-vp-filter-to],'
+        ownNodes(list, '[data-vp-filter-from], [data-vp-filter-to],'
             + ' [data-vp-range-from], [data-vp-range-to]')
             .forEach(function (input) {
                 input.value = '';

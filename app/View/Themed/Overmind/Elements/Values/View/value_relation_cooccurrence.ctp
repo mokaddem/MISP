@@ -114,6 +114,28 @@ $valueTokens = function ($row) use ($slug, $siblingObjects) {
 };
 
 /**
+ * The same, for the sibling table, whose keys are prefixed so the two
+ * bars in this panel cannot read each other's ticks — `type` there and
+ * `type` here narrow different row sets.
+ *
+ * @param array $sibling
+ * @return string
+ */
+$siblingTokens = function ($sibling) use ($slug) {
+    $tokens = array(
+        'sibobject:' . $slug($sibling['object']),
+        'sibtype:' . $slug($sibling['type']),
+    );
+    if ($sibling['relation'] !== '') {
+        $tokens[] = 'sibrelation:' . $slug($sibling['relation']);
+    }
+    foreach ($sibling['orgs'] as $org) {
+        $tokens[] = 'siborg:' . $slug($org);
+    }
+    return implode(' ', $tokens);
+};
+
+/**
  * A row's two orderings, as numbers the sort can read without parsing
  * a date out of a cell.
  *
@@ -215,6 +237,24 @@ $facetGroups = array(
         'icon' => 'misp-icon misp-icon-tag misp-simple'),
     array('key' => 'distribution', 'title' => __('Distribution'),
         'icon' => 'fas fa-globe'),
+);
+
+/*
+ * The sibling table's own bar. Four keys and not six: a sibling row
+ * has no tag column and no single distribution to name, and Relation
+ * is the dimension that only exists here — it is what separates the
+ * `domain` in a `domain-ip` object from the timestamps beside it.
+ */
+$sibFacets = isset($siblings['facets']) ? $siblings['facets'] : array();
+$sibFacetGroups = array(
+    array('key' => 'sibobject', 'title' => __('Object'),
+        'icon' => 'misp-icon misp-icon-object misp-simple'),
+    array('key' => 'sibrelation', 'title' => __('Relation'),
+        'icon' => 'fas fa-diagram-project'),
+    array('key' => 'sibtype', 'title' => __('Type'),
+        'icon' => 'misp-icon misp-icon-attribute misp-simple'),
+    array('key' => 'siborg', 'title' => __('Reported by'),
+        'icon' => 'fas fa-building'),
 );
 
 /*
@@ -763,13 +803,35 @@ $headerSub = ob_get_clean();
                             h(number_format($siblings['total'])) ?>
                     </span>
                 </div>
+                <?php
+                /*
+                 * Two lines, and the order is the point. A reader who
+                 * has never met a MISP object needs to be told what one
+                 * is and why its contents are worth their attention
+                 * before being told how the rows were folded; the
+                 * provenance sentence that used to open this said
+                 * neither. It keeps its place underneath, because
+                 * *not a correlation* is what stops the section being
+                 * read as engine output.
+                 */
+                ?>
+                <div class="small mb-1">
+                    <?= __('A MISP object groups the attributes that'
+                        . ' describe one thing — a file with its hashes'
+                        . ' and filename, a domain with the address it'
+                        . ' resolved to, one network connection. This is'
+                        . ' what else was recorded beside this value'
+                        . ' inside those objects: the same subject,'
+                        . ' described further, and usually the first'
+                        . ' place to pivot.') ?>
+                </div>
                 <div class="small text-muted mb-2">
-                    <?= __('A join on the object id over every occurrence'
-                        . ' you can see — not a correlation, and not the'
-                        . ' engine\'s to suppress. One row per object'
-                        . ' template, relation and sibling value, so a'
-                        . ' sibling seen many times is one row that says'
-                        . ' how many.') ?>
+                    <?= __('One row per object template, relation and'
+                        . ' value — a sibling seen in many objects is a'
+                        . ' single row, and Objects says how many. Read'
+                        . ' from the objects themselves rather than from'
+                        . ' the correlation engine, so it still answers'
+                        . ' when correlation is suppressed.') ?>
                 </div>
             </div>
 
@@ -807,6 +869,103 @@ $headerSub = ob_get_clean();
                 </div>
             <?php endif; ?>
 
+            <?php
+            /*
+             * The section's own narrowing bar, inside its own
+             * `[data-vp-list]`. Phase 18 left this out and said what it
+             * would cost: the facet lookups had to be scoped the way
+             * paging already was, which `ownNodes` in `value-profile.js`
+             * now does for every control a list reads.
+             *
+             * It is a separate bar and not a seventh dropdown on the one
+             * above because the two fold different row sets — that one
+             * from the events the scan read, this one from the objects
+             * the value sits in — and a single bar would print counts
+             * that are exact for neither.
+             */
+            ?>
+            <?php $sibHasFacets = false; ?>
+            <?php foreach ($sibFacetGroups as $group) {
+                if (!empty($sibFacets[$group['key']])) {
+                    $sibHasFacets = true;
+                }
+            } ?>
+            <?php if ($sibHasFacets): ?>
+                <div class="px-3 pb-2 d-flex flex-wrap gap-2
+                            align-items-center">
+                    <span class="vp-subhead mb-0 me-1"><?=
+                        __('Narrow by') ?></span>
+
+                    <?php foreach ($sibFacetGroups as $group): ?>
+                        <?php if (empty($sibFacets[$group['key']])) {
+                            continue;
+                        } ?>
+                        <div class="dropdown">
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-secondary
+                                           dropdown-toggle vp-rel-facet"
+                                    data-bs-toggle="dropdown"
+                                    data-bs-auto-close="outside"
+                                    aria-expanded="false">
+                                <?= h($group['title']) ?>
+                                <span class="badge text-bg-secondary ms-1">
+                                    <?= h(count($sibFacets[$group['key']])) ?>
+                                </span>
+                            </button>
+                            <div class="dropdown-menu vp-rel-facetmenu p-2">
+                                <?= $this->element(
+                                    'Values/View/value_facet_group',
+                                    array(
+                                        'key' => $group['key'],
+                                        'title' => $group['title'],
+                                        'icon' => $group['icon'],
+                                        'values' => $sibFacets[$group['key']],
+                                    )
+                                ) ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+
+                    <span class="small text-muted ms-2 vp-min-w-0">
+                        <?= sprintf(
+                            __(
+                                'Counts are folded from all %1$s siblings,'
+                                . ' not from the page. A count larger than'
+                                . ' the table can show means the value it'
+                                . ' names is outside the %2$s carried.'
+                            ),
+                            '<span class="font-monospace">'
+                                . h(number_format($siblings['total']))
+                                . '</span>',
+                            '<span class="font-monospace">'
+                                . h(number_format(
+                                    count($siblings['rows'])
+                                )) . '</span>'
+                        ) ?>
+                    </span>
+
+                    <span class="small text-muted ms-auto"
+                          data-vp-facet-summary>
+                        <span class="vp-facet-summary-none">
+                            <?= __('No filter applied') ?>
+                        </span>
+                        <span class="vp-facet-summary-some">
+                            <span data-vp-facet-count-active>0</span>
+                            <?= __('filters') ?>
+                            &middot;
+                            <span data-vp-facet-rows><?=
+                                h(count($siblings['rows'])) ?></span>
+                            <?= __('rows') ?>
+                        </span>
+                    </span>
+
+                    <button type="button" class="btn btn-sm btn-link"
+                            data-vp-facet-clear disabled>
+                        <?= __('Reset') ?>
+                    </button>
+                </div>
+            <?php endif; ?>
+
             <div class="table-responsive" data-vp-list-rows>
                 <table class="table table-sm table-hover vp-table
                               align-middle mb-0">
@@ -830,7 +989,9 @@ $headerSub = ob_get_clean();
                     </thead>
                     <tbody>
                         <?php foreach ($siblings['rows'] as $sibling): ?>
-                            <tr class="vp-rel-stripe vp-rel-k-co">
+                            <tr class="vp-rel-stripe vp-rel-k-co"
+                                data-vp-facet="<?=
+                                    h($siblingTokens($sibling)) ?>">
                                 <td class="text-nowrap">
                                     <span class="misp-icon misp-icon-object
                                                  misp-simple me-1"></span>
@@ -914,6 +1075,15 @@ $headerSub = ob_get_clean();
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="p-3 d-none" data-vp-list-empty>
+                <div class="vp-empty vp-empty-inline">
+                    <i class="fas fa-filter"></i>
+                    <span>
+                        <?= __('No sibling matches the filter you set.') ?>
+                    </span>
+                </div>
             </div>
 
             <div class="px-3 py-2 border-top">

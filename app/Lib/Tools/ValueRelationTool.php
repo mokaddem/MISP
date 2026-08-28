@@ -547,9 +547,18 @@ class ValueRelationTool
         $rowCap = isset($context['row_cap'])
             ? (int)$context['row_cap']
             : 100;
+        /*
+         * Folded before the cut, so the counts describe the value's
+         * whole sibling set rather than the hundred rows that fit. That
+         * is the same bargain the ranked table's bar strikes, and the
+         * bar carries the same sentence about it: a count larger than
+         * the table can show names something outside the 100 carried.
+         */
+        $facets = self::siblingFacets($out);
         $out = array_slice($out, 0, $rowCap);
         return array(
             'rows' => $out,
+            'facets' => $facets,
             'total' => $triples,
             'raw' => count($rows),
             'objects' => count($objects),
@@ -564,6 +573,67 @@ class ValueRelationTool
                 ? (int)$context['page_size']
                 : 8,
         );
+    }
+
+    /**
+     * The sibling section's own counted facets.
+     *
+     * Its own rather than the ranked table's, because the two sections
+     * fold different row sets: the bar above is folded from the events
+     * the scan read, and these from the objects the value sits in. An
+     * object can survive an event the scan skipped for being oversized
+     * — that is the whole reason the sibling table renders under a
+     * suppressed band — so one bar over both would print a count that
+     * is exact for neither.
+     *
+     * The keys are prefixed. `value_facet_group` derives a DOM id from
+     * the key, and two groups called `type` in one panel would collide.
+     *
+     * @param array $rows Aggregated triples, pre-cap
+     * @return array Facet groups, ranked and capped
+     */
+    private static function siblingFacets(array $rows)
+    {
+        $facets = array(
+            'sibobject' => array(),
+            'sibrelation' => array(),
+            'sibtype' => array(),
+            'siborg' => array(),
+        );
+        foreach ($rows as $row) {
+            self::bump(
+                $facets['sibobject'],
+                ValueStatsTool::facetToken($row['object']),
+                $row['object']
+            );
+            if ($row['relation'] !== '') {
+                self::bump(
+                    $facets['sibrelation'],
+                    ValueStatsTool::facetToken($row['relation']),
+                    $row['relation']
+                );
+            }
+            self::bump(
+                $facets['sibtype'],
+                ValueStatsTool::facetToken($row['type']),
+                $row['type']
+            );
+            foreach ($row['orgs'] as $name) {
+                self::bump(
+                    $facets['siborg'],
+                    ValueStatsTool::facetToken($name),
+                    $name
+                );
+            }
+        }
+        foreach ($facets as $key => $group) {
+            $facets[$key] = array_slice(
+                self::rank($group),
+                0,
+                self::FACET_CAP
+            );
+        }
+        return $facets;
     }
 
     /**
