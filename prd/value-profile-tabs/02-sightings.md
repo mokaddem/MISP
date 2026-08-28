@@ -136,7 +136,9 @@ Body, in order:
 ## 7. The list panel — `value_sighting_list`
 
 Header: **Individual sightings**, sub-line `20 sightings in the selected range ·
-47 in total`, and a disabled `Export selection`.
+47 in total`. It carried a disabled `Export selection` beside that; the button
+is **removed** — the panel has no selection to export and nothing on this page
+writes, so it was an affordance for a feature that was never specified.
 
 Below it a `.vp-filter-note` bound to the brush — `Range 2025-07-10 →
 2025-08-13 · 20 of 47 sightings` — with a `.vp-filter-clear` that returns to the
@@ -210,7 +212,8 @@ Working: the three type toggles, the range select, the navigator brush (which
 drives the list panel), `load the rest`, and `Clear` on the range note. All
 client-side against data already in the DOM.
 
-Disabled with a `title`: the three Add-sighting buttons and `Export selection`.
+Disabled with a `title`: the three Add-sighting buttons. `Export selection` was
+the fourth and is gone (§7).
 
 ## 11. Deferred, and what live data will hit
 

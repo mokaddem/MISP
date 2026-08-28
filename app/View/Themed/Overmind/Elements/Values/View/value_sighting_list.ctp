@@ -128,17 +128,6 @@ $rowSort = function ($row, $index) use ($sortKeys) {
     return $out;
 };
 
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
-
-$exportButton = '<button type="button"'
-    . ' class="btn btn-sm btn-outline-dark" disabled title="'
-    . h($noWrites) . '">'
-    . '<i class="fas fa-file-export me-1"></i>'
-    . h(__('Export selection')) . '</button>';
-
 $subtitle = $total === 0
     ? h(__('No individual sighting to list'))
     : '<span data-vp-sight-in-range>' . h($total) . '</span> '
@@ -155,7 +144,6 @@ $subtitle = $total === 0
         'panelIcon' => 'misp-icon misp-icon-sighting misp-simple',
         'panelColor' => 'var(--sighting)',
         'panelSub' => $subtitle,
-        'panelExtra' => $exportButton,
     )) ?>
 
     <?php if ($total === 0): ?>
