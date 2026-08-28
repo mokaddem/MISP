@@ -1061,8 +1061,23 @@ tr.vp-occ-deleted td {
     background: color-mix(in srgb, var(--sighting) 28%, var(--bs-body-bg));
 }
 
-.vp-stat-warn {
-    border-color: var(--bs-warning);
+/*
+ * A counter that stands for one kind of report is bordered in that
+ * kind's colour. The false-positive tile used to take `--bs-warning`,
+ * a generic amber that meant nothing on this page and now collides
+ * with the orange the expirations took.
+ *
+ * Only when the count is not zero. An outlined nothing claims the
+ * value has been contradicted.
+ */
+.vp-stat-fp {
+    border-color: color-mix(in srgb, var(--vp-sight-fp) 60%,
+        var(--bs-border-color));
+}
+
+.vp-stat-exp {
+    border-color: color-mix(in srgb, var(--vp-sight-exp) 60%,
+        var(--bs-border-color));
 }
 
 .vp-stat-value {
@@ -3267,6 +3282,27 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-sight-exp: #d97706;
 
     /*
+     * The three kinds as a semantic triple, for every mark on the page
+     * that says `this one report is of this kind` rather than stacking
+     * many of them: the badge on each row of the sightings table, the
+     * three counters on the tab's own card, the Timeline's lanes. A
+     * sighting has no single colour in the chart — there it is whichever
+     * organisation filed it — so the positive case needs a name here
+     * that the chart does not supply, and it is the tab's own hue.
+     *
+     * `-ink` is the text tone, the convention the verdict palette at
+     * the top of this file established. The fills are chart fills, held
+     * to 3:1 against the ground; a 0.66rem badge label is small text and
+     * wants 4.5:1, which the orange misses in light (3.19) and the red
+     * misses in dark (3.54). Measured on white and on `#212529`: light
+     * 7.48 / 5.76 / 8.39, dark 5.53 / 7.15 / 5.46.
+     */
+    --vp-sight-yes: var(--sighting);
+    --vp-sight-yes-ink: var(--sighting);
+    --vp-sight-fp-ink: #a51c30;
+    --vp-sight-exp-ink: #9a5407;
+
+    /*
      * The curves are violet and a deep teal, which the organisation
      * ramp does not reach: a line is never the hue of a bar under it
      * (worst pair ΔE 11.2), and neither is now the red or the orange
@@ -3297,6 +3333,16 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-sight-fp: #cf4a63;
     --vp-sight-curve-1: #a78bfa;
     --vp-sight-curve-2: #a5f3fc;
+
+    /*
+     * The tab's own hue is too dark to read as a mark on a dark ground,
+     * let alone as label text, so it takes a step of its own here — the
+     * one the Timeline had been carrying privately for its lanes.
+     */
+    --vp-sight-yes: #c05fcc;
+    --vp-sight-yes-ink: #cf7ad9;
+    --vp-sight-fp-ink: #e8798a;
+    --vp-sight-exp-ink: #e8a33d;
 }
 
 /* ------------------------------------------------------------------
@@ -3439,8 +3485,24 @@ th[aria-sort="descending"] .sort-icon::before {
     border-radius: 2px;
 }
 
+/*
+ * The one toggle whose bars are not one colour. It used to show
+ * `--vp-sight-org-1`, which is whichever organisation ranks first — so
+ * the swatch for `Sightings` was one reporter's blue standing for all
+ * of them, and it changed hands when the stack's ordering rule did.
+ * Three stops of the ramp instead: the claim is `these are drawn in the
+ * organisation colours`, which is a claim about the ramp and not about
+ * a member of it.
+ */
 .vp-sight-swatch-sighting {
-    background: var(--vp-sight-org-1);
+    background: linear-gradient(
+        135deg,
+        var(--vp-sight-org-1) 0%,
+        var(--vp-sight-org-1) 33%,
+        var(--vp-sight-org-2) 33%,
+        var(--vp-sight-org-2) 66%,
+        var(--vp-sight-org-4) 66%
+    );
 }
 
 .vp-sight-swatch-fp {
@@ -3714,26 +3776,36 @@ th[aria-sort="descending"] .sort-icon::before {
     white-space: nowrap;
 }
 
+/*
+ * The three kinds, in the page's own vocabulary for them rather than in
+ * three colours picked here. This badge used to take `--vp-sight-org-1`
+ * for a sighting — a categorical slot, so the colour of a sighting
+ * depended on which organisation happened to rank first — the verdict
+ * palette's benign green for a false positive, and the border grey for
+ * an expiration. The chart moved to MISP's own red and orange and left
+ * this table behind, which is how a false positive came to be green in
+ * one card and red in the next.
+ *
+ * The contradiction still gets a tint where the agreement does not: a
+ * table of forty-seven agreements with one disagreement in it reads as
+ * forty-seven agreements otherwise.
+ */
 .vp-sight-badge-yes {
-    border-color: color-mix(in srgb, var(--vp-sight-org-1) 55%,
+    border-color: color-mix(in srgb, var(--vp-sight-yes) 55%,
         transparent);
-    color: var(--vp-sight-org-1);
+    color: var(--vp-sight-yes-ink);
 }
 
-/*
- * The contradiction has to be visibly different from the row above it,
- * or a table of forty-seven agreements with one disagreement in it
- * reads as forty-seven agreements.
- */
 .vp-sight-badge-no {
-    border-color: color-mix(in srgb, var(--vp-ben) 55%, transparent);
-    background: color-mix(in srgb, var(--vp-ben) 12%, transparent);
-    color: var(--vp-ben-ink);
+    border-color: color-mix(in srgb, var(--vp-sight-fp) 55%, transparent);
+    background: color-mix(in srgb, var(--vp-sight-fp) 12%, transparent);
+    color: var(--vp-sight-fp-ink);
 }
 
 .vp-sight-badge-exp {
-    border-color: var(--bs-border-color);
-    color: var(--bs-secondary-color);
+    border-color: color-mix(in srgb, var(--vp-sight-exp) 55%, transparent);
+    background: color-mix(in srgb, var(--vp-sight-exp) 12%, transparent);
+    color: var(--vp-sight-exp-ink);
 }
 
 .vp-sight-against {
@@ -5459,7 +5531,13 @@ td.vp-rel-pick {
      * name from the key, so a token whose name did not match would
      * resolve to nothing and draw black.
      */
-    --vp-tl-sighting: var(--sighting);
+    /*
+     * The three report kinds read the Sightings tab's triple rather
+     * than restating it, which is what kept the false positive and the
+     * expiration right through the palette change and left the
+     * sightings table wrong.
+     */
+    --vp-tl-sighting: var(--vp-sight-yes);
     --vp-tl-false_positive: var(--vp-sight-fp);
     --vp-tl-expiration: var(--vp-sight-exp);
     --vp-tl-publication: var(--event);
@@ -5470,12 +5548,13 @@ td.vp-rel-pick {
 }
 
 /*
- * Three of the eight are too dark to read as a small mark on a dark
+ * Two of the eight are too dark to read as a small mark on a dark
  * ground, and one of them — the edit — is the single mark that has to
- * survive being drawn over its own hatch.
+ * survive being drawn over its own hatch. The sighting was a third
+ * until `--vp-sight-yes` took that step over, since the sightings
+ * table needs it too.
  */
 [data-bs-theme="dark"] {
-    --vp-tl-sighting: #c05fcc;
     --vp-tl-note: #c26189;
     --vp-tl-edit: #a2938f;
 }

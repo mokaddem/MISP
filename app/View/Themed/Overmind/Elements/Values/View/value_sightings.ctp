@@ -46,12 +46,14 @@ $subtitle = $sightings['total'] === 0
                 <div class="vp-stat-label"><?= __('Sightings') ?></div>
             </div>
             <div class="vp-stat<?= $sightings['fp'] > 0
-                ? ' vp-stat-warn'
+                ? ' vp-stat-fp'
                 : '' ?>">
                 <div class="vp-stat-value"><?= h($sightings['fp']) ?></div>
                 <div class="vp-stat-label"><?= __('False positive') ?></div>
             </div>
-            <div class="vp-stat">
+            <div class="vp-stat<?= $sightings['expiration'] > 0
+                ? ' vp-stat-exp'
+                : '' ?>">
                 <div class="vp-stat-value">
                     <?= h($sightings['expiration']) ?>
                 </div>
