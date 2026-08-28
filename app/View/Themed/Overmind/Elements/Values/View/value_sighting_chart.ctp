@@ -25,6 +25,24 @@
  * says the same thing now, and the readout names the reporter of every
  * count it shows.
  *
+ * The two contradicting kinds hang below the axis. They used to stack
+ * upwards with the sightings, which put `this report argues against the
+ * value` in the colour channel — competing with six organisation hues
+ * that cycle at the seventh reporter — and the busiest value on a real
+ * instance has six. So the two marks the panel exists to make visible
+ * were the two hardest to find. Direction cannot be crowded out: below
+ * the line argues against the value, at any grain, in either theme, and
+ * in greyscale. Colour is left doing what it is good at, which is
+ * identity, and the collision that used to matter most is retired
+ * rather than tuned — a contradiction and an organisation can no longer
+ * touch.
+ *
+ * Both scales are therefore pinned, so one pixel row is zero on both.
+ * A score is 0–100 over the band above the line and the same negative
+ * share below it, where it draws nothing; otherwise a model at zero
+ * would cut through the contradictions it is supposed to be read
+ * against.
+ *
  * Both axes are captioned in words above the chart. An overlay with two
  * scales that labels neither is a trick, and the left one is a count
  * while the right one is a score out of a hundred.
@@ -201,20 +219,24 @@ if ($series !== null) {
             ),
             'score' => __('Decay score'),
             /*
-             * Reports, not sightings. All three kinds have always been
-             * in this one stack on this one axis; what changed is that
-             * they are all stacked by organisation now, so the caption
-             * can say so without lying about the other two.
+             * The axis now has two halves and the caption is the only
+             * place that says which is which before the reader hovers
+             * anything. `up` and `down` rather than `positive` and
+             * `negative`: the numbers on the axis are counts either
+             * way, and the sign is a direction rather than a quantity.
              */
             'perUnit' => array(
                 'day' => __(
                     'Reports per day, stacked by organisation'
+                    . ' · sightings up, contradictions down'
                 ),
                 'week' => __(
                     'Reports per week, stacked by organisation'
+                    . ' · sightings up, contradictions down'
                 ),
                 'month' => __(
                     'Reports per month, stacked by organisation'
+                    . ' · sightings up, contradictions down'
                 ),
             ),
             'perColumn' => ValueProfileBuckets::columnLabels(),
@@ -256,7 +278,8 @@ if ($series !== null) {
 
             <div class="vp-sight-axes">
                 <span class="vp-subhead" data-vp-sight-axis-left>
-                    <?= __('Reports per day, stacked by organisation') ?>
+                    <?= __('Reports per day, stacked by organisation'
+                        . ' · sightings up, contradictions down') ?>
                 </span>
                 <span class="vp-subhead vp-sight-axis-right">
                     <?= __('Decay score · 0–100') ?>
@@ -266,8 +289,9 @@ if ($series !== null) {
             <div class="vp-chart vp-sight-main">
                 <canvas id="vp-sight-main" role="img"
                         aria-label="<?= h(__(
-                            'Sightings, false positives and expirations per'
-                            . ' organisation over time, with each decaying'
+                            'Reports per organisation over time — sightings'
+                            . ' above the axis, false positives and'
+                            . ' expirations below it — with each decaying'
                             . ' model\'s score overlaid'
                         )) ?>"></canvas>
                 <?php if ($sightings['total'] === 0): ?>
@@ -398,7 +422,7 @@ if ($series !== null) {
                     ?>
                     <div class="vp-sight-legend-group">
                         <span class="vp-sight-legend-head">
-                            <?= __('Contradictions') ?>
+                            <?= __('Below the line') ?>
                         </span>
                         <?php if ($sightings['fp'] > 0): ?>
                             <span class="vp-sight-key">
@@ -452,7 +476,7 @@ if ($series !== null) {
              * What still needs saying is the one place the count and
              * the colour part company. A reporter's number includes
              * its contradictions; its swatch does not, because those
-             * are drawn in the red and the orange.
+             * are drawn under the line in the red and the orange.
              */
             ?>
             <p class="vp-sight-legend-note">
@@ -466,8 +490,10 @@ if ($series !== null) {
                     <?= h(__(
                         'A reporter\'s count is every report it filed in'
                         . ' the selected range, of any kind — hover a key'
-                        . ' for the split. Its contradictions keep their'
-                        . ' own colour rather than the reporter\'s.'
+                        . ' for the split. Its contradictions hang below'
+                        . ' the line in their own colour rather than the'
+                        . ' reporter\'s, and the axis counts up in both'
+                        . ' directions.'
                     )) ?>
                 <?php endif; ?>
                 <?= h(__(

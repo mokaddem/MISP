@@ -2667,6 +2667,11 @@
          * heading totals the column rather than its own rows, because
          * the rows are filtered — an organisation reporting nothing
          * this week is not a row.
+         *
+         * Magnitudes throughout. The two contradicting kinds are
+         * plotted negative so they hang below the axis, and `-2
+         * expirations` is a direction printed as though it were a
+         * quantity.
          */
         SIGHT_KINDS.forEach(function (kind) {
             var rows = points.filter(function (point) {
@@ -2676,7 +2681,7 @@
             if (at !== null) {
                 chart.data.datasets.forEach(function (set) {
                     if (set.vpKind === kind) {
-                        total += set.data[at] || 0;
+                        total += Math.abs(set.data[at] || 0);
                     }
                 });
             }
@@ -2692,7 +2697,7 @@
                 sightTipRow(
                     section,
                     point.dataset.backgroundColor,
-                    point.parsed.y,
+                    Math.abs(point.parsed.y),
                     point.dataset.label
                 );
             });
@@ -2730,11 +2735,37 @@
     }
 
     /**
-     * The colour a segment of one kind takes. A sighting is the
-     * organisation's own hue; the two contradicting kinds are their own
-     * colour whoever filed them, because `this report argues against
-     * the value` is the thing the reader is scanning the stack for and
-     * the reporter is a row in the readout.
+     * Which way a kind of report is drawn. A sighting supports the
+     * value and goes up; a false positive and an expiration argue
+     * against it and go down.
+     *
+     * This is the panel's argument moved out of the colour channel and
+     * into the geometry. All three used to stack upwards in one column,
+     * so `a contradiction was filed` was a hue among six organisation
+     * hues that cycle — the two marks the panel exists to make visible
+     * were the two hardest to find in a stack of six reporters.
+     * Direction cannot be crowded out: whatever is below the line
+     * argues against the value, at any grain, in either theme, and in
+     * greyscale.
+     *
+     * @param {string} kind One of SIGHT_KINDS
+     * @return {number} 1 above the line, -1 below it
+     */
+    function sightKindSign(kind) {
+        return kind === 'sighting' ? 1 : -1;
+    }
+
+    /**
+     * The colour a segment of one kind takes.
+     *
+     * Colour is identity here and direction is meaning, so a sighting
+     * is the organisation's own hue. The two contradicting kinds keep a
+     * colour of their own because the axis can only say `argues
+     * against` and there are two ways of doing that — and below the
+     * line they never touch an organisation hue, which is what retires
+     * the collision that used to matter most: the benign green against
+     * a brown organisation at ΔE 4.1, and the red that replaced it at
+     * 9.3, were both pairs that can no longer meet.
      *
      * @param {string} kind One of SIGHT_KINDS
      * @param {number} i Position in `data.orgs`
@@ -2748,6 +2779,55 @@
             return 'var(--vp-sight-exp)';
         }
         return sightHue(i, SIGHT_ORG_COLOURS, 'org');
+    }
+
+    /**
+     * How far the count axis reaches each way, over the drawn range and
+     * over the kinds currently switched on.
+     *
+     * Computed here rather than left to Chart.js because the score axis
+     * has to be told where this one's zero landed. A score is 0–100 and
+     * a count is now signed, so the two axes only share a zero if the
+     * score scale is given the same negative share of its own height —
+     * otherwise a model at 0 draws a line through the middle of the
+     * contradictions, which is exactly the region it is supposed to be
+     * read against.
+     *
+     * @param {Object} range From sightRange
+     * @return {{up: number, down: number}} Both positive magnitudes
+     */
+    function sightBounds(range) {
+        var up = 0;
+        var down = 0;
+        range.labels.forEach(function (label, at) {
+            var above = 0;
+            var below = 0;
+            SIGHT_KINDS.forEach(function (kind) {
+                if (!sight.shown[kind]) {
+                    return;
+                }
+                range.kinds[kind].forEach(function (counts, i) {
+                    if (sight.hiddenOrgs[i]) {
+                        return;
+                    }
+                    if (sightKindSign(kind) > 0) {
+                        above += counts[at];
+                    } else {
+                        below += counts[at];
+                    }
+                });
+            });
+            up = Math.max(up, above);
+            down = Math.max(down, below);
+        });
+        /*
+         * At least one unit of headroom above the line even when
+         * nothing supports the value, because the decay curve is drawn
+         * in that band and a value nobody has ever sighted still has a
+         * score. Without it, `45.155.205.233` — three false positives
+         * and no sighting — would give the curve no height to live in.
+         */
+        return { up: Math.max(1, up), down: down };
     }
 
     /**
@@ -2794,15 +2874,21 @@
          * is being asked to count. It matters more now that two
          * organisations' false positives sit on each other in the same
          * red.
+         *
+         * The hairline goes on the side away from the axis, which is
+         * the top of a bar that grows up and the bottom of one that
+         * grows down.
          */
-        function segment(extra) {
+        function segment(sign, extra) {
             return Object.assign({
                 type: 'bar',
                 stack: 'reports',
                 yAxisID: 'y',
                 order: 3,
                 borderColor: 'var(--bs-body-bg)',
-                borderWidth: { top: 1, right: 0, bottom: 0, left: 0 },
+                borderWidth: sign > 0
+                    ? { top: 1, right: 0, bottom: 0, left: 0 }
+                    : { top: 0, right: 0, bottom: 1, left: 0 },
                 borderSkipped: false,
             }, extra);
         }
@@ -2822,14 +2908,20 @@
             if (!sight.shown[kind]) {
                 return;
             }
+            var sign = sightKindSign(kind);
             range.kinds[kind].forEach(function (counts, i) {
                 if (sight.hiddenOrgs[i] || !counts.some(Boolean)) {
                     return;
                 }
-                datasets.push(segment({
+                datasets.push(segment(sign, {
                     label: data.orgs[i],
                     vpKind: kind,
-                    data: counts,
+                    // Signed for the plot only. `range.kinds` stays
+                    // counts, so the navigator, the legend and the
+                    // readout keep summing magnitudes.
+                    data: sign > 0 ? counts : counts.map(function (n) {
+                        return -n;
+                    }),
                     backgroundColor: sightKindHue(kind, i),
                 }));
             });
@@ -2853,6 +2945,17 @@
             });
         });
 
+        /*
+         * Both axes are pinned rather than left to Chart.js, so that
+         * one pixel row means zero on both of them. The score keeps its
+         * 0–100 over the band above the line and is given the same
+         * negative share below it, where it has nothing to draw — so a
+         * model sitting at 0 rests exactly on the count axis's zero
+         * instead of cutting through the contradictions underneath.
+         */
+        var bounds = sightBounds(range);
+        var scoreFloor = -100 * (bounds.down / bounds.up);
+
         var config = window.VP.chart.resolve({
             data: { labels: range.labels, datasets: datasets },
             options: {
@@ -2874,18 +2977,38 @@
                     },
                     y: {
                         stacked: true,
-                        beginAtZero: true,
+                        min: -bounds.down,
+                        max: bounds.up,
                         border: { display: false },
-                        grid: { color: 'var(--bs-border-color)' },
+                        grid: {
+                            color: 'var(--bs-border-color)',
+                            /*
+                             * The zero is the whole encoding, so it is
+                             * drawn as a line and not as another
+                             * gridline. Everything below it argues
+                             * against the value.
+                             */
+                            lineWidth: function (context) {
+                                return context.tick && context.tick.value === 0
+                                    ? 2
+                                    : 1;
+                            },
+                        },
                         ticks: {
                             color: 'var(--bs-secondary-color)',
                             precision: 0,
                             font: { size: 10 },
+                            // A count, never a negative number: the
+                            // direction is what the sign is saying and
+                            // `-2 reports` is not a quantity.
+                            callback: function (value) {
+                                return Math.abs(value);
+                            },
                         },
                     },
                     score: {
                         position: 'right',
-                        min: 0,
+                        min: scoreFloor,
                         max: 100,
                         border: { display: false },
                         grid: { drawOnChartArea: false },
@@ -2893,6 +3016,13 @@
                             color: 'var(--bs-secondary-color)',
                             stepSize: 25,
                             font: { size: 10 },
+                            // The band below zero exists to hold the
+                            // two scales' zeroes together, and a score
+                            // never reaches it. Labelling it would
+                            // claim a scale of negative scores.
+                            callback: function (value) {
+                                return value < 0 ? '' : value;
+                            },
                         },
                     },
                 },

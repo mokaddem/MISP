@@ -3270,13 +3270,18 @@ th[aria-sort="descending"] .sort-icon::before {
      * which said the opposite of the row above it.
      *
      * The green also failed on measurement rather than only on
-     * meaning. Against the organisation ramp its worst adjacent pair
-     * — the benign green under a brown organisation — separated by
-     * ΔE 4.1 under deuteranopia, so a false positive and a seventh
-     * organisation were the same bar. Red at this step reads 11.1,
-     * and the grey is gone from a data series entirely: at chroma
-     * 0.016 it carried no identity, and grey is this chart's chrome
-     * — the navigator strip under it is drawn in exactly that ink.
+     * meaning: against the organisation ramp it separated by ΔE 4.1
+     * from a brown organisation under deuteranopia, so a false
+     * positive and a seventh organisation were the same bar. That
+     * particular collision has since been retired by the geometry —
+     * contradictions hang below the axis and never touch an
+     * organisation hue — but the vocabulary is the reason these two
+     * are what they are, and the pair still has to hold against each
+     * other, which is the only neighbour either has left.
+     *
+     * The grey is gone from a data series entirely: at chroma 0.016 it
+     * carried no identity, and grey is this chart's chrome — the
+     * navigator strip under it is drawn in exactly that ink.
      */
     --vp-sight-fp: #a51c30;
     --vp-sight-exp: #d97706;
@@ -3325,14 +3330,24 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-sight-org-6: #bd9379;
 
     /*
-     * The red lightens to clear the lightened brown (ΔE 9.3) and the
-     * ground; the orange holds, being the one step that clears both
-     * grounds. The curves lighten because they are strokes on a dark
-     * ground rather than fills on a light one.
+     * The red lightens to clear the ground. The curves lighten because
+     * they are strokes on a dark ground rather than fills on a light
+     * one.
      */
     --vp-sight-fp: #cf4a63;
     --vp-sight-curve-1: #a78bfa;
     --vp-sight-curve-2: #a5f3fc;
+
+    /*
+     * Darker than the light theme's orange, which is the one step this
+     * pair does not share. Below the axis the red and the orange are
+     * each other's only neighbour, and at #d97706 they separated by
+     * ΔE 14.4 under unsimulated vision — under the 15 floor. The org
+     * ramp used to hide that by containing a worse pair for the
+     * validator to report. This reads 15.5, and 10.5 under
+     * deuteranopia.
+     */
+    --vp-sight-exp: #c98322;
 
     /*
      * The tab's own hue is too dark to read as a mark on a dark ground,
