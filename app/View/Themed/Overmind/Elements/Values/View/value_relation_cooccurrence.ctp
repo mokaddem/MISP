@@ -13,13 +13,22 @@
  *
  *   object siblings   a join on `Attribute.object_id` over occurrences
  *                     the page already holds. Structural, not
- *                     statistical, and unaffected by anything the
- *                     correlation engine does or fails to do — which is
- *                     why it still renders under a suppressed band.
- *   the roll-ups      the stored correlations, counted three ways.
- *   the facet bar     a `GROUP BY` on the correlation table. Its counts
- *                     do not move when the list pages, and saying so is
- *                     the whole reason the bar is here.
+ *                     statistical, and bounded by how many objects the
+ *                     value sits in rather than by how large its events
+ *                     are — which is why it still renders under a
+ *                     suppressed band.
+ *   the roll-ups      the neighbourhood, counted three ways.
+ *   the facet bar     folded from every row read, not from the page.
+ *                     Its counts do not move when the list pages, and
+ *                     saying so is the whole reason the bar is here.
+ *
+ * **Not the correlation engine.** A `default_correlations` row links
+ * two attributes carrying the *same* value, so for one value the engine
+ * returns other occurrences of it — the Occurrences tab — and its
+ * CIDR/ssdeep partners, which are the section below. It never returns a
+ * different value. What is counted here is an event join, and the
+ * engine's own state is reported on the rail instead.
+ * prd/value-profile-live/24-relationships.md §3.
  *
  * Lazily loaded from ValuesController::viewRelationCooccurrence.
  *
@@ -32,6 +41,22 @@ $co = $relations['cooccurrence'];
 $summary = $relations['summary'];
 $siblings = $co['siblings'];
 $facets = $co['facets'];
+/*
+ * What the panel read, so it can say so. The fixture carries no scan —
+ * it never had to choose which events to read — so the keys are
+ * defaulted and the scan line is skipped on a fixture-driven render
+ * rather than printing zeroes at the reader.
+ */
+$scanned = isset($co['scan']);
+$scan = $co['scan'] ?? array(
+    'events_read' => 0,
+    'events_seen' => 0,
+    'events_oversized' => 0,
+    'events_unread' => 0,
+    'size_cap' => 0,
+    'budget' => 0,
+    'rows_read' => 0,
+);
 
 $noWrites = __(
     'Disabled in this pass — the Value Profile page does not write to'
@@ -192,6 +217,35 @@ $facetGroups = array(
         'icon' => 'fas fa-globe'),
 );
 
+/*
+ * A distribution row carries MISP's own badge and a tag row its own
+ * chip, because `value_facet_group` renders `html` where a caller
+ * supplies one and the bare `label` otherwise — and neither of those
+ * two facets has a label to fall back on. The Occurrences rail has
+ * built these since phase 22; this pane never did, so its Distribution
+ * and Tag dropdowns have been rendering rows with an empty name and a
+ * count beside it since phase 11.
+ */
+foreach ($facets['distribution'] as &$facet) {
+    $facet['html'] = $this->element(
+        'genericElementsBS5/Badges/distribution',
+        array('distribution' => (int)$facet['level'], 'full' => true)
+    );
+}
+unset($facet);
+foreach ($facets['tag'] as &$facet) {
+    $facet['html'] = $this->element(
+        'genericElementsBS5/Badges/tag',
+        array(
+            'tag' => $facet['tag'],
+            'local' => !empty($facet['local']),
+            'hiddenClass' => '',
+            'showFavourite' => false,
+        )
+    );
+}
+unset($facet);
+
 $valueRows = $co['rollups']['value']['rows'];
 $eventRows = $co['rollups']['event']['rows'];
 $objectRows = $co['rollups']['object']['rows'];
@@ -218,7 +272,7 @@ ob_start();
         <option value="recent"><?= __('Most recent first') ?></option>
     </select>
     <select class="form-select form-select-sm w-auto" data-vp-group
-            aria-label="<?= __('Roll the correlations up by') ?>">
+            aria-label="<?= __('Roll the neighbourhood up by') ?>">
         <option value="value"><?= __('Group by value') ?></option>
         <option value="event"><?= __('Group by event') ?></option>
         <option value="object"><?= __('Group by object') ?></option>
@@ -236,7 +290,14 @@ ob_start();
     <span class="vp-rel-tag me-1">
         <i class="fas fa-link"></i><?= h(__('Co-occurrence')) ?>
     </span>
-    <?php if ($co['suppressed']): ?>
+    <?php if ($co['suppressed'] && $scanned): ?>
+        <?= h(__n(
+            'the one event this value is in is too large to read',
+            'all %d events this value is in are too large to read',
+            $scan['events_seen'],
+            $scan['events_seen']
+        )) ?>
+    <?php elseif ($co['suppressed']): ?>
         <?= h(sprintf(
             __('%s recorded occurrences · no correlation stored'),
             number_format($summary['recorded'])
@@ -244,14 +305,18 @@ ob_start();
     <?php elseif ($hasRows): ?>
         <span data-vp-list-shown><?= h(count($valueRows)) ?></span>
         <?= h(sprintf(
-            __('of %1$s distinct values across %2$d events'),
-            number_format($co['distinct_values']),
-            $co['events']
+            __n(
+                'of %1$s distinct values in %2$d event',
+                'of %1$s distinct values across %2$d events',
+                $co['events'],
+                number_format($co['distinct_values']),
+                $co['events']
+            )
         )) ?>
     <?php else: ?>
-        <?= h(__('Nothing the correlation engine has stored')) ?>
+        <?= h(__('Nothing else in the events this value is in')) ?>
     <?php endif; ?>
-    &nbsp;·&nbsp;<?= h(__('correlation engine')) ?>&nbsp;·&nbsp;
+    &nbsp;·&nbsp;<?= h(__('shared events')) ?>&nbsp;·&nbsp;
     <span class="vp-rel-prov"><i class="fas fa-gauge"></i><?=
         h(__('Machine-derived')) ?></span>
 <?php
@@ -274,47 +339,75 @@ $headerSub = ob_get_clean();
 
         <?php
         /*
-         * Not an empty state. Past `MISP.correlation_limit` MISP
-         * writes the value to `over_correlating_values` and stores no
-         * correlation at all, so "no rows" here means "too many to
-         * store" — the opposite claim, and one a reader who saw an
-         * empty table would get exactly backwards.
+         * Not an empty state — the opposite claim, and one a reader who
+         * saw an empty table would get exactly backwards. There is a
+         * neighbourhood; it is in events so large that reading one
+         * would say nothing about this value in particular.
          */
         ?>
         <div class="vp-suppressed">
             <i class="fas fa-circle-exclamation"></i>
             <div>
                 <span class="vp-suppressed-badge">
-                    <?= __('Suppressed by MISP') ?>
+                    <?= $scanned
+                        ? __('Too large to read')
+                        : __('Suppressed by MISP') ?>
                 </span>
-                <div class="mt-2">
-                    <?= sprintf(
-                        __(
-                            'This value occurs %1$s times — past'
-                            . ' %2$s, which is %3$d. MISP stored'
-                            . ' %4$s and recorded the value in'
-                            . ' %5$s instead.'
-                        ),
-                        '<strong>' . h(number_format($summary['recorded']))
-                            . '</strong>',
-                        '<code>MISP.correlation_limit</code>',
-                        $relations['settings']['correlation_limit'],
-                        '<strong>' . h(__('no correlation at all'))
-                            . '</strong>',
-                        '<code>over_correlating_values</code>'
-                    ) ?>
-                </div>
-                <div class="mt-2">
-                    <?= h(__(
-                        'The tab bar and the Overview both print that'
-                        . ' number, so it is worth being exact about'
-                        . ' what it counts: it is the occurrence count'
-                        . ' MISP kept, not a number of rows anybody can'
-                        . ' list. Nothing was hidden from you here, and'
-                        . ' nothing is missing — there is nothing to'
-                        . ' show.'
-                    )) ?>
-                </div>
+                <?php if ($scanned): ?>
+                    <div class="mt-2">
+                        <?= sprintf(
+                            __(
+                                '%1$s holds more than %2$s attributes. In'
+                                . ' an event that size every value'
+                                . ' co-occurs with every other, so a'
+                                . ' neighbour list drawn from one would'
+                                . ' describe the event rather than this'
+                                . ' value — and this panel does not draw'
+                                . ' one.'
+                            ),
+                            '<strong>' . h(__n(
+                                'The one event this value appears in',
+                                'Every one of the %d events this value'
+                                    . ' appears in',
+                                $scan['events_seen'],
+                                $scan['events_seen']
+                            )) . '</strong>',
+                            '<strong>' . h(number_format(
+                                $scan['size_cap']
+                            )) . '</strong>'
+                        ) ?>
+                    </div>
+                    <div class="mt-2">
+                        <?= h(__(
+                            'Nothing is hidden from you here and nothing'
+                            . ' is missing. The object siblings below sit'
+                            . ' in those same events and are listed in'
+                            . ' full, because an object is a statement'
+                            . ' somebody made about which attributes'
+                            . ' belong together — it does not get larger'
+                            . ' because the event around it did.'
+                        )) ?>
+                    </div>
+                <?php else: ?>
+                    <div class="mt-2">
+                        <?= sprintf(
+                            __(
+                                'This value occurs %1$s times — past'
+                                . ' %2$s, which is %3$d. MISP stored'
+                                . ' %4$s and recorded the value in'
+                                . ' %5$s instead.'
+                            ),
+                            '<strong>' . h(number_format(
+                                $summary['recorded']
+                            )) . '</strong>',
+                            '<code>MISP.correlation_limit</code>',
+                            $relations['settings']['correlation_limit'],
+                            '<strong>' . h(__('no correlation at all'))
+                                . '</strong>',
+                            '<code>over_correlating_values</code>'
+                        ) ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -338,11 +431,10 @@ $headerSub = ob_get_clean();
                 <?php if ($co['distinct_values'] > count($valueRows)): ?>
                     <?= sprintf(
                         __(
-                            '%1$s. The pane paginates rather than caps,'
-                            . ' so the cut is a page and not a ranking'
-                            . ' threshold — and the facet counts below'
-                            . ' stay exact at %2$s, as they would at'
-                            . ' 21,904.'
+                            '%1$s, ranked by shared events. The facet'
+                            . ' counts below stay exact at %2$s: they'
+                            . ' are folded from every row read, not'
+                            . ' tallied from the page.'
                         ),
                         '<strong>' . h(sprintf(
                             __('%1$s of %2$s distinct values are carried'),
@@ -354,19 +446,90 @@ $headerSub = ob_get_clean();
                 <?php else: ?>
                     <?= sprintf(
                         __(
-                            '%1$s. %2$d of the %3$d stored correlation'
-                            . ' rows are visible to you.'
+                            '%1$s. Nothing here is ranked away — the'
+                            . ' cut below is on which events were read,'
+                            . ' not on which values survived.'
                         ),
                         '<strong>' . h(sprintf(
                             __('All %d distinct values are listed'),
                             $co['distinct_values']
-                        )) . '</strong>',
-                        $co['visible'],
-                        $co['stored']
+                        )) . '</strong>'
                     ) ?>
                 <?php endif; ?>
             </span>
         </div>
+
+        <?php if ($scanned): ?>
+            <?php
+            /*
+             * The cut this section is made of, in words. Every count
+             * above is exact over the events named here and over no
+             * others, and a reader who is not told which events were
+             * read has no way to judge a neighbour list at all.
+             *
+             * §14.6 keeps cap notices: a cap is not a permission. None
+             * of these numbers says anything about rows the reader may
+             * not see — an oversized event is oversized for everybody.
+             */
+            ?>
+            <div class="vp-rel-cap">
+                <i class="fas fa-circle-info"></i>
+                <span>
+                    <?= sprintf(
+                        __(
+                            'Read from %1$s, newest first, within a'
+                            . ' budget of %2$s attribute rows — %3$s'
+                            . ' read.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __n(
+                                'the one event this value is in',
+                                '%1$d of this value\'s %2$d events',
+                                $scan['events_seen'],
+                                $scan['events_read'],
+                                $scan['events_seen']
+                            )
+                        )) . '</strong>',
+                        h(number_format($scan['budget'])),
+                        h(__n(
+                            '%s row',
+                            '%s rows',
+                            $scan['rows_read'],
+                            number_format($scan['rows_read'])
+                        ))
+                    ) ?>
+                    <?php if (!empty($scan['events_oversized'])): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%1$d event was left out for holding'
+                                    . ' more than %2$s attributes,'
+                                    . ' where co-occurrence describes'
+                                    . ' the event rather than the value.',
+                                '%1$d events were left out for holding'
+                                    . ' more than %2$s attributes each,'
+                                    . ' where co-occurrence describes'
+                                    . ' the event rather than the value.',
+                                $scan['events_oversized'],
+                                $scan['events_oversized'],
+                                number_format($scan['size_cap'])
+                            )
+                        )) ?>
+                    <?php endif; ?>
+                    <?php if (!empty($scan['events_unread'])): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%d further event fell outside the'
+                                    . ' budget.',
+                                '%d further events fell outside the'
+                                    . ' budget.',
+                                $scan['events_unread'],
+                                $scan['events_unread']
+                            )
+                        )) ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+        <?php endif; ?>
 
         <?php
         /*
@@ -510,11 +673,27 @@ $headerSub = ob_get_clean();
                 <?php endforeach; ?>
 
                 <span class="small text-muted ms-2 vp-min-w-0">
-                    <?= sprintf(
+                    <?= $scanned ? sprintf(
                         __(
                             'Facet counts are exact at every count —'
-                            . ' they are a %s on the correlation table,'
-                            . ' not a count of the page.'
+                            . ' they are folded from %s, not from the'
+                            . ' page. A count larger than the table can'
+                            . ' show means the value it names is outside'
+                            . ' the %s carried.'
+                        ),
+                        '<span class="font-monospace">'
+                            . h(sprintf(
+                                __('all %s rows read'),
+                                number_format($scan['rows_read'])
+                            )) . '</span>',
+                        '<span class="font-monospace">'
+                            . h(number_format(count($valueRows)))
+                            . '</span>'
+                    ) : sprintf(
+                        __(
+                            'Facet counts are exact at every count —'
+                            . ' they are a %s over the whole scope, not'
+                            . ' a count of the page.'
                         ),
                         '<span class="font-monospace">GROUP BY</span>'
                     ) ?>
@@ -746,31 +925,19 @@ $headerSub = ob_get_clean();
                 )) ?>
             </div>
 
-            <?php if (!empty($siblings['hidden'])): ?>
-                <?php
-                /*
-                 * An object the viewer can open still holds attributes
-                 * with their own distribution, so the aggregate is over
-                 * visible siblings only. Counted here because it can
-                 * be; the occurrences the viewer cannot open at all are
-                 * the tab's own note, not this section's.
-                 */
-                ?>
-                <div class="vp-acl-note vp-acl-note-band">
-                    <i class="fas fa-eye-slash"></i>
-                    <span>
-                        <?= h(sprintf(
-                            __(
-                                '%d further attributes sit in these'
-                                . ' objects but carry a distribution'
-                                . ' that does not reach you. They are'
-                                . ' neither listed nor counted above.'
-                            ),
-                            $siblings['hidden']
-                        )) ?>
-                    </span>
-                </div>
-            <?php endif; ?>
+            <?php
+            /*
+             * §14.6, applied here by phase 24. This carried a
+             * `.vp-acl-note` counting the sibling attributes held at a
+             * distribution the reader is outside of. A count of what is
+             * hidden is a membership oracle over any value the reader
+             * cares to type, and the bare fact that something *was*
+             * hidden is the same disclosure at one bit — so the band is
+             * gone and the aggregate above simply describes what the
+             * reader can see. The cap notice stays: a cap is not a
+             * permission.
+             */
+            ?>
 
         </div>
 
@@ -1069,21 +1236,16 @@ $headerSub = ob_get_clean();
 
     <?php endif; ?>
 
-    <?php if (!empty($co['hidden'])): ?>
-        <div class="vp-acl-note vp-acl-note-band">
-            <i class="fas fa-eye-slash"></i>
-            <span>
-                <?= h(sprintf(
-                    __(
-                        '%1$d further correlations point into events you'
-                        . ' cannot see. They are counted in the %2$s and'
-                        . ' are not listed.'
-                    ),
-                    $co['hidden'],
-                    number_format($summary['correlations'])
-                )) ?>
-            </span>
-        </div>
-    <?php endif; ?>
+    <?php
+    /*
+     * §14.6, applied here by phase 24. This carried a `.vp-acl-note`
+     * reading *"4 further correlations point into events you cannot
+     * see. They are counted in the 31 and are not listed."* — a count
+     * of the invisible, stated on a page whose URL takes any value the
+     * reader types. Removed, along with the *"N of the M stored rows
+     * are visible to you"* sentence above, which named the same number
+     * by subtraction.
+     */
+    ?>
 
 </div>

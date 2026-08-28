@@ -136,8 +136,9 @@ if (empty($claims)) {
                         '%1$s Asserted relationships are written one at a'
                         . ' time by people, so this section is never'
                         . ' ranked and never truncated — the only cut is'
-                        . ' ACL. It stays complete at 1,847 and at'
-                        . ' 21,904, where the section above cannot.'
+                        . ' ACL. It stays complete on a value whose'
+                        . ' events the section above could not even'
+                        . ' read.'
                     ),
                     '<strong>' . h(__n(
                         'The single claim is shown.',
@@ -196,9 +197,11 @@ if (empty($claims)) {
                                 </span>
                             </span>
                         </div>
-                        <div class="vp-analyst-text mt-1">
-                            <?= h($claim['text']) ?>
-                        </div>
+                        <?php if ($claim['text'] !== ''): ?>
+                            <div class="vp-analyst-text mt-1">
+                                <?= h($claim['text']) ?>
+                            </div>
+                        <?php endif; ?>
                         <div class="vp-analyst-meta d-flex align-items-center
                                     gap-2 flex-wrap">
                             <span><?= h($claim['org']) ?></span>
@@ -242,35 +245,68 @@ if (empty($claims)) {
                     __(
                         'Claims are stored against an occurrence, not'
                         . ' against the value — this list is the union'
-                        . ' over the %d occurrences, de-duplicated by'
-                        . ' relationship UUID.'
+                        . ' over the %d occurrences, in both directions,'
+                        . ' de-duplicated by relationship UUID.'
                     ),
                     $asserted['occurrences']
                 )) ?>
+                <?php if (!empty($asserted['capped'])): ?>
+                    <?php
+                    /*
+                     * The cap is on the *lookup*, not on the list. A
+                     * claim written against an occurrence outside the
+                     * most recent N would not be found, and a section
+                     * whose whole argument is *never truncated* has to
+                     * name the one place it can still miss something.
+                     */
+                    ?>
+                    <?= h(sprintf(
+                        __(
+                            'Those are the %d most recent; a claim'
+                            . ' written against an older occurrence of'
+                            . ' this value is not looked up.'
+                        ),
+                        $asserted['occurrences']
+                    )) ?>
+                <?php endif; ?>
+                <?php if (!empty($asserted['prose_absent'])): ?>
+                    <?php
+                    /*
+                     * Said once here rather than as a placeholder on
+                     * every block. `relationships` has no free-text
+                     * column at all — `notes.note` and
+                     * `opinions.comment` beside it do — so a claim's
+                     * prose is not missing data, it is data MISP does
+                     * not model.
+                     */
+                    ?>
+                    <?= sprintf(
+                        __(
+                            'A relationship carries no text of its own:'
+                            . ' %s has the type, the two ends, an author'
+                            . ' and a distribution, and no prose column.'
+                            . ' Anything written *about* one is a Note'
+                            . ' attached to it, which this pass does not'
+                            . ' fetch.'
+                        ),
+                        '<span class="font-monospace">relationships</span>'
+                    ) ?>
+                <?php endif; ?>
             </span>
         </div>
 
     <?php endif; ?>
 
-    <?php if (!empty($asserted['hidden'])): ?>
-        <div class="vp-acl-note vp-acl-note-band">
-            <i class="fas fa-eye-slash"></i>
-            <span>
-                <?= h(sprintf(
-                    __n(
-                        '%d claim is held at a distribution you are'
-                        . ' outside of. Its existence is counted; its'
-                        . ' text and its target are not shown.',
-                        '%d claims are held at a distribution you are'
-                        . ' outside of. Their existence is counted;'
-                        . ' their text and their target are not shown.',
-                        $asserted['hidden'],
-                        $asserted['hidden']
-                    ),
-                    $asserted['hidden']
-                )) ?>
-            </span>
-        </div>
-    <?php endif; ?>
+    <?php
+    /*
+     * §14.6, applied here by phase 24. This carried a `.vp-acl-note`
+     * counting the claims held at a distribution the reader is outside
+     * of — *"their existence is counted; their text and their target
+     * are not shown"*. Counting the existence is exactly the disclosure
+     * §14.6 forbids, on a page whose URL takes any value the reader
+     * types, so the band is gone and the list simply is what the reader
+     * may see.
+     */
+    ?>
 
 </div>

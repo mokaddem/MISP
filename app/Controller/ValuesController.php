@@ -318,46 +318,79 @@ class ValuesController extends AppController
      * correlation query must not hold up the claims, which are the part
      * of this tab a person actually wrote.
      *
+     * **Live since phase 24**, and the split turned out to matter more
+     * than the fixture could show: the co-occurrence scan reads up to
+     * 20,000 attribute rows and the asserted claims read a handful of
+     * `relationships` rows, so a shared endpoint would have made the
+     * cheap, human part of this tab wait on the statistical one.
+     * prd/value-profile-live/24-relationships.md.
+     *
      * @param string $b64value
      * @return void
      */
     public function viewRelationCooccurrence($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationCooccurrence',
             'value_relation_cooccurrence'
         );
     }
 
     public function viewRelationNearMatch($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationNearMatch',
             'value_relation_near_match'
         );
     }
 
     public function viewRelationAsserted($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationAsserted',
             'value_relation_asserted'
         );
     }
 
     public function viewRelationGraph($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationGraph',
             'value_relation_graph'
         );
     }
 
     public function viewRelationSettings($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationSettings',
             'value_relation_settings'
+        );
+    }
+
+    /**
+     * One line per Relationships endpoint, as the Sightings tab's
+     * five already have.
+     *
+     * @param string $b64value
+     * @param string $method A public ValueProfile facade method
+     * @param string $element Name under Elements/Values/View
+     * @return void
+     */
+    private function renderRelationPanel($b64value, $method, $element)
+    {
+        $this->loadModel('ValueProfile');
+        $this->renderPanel(
+            $this->ValueProfile->$method(
+                $this->Auth->user(),
+                $this->decodeValue($b64value)
+            ),
+            $element
         );
     }
 

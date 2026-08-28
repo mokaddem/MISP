@@ -10,9 +10,15 @@
  * counts is true whether or not this value has anything to count.
  *
  * The breakdown at the foot is the tab's arithmetic, stated rather than
- * left to be inferred: the correlation total is co-occurrence plus
+ * left to be inferred: the machine total is co-occurrence plus
  * near-match, and the analyst claims are counted apart and never added
  * to it. Three notions, never summed into one strength.
+ *
+ * **This is now the only panel on the tab that reads the correlation
+ * engine's state at all.** Section one is an event join and section two
+ * re-derives its own matches, so what the engine did or refused to do
+ * for this value is reported here or nowhere.
+ * prd/value-profile-live/24-relationships.md §3.
  *
  * Lazily loaded from ValuesController::viewRelationSettings.
  *
@@ -28,9 +34,15 @@ $co = $relations['cooccurrence'];
 /*
  * The value is past the limit when MISP recorded it in
  * `over_correlating_values` rather than correlating it. That is a
- * property of this value against this setting, not of the setting.
+ * property of this value against this setting, not of the setting —
+ * and it is a different question from whether the pane beside this one
+ * could read the value's events, which is what `suppressed` means
+ * since phase 24.
  */
-$suppressed = !empty($co['suppressed']);
+$overCorrelating = isset($settings['over_correlating'])
+    ? !empty($settings['over_correlating'])
+    : !empty($co['suppressed']);
+$suppressed = $overCorrelating;
 
 $split = array(
     array(
@@ -80,9 +92,7 @@ foreach ($split as $part) {
                     <?= sprintf(
                         __(
                             'Above it MISP stores no correlations at all'
-                            . ' and records the value in %s instead. That'
-                            . ' is a fourth state for the first section,'
-                            . ' not an empty one.'
+                            . ' and records the value in %s instead.'
                         ),
                         '<span class="font-monospace">'
                             . 'over_correlating_values</span>'
@@ -90,6 +100,18 @@ foreach ($split as $part) {
                     <?php if ($suppressed): ?>
                         <div class="mt-1 fw-semibold">
                             <?= h(__('This value is past it.')) ?>
+                        </div>
+                        <div class="mt-1">
+                            <?= h(__(
+                                'Nothing on this tab is drawn from the'
+                                . ' correlation table, so the sections'
+                                . ' beside this card are unaffected —'
+                                . ' but every other page in MISP that'
+                                . ' offers to show you what this value'
+                                . ' relates to will come back empty, and'
+                                . ' that is why the setting is worth'
+                                . ' stating here.'
+                            )) ?>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -142,7 +164,7 @@ foreach ($split as $part) {
         <div class="px-3 pb-3">
             <div class="vp-subhead">
                 <?= h(sprintf(
-                    __('The %s, split three ways'),
+                    __('The %s machine-derived, split three ways'),
                     number_format($summary['correlations'])
                 )) ?>
             </div>
@@ -166,37 +188,33 @@ foreach ($split as $part) {
             <?php endforeach; ?>
 
             <div class="small text-muted mt-2">
-                <?php if ($suppressed): ?>
-                    <?= h(sprintf(
-                        __(
-                            'The tab bar prints %1$s, which is the'
-                            . ' occurrence count MISP recorded instead of'
-                            . ' correlating. No correlation row was'
-                            . ' stored, so the near-matches below it are'
-                            . ' re-derived rather than read, and the'
-                            . ' claims were never correlations at all.'
-                        ),
-                        number_format($summary['correlations'])
-                    )) ?>
-                <?php else: ?>
-                    <?= h(sprintf(
-                        __(
-                            '%1$s and %2$s make the %3$s the tab bar'
-                            . ' prints. The %4$s are counted apart and'
-                            . ' never added to it — nothing here is'
-                            . ' summed into one strength.'
-                        ),
-                        number_format($summary['cooccurrence']),
-                        number_format($summary['near']),
-                        number_format($summary['correlations']),
-                        __n(
-                            '%d claim',
-                            '%d claims',
-                            $summary['asserted'],
-                            $summary['asserted']
-                        )
-                    )) ?>
-                <?php endif; ?>
+                <?= h(sprintf(
+                    __('%1$s %2$s'),
+                    __n(
+                        '%d value shares an event with this one,',
+                        '%d values share an event with this one,',
+                        $summary['cooccurrence'],
+                        $summary['cooccurrence']
+                    ),
+                    __n(
+                        'and %d is near it without being it.',
+                        'and %d are near it without being it.',
+                        $summary['near'],
+                        $summary['near']
+                    )
+                )) ?>
+                <?= h(__n(
+                    'The single claim is counted apart and never added'
+                        . ' to either — nothing here is summed into one'
+                        . ' strength, and none of the three is a'
+                        . ' correlation row.',
+                    'The %d claims are counted apart and never added'
+                        . ' to either — nothing here is summed into one'
+                        . ' strength, and none of the three is a'
+                        . ' correlation row.',
+                    $summary['asserted'],
+                    $summary['asserted']
+                )) ?>
             </div>
         </div>
 

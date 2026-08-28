@@ -47,8 +47,6 @@ foreach ($near['engines'] as $engine) {
     $engines[$engine['id']] = $engine;
 }
 
-$maxPrefix = 32;
-
 /**
  * @param array $row
  * @return string
@@ -58,6 +56,23 @@ $distributionBadge = function ($row) use ($view) {
         'genericElementsBS5/Badges/distribution',
         array('distribution' => (int)$row['distribution'], 'full' => false)
     );
+};
+
+/**
+ * Closeness as a share of whatever the row's scale is.
+ *
+ * A prefix over the address width for a network block — 32 bits for
+ * IPv4 and 128 for IPv6, which the fixture could hardcode as 32 and
+ * live data cannot — and the score itself for ssdeep, which is already
+ * a percentage. `Similarity ≥` filters on this number, so the control
+ * and the bar cannot disagree whichever engine wrote the row.
+ *
+ * @param array $row
+ * @return int
+ */
+$closeness = function ($row) {
+    $width = empty($row['width']) ? 32 : (int)$row['width'];
+    return (int)round(((int)$row['prefix'] / $width) * 100);
 };
 
 ob_start();
@@ -159,61 +174,53 @@ if (empty($near['matches'])) {
             </span>
         </div>
 
-        <?php if (isset($engines['cidr'])): ?>
-
-            <div class="vp-rel-engine vp-rel-engine-on">
-                <span class="vp-rel-engine-state"><?= __('Active') ?></span>
-                <div class="vp-min-w-0 flex-grow-1">
-                    <div class="fw-semibold small vp-rel-engine-name">
-                        <?= __('CIDR containment') ?>
-                    </div>
-                    <div class="small text-muted mt-1">
-                        <?= h(__n(
-                            '%d network-block attribute contains this'
-                            . ' address.',
-                            '%d network-block attributes contain this'
-                            . ' address.',
-                            count($engines['cidr']['rows']),
-                            count($engines['cidr']['rows'])
-                        )) ?>
-                        <?= __('Re-derived at render time from the CIDR'
-                            . ' list — the stored correlation row does'
-                            . ' not record which engine wrote it.') ?>
-                    </div>
-                </div>
-            </div>
-
+        <?php
+        /**
+         * One engine's rows. Two engines produce them and they differ
+         * only in what the first two columns are called, so the table
+         * is written once — a second copy is a second place for the
+         * `Similarity ≥` control to stop agreeing with the bar.
+         *
+         * @param array $engine
+         * @param string $subject Heading for the matched value
+         * @param string $scale Heading for the closeness column
+         * @param string|null $extra Heading for the grounding column
+         * @return void
+         */
+        $engineTable = function ($engine, $subject, $scale, $extra)
+            use ($view, $baseurl, $closeness, $distributionBadge)
+        {
+            ?>
             <div class="table-responsive" data-vp-list-rows>
                 <table class="table table-sm table-hover vp-table
                               align-middle mb-0">
                     <thead>
                         <tr>
-                            <th><?= __('Containing block') ?></th>
-                            <th class="vp-rel-num"><?= __('Closeness') ?></th>
-                            <th><?= __('Addresses') ?></th>
+                            <th><?= h($subject) ?></th>
+                            <th class="vp-rel-num"><?= h($scale) ?></th>
+                            <?php if ($extra !== null): ?>
+                                <th><?= h($extra) ?></th>
+                            <?php endif; ?>
                             <th><?= __('Event') ?></th>
                             <th><?= __('Reported by') ?></th>
                             <th><?= __('Distribution') ?></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($engines['cidr']['rows'] as $row): ?>
+                        <?php foreach ($engine['rows'] as $row): ?>
                             <?php
                             /*
-                             * Closeness is the prefix as a share of the
-                             * address width, and the address count is
-                             * printed beside it so the bar is grounded
-                             * in something a reader can check. A /16 is
-                             * "50%" only in the sense that half the bits
-                             * are fixed; 65,536 addresses is the fact.
+                             * Closeness is grounded twice: the bar is a
+                             * defensible share and the column beside it
+                             * is the fact. A /16 is "50%" only in the
+                             * sense that half the bits are fixed;
+                             * 65,536 addresses is what that means.
                              */
-                            $share = round(
-                                ($row['prefix'] / $maxPrefix) * 100
-                            );
+                            $share = $closeness($row);
                             ?>
                             <tr class="vp-rel-stripe vp-rel-k-near"
                                 data-vp-num="closeness:<?= h($share) ?>">
-                                <td class="font-monospace text-nowrap">
+                                <td class="font-monospace vp-rel-cell">
                                     <?= h($row['block']) ?>
                                 </td>
                                 <td>
@@ -226,13 +233,30 @@ if (empty($near['matches'])) {
                                                       h($share) ?>%;"></span>
                                         </span>
                                         <span class="vp-rel-bar-read">
-                                            /<?= h($row['prefix']) ?>
+                                            <?= $row['addresses'] === null
+                                                ? h($row['prefix'] . '%')
+                                                : h('/' . $row['prefix']) ?>
                                         </span>
                                     </span>
                                 </td>
-                                <td class="font-monospace small text-nowrap">
-                                    <?= h(number_format($row['addresses'])) ?>
-                                </td>
+                                <?php if ($extra !== null): ?>
+                                    <td class="font-monospace small
+                                               text-nowrap">
+                                        <?php
+                                        /*
+                                         * A live row arrives formatted,
+                                         * because a /8 of IPv6 is 2^120
+                                         * and no integer here holds it.
+                                         * The fixture's rows are plain
+                                         * integers and still need the
+                                         * separators.
+                                         */
+                                        ?>
+                                        <?= h(is_int($row['addresses'])
+                                            ? number_format($row['addresses'])
+                                            : $row['addresses']) ?>
+                                    </td>
+                                <?php endif; ?>
                                 <td class="text-nowrap">
                                     <a href="<?= $baseurl ?>/events/view2/<?=
                                         h($row['event']) ?>"
@@ -249,50 +273,186 @@ if (empty($near['matches'])) {
                     </tbody>
                 </table>
             </div>
+            <?php
+        };
+        ?>
 
-            <div class="p-3 d-none" data-vp-list-empty>
-                <div class="vp-empty vp-empty-inline">
-                    <i class="fas fa-filter"></i>
-                    <span>
-                        <?= __('No containing block is that close. The'
-                            . ' widest block here is the least useful'
-                            . ' and the first to go.') ?>
-                    </span>
+        <?php if (isset($engines['cidr'])): ?>
+
+            <?php $cidr = $engines['cidr']; ?>
+            <div class="vp-rel-engine vp-rel-engine-<?= $cidr['state']
+                === 'active' ? 'on' : 'off' ?>">
+                <span class="vp-rel-engine-state">
+                    <?= $cidr['state'] === 'active'
+                        ? __('Active')
+                        : __('Not applicable') ?>
+                </span>
+                <div class="vp-min-w-0 flex-grow-1">
+                    <div class="fw-semibold small vp-rel-engine-name">
+                        <?= __('CIDR containment') ?>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <?php if ($cidr['state'] !== 'active'): ?>
+                            <?= sprintf(
+                                __(
+                                    'CIDR containment runs for %1$s'
+                                    . ' attributes. This value is %2$s,'
+                                    . ' so the engine never runs for it.'
+                                ),
+                                '<span class="font-monospace">ip-src /'
+                                    . ' ip-dst</span>',
+                                '<span class="font-monospace">'
+                                    . h($primaryType) . '</span>'
+                            ) ?>
+                        <?php else: ?>
+                            <?= h(__n(
+                                '%d network-block attribute contains this'
+                                . ' address.',
+                                '%d network-block attributes contain this'
+                                . ' address.',
+                                count($cidr['rows']),
+                                count($cidr['rows'])
+                            )) ?>
+                            <?= __('Re-derived at render time from the'
+                                . ' same CIDR list the engine walks —'
+                                . ' the stored correlation row does not'
+                                . ' record which engine wrote it.') ?>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
+
+            <?php if ($cidr['state'] === 'active'
+                && !empty($cidr['rows'])
+            ): ?>
+                <?php $engineTable(
+                    $cidr,
+                    __('Containing block'),
+                    __('Closeness'),
+                    __('Addresses')
+                ) ?>
+
+                <div class="p-3 d-none" data-vp-list-empty>
+                    <div class="vp-empty vp-empty-inline">
+                        <i class="fas fa-filter"></i>
+                        <span>
+                            <?= __('No containing block is that close.'
+                                . ' The widest block here is the least'
+                                . ' useful and the first to go.') ?>
+                        </span>
+                    </div>
+                </div>
+            <?php elseif ($cidr['state'] === 'active'): ?>
+                <div class="px-3 pb-3">
+                    <div class="vp-empty vp-empty-inline">
+                        <i class="fas fa-code-compare"></i>
+                        <span>
+                            <?= __('No network block on this instance'
+                                . ' contains this address. The engine'
+                                . ' applies; it found nothing.') ?>
+                        </span>
+                    </div>
+                </div>
+            <?php endif; ?>
 
         <?php endif; ?>
 
         <?php if (isset($engines['ssdeep'])): ?>
 
-            <div class="vp-rel-engine vp-rel-engine-off">
+            <?php $ssdeep = $engines['ssdeep']; ?>
+            <div class="vp-rel-engine vp-rel-engine-<?= $ssdeep['state']
+                === 'active' ? 'on' : 'off' ?>">
                 <span class="vp-rel-engine-state">
-                    <?= __('Not applicable') ?>
+                    <?php if ($ssdeep['state'] === 'active'): ?>
+                        <?= __('Active') ?>
+                    <?php elseif ($ssdeep['state'] === 'unavailable'): ?>
+                        <?= __('Cannot run') ?>
+                    <?php else: ?>
+                        <?= __('Not applicable') ?>
+                    <?php endif; ?>
                 </span>
                 <div class="vp-min-w-0 flex-grow-1">
                     <div class="fw-semibold small vp-rel-engine-name">
                         <?= __('ssdeep fuzzy similarity') ?>
                     </div>
                     <div class="small text-muted mt-1">
-                        <?= sprintf(
-                            __(
-                                'ssdeep compares %1$s attributes against'
-                                . ' each other. This value is %2$s, so'
-                                . ' the engine never runs for it. Where'
-                                . ' it does apply the score renders as'
-                                . ' %3$s, recomputed per row — MISP'
-                                . ' stores the threshold test, not the'
-                                . ' number.'
-                            ),
-                            '<span class="font-monospace">ssdeep</span>',
-                            '<span class="font-monospace">'
-                                . h($primaryType) . '</span>',
-                            '<span class="badge vp-rel-score">'
-                                . h(__('ssdeep 92%')) . '</span>'
-                        ) ?>
+                        <?php if ($ssdeep['state'] === 'not_applicable'): ?>
+                            <?= sprintf(
+                                __(
+                                    'ssdeep compares %1$s attributes'
+                                    . ' against each other. This value is'
+                                    . ' %2$s, so the engine never runs'
+                                    . ' for it. Where it does apply the'
+                                    . ' score renders as %3$s, recomputed'
+                                    . ' per row — MISP stores the'
+                                    . ' threshold test, not the number.'
+                                ),
+                                '<span class="font-monospace">ssdeep</span>',
+                                '<span class="font-monospace">'
+                                    . h($primaryType) . '</span>',
+                                '<span class="badge vp-rel-score">'
+                                    . h(__('ssdeep 92%')) . '</span>'
+                            ) ?>
+                        <?php elseif ($ssdeep['state'] === 'unavailable'): ?>
+                            <?php
+                            /*
+                             * A fourth state the brief does not have,
+                             * and neither *not applicable* nor *no
+                             * engine* would be true of it. MISP ships
+                             * this engine and it applies to this value;
+                             * the PHP extension it is written against
+                             * is simply not loaded here.
+                             */
+                            ?>
+                            <?= sprintf(
+                                __(
+                                    'This value %1$s an %2$s hash, so the'
+                                    . ' engine applies — but %3$s is not'
+                                    . ' loaded on this instance, so'
+                                    . ' nothing can compare it. The'
+                                    . ' engine is present and inert,'
+                                    . ' which is neither *not applicable*'
+                                    . ' nor *missing from MISP*.'
+                                ),
+                                '<strong>' . h(__('is')) . '</strong>',
+                                '<span class="font-monospace">ssdeep</span>',
+                                '<span class="font-monospace">'
+                                    . 'ssdeep_fuzzy_compare()</span>'
+                            ) ?>
+                        <?php else: ?>
+                            <?= sprintf(
+                                __(
+                                    'Compared against every other %1$s'
+                                    . ' attribute you can see, %2$s'
+                                    . ' cleared the threshold of %3$d.'
+                                    . ' The score is recomputed here —'
+                                    . ' MISP keeps the threshold test,'
+                                    . ' not the number.'
+                                ),
+                                '<span class="font-monospace">ssdeep</span>',
+                                '<strong>' . h(__n(
+                                    '%d pair',
+                                    '%d pairs',
+                                    count($ssdeep['rows']),
+                                    count($ssdeep['rows'])
+                                )) . '</strong>',
+                                $near['threshold']
+                            ) ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
+
+            <?php if ($ssdeep['state'] === 'active'
+                && !empty($ssdeep['rows'])
+            ): ?>
+                <?php $engineTable(
+                    $ssdeep,
+                    __('Matched hash'),
+                    __('Similarity'),
+                    null
+                ) ?>
+            <?php endif; ?>
 
         <?php endif; ?>
 

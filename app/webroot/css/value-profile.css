@@ -6257,3 +6257,68 @@ td.vp-rel-pick {
     color: var(--bs-secondary-color);
     margin-top: 3px;
 }
+
+/* ------------------------------------------------------------------
+ * The neighbourhood graph (phase 24)
+ * ------------------------------------------------------------------
+ * Pivotick draws into a box it is given and does not pick a height for
+ * itself, so the rail states one. 320px is what a 37-node force layout
+ * settles into without the labels leaving the card; the overlay below
+ * is where a reader goes to see them apart.
+ *
+ * The sketch this replaces is still in the markup and still styled
+ * above — it is the fallback when the library does not arrive, so its
+ * rules must not be removed with this addition.
+ * ------------------------------------------------------------------ */
+
+.vp-relgraph {
+    width: 100%;
+    height: 320px;
+    min-height: 320px;
+    border-radius: 6px;
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-relgraph-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    flex-direction: column;
+    background: var(--bs-body-bg);
+}
+
+.vp-relgraph-overlay-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-relgraph-overlay-title {
+    font-weight: 600;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+    margin-right: auto;
+}
+
+/* The close button is `btn-outline-light`, which is a light ink — it
+   needs a dark ground in both themes or it disappears in light mode. */
+.vp-relgraph-overlay-bar .btn-outline-light {
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+.vp-relgraph-overlay-bar .btn-outline-light:hover {
+    color: var(--bs-body-bg);
+    background: var(--bs-body-color);
+    border-color: var(--bs-body-color);
+}
+
+.vp-relgraph-overlay-stage {
+    flex: 1 1 auto;
+    min-height: 0;
+}

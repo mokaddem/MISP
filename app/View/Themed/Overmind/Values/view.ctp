@@ -293,14 +293,26 @@ $tabRegistry = array(
         'id' => 'relationships',
         'title' => __('Relationships'),
         'icon' => 'fas fa-link',
-        'count' => $counts['relationships'],
         /*
+         * No count, for the Sightings tab's reason. This one read the
+         * fixture's correlation total until phase 24, which is a number
+         * nothing on the live tab computes: co-occurrence here is an
+         * event join, not correlation output (`24-relationships.md`
+         * §3), and getting the join's own total means running the
+         * panel's whole scan — up to 20,000 attribute rows and a
+         * second on the heaviest value — on every page load, for a tab
+         * most readers never open.
+         *
+         * `ValueProfile::forTabCounts` holds the reasoning and the
+         * condition for putting a number back.
+         *
          * Three panels rather than one, top to bottom in the order the
-         * three notions should be read: what the engine stored, what is
+         * three notions should be read: what shares an event, what is
          * merely close, and what a person asserted. They are separate
-         * endpoints because they will cost wildly different amounts
-         * live, and because one slow correlation query must not hold up
-         * the claims — the only part of this tab somebody wrote by hand.
+         * endpoints because they cost wildly different amounts — the
+         * first reads up to 20,000 rows and the third a handful — and
+         * one slow scan must not hold up the claims, the only part of
+         * this tab somebody wrote by hand.
          */
         'left' => array(
             $panel('viewRelationCooccurrence'),
