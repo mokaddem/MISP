@@ -4083,6 +4083,21 @@ th[aria-sort="descending"] .sort-icon::before {
 }
 
 /*
+ * A narrowing the panel has gone to ask about. The rows underneath are
+ * the previous answer and are about to be replaced, so they are dimmed
+ * rather than filtered to something the reader did not ask for.
+ */
+.vp-narrowing {
+    opacity: 0.55;
+    cursor: progress;
+    transition: opacity 120ms ease;
+}
+
+.vp-narrowing [data-vp-list-rows] {
+    pointer-events: none;
+}
+
+/*
  * A row's audiences: MISP's own badge once per distinct distribution,
  * and a sharing group named beside its own badge.
  */

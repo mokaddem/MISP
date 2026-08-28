@@ -63,6 +63,26 @@ class ValueRelationTool
         $sgNames = isset($context['sharing_groups'])
             ? $context['sharing_groups']
             : array();
+        /*
+         * The object templates this value is itself in, so a row can
+         * say whether it is a sibling. It arrives from the caller
+         * because the sibling join is the caller's query, not this
+         * fold's.
+         */
+        $ourObjects = isset($context['our_objects'])
+            ? $context['our_objects']
+            : array();
+        /*
+         * The narrowing the reader asked for, applied here rather than
+         * in the browser. The table carries the top `row_cap` values by
+         * shared events, so a filter applied after that cut can only
+         * ever narrow the hundred that survived it — which is why
+         * `abuse.ch`, 9,791 values none of which rank that high, used
+         * to empty the table it had just been counted in.
+         */
+        $filters = isset($context['filters'])
+            ? self::cleanFilters($context['filters'])
+            : array();
         $rowCap = isset($context['row_cap']) ? $context['row_cap'] : 200;
         $pageSize = isset($context['page_size'])
             ? $context['page_size']
@@ -174,7 +194,28 @@ class ValueRelationTool
             }
             return strcmp($a['value'], $b['value']);
         });
-        $listed = array_slice($ranked, 0, $rowCap);
+        $matched = $ranked;
+        if (!empty($filters)) {
+            $matched = array();
+            foreach ($ranked as $group) {
+                if (self::groupMatches($group, $filters, $orgs,
+                    $ourObjects)
+                ) {
+                    $matched[] = $group;
+                }
+            }
+        }
+        $listed = array_slice($matched, 0, $rowCap);
+        $rows = self::valueRows($listed, $orgs, $ourObjects);
+        /*
+         * Two numbers per facet entry, because they answer different
+         * questions and the control was answering with the wrong one.
+         * `count` is the value's whole neighbourhood; `listed` is how
+         * much of it the table below actually carries. A narrowing
+         * control that can only reach the listed rows has to know when
+         * those are all of them.
+         */
+        $facets = self::markListed($facets, $rows);
 
         $eventRows = self::eventRollup($groups, $eventMeta, $orgs);
         $objectRows = self::objectRollup($objects, $orgs, $rowCap);
@@ -195,12 +236,19 @@ class ValueRelationTool
             'visible' => count($rows),
             'hidden' => 0,
             'distinct_values' => $distinct,
+            /*
+             * What the filter left, before the cut. The pager prints it
+             * so a narrowed table says `1–8 of 100 (9,791 match)`
+             * rather than implying the hundred are all there were.
+             */
+            'matched' => count($matched),
+            'filters' => $filters,
             'events' => count($eventRows),
             'page_size' => $pageSize,
             'rollups' => array(
                 'value' => array(
                     'total' => $distinct,
-                    'rows' => self::valueRows($listed, $orgs),
+                    'rows' => $rows,
                 ),
                 'event' => array(
                     'total' => count($eventRows),
@@ -252,8 +300,9 @@ class ValueRelationTool
      * @param array $orgs
      * @return array
      */
-    private static function valueRows(array $groups, array $orgs)
-    {
+    private static function valueRows(array $groups, array $orgs,
+        array $ourObjects = array()
+    ) {
         $rows = array();
         foreach ($groups as $group) {
             $audiences = self::audiences($group['distributions']);
@@ -285,6 +334,7 @@ class ValueRelationTool
                     : self::dominant($group['objects']),
                 'tags' => array_values($group['tags']),
                 'events' => array_keys($group['events']),
+                'tokens' => self::groupTokens($group, $orgs, $ourObjects),
             );
         }
         return $rows;
@@ -823,6 +873,281 @@ class ValueRelationTool
             );
         }
         $group[$token]['count']++;
+    }
+
+    /**
+     * The narrowing keys, in the order a row prints them.
+     *
+     * A key absent from here is a control the fold cannot apply, so it
+     * is also a control the panel must not offer.
+     */
+    private static $tokenKeys = array('type', 'category', 'organisation',
+        'event', 'tag', 'distribution', 'sharing_group', 'object',
+        'sibling');
+
+    /**
+     * One key's tokens for one group.
+     *
+     * Read by both the row builder and the filter, so the string a
+     * facet counts and the string a filter matches cannot drift.
+     *
+     * @param array $group
+     * @param string $key
+     * @param array $orgs
+     * @param array $ourObjects
+     * @return array
+     */
+    private static function tokensFor(array $group, $key, array $orgs,
+        array $ourObjects
+    ) {
+        $tokens = array();
+        switch ($key) {
+            case 'type':
+                foreach (array_keys($group['types']) as $type) {
+                    $tokens[] = 'type:'
+                        . ValueStatsTool::facetToken($type);
+                }
+                break;
+            case 'category':
+                foreach (array_keys($group['categories']) as $category) {
+                    $tokens[] = 'category:'
+                        . ValueStatsTool::facetToken($category);
+                }
+                break;
+            case 'organisation':
+                foreach (array_keys($group['orgs']) as $orgId) {
+                    $tokens[] = 'organisation:'
+                        . ValueStatsTool::facetToken(
+                            self::orgName($orgs, $orgId)
+                        );
+                }
+                break;
+            case 'event':
+                foreach (array_keys($group['events']) as $eventId) {
+                    $tokens[] = 'event:' . (int)$eventId;
+                }
+                break;
+            case 'tag':
+                foreach ($group['tags'] as $tag) {
+                    $tokens[] = 'tag:'
+                        . ValueStatsTool::facetToken($tag['name']);
+                }
+                break;
+            case 'distribution':
+                foreach ($group['distributions'] as $audience) {
+                    $tokens[] = 'distribution:' . (int)$audience['level'];
+                }
+                break;
+            case 'sharing_group':
+                foreach ($group['distributions'] as $audience) {
+                    if (empty($audience['sharing_group']['id'])) {
+                        continue;
+                    }
+                    $tokens[] = 'sharing_group:'
+                        . (int)$audience['sharing_group']['id'];
+                }
+                break;
+            case 'object':
+                foreach (array_keys($group['objects']) as $name) {
+                    $tokens[] = 'object:'
+                        . ValueStatsTool::facetToken($name);
+                }
+                break;
+            case 'sibling':
+                foreach (array_keys($group['objects']) as $name) {
+                    if (isset($ourObjects[$name])) {
+                        $tokens[] = 'sibling:yes';
+                        break;
+                    }
+                }
+                break;
+        }
+        return $tokens;
+    }
+
+    /**
+     * Whether one group survives the narrowing.
+     *
+     * Disjunctive inside a key and conjunctive across them, which is
+     * what the facet bar means by ticking two boxes in one dropdown
+     * and one box in two.
+     *
+     * @param array $group
+     * @param array $filters
+     * @param array $orgs
+     * @param array $ourObjects
+     * @return bool
+     */
+    private static function groupMatches(array $group, array $filters,
+        array $orgs, array $ourObjects
+    ) {
+        if (isset($filters['text'])
+            && mb_strpos(
+                mb_strtolower($group['value']),
+                $filters['text']
+            ) === false
+        ) {
+            return false;
+        }
+        if (isset($filters['min_shared'])
+            && count($group['events']) < $filters['min_shared']
+        ) {
+            return false;
+        }
+        foreach (self::$tokenKeys as $key) {
+            if (empty($filters[$key])) {
+                continue;
+            }
+            $tokens = self::tokensFor($group, $key, $orgs, $ourObjects);
+            $hit = false;
+            foreach ($filters[$key] as $wanted) {
+                if (in_array($key . ':' . $wanted, $tokens, true)) {
+                    $hit = true;
+                    break;
+                }
+            }
+            if (!$hit) {
+                return false;
+            }
+        }
+        /*
+         * A select is a second constraint on a dimension the dropdown
+         * may already constrain, and the panel means them differently:
+         * two ticks in the `Type` dropdown are *either*, a type picked
+         * in the select on top of them is *and also*. Merging the two
+         * would quietly turn the select into a third tick.
+         */
+        if (!empty($filters['select'])) {
+            foreach ($filters['select'] as $key => $wanted) {
+                $tokens = self::tokensFor($group, $key, $orgs,
+                    $ourObjects);
+                if (!in_array($key . ':' . $wanted, $tokens, true)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The narrowing, reduced to what this fold can apply.
+     *
+     * Everything here arrives from a query string, so a key nobody
+     * declared is dropped rather than trusted, and the two scalar
+     * controls are cast to what they are.
+     *
+     * @param array $filters
+     * @return array
+     */
+    private static function cleanFilters(array $filters)
+    {
+        $out = array();
+        foreach (self::$tokenKeys as $key) {
+            if (empty($filters[$key])) {
+                continue;
+            }
+            $wanted = array();
+            foreach ((array)$filters[$key] as $token) {
+                if (!is_scalar($token) || (string)$token === '') {
+                    continue;
+                }
+                $wanted[] = (string)$token;
+            }
+            if (!empty($wanted)) {
+                $out[$key] = array_values(array_unique($wanted));
+            }
+        }
+        if (!empty($filters['select'])
+            && is_array($filters['select'])
+        ) {
+            $selects = array();
+            foreach ($filters['select'] as $key => $token) {
+                if (!in_array($key, self::$tokenKeys, true)
+                    || !is_scalar($token)
+                    || (string)$token === ''
+                ) {
+                    continue;
+                }
+                $selects[$key] = (string)$token;
+            }
+            if (!empty($selects)) {
+                $out['select'] = $selects;
+            }
+        }
+        if (!empty($filters['text']) && is_scalar($filters['text'])) {
+            $out['text'] = mb_strtolower(trim((string)$filters['text']));
+            if ($out['text'] === '') {
+                unset($out['text']);
+            }
+        }
+        if (isset($filters['min_shared'])
+            && (int)$filters['min_shared'] > 1
+        ) {
+            $out['min_shared'] = (int)$filters['min_shared'];
+        }
+        return $out;
+    }
+
+    /**
+     * What a row is matched on, by the facet bar and by the fold.
+     *
+     * **Every value the group carried, not the one it carries best.**
+     * The facets count a value under each type, category and object it
+     * appeared as — the `dominant()` badge is a display choice — so
+     * emitting only the dominant one left the counted facet unable to
+     * find rows it had just counted. `type` and `object` were the two
+     * worst dropdowns on the tab for exactly this reason, before the
+     * row cap is even considered.
+     *
+     * The slug is `ValueStatsTool::facetToken`, which is what built the
+     * facet entries, so the two cannot drift apart.
+     *
+     * @param array $group
+     * @param array $orgs
+     * @param array $ourObjects Object templates this value sits in
+     * @return array
+     */
+    private static function groupTokens(array $group, array $orgs,
+        array $ourObjects
+    ) {
+        $tokens = array();
+        foreach (self::$tokenKeys as $key) {
+            foreach (self::tokensFor($group, $key, $orgs, $ourObjects)
+                as $token
+            ) {
+                $tokens[] = $token;
+            }
+        }
+        return $tokens;
+    }
+
+    /**
+     * How much of each facet the listed rows actually hold.
+     *
+     * @param array $facets
+     * @param array $rows Listed rows, already built
+     * @return array
+     */
+    private static function markListed(array $facets, array $rows)
+    {
+        $held = array();
+        foreach ($rows as $row) {
+            foreach ($row['tokens'] as $token) {
+                if (!isset($held[$token])) {
+                    $held[$token] = 0;
+                }
+                $held[$token]++;
+            }
+        }
+        foreach ($facets as $key => $entries) {
+            foreach ($entries as $index => $entry) {
+                $token = $key . ':' . $entry['value'];
+                $facets[$key][$index]['listed'] = isset($held[$token])
+                    ? $held[$token]
+                    : 0;
+            }
+        }
+        return $facets;
     }
 
     /**

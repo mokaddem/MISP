@@ -183,6 +183,9 @@ class ValueProfile extends AppModel
      */
     private $cooccurrence = null;
 
+    /** The narrowing `$cooccurrence` was folded under. */
+    private $cooccurrenceFilters = array();
+
     /**
      * @param string $alias
      * @return Model
@@ -1308,7 +1311,18 @@ class ValueProfile extends AppModel
     public function forRelationCooccurrence(array $user, $value,
         array $options = array()
     ) {
-        $context = $this->cooccurrenceContext($user, $value, $options);
+        /*
+         * Lifted out before anything else sees `$options`: the
+         * narrowing describes rows the fold has already fetched, and
+         * the query builders below take their keys from the same
+         * array.
+         */
+        $filters = isset($options['filters'])
+            ? (array)$options['filters']
+            : array();
+        unset($options['filters']);
+        $context = $this->cooccurrenceContext($user, $value, $options,
+            $filters);
         return array(
             'value' => $value,
             'relationships' => array(
@@ -1467,11 +1481,19 @@ class ValueProfile extends AppModel
      * @return array `co` and the scan's own numbers
      */
     private function cooccurrenceContext(array $user, $value,
-        array $options = array()
+        array $options = array(), array $filters = array()
     ) {
-        if ($this->cooccurrence !== null) {
+        /*
+         * Keyed on the narrowing as well, so the once-per-request memo
+         * cannot hand a filtered fold to a caller that asked for the
+         * whole neighbourhood.
+         */
+        if ($this->cooccurrence !== null
+            && $this->cooccurrenceFilters === $filters
+        ) {
             return $this->cooccurrence;
         }
+        $this->cooccurrenceFilters = $filters;
         $valueModel = $this->model('Value');
         $events = $valueModel->occurrenceEventsFor(
             $user,
@@ -1510,15 +1532,28 @@ class ValueProfile extends AppModel
         $sharingGroups = $this->sharingGroupNames($user, $rows);
         $orgs = $this->organisationNames($rows);
 
+        /*
+         * The sibling join runs first now, because the co-occurrence
+         * fold needs the object templates this value sits in: `sibling`
+         * is one of the tokens a row is matched on, and a token the
+         * fold cannot build is a filter the fold cannot apply.
+         */
+        $siblings = $this->siblingSection($user, $value, $options, $orgs);
+        $ourObjects = array();
+        foreach ($siblings['rows'] as $sibling) {
+            $ourObjects[$sibling['object']] = true;
+        }
+
         $co = ValueRelationTool::cooccurrence($rows, array(
             'orgs' => $orgs,
             'events' => $this->eventMetadata($user, $picked),
             'sharing_groups' => $sharingGroups,
+            'our_objects' => $ourObjects,
+            'filters' => $filters,
             'row_cap' => self::RELATION_ROW_CAP,
             'page_size' => self::RELATION_PAGE_SIZE,
         ));
-        $co['siblings'] = $this->siblingSection($user, $value, $options,
-            $orgs);
+        $co['siblings'] = $siblings;
         $co['scan'] = array(
             'events_read' => count($picked),
             'events_seen' => count($events),

@@ -333,7 +333,8 @@ class ValuesController extends AppController
         $this->renderRelationPanel(
             $b64value,
             'forRelationCooccurrence',
-            'value_relation_cooccurrence'
+            'value_relation_cooccurrence',
+            array('filters' => $this->relationFilters())
         );
     }
 
@@ -382,16 +383,39 @@ class ValuesController extends AppController
      * @param string $element Name under Elements/Values/View
      * @return void
      */
-    private function renderRelationPanel($b64value, $method, $element)
-    {
+    private function renderRelationPanel($b64value, $method, $element,
+        array $options = array()
+    ) {
         $this->loadModel('ValueProfile');
         $this->renderPanel(
             $this->ValueProfile->$method(
                 $this->Auth->user(),
-                $this->decodeValue($b64value)
+                $this->decodeValue($b64value),
+                $options
             ),
             $element
         );
+    }
+
+    /**
+     * The co-occurrence panel's narrowing, as it arrives on the wire.
+     *
+     * The panel re-requests itself when the reader ticks something its
+     * own markup cannot answer — a facet naming thousands of values
+     * that rank below the hundred it carries. Nothing here is trusted:
+     * `ValueRelationTool` drops every key it did not declare, and the
+     * values are only ever compared against tokens it generated
+     * itself, so they reach no query and no output.
+     *
+     * @return array
+     */
+    private function relationFilters()
+    {
+        $query = $this->request->query;
+        if (empty($query['f']) || !is_array($query['f'])) {
+            return array();
+        }
+        return $query['f'];
     }
 
     /**

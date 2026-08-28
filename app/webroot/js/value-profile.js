@@ -1230,6 +1230,135 @@
     }
 
     /**
+     * Whether this markup can answer the narrowing the reader set.
+     *
+     * A served list carries the top `row_cap` rows of a neighbourhood
+     * that can run to five figures, so a filter applied here reaches
+     * only what survived that cut — and a facet counted over the whole
+     * neighbourhood then empties a table it was just counted in.
+     *
+     * Two cases stay local, and they are the common ones: nothing was
+     * cut, or the entry's whole count is present in the rows the panel
+     * holds, which the fold marks with `data-vp-complete`. Because the
+     * client holds every row carrying such a token, it also holds every
+     * subset of them — so a combination of complete entries is itself
+     * complete, whether the boxes are read as *either* or as *and*.
+     *
+     * The search box and the threshold range over values the panel
+     * never received, so neither can be proven complete here.
+     *
+     * @param {Element} list
+     * @return {boolean}
+     */
+    function narrowingIsLocal(list) {
+        if (!list.dataset.vpNarrowUrl || !list.dataset.vpNarrowCut) {
+            return true;
+        }
+        var text = ownNode(list, '[data-vp-filter-text]');
+        if (text && text.value.trim() !== '') {
+            return false;
+        }
+        var min = ownNode(list, '[data-vp-filter-min]');
+        if (min && parseInt(min.value, 10) > 1) {
+            return false;
+        }
+        var local = true;
+        ownNodes(list, 'input[data-vp-facet-key]:checked')
+            .forEach(function (box) {
+                if (!box.dataset.vpComplete) {
+                    local = false;
+                }
+            });
+        ownNodes(list, 'select[data-vp-filter-key]').forEach(function (sel) {
+            if (sel.value === '') {
+                return;
+            }
+            var option = sel.options[sel.selectedIndex];
+            if (!option || !option.dataset.vpComplete) {
+                local = false;
+            }
+        });
+        return local;
+    }
+
+    /**
+     * The narrowing, as the panel's own endpoint takes it.
+     *
+     * `select` is kept apart from the facet arrays because the panel
+     * means them differently — two ticks in a dropdown are *either*, a
+     * select on top of them is *and also* — and the fold reads the two
+     * shapes the same way this does.
+     *
+     * @param {Element} list
+     * @return {string}
+     */
+    function narrowUrl(list) {
+        var params = [];
+        ownNodes(list, 'input[data-vp-facet-key]:checked')
+            .forEach(function (box) {
+                params.push('f[' + box.dataset.vpFacetKey + '][]='
+                    + encodeURIComponent(box.value));
+            });
+        ownNodes(list, 'select[data-vp-filter-key]').forEach(function (sel) {
+            if (sel.value === '') {
+                return;
+            }
+            params.push('f[select][' + sel.dataset.vpFilterKey + ']='
+                + encodeURIComponent(sel.value));
+        });
+        var text = ownNode(list, '[data-vp-filter-text]');
+        if (text && text.value.trim() !== '') {
+            params.push('f[text]=' + encodeURIComponent(text.value.trim()));
+        }
+        var min = ownNode(list, '[data-vp-filter-min]');
+        if (min && parseInt(min.value, 10) > 1) {
+            params.push('f[min_shared]=' + parseInt(min.value, 10));
+        }
+        return list.dataset.vpNarrowUrl
+            + (params.length ? '?' + params.join('&') : '');
+    }
+
+    var narrowTimers = new WeakMap();
+
+    /**
+     * Ask the fold for what this markup cannot answer.
+     *
+     * Debounced, because ticking three boxes is one question and not
+     * three, and the fold behind this costs a scan.
+     *
+     * @param {Element} list
+     * @return {boolean} Whether the request could be made
+     */
+    function narrowRemotely(list) {
+        var container = list.closest('.ajax-tab-content, .ajax-card');
+        if (!container || typeof window.reloadAjaxTabIndex !== 'function') {
+            return false;
+        }
+        list.classList.add('vp-narrowing');
+        window.clearTimeout(narrowTimers.get(list));
+        narrowTimers.set(list, window.setTimeout(function () {
+            window.reloadAjaxTabIndex(container, narrowUrl(list));
+        }, 300));
+        return true;
+    }
+
+    /**
+     * One entry for every narrowing control, wherever it lives.
+     *
+     * @param {Element} list
+     */
+    function narrowList(list) {
+        // Narrowing changes how many pages there are, so page three of
+        // the old set is not a page to stay on.
+        listPages.set(list, 1);
+        resetAuditPages(list);
+        if (!narrowingIsLocal(list) && narrowRemotely(list)) {
+            return;
+        }
+        refreshList(list);
+    }
+
+    /**
      * Show one page of the rows a filter left, and redraw the control
      * so its page count matches. Nothing re-queries: the pages are
      * slices of rows the fragment already carries.
@@ -5682,9 +5811,17 @@
                 var clearList = clearAll.closest('[data-vp-list]');
                 if (clearList) {
                     clearListFilters(clearList);
-                    listPages.set(clearList, 1);
-                    resetAuditPages(clearList);
-                    refreshList(clearList);
+                    // A reset over a served list is a narrowing like
+                    // any other: the rows it wants back are the ones
+                    // the fold cut, not the ones still on screen.
+                    if (clearList.dataset.vpNarrowActive
+                        && narrowRemotely(clearList)
+                    ) {
+                        listPages.set(clearList, 1);
+                        resetAuditPages(clearList);
+                        return;
+                    }
+                    narrowList(clearList);
                 }
             }
         });
@@ -5805,9 +5942,7 @@
                 )) {
                 var list = event.target.closest('[data-vp-list]');
                 if (list) {
-                    listPages.set(list, 1);
-                    resetAuditPages(list);
-                    refreshList(list);
+                    narrowList(list);
                 }
             }
         });
@@ -5827,9 +5962,7 @@
             )) {
                 var typedList = event.target.closest('[data-vp-list]');
                 if (typedList) {
-                    listPages.set(typedList, 1);
-                    resetAuditPages(typedList);
-                    refreshList(typedList);
+                    narrowList(typedList);
                 }
             }
         });

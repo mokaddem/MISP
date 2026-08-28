@@ -60,6 +60,23 @@ $scan = $co['scan'] ?? array(
 
 $view = $this;
 
+/*
+ * The narrowing the fold applied, so the controls come back set the way
+ * the reader left them. The panel re-requests itself for a facet its
+ * own markup cannot answer, and a re-request that arrived with every
+ * box cleared would undo the click that caused it.
+ */
+$active = isset($co['filters']) ? $co['filters'] : array();
+$activeSelects = isset($active['select']) ? $active['select'] : array();
+
+/**
+ * @param string $key
+ * @return array Tokens ticked in this facet group
+ */
+$activeFacet = function ($key) use ($active) {
+    return isset($active[$key]) ? (array)$active[$key] : array();
+};
+
 /**
  * @param string $text
  * @return string
@@ -69,50 +86,11 @@ $slug = function ($text) {
 };
 
 /*
- * The objects this value is itself part of, taken from the sibling
- * join rather than guessed: a correlated value sitting in a `file`
- * object is not a sibling of ours unless we are in that same object.
+ * A row's tokens are the fold's, not this template's. They decide what
+ * a facet matches, and the fold has to be able to apply the same
+ * narrowing over rows this table never received — so one place builds
+ * them and both ends agree by construction.
  */
-$siblingObjects = array();
-foreach ($siblings['rows'] as $sibling) {
-    $siblingObjects[$sibling['object']] = true;
-}
-
-/**
- * The tokens the facet bar and the filter row match on.
- *
- * @param array $row
- * @return string
- */
-$valueTokens = function ($row) use ($slug, $siblingObjects) {
-    $tokens = array(
-        'type:' . $slug($row['type']),
-        'category:' . $slug($row['category']),
-    );
-    foreach ($row['distributions'] as $audience) {
-        $tokens[] = 'distribution:' . (int)$audience['level'];
-        if (!empty($audience['sharing_group']['id'])) {
-            $tokens[] = 'sharing_group:'
-                . (int)$audience['sharing_group']['id'];
-        }
-    }
-    foreach ($row['orgs'] as $org) {
-        $tokens[] = 'organisation:' . $slug($org);
-    }
-    foreach ($row['events'] as $event) {
-        $tokens[] = 'event:' . $event;
-    }
-    foreach ($row['tags'] as $tag) {
-        $tokens[] = 'tag:' . $slug($tag['name']);
-    }
-    if ($row['object'] !== null) {
-        $tokens[] = 'object:' . $slug($row['object']);
-        if (isset($siblingObjects[$row['object']])) {
-            $tokens[] = 'sibling:yes';
-        }
-    }
-    return implode(' ', $tokens);
-};
 
 /**
  * The same, for the sibling table, whose keys are prefixed so the two
@@ -932,9 +910,27 @@ $headerSub = ob_get_clean();
 
     <?php endif; ?>
 
+<?php
+/*
+ * `vp-narrow-url` is what makes narrowing honest on a value whose
+ * neighbourhood is larger than the table. The rows here are the top
+ * `row_cap` by shared events, so a filter the browser applies can only
+ * reach the ones that survived that cut — and `abuse.ch`, 9,791 values
+ * ranking below it, emptied a table it had just been counted in.
+ *
+ * The browser still filters whatever it provably can: a facet whose
+ * whole count is present in these rows is answerable here, and so is
+ * everything when nothing was cut. `vp-narrow-cut` says which case
+ * this is.
+ */
+?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
      style="--vp-panel-color: var(--vp-rel-co);"
      data-vp-list
+     data-vp-narrow-url="<?= h($baseurl) ?>/values/viewRelationCooccurrence/<?=
+         h($valueB64) ?>"
+     data-vp-narrow-cut="<?= $co['matched'] > count($valueRows) ? '1' : '' ?>"
+     data-vp-narrow-active="<?= empty($active) ? '' : '1' ?>"
      data-vp-group-active="value">
 
     <?php
@@ -1256,6 +1252,8 @@ $headerSub = ob_get_clean();
                     </span>
                     <input type="text" class="form-control"
                            data-vp-filter-text
+                           value="<?= h(isset($active['text'])
+                               ? $active['text'] : '') ?>"
                            aria-label="<?= __('Search the listed values') ?>"
                            placeholder="<?= h(__('Search value')) ?>">
                 </div>
@@ -1276,7 +1274,11 @@ $headerSub = ob_get_clean();
                         aria-label="<?= __('Category') ?>">
                     <option value=""><?= __('Any category') ?></option>
                     <?php foreach ($co['categories'] as $category): ?>
-                        <option value="<?= h($slug($category)) ?>">
+                        <option value="<?= h($slug($category)) ?>"<?=
+                            isset($activeSelects['category'])
+                                && $activeSelects['category']
+                                    === $slug($category)
+                                ? ' selected' : '' ?>>
                             <?= h($category) ?>
                         </option>
                     <?php endforeach; ?>
@@ -1287,7 +1289,14 @@ $headerSub = ob_get_clean();
                             aria-label="<?= h($select['any']) ?>">
                         <option value=""><?= h($select['any']) ?></option>
                         <?php foreach ($select['rows'] as $facet): ?>
-                            <option value="<?= h($facet['value']) ?>">
+                            <option value="<?= h($facet['value']) ?>"<?=
+                                isset($activeSelects[$select['key']])
+                                    && $activeSelects[$select['key']]
+                                        === (string)$facet['value']
+                                    ? ' selected' : '' ?><?=
+                                isset($facet['listed'])
+                                    && $facet['listed'] === $facet['count']
+                                    ? ' data-vp-complete="1"' : '' ?>>
                                 <?= h($facet['label']) ?>
                             </option>
                         <?php endforeach; ?>
@@ -1299,14 +1308,18 @@ $headerSub = ob_get_clean();
                         <?= __('Shared events') ?> &ge;
                     </span>
                     <input type="number" class="form-control" min="1"
-                           value="1" data-vp-filter-min="shared"
+                           value="<?= h(isset($active['min_shared'])
+                               ? (int)$active['min_shared'] : 1) ?>"
+                           data-vp-filter-min="shared"
                            aria-label="<?= __('Minimum shared events') ?>">
                 </div>
 
                 <div class="form-check form-switch mb-0 ms-1">
                     <input class="form-check-input" type="checkbox"
                            role="switch" id="vp-rel-siblings-only"
-                           data-vp-facet-key="sibling" value="yes">
+                           data-vp-facet-key="sibling" value="yes"<?=
+                        in_array('yes', $activeFacet('sibling'), true)
+                            ? ' checked' : '' ?>>
                     <label class="form-check-label small text-muted"
                            for="vp-rel-siblings-only">
                         <?= __('Object siblings only') ?>
@@ -1373,6 +1386,9 @@ $headerSub = ob_get_clean();
                                     'title' => $group['title'],
                                     'icon' => $group['icon'],
                                     'values' => $facets[$group['key']],
+                                    'active' => $activeFacet(
+                                        $group['key']
+                                    ),
                                 )
                             ) ?>
                         </div>
@@ -1384,9 +1400,9 @@ $headerSub = ob_get_clean();
                         __(
                             'Facet counts are exact at every count —'
                             . ' they are folded from %s, not from the'
-                            . ' page. A count larger than the table can'
-                            . ' show means the value it names is outside'
-                            . ' the %s carried.'
+                            . ' page. Narrowing on a count larger than'
+                            . ' the %s carried below fetches its rows'
+                            . ' rather than emptying the table.'
                         ),
                         '<span class="font-monospace">'
                             . h(sprintf(
@@ -1478,7 +1494,10 @@ $headerSub = ob_get_clean();
                                 as $valIndex => $row): ?>
                                 <tr class="vp-rel-stripe vp-rel-k-co"
                                     data-vp-group="value"
-                                    data-vp-facet="<?= h($valueTokens($row)) ?>"
+                                    data-vp-facet="<?= h(implode(
+                                        ' ',
+                                        $row['tokens']
+                                    )) ?>"
                                     data-vp-num="<?= h($numbers(
                                         $row['shared_events'],
                                         $row['last_together']
@@ -1707,7 +1726,7 @@ $headerSub = ob_get_clean();
             <?= $this->element('Values/View/value_pager', array(
                 'size' => $co['page_size'],
                 'shown' => count($valueRows),
-                'total' => count($valueRows),
+                'total' => $co['matched'],
                 'noun' => __('rows'),
             )) ?>
         </div>
@@ -1722,7 +1741,7 @@ $headerSub = ob_get_clean();
                     )) ?>">
                 <?= h(sprintf(
                     __('Open all %s as a search'),
-                    number_format($co['distinct_values'])
+                    number_format($co['matched'])
                 )) ?>
                 <i class="fas fa-arrow-right ms-1"></i>
             </button>

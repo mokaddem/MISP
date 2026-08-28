@@ -19,9 +19,12 @@
  *                       can emphasise the numbers it contrasts
  * @var int    $limit    Rows shown before the tail is folded (default 10)
  * @var int    $searchAt Size past which the group gets a search box (50)
+ * @var array  $active   Tokens already ticked, so a group re-rendered by
+ *                       the server comes back in the state it was left
  */
 $key = $key ?? null;
 $values = $values ?? array();
+$active = $active ?? array();
 $icon = $icon ?? null;
 $note = $note ?? null;
 $limit = $limit ?? 10;
@@ -110,10 +113,29 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
                        $facet['label'] ?? $value
                    )) . '"'
                    : '' ?>>
+            <?php
+            /*
+             * `listed` is how many of the rows the panel actually
+             * carries this entry reaches. Where a caller supplies it
+             * and it falls short of the count, narrowing on this entry
+             * cannot be answered from the markup alone — which is the
+             * one thing a client-side filter has to know before it
+             * claims an empty table.
+             */
+            ?>
             <input type="checkbox"
                    class="form-check-input"
                    data-vp-facet-key="<?= h($key) ?>"
                    value="<?= h($value) ?>"
+                   <?= isset($facet['listed'])
+                       ? 'data-vp-facet-listed="'
+                           . h((int)$facet['listed']) . '"'
+                       : '' ?>
+                   <?= isset($facet['listed'])
+                       && (int)$facet['listed'] === $count
+                       ? 'data-vp-complete="1"' : '' ?>
+                   <?= in_array((string)$value, $active, true)
+                       ? 'checked' : '' ?>
                    <?= $zero ? 'disabled' : '' ?>
                    id="<?= h($groupId . '-' . $index) ?>">
             <span class="vp-facet-label">
