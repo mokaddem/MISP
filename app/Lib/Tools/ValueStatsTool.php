@@ -900,7 +900,7 @@ class ValueStatsTool
      * precomputed ranges cost 39.8 KB where the whole span as daily
      * counts costs 21.6 KB.
      *
-     * `by_org` is positional, aligned with `orgs`, because Chart.js
+     * Every series is positional, aligned with `orgs`, because Chart.js
      * wants one dataset per organisation and a stack order that does
      * not change between buckets.
      *
@@ -914,39 +914,37 @@ class ValueStatsTool
         array $totals, array $curves
     ) {
         /*
-         * The stack is the *sightings* stack, so its organisation list
-         * is drawn from type-0 rows alone. `org_counts` beside it counts
-         * every report an organisation filed of any type, which is what
-         * the Reporters card ranks — an organisation that has only ever
-         * contradicted this value belongs in that ranking and does not
-         * belong in the stack's legend carrying a zero. The chart panel
-         * already says in words that the two counts have two scopes.
+         * One organisation list for all three kinds of report, ordered
+         * as the Reporters card orders it: by every report the
+         * organisation filed, of any type.
+         *
+         * It used to be the type-0 list, with false positives and
+         * expirations pooled into two series of their own — so a
+         * sighting was `CIRCL saw this` and a false positive was
+         * nobody's. The rail beside the chart has always counted a
+         * contradiction as participation ("hiding a false positive here
+         * would make the most sceptical organisation look like the
+         * quietest"), and the chart now says the same thing: three
+         * series per organisation, and an organisation that has only
+         * ever contradicted the value has a slot like any other.
          */
-        $stacked = array();
-        foreach ($rows as $row) {
-            if ((int)$row['Sighting']['type'] !== 0) {
-                continue;
-            }
-            $org = self::sightingOrg($row);
-            $stacked[$org] = ($stacked[$org] ?? 0) + 1;
-        }
-        arsort($stacked);
-        $orgKeys = array_keys($stacked);
+        $orgKeys = array_keys($totals['org_counts']);
         $at = array_flip($orgKeys);
-        $perOrg = array_fill(0, count($orgKeys), array());
-        $perFp = array();
-        $perExpiration = array();
+        $slots = count($orgKeys);
+        $perDay = array(
+            'sighting' => array_fill(0, $slots, array()),
+            'fp' => array_fill(0, $slots, array()),
+            'expiration' => array_fill(0, $slots, array()),
+        );
         foreach ($rows as $row) {
             $day = date('Y-m-d', (int)$row['Sighting']['date_sighting']);
             $type = (int)$row['Sighting']['type'];
-            if ($type === 1) {
-                $perFp[$day] = ($perFp[$day] ?? 0) + 1;
-            } elseif ($type === 2) {
-                $perExpiration[$day] = ($perExpiration[$day] ?? 0) + 1;
-            } else {
-                $i = $at[self::sightingOrg($row)];
-                $perOrg[$i][$day] = ($perOrg[$i][$day] ?? 0) + 1;
-            }
+            $kind = $type === 1
+                ? 'fp'
+                : ($type === 2 ? 'expiration' : 'sighting');
+            $i = $at[self::sightingOrg($row)];
+            $perDay[$kind][$i][$day] =
+                ($perDay[$kind][$i][$day] ?? 0) + 1;
         }
 
         $plan = ValueProfileBuckets::plan(
@@ -966,30 +964,26 @@ class ValueStatsTool
         }
 
         /*
-         * Sparse rather than dense: these are one series per
-         * organisation plus two, over a span that can be three years,
-         * and each is nearly all zero. `ValueProfileBuckets::sparse`
-         * documents the measurement behind the choice.
+         * Sparse rather than dense: these are three series per
+         * organisation over a span that can be three years, and each is
+         * nearly all zero — two of the three usually entirely so.
+         * `ValueProfileBuckets::sparse` documents the measurement
+         * behind the choice, and it is what keeps three series per
+         * organisation from costing three times two.
          */
         $daily = array(
-            'org' => array(),
-            'fp' => ValueProfileBuckets::sparse(
-                $span['from'],
-                $span['to'],
-                $perFp
-            ),
-            'expiration' => ValueProfileBuckets::sparse(
-                $span['from'],
-                $span['to'],
-                $perExpiration
-            ),
+            'sighting' => array(),
+            'fp' => array(),
+            'expiration' => array(),
         );
-        foreach ($perOrg as $i => $byDay) {
-            $daily['org'][$i] = ValueProfileBuckets::sparse(
-                $span['from'],
-                $span['to'],
-                $byDay
-            );
+        foreach ($perDay as $kind => $series) {
+            foreach ($series as $i => $byDay) {
+                $daily[$kind][$i] = ValueProfileBuckets::sparse(
+                    $span['from'],
+                    $span['to'],
+                    $byDay
+                );
+            }
         }
 
         return array(
@@ -1001,7 +995,10 @@ class ValueStatsTool
             'first' => $span['first'],
             'clipped' => $span['clipped'],
             'orgs' => $orgKeys,
-            'org_counts' => $stacked,
+            // Name => every report it filed, of any type. The same map
+            // the Reporters card ranks, and now the same order the
+            // stack is drawn in.
+            'org_counts' => $totals['org_counts'],
             'totals' => array(
                 'total' => $totals['total'],
                 'sighting' => $totals['sighting'],

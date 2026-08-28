@@ -3496,7 +3496,11 @@ th[aria-sort="descending"] .sort-icon::before {
     gap: 4px 14px;
 }
 
-.vp-sight-legend-group-score {
+/*
+ * Between the groups, not after each — which group is first depends on
+ * the value: one that nobody has reported opens on the decay score.
+ */
+.vp-sight-legend-group + .vp-sight-legend-group {
     padding-top: 6px;
     border-top: 1px solid var(--bs-border-color);
 }

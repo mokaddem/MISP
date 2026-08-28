@@ -16,6 +16,15 @@
  * beside the chart, as the tick across each model's bar, which is
  * where a reader asking `is it under?` is already looking.
  *
+ * All three kinds of report are stacked by organisation. Sightings
+ * alone used to be, with false positives and expirations pooled into a
+ * series each — so a sighting was `CIRCL saw this` and a contradiction
+ * was nobody's, and the legend filed `False positive` among the
+ * organisations under a heading reading `Reported by`. The rail beside
+ * this has always counted a contradiction as participation; the chart
+ * says the same thing now, and the readout names the reporter of every
+ * count it shows.
+ *
  * Both axes are captioned in words above the chart. An overlay with two
  * scales that labels neither is a trick, and the left one is a count
  * while the right one is a score out of a hundred.
@@ -40,6 +49,18 @@ $notes = $valueProfile['sighting_notes'];
 $positive = $sightings['total'] - $sightings['fp'] - $sightings['expiration'];
 
 /*
+ * The three kinds of report, named once. The toggles above the chart,
+ * the headings in the hover readout and the breakdown on each reporter
+ * key are the same three words, so they are declared here rather than
+ * three times over.
+ */
+$kindLabels = array(
+    'sighting' => __('Sightings'),
+    'fp' => __('False positives'),
+    'expiration' => __('Expirations'),
+);
+
+/*
  * The three types, with the reason each one is dead when it is. A count
  * of zero is rendered disabled rather than hidden: "nobody has ever
  * filed an expiration for this value" is a fact about the value, and
@@ -48,19 +69,19 @@ $positive = $sightings['total'] - $sightings['fp'] - $sightings['expiration'];
 $toggles = array(
     array(
         'key' => 'sighting',
-        'label' => __('Sightings'),
+        'label' => $kindLabels['sighting'],
         'count' => $positive,
         'why' => __('No sighting has been reported for this value'),
     ),
     array(
         'key' => 'fp',
-        'label' => __('False positives'),
+        'label' => $kindLabels['fp'],
         'count' => $sightings['fp'],
         'why' => __('No false positive has been reported for this value'),
     ),
     array(
         'key' => 'expiration',
-        'label' => __('Expirations'),
+        'label' => $kindLabels['expiration'],
         'count' => $sightings['expiration'],
         'why' => __('No expiration sighting has been reported for this'
             . ' value'),
@@ -150,28 +171,53 @@ if ($series !== null) {
         'models' => $decay,
         'labels' => array(
             /*
-             * The two halves of the readout. They are headings rather
-             * than row labels because the tooltip groups by scale: the
-             * rows above one are counts on the left axis and the rows
-             * above the other are scores on the right, and a flat list
-             * of both was the tab's least readable thing.
+             * The readout's headings. One per kind of report and one
+             * for the scores, because it groups by what a row is: the
+             * rows under a kind are counts on the left axis and belong
+             * to the organisation named in each, and the rows under the
+             * last are scores on the right. A flat list of all of them
+             * was the tab's least readable thing, and it was also where
+             * a false positive had no reporter to name.
              */
-            'reports' => __('Reports'),
+            'kinds' => $kindLabels,
+            /*
+             * The same three words counted, for the breakdown on a
+             * reporter key — `1 Expirations` is what a heading label
+             * reads like in a sentence. Both forms go over the wire
+             * because the choice is made in the browser, against a
+             * number the browser is the first to know: the split is per
+             * selected range.
+             */
+            'kindCounted' => array(
+                'sighting' => array(__('sighting'), __('sightings')),
+                'fp' => array(
+                    __('false positive'),
+                    __('false positives'),
+                ),
+                'expiration' => array(
+                    __('expiration'),
+                    __('expirations'),
+                ),
+            ),
             'score' => __('Decay score'),
+            /*
+             * Reports, not sightings. All three kinds have always been
+             * in this one stack on this one axis; what changed is that
+             * they are all stacked by organisation now, so the caption
+             * can say so without lying about the other two.
+             */
             'perUnit' => array(
                 'day' => __(
-                    'Sightings per day, stacked by organisation'
+                    'Reports per day, stacked by organisation'
                 ),
                 'week' => __(
-                    'Sightings per week, stacked by organisation'
+                    'Reports per week, stacked by organisation'
                 ),
                 'month' => __(
-                    'Sightings per month, stacked by organisation'
+                    'Reports per month, stacked by organisation'
                 ),
             ),
             'perColumn' => ValueProfileBuckets::columnLabels(),
-            'falsePositive' => __('False positive'),
-            'expiration' => __('Expiration'),
         ),
     );
 }
@@ -210,7 +256,7 @@ if ($series !== null) {
 
             <div class="vp-sight-axes">
                 <span class="vp-subhead" data-vp-sight-axis-left>
-                    <?= __('Sightings per day, stacked by organisation') ?>
+                    <?= __('Reports per day, stacked by organisation') ?>
                 </span>
                 <span class="vp-subhead vp-sight-axis-right">
                     <?= __('Decay score · 0–100') ?>
@@ -220,8 +266,9 @@ if ($series !== null) {
             <div class="vp-chart vp-sight-main">
                 <canvas id="vp-sight-main" role="img"
                         aria-label="<?= h(__(
-                            'Sightings per organisation over time, with each'
-                            . ' decaying model\'s score overlaid'
+                            'Sightings, false positives and expirations per'
+                            . ' organisation over time, with each decaying'
+                            . ' model\'s score overlaid'
                         )) ?>"></canvas>
                 <?php if ($sightings['total'] === 0): ?>
                     <?php
@@ -281,57 +328,64 @@ if ($series !== null) {
 
             <?php
             /*
-             * The legend is two groups with a rule between them,
-             * matching the tooltip: what was reported, then what the
-             * models make of it. Reading down one column of the chart
-             * means reading a count and a score at once, and a single
-             * run of keys made those look like one series.
+             * Three groups, each behind its own heading and separated
+             * by a rule, matching the readout: who reported, which of
+             * those reports argue against the value, and what the
+             * models make of it. One run of keys made a decay score
+             * look like a seventh reporter — and it filed `False
+             * positive` among the organisations, as though a
+             * contradiction were somebody's name.
              *
              * The reporter keys are buttons. A stack of a dozen
              * organisations is unreadable at the bar it matters in, and
              * the only control the tab offered was three type toggles
              * that cannot say `just this org` — so the legend, which is
              * already the list of organisations and already sits under
-             * the chart, becomes the filter. The type toggles above
-             * stay what they are: they choose which of the three kinds
-             * of report are drawn at all.
-             */
-            ?>
-            <?php
-            /*
+             * the chart, becomes the filter. Switching one off now
+             * takes its false positives and expirations with it, since
+             * those are its reports too. The type toggles above stay
+             * what they are: they choose which of the three kinds are
+             * drawn at all.
+             *
              * A never-sighted value keeps its axes and its curve, so it
-             * reaches here with no reporter, no false positive and no
-             * expiration. The heading goes with them: `Reported by`
-             * over nothing at all is a label looking for a list.
+             * reaches here with no reporter at all. Each heading goes
+             * with its group: a label looking for a list is worse than
+             * no label.
              */
-            $reported = !empty($series['orgs'])
-                || $sightings['fp'] > 0
-                || $sightings['expiration'] > 0;
             ?>
             <div class="vp-sight-legend" data-vp-sight-legend>
-                <?php if ($reported): ?>
-                <div class="vp-sight-legend-group">
-                    <span class="vp-sight-legend-head">
-                        <?= __('Reported by') ?>
-                    </span>
-                    <?php foreach ($series['orgs'] as $i => $org): ?>
-                        <button type="button" class="vp-sight-key
-                                vp-sight-key-org"
-                                data-vp-sight-key-org="<?= (int)$i ?>"
-                                aria-pressed="true"
-                                title="<?= h(sprintf(
-                                    __('Show or hide %s in the chart'),
-                                    $org
-                                )) ?>">
-                            <span class="vp-sight-swatch"
-                                  style="--vp-sight-hue: var(--vp-sight-org-<?=
-                                      (int)($i % 6) + 1 ?>);"></span>
-                            <?= h($org) ?>
-                            <b data-vp-sight-key-count></b>
-                        </button>
-                    <?php endforeach; ?>
+                <?php if (!empty($series['orgs'])): ?>
+                    <div class="vp-sight-legend-group">
+                        <span class="vp-sight-legend-head">
+                            <?= __('Reported by') ?>
+                        </span>
+                        <?php foreach ($series['orgs'] as $i => $org): ?>
+                            <button type="button" class="vp-sight-key
+                                    vp-sight-key-org"
+                                    data-vp-sight-key-org="<?= (int)$i ?>"
+                                    aria-pressed="true">
+                                <span class="vp-sight-swatch"
+                                      style="--vp-sight-hue:
+                                          var(--vp-sight-org-<?=
+                                          (int)($i % 6) + 1 ?>);"></span>
+                                <?= h($org) ?>
+                                <b data-vp-sight-key-count></b>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($sightings['fp'] > 0
+                    || $sightings['expiration'] > 0
+                ): ?>
                     <?php
                     /*
+                     * These two are not reporters and no longer sit
+                     * among them. Their job here is to decode the two
+                     * colours in the stack that are not an
+                     * organisation's: a contradiction keeps its own
+                     * colour whoever filed it, and the reporter is a
+                     * row in the readout.
+                     *
                      * The hue goes in the same variable the reporter
                      * keys use rather than through the `-fp` class the
                      * toggles carry. `.vp-sight-swatch` is declared
@@ -342,30 +396,32 @@ if ($series !== null) {
                      * written.
                      */
                     ?>
-                    <?php if ($sightings['fp'] > 0): ?>
-                        <span class="vp-sight-key">
-                            <span class="vp-sight-swatch"
-                                  style="--vp-sight-hue:
-                                      var(--vp-sight-fp);"></span>
-                            <?= __('False positive') ?>
-                            <b data-vp-sight-key-fp></b>
+                    <div class="vp-sight-legend-group">
+                        <span class="vp-sight-legend-head">
+                            <?= __('Contradictions') ?>
                         </span>
-                    <?php endif; ?>
-                    <?php if ($sightings['expiration'] > 0): ?>
-                        <span class="vp-sight-key">
-                            <span class="vp-sight-swatch"
-                                  style="--vp-sight-hue:
-                                      var(--vp-sight-exp);"></span>
-                            <?= __('Expiration') ?>
-                            <b data-vp-sight-key-exp></b>
-                        </span>
-                    <?php endif; ?>
-                </div>
+                        <?php if ($sightings['fp'] > 0): ?>
+                            <span class="vp-sight-key">
+                                <span class="vp-sight-swatch"
+                                      style="--vp-sight-hue:
+                                          var(--vp-sight-fp);"></span>
+                                <?= __('False positive') ?>
+                                <b data-vp-sight-key-fp></b>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ($sightings['expiration'] > 0): ?>
+                            <span class="vp-sight-key">
+                                <span class="vp-sight-swatch"
+                                      style="--vp-sight-hue:
+                                          var(--vp-sight-exp);"></span>
+                                <?= __('Expiration') ?>
+                                <b data-vp-sight-key-exp></b>
+                            </span>
+                        <?php endif; ?>
+                    </div>
                 <?php endif; ?>
                 <?php if (!empty($decay)): ?>
-                    <div class="vp-sight-legend-group<?= $reported
-                        ? ' vp-sight-legend-group-score'
-                        : '' ?>">
+                    <div class="vp-sight-legend-group">
                         <span class="vp-sight-legend-head">
                             <?= __('Decay score') ?>
                         </span>
@@ -386,28 +442,37 @@ if ($series !== null) {
 
             <?php
             /*
-             * Three counts with three scopes are on screen at once —
-             * the toggles count the whole value, the legend counts the
-             * selected range, and the Reporters card counts every
-             * report an organisation filed of any type. An organisation
-             * therefore legitimately carries two different numbers in
-             * two places, and the reader is owed the reason rather than
-             * left to find it.
+             * Two counts with two scopes are on screen at once, which
+             * is one fewer than before this phase: a reporter key and
+             * the Reporters card now count the same thing — every
+             * report of any kind — and differ only in that one is the
+             * selected range and the other the whole value. The
+             * toggles are the third scope and always were.
+             *
+             * What still needs saying is the one place the count and
+             * the colour part company. A reporter's number includes
+             * its contradictions; its swatch does not, because those
+             * are drawn in the red and the orange.
              */
             ?>
             <p class="vp-sight-legend-note">
                 <?php if (!empty($series['orgs'])): ?>
                     <?= h(__(
                         'Click an organisation to take it out of the'
-                        . ' chart; its count stays, and the table below'
-                        . ' is not filtered by it.'
+                        . ' chart, contradictions included; its count'
+                        . ' stays, and the table below is not filtered'
+                        . ' by it.'
+                    )) ?>
+                    <?= h(__(
+                        'A reporter\'s count is every report it filed in'
+                        . ' the selected range, of any kind — hover a key'
+                        . ' for the split. Its contradictions keep their'
+                        . ' own colour rather than the reporter\'s.'
                     )) ?>
                 <?php endif; ?>
                 <?= h(__(
-                    'Organisation counts are sightings in the selected'
-                    . ' range. False positives and expirations are'
-                    . ' counted apart from them, and the toggles above'
-                    . ' count the whole value rather than the range.'
+                    'The toggles above count the whole value rather than'
+                    . ' the range.'
                 )) ?>
             </p>
 

@@ -2356,6 +2356,15 @@
     var SIGHT_ORG_COLOURS = 6;
     var SIGHT_CURVE_COLOURS = 2;
 
+    /*
+     * The three kinds of report, bottom of the stack upwards, and the
+     * only place their order is written down. Every series on the count
+     * axis is one of these for one organisation — a sighting is not
+     * attributed while a false positive is pooled, which is what this
+     * tab used to do.
+     */
+    var SIGHT_KINDS = ['sighting', 'fp', 'expiration'];
+
     /**
      * Turn the sparse per-day tallies into dense arrays, once.
      *
@@ -2384,10 +2393,11 @@
             return counts;
         }
 
-        data.daily.fp = dense(data.daily.fp);
-        data.daily.expiration = dense(data.daily.expiration);
-        data.daily.org = Object.keys(data.daily.org).map(function (key) {
-            return dense(data.daily.org[key]);
+        SIGHT_KINDS.forEach(function (kind) {
+            var series = data.daily[kind] || {};
+            data.daily[kind] = Object.keys(series).map(function (key) {
+                return dense(series[key]);
+            });
         });
     }
 
@@ -2433,22 +2443,47 @@
         }
         var bars = sight.zoom.window();
         var daily = sight.data.daily;
-        var org = daily.org.map(function (counts) {
-            return bars.map(function (bar) {
-                return sightSum(counts, bar);
-            });
-        });
-        var fp = bars.map(function (bar) {
-            return sightSum(daily.fp, bar);
-        });
-        var expiration = bars.map(function (bar) {
-            return sightSum(daily.expiration, bar);
-        });
         function total(series) {
             return series.reduce(function (a, b) {
                 return a + b;
             }, 0);
         }
+        /*
+         * Three tallies per organisation, each summed per drawn bar.
+         * `kinds[kind][org]` is one array per bar, which is the shape
+         * Chart.js wants a dataset in and the shape the readout groups
+         * by — the only reshaping left is choosing which of them are
+         * currently drawn.
+         */
+        var kinds = {};
+        var kindCounts = {};
+        SIGHT_KINDS.forEach(function (kind) {
+            kinds[kind] = (daily[kind] || []).map(function (counts) {
+                return bars.map(function (bar) {
+                    return sightSum(counts, bar);
+                });
+            });
+            kindCounts[kind] = total(kinds[kind].map(total));
+        });
+        /*
+         * An organisation's count is every report it filed in the
+         * range, of any type, which is what the Reporters card counts
+         * and what the legend's own heading promises. A per-kind
+         * breakdown rides along so the key can say which of the three
+         * the number is made of.
+         */
+        var orgCounts = sight.data.orgs.map(function (name, i) {
+            return SIGHT_KINDS.reduce(function (sum, kind) {
+                return sum + total(kinds[kind][i] || []);
+            }, 0);
+        });
+        var orgByKind = sight.data.orgs.map(function (name, i) {
+            var per = {};
+            SIGHT_KINDS.forEach(function (kind) {
+                per[kind] = total(kinds[kind][i] || []);
+            });
+            return per;
+        });
         sight.range = {
             unit: sight.zoom.unit(),
             unitLabel: sight.data.labels.perColumn[sight.zoom.unit()],
@@ -2463,12 +2498,10 @@
             ends: bars.map(function (bar) {
                 return bar.bucket.to;
             }),
-            org: org,
-            orgCounts: org.map(total),
-            fp: fp,
-            fpCount: total(fp),
-            expiration: expiration,
-            expirationCount: total(expiration),
+            kinds: kinds,
+            kindCounts: kindCounts,
+            orgCounts: orgCounts,
+            orgByKind: orgByKind,
             curves: sight.data.curves.map(function (curve) {
                 return {
                     model: curve.model,
@@ -2478,8 +2511,6 @@
                     }),
                 };
             }),
-            inRange: total(org.map(total)) + total(fp)
-                + total(expiration),
         };
         sight.rangeAt = stamp;
         return sight.range;
@@ -2606,22 +2637,17 @@
         var model = context.tooltip;
         var node = sightTipNode(chart.canvas.parentNode);
 
-        if (!model || model.opacity === 0) {
+        if (!model || model.opacity === 0
+            || !(model.dataPoints || []).length
+        ) {
             node.classList.remove('vp-tip-on');
             return;
         }
 
         var labels = (sight.data && sight.data.labels) || {};
+        var kindLabels = labels.kinds || {};
         var points = model.dataPoints || [];
-        var bars = [];
-        var lines = [];
-        points.forEach(function (point) {
-            if (point.dataset.type === 'line') {
-                lines.push(point);
-            } else {
-                bars.push(point);
-            }
-        });
+        var at = points.length ? points[0].dataIndex : null;
 
         node.textContent = '';
         var head = document.createElement('div');
@@ -2630,32 +2656,51 @@
         node.appendChild(head);
 
         /*
-         * The heading totals the column rather than the rows, because
-         * the rows are filtered: an organisation reporting nothing this
-         * week is not a row, and a column of nothing at all is still a
-         * `0` the reader asked for by pointing at it.
+         * One section per kind of report, so that every row in the
+         * readout says the same thing — a count and the organisation
+         * that filed it — and the heading says which kind. A single
+         * `Reports` list could not: the reporter was the row label for
+         * a sighting and there was no row label left for a false
+         * positive but the words `False positive` themselves.
+         *
+         * A kind with nothing in this column is not a section. Its
+         * heading totals the column rather than its own rows, because
+         * the rows are filtered — an organisation reporting nothing
+         * this week is not a row.
          */
-        var drawn = chart.data.datasets.filter(function (set) {
-            return set.type !== 'line';
-        });
-        if (drawn.length) {
-            var at = points.length ? points[0].dataIndex : null;
+        SIGHT_KINDS.forEach(function (kind) {
+            var rows = points.filter(function (point) {
+                return point.dataset.vpKind === kind;
+            });
             var total = 0;
             if (at !== null) {
-                drawn.forEach(function (set) {
-                    total += set.data[at] || 0;
+                chart.data.datasets.forEach(function (set) {
+                    if (set.vpKind === kind) {
+                        total += set.data[at] || 0;
+                    }
                 });
             }
-            var reports = sightTipSection(node, labels.reports || '', total);
-            bars.forEach(function (point) {
+            if (total === 0) {
+                return;
+            }
+            var section = sightTipSection(
+                node,
+                kindLabels[kind] || '',
+                total
+            );
+            rows.forEach(function (point) {
                 sightTipRow(
-                    reports,
+                    section,
                     point.dataset.backgroundColor,
                     point.parsed.y,
                     point.dataset.label
                 );
             });
-        }
+        });
+
+        var lines = points.filter(function (point) {
+            return point.dataset.type === 'line';
+        });
         if (lines.length) {
             var scores = sightTipSection(node, labels.score || '', null);
             lines.forEach(function (point) {
@@ -2685,8 +2730,43 @@
     }
 
     /**
-     * The overlay itself: one stacked bar dataset per organisation on
-     * the count axis and one line per decaying model on the score axis.
+     * The colour a segment of one kind takes. A sighting is the
+     * organisation's own hue; the two contradicting kinds are their own
+     * colour whoever filed them, because `this report argues against
+     * the value` is the thing the reader is scanning the stack for and
+     * the reporter is a row in the readout.
+     *
+     * @param {string} kind One of SIGHT_KINDS
+     * @param {number} i Position in `data.orgs`
+     * @return {string}
+     */
+    function sightKindHue(kind, i) {
+        if (kind === 'fp') {
+            return 'var(--vp-sight-fp)';
+        }
+        if (kind === 'expiration') {
+            return 'var(--vp-sight-exp)';
+        }
+        return sightHue(i, SIGHT_ORG_COLOURS, 'org');
+    }
+
+    /**
+     * The overlay itself: one stacked bar dataset per organisation per
+     * kind of report on the count axis, and one line per decaying model
+     * on the score axis.
+     *
+     * Three datasets per organisation rather than one each plus two
+     * pooled ones. Pooling meant a sighting had a reporter and a
+     * contradiction had none — the legend filed `False positive` under
+     * `Reported by` as though it were an organisation, and the readout
+     * listed it beside real ones. Now every count on this axis belongs
+     * to somebody, which is also what makes switching an organisation
+     * off take its contradictions with it.
+     *
+     * The kinds go in whole: every organisation's sightings, then every
+     * organisation's false positives, then the expirations. So the
+     * stack reads as three coloured blocks rather than interleaving red
+     * through the organisation hues.
      *
      * The thresholds used to be here too, as a dotted dataset each plus
      * an inline plugin that chipped their value over the plot. They are
@@ -2711,7 +2791,9 @@
          * A hairline of the page's own ground between stacked segments.
          * Without it a stack of three organisations with counts 1, 1, 1
          * is one bar in three tones, and the tones are what the reader
-         * is being asked to count.
+         * is being asked to count. It matters more now that two
+         * organisations' false positives sit on each other in the same
+         * red.
          */
         function segment(extra) {
             return Object.assign({
@@ -2725,32 +2807,33 @@
             }, extra);
         }
 
-        if (sight.shown.sighting) {
-            range.org.forEach(function (counts, i) {
-                if (sight.hiddenOrgs[i]) {
+        /*
+         * Three kinds by however many organisations is a lot of series
+         * that are entirely zero — twenty-three organisations would be
+         * sixty-nine datasets with perhaps twenty carrying anything, and
+         * most organisations never file a contradiction at all. A
+         * series with nothing in the drawn range is left out: it paints
+         * no pixel and, being filtered out of the readout anyway,
+         * contributes nothing but a dataset for Chart.js to walk. The
+         * bar hue is read off `i` rather than off the dataset's
+         * position, so leaving one out never moves a colour.
+         */
+        SIGHT_KINDS.forEach(function (kind) {
+            if (!sight.shown[kind]) {
+                return;
+            }
+            range.kinds[kind].forEach(function (counts, i) {
+                if (sight.hiddenOrgs[i] || !counts.some(Boolean)) {
                     return;
                 }
                 datasets.push(segment({
                     label: data.orgs[i],
+                    vpKind: kind,
                     data: counts,
-                    backgroundColor: sightHue(i, SIGHT_ORG_COLOURS, 'org'),
+                    backgroundColor: sightKindHue(kind, i),
                 }));
             });
-        }
-        if (sight.shown.fp) {
-            datasets.push(segment({
-                label: data.labels.falsePositive,
-                data: range.fp,
-                backgroundColor: 'var(--vp-sight-fp)',
-            }));
-        }
-        if (sight.shown.expiration) {
-            datasets.push(segment({
-                label: data.labels.expiration,
-                data: range.expiration,
-                backgroundColor: 'var(--vp-sight-exp)',
-            }));
-        }
+        });
 
         range.curves.forEach(function (curve, i) {
             var colour = sightHue(i, SIGHT_CURVE_COLOURS, 'curve');
@@ -2853,10 +2936,14 @@
      */
     function buildSightNav(el) {
         var range = sightRange();
+        // Every report of every kind, whatever the chart above is
+        // currently drawing: the navigator is the range, not the view.
         var totals = range.labels.map(function (label, i) {
-            var sum = range.fp[i] + range.expiration[i];
-            range.org.forEach(function (counts) {
-                sum += counts[i];
+            var sum = 0;
+            SIGHT_KINDS.forEach(function (kind) {
+                range.kinds[kind].forEach(function (counts) {
+                    sum += counts[i];
+                });
             });
             return sum;
         });
@@ -2894,29 +2981,48 @@
      */
     function updateSightLegend(panel) {
         var range = sightRange();
+        var labels = sight.data.labels;
         panel.querySelectorAll('[data-vp-sight-key-org]')
             .forEach(function (key) {
                 var i = parseInt(key.dataset.vpSightKeyOrg, 10);
                 setText(key, '[data-vp-sight-key-count]', range.orgCounts[i]);
                 /*
+                 * Every report the organisation filed in the range, of
+                 * any kind — the heading over these keys says `Reported
+                 * by` and a contradiction is a report. The `title`
+                 * carries the split, because the swatch is only the
+                 * colour of the sightings among them.
+                 */
+                var per = range.orgByKind[i];
+                var counted = labels.kindCounted || {};
+                key.title = SIGHT_KINDS.filter(function (kind) {
+                    return per[kind] > 0;
+                }).map(function (kind) {
+                    var forms = counted[kind] || [kind, kind];
+                    return per[kind] + ' '
+                        + forms[per[kind] === 1 ? 0 : 1];
+                }).join(' · ');
+                /*
                  * The count is the range's and stays put whether or not
-                 * the bar is drawn: switching an organisation off asks
+                 * the bars are drawn: switching an organisation off asks
                  * the chart a question, not the data.
                  */
                 key.setAttribute(
                     'aria-pressed',
                     sight.hiddenOrgs[i] ? 'false' : 'true'
                 );
-                // Nothing to take out of the chart while the whole
-                // sighting type is switched off above.
-                key.disabled = !sight.shown.sighting;
+                // Nothing left to take out while every kind is switched
+                // off above.
+                key.disabled = !SIGHT_KINDS.some(function (kind) {
+                    return sight.shown[kind];
+                });
             });
-        setText(panel, '[data-vp-sight-key-fp]', range.fpCount);
-        setText(panel, '[data-vp-sight-key-exp]', range.expirationCount);
+        setText(panel, '[data-vp-sight-key-fp]', range.kindCounts.fp);
+        setText(panel, '[data-vp-sight-key-exp]', range.kindCounts.expiration);
 
         var axis = panel.querySelector('[data-vp-sight-axis-left]');
         if (axis) {
-            axis.textContent = sight.data.labels.perUnit[range.unit];
+            axis.textContent = labels.perUnit[range.unit];
         }
     }
 
