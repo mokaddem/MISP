@@ -45,19 +45,19 @@ here exists to make each of those a local change.
 ### 1.4 Where this stands
 
 **Read this first.** §1.2 describes the original skeleton pass; the document has
-since grown to twenty-three phases and this subsection is the current state.
+since grown to twenty-four phases and this subsection is the current state.
 
 Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
 endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
 render their own content; nothing on the page is a placeholder.
 
-**Phases 22 and 23 started the live campaign.** The Occurrences and Sightings
-tabs now read the database; the other seven tabs still read the fixture, so the
-two regimes sit side by side until the campaign finishes. **Nothing writes**, on
-either side. `live/00-contract.md` §14.12 is the panel-level record — seven of
-twenty-seven endpoints have moved.
+**Phases 22, 23 and 24 are the live campaign so far.** The Occurrences,
+Sightings and Relationships tabs now read the database; the other six tabs still
+read the fixture, so the two regimes sit side by side until the campaign
+finishes. **Nothing writes**, on either side. `live/00-contract.md` §14.12 is
+the panel-level record — twelve of twenty-seven endpoints have moved.
 
-The seventh is on a tab whose phase has not run: the **Overview's**
+One of the twelve is on a tab whose phase has not run: the **Overview's**
 `value_sightings` card was converted with phase 23's follow-ups, because it is
 built from that phase's own `sightingContext` and because a card and a tab on
 one page that could disagree about the same value is worse than a tab converted
@@ -70,8 +70,11 @@ fixture call, so each conversion leaves a number in the frame contradicting the
 panel it names. Two badges were caught doing it and were corrected on
 2026-08-28 — Occurrences now carries the viewer's real count and Sightings
 carries none, for reasons `live/00-contract.md` §14.10 records along with the
-condition for putting a number back. The other four badges still read literals,
-and each becomes wrong the day its tab is converted.
+condition for putting a number back. **Relationships joined them in phase 24**
+and took the third answer: not a corrected number and not an expensive one, but
+none at all, because the fixture's badge counted *correlations* and the live tab
+no longer claims any (`live/24-relationships.md` §3). The other three badges
+still read literals, and each becomes wrong the day its tab is converted.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
@@ -101,6 +104,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | — | Going live: the wiring contract | `live/00-contract.md` (§14) | the contract; §14.12's board says which panels have moved |
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
 | 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built |
+| 24 | Relationships goes live — all five panels, and the rail's graph made real | `live/24-relationships.md` | built |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
@@ -115,8 +119,8 @@ goes first argues why in its own document.
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine. One card is already done: `value_sightings`, converted with phase 23's follow-ups |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
-| 22+ | Sightings | — | not started |
-| 22+ | Relationships | — | not started |
+| **23** | **Sightings** | [`live/23-sightings.md`](value-profile-live/23-sightings.md) | **built** — all five panels, plus the Overview's `value_sightings` card. Closed the decay aggregation rule §14.5 had left open (§5) and found §14.6's exception has a second member (§7). **A clean `no` on all three concepts**, argued in §11.5 |
+| **24** | **Relationships** | [`live/24-relationships.md`](value-profile-live/24-relationships.md) | **built** — all five panels, and the rail's graph is now real (§10). Found that **the correlation engine has nothing to say about a value** and that section one has to be an event join (§3). All three concepts **deferred with reasons** (§14); feed co-occurrence is the one piece of real upside left |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
 | 22+ | Analyst data | — | not started |
 | 22+ | Timeline | — | not started |

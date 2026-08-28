@@ -442,3 +442,51 @@ proves it: the object join and the analyst relationships both return rows. The
 live implementation must keep firing `viewRelationNearMatch` and
 `viewRelationAsserted` for a suppressed value, and must keep the sibling join
 inside `viewRelationCooccurrence` outside whatever short-circuits the band.
+
+---
+
+## 18. What the live phase found
+
+**Phase 24 converted all five panels**, and it is written up in
+[`../value-profile-live/24-relationships.md`](../value-profile-live/24-relationships.md).
+Four things in this document are now known to be wrong, and they are left
+in place above rather than edited, because the reasoning that produced
+them is worth reading beside the correction.
+
+**§6's provenance word.** Section one is not correlation-engine output
+and cannot be. A `default_correlations` row links two attributes that
+carry the *same* value, so for one value the engine returns other
+occurrences of it — the Occurrences tab — plus its CIDR and ssdeep
+partners, which are section two. It never returns a third value. §6's own
+column list is what describes something real, and it describes an **event
+join**: the other attributes in the events this value occurs in. The
+sub-line now reads `shared events` rather than `correlation engine`;
+`Machine-derived` stands. `24-relationships.md` §3.
+
+**§10's suppressed state.** Keyed on the correlation limit here, and the
+limit no longer governs anything on the tab. The band now fires when
+**every event the value appears in is too large to read** — measured:
+the largest event on the verification instance holds 843,976 attributes,
+and in an event that size every value co-occurs with every other. §17's
+demand survives intact and was verified: the sibling sub-section still
+lists rows *under* the band.
+
+**§17's *"`GROUP BY` per facet key alongside the paged `SELECT`"*.** The
+shape live is one bounded scan folded once — the facet counts and the
+rows come out of the same fold, and they can, because the scope is
+chosen and stated before anything is read. What §17 was protecting
+against is real and is still avoided: the counts are not a tally of the
+page. `24-relationships.md` §4 and §5.1.
+
+**§12's *"no value-centred graph feed exists"*.** There is one now, and
+the rail draws a real graph with pivotick rather than a sketch. *Open the
+full graph* is no longer disabled — the one control on this page whose
+reason for being disabled went away rather than being deferred again.
+`24-relationships.md` §10. The static sketch stays in the markup as the
+fallback.
+
+**And one thing this document did not know it had.** The `Distribution`
+and `Tag` facet dropdowns have been rendering blank labels since this
+phase shipped: `value_facet_group` draws `html` where a caller supplies
+one and the bare `label` otherwise, and neither facet has a label. Fixed
+in phase 24.

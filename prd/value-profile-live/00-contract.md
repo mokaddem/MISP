@@ -513,22 +513,22 @@ document that filled it.
 | Sightings | `viewSightingDecay` | `value_sighting_decay` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
 | Sightings | `viewSightingReporters` | `value_sighting_reporters` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Sightings | `viewSightingAdd` | `value_sighting_add` | 1 | nothing | 2 | **23** |
-| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | — | — | — | — |
-| Relationships | `viewRelationNearMatch` | `value_relation_near_match` | — | — | — | — |
-| Relationships | `viewRelationAsserted` | `value_relation_asserted` | — | — | — | — |
-| Relationships | `viewRelationGraph` | `value_relation_graph` | — | — | — | — |
-| Relationships | `viewRelationSettings` | `value_relation_settings` | — | — | — | — |
+| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 16 | decorations, not the value's size | 1, four aggregates at 2 | **24** |
+| Relationships | `viewRelationNearMatch` | `value_relation_near_match` | 3 | nothing | 1 | **24** |
+| Relationships | `viewRelationAsserted` | `value_relation_asserted` | 13 | **rows returned** — one fetch per claim | 1 | **24** |
+| Relationships | `viewRelationGraph` | `value_relation_graph` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
+| Relationships | `viewRelationSettings` | `value_relation_settings` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
 | Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
 | Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Seven rows are filled; the rest are `—` because nothing else is wired. A row
+Twelve rows are filled; the rest are `—` because nothing else is wired. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
-**One of the seven is on a tab whose phase has not run.** `viewSightings` is
+**One of the twelve is on a tab whose phase has not run.** `viewSightings` is
 the Overview's sightings card, converted after phase 23 because it is made of
 that phase's `sightingContext` and because leaving it meant a card and a tab on
 one page that could disagree about the same value. It is filled against **23**,
@@ -560,6 +560,19 @@ The Overview's card is 13, which is the same ceiling as the two Sightings
 panels that do no decay work — it shares their `sightingContext` and adds one
 in-memory fold. A panel converted by reusing another's context costs what that
 context costs, and nothing more.
+
+For Relationships: 16 on `8.8.8.8`, a 23-occurrence value, against 14 on
+`443`'s 48,255 — so **the count scales with how many decorations a
+neighbourhood needs and not with the value's size**, and the time scales with
+one number the panel prints rather than with the data (§4 of
+`24-relationships.md`). Two of its rows break a pattern the board had held
+until now. `value_relation_asserted` is the first row whose count grows **per
+row returned** — 4 queries at zero claims and 13 at six — and the growth is
+not this feature's: `Relationship::afterFind` resolves each row's far end with
+its own ACL'd fetch whether the caller wants it or not. And the two rail cards
+are 37 apiece because each of them needs the whole tab's arithmetic and so runs
+all three sections; that is the first place on this page where a repeat is of
+something expensive, and it is §14.11's first named customer.
 
 **Four rows are blocked rather than unstarted**, and they are not all on the
 Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
@@ -602,6 +615,7 @@ its decisions and deferrals live; this is only the map.
 |---|---|---|---|
 | 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
 | 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
+| 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | built |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
@@ -747,3 +761,60 @@ expect:
   **Whoever converts a tab next: check its badge.** Relationships, Enrichment
   and Analyst are each carrying a fixture literal that will start lying the day
   their panels stop doing so.
+
+**What phase 24 leaves behind.** One new file every later phase inherits —
+`app/Lib/Tools/ValueRelationTool.php` — plus six accessors on `Value`, one new
+public method on `Correlation`, and eight findings that change what a later
+phase should expect:
+
+- **The correlation engine has nothing to say about a value.** A
+  `default_correlations` row links two attributes carrying the *same* value, so
+  for one value the engine returns other occurrences of it — which is the
+  Occurrences tab — plus its CIDR and ssdeep partners. It never returns a third
+  value. Any later panel that expects the correlation table to describe what a
+  value is *related to* will find it describes where the value already is.
+  `24-relationships.md` §3.
+- **Choosing which rows to read is cheaper than reading the wrong ones.** The
+  pattern this phase leaves is: one grouped aggregate to enumerate the candidate
+  scope, one index-only `COUNT` to size it, then read what survives a stated
+  budget. Measured on `8.8.8.8`: 61 ms to size 19 events, against the 4.77
+  seconds the sizing then avoided. Any panel whose scope is *"everything in the
+  events this value touches"* needs it — an event on the verification instance
+  holds 843,976 attributes. §4.
+- **A tier-2 aggregate may legitimately apply no ACL.** §14.4's tier table does
+  not have vocabulary for this and should: the event-size query is unscoped
+  because its answer never reaches the page — it only decides which events the
+  ACL'd fetch then reads. The rule the case suggests is *an unscoped aggregate is
+  tier 2 when its result is a decision rather than a datum*.
+- **A `find` on `Relationship` is one ACL'd fetch per row**, and a fatal outside
+  a web request. `Relationship::afterFind` resolves every row's far end through
+  `getRelatedElement`, using `Configure::read('CurrentUserId')` — set by
+  `AppController::beforeFilter` and nothing else, so a console or worker caller
+  passes `null` to a typed `array` parameter. Measured: 6 claims cost 13 queries,
+  0 claims cost 4. §9.2.
+- **`AnalystData::rearrangeOrganisation` nests its result and re-queries when
+  the association is absent.** A contained `Orgc` is moved to
+  `$row['<Alias>']['Orgc']` and the top-level key unset, so the obvious read
+  finds nothing and every row silently reports *Unknown organisation*; and when
+  `Org`/`Orgc` are *not* contained it issues one `Organisation` find per row for
+  each. Contain both. §9.3.
+- **`over_correlating_values.occurrence` is zero on every row.** 1,622 rows on
+  the verification instance. It is filled by a separate router job, and it is
+  instance-wide anyway — so §14.6 forbids printing it even when it is populated.
+  §9.1.
+- **`fuzzy_correlate_ssdeep` can be empty while the extension is loaded.** 1,387
+  `ssdeep` attributes, zero index rows. A panel narrowing candidates through
+  MISP's own index would report *no match* for *no index*. §9.4.
+- **A shipped JS library is not the documented one.** The pivotick build in
+  `app/webroot/js` predates its current API in four ways that all fail silently
+  — an unread flat `style`, ignored style callbacks, a shape name that throws
+  inside the renderer, and an empty-string label that falls back to the data.
+  Read the bundle, not the docs, and verify in a browser. §10.2.
+
+  Two of those are the library behaving correctly and the caller having to know,
+  and both generalise: **a container at `display: none` is 0×0**, so anything
+  that sizes its viewport from the element must be constructed after the reveal;
+  and **`loadAjaxContainer` re-creates every script the fragment brings without
+  copying its `type`**, so a `<script type="application/json">` data block is
+  appended to `<head>` as executable JavaScript and throws. Put the data in the
+  script that reads it. §10.3.
