@@ -463,296 +463,6 @@ $headerSub = ob_get_clean();
             </div>
         </div>
 
-    <?php else: ?>
-
-        <div class="vp-rel-cap">
-            <i class="fas fa-filter"></i>
-            <span>
-                <?php if ($co['distinct_values'] > count($valueRows)): ?>
-                    <?= sprintf(
-                        __(
-                            '%1$s, ranked by shared events. The facet'
-                            . ' counts below stay exact at %2$s: they'
-                            . ' are folded from every row read, not'
-                            . ' tallied from the page.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __('%1$s of %2$s distinct values are carried'),
-                            number_format(count($valueRows)),
-                            number_format($co['distinct_values'])
-                        )) . '</strong>',
-                        h(number_format($co['distinct_values']))
-                    ) ?>
-                <?php else: ?>
-                    <?= sprintf(
-                        __(
-                            '%1$s. Nothing here is ranked away — the'
-                            . ' cut below is on which events were read,'
-                            . ' not on which values survived.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __('All %d distinct values are listed'),
-                            $co['distinct_values']
-                        )) . '</strong>'
-                    ) ?>
-                <?php endif; ?>
-            </span>
-        </div>
-
-        <?php if ($scanned): ?>
-            <?php
-            /*
-             * The cut this section is made of, in words. Every count
-             * above is exact over the events named here and over no
-             * others, and a reader who is not told which events were
-             * read has no way to judge a neighbour list at all.
-             *
-             * §14.6 keeps cap notices: a cap is not a permission. None
-             * of these numbers says anything about rows the reader may
-             * not see — an oversized event is oversized for everybody.
-             */
-            ?>
-            <div class="vp-rel-cap">
-                <i class="fas fa-circle-info"></i>
-                <span>
-                    <?= sprintf(
-                        __(
-                            'Read from %1$s, newest first, within a'
-                            . ' budget of %2$s attribute rows — %3$s'
-                            . ' read.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __n(
-                                'the one event this value is in',
-                                '%1$d of this value\'s %2$d events',
-                                $scan['events_seen'],
-                                $scan['events_read'],
-                                $scan['events_seen']
-                            )
-                        )) . '</strong>',
-                        h(number_format($scan['budget'])),
-                        h(__n(
-                            '%s row',
-                            '%s rows',
-                            $scan['rows_read'],
-                            number_format($scan['rows_read'])
-                        ))
-                    ) ?>
-                    <?php if (!empty($scan['events_oversized'])): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%1$d event was left out for holding'
-                                    . ' more than %2$s attributes,'
-                                    . ' where co-occurrence describes'
-                                    . ' the event rather than the value.',
-                                '%1$d events were left out for holding'
-                                    . ' more than %2$s attributes each,'
-                                    . ' where co-occurrence describes'
-                                    . ' the event rather than the value.',
-                                $scan['events_oversized'],
-                                $scan['events_oversized'],
-                                number_format($scan['size_cap'])
-                            )
-                        )) ?>
-                    <?php endif; ?>
-                    <?php if (!empty($scan['events_unread'])): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%d further event fell outside the'
-                                    . ' budget.',
-                                '%d further events fell outside the'
-                                    . ' budget.',
-                                $scan['events_unread'],
-                                $scan['events_unread']
-                            )
-                        )) ?>
-                    <?php endif; ?>
-                </span>
-            </div>
-        <?php endif; ?>
-
-        <?php
-        /*
-         * The narrowing block belongs to the value roll-up and says so
-         * when it is not showing. A facet on `type` is a property of a
-         * correlated value; an event row is not a value, and narrowing
-         * it by the type of one would be a filter that means nothing.
-         */
-        ?>
-        <div data-vp-group-only="value">
-
-            <div class="p-3 border-bottom d-flex flex-wrap gap-2
-                        align-items-center">
-                <div class="input-group input-group-sm" style="width: 15rem">
-                    <span class="input-group-text">
-                        <i class="fas fa-magnifying-glass"></i>
-                    </span>
-                    <input type="text" class="form-control"
-                           data-vp-filter-text
-                           aria-label="<?= __('Search the listed values') ?>"
-                           placeholder="<?= h(__('Search value')) ?>">
-                </div>
-
-                <?php
-                $selects = array(
-                    array('key' => 'type', 'any' => __('Any type'),
-                        'rows' => $facets['type']),
-                    array('key' => 'organisation',
-                        'any' => __('Any organisation'),
-                        'rows' => $facets['organisation']),
-                    array('key' => 'event', 'any' => __('Any event'),
-                        'rows' => $facets['event']),
-                );
-                ?>
-                <select class="form-select form-select-sm w-auto"
-                        data-vp-filter-key="category"
-                        aria-label="<?= __('Category') ?>">
-                    <option value=""><?= __('Any category') ?></option>
-                    <?php foreach ($co['categories'] as $category): ?>
-                        <option value="<?= h($slug($category)) ?>">
-                            <?= h($category) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <?php foreach ($selects as $select): ?>
-                    <select class="form-select form-select-sm w-auto"
-                            data-vp-filter-key="<?= h($select['key']) ?>"
-                            aria-label="<?= h($select['any']) ?>">
-                        <option value=""><?= h($select['any']) ?></option>
-                        <?php foreach ($select['rows'] as $facet): ?>
-                            <option value="<?= h($facet['value']) ?>">
-                                <?= h($facet['label']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                <?php endforeach; ?>
-
-                <div class="input-group input-group-sm" style="width: 12rem">
-                    <span class="input-group-text">
-                        <?= __('Shared events') ?> &ge;
-                    </span>
-                    <input type="number" class="form-control" min="1"
-                           value="1" data-vp-filter-min="shared"
-                           aria-label="<?= __('Minimum shared events') ?>">
-                </div>
-
-                <div class="form-check form-switch mb-0 ms-1">
-                    <input class="form-check-input" type="checkbox"
-                           role="switch" id="vp-rel-siblings-only"
-                           data-vp-facet-key="sibling" value="yes">
-                    <label class="form-check-label small text-muted"
-                           for="vp-rel-siblings-only">
-                        <?= __('Object siblings only') ?>
-                    </label>
-                </div>
-
-                <?php
-                /*
-                 * "No filter applied" and "3 filters" are one line in
-                 * two states rather than two lines, so the reader's eye
-                 * does not have to move when the first control is set.
-                 * It counts every narrowing control — a select and a
-                 * threshold narrow the table exactly as a ticked facet
-                 * does, and a count that ignored them would let the
-                 * panel claim nothing was applied while three were.
-                 */
-                ?>
-                <span class="small text-muted ms-auto"
-                      data-vp-facet-summary>
-                    <span class="vp-facet-summary-none">
-                        <?= __('No filter applied') ?>
-                    </span>
-                    <span class="vp-facet-summary-some">
-                        <span data-vp-facet-count-active>0</span>
-                        <?= __('filters') ?>
-                        &middot;
-                        <span data-vp-facet-rows><?=
-                            h(count($valueRows)) ?></span>
-                        <?= __('rows') ?>
-                    </span>
-                </span>
-
-                <button type="button" class="btn btn-sm btn-link"
-                        data-vp-facet-clear disabled>
-                    <?= __('Reset') ?>
-                </button>
-            </div>
-
-            <div class="p-3 border-bottom d-flex flex-wrap gap-2
-                        align-items-center">
-                <span class="vp-subhead mb-0 me-1"><?= __('Narrow by') ?></span>
-
-                <?php foreach ($facetGroups as $group): ?>
-                    <?php if (empty($facets[$group['key']])) {
-                        continue;
-                    } ?>
-                    <div class="dropdown">
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary
-                                       dropdown-toggle vp-rel-facet"
-                                data-bs-toggle="dropdown"
-                                data-bs-auto-close="outside"
-                                aria-expanded="false">
-                            <?= h($group['title']) ?>
-                            <span class="badge text-bg-secondary ms-1">
-                                <?= h(count($facets[$group['key']])) ?>
-                            </span>
-                        </button>
-                        <div class="dropdown-menu vp-rel-facetmenu p-2">
-                            <?= $this->element(
-                                'Values/View/value_facet_group',
-                                array(
-                                    'key' => $group['key'],
-                                    'title' => $group['title'],
-                                    'icon' => $group['icon'],
-                                    'values' => $facets[$group['key']],
-                                )
-                            ) ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-
-                <span class="small text-muted ms-2 vp-min-w-0">
-                    <?= $scanned ? sprintf(
-                        __(
-                            'Facet counts are exact at every count —'
-                            . ' they are folded from %s, not from the'
-                            . ' page. A count larger than the table can'
-                            . ' show means the value it names is outside'
-                            . ' the %s carried.'
-                        ),
-                        '<span class="font-monospace">'
-                            . h(sprintf(
-                                __('all %s rows read'),
-                                number_format($scan['rows_read'])
-                            )) . '</span>',
-                        '<span class="font-monospace">'
-                            . h(number_format(count($valueRows)))
-                            . '</span>'
-                    ) : sprintf(
-                        __(
-                            'Facet counts are exact at every count —'
-                            . ' they are a %s over the whole scope, not'
-                            . ' a count of the page.'
-                        ),
-                        '<span class="font-monospace">GROUP BY</span>'
-                    ) ?>
-                </span>
-            </div>
-
-        </div>
-
-        <div class="vp-rel-cap d-none" data-vp-group-not="value">
-            <i class="fas fa-circle-info"></i>
-            <span>
-                <?= __('Narrowing applies to the value roll-up. A facet'
-                    . ' like Type is a property of a correlated value;'
-                    . ' an event row is not a value, and filtering one'
-                    . ' by the type of the other would be a control that'
-                    . ' means nothing.') ?>
-            </span>
-        </div>
-
     <?php endif; ?>
 
     <?php if (!empty($siblings['rows'])): ?>
@@ -1115,18 +825,343 @@ $headerSub = ob_get_clean();
 
     <?php if ($hasRows): ?>
 
+        <?php
+        /*
+         * The ranked table's heading, hoisted out of its roll-up pane so
+         * that everything governing this table — the two cap notices,
+         * the filter row and the counted bar — sits between this line
+         * and the rows, and nothing governing it sits above the sibling
+         * section. All four used to open the panel, which put them
+         * above a table they say nothing about; a reader could only
+         * learn which of the three narrowing controls reached which of
+         * the two tables by trying them.
+         *
+         * Outside `[data-vp-list-rows]`, and that is load-bearing: the
+         * row host is hidden when a filter empties the table, and a
+         * control inside it would take the reader's only way back out
+         * with it.
+         */
+        ?>
+        <div data-vp-group-only="value">
+            <div class="px-3 pt-3 mt-2 border-top">
+                <div class="vp-subhead d-flex align-items-center gap-2">
+                    <i class="fas fa-link"></i>
+                    <?= __('Values that appear in the same events') ?>
+                    <span class="badge text-bg-secondary">
+                        <?= h(number_format($co['distinct_values'])) ?>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!$co['suppressed']): ?>
+
+        <?php
+        /*
+         * Counts distinct *values* and promises the facet counts below
+         * are exact, so it goes away with the roll-up those two belong
+         * to. It always showed, which was survivable while it sat at
+         * the top of the panel and only wrong once it moved down to
+         * where the event table can be the thing underneath it.
+         *
+         * The scan line below is not gated: what the scan read is the
+         * same however the rows are rolled up.
+         */
+        ?>
+        <div class="vp-rel-cap" data-vp-group-only="value">
+            <i class="fas fa-filter"></i>
+            <span>
+                <?php if ($co['distinct_values'] > count($valueRows)): ?>
+                    <?= sprintf(
+                        __(
+                            '%1$s, ranked by shared events. The facet'
+                            . ' counts below stay exact at %2$s: they'
+                            . ' are folded from every row read, not'
+                            . ' tallied from the page.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __('%1$s of %2$s distinct values are carried'),
+                            number_format(count($valueRows)),
+                            number_format($co['distinct_values'])
+                        )) . '</strong>',
+                        h(number_format($co['distinct_values']))
+                    ) ?>
+                <?php else: ?>
+                    <?= sprintf(
+                        __(
+                            '%1$s. Nothing here is ranked away — the'
+                            . ' cut below is on which events were read,'
+                            . ' not on which values survived.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __('All %d distinct values are listed'),
+                            $co['distinct_values']
+                        )) . '</strong>'
+                    ) ?>
+                <?php endif; ?>
+            </span>
+        </div>
+
+        <?php if ($scanned): ?>
+            <?php
+            /*
+             * The cut this section is made of, in words. Every count
+             * above is exact over the events named here and over no
+             * others, and a reader who is not told which events were
+             * read has no way to judge a neighbour list at all.
+             *
+             * §14.6 keeps cap notices: a cap is not a permission. None
+             * of these numbers says anything about rows the reader may
+             * not see — an oversized event is oversized for everybody.
+             */
+            ?>
+            <div class="vp-rel-cap">
+                <i class="fas fa-circle-info"></i>
+                <span>
+                    <?= sprintf(
+                        __(
+                            'Read from %1$s, newest first, within a'
+                            . ' budget of %2$s attribute rows — %3$s'
+                            . ' read.'
+                        ),
+                        '<strong>' . h(sprintf(
+                            __n(
+                                'the one event this value is in',
+                                '%1$d of this value\'s %2$d events',
+                                $scan['events_seen'],
+                                $scan['events_read'],
+                                $scan['events_seen']
+                            )
+                        )) . '</strong>',
+                        h(number_format($scan['budget'])),
+                        h(__n(
+                            '%s row',
+                            '%s rows',
+                            $scan['rows_read'],
+                            number_format($scan['rows_read'])
+                        ))
+                    ) ?>
+                    <?php if (!empty($scan['events_oversized'])): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%1$d event was left out for holding'
+                                    . ' more than %2$s attributes,'
+                                    . ' where co-occurrence describes'
+                                    . ' the event rather than the value.',
+                                '%1$d events were left out for holding'
+                                    . ' more than %2$s attributes each,'
+                                    . ' where co-occurrence describes'
+                                    . ' the event rather than the value.',
+                                $scan['events_oversized'],
+                                $scan['events_oversized'],
+                                number_format($scan['size_cap'])
+                            )
+                        )) ?>
+                    <?php endif; ?>
+                    <?php if (!empty($scan['events_unread'])): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%d further event fell outside the'
+                                    . ' budget.',
+                                '%d further events fell outside the'
+                                    . ' budget.',
+                                $scan['events_unread'],
+                                $scan['events_unread']
+                            )
+                        )) ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+        <?php endif; ?>
+
+        <?php
+        /*
+         * The narrowing block belongs to the value roll-up and says so
+         * when it is not showing. A facet on `type` is a property of a
+         * correlated value; an event row is not a value, and narrowing
+         * it by the type of one would be a filter that means nothing.
+         */
+        ?>
+        <div data-vp-group-only="value">
+
+            <div class="p-3 border-bottom d-flex flex-wrap gap-2
+                        align-items-center">
+                <div class="input-group input-group-sm" style="width: 15rem">
+                    <span class="input-group-text">
+                        <i class="fas fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" class="form-control"
+                           data-vp-filter-text
+                           aria-label="<?= __('Search the listed values') ?>"
+                           placeholder="<?= h(__('Search value')) ?>">
+                </div>
+
+                <?php
+                $selects = array(
+                    array('key' => 'type', 'any' => __('Any type'),
+                        'rows' => $facets['type']),
+                    array('key' => 'organisation',
+                        'any' => __('Any organisation'),
+                        'rows' => $facets['organisation']),
+                    array('key' => 'event', 'any' => __('Any event'),
+                        'rows' => $facets['event']),
+                );
+                ?>
+                <select class="form-select form-select-sm w-auto"
+                        data-vp-filter-key="category"
+                        aria-label="<?= __('Category') ?>">
+                    <option value=""><?= __('Any category') ?></option>
+                    <?php foreach ($co['categories'] as $category): ?>
+                        <option value="<?= h($slug($category)) ?>">
+                            <?= h($category) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php foreach ($selects as $select): ?>
+                    <select class="form-select form-select-sm w-auto"
+                            data-vp-filter-key="<?= h($select['key']) ?>"
+                            aria-label="<?= h($select['any']) ?>">
+                        <option value=""><?= h($select['any']) ?></option>
+                        <?php foreach ($select['rows'] as $facet): ?>
+                            <option value="<?= h($facet['value']) ?>">
+                                <?= h($facet['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endforeach; ?>
+
+                <div class="input-group input-group-sm" style="width: 12rem">
+                    <span class="input-group-text">
+                        <?= __('Shared events') ?> &ge;
+                    </span>
+                    <input type="number" class="form-control" min="1"
+                           value="1" data-vp-filter-min="shared"
+                           aria-label="<?= __('Minimum shared events') ?>">
+                </div>
+
+                <div class="form-check form-switch mb-0 ms-1">
+                    <input class="form-check-input" type="checkbox"
+                           role="switch" id="vp-rel-siblings-only"
+                           data-vp-facet-key="sibling" value="yes">
+                    <label class="form-check-label small text-muted"
+                           for="vp-rel-siblings-only">
+                        <?= __('Object siblings only') ?>
+                    </label>
+                </div>
+
+                <?php
+                /*
+                 * "No filter applied" and "3 filters" are one line in
+                 * two states rather than two lines, so the reader's eye
+                 * does not have to move when the first control is set.
+                 * It counts every narrowing control — a select and a
+                 * threshold narrow the table exactly as a ticked facet
+                 * does, and a count that ignored them would let the
+                 * panel claim nothing was applied while three were.
+                 */
+                ?>
+                <span class="small text-muted ms-auto"
+                      data-vp-facet-summary>
+                    <span class="vp-facet-summary-none">
+                        <?= __('No filter applied') ?>
+                    </span>
+                    <span class="vp-facet-summary-some">
+                        <span data-vp-facet-count-active>0</span>
+                        <?= __('filters') ?>
+                        &middot;
+                        <span data-vp-facet-rows><?=
+                            h(count($valueRows)) ?></span>
+                        <?= __('rows') ?>
+                    </span>
+                </span>
+
+                <button type="button" class="btn btn-sm btn-link"
+                        data-vp-facet-clear disabled>
+                    <?= __('Reset') ?>
+                </button>
+            </div>
+
+            <div class="p-3 border-bottom d-flex flex-wrap gap-2
+                        align-items-center">
+                <span class="vp-subhead mb-0 me-1"><?= __('Narrow by') ?></span>
+
+                <?php foreach ($facetGroups as $group): ?>
+                    <?php if (empty($facets[$group['key']])) {
+                        continue;
+                    } ?>
+                    <div class="dropdown">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary
+                                       dropdown-toggle vp-rel-facet"
+                                data-bs-toggle="dropdown"
+                                data-bs-auto-close="outside"
+                                aria-expanded="false">
+                            <?= h($group['title']) ?>
+                            <span class="badge text-bg-secondary ms-1">
+                                <?= h(count($facets[$group['key']])) ?>
+                            </span>
+                        </button>
+                        <div class="dropdown-menu vp-rel-facetmenu p-2">
+                            <?= $this->element(
+                                'Values/View/value_facet_group',
+                                array(
+                                    'key' => $group['key'],
+                                    'title' => $group['title'],
+                                    'icon' => $group['icon'],
+                                    'values' => $facets[$group['key']],
+                                )
+                            ) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <span class="small text-muted ms-2 vp-min-w-0">
+                    <?= $scanned ? sprintf(
+                        __(
+                            'Facet counts are exact at every count —'
+                            . ' they are folded from %s, not from the'
+                            . ' page. A count larger than the table can'
+                            . ' show means the value it names is outside'
+                            . ' the %s carried.'
+                        ),
+                        '<span class="font-monospace">'
+                            . h(sprintf(
+                                __('all %s rows read'),
+                                number_format($scan['rows_read'])
+                            )) . '</span>',
+                        '<span class="font-monospace">'
+                            . h(number_format(count($valueRows)))
+                            . '</span>'
+                    ) : sprintf(
+                        __(
+                            'Facet counts are exact at every count —'
+                            . ' they are a %s over the whole scope, not'
+                            . ' a count of the page.'
+                        ),
+                        '<span class="font-monospace">GROUP BY</span>'
+                    ) ?>
+                </span>
+            </div>
+
+        </div>
+
+        <div class="vp-rel-cap d-none" data-vp-group-not="value">
+            <i class="fas fa-circle-info"></i>
+            <span>
+                <?= __('Narrowing applies to the value roll-up. A facet'
+                    . ' like Type is a property of a correlated value;'
+                    . ' an event row is not a value, and filtering one'
+                    . ' by the type of the other would be a control that'
+                    . ' means nothing.') ?>
+            </span>
+        </div>
+
+
+        <?php endif; ?>
+
         <div data-vp-list-rows>
 
             <div data-vp-group-pane="value">
-                <div class="px-3 pt-3 mt-2 border-top">
-                    <div class="vp-subhead d-flex align-items-center gap-2">
-                        <i class="fas fa-link"></i>
-                        <?= __('Values that appear in the same events') ?>
-                        <span class="badge text-bg-secondary">
-                            <?= h(number_format($co['distinct_values'])) ?>
-                        </span>
-                    </div>
-                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover vp-table
                                   align-middle mb-0">
