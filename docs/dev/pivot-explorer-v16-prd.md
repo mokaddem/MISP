@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D1–D4, D6, D7 await sign-off; D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D2, D3, D4, D6, D7 await sign-off; D1, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 — see §5 for what was settled and what changed as a result
@@ -22,11 +22,17 @@ event** — it is an **exploration surface seeded by the event's authored relati
 on demand**. Three consequences drive the whole design:
 
 1. **One implementation, not two.** Editing and exploring are modes of one graph, not two
-   graphs. Whether you may write is decided by *what you clicked*, not which page you are on.
-2. **The seed is what humans authored** — object references and analyst relationships. These are
-   bounded in practice (§3.5) and need no cap.
-3. **Correlations load on demand.** They are the most numerous relationship by far, and are
-   fetched when asked for rather than shipped in the opening payload.
+   graphs. Whether you may write is decided by *what you clicked*, not which page you are on
+   (D8).
+2. **The graph has resolution levels**, and the seed takes the highest that fits a 1,500-node
+   budget: correlated-event proxies, then authored relationships (uncapped — bounded in practice
+   at 2,362 edges), then relationship-less objects as containment-only clusters (D5′, D10, D12).
+   A behemoth event is not a special case; it is an event that only affords the lower levels.
+3. **Per-attribute correlations load on demand** (D9) — the most numerous relationship by far, and
+   the aggregate that replaces them at low resolution (`RelatedEvent`) is already in the payload.
+4. **Five edge kinds on two dimensions** (D1): how an edge came to exist (`kind` — reference,
+   analyst assertion, correlation, feed, server) and what it asserts (`relationship_type`, ~143
+   values). Feed and server correlations bring `feed`/`server` nodes onto the canvas.
 
 The one library gap that did **not** close is lazy cluster expansion (`childrenProvider` /
 `onBeforeNodeExpansion`), which is what expandable correlated events need. §4 scopes that out
@@ -210,8 +216,9 @@ already in the response it fetches, and the library now has the channels to show
 
 ### Goals
 
-1. Draw object references and analyst relationships as **distinct, switchable edge layers**, and
-   fetch correlations as a third layer **on demand**.
+1. Draw object references, analyst relationships and feed correlations as **distinct, switchable
+   edge layers** (all three already in the payload), fetch per-attribute correlations **on
+   demand**, and add `relationship_type` as a second, orthogonal edge filter (D1).
 2. Indicate analyst data (note count, endorsed/disputed) with **rim badges**, detail in a
    selection-reactive sidebar panel.
 3. Name every encoding in a **sectioned legend** that doubles as the layer control.
@@ -236,8 +243,11 @@ already in the response it fetches, and the library now has the channels to show
 - **Enrichment from the graph** (either variety). The taxonomy in §2.2 exists so the design
   accommodates it; no enrichment call is made here.
 - **Backend aggregation of objects.** A behemoth's L2 is *skipped*, not summarised. The
-  correlation aggregate already exists (`RelatedEvent`); the object one does not, and building it
-  is new endpoint work. See §11.
+  correlation aggregate already exists (`RelatedEvent`), and feed correlations already degrade to a
+  count past 10,000 hits (D1); the object one does not exist, and building it is new endpoint work.
+  See §11.
+- **`server-correlation` as a shipped layer.** The kind is defined (D1) but the data is absent from
+  the REST payload by default; whether to request it is deferred (§11).
 - **Analyst-data threads.** Flat list in the sidebar panel; no nested renderer.
 - Relationship targets outside the graph's node universe (Galaxy, Organisation, SharingGroup).
 - Retiring the legacy `/events/view_graph`, or touching `EventGraphTool` / `getEventGraph*`.
@@ -360,12 +370,60 @@ a button. This replaces today's silent blank, which four of the six largest even
 Note that D12 **demotes this message considerably**: it now fires only when L0, L1 and L2 are all
 empty, rather than whenever the event is large. A behemoth gets L0's aggregated view instead.
 
+#### D1 — Two edge dimensions, five kinds, plus feed/server nodes ✅ SETTLED
+
+Edges carry **two orthogonal dimensions**, because "show me only analyst relationships" and "show
+me only `communicates-with`" are different questions:
+
+| Dimension | Meaning | Values | Control |
+|---|---|---|---|
+| `kind` | how the edge came to exist | 5 | `multiselect` edge facet + legend section (the layer switch) |
+| `relationship_type` | what it asserts | ~143 | `text`/`regex` edge facet |
+
+`relationship_type` is deliberately **not** a `multiselect`: object references alone use 143
+distinct values (`analysed-with` 6,968, then a long tail through `opened`, `includes`,
+`communicates-with`, `child-of`, `calls`). A 143-row dropdown is unusable, and the library already
+concedes the pattern — its table row filters switch from a dropdown to a text box past 50 distinct
+values. A substring box ("everything `*-of`") is the usable form.
+
+**The five `kind` values:**
+
+| `kind` | Source | In payload? |
+|---|---|---|
+| `object-reference` | `obj.ObjectReference` | yes |
+| `analyst-relationship` | `.Relationship[]` + `.RelationshipInbound[]` | yes |
+| `correlation` | `RelatedAttribute` | **no** — on demand (D9) |
+| `feed-correlation` | `attribute.Feed[]` | **yes, free** (`includeFeedCorrelations = 1` unconditionally, `EventsController.php:1857`) |
+| `server-correlation` | `attribute.Server[]` | no — needs `includeServerCorrelations:1` (forced to 0 for REST, `:1864-1866`) |
+
+**Inbound analyst relationships share the `analyst-relationship` kind.** The graph is
+`isDirected: true`, so the arrowhead already carries which way the assertion points; a separate
+layer would double the vocabulary to say what the arrow says. The "another org asserted this about
+my data" signal is carried in the sidebar panel instead.
+
+**Two new node types: `feed` and `server`.** Reversing an earlier recommendation to exclude them —
+the exclusion rested on a misreading. The `$isSiteAdmin` guard at `Event.php:3374` is on the
+**ShadowAttribute** branch; the Attribute path (`:3398`) has no such check. The real gate is a
+dedicated role permission, **`perm_view_feed_correlations`** (`Feed.php:521-522`), so ordinary
+users do see these correlations and they belong on the canvas.
+
+They are also cheap. `attachFeedCorrelations` attaches per-attribute hits to
+`attribute['Feed'][]` / `attribute['Server'][]` **and** a deduplicated source map to
+`event['Feed'][id]` / `event['Server'][id]` — so it is one node per feed or server, not one per
+correlation, exactly as `RelatedEvent` is for events.
+
+Three constraints the implementation must honour (§7 carries the edge cases):
+
+- **A built-in degraded mode already exists.** Past 10,000 hits without `overrideLimit`, the
+  sources are dropped and you get `attribute['FeedHit'] = true` plus `event['FeedCount']`
+  (`Feed.php:604-611`). This is precisely the backend aggregation pattern requested for objects —
+  already implemented here. The graph must render both shapes.
+- **Server fields are restricted.** A non-site-admin outside the host org sees only `id` and
+  `name` on a `Server` source (`Feed.php:613-620`), and server event-UUID hits are withheld
+  entirely (`:648-652`).
+- Containment stays **nesting**, not an edge. `tag`/`galaxy` edges remain out of scope.
+
 ### Open — sign-off requested
-
-#### D1 — Edge `kind` vocabulary
-
-Proposed `edge.data.kind` values: `object-reference`, `analyst-relationship`, `correlation`.
-Object/attribute containment stays **nesting**, not an edge. `tag`/`galaxy` edges out of scope.
 
 #### D2 — Which channel carries event provenance
 
@@ -441,6 +499,20 @@ L3  on demand   per-attribute correlations (§6.7)
 touches it", and gains a second pass for L2 that adds remaining objects while the budget holds.
 Event-level attributes are never added by L2 — see D10's governing principle.
 
+Feed and server correlations add two node types and two more kinds (D1). Source nodes come from
+the deduplicated `event['Feed']` / `event['Server']` maps — one node per source — and the edges
+from each attribute's `Feed[]` / `Server[]` hits:
+
+```js
+// one node per feed/server, not per correlation
+Object.values(ev.Feed || {}).forEach(f => nodes.push({
+    id: 'feed:' + f.id, data: { type: 'feed', label: f.name, scope: 'external' } }));
+
+// per-attribute hits; degraded shape carries no sources at all
+(attr.Feed || []).forEach(f => edges.push({ from: attrId, to: 'feed:' + f.id,
+    data: { kind: 'feed-correlation', label: '' } }));
+```
+
 Options:
 
 ```js
@@ -450,9 +522,14 @@ render: {
         'object-reference':     { strokeColor: '#428bca' },
         'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
         'correlation':          { strokeColor: '#888', dashed: true },
+        'feed-correlation':     { strokeColor: '#5bc0de', dashed: true },
+        'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
     },
 },
-UI: { filter: { edgeFacets: [{ key: 'kind', label: 'Relationship' }] } },
+UI: { filter: { edgeFacets: [
+    { key: 'kind',              label: 'Relationship', type: 'multiselect' },
+    { key: 'relationship_type', label: 'Asserts',      type: 'text' },
+]}},
 ```
 
 An analyst relationship whose `related_object_uuid` does not resolve to a node is **skipped** —
@@ -645,6 +722,17 @@ Two smaller items:
 - **Cluster stand-in edges** are deduped by node pair and can speak for several kinds; the
   library keeps them alive while any represented edge passes the filter. Nothing to do, but a
   stand-in's style may not match any single layer.
+- **Feed correlations in degraded mode.** Past 10,000 hits without `overrideLimit` the sources are
+  dropped and the payload carries only `attribute['FeedHit'] = true` and `event['FeedCount']`
+  (`Feed.php:604-611`). There is nothing to draw an edge *to* — no feed node exists. Render this as
+  a **badge** on the attribute ("in a feed") rather than an edge, and say so at the graph level
+  from `FeedCount`. Both shapes must be handled; a big event will hit this.
+- **Server fields are restricted.** Non-site-admin users outside the host org get only `id` and
+  `name` on a `Server` source (`Feed.php:613-620`), so a server node's label is all there is —
+  no tooltip detail, no URL. Server event-UUID hits are withheld entirely (`:648-652`).
+- **Server correlations are absent by default.** `includeServerCorrelations` is forced to 0 for
+  REST, so the `server-correlation` layer is empty unless the fetch asks for it. Decide whether it
+  joins the D9 on-demand request or is simply never shown on this page (§11).
 - **Self-referencing analyst relationship** — `Relationship::beforeValidate` rejects
   `object_uuid == related_object_uuid`; guard anyway.
 
@@ -684,6 +772,8 @@ relationships, and the events in §3.5 as fixtures):
 | 3c | L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
 | 4 | D11 empty-state message + wiring for the on-demand fetch | 3c |
 | 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | 4 |
+| 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
+| 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` + desaturation + correlated-event proxy nodes | 5 |
