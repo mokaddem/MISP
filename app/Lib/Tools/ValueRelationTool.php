@@ -461,8 +461,9 @@ class ValueRelationTool
      *
      * Phase 18's rule, applied to real rows: the same sibling seen five
      * hundred times is one row that says five hundred. The event link
-     * survives only where the row stands for a single object and so
-     * cannot be ambiguous about which event it means.
+     * survives wherever the fold left exactly one event to point at,
+     * which is every single-object row and any row whose objects all
+     * sit in the same event. Past that the row can only give a count.
      *
      * @param array $rows Sibling rows, `Value::neighbourRowsFor`
      * @param array $context `orgs`, `objects`, `in_objects`, `cap`,
@@ -502,10 +503,27 @@ class ValueRelationTool
             $objects[(int)$row['Object']['id']] = true;
         }
 
+        $inObjects = (int)$context['in_objects'];
+        $limit = (int)$context['cap'];
+        /*
+         * Whether the fold saw every object this value sits in, which
+         * is what decides if `one event` is a fact about the value or
+         * only about the objects the cap let through.
+         */
+        $exact = $inObjects <= $limit;
+
         $out = array();
         foreach ($triples as $triple) {
             $events = array_keys($triple['events']);
             $held = count($triple['objects']);
+            /*
+             * A single-object row keeps the link it has always had:
+             * whatever the cap left out, that object is in that event.
+             * A row standing for several only claims to name their one
+             * event where the fold was over all of them.
+             */
+            $oneEvent = $held === 1
+                || ($exact && count($events) === 1);
             $names = array();
             foreach (array_keys($triple['orgs']) as $orgId) {
                 $names[] = self::orgName($orgs, $orgId);
@@ -518,9 +536,7 @@ class ValueRelationTool
                 'type' => $triple['type'],
                 'objects' => $held,
                 'events' => count($events),
-                'event' => $held === 1 && count($events) === 1
-                    ? $events[0]
-                    : null,
+                'event' => $oneEvent ? $events[0] : null,
                 'orgs' => $names,
                 'org_total' => count($names),
             );
@@ -532,8 +548,6 @@ class ValueRelationTool
             return strcmp($a['value'], $b['value']);
         });
 
-        $inObjects = (int)$context['in_objects'];
-        $limit = (int)$context['cap'];
         $triples = count($out);
         /*
          * **The rows are capped and the total is not.** `443` sits in

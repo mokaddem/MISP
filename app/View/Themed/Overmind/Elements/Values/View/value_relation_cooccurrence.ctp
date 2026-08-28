@@ -782,12 +782,14 @@ $headerSub = ob_get_clean();
                                 <td class="text-end pe-4 text-nowrap">
                                     <?php
                                     /*
-                                     * Aggregating to a triple loses the
-                                     * object ids, so a row standing for
-                                     * many objects can only give the
-                                     * count. A row standing for one is
-                                     * unambiguous and keeps the link it
-                                     * had before the aggregation.
+                                     * The event, wherever the fold left
+                                     * one to name — a row standing for
+                                     * five objects that all sit in the
+                                     * same event knows which event that
+                                     * is. Where it stands for several
+                                     * events it can only give the
+                                     * count, because aggregating to a
+                                     * triple loses the ids.
                                      */
                                     ?>
                                     <?php if ($sibling['event'] !== null): ?>
