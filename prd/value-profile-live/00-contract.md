@@ -587,7 +587,7 @@ its decisions and deferrals live; this is only the map.
 | Phase | Converts | Document | Status |
 |---|---|---|---|
 | 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
-| 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built; the browser pass is the one row of §14.9 it could not fill |
+| 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
@@ -690,6 +690,14 @@ expect:
   element must not name `ValueProfileFixture`, and that is now a grep in the
   phase lint pass. Any element a later phase converts should be checked for the
   same thing.
+- **A curve is not verifiable by assertion.** Phase 23 drew both decay
+  models with a flat plateau at full base score for months at a time, and
+  it survived 34 content assertions, 34 payload assertions and 45 clean
+  renders — every number was internally consistent, in range, and equal
+  to the rail at the last point. What was wrong was the *shape*.
+  `23-sightings.md` §8.3. Any later phase that draws a line should plan
+  to look at it, and `23-sightings.md` §10.6 describes the harness that
+  makes that a ten-minute job without a session.
 - **The chart payload's bulk is bucket labels, not data.** At the 1,095-day span
   cap a Sightings fragment carries ~43 KB of JSON, of which roughly 26 KB is the
   day grain's 1,095 labels and titles — all derivable in the browser from

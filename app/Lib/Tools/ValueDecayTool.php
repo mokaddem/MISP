@@ -104,18 +104,42 @@ class ValueDecayTool
     /**
      * One occurrence's elapsed time on each day of the grid.
      *
-     * `null` where the grid point predates the occurrence: before the
-     * attribute existed there is no score to draw, and zero is a score.
-     * A gap is the honest mark, and it is the shape the fixture's
-     * curves already had.
+     * **Two kinds of thing reset the clock, and both are events with a
+     * date.** A report is the obvious one.
+     * `DecayingModelBase::computeCurrentScore` adds the other: if the
+     * attribute was modified after its last report, the clock restarts
+     * at the modification, because an analyst touching a row is a
+     * statement about it. So the clock start on any given day is the
+     * latest reset that has *happened by* that day — the newest report
+     * at or before it, or the attribute's own date, whichever is later
+     * and whichever has occurred.
+     *
+     * **The "has occurred" half is the whole of this function and it was
+     * wrong first time.** Taking `max(report, attribute date)`
+     * unconditionally applies the attribute's date as a reset on days
+     * that precede it, which pins elapsed time at zero and draws a flat
+     * line at full base score across every day between an occurrence's
+     * first report and its last edit. On `8.8.8.8` that was a
+     * four-month plateau at 78 on a model whose lifetime is three days —
+     * visible the moment the chart was drawn in a browser and invisible
+     * to every assertion before it.
+     *
+     * At the last grid point every occurrence's date has occurred, so
+     * this reduces to exactly `computeCurrentScore`'s rule: the current
+     * score is unaffected, and only the history it is the end of
+     * changes.
+     *
+     * `null` where no reset has happened yet: before an occurrence's
+     * earliest evidence there is no score to draw, and zero is a score.
+     * A gap is the honest mark.
      *
      * The walk is forward and the reset list is sorted, so this is
      * linear in days plus reports rather than a scan per day.
      *
      * @param array $resets Ascending unix timestamps, from resetStamps
-     * @param int $fallback The occurrence's own date, used until the
-     *                      first report — MISP decays an un-sighted
-     *                      attribute from its own timestamp
+     * @param int $fallback The occurrence's own date — `last_seen` if it
+     *                      has one, else its timestamp, which is the
+     *                      pair `computeCurrentScore` picks from
      * @param array $grid Ascending unix timestamps, one per day
      * @return array One entry per grid point: seconds, or null
      */
@@ -130,11 +154,12 @@ class ValueDecayTool
                 $last = $resets[$next];
                 $next++;
             }
-            $from = $last === null ? $fallback : max($last, $fallback);
-            if ($from > $at) {
-                // The occurrence did not exist yet, and no report
-                // predates it either.
-                $elapsed[] = $last === null || $last > $at ? null : 0;
+            $from = $last;
+            if ($fallback <= $at && ($from === null || $fallback > $from)) {
+                $from = $fallback;
+            }
+            if ($from === null) {
+                $elapsed[] = null;
                 continue;
             }
             $elapsed[] = $at - $from;

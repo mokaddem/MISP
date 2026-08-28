@@ -88,7 +88,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 21 | Zooming the activity chart | `phases/21-chart-zoom.md` (§13) | built |
 | — | Going live: the wiring contract | `live/00-contract.md` (§14) | the contract; §14.12's board says which panels have moved |
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
-| 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built; the browser pass is still owed |
+| 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |

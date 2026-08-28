@@ -364,7 +364,7 @@ value.
 > **Superseded by phase 23.** The tab went live on 2026-08-27 and every item
 > below is resolved, moot or measured — see
 > [`../value-profile-live/23-sightings.md`](../value-profile-live/23-sightings.md),
-> whose §8.3 answers §11 row by row. Two things are worth carrying back here
+> whose §8.4 answers §11 row by row. Two things are worth carrying back here
 > rather than leaving only in that document. **The aggregation rule is decided**
 > and it is the one this section predicted: the maximum across occurrences,
 > labelled with the occurrence holding it (§5 there). And **one claim in §11 was

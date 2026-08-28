@@ -443,7 +443,44 @@ resolved every occurrence. A shared `sightingContext()` is the right
 shape and was also how the cost hid — which is why the occurrence summary
 is now lazy rather than eager.
 
-### 8.3 What §11 of the tab brief predicted, item by item
+### 8.3 The bug only the browser found
+
+Both models' curves were drawn with a **flat plateau at full base score**
+across every day between an occurrence's first report and its last edit
+— on `8.8.8.8`, four months at 78 on a model whose lifetime is *three
+days*. A decay curve that does not decay is the one thing this panel
+exists to make visible, and it survived every assertion listed above:
+34 content checks, 34 payload checks, 45 clean renders. It took drawing
+it.
+
+**The cause.** Two kinds of thing reset a decay clock, and both are
+events with a date. A report is the obvious one;
+`DecayingModelBase::computeCurrentScore` adds the other — *if the
+attribute was modified after its last report, the clock restarts at the
+modification*, because an analyst touching a row is a statement about it.
+`ValueDecayTool::elapsed()` implemented that as
+`max(last report, attribute date)`, which is right at "now" and wrong
+everywhere else: it applies the attribute's date as a reset **on days
+that precede it**, pinning elapsed time at zero for the whole stretch
+between.
+
+**The fix** is to treat the attribute's own date as one more reset event
+rather than as a floor — the clock start on day D is the latest reset
+that has *happened by* D. At the last grid point every occurrence's date
+has occurred, so this reduces to exactly `computeCurrentScore`'s rule:
+**every current score is unchanged and only the history behind it
+moved.** Re-measured after the fix, `8.8.8.8` still reads Phishing 8 and
+NIDS 69, and the two curves now visibly behave differently — the 3-day
+model spikes and crashes within days of each report while the 120-day
+one sawtooths gently, which is the comparison the overlay is for.
+
+**Worth carrying forward:** a curve is not verifiable by assertion. Every
+check that could be written against the payload passed, because the
+numbers were internally consistent, in range, monotone where they should
+be and equal to the rail at the last point. What was wrong was the
+*shape*, and shape is a thing you look at.
+
+### 8.4 What §11 of the tab brief predicted, item by item
 
 | `02-sightings.md` §11 said | What happened |
 |---|---|
@@ -476,7 +513,8 @@ added (`from`, `clipped`) and the JS ignores both.
 the *data* behind it changed a great deal: 1,095-day spans against the
 fixture's 440, six organisations, curves with leading nulls, and an org
 list that can be empty. §10.4 asserts the invariants the JS relies on
-against the real payload instead of assuming them.
+against the real payload, and §10.6 drives the whole tab in a browser —
+which is what found §8.3's bug.
 
 ### 9.2 `columnLabels()` moved out of the fixture
 
@@ -628,21 +666,59 @@ Read off the markup rather than inferred:
   organisation stack is empty while the Reporters card ranks two
   organisations — the two counts the panel's own legend note explains.
 
-### 10.6 Not verified, and why
+### 10.6 The browser pass
 
-**The browser.** Both themes, the live `Chart` instance, the three
-toggles, the range select, the navigator brush, the zoom and `load the
-rest` were **not** driven in a browser this pass. The panel endpoints
-render HTML and MISP's API-key authentication only applies to REST
-requests, so fetching a fragment over HTTP needs a session cookie this
-session did not have. Everything server-side was verified through
-`View::element()` instead (§10.3), and §10.4 asserts the payload
-invariants the JS depends on — but §12 of the tab brief item 7, the
-zero-unresolved-`var(--…)` check, and every interaction in §10 of that
-brief, stand on phase 10's verification and this phase's unchanged JS
-rather than on a fresh run. **This is the one row of §14.9 this phase
-cannot fill**, and it is filled with what was done instead rather than
-with a claim.
+§14.9 row 8. The panel endpoints render HTML and MISP's API-key
+authentication only applies to REST requests, so a fragment cannot be
+fetched over HTTP without a session cookie. The tab was driven the way
+phase 10 drove it instead (`02-sightings.md` §14 item 3): the five
+fragments as `ValuesController::renderPanel` produces them, stitched into
+one page with the shipped `value-profile.css`, `mainOvermind.css`,
+`Chart.min.js` and `value-profile.js`, served over `http://127.0.0.1`,
+and driven in headless Chrome. What runs is the shipped JavaScript
+against the database's own data.
+
+The harness carries `data-controller="values"` on its body because
+`value-profile.js` gates every initialiser on it — so the gate is
+exercised rather than bypassed.
+
+**38 assertions on `8.8.8.8`, in both themes, all passing:**
+
+- a live `Chart` instance with **12 datasets over 157 weekly labels**,
+  three scales (`x`, `y`, `score`), the score axis capped at 100, and
+  both bar and line datasets;
+- **zero unresolved `var(--…)` colours** — the first bar dataset resolves
+  to `#4c78a8` in light and `#6d9cc9` in dark, and the palette inverts,
+  which is the property `02-sightings.md` §12 item 7 asks for;
+- every `--vp-sight-*` and theme token resolves in both themes;
+- toggling *False positives* takes the chart from 12 datasets to 11 and
+  back, and flips `aria-pressed`;
+- the range select moves between **90 daily columns and 157 weekly ones**,
+  and the axis caption follows it from *per day* to *per week*;
+- a drag on the navigator prints `2025-04-19 → 2026-07-10` in the range
+  note, narrows the list from 53 rows to 25, and the panel sub-line
+  agrees with the note;
+- `load the rest` takes 10 rows to 53 and hides itself; `Clear` hides the
+  note and restores the full window;
+- the zoom renders its six steps (`out`, `in`, `left`, `right`, `reset`,
+  `selection`) with the grain caption beside them;
+- the rail draws two models — Phishing 8 flagged `decayed`, NIDS 69 not —
+  each track filled to its own score, the viewer-scoping line present,
+  six reporter bars, and every write control disabled;
+- **no console error, no page error, no failed request.**
+
+**And the eight states the main driver cannot assert against one value**,
+each built and driven in turn — `193.161.193.99` and `0.0.0.0` (no
+reports: **zero bar datasets, four line datasets, the "Nobody has
+reported seeing this" overlay across intact axes, and two decay cards
+still scoring**), `45.155.205.233` (the `Sightings` toggle disabled while
+the false-positive series still draws one bar), `1.1.1.1`, `github.com`,
+`443` (its cap notice reading *101 of 48255 occurrences scored* on
+screen), `2.2.2.2` **as the CIRCL viewer** (7 rows, one organisation),
+and `no-such-value-at-all` (no chart panel at all and four empty states).
+All pass, none logs an error.
+
+### 10.7 Not verified, and why
 
 **A `Sightings`-formula or `PolynomialExtended` model.** No shipped model
 uses either, so the per-occurrence fallback path in §5.2 is written and
@@ -689,7 +765,7 @@ index in MISP pays it.
 `02-sightings.md` §11 closed with *"What needs no new query: the
 org-stacked histogram. `Sighting::attributesStatistics()` already groups
 org × attribute × type × date in SQL."* The SQL does; the public method
-throws the date dimension away before returning. §8.3's last row has it.
+throws the date dimension away before returning. §8.4's last row has it.
 
 ### 11.5 The three concepts
 
@@ -732,13 +808,12 @@ rather than by a literal**, and the third has stopped being a statement
 the fixture could contradict: the curve is derived from type-0 reports
 only, so a contradiction cannot move it.
 
-Server-side that is verified (§10). In the browser it stands on phase
-10's pass plus unchanged JS (§10.6), and that is the first thing the next
-session should close.
+It is verified server-side (§10) **and in the browser** (§10.6), where
+the whole tab was driven in both themes across nine values — and where
+the one real defect of the phase turned up (§8.3).
 
 ### 12.1 Follow-ups this phase names
 
-- **Drive the tab in a browser**, both themes. §10.6.
 - **The day grain's labels are most of the payload.** 1,095 labels plus
   1,095 titles is roughly 26 KB of the 43 KB ceiling, and every one is
   derivable in the browser from `plan.from` plus an offset. Trimming them
