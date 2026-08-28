@@ -26,6 +26,85 @@ class ValuesController extends AppController
     public $uses = array();
 
     /**
+     * Where every element this controller renders lives, and the only
+     * place any of them lives: `View/Themed/Overmind/Elements/Values`.
+     * There is no unthemed fallback to fall back to.
+     */
+    const THEME = 'Overmind';
+
+    /**
+     * A panel is an HTML fragment and has no other representation.
+     *
+     * `Router::parseExtensions` accepts `json`, `xml` and `csv` on every
+     * route, so any of them could be appended to a panel URL — and
+     * `RequestHandler` also infers one from an `Accept` header. What
+     * came back was a 500: the extension makes `AppController` treat
+     * the request as REST, REST skips the block that sets the theme,
+     * and a themeless render cannot find an element that exists only
+     * under a theme. Every panel threw `MissingViewException`.
+     *
+     * Refusing is the honest answer rather than serving something. A
+     * panel is markup built for one page to inject; there is no JSON
+     * shape of it to define, and `live/00-contract.md` §14.11 puts an
+     * API for this page out of scope.
+     *
+     * @return void
+     * @throws NotFoundException
+     */
+    public function beforeFilter()
+    {
+        parent::beforeFilter();
+        $this->rejectNonHtmlExtension(
+            $this->request->params['ext'] ?? null
+        );
+    }
+
+    /**
+     * The guard above, named so it can be exercised on its own — the
+     * filter it runs from needs a session and this does not.
+     *
+     * @param string|null $extension The route's parsed extension
+     * @return void
+     * @throws NotFoundException
+     */
+    protected function rejectNonHtmlExtension($extension)
+    {
+        if ($extension === null || $extension === 'html') {
+            return;
+        }
+        throw new NotFoundException(__(
+            'The Value Profile panels are HTML fragments and have no'
+            . ' %s representation.',
+            strtoupper($extension)
+        ));
+    }
+
+    /**
+     * Render under the theme the panels live in, whoever is asking.
+     *
+     * `AppController` sets a theme only for a non-REST request, and
+     * only when `MISP.enable_themes` is on and a theme resolves — so an
+     * instance with themes disabled reaches `render()` with none, and
+     * every panel throws `MissingViewException` exactly as the REST
+     * path did. This page has one implementation and it is under
+     * `Overmind`, so naming it here is a statement of where the files
+     * are rather than a preference overriding the reader's.
+     *
+     * A theme the user did choose is left alone: this is a floor, not a
+     * ceiling.
+     *
+     * @return void
+     */
+    public function beforeRender()
+    {
+        parent::beforeRender();
+        if (empty($this->theme)) {
+            $this->theme = self::THEME;
+            $this->viewClass = 'Theme';
+        }
+    }
+
+    /**
      * The full profile page for one value.
      *
      * @param string $b64value
