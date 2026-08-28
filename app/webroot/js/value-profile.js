@@ -1755,6 +1755,46 @@
         return new Date(day * 86400000).toISOString().slice(0, 10);
     }
 
+    /*
+     * PHP's `date()` is not locale-aware — `M` is always `Jan`..`Dec`,
+     * whatever the instance's language — so this table reproduces
+     * `ValueProfileBuckets::describe()` exactly rather than
+     * approximating it. `toLocaleString` would not: it would render the
+     * day grain's bars in the browser's language and the week grain's,
+     * which the server still writes, in English.
+     */
+    var ZOOM_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    /**
+     * The bar label for one day, as `describe()` writes it: `j M`.
+     *
+     * The day grain ships no labels — bucket `i` is the day `from + i`
+     * and can be nothing else, so 1,095 of these were 26.7 KB of
+     * payload restating the arithmetic this file already does.
+     * `ValueProfileBuckets::plan` documents the other half.
+     *
+     * @param {number} day Days since the epoch, UTC
+     * @return {string}
+     */
+    function zoomDayLabel(day) {
+        var at = new Date(day * 86400000);
+        return at.getUTCDate() + ' ' + ZOOM_MONTHS[at.getUTCMonth()];
+    }
+
+    /**
+     * The tooltip for one day, as `describe()` writes it: `j M Y`.
+     * A day bucket starts and ends on the same date, so it is the
+     * single-date branch there and never the range one.
+     *
+     * @param {number} day Days since the epoch, UTC
+     * @return {string}
+     */
+    function zoomDayTitle(day) {
+        return zoomDayLabel(day) + ' ' + new Date(day * 86400000)
+            .getUTCFullYear();
+    }
+
     /**
      * The unit a span of this many days is drawn at.
      *
@@ -1806,6 +1846,64 @@
         var unit = zoomUnitFor(plan.rule, plan.days);
 
         /**
+         * One grain's bar label, whether the server wrote it or this
+         * side derives it.
+         *
+         * `plan.last_label` replaces the final bar's own label — the
+         * navigator's right-hand column reads `today` at every grain —
+         * and it is applied here rather than server-side because it is
+         * a translated word and the day grain's labels no longer exist
+         * for it to be written into.
+         *
+         * @param {string} which Unit
+         * @param {number} index Bar's place in the grain
+         * @return {string}
+         */
+        function labelOf(which, index) {
+            var grain = plan.grains[which];
+            if (plan.last_label && index === grainCount(which) - 1) {
+                return plan.last_label;
+            }
+            return grain.label
+                ? grain.label[index]
+                : zoomDayLabel(epoch + index);
+        }
+
+        /**
+         * The same for a bar's tooltip. No `last_label` here: the end
+         * bar is labelled `today` and still titled with its own date,
+         * which is what makes the label a relabelling rather than a
+         * claim that the bucket is now.
+         *
+         * @param {string} which Unit
+         * @param {number} index
+         * @return {string}
+         */
+        function titleOf(which, index) {
+            var grain = plan.grains[which];
+            return grain.title
+                ? grain.title[index]
+                : zoomDayTitle(epoch + index);
+        }
+
+        /**
+         * How many bars a grain has. `count` is on every grain, so a
+         * grain whose label array is gone still knows its own length.
+         *
+         * @param {string} which
+         * @return {number}
+         */
+        function grainCount(which) {
+            var grain = plan.grains[which];
+            if (!grain) {
+                return 0;
+            }
+            return grain.count === undefined
+                ? grain.label.length
+                : grain.count;
+        }
+
+        /**
          * Each bucket of a grain as a pair of day offsets, worked out
          * once per grain and kept.
          *
@@ -1821,7 +1919,7 @@
         function offsets(which) {
             if (!ranges[which]) {
                 var grain = plan.grains[which];
-                var count = grain ? grain.label.length : 0;
+                var count = grainCount(which);
                 var starts = grain && grain.starts;
                 var spans = [];
                 for (var i = 0; i < count; i += 1) {
@@ -1861,13 +1959,12 @@
          * @return {Object}
          */
         function describe(which, index, span) {
-            var grain = plan.grains[which];
             var lo = Math.max(Math.max(0, view.from), span.from);
             var hi = Math.min(Math.min(last, view.to), span.to);
             return {
                 bucket: {
-                    label: grain.label[index],
-                    title: grain.title[index],
+                    label: labelOf(which, index),
+                    title: titleOf(which, index),
                     from: zoomYmd(epoch + lo),
                     to: zoomYmd(epoch + hi),
                 },
@@ -2026,8 +2123,8 @@
              * rather than off the first and last drawn buckets': a
              * weekly bucket's own title is a range — `19 Aug – 25 Aug
              * 2024` — so a caption built from two of them reads as four
-             * dates with three dashes. A daily title is one date, and
-             * it is still a string this file did not format.
+             * dates with three dashes. A daily title is one date, which
+             * is the whole reason for reaching past the drawn bars.
              *
              * A caller whose rule has no daily grain falls back to the
              * bucket titles, which for a monthly grain are single
@@ -2043,10 +2140,10 @@
                 var first = shown[0];
                 var final = shown[shown.length - 1];
                 var day = plan.grains.day;
-                if (day && day.title && !day.starts) {
+                if (day && !day.starts) {
                     return {
-                        from: day.title[first.from],
-                        to: day.title[final.to],
+                        from: titleOf('day', first.from),
+                        to: titleOf('day', final.to),
                     };
                 }
                 return {
@@ -2086,7 +2183,7 @@
                 var found = null;
                 offsets(which).forEach(function (span, index) {
                     if (wanted >= span.from && wanted <= span.to) {
-                        found = plan.grains[which].title[index];
+                        found = titleOf(which, index);
                     }
                 });
                 return found;

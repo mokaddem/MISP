@@ -4155,11 +4155,12 @@ class ValueProfileFixture
          * right-hand column. A bucket that is not the last one keeps
          * its own date, which is what makes this a relabelling of the
          * end rather than of `now`.
+         *
+         * One word rather than a write into every grain's label array,
+         * because the day grain no longer has one: see
+         * `ValueProfileBuckets::plan`.
          */
-        foreach ($plan['grains'] as $unit => $grain) {
-            $end = count($grain['label']) - 1;
-            $plan['grains'][$unit]['label'][$end] = __('today');
-        }
+        $plan['last_label'] = __('today');
 
         $orgKeys = array_keys($orgs);
         $at = array_flip($orgKeys);

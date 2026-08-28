@@ -145,16 +145,28 @@ class ValueProfileBuckets
      * all of it and pick a grain per zoom level without going back to
      * the server.
      *
-     * **This class ships every string and the browser computes every
-     * number.** A grain is two arrays of labels and one array of start
-     * offsets, not a list of bucket objects, and the split is the
-     * reason: `j M` and `F Y` are decisions, so duplicating them in
-     * JavaScript would be a second formatter to keep in step with
-     * `describe()`; a bucket's start date and its end date are
-     * arithmetic over the span, so shipping them as text costs bytes
-     * and settles nothing. Sent as objects, a 437-day span cost 45.8 KB
-     * against the 10 KB it costs like this — most of it field names and
-     * `Y-m-d` dates repeated five times a bar.
+     * **This class ships every string the browser cannot already
+     * derive, and the browser computes every number.** A grain is two
+     * arrays of labels and one array of start offsets, not a list of
+     * bucket objects, and the split is the reason: `j M` and `F Y` are
+     * decisions, so duplicating them in JavaScript would be a second
+     * formatter to keep in step with `describe()`; a bucket's start
+     * date and its end date are arithmetic over the span, so shipping
+     * them as text costs bytes and settles nothing. Sent as objects, a
+     * 437-day span cost 45.8 KB against the 10 KB it costs like this —
+     * most of it field names and `Y-m-d` dates repeated five times a
+     * bar.
+     *
+     * **The day grain is the one exception, and it ships no strings at
+     * all.** Its bucket `i` is the day `$from + i` and nothing else can
+     * be, so its label is `j M` of a date the browser has already
+     * worked out — the one case where the second formatter costs no
+     * second decision. It is also the expensive one: the span cap is
+     * 1,095 days, and a label and a title for each of them was 26.7 KB
+     * of a 38.4 KB payload on `8.8.8.8`, against 5.9 KB for the week
+     * grain over the same span. `label` and `title` are `null` there,
+     * on the same convention `starts` already uses, and `zoomDayLabel`
+     * in `value-profile.js` is the other half of it.
      *
      * `starts` is a day offset from `$from`, and the month grain's
      * first one is normally negative: a month bucket is a whole
@@ -185,6 +197,7 @@ class ValueProfileBuckets
                 continue;
             }
             $series = self::series($from, $to, $unit, $anchor);
+            $day = $unit === self::DAY;
             $starts = array();
             $labels = array();
             $titles = array();
@@ -194,9 +207,15 @@ class ValueProfileBuckets
                 $titles[] = $bucket['title'];
             }
             $grains[$unit] = array(
-                'starts' => $unit === self::DAY ? null : $starts,
-                'label' => $labels,
-                'title' => $titles,
+                'starts' => $day ? null : $starts,
+                'label' => $day ? null : $labels,
+                'title' => $day ? null : $titles,
+                // Only the day grain needs to say how many buckets it
+                // has, since it is the only one whose arrays are gone.
+                // `plan.days` is the same number, but a grain that
+                // cannot be counted from its own fields would make the
+                // browser special-case the unit to find its length.
+                'count' => count($series),
             );
         }
         return array(

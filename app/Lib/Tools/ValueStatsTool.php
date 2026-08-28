@@ -967,11 +967,14 @@ class ValueStatsTool
          * The last bucket of every grain is today, whichever grain is
          * drawn. A bucket that is not the last one keeps its own date,
          * which makes this a relabelling of the end rather than of now.
+         *
+         * One word rather than a write into every grain's label array,
+         * because the day grain no longer has one — its labels are
+         * derived in the browser (`ValueProfileBuckets::plan`), and a
+         * translated string is the one thing that cannot be. So the
+         * substitution moves to the side that holds the labels.
          */
-        foreach ($plan['grains'] as $unit => $grain) {
-            $end = count($grain['label']) - 1;
-            $plan['grains'][$unit]['label'][$end] = __('today');
-        }
+        $plan['last_label'] = __('today');
 
         /*
          * Sparse rather than dense: these are three series per
