@@ -4122,7 +4122,16 @@ tr.vp-rel-rowsel > td {
     background: color-mix(in srgb, var(--vp-rel-co) 10%, transparent);
 }
 
-/* A value or an event title can be long; the row must not stretch. */
+/*
+ * A value or an event title can be long; the row must not stretch.
+ *
+ * Goes on something *inside* the cell and never on the `td` itself.
+ * `display: inline-block` on a `td` stops it being a table cell — the
+ * browser wraps it in an anonymous one — and the cell's own bottom
+ * border then draws to the width of the text rather than the width of
+ * the column, which reads as a stray underline under every value with
+ * a gap in the rule beside it.
+ */
 .vp-rel-cell {
     display: inline-block;
     max-width: 18rem;

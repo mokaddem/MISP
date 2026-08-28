@@ -700,8 +700,9 @@ $headerSub = ob_get_clean();
                                         <?= h($sibling['relation']) ?>
                                     </span>
                                 </td>
-                                <td class="font-monospace vp-rel-cell">
-                                    <?= h($sibling['value']) ?>
+                                <td class="font-monospace">
+                                    <span class="vp-rel-cell"><?=
+                                        h($sibling['value']) ?></span>
                                 </td>
                                 <td><?= $typeBadge($sibling['type']) ?></td>
                                 <?php
@@ -1193,8 +1194,9 @@ $headerSub = ob_get_clean();
                                                    $row['value']
                                                )) ?>">
                                     </td>
-                                    <td class="font-monospace vp-rel-cell">
-                                        <?= h($row['value']) ?>
+                                    <td class="font-monospace">
+                                        <span class="vp-rel-cell"><?=
+                                            h($row['value']) ?></span>
                                     </td>
                                     <td><?= $typeBadge($row['type']) ?></td>
                                     <td><?= $weightBar(

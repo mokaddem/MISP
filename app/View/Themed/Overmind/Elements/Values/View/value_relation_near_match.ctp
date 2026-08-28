@@ -220,8 +220,9 @@ if (empty($near['matches'])) {
                             ?>
                             <tr class="vp-rel-stripe vp-rel-k-near"
                                 data-vp-num="closeness:<?= h($share) ?>">
-                                <td class="font-monospace vp-rel-cell">
-                                    <?= h($row['block']) ?>
+                                <td class="font-monospace">
+                                    <span class="vp-rel-cell"><?=
+                                        h($row['block']) ?></span>
                                 </td>
                                 <td>
                                     <span class="vp-rel-bar"
