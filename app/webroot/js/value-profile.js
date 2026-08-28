@@ -670,22 +670,44 @@
             return;
         }
         /*
-         * No column sort, but a table that offers one has already had its
-         * rows moved by an earlier click — reordering is destructive, so
-         * "unsorted" has to be restored rather than merely stopped. Each
-         * row carries its server position for exactly this.
+         * No column sort. A panel that also carries a select is asking
+         * for that select's order — the Relationships pane offers both,
+         * and reading the columns first would leave `Most recent first`
+         * set and doing nothing the moment its headings became
+         * clickable.
          */
-        if (ownNode(list, '[data-vp-sort-col]')) {
-            sortByColumn(list, filtered, 'default', 1);
-            return;
-        }
         var select = ownNode(list, '[data-vp-sort]');
+        /*
+         * No select either, but a table that offers column sorting has
+         * already had its rows moved by an earlier click — reordering is
+         * destructive, so "unsorted" has to be restored rather than
+         * merely stopped. Each row carries its server position for
+         * exactly this.
+         */
         if (!select) {
+            if (ownNode(list, '[data-vp-sort-col]')) {
+                sortByColumn(list, filtered, 'default', 1);
+            }
             return;
         }
         var key = select.value;
         var ordered = filtered.slice().sort(function (a, b) {
-            return (rowNumber(b, key) || 0) - (rowNumber(a, key) || 0);
+            var diff = (rowNumber(b, key) || 0) - (rowNumber(a, key) || 0);
+            if (diff !== 0) {
+                return diff;
+            }
+            /*
+             * Ties fall back to the order the model sent, which makes
+             * this a total order rather than merely a stable one. Once
+             * the headings sort, that is what lets the third click put
+             * the table back: most of the ranked table shares one
+             * weight, and a stable sort over equal keys would keep
+             * whatever order the previous click left behind and call it
+             * the default. Rows with no position tie as they did.
+             */
+            var x = a.dataset.vpSortDefault || '';
+            var y = b.dataset.vpSortDefault || '';
+            return x === y ? 0 : (x < y ? -1 : 1);
         });
         ordered.forEach(function (row) {
             if (row.parentNode) {
@@ -805,7 +827,10 @@
         var direction = list.dataset.vpSortedDir === 'desc'
             ? 'descending'
             : 'ascending';
-        list.querySelectorAll('[data-vp-sort-col]').forEach(function (button) {
+        // Scoped: the sibling section's headings belong to its own list,
+        // and the ranked table clearing them would take the caret off a
+        // column the reader had just sorted.
+        ownNodes(list, '[data-vp-sort-col]').forEach(function (button) {
             var cell = button.closest('th');
             if (!cell) {
                 return;

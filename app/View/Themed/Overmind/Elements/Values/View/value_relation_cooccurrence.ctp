@@ -149,6 +149,50 @@ $numbers = function ($weight, $date) {
 };
 
 /**
+ * Column-sort tokens, compared lexicographically by the script, so a
+ * number has to be zero-padded and a date reduced to its digits before
+ * it gets here — `9` after `10` and `2026-01-14` before `2025-12-15`
+ * are the two mistakes this exists to stop.
+ *
+ * @param array $data `vp-sort-<column>` => token
+ * @param int $index The row's place in the order the model sent
+ * @return string Attributes, ready to print inside a `<tr>`
+ */
+$sortAttrs = function (array $data, $index) {
+    // Reordering moves the rows, so "unsorted" has to be restorable
+    // rather than merely stoppable: the third click sorts by this.
+    $data['vp-sort-default'] = str_pad((string)$index, 6, '0',
+        STR_PAD_LEFT);
+    $out = '';
+    foreach ($data as $key => $token) {
+        $out .= ' data-' . $key . '="' . h($token) . '"';
+    }
+    return $out;
+};
+
+/**
+ * @param int $n
+ * @return string A count that sorts as a number
+ */
+$sortNum = function ($n) {
+    return str_pad((string)(int)$n, 12, '0', STR_PAD_LEFT);
+};
+
+/**
+ * A list of organisation names, ordered by how many there are and then
+ * alphabetically. How many reported a thing is the question the column
+ * answers when it says `+3 more`, so it leads.
+ *
+ * @param array $names
+ * @param int $total
+ * @return string
+ */
+$sortOrgs = function (array $names, $total) use ($sortNum) {
+    $first = empty($names) ? '' : mb_strtolower($names[0]);
+    return $sortNum($total) . ' ' . $first;
+};
+
+/**
  * MISP's own distribution badge, so the level is never printed as the
  * bare integer it is stored as.
  *
@@ -665,29 +709,80 @@ $headerSub = ob_get_clean();
             <div class="table-responsive" data-vp-list-rows>
                 <table class="table table-sm table-hover vp-table
                               align-middle mb-0">
+                    <?php
+                    /*
+                     * Every column sorts, clicking the heading:
+                     * ascending, descending, then back to the order the
+                     * model sent. Three states and not two because that
+                     * order — the objects a sibling is in, most first —
+                     * is itself an answer, and no column would bring it
+                     * back.
+                     */
+                    $sibCols = array(
+                        array('key' => 'object', 'label' => __('Object')),
+                        array('key' => 'relation',
+                            'label' => __('Relation')),
+                        array('key' => 'value',
+                            'label' => __('Sibling value')),
+                        array('key' => 'type', 'label' => __('Type')),
+                        array('key' => 'objects', 'label' => __('Objects'),
+                            'class' => 'text-end'),
+                        /*
+                         * A right-aligned number immediately left of a
+                         * left-aligned name reads as one field, so the
+                         * count keeps its own gutter.
+                         */
+                        array('key' => 'events', 'label' => __('Events'),
+                            'class' => 'text-end pe-4'),
+                        array('key' => 'org',
+                            'label' => __('Reported by')),
+                    );
+                    ?>
                     <thead>
                         <tr>
-                            <th><?= __('Object') ?></th>
-                            <th><?= __('Relation') ?></th>
-                            <th><?= __('Sibling value') ?></th>
-                            <th><?= __('Type') ?></th>
-                            <th class="text-end"><?= __('Objects') ?></th>
-                            <?php
-                            /*
-                             * A right-aligned number immediately left of
-                             * a left-aligned name reads as one field, so
-                             * the count keeps its own gutter.
-                             */
-                            ?>
-                            <th class="text-end pe-4"><?= __('Events') ?></th>
-                            <th><?= __('Reported by') ?></th>
+                            <?php foreach ($sibCols as $col): ?>
+                                <th class="<?= h($col['class'] ?? '') ?>">
+                                    <button type="button" class="vp-th-sort"
+                                            data-vp-sort-col="<?=
+                                                h($col['key']) ?>">
+                                        <span class="sortable-header"><?=
+                                            h($col['label'])
+                                        ?><i class="sort-icon"></i></span>
+                                    </button>
+                                </th>
+                            <?php endforeach; ?>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($siblings['rows'] as $sibling): ?>
+                        <?php foreach ($siblings['rows']
+                            as $sibIndex => $sibling): ?>
                             <tr class="vp-rel-stripe vp-rel-k-co"
                                 data-vp-facet="<?=
-                                    h($siblingTokens($sibling)) ?>">
+                                    h($siblingTokens($sibling)) ?>"<?=
+                                $sortAttrs(array(
+                                    'vp-sort-object' => mb_strtolower(
+                                        $sibling['object']
+                                    ),
+                                    'vp-sort-relation' => mb_strtolower(
+                                        $sibling['relation']
+                                    ),
+                                    'vp-sort-value' => mb_strtolower(
+                                        $sibling['value']
+                                    ),
+                                    'vp-sort-type' => mb_strtolower(
+                                        $sibling['type']
+                                    ),
+                                    'vp-sort-objects' => $sortNum(
+                                        $sibling['objects']
+                                    ),
+                                    'vp-sort-events' => $sortNum(
+                                        $sibling['events']
+                                    ),
+                                    'vp-sort-org' => $sortOrgs(
+                                        $sibling['orgs'],
+                                        $sibling['org_total']
+                                    ),
+                                ), $sibIndex) ?>>
                                 <td class="text-nowrap">
                                     <span class="misp-icon misp-icon-object
                                                  misp-simple me-1"></span>
@@ -1162,19 +1257,51 @@ $headerSub = ob_get_clean();
                                                __('Select every listed row')
                                            ?>">
                                 </th>
-                                <th><?= __('Value') ?></th>
-                                <th><?= __('Type') ?></th>
-                                <th class="vp-rel-num">
-                                    <?= __('Shared events') ?>
-                                </th>
-                                <th><?= __('Organisations') ?></th>
-                                <th><?= __('Last together') ?></th>
-                                <th><?= __('Distribution') ?></th>
+                                <?php
+                                /*
+                                 * Tags is the one column with no
+                                 * heading to click. A row carries a set
+                                 * of them and a set has no place in an
+                                 * order — sorting by the first chip
+                                 * would look like sorting by tag and be
+                                 * sorting by whichever one MISP happened
+                                 * to return first. The Tag facet above
+                                 * is how a reader gets at them.
+                                 */
+                                $valCols = array(
+                                    array('key' => 'value',
+                                        'label' => __('Value')),
+                                    array('key' => 'type',
+                                        'label' => __('Type')),
+                                    array('key' => 'shared',
+                                        'label' => __('Shared events'),
+                                        'class' => 'vp-rel-num'),
+                                    array('key' => 'orgs',
+                                        'label' => __('Organisations')),
+                                    array('key' => 'last',
+                                        'label' => __('Last together')),
+                                    array('key' => 'distribution',
+                                        'label' => __('Distribution')),
+                                );
+                                ?>
+                                <?php foreach ($valCols as $col): ?>
+                                    <th class="<?= h($col['class'] ?? '') ?>">
+                                        <button type="button"
+                                                class="vp-th-sort"
+                                                data-vp-sort-col="<?=
+                                                    h($col['key']) ?>">
+                                            <span class="sortable-header"><?=
+                                                h($col['label'])
+                                            ?><i class="sort-icon"></i></span>
+                                        </button>
+                                    </th>
+                                <?php endforeach; ?>
                                 <th><?= __('Tags') ?></th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($valueRows as $row): ?>
+                            <?php foreach ($valueRows
+                                as $valIndex => $row): ?>
                                 <tr class="vp-rel-stripe vp-rel-k-co"
                                     data-vp-group="value"
                                     data-vp-facet="<?= h($valueTokens($row)) ?>"
@@ -1184,7 +1311,32 @@ $headerSub = ob_get_clean();
                                     )) ?>"
                                     data-vp-text="<?= h(strtolower(
                                         $row['value']
-                                    )) ?>">
+                                    )) ?>"<?= $sortAttrs(array(
+                                        'vp-sort-value' => mb_strtolower(
+                                            $row['value']
+                                        ),
+                                        'vp-sort-type' => mb_strtolower(
+                                            $row['type']
+                                        ),
+                                        'vp-sort-shared' => $sortNum(
+                                            $row['shared_events']
+                                        ),
+                                        'vp-sort-orgs' => $sortOrgs(
+                                            $row['orgs'],
+                                            count($row['orgs'])
+                                        ),
+                                        // Digits of the printed date, so
+                                        // the order is the one the cell
+                                        // shows.
+                                        'vp-sort-last' => preg_replace(
+                                            '/\D/',
+                                            '',
+                                            (string)$row['last_together']
+                                        ),
+                                        'vp-sort-distribution' => $sortNum(
+                                            $row['distribution']
+                                        ),
+                                    ), $valIndex) ?>>
                                     <td class="vp-rel-pick">
                                         <input class="form-check-input"
                                                type="checkbox"
