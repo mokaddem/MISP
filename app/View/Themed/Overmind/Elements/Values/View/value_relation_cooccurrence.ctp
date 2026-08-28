@@ -244,18 +244,22 @@ $typeBadge = function ($type) use ($view) {
  * A weight, on the page's own bar. Strengths are only ever compared
  * inside one roll-up, never across the three notions.
  *
+ * `$prefix` is markup rather than text, because the one caller that
+ * passes it passes the floor marker the section already prints.
+ *
  * @param int $weight
  * @param int $max
+ * @param string $prefix
  * @return string
  */
-$weightBar = function ($weight, $max) {
+$weightBar = function ($weight, $max, $prefix = '') {
     $share = $max > 0 ? round(($weight / $max) * 100) : 0;
     return '<span class="vp-rel-bar"'
         . ' style="--vp-seg-color: var(--vp-rel-co);">'
         . '<span class="vp-weight-track"><span class="vp-weight-fill"'
         . ' style="width: ' . h($share) . '%;"></span></span>'
-        . '<span class="vp-rel-bar-read">' . h(number_format($weight))
-        . '</span></span>';
+        . '<span class="vp-rel-bar-read">' . $prefix
+        . h(number_format($weight)) . '</span></span>';
 };
 
 /*
@@ -341,6 +345,10 @@ foreach ($eventRows as $row) {
 $maxObjectValues = 0;
 foreach ($objectRows as $row) {
     $maxObjectValues = max($maxObjectValues, (int)$row['values']);
+}
+$maxSibObjects = 0;
+foreach ($siblings['rows'] as $sibling) {
+    $maxSibObjects = max($maxSibObjects, (int)$sibling['objects']);
 }
 
 /**
@@ -681,7 +689,7 @@ $headerSub = ob_get_clean();
                             'label' => __('Sibling value')),
                         array('key' => 'type', 'label' => __('Type')),
                         array('key' => 'objects', 'label' => __('Objects'),
-                            'class' => 'text-end'),
+                            'class' => 'vp-rel-num'),
                         /*
                          * A right-aligned number immediately left of a
                          * left-aligned name reads as one field, so the
@@ -757,21 +765,20 @@ $headerSub = ob_get_clean();
                                 <td><?= $typeBadge($sibling['type']) ?></td>
                                 <?php
                                 /*
-                                 * The collapse, as a number and not a
-                                 * bar: it is how many objects this one
-                                 * row stands for, which a reader has to
-                                 * be able to read exactly.
+                                 * How many objects this one row stands
+                                 * for, on the same bar the roll-ups
+                                 * use. The bar carries its own reading,
+                                 * so the collapse is still there to be
+                                 * read exactly.
                                  */
                                 ?>
-                                <td class="text-end font-monospace small
-                                           text-nowrap">
-                                    <?= $sibling['objects'] > 1
+                                <td><?= $weightBar(
+                                    $sibling['objects'],
+                                    $maxSibObjects,
+                                    $sibling['objects'] > 1
                                         ? $sibFloor
-                                        : '' ?><?=
-                                        h(number_format(
-                                            $sibling['objects']
-                                        )) ?>
-                                </td>
+                                        : ''
+                                ) ?></td>
                                 <td class="text-end pe-4 text-nowrap">
                                     <?php
                                     /*
