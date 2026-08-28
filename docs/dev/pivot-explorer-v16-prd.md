@@ -1,8 +1,9 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — awaiting review/sign-off on §5 decisions
+**Status:** DRAFT — D1–D4, D6, D7, D10 await sign-off; D5′, D8, D9, D11 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
+**Grilled:** 2026-08-28 — see §5 for what was settled and what changed as a result
 **Working dir:** /home/sami/git/MISP
 **Branch:** `worktree-pivotick-v16` off `develop` (bundle upgrade already committed there)
 **Library:** Pivotick v1.6.0 (`app/webroot/js/pivotick.iife.js`, `app/webroot/css/pivotick.css`)
@@ -11,36 +12,67 @@
 
 ## 1. Summary
 
-Pivotick v1.6.0 closes three of the four library gaps that were blocking the Pivot Explorer
-from representing what MISP actually holds: **edges now come in kinds that can be styled and
-switched off**, **nodes carry rim badges**, and **the legend keys several dimensions at once**.
-A data dock, a real panel lifecycle, async content renderers and a full set of before-write
-hooks landed alongside them.
+Pivotick v1.6.0 closes three of the four library gaps that were blocking the Pivot Explorer:
+**edges now come in kinds that can be styled and switched off**, **nodes carry rim badges**, and
+**the legend keys several dimensions at once**. A data dock, a real panel lifecycle, async
+content renderers and a full set of before-write hooks landed alongside them.
 
-This PRD is the implementation plan for spending that on the Pivot Explorer graph in
-`app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp`, as rendered by
-`/events/view2`. It covers five capabilities the graph does not have today — relationship
-layers, analyst-data indicators, a multi-dimension legend, event provenance, and a dock-based
-element browser — plus moving the existing write path onto the new hooks.
+The review that produced this revision changed the framing. The graph is **not a renderer for an
+event** — it is an **exploration surface seeded by the event's authored relationships and grown
+on demand**. Three consequences drive the whole design:
 
-The one gap that did **not** close is lazy cluster expansion (`childrenProvider` /
-`onBeforeNodeExpansion`), which is what a fully merged correlation-plus-event graph needs. §4
-scopes that out and §11 keeps it on the list.
+1. **One implementation, not two.** Editing and exploring are modes of one graph, not two
+   graphs. Whether you may write is decided by *what you clicked*, not which page you are on.
+2. **The seed is what humans authored** — object references and analyst relationships. These are
+   bounded in practice (§3.5) and need no cap.
+3. **Correlations load on demand.** They are the most numerous relationship by far, and are
+   fetched when asked for rather than shipped in the opening payload.
+
+The one library gap that did **not** close is lazy cluster expansion (`childrenProvider` /
+`onBeforeNodeExpansion`), which is what expandable correlated events need. §4 scopes that out
+and §11 keeps it on the list.
 
 ## 2. Background & Motivation
 
-Two design threads fed this:
+### 2.1 Two activities, one graph
 
-1. **Representing analyst data** (notes, opinions, analyst relationships) in the graph. The
-   conclusion was that analyst *relationships* are edges, *opinions* are node decorations, and
-   *notes* belong in a panel with an opt-in pin-to-canvas — but the graph had no spare visual
-   channel and no way to switch a relation layer off.
-2. **Merging the legacy Correlation Graph and Event Graph** into one view. The conclusion was
-   that containment should mean membership, with the current event as the uncontained ambient
-   canvas — but there was no way to name more than one encoding in the legend, and no lazy
-   expansion for correlated events.
+Two distinct things an analyst does with a graph:
 
-Both were library-blocked. Three of the four blockers are now gone.
+- **Curation** — "this file dropped that payload, which contacted that C2." Authoring structure
+  while building an event. Single-event, precise, infrequent.
+- **Exploration** — "I have this hash; what else touches it?" Iterative, crosses event
+  boundaries, unbounded, frequent.
+
+The tempting conclusion is two graphs, one editable and one read-only. **Rejected** (D8), because
+the most valuable output of an exploration session is a cross-event assertion — *this event is
+attributed-to that actor* — and a two-graph split puts the write capability in the graph that
+structurally cannot reach the nodes worth writing about: the single-event editor has no foreign
+nodes, and the read-only explorer has no write.
+
+Pivotick already models this correctly: `ModeRailOptions` (`GraphUI.ts:134-142`) reserves
+`explore` and `enrich` as coming-soon rail modes beside Select / Create / View, and
+`editors.{nodeEditor,nodeCreator,deletion,edgeEditor}.enabled` (`:640-693`) removes write
+affordances rather than vetoing them. The library's own roadmap says *modes*, not *graphs*.
+
+### 2.2 Three kinds of write, not one
+
+"Read-only" conflates three things with three different gates. This taxonomy is the backbone of
+the gating model in §6.6:
+
+| Kind | Examples | Persists? | Gate |
+|---|---|---|---|
+| **View write** | pivot in a node, hide, expand, re-layout, ephemeral enrichment, save a layout | no (except saved layouts) | `perm_auth` for `modules/queryEnrichment`; `perm_add` for `eventGraph add` |
+| **Structural write** | object reference CRUD; enrichment persisted into the event; delete attribute/object | yes | `perm_add` **+ event edit rights** |
+| **Assertional write** | note, opinion, analyst relationship | yes | `perm_add` + `perm_analyst_data`, **no ownership of the target** |
+
+The third row is the important one: `ACLComponent.php:23` gates `analystData add` on role
+permissions alone. Any user holding them may annotate **anything they can see**, including
+another organisation's event. That is the entire design of analyst data, and any surface that
+confines writing to "the event you own" throws that capability away.
+
+Note also that ephemeral enrichment (`modules/queryEnrichment`, `perm_auth` —
+`ACLComponent.php:581`) is available to a user who cannot edit the event at all, whereas
+persisting enrichment into the event (`events/queryEnrichment`, `perm_add` — `:405`) is not.
 
 ## 3. Current State (evidence)
 
@@ -61,9 +93,6 @@ attribute = orange circle (`:367-372`) — with `iconClass` carrying the misp-ic
 `imagePath` carrying attachment thumbnails, and `styleCb` spending `strokeColor`/`strokeWidth`
 on the pending-reference ring (`:395-400`). Every styling channel is committed.
 
-Deliberately **not** drawn: correlations, analyst relationships, analyst notes/opinions, event
-provenance, and anything from another event.
-
 ### 3.2 What v1.6.0 adds that this graph can use
 
 | Capability | API | Verified at |
@@ -76,14 +105,23 @@ provenance, and anything from another event.
 | Orphan control | `UI.filter.hideDisconnected` + View flyout switch | CHANGELOG §*Nodes with nothing left attached* |
 | Data dock | `UI.table`, `UI.dock`, `UIManager.addDockTab()` | CHANGELOG §*The dock holds more than the table* |
 | Before-write hooks | `onBeforeEdgeCreate`, `onBeforeDelete`, `isValidConnection`, … | CHANGELOG §*Every user write goes through a hook* |
+| Write-affordance removal | `editors.{nodeEditor,nodeCreator,deletion,edgeEditor}.enabled` | `GraphUI.ts:640-693` |
+| Reserved rail modes | `UI.modeRail: { explore, enrich }` (disabled "SOON") | `GraphUI.ts:134-142` |
 | Panel lifecycle | `ExtraPanel` re-invoked per selection; `id`/`order`/`reactive` | CHANGELOG §*Sidebar panels* |
 | Async content | every content hook may return a `Promise`; `RenderContext{signal}` | CHANGELOG §*Content renderers* |
 
+**Not available**, and relied on by nothing here: a declarative initial filter value.
+`FilterOptions` is `{ facets, excludeKeys, edgeFacets, hideDisconnected }` and `FilterFacet` is
+`{ key, label, type, options, matchMode, accessor, predicate, order }` — neither carries an
+opening value, so "open with this layer switched off" is only reachable imperatively via
+`queryEngine.setEdgeFilter()` *after* construction, which forfeits v1.6.0's "filters apply
+before the first layout" guarantee. This is what killed the default-hidden design (D9) and is
+logged as a library ask in §11.
+
 ### 3.3 Upgrade compatibility audit (v1.4.0 → v1.6.0) — already performed
 
-The bundle MISP shipped was dated 2026-07-23, i.e. **~v1.4.0** (v1.4.0 tagged 07-21, v1.5.0
-tagged 07-29). v1.5.0 carries two breaking sections. Audit result: **the existing integration
-is unaffected.**
+MISP shipped a bundle dated 2026-07-23, i.e. **~v1.4.0** (v1.4.0 tagged 07-21, v1.5.0 07-29).
+v1.5.0 carries two breaking sections. Audit result: **the existing integration is unaffected.**
 
 - Uses none of the removed/renamed API: no `UI.selectionMenu`, `graphControls`, `graphToolbar`,
   `graphNaviation`.
@@ -91,14 +129,14 @@ is unaffected.**
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
 - `graph.on('edgeAdd', …)` (`:839`) and `simulation.d3LinkDistance` still exist.
 - v1.6.0's breaking changes are confined to physics presets. Because the graph **configures**
-  `d3LinkDistance: 200` (`:412-413`), physics stays `'manual'` — auto explicitly declines to take
-  over a graph that tuned any knob it drives, so layout is unchanged.
+  `d3LinkDistance: 200` (`:412-413`), physics stays `'manual'` — auto explicitly declines to
+  take over a graph that tuned any knob it drives, so layout is unchanged.
 - Bundle verified: `node --check` passes, the `window.Pivotick` footer is present, and the
   deployed file is byte-identical (md5 `140ead0d…`) to a fresh `vite build` of the `v1.6.0` tag.
 
 One **user-visible** change to communicate, not fix: 1.5.0 replaced full-mode chrome with the B3
 mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. The comment at
-`:477-481` describing "pivotick's Edit ▸ Add edge tool" is now stale guidance.
+`:477-481` describing "pivotick's Edit ▸ Add edge tool" is stale guidance.
 
 ### 3.4 MISP data already available
 
@@ -110,125 +148,236 @@ mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. 
   (`Event.php:2953-2954`), with `id, uuid, info, date, threat_level_id, analysis, published,
   distribution, org_id, orgc_id` + `Org`/`Orgc`.
 - **`RelatedAttribute` is not**, for REST: `includeGranularCorrelations` is set only when
-  `!_isRest()` or the named param is present (`EventsController.php:1858-1862`).
+  `!_isRest()` or the named param is present (`EventsController.php:1858-1862`). Under D9 this
+  is a **feature**, not a gap — see §6.7.
 - **Inbound analyst relationships are missing on attributes/objects** — the bulk path
   (`attachAnalystDataBulk`) does not add `RelationshipInbound`; only the event level gets it.
+- **Saved graph layouts already exist** — `EventGraphController` + `EventGraph` model, ACL
+  `view: *`, `add: perm_add`, `delete: perm_modify` (`ACLComponent.php:1105-1110`). The legacy
+  event graph used this via `quickSaveNetworkHistory`.
 
-### 3.5 Gap statement
+### 3.5 Measured shape of the data (dev instance, 4,167 events with attributes)
+
+Everything below is a live measurement, and it is what the seed rule (D5′) is built on.
+
+**Event size:**
+
+| Attributes/event | Events |
+|---|---|
+| ≤50 | 1,377 |
+| 51–500 | 1,984 |
+| 501–5k | 714 |
+| 5k–50k | 89 |
+| >50k | 3 |
+
+**Six largest events:**
+
+| Event | Attributes | Objects | Live refs | Correlations |
+|---|---|---|---|---|
+| 4116 | 369,822 | 28,410 | **0** | 5,629 |
+| 4134 | 58,146 | 4,617 | 0 | — |
+| 4176 | 51,620 | 11,064 | 0 | — |
+| 4114 | 31,495 | 0 | 0 | — |
+| 2561 | 27,495 | 0 | 0 | — |
+| 1195 | 20,970 | 4,724 | 2,362 | 350 |
+
+**Relationship density:**
+
+- Object references: **11,330** live, across 69,957 objects. Only **345 of 4,167 events (8%)
+  have any object reference at all**; of those, 315 have ≤50 and the maximum in one event is
+  2,362.
+- Analyst relationships: 120 rows instance-wide (largely synthetic test data — a deployment
+  using analyst data heavily would differ; the object-reference figures would not).
+- Correlations: **336,221** rows. Event 4116 alone has 5,629.
+- 80% of all attributes (2.2M of 2.8M) are **event-level**, not inside an object.
+
+**Two conclusions drawn from this:**
+
+1. **The authored relationship set is small and safe to always show.** 2,362 edges worst case.
+2. **For ~92% of events, correlations are the only relationship there is.** Today's
+   reference-only rule therefore renders an **empty canvas** for most large events —
+   `computeConnectivity()` finds nothing connected, so `buildGraphData` emits nothing. Four of
+   the six largest events render blank today. That is not an edge case; it is the norm.
+
+### 3.6 Gap statement
 
 The graph draws one relation kind out of at least four, gives no indication that an element
-carries analyst data, names one of its encodings, and cannot say which event a node belongs to
-— while the data for all of it is already in the response it fetches, and the library now has
-the channels to show it.
+carries analyst data, names one of its encodings, cannot say which event a node belongs to, and
+renders nothing at all for the majority of large events — while the data for most of it is
+already in the response it fetches, and the library now has the channels to show it.
 
 ## 4. Goals / Non-Goals
 
 ### Goals
 
-1. Draw correlations and analyst relationships as **distinct, individually switchable edge
-   layers** alongside object references.
+1. Draw object references and analyst relationships as **distinct, switchable edge layers**, and
+   fetch correlations as a third layer **on demand**.
 2. Indicate analyst data (note count, endorsed/disputed) with **rim badges**, detail in a
    selection-reactive sidebar panel.
 3. Name every encoding in a **sectioned legend** that doubles as the layer control.
 4. Show **event provenance** — which nodes belong to the event being viewed and which do not.
-5. Replace the bespoke editor tray with a **dock pane**, and let `hideDisconnected` do the
-   orphan-hiding the server-side pre-filter does today.
-6. Move edge creation onto **`onBeforeEdgeCreate` + `isValidConnection`**.
+5. Replace the bespoke editor tray with a **dock pane** listing the whole event, since the graph
+   now seeds small and the dock is the route to everything else.
+6. Move edge creation onto **`onBeforeEdgeCreate` + `isValidConnection`**, and gate write
+   affordances with **`editors.*.enabled`** per the taxonomy in §2.2.
+7. Never render a silently empty canvas: an event with no authored relationships says so and
+   offers the correlation fetch.
 
 ### Non-Goals
 
+- **A second entry point (pivot route).** The component is to be *parameterised* for it (seed +
+  default mode) but the route is not built here. See §11.
 - **Lazy expansion of correlated events.** Needs `childrenProvider` / a fired
   `onBeforeNodeExpansion`, which v1.6.0 did not ship. Correlated events appear as leaf proxy
-  nodes only (§6.4), not as expandable containers.
-- **Writing analyst data from the graph.** Read-only. Analyst data has its own ACL,
-  distribution and `locked` semantics; a wrong write is worse than no write.
-- **Analyst-data threads.** Notes on notes / opinions on opinions stay in the sidebar panel's
-  flat list; no nested renderer.
+  nodes only (§6.4).
+- **Writing analyst data from the graph.** Read-only in this phase. The *gating model* (§6.6) is
+  built so that adding it later is configuration, not restructuring — but the write path itself
+  is Phase 2.
+- **Enrichment from the graph** (either variety). The taxonomy in §2.2 exists so the design
+  accommodates it; no enrichment call is made here.
+- **Analyst-data threads.** Flat list in the sidebar panel; no nested renderer.
 - Relationship targets outside the graph's node universe (Galaxy, Organisation, SharingGroup).
-- Retiring the legacy `/events/view_graph` page.
-- Any change to `EventGraphTool` or the legacy `getEventGraph*` endpoints.
+- Retiring the legacy `/events/view_graph`, or touching `EventGraphTool` / `getEventGraph*`.
 
-## 5. Design Decisions (sign-off requested)
+## 5. Design Decisions
 
-### D1 — Edge `kind` vocabulary
+### Settled in review (2026-08-28)
 
-Proposed values on `edge.data.kind`: `object-reference`, `correlation`, `analyst-relationship`.
-Object/attribute containment stays **nesting**, not an edge — it already works and costs no
-edge. `tag`/`galaxy` edges are out of scope.
+#### D8 — One implementation; writes gated by what you clicked ✅ SETTLED
 
-### D2 — Which channel carries event provenance
+One graph component, not two. Whether a write is offered is decided by the element under the
+cursor and the user's permissions, **not** by which page is open:
+
+- **Object references** are offered only where there is a single-event context to attach them to,
+  and only on nodes belonging to that event (`scope === 'self'`).
+- **Notes, opinions and analyst relationships** are offered on any element, anywhere, because
+  `ACLComponent.php:23` gates them on role permissions alone.
+
+Rejected: two graphs (one editable/event-scoped, one read-only/exploratory). The cross-event
+assertion — the most valuable product of exploration — is available in neither half of that
+split. Exploring and editing become **modes**, matching the `explore`/`enrich` rail modes
+pivotick already reserves.
+
+#### D5′ — Seed = authored relationships, uncapped ✅ SETTLED (supersedes D5)
+
+The graph seeds with the elements participating in an **object reference** or an **analyst
+relationship**, with no node budget. Justified by §3.5: 2,362 edges worst case, 315 of 345
+reference-having events under 50.
+
+**D5 as originally written is withdrawn.** It proposed building every attribute and object into
+the graph and hiding orphans with `hideDisconnected`. On event 4116 that is ~398,000 nodes
+constructed before anything is hidden. `hideDisconnected` survives as a **user-facing switch**
+(it is on the View flyout of every graph regardless), not as a load strategy.
+
+#### D9 — Correlations load on demand, not hidden-by-default ✅ SETTLED
+
+Correlations are **absent from the opening payload**. A control fetches them; the cap applies at
+fetch time.
+
+Rejected: shipping correlations and switching the layer off by default. Three reasons, all
+concrete:
+
+1. **A layer-hidden edge still shapes the layout** — the link force deliberately gates on
+   `Edge.visibleIgnoringLayer` so that toggling doesn't reshuffle. Event 4116 would open laid out
+   by 5,629 invisible edges.
+2. **Orphan flood** — a foreign node whose only edge is a hidden correlation has no visible
+   edge; thousands of disconnected dots unless `hideDisconnected` is forced on.
+3. **No declarative way to do it** (§3.2): it takes a post-construction
+   `queryEngine.setEdgeFilter()`, so the correlations reach the first layout and are then
+   hidden — losing the "filters apply before the first layout" guarantee.
+
+On-demand loading delivers what default-hidden was for (uncluttered opening, correlations one
+click away) while making the first paint *cheaper*, and it turns the 92% empty case into a
+designed first step rather than a defect.
+
+#### D11 — The empty-graph case is explicit ✅ SETTLED (consequence of D5′ + D9)
+
+An event with no authored relationships opens with a statement and an action, not a blank
+canvas: *"No authored relationships in this event — 5,629 correlations available"* plus a button.
+This replaces today's silent blank, which four of the six largest events produce.
+
+### Open — sign-off requested
+
+#### D1 — Edge `kind` vocabulary
+
+Proposed `edge.data.kind` values: `object-reference`, `analyst-relationship`, `correlation`.
+Object/attribute containment stays **nesting**, not an edge. `tag`/`galaxy` edges out of scope.
+
+#### D2 — Which channel carries event provenance
 
 `color`/`shape`/`size` are spent on node kind and `strokeColor` on pending state, so provenance
-goes on **enclosure + saturation**: foreign-event nodes are desaturated, and (where a container
-is warranted) grouped in a cluster. **Badges are reserved for analyst data** — provenance would
-put a badge on every foreign node, which is noise, and only two corners are free on an
+goes on **desaturation** (and, where warranted, a container). **Badges are reserved for analyst
+data** — provenance would badge every foreign node, and only two corners are free on an
 expandable node anyway (both East corners are reserved for the expand affordance).
 
-Consequence for the legend: a provenance section is keyed on a dimension the colours do **not**
-encode, so it must declare `entries` with explicit `color` values or it will take the first
-node's colour and warn.
+Consequence: a provenance legend section is keyed on a dimension the colours do **not** encode,
+so it must declare `entries` with explicit `color` values or it takes the first node's colour
+and warns.
 
-### D3 — Legend sections
+#### D3 — Legend sections
 
-Three sections: `Element` (node kind, the existing `nodeTypeAccessor` dimension),
-`Provenance` (declared `entries`, per D2), `Relationship` (`scope: 'edge'`). Sections AND
-together, which is the useful semantic here — "attributes, in this event, that are correlated".
+Three: `Element` (node kind, the `nodeTypeAccessor` dimension), `Provenance` (declared
+`entries`, per D2), `Relationship` (`scope: 'edge'`). Sections AND together — "attributes, in
+this event, that are correlated".
 
-### D4 — Editor tray → dock pane
+#### D4 — Editor tray → dock pane
 
 Move the unconnected-element tray from `UI.extraPanels` to `UIManager.addDockTab()`. The dock's
-intended loop — *table to find, canvas to understand, sidebar to read* — is exactly the tray's
-job, and the dock is a wide horizontal region rather than a narrow sidebar column, which suits a
-list of attribute values. The sidebar keeps the new analyst-data panel (§6.2), and the
-relationship picker overlay is **removed** in favour of `ctx.promptData()` (§6.6).
+intended loop — *table to find, canvas to understand, sidebar to read* — is the tray's job, and
+it is a wide horizontal region rather than a narrow sidebar column, which suits a list of
+attribute values. The sidebar keeps the analyst-data panel (§6.2).
 
-Alternative considered: keep the tray in the sidebar and add the table as a second dock pane.
-Rejected because the sidebar then holds two competing lists.
+**D5′ raises the stakes:** the graph now seeds on relationships, so for the ~92% of events with
+no authored relationship the dock is the *only* route to the event's contents. It stops being a
+convenience and becomes the primary navigation surface — which also means §7's dock-paging
+concern is on the critical path, not a nicety.
 
-### D5 — Stop pre-filtering unconnected elements server-side
+#### D6 — Write path onto the before-hooks
 
-Today `buildGraphData` omits unconnected objects and unreferenced event-level attributes, and
-the tray exists to make them reachable. With `UI.filter.hideDisconnected` the graph can carry
-**every** element and hide the orphans client-side, with the View flyout's *Hide unconnected*
-switch as the way back — and the dock pane then lists the whole event rather than a curated
-subset.
+Replace `graph.on('edgeAdd', onEdgeAdd)` (`:839`) with `onBeforeEdgeCreate` (veto and narrow
+before anything is added) plus `isValidConnection` (mark an invalid target live during the drag).
+Additionally `editors.*.enabled` ← `$mayModify`, per §6.6.
 
-Proposal: build all non-deleted attributes/objects into the graph, default
-`hideDisconnected: true`. This is the one change in the plan that alters what the canvas shows
-on first paint, and it is the one I most want challenged: it trades a smaller graph for an
-honest one. Large events are the risk — see §7.
+#### D7 — Physics: stay manual
 
-### D6 — Write path onto the before-hooks
+Keep `d3LinkDistance: 200` so physics stays `'manual'` and layout does not change under this
+release. Opting into `'auto'` is a separate isolated experiment.
 
-Replace the `graph.on('edgeAdd', onEdgeAdd)` post-hoc interception (`:839`) with
-`onBeforeEdgeCreate` (veto + narrow before anything is added) plus `isValidConnection` (mark an
-invalid target live while connecting). Today an invalid edge is added and then reasoned about;
-after this it is never added, and the source-must-be-an-object rule shows up during the drag.
+#### D10 — Objects with no relationship at all: shown or not? ⚠️ NOT YET DECIDED
 
-### D7 — Physics: stay manual
+D5′ seeds on *relationships*. An event with 20 objects and zero references therefore seeds
+**empty**, and the objects are reachable only through the dock — even though drawing them as
+clusters with their attributes nested would cost little and would show the event's shape.
 
-Keep `d3LinkDistance: 200`, so physics stays `'manual'` and layout does not change under this
-release. Opting into `'auto'` is a separate, isolated experiment — worth doing, not worth
-bundling with five other changes.
+Options: **(a)** seed strictly on relationships, dock carries the rest (D5′ as literally
+written); **(b)** also seed objects with no references, up to a budget, containment only;
+**(c)** (b) only below an event-size ceiling.
+
+No recommendation yet — this needs its own pass, because it interacts with D11 (if objects are
+seeded, the "empty" message fires far less often) and with the dock's role in §6.5.
 
 ## 6. Detailed Design
 
-### 6.1 Relationship layers (D1)
+### 6.1 Relationship layers and the seed rule (D1, D5′)
 
-`buildGraphData` gains three edge producers, each tagging `data.kind`:
+`buildGraphData` produces two edge kinds at load and a third on demand:
 
 ```js
 // object references — existing, now tagged
-edges.push({ from: objId, to: refId, data: { kind: 'object-reference', label: rel } });
+edges.push({ from: objId, to: refId,
+             data: { kind: 'object-reference', label: rel } });
 
-// analyst relationships — from attr/obj .Relationship[] (+ .RelationshipInbound[] at event level)
+// analyst relationships — from attr/obj .Relationship[] (+ .RelationshipInbound[])
 edges.push({ from: srcId, to: dstId,
              data: { kind: 'analyst-relationship', label: r.relationship_type,
                      authors: r.authors, orgc: r.orgc_uuid } });
 
-// correlations — from RelatedAttribute (needs §6.7)
-edges.push({ from: aId, to: bId, data: { kind: 'correlation', label: '' } });
+// correlations — added later, by §6.7's second request
 ```
+
+Seed membership: an element is a node iff it participates in an object reference or an analyst
+relationship (plus, as today, the attribute children of any object node). `computeConnectivity()`
+generalises from "reference touches it" to "any authored relationship touches it".
 
 Options:
 
@@ -237,50 +386,45 @@ render: {
     edgeTypeAccessor: e => e.getData()?.kind,
     edgeStyleMap: {
         'object-reference':     { strokeColor: '#428bca' },
-        'correlation':          { strokeColor: '#888', dashed: true },
         'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
+        'correlation':          { strokeColor: '#888', dashed: true },
     },
 },
 UI: { filter: { edgeFacets: [{ key: 'kind', label: 'Relationship' }] } },
 ```
 
-An analyst relationship whose `related_object_uuid` does not resolve to a node in the graph is
-**skipped** — `getRelatedElement()` returns `[]` for an unresolvable target, and the existing
-`addEdge` already refuses an edge with a missing endpoint (`:277`).
+An analyst relationship whose `related_object_uuid` does not resolve to a node is **skipped** —
+`getRelatedElement()` returns `[]` for an unresolvable target, and `addEdge` already refuses an
+edge with a missing endpoint (`:277`). Count the skips and report them in the panel (§7).
 
 ### 6.2 Analyst-data badges and panel
-
-Badges read the counts the payload already carries:
 
 ```js
 badges: node => {
     const d = node.getData();
     const out = [];
-    if (d.noteCount)  out.push({ position: 'nw', text: String(d.noteCount),
-                                 color: '#6fbe80', title: d.noteCount + ' notes' });
-    if (d.disputed)   out.push({ position: 'sw', iconClass: '…exclamation',
-                                 color: '#b94a48', title: 'Disputed' });
+    if (d.noteCount) out.push({ position: 'nw', text: String(d.noteCount),
+                                color: '#6fbe80', title: d.noteCount + ' notes' });
+    if (d.disputed)  out.push({ position: 'sw', iconClass: '…exclamation',
+                                color: '#b94a48', title: 'Disputed' });
     return out;
 }
 ```
 
-`'nw'`/`'sw'` are chosen deliberately: on an expandable node **both East corners are reserved**
-for the expand affordance (north-east collapsed, south-east expanded), and object nodes are
-expandable. Badges do not aggregate children, so an object's count must be computed in the
-`badges` function by walking `node.children` if we want it to include its attributes — see §7.
+`'nw'`/`'sw'` deliberately: on an expandable node **both East corners are reserved** for the
+expand affordance (north-east collapsed, south-east expanded), and object nodes are expandable.
+Badges do not aggregate children, so an object's count must walk `node.children` in the `badges`
+function if it should include its attributes (§7).
 
-Opinion → `disputed` uses the existing bands (`opinion_scale.ctp:11`): mean opinion `< 41`
-disputed, `> 60` endorsed, else neutral. Dev-instance opinion values are strongly bimodal
-(13 values in 0–30 vs 30 in 70–100), so a two-state signal reflects real usage better than a
-gradient.
+Opinion → `disputed` uses the existing bands (`opinion_scale.ctp:11`): mean `< 41` disputed,
+`> 60` endorsed, else neutral. Dev-instance opinion values are strongly bimodal (13 in 0–30 vs
+30 in 70–100), so a two-state signal reflects real usage better than a gradient.
 
 Detail goes in a selection-reactive `ExtraPanel` — v1.6.0 re-invokes `render` per selection with
-the selected `Node`, which is what makes this panel possible at all. Content is already in the
-payload, so no fetch; if we later fetch threads on demand, the hook may return a `Promise` and
-`ctx.signal` cancels a superseded fetch.
-
-`callbacks.onBadgeClick` selects the node and opens that panel. A badge with no `onClick` lets
-its click fall through, so declaring one is required for it to be interactive.
+the selected `Node`, which is what makes this panel possible. Content is already in the payload,
+so no fetch; a later thread fetch may return a `Promise` and `ctx.signal` cancels a superseded
+one. `callbacks.onBadgeClick` selects the node and opens the panel — a badge with no `onClick`
+lets its click fall through, so declaring one is required for interactivity.
 
 ### 6.3 Sectioned legend (D3)
 
@@ -300,49 +444,56 @@ UI: {
 }
 ```
 
-Exactly one section may omit both `key` and `entries` (the `nodeTypeAccessor` dimension); a
-second is dropped with a warning. The `Relationship` section names the same key as the
-`edgeFacets` declaration, so panel and legend become two views of one filter.
+`LegendEntry` requires `id` (the toggle key and the value written to the filter) and `color`;
+`label` defaults to a prettified `id`. Exactly one section may omit both `key` and `entries` (the
+`nodeTypeAccessor` dimension); a second is dropped with a warning. The `Relationship` section
+names the same key as the `edgeFacets` declaration, so panel and legend become two views of one
+filter — and it is the affordance that turns the correlation layer on after §6.7 has fetched it.
 
 ### 6.4 Event provenance and correlated events (D2)
 
 Every node gains `data.scope` (`'self'` | `'foreign'`) and `data.event_uuid`, derived from the
-`event_id` each attribute/object already carries. `styleCb` desaturates `foreign`. Because
+`event_id` each attribute/object already carries. `styleCb` desaturates `foreign` — and because
 `styleCb` already returns the pending ring, provenance must be merged into the same return value
-— `styleCb` wins outright over `edgeStyleMap`/`nodeStyleMap` rather than merging.
+(`styleCb` wins outright over the style maps rather than merging).
 
 Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event` — the
 `nodeStyleMap` already registers a green hexagon for `event` that nothing currently creates —
-labelled from `info`/`date`/`org`, linked to the local attribute they correlate with by a
-`correlation` edge. They are **not** expandable containers in this phase (see §4 Non-Goals);
+labelled from `info`/`date`/`org`. They are **not** expandable containers in this phase (§4);
 double-click navigates to that event's own `view2`.
 
-Extended events (`extended:1` merges foreign attributes/objects into the same arrays, with
-provenance in `Event.extensionEvents`) are `scope: 'foreign'` and, unlike correlated events, are
-real nodes with real edges. Whether they additionally get a cluster enclosure is deferred — it
-needs a container primitive we would have to nest existing object clusters inside.
+Extended events (`extended:1` merges foreign attributes/objects into the same arrays, provenance
+in `Event.extensionEvents`) are `scope: 'foreign'` and, unlike correlated events, are real nodes
+with real edges. Whether they get a container enclosure is deferred (§11).
 
-### 6.5 Editor tray → dock pane (D4, D5)
+### 6.5 Editor tray → dock pane (D4)
 
 `createEditor()` keeps its inventory logic and chip DOM; only the mount changes:
 
 ```js
 var handle = _graph.UIManager.addDockTab({
     label: 'Event elements', order: 10,
-    render: function () { return panelEl || buildPanel(); },
+    render:  function () { return panelEl || buildPanel(); },
     toolbar: function () { return buildFilterInput(); },
 });
 ```
 
-`render` is called once, lazily, on first activation, so the pane keeps its own scroll position;
-`handle.refresh()` re-renders after a chip is staged. With D5 the pane lists the whole event
-rather than only the unconnected remainder, and `UI.table` gives a second pane for free — the
-`Visibility` column then explains where every hidden element stands, which is the honest version
-of what the tray was approximating.
+`render` is called once, lazily, on first activation, so the pane keeps its scroll position;
+`handle.refresh()` re-renders after a chip is staged. Under D5′ the dock is **load-bearing, not
+a convenience**: the graph seeds on relationships, so for most events the dock is the only route
+to the event's contents. `UI.table` gives a second pane whose `Visibility` column explains where
+every element stands — the honest version of what the tray approximated.
 
-### 6.6 Write path (D6)
+The relationship picker overlay is **removed** in favour of `ctx.promptData()` (§6.6).
+
+### 6.6 Write path and the gating model (D6, D8)
 
 ```js
+editors: {                       // affordance removal, not veto
+    edgeEditor:  { enabled: canEdit },
+    nodeCreator: { enabled: canEdit },
+    deletion:    { enabled: canEdit },
+},
 callbacks: {
     // (source: Node | Note, target: Node) => boolean — runs on every pointer move
     isValidConnection: (source, target) =>
@@ -365,73 +516,94 @@ callbacks: {
 }
 ```
 
-Two things worth calling out:
+Three notes:
 
-- **`ctx.promptData()` replaces the bespoke relationship picker.** The overlay the graph builds
-  today — a backdrop plus a `<select>` assembled with `innerHTML` (`:793-795`) — is exactly what
+- **`ctx.promptData()` replaces the bespoke relationship picker.** The overlay built today — a
+  backdrop plus a `<select>` assembled with `innerHTML` (`:793-795`) — is what
   `promptData({ fields })` provides, with the shadow-edge preview held up while it is open.
   `ctx.promptLabel()` is the one-field variant. This deletes code rather than adding it.
-- `isValidConnection` encodes the legacy Event Graph's scope rule — the foreign-node refusal of
-  `can_be_referenced()` (`event-graph.js:1684`) — as a live affordance instead of an error
-  message after the fact, and `onBeforeEdgeCreate` is not consulted for a target it rejects.
+- `isValidConnection` encodes both halves of D8's rule — object source, `scope === 'self'`
+  target — as a live affordance, which is the legacy Event Graph's `can_be_referenced()` refusal
+  (`event-graph.js:1684`) turned from an after-the-fact error into a cursor state.
+  `onBeforeEdgeCreate` is not consulted for a target it rejects.
+- Programmatic mutation never invokes these hooks, so the drag-in staging path (`graph.addNode`)
+  is unaffected.
 
-Programmatic mutation never invokes these hooks, so the drag-in staging path (`graph.addNode`)
-is unaffected.
+### 6.7 Payload: two requests (D9)
 
-### 6.7 Payload changes (MISP side)
+**Request 1 (load)** — `/events/view/{id}.json`, unchanged. Already carries analyst data and
+`RelatedEvent`. Notably it must **not** gain `includeGranularCorrelations:1`: under D9 the
+absence of `RelatedAttribute` from the REST default is exactly what is wanted.
 
-1. **Add `includeGranularCorrelations:1`** to the fetch URL so `RelatedAttribute` arrives:
-   `/events/view/{id}.json/includeGranularCorrelations:1`. No controller change.
-2. **Annotation counts.** Notes/opinions are already inline per element; the counts are derived
-   client-side in `attributeNodeData()` / `objectNodeData()`. No endpoint work.
-3. **Inbound analyst relationships on attributes/objects** are absent from the bulk path. Phase
-   1 derives them client-side by inverting the outbound set (both endpoints are usually in the
-   same event); a MISP-side fix to `attachAnalystDataBulk` is Phase 2.
+**Request 2 (on demand)** — `/events/view/{id}.json/includeGranularCorrelations:1` when the user
+asks for correlations, taking `RelatedAttribute` from the response and discarding the rest. Cap
+applied here, before nodes are built.
+
+Refetching the whole event to obtain one key is wasteful; a dedicated
+`/events/correlations/{id}.json` returning only `RelatedAttribute` is the clean version and is
+logged in §11. Reusing the existing named parameter first keeps this phase free of controller
+changes.
+
+Two smaller items:
+
+- **Annotation counts** are derived client-side in `attributeNodeData()` / `objectNodeData()`
+  from the inline `Note`/`Opinion` arrays. No endpoint work.
+- **Inbound analyst relationships** are absent from the bulk path. Phase 1 derives them
+  client-side by inverting the outbound set (both endpoints are usually in the same event); a
+  fix to `attachAnalystDataBulk` is Phase 2.
 
 ## 7. Edge Cases
 
-- **Large events.** D5 puts every attribute in the graph. A 5 000-attribute event currently
-  draws a handful of connected objects; afterwards it builds 5 000 nodes and hides most of them.
-  `hideDisconnected` is computed after layers *and* node filters, and filters now apply **before
-  the first layout**, so hidden nodes never reach the canvas — but they are still built,
-  normalised and listed in the dock. Needs a node-count ceiling above which D5 reverts to the
-  server-side pre-filter.
-- **Every layer off.** Nothing is connected, so with `hideDisconnected` on, nothing is drawn.
-  The library documents this and leaves the switch as the way back; we should not special-case it.
+- **The 92% case.** Most events have no authored relationship, so the seed is empty and D11's
+  message fires. Its wording matters more than usual — it is the first thing most users will see
+  on this page. Depends on D10.
+- **Event 4116.** 369,822 attributes, 0 references, 5,629 correlations. Seeds empty, D11 offers
+  the fetch, and the fetch must be capped or it lands 5,629 correlation edges plus foreign
+  endpoints — above the library's comfort zone (minimap drops per-node detail past 1,500 nodes,
+  legend declines to auto-appear past 5,000). Cap target: ~1,000–1,500 nodes.
+- **The dock on a huge event.** It lists everything, so on event 4116 that's a 398,000-row
+  table. Needs paging or a server-side listing; the graph's seed rule does not protect it.
+- **`hideDisconnected` after a correlation fetch.** Turning the correlation layer back off
+  strands the foreign nodes it brought in. The View flyout switch is the user's remedy; we should
+  not force it on, since it moves the graph.
 - **`reapply()` and manual hides.** Re-deriving visibility undoes `graph.hideNode()`. Any code we
   write that hides a node must use `queryEngine.excludeNode()` instead.
-- **Badge capacity.** A plain node fits four badges, an expandable one two. Object nodes are
-  expandable; if aggregation over children is added, an object could want three.
-- **Unresolvable analyst-relationship targets** — skipped, per §6.1. Worth a count in the panel
-  so a dropped assertion is visible rather than silently absent.
-- **Deleted records.** `isDeleted()` already tombstones attributes/objects/references; analyst
-  data has no `deleted` flag, so an analyst relationship can point at a soft-deleted attribute.
-  Treat as unresolvable.
-- **A cluster's stand-in edges** are deduped by node pair and can speak for several kinds; the
-  library keeps them alive while any represented edge passes the filter. Nothing for us to do,
-  but it means a stand-in's style may not match any single layer.
+- **Badge capacity.** Four on a plain node, two on an expandable one. Object nodes are
+  expandable; child aggregation would want three.
+- **Unresolvable analyst-relationship targets** — skipped (§6.1); surface a count so a dropped
+  assertion is visible rather than silently absent.
+- **Deleted records.** `isDeleted()` tombstones attributes/objects/references; analyst data has
+  no `deleted` flag, so an analyst relationship can point at a soft-deleted attribute. Treat as
+  unresolvable.
+- **Cluster stand-in edges** are deduped by node pair and can speak for several kinds; the
+  library keeps them alive while any represented edge passes the filter. Nothing to do, but a
+  stand-in's style may not match any single layer.
 - **Self-referencing analyst relationship** — `Relationship::beforeValidate` rejects
-  `object_uuid == related_object_uuid`, so a self-loop should not occur; guard anyway.
+  `object_uuid == related_object_uuid`; guard anyway.
 
 ## 8. Test Plan
 
-Manual, on `/events/view2/{id}` against the dev instance (which holds 75 notes, 43 opinions,
-120 analyst relationships):
+Manual, on `/events/view2/{id}` against the dev instance (75 notes, 43 opinions, 120 analyst
+relationships, and the events in §3.5 as fixtures):
 
-1. **Upgrade regression** — the graph renders, objects expand, chips drag in, an edge can be
-   created and persists. This is the gate before any new feature lands.
-2. Each layer toggles independently; layout, selection and camera unchanged across a toggle.
-3. Badges appear on elements with analyst data and nowhere else; clicking one opens the panel;
-   clicking a node's shape still selects it.
-4. Legend: three sections, each folding independently; two sections filtering AND together;
-   the `Relationship` section and the filter panel's `Relationships` section stay in sync.
-5. Provenance: an `extended:1` event shows desaturated foreign nodes; a correlated-event proxy
+1. **Upgrade regression** — graph renders, objects expand, chips drag in, an edge can be created
+   and persists. Gate before any new feature lands.
+2. Event 1195 (2,362 refs): seeds with the authored spine; layers toggle independently; layout,
+   selection and camera unchanged across a toggle.
+3. Event 4116 (0 refs, 5,629 correlations): D11 message appears; correlation fetch is capped;
+   the graph is navigable afterwards.
+4. An event with references *and* analyst relationships shows both layers distinctly.
+5. Badges appear only on elements with analyst data; clicking one opens the panel; clicking a
+   node's shape still selects it.
+6. Legend: three sections folding independently; two sections filtering AND together;
+   `Relationship` section and the panel's `Relationships` section stay in sync.
+7. Provenance: an `extended:1` event shows desaturated foreign nodes; a correlated-event proxy
    navigates on double-click.
-6. `hideDisconnected` on/off round-trips; the flyout row reports a count.
-7. Write path: an invalid connect target is marked during the drag; a vetoed edge leaves no node
-   behind; a persisted edge survives reload.
-8. Dock: pane lists the event, filter narrows the list, scroll position survives a tab switch.
-9. An event with zero analyst data renders exactly as before (no badges, no empty sections).
+8. Write gating: with `$mayModify` false, no Create affordances in the chrome at all; with it
+   true, an invalid connect target is marked during the drag, a vetoed edge leaves no node
+   behind, a persisted edge survives reload.
+9. Dock: pane lists the event, filter narrows it, scroll position survives a tab switch.
+10. An event with zero analyst data renders exactly as before (no badges, no empty sections).
 
 ## 9. Implementation Plan (sequential, one commit per task)
 
@@ -440,16 +612,20 @@ Manual, on `/events/view2/{id}` against the dev instance (which holds 75 notes, 
 | 0 | ✅ Bundle to v1.6.0 + compatibility audit | — |
 | 1 | Regression pass on the existing graph under v1.6.0 (§8.1); refresh the stale Edit▸Add-edge comment | 0 |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer, no behaviour change) | 1 |
-| 3 | Add analyst-relationship edges as a second layer | 2 |
-| 4 | Add `includeGranularCorrelations:1` + correlation edges as a third layer | 2 |
-| 5 | Analyst-data badges + selection-reactive sidebar panel | 1 |
-| 6 | Sectioned legend | 3, 4, 5 |
-| 7 | `data.scope` + desaturation + correlated-event proxy nodes | 4 |
-| 8 | Editor tray → dock pane; enable `UI.table` | 1 |
-| 9 | D5: build all elements + `hideDisconnected`, with the §7 node ceiling | 8 |
-| 10 | Write path onto `onBeforeEdgeCreate` + `isValidConnection` | 1 |
+| 3 | Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (D5′) | 2 |
+| 4 | D11 empty-state message + wiring for the on-demand fetch | 3 |
+| 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | 4 |
+| 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
+| 7 | Sectioned legend | 3, 5, 6 |
+| 8 | `data.scope` + desaturation + correlated-event proxy nodes | 5 |
+| 9 | Editor tray → dock pane; enable `UI.table` | 1 |
+| 10 | Write path onto `onBeforeEdgeCreate` + `isValidConnection` + `editors.*.enabled` | 1 |
 
-Tasks 2–5 are independent of each other and can be parallelised; 6 needs them all.
+Tasks 2, 6, 9 and 10 are mutually independent. **D10 must be settled before task 3**, since it
+decides what the seed contains.
+
+Extraction of the inline JS out of the `.ctp` into a real asset file is not a task above, but
+should be considered before task 3 — the file is 858 lines and every task adds to it.
 
 ## 10. Files Touched
 
@@ -457,22 +633,30 @@ Tasks 2–5 are independent of each other and can be parallelised; 6 needs them 
 |---|---|
 | `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0) |
 | `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0) |
-| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | all of §6.1–§6.6 |
-| `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path (§6.7.3) |
+| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | all of §6.1–§6.7 |
+| `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
 
-No controller change, no new endpoint, no schema change.
+No controller change, no new endpoint, no schema change in Phase 1.
 
 ## 11. Open Questions / Phase 2
 
-1. **Lazy expansion.** `childrenProvider` / a fired `onBeforeNodeExpansion` is the one PRD from
-   the set that did not ship (`prd/misp/async-children-provider.md` in the pivotick repo,
-   still *Proposed*). Until it lands, correlated events cannot expand in place and the merged
-   correlation-plus-event graph stays half-built. This is the highest-value remaining library ask.
-2. **Extended-event enclosure.** Does a foreign event get a real container, and can object
-   clusters nest inside it three levels deep (event → object → attribute)?
-3. **Node ceiling for D5** — what number, and does the dock stay complete above it?
-4. **Badge aggregation** over an object's attributes: sum, max, or neither?
-5. **Physics `'auto'`** (D7 deferred) — worth an isolated before/after on a large event.
-6. **`RelatedAttribute` cost.** `includeGranularCorrelations` is off for REST by default, which
-   suggests it is not cheap; measure on a heavily-correlated event before shipping task 4.
+1. **D10** (§5) — objects with no relationship: seeded or dock-only? Blocks task 3.
+2. **Lazy expansion.** `childrenProvider` / a fired `onBeforeNodeExpansion` is the one library
+   PRD from the set that did not ship (`prd/misp/async-children-provider.md`, still *Proposed*).
+   Until it lands, correlated events cannot expand in place. Highest-value remaining library ask.
+3. **Declarative initial filter value** (library ask). `FilterOptions`/`FilterFacet` carry no
+   opening value (§3.2). Not needed under D9, but any future default-off layer needs it, and it
+   would let a filter apply before the first layout as v1.6.0 intends.
+4. **A dedicated correlation endpoint** — `/events/correlations/{id}.json` returning only
+   `RelatedAttribute`, instead of refetching the whole event with a named parameter (§6.7).
+5. **The pivot entry point** — a route seeding the same component from one indicator, defaulting
+   to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
+6. **Analyst-data and enrichment write paths** — both gated in §2.2's taxonomy, neither built.
+   Analyst assertion is the natural first one, since D8 already says it is offered everywhere.
+7. **Dock paging** on very large events (§7).
+8. **Extended-event enclosure** — does a foreign event get a container, and can object clusters
+   nest inside it three levels deep (event → object → attribute)?
+9. **Badge aggregation** over an object's attributes: sum, max, or neither?
+10. **Physics `'auto'`** (D7 deferred) — worth an isolated before/after on a large event.
+11. **`RelatedAttribute` cost.** Measure on a heavily-correlated event before shipping task 5.
