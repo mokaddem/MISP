@@ -113,6 +113,19 @@ class ValuesController extends AppController
     public function view($b64value = null)
     {
         $profile = $this->profileFor($b64value);
+        /*
+         * The frame is still the fixture's — see §14.12, where the tab
+         * counts and banner chips are the Overview's phase to convert.
+         * The two badges that name a converted tab are corrected here,
+         * because those are the two that can be caught contradicting
+         * the panel underneath them. `forTabCounts` says which and why.
+         */
+        $this->loadModel('ValueProfile');
+        $profile['counts'] = $this->ValueProfile->forTabCounts(
+            $this->Auth->user(),
+            $profile['value'],
+            $profile['counts']
+        );
         $this->set('valueProfile', $profile);
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.

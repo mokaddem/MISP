@@ -240,6 +240,12 @@ $tabRegistry = array(
         'id' => 'occurrences',
         'title' => __('Occurrences'),
         'icon' => 'misp-icon misp-icon-attribute misp-simple',
+        /*
+         * The viewer's own count, off the same aggregate the tab's
+         * header uses, so the badge and the panel cannot disagree —
+         * `ValueProfile::forTabCounts`. Every other badge on this bar
+         * is still the fixture's.
+         */
         'count' => $counts['occurrences'],
         /*
          * One full-width slot, and the panel lays out its own internal
@@ -257,8 +263,17 @@ $tabRegistry = array(
         'id' => 'sightings',
         'title' => __('Sightings'),
         'icon' => 'misp-icon misp-icon-sighting misp-simple',
-        'count' => $counts['sightings'],
         /*
+         * No count, for the Timeline tab's reason and one of its own.
+         * A sighting count is the *viewer's* — `Sightings_policy` hides
+         * whole reports — and getting it costs the panel's own thirteen
+         * queries, on every page load, for a tab most readers never
+         * open. It carried a fixture literal until 2026-08-28, which
+         * read 17 beside a panel reporting 53.
+         *
+         * `ValueProfile::forTabCounts` holds the reasoning and the
+         * condition for putting a number back.
+         *
          * The page's usual 9/3 split. The overlay is the tab, and it
          * needs the width: bars stacked by organisation under two decay
          * curves on their own axis is not a chart that survives being

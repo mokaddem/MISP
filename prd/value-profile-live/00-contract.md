@@ -292,7 +292,7 @@ that own them, not defects:
 | §8.7, History footer graft | *"four of the ten occurrences are ACL-hidden"* | graft withdrawn |
 | §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn |
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
-| tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's** |
+| tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's.** The two *badges* naming converted tabs were corrected on 2026-08-28 — see §14.10 |
 | the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
 
 **The exception: a permanent line wherever the page renders a computed
@@ -717,3 +717,33 @@ expect:
   day grain's 1,095 labels and titles — all derivable in the browser from
   `plan.from` plus an offset. Any later panel reusing phase 21's `plan` shape
   inherits that. `23-sightings.md` §12.1. §13.3.
+  **Fixed on 2026-08-28** for the day grain, in `ValueProfileBuckets::plan`, so
+  a later panel inherits the fix rather than the problem: the fragment went
+  52.0 KB → 27.6 KB. Week and month still ship their strings, and should.
+- **Converting a tab makes its own tab badge lie, and the badge is not the
+  tab's to fix.** The page frame — every badge, the fact strip, the banner
+  chips — is one `ValueProfileFixture` call in `ValuesController::view()` and
+  belongs to the Overview's phase. That is invisible while every tab is
+  fixture-backed, because both halves agree; the first conversion makes a
+  number in the tab bar contradict the panel two inches below it. It went
+  unnoticed through two phases: on `8.8.8.8` the badges read 9 and 17 against
+  23 occurrences and 53 reports.
+
+  Corrected on 2026-08-28, and the shape of the correction is the part worth
+  reusing. **Occurrences takes a real number**, from the same
+  `occurrenceCountFor` call its own header counts with — one `COUNT`, 12 ms
+  typical and 146 ms on `443`, the heaviest value on the instance, which is
+  what a badge on every page load costs there. **Sightings takes no number**,
+  the key removed rather than zeroed: a sighting count is the viewer's, so
+  getting it means running the sighting policy over fetched rows — the panel's
+  own thirteen queries, paid on every page load for a tab most readers never
+  open. The Timeline and History tabs already carry no badge for that reason.
+
+  **Revisit when `Sighting` can count under the policy in SQL** rather than in
+  PHP over rows. The Overview's phase needs the same number for the fact
+  strip's sightings line, so it is one piece of work and not two.
+  `ValueProfile::forTabCounts` is where both decisions live.
+
+  **Whoever converts a tab next: check its badge.** Relationships, Enrichment
+  and Analyst are each carrying a fixture literal that will start lying the day
+  their panels stop doing so.

@@ -64,6 +64,15 @@ one page that could disagree about the same value is worse than a tab converted
 out of order. Everything else on the Overview still reads the fixture,
 `value_verdict_card` included — that one is blocked on the verdict engine.
 
+**The page frame is the fixture's too**, and that is the same hazard one level
+up: the tab badges, the fact strip and the banner chips are built in one
+fixture call, so each conversion leaves a number in the frame contradicting the
+panel it names. Two badges were caught doing it and were corrected on
+2026-08-28 — Occurrences now carries the viewer's real count and Sightings
+carries none, for reasons `live/00-contract.md` §14.10 records along with the
+condition for putting a number back. The other four badges still read literals,
+and each becomes wrong the day its tab is converted.
+
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
 follow the "Written up in" column rather than assuming §N is phase N.

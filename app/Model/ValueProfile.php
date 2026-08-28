@@ -99,6 +99,53 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The numbers on the tab bar, corrected where the page frame and a
+     * converted tab would otherwise contradict each other.
+     *
+     * Not a panel, and the only method here that is not. The frame —
+     * tab badges, fact strip, banner chips — is built in one call to
+     * `ValueProfileFixture` and belongs to the Overview's phase, which
+     * has not run. That was harmless while every tab was fixture-backed
+     * and both halves agreed; it stopped being harmless the moment a
+     * tab went live, because a badge and the panel two inches under it
+     * then state different numbers for one value. On `8.8.8.8` the
+     * badges read 9 and 17 against 23 occurrences and 53 reports.
+     *
+     * **Occurrences gets a real number.** One `COUNT`, and pointedly
+     * the same call `forOccurrenceTable` makes for the total its own
+     * header prints — not another aggregate that ought to agree with
+     * it. Two counts that should match are two counts that can drift;
+     * one call cannot disagree with itself.
+     *
+     * **Sightings gets no number at all**, and the key is removed
+     * rather than zeroed. A sighting badge has to be the viewer's:
+     * `Sightings_policy` hides whole reports and two readers would read
+     * two numbers off one tab bar. Getting the viewer's count means
+     * running the policy over the rows, which is the panel's own 13
+     * queries — paid on every page load, for a tab most readers never
+     * open. No number is better than a wrong one, and the Timeline and
+     * History tabs already carry no badge for the same reason.
+     *
+     * **Revisit when a cheap viewer-scoped count exists.** It would
+     * take `Sighting` growing a counting method that applies the policy
+     * in SQL instead of in PHP over fetched rows — worth doing when the
+     * Overview's phase converts the frame, since the fact strip's
+     * `%d sightings` line needs exactly the same number.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $counts The frame's counts, from the fixture
+     * @return array The same, with the badges that can be told truly
+     */
+    public function forTabCounts(array $user, $value, array $counts)
+    {
+        $counts['occurrences'] = $this->model('Value')
+            ->occurrenceCountFor($user, $value);
+        unset($counts['sightings']);
+        return $counts;
+    }
+
+    /**
      * The Occurrences tab: the facet rail and the table it counts.
      *
      * One method for both, because a facet count and the rows it counts
