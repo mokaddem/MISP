@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D1–D4, D6, D7, D10 await sign-off; D5′, D8, D9, D11 settled (D5 withdrawn)
+**Status:** DRAFT — D1–D4, D6, D7 await sign-off; D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 — see §5 for what was settled and what changed as a result
@@ -235,6 +235,9 @@ already in the response it fetches, and the library now has the channels to show
   is Phase 2.
 - **Enrichment from the graph** (either variety). The taxonomy in §2.2 exists so the design
   accommodates it; no enrichment call is made here.
+- **Backend aggregation of objects.** A behemoth's L2 is *skipped*, not summarised. The
+  correlation aggregate already exists (`RelatedEvent`); the object one does not, and building it
+  is new endpoint work. See §11.
 - **Analyst-data threads.** Flat list in the sidebar panel; no nested renderer.
 - Relationship targets outside the graph's node universe (Galaxy, Organisation, SharingGroup).
 - Retiring the legacy `/events/view_graph`, or touching `EventGraphTool` / `getEventGraph*`.
@@ -258,11 +261,15 @@ assertion — the most valuable product of exploration — is available in neith
 split. Exploring and editing become **modes**, matching the `explore`/`enrich` rail modes
 pivotick already reserves.
 
-#### D5′ — Seed = authored relationships, uncapped ✅ SETTLED (supersedes D5)
+#### D5′ — Authored relationships are always seeded, uncapped ✅ SETTLED (supersedes D5)
 
-The graph seeds with the elements participating in an **object reference** or an **analyst
-relationship**, with no node budget. Justified by §3.5: 2,362 edges worst case, 315 of 345
+The elements participating in an **object reference** or an **analyst relationship** are always
+seeded, with no node budget. Justified by §3.5: 2,362 edges worst case, 315 of 345
 reference-having events under 50.
+
+This is **L1** of D12's resolution levels — L0 (correlated-event proxies) sits below it and is
+also always present; L2 (relationship-less objects) sits above it and *is* budgeted, per D10.
+"Uncapped" applies to L1 alone.
 
 **D5 as originally written is withdrawn.** It proposed building every attribute and object into
 the graph and hiding orphans with `hideDisconnected`. On event 4116 that is ~398,000 nodes
@@ -290,11 +297,68 @@ On-demand loading delivers what default-hidden was for (uncluttered opening, cor
 click away) while making the first paint *cheaper*, and it turns the 92% empty case into a
 designed first step rather than a defect.
 
-#### D11 — The empty-graph case is explicit ✅ SETTLED (consequence of D5′ + D9)
+#### D12 — Resolution levels: the seed takes the highest level that fits the budget ✅ SETTLED
 
-An event with no authored relationships opens with a statement and an action, not a blank
-canvas: *"No authored relationships in this event — 5,629 correlations available"* plus a button.
-This replaces today's silent blank, which four of the six largest events produce.
+The graph has four resolution levels. The seed takes the highest that fits a **single node budget
+of 1,500** (pivotick's own detail threshold — past it the minimap stops resolving per-node style
+and reads as a density map), and the same budget caps D9's correlation fetch.
+
+| Level | Content | Source | Worst case observed | Cost |
+|---|---|---|---|---|
+| **L0** | event + correlated-event proxy nodes | `RelatedEvent` | **86 nodes** (event 4116) | free, already in payload |
+| **L1** | authored relationships — object references + analyst relationships | inline | 2,362 edges (event 1195) | free, already in payload |
+| **L2** | objects with no relationship, containment only | inline | budget-capped (D10) | free, already in payload |
+| **L3** | per-attribute correlations | `RelatedAttribute` | fetch-capped (D9) | one extra request |
+
+**Why this matters:** a behemoth event is no longer a special case needing an apology. Event 4116
+(369,822 attributes, 0 references, 5,629 correlations) affords L0 + L1 — 86 nodes saying *this
+event touches 86 others* — and is told that L2 does not fit. That is a useful graph, not a
+message.
+
+**The correlation aggregate already exists.** Event 4116's 5,629 correlations collapse to 86
+distinct related events, and `RelatedEvent` — that exact aggregate — is already loaded by default
+(`Event.php:2953-2954`). So backend aggregation for the dimension that actually explodes
+(336,221 correlation rows vs 11,330 references) costs nothing and is available today.
+
+**What is *not* aggregated:** objects. There is no existing "28,410 objects → 12,000 file, 8,000
+url" roll-up, and building one is real endpoint work. D10's ceiling means Phase 1 does not need
+it — objects above the budget simply are not drawn and the dock lists them. Logged in §11.
+
+#### D10 — Objects with no relationship: seeded below a budget ✅ SETTLED
+
+**(c)** — objects with no relationship are seeded as containment-only clusters up to the 1,500-node
+budget (L2 in D12); above it the seed stops at L0+L1. Justified by the distribution across the
+350 events that have objects but no references:
+
+| Nodes if seeded (objects + attribute children) | Events | Total nodes |
+|---|---|---|
+| ≤100 | 306 | 6,786 |
+| 101–1k | 36 | 8,880 |
+| 1k–5k | 5 | 11,772 |
+| **>5k** | **3** | **523,677** |
+
+342 of 350 events cost under 1,000 nodes; three events account for half a million. A single
+threshold separates them with almost nothing in between.
+
+**Event-level attributes are never seeded without a relationship**, and the asymmetry is
+principled rather than convenient: an object is a cluster with a template type and named
+children, so "12 file objects and 3 url objects" conveys the event's composition at a glance. A
+bare event-level attribute has no structure — drawn with no relationship it is an isolated dot
+conveying strictly less than the dock's table row, which shows the full value instead of
+truncating at 42 characters. The asymmetry is also load-bearing: 80% of all attributes are
+event-level, so seeding those means seeding the whole event again.
+
+> **Governing principle:** the graph draws things with **structure or relationships**; the table
+> draws things that are **just values**.
+
+#### D11 — The empty-graph case is explicit ✅ SETTLED (consequence of D5′ + D9 + D12)
+
+An event with genuinely nothing to draw at any resolution level opens with a statement and an
+action, not a blank canvas: *"No relationships in this event — 5,629 correlations available"* plus
+a button. This replaces today's silent blank, which four of the six largest events produce.
+
+Note that D12 **demotes this message considerably**: it now fires only when L0, L1 and L2 are all
+empty, rather than whenever the event is large. A behemoth gets L0's aggregated view instead.
 
 ### Open — sign-off requested
 
@@ -343,19 +407,6 @@ Additionally `editors.*.enabled` ← `$mayModify`, per §6.6.
 Keep `d3LinkDistance: 200` so physics stays `'manual'` and layout does not change under this
 release. Opting into `'auto'` is a separate isolated experiment.
 
-#### D10 — Objects with no relationship at all: shown or not? ⚠️ NOT YET DECIDED
-
-D5′ seeds on *relationships*. An event with 20 objects and zero references therefore seeds
-**empty**, and the objects are reachable only through the dock — even though drawing them as
-clusters with their attributes nested would cost little and would show the event's shape.
-
-Options: **(a)** seed strictly on relationships, dock carries the rest (D5′ as literally
-written); **(b)** also seed objects with no references, up to a budget, containment only;
-**(c)** (b) only below an event-size ceiling.
-
-No recommendation yet — this needs its own pass, because it interacts with D11 (if objects are
-seeded, the "empty" message fires far less often) and with the dock's role in §6.5.
-
 ## 6. Detailed Design
 
 ### 6.1 Relationship layers and the seed rule (D1, D5′)
@@ -375,9 +426,20 @@ edges.push({ from: srcId, to: dstId,
 // correlations — added later, by §6.7's second request
 ```
 
-Seed membership: an element is a node iff it participates in an object reference or an analyst
-relationship (plus, as today, the attribute children of any object node). `computeConnectivity()`
-generalises from "reference touches it" to "any authored relationship touches it".
+Seed membership follows D12's resolution levels, taking the highest that fits the 1,500-node
+budget:
+
+```
+L0  always      event node + one proxy node per RelatedEvent
+L1  always      elements participating in an object reference or analyst relationship
+                (+ the attribute children of any object node, as today)
+L2  if it fits  objects with no relationship, as containment-only clusters
+L3  on demand   per-attribute correlations (§6.7)
+```
+
+`computeConnectivity()` generalises from "a reference touches it" to "any authored relationship
+touches it", and gains a second pass for L2 that adds remaining objects while the budget holds.
+Event-level attributes are never added by L2 — see D10's governing principle.
 
 Options:
 
@@ -554,13 +616,18 @@ Two smaller items:
 
 ## 7. Edge Cases
 
-- **The 92% case.** Most events have no authored relationship, so the seed is empty and D11's
-  message fires. Its wording matters more than usual — it is the first thing most users will see
-  on this page. Depends on D10.
-- **Event 4116.** 369,822 attributes, 0 references, 5,629 correlations. Seeds empty, D11 offers
-  the fetch, and the fetch must be capped or it lands 5,629 correlation edges plus foreign
-  endpoints — above the library's comfort zone (minimap drops per-node detail past 1,500 nodes,
-  legend declines to auto-appear past 5,000). Cap target: ~1,000–1,500 nodes.
+- **The 92% case.** Most events have no authored relationship, so L1 is empty and the seed rests
+  on L0 + L2. For the 306 events costing ≤100 nodes that is a complete picture of the event's
+  composition; D11's message now fires only when L0, L1 and L2 are all empty.
+- **Event 4116.** 369,822 attributes, 28,410 objects, 0 references, 5,629 correlations. L1 empty,
+  L2 does not fit (523,677 nodes across the three monsters), so it seeds at **L0: 86
+  correlated-event proxies**. The graph must say that L2 was skipped and why, or the analyst reads
+  86 nodes as the whole event.
+- **The L2/`hideDisconnected` collision.** A containment-only cluster parent has no edges, so
+  `hideDisconnected` treats it as disconnected and flipping *Hide unconnected* blanks an
+  L2-seeded canvas. The library deliberately leaves a cluster's *interior* alone but not its
+  parent. Not a blocker — but the switch's label and D11's message must both speak about
+  **relationships**, not about content, or the behaviour reads as a bug.
 - **The dock on a huge event.** It lists everything, so on event 4116 that's a 398,000-row
   table. Needs paging or a server-side listing; the graph's seed rule does not protect it.
 - **`hideDisconnected` after a correlation fetch.** Turning the correlation layer back off
@@ -612,8 +679,10 @@ relationships, and the events in §3.5 as fixtures):
 | 0 | ✅ Bundle to v1.6.0 + compatibility audit | — |
 | 1 | Regression pass on the existing graph under v1.6.0 (§8.1); refresh the stale Edit▸Add-edge comment | 0 |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer, no behaviour change) | 1 |
-| 3 | Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (D5′) | 2 |
-| 4 | D11 empty-state message + wiring for the on-demand fetch | 3 |
+| 3 | Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
+| 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
+| 3c | L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
+| 4 | D11 empty-state message + wiring for the on-demand fetch | 3c |
 | 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | 4 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
@@ -621,8 +690,8 @@ relationships, and the events in §3.5 as fixtures):
 | 9 | Editor tray → dock pane; enable `UI.table` | 1 |
 | 10 | Write path onto `onBeforeEdgeCreate` + `isValidConnection` + `editors.*.enabled` | 1 |
 
-Tasks 2, 6, 9 and 10 are mutually independent. **D10 must be settled before task 3**, since it
-decides what the seed contains.
+Tasks 2, 6, 9 and 10 are mutually independent. All seed-related decisions (D5′, D9, D10, D12) are
+settled, so tasks 3–5 are unblocked.
 
 Extraction of the inline JS out of the `.ctp` into a real asset file is not a task above, but
 should be considered before task 3 — the file is 858 lines and every task adds to it.
@@ -641,7 +710,10 @@ No controller change, no new endpoint, no schema change in Phase 1.
 
 ## 11. Open Questions / Phase 2
 
-1. **D10** (§5) — objects with no relationship: seeded or dock-only? Blocks task 3.
+1. **Object aggregation** (backend). The one dimension with no existing roll-up: "28,410 objects
+   → 12,000 file, 8,000 url" as aggregate nodes, so a behemoth's L2 degrades to a summary instead
+   of being skipped. Correlations already have their aggregate for free (`RelatedEvent`, D12);
+   objects do not. This is the natural successor to D10's ceiling and needs a new endpoint.
 2. **Lazy expansion.** `childrenProvider` / a fired `onBeforeNodeExpansion` is the one library
    PRD from the set that did not ship (`prd/misp/async-children-provider.md`, still *Proposed*).
    Until it lands, correlated events cannot expand in place. Highest-value remaining library ask.
