@@ -4176,10 +4176,6 @@ tr.vp-rel-k-near > td:first-child {
     border-left-style: dashed;
 }
 
-tr.vp-rel-rowsel > td {
-    background: color-mix(in srgb, var(--vp-rel-co) 10%, transparent);
-}
-
 /*
  * A value or an event title can be long; the row must not stretch.
  *
@@ -4201,12 +4197,6 @@ tr.vp-rel-rowsel > td {
 
 th.vp-rel-num {
     min-width: 8rem;
-}
-
-th.vp-rel-pick,
-td.vp-rel-pick {
-    width: 1%;
-    padding-right: 0;
 }
 
 /*

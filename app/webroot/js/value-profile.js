@@ -1230,38 +1230,6 @@
     }
 
     /**
-     * How many rows are ticked, and the actions that would act on them.
-     *
-     * Counts every checked row including one a filter has since taken
-     * off screen: it is still selected, and a bulk action would still
-     * carry it.
-     *
-     * @param {Element} list
-     */
-    function refreshSelection(list) {
-        var readout = list.querySelector('[data-vp-rel-selected]');
-        if (!readout) {
-            return;
-        }
-        var boxes = list.querySelectorAll('[data-vp-rel-select]');
-        var checked = list.querySelectorAll('[data-vp-rel-select]:checked');
-        readout.textContent = checked.length;
-
-        var all = list.querySelector('[data-vp-rel-select-all]');
-        if (all) {
-            all.checked = boxes.length > 0 && checked.length === boxes.length;
-            all.indeterminate = checked.length > 0
-                && checked.length < boxes.length;
-        }
-        list.querySelectorAll('[data-vp-rel-select]').forEach(function (box) {
-            var row = box.closest('tr');
-            if (row) {
-                row.classList.toggle('vp-rel-rowsel', box.checked);
-            }
-        });
-    }
-
-    /**
      * Show one page of the rows a filter left, and redraw the control
      * so its page count matches. Nothing re-queries: the pages are
      * slices of rows the fragment already carries.
@@ -1407,7 +1375,6 @@
             .forEach(function (list) {
                 refreshList(list);
                 refreshBulkScope(list);
-                refreshSelection(list);
             });
     }
 
@@ -5821,28 +5788,6 @@
                     // rows the reader was looking at either.
                     listPages.set(sortList, 1);
                     refreshList(sortList);
-                }
-                return;
-            }
-
-            if (event.target.matches
-                && event.target.matches(
-                    '[data-vp-rel-select], [data-vp-rel-select-all]'
-                )) {
-                var pickList = event.target.closest('[data-vp-list]');
-                if (pickList) {
-                    if (event.target.matches('[data-vp-rel-select-all]')) {
-                        // Only what is on screen: ticking the header
-                        // box over a filtered table must not quietly
-                        // select rows the filter has taken away.
-                        pickList
-                            .querySelectorAll('tr:not(.d-none) '
-                                + '[data-vp-rel-select]')
-                            .forEach(function (box) {
-                                box.checked = event.target.checked;
-                            });
-                    }
-                    refreshSelection(pickList);
                 }
                 return;
             }

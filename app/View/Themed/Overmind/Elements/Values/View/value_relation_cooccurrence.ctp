@@ -58,11 +58,6 @@ $scan = $co['scan'] ?? array(
     'rows_read' => 0,
 );
 
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
-
 $view = $this;
 
 /**
@@ -1366,14 +1361,6 @@ $headerSub = ob_get_clean();
                                   align-middle mb-0">
                         <thead>
                             <tr>
-                                <th class="vp-rel-pick">
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           data-vp-rel-select-all
-                                           aria-label="<?=
-                                               __('Select every listed row')
-                                           ?>">
-                                </th>
                                 <?php
                                 /*
                                  * Tags is the one column with no
@@ -1454,15 +1441,6 @@ $headerSub = ob_get_clean();
                                             $row['distribution']
                                         ),
                                     ), $valIndex) ?>>
-                                    <td class="vp-rel-pick">
-                                        <input class="form-check-input"
-                                               type="checkbox"
-                                               data-vp-rel-select
-                                               aria-label="<?= h(sprintf(
-                                                   __('Select %s'),
-                                                   $row['value']
-                                               )) ?>">
-                                    </td>
                                     <td class="font-monospace">
                                         <span class="vp-rel-cell"><?=
                                             h($row['value']) ?></span>
@@ -1665,24 +1643,8 @@ $headerSub = ob_get_clean();
         </div>
 
         <div class="p-3 pt-0 d-flex align-items-center gap-2 flex-wrap">
-            <span class="small text-muted me-1">
-                <strong data-vp-rel-selected>0</strong>
-                <?= h(__('selected')) ?>
-            </span>
             <button type="button" class="btn btn-sm btn-outline-secondary
                                          disabled"
-                    title="<?= h($noWrites) ?>">
-                <i class="fas fa-hashtag me-1"></i>
-                <?= __('Tag the selection') ?>
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary
-                                         disabled"
-                    title="<?= h($noWrites) ?>">
-                <i class="fas fa-folder-plus me-1"></i>
-                <?= __('Add selection to a collection') ?>
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-secondary
-                                         ms-auto disabled"
                     title="<?= h(__(
                         'Disabled in this pass — the search this would'
                         . ' open is a restSearch the page does not run'
