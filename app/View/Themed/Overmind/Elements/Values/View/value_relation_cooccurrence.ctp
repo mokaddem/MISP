@@ -515,33 +515,19 @@ $headerSub = ob_get_clean();
                 </div>
                 <?php
                 /*
-                 * Two lines, and the order is the point. A reader who
-                 * has never met a MISP object needs to be told what one
-                 * is and why its contents are worth their attention
-                 * before being told how the rows were folded; the
-                 * provenance sentence that used to open this said
-                 * neither. It keeps its place underneath, because
-                 * *not a correlation* is what stops the section being
-                 * read as engine output.
+                 * One sentence, and it spends its length on what the
+                 * reader is looking at rather than on how it was built.
+                 * The two examples do the work a definition of a MISP
+                 * object used to do here and do it faster, because a
+                 * reader recognises the pair before they can parse the
+                 * category it belongs to.
                  */
                 ?>
-                <div class="small mb-1">
-                    <?= __('A MISP object groups the attributes that'
-                        . ' describe one thing — a file with its hashes'
-                        . ' and filename, a domain with the address it'
-                        . ' resolved to, one network connection. This is'
-                        . ' what else was recorded beside this value'
-                        . ' inside those objects: the same subject,'
-                        . ' described further, and usually the first'
-                        . ' place to pivot.') ?>
-                </div>
-                <div class="small text-muted mb-2">
-                    <?= __('One row per object template, relation and'
-                        . ' value — a sibling seen in many objects is a'
-                        . ' single row, and Objects says how many. Read'
-                        . ' from the objects themselves rather than from'
-                        . ' the correlation engine, so it still answers'
-                        . ' when correlation is suppressed.') ?>
+                <div class="small mb-2">
+                    <?= __('What else was recorded alongside this value'
+                        . ' in the same object — a file\'s other hashes'
+                        . ' and its filename, an IP\'s resolved domains'
+                        . ' — and usually where you pivot next.') ?>
                 </div>
             </div>
 
