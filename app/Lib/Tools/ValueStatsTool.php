@@ -723,6 +723,57 @@ class ValueStatsTool
 
 
     /**
+     * The Overview card's sparkline: 90 days in 40 columns, counting
+     * sightings and nothing else.
+     *
+     * Off the same rows the Sightings tab charts, which is the point of
+     * it living here rather than being a fifth query of its own. The two
+     * panels sit on the same page and a reader can see both at once, so
+     * they must not be able to disagree about how busy the last 90 days
+     * were — and while this card was on the fixture and the tab was not,
+     * they could.
+     *
+     * Type 0 only, matching the card, whose three figures are already
+     * split: a false positive is not a quiet week and drawing it as one
+     * would put a contradiction into the same bar as the support.
+     *
+     * The columns are folded from a dense per-day tally rather than
+     * bucketed straight off the rows, so the day arithmetic is
+     * `ValueProfileBuckets`' and not a third copy of it.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param string $today `Y-m-d`
+     * @return array 40 counts, oldest first
+     */
+    public static function sightingSpark(array $rows, $today)
+    {
+        $columns = 40;
+        $days = 90;
+        $from = date(
+            'Y-m-d',
+            strtotime($today) - ($days - 1) * 86400
+        );
+        $perDay = array();
+        foreach ($rows as $row) {
+            if ((int)$row['Sighting']['type'] !== 0) {
+                continue;
+            }
+            $day = date(
+                'Y-m-d',
+                (int)$row['Sighting']['date_sighting']
+            );
+            $perDay[$day] = ($perDay[$day] ?? 0) + 1;
+        }
+        $tally = ValueProfileBuckets::tally($from, $today, $perDay);
+        $spark = array_fill(0, $columns, 0);
+        foreach ($tally as $offset => $count) {
+            $column = (int)floor(($offset * $columns) / $days);
+            $spark[min($column, $columns - 1)] += $count;
+        }
+        return $spark;
+    }
+
+    /**
      * The three numbers the tab's headers count, plus who filed them.
      *
      * Every count here is the viewer's by construction: the rows arrive

@@ -199,6 +199,61 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The Overview's sightings card: the three counts, who filed them,
+     * and a 90-day sparkline.
+     *
+     * On the Overview and not the Sightings tab, and the only panel of
+     * either that this method serves. It is here rather than in the
+     * Overview's own live phase because of what it is made of: the same
+     * `sightingContext` the tab's four endpoints share, so converting it
+     * is wiring rather than new work, and leaving it on the fixture
+     * meant a card and a tab on one page that could disagree about the
+     * same value — the tab counting what the database holds and the card
+     * counting what a literal said.
+     *
+     * **The Overview's other panels stay on the fixture**, including
+     * `value_verdict_card`, which `00-contract.md` §14.12 blocks until a
+     * verdict engine exists. This converts one card of that tab and
+     * claims nothing about the rest, which is what §14.12's note about
+     * not treating a tab as indivisible asks for.
+     *
+     * No decay work, like the list: a card above the fold should not
+     * wait for a curve.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forSightings(array $user, $value,
+        array $options = array()
+    ) {
+        $context = $this->sightingContext($user, $value, $options);
+        /*
+         * No spark at all for a value nobody has reported, rather than
+         * forty empty columns. The card already says `Nobody has
+         * reported seeing this` underneath, and a flat strip over that
+         * sentence is a chart of nothing.
+         *
+         * Quiet is not the same as absent, so a value with reports but
+         * none in the last ninety days keeps its strip: there, the
+         * empty columns are the answer to the question the strip asks.
+         */
+        $reported = $context['totals']['total'] > 0;
+        return array(
+            'value' => $value,
+            'sightings' => $this->sightingHeader($context) + array(
+                'spark' => $reported
+                    ? ValueStatsTool::sightingSpark(
+                        $context['sightings'],
+                        date('Y-m-d')
+                    )
+                    : array(),
+            ),
+        );
+    }
+
+    /**
      * The individual sightings, and the range note the brush drives.
      *
      * No decay work at all, which is the point of it being its own

@@ -71,9 +71,24 @@ class ValuesController extends AppController
         $this->renderPanel($this->profileFor($b64value), 'value_verdict_card');
     }
 
+    /**
+     * The Overview's sightings card, and the one panel of that tab that
+     * reads the database — see `ValueProfile::forSightings` for why it
+     * was converted here rather than with the rest of the Overview.
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewSightings($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_sightings');
+        $this->loadModel('ValueProfile');
+        $this->renderPanel(
+            $this->ValueProfile->forSightings(
+                $this->Auth->user(),
+                $this->decodeValue($b64value)
+            ),
+            'value_sightings'
+        );
     }
 
     public function viewLifecycle($b64value = null)
