@@ -56,12 +56,28 @@ $sightings = $valueProfile['sightings'];
             </div>
         <?php else: ?>
 
-            <?php foreach ($decay as $model): ?>
-                <div class="vp-decay<?= !empty($model['decayed'])
+            <?php
+            /*
+             * The colour is the chart's, not this card's. `%s`'s line
+             * and `%s`'s bar are the same series drawn twice, and until
+             * this phase the bar was `--correlation` for every model
+             * while the line cycled two hues — so a reader with two
+             * models had no way to tell which line the number under
+             * each name belonged to. The cycle is the one
+             * `value-profile.js` uses, over the same two variables, and
+             * the index matches because `ValueProfile::decayFor` fills
+             * `models` and `curves` in one loop.
+             */
+            ?>
+            <?php foreach ($decay as $i => $model): ?>
+                <?php $hue = 'var(--vp-sight-curve-' . ($i % 2 + 1) . ')'; ?>
+                <div class="vp-decay vp-decay-keyed<?= !empty($model['decayed'])
                     ? ' vp-decay-expired'
-                    : '' ?>">
+                    : '' ?>"
+                     style="--vp-decay-colour: <?= $hue ?>;">
 
                     <div class="vp-decay-head">
+                        <span class="vp-decay-key"></span>
                         <span class="vp-decay-model"
                               title="<?= h($model['model']) ?>">
                             <?= h($model['model']) ?>
@@ -174,8 +190,11 @@ $sightings = $valueProfile['sightings'];
 
             <p class="vp-aside-note">
                 <?= h(__(
-                    'Each line on the chart is this model\'s score. The bar'
-                    . ' under each name is the same number now.'
+                    'Each line on the chart is one of these models, drawn'
+                    . ' in the colour beside its name here. The bar under'
+                    . ' each name is that line\'s last point, and the tick'
+                    . ' across it is the threshold the chart no longer'
+                    . ' draws.'
                 )) ?>
                 <?= h(__(
                     'MISP scores an attribute, not a value, so each of'

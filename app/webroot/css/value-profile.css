@@ -1167,6 +1167,22 @@ tr.vp-occ-deleted td {
     white-space: nowrap;
 }
 
+/*
+ * The model's line on the chart, restated as a stroke beside its name.
+ * A rectangle here would key a filled mark, and there is no filled mark
+ * for a decay model anywhere on the tab — the chart draws a line and
+ * this card draws a bar of the same colour, which is why the bar below
+ * takes `--vp-decay-colour` too.
+ */
+.vp-decay-key {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 12px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--vp-decay-colour, var(--correlation));
+}
+
 .vp-decay-score {
     font-weight: 700;
     font-variant-numeric: tabular-nums;
@@ -1200,6 +1216,27 @@ tr.vp-occ-deleted td {
 
 .vp-decay-expired .vp-decay-fill {
     background: var(--bs-secondary-color);
+}
+
+/*
+ * A keyed model bar: the same card, drawn in the colour of the line
+ * this model has on a chart next to it. Only the Sightings rail has
+ * such a chart, which is why this is a modifier rather than the rule —
+ * the Lifecycle card's copy of this bar has nothing to agree with and
+ * keeps the card's own hue.
+ *
+ * Decayed, it desaturates instead of going grey. The grey was chrome
+ * and would have thrown away the identity the modifier exists to
+ * carry; `under its threshold` is already said by the flag beside the
+ * name and by the tick across the track.
+ */
+.vp-decay-keyed .vp-decay-fill {
+    background: var(--vp-decay-colour);
+}
+
+.vp-decay-keyed.vp-decay-expired .vp-decay-fill {
+    background: color-mix(in srgb, var(--vp-decay-colour) 40%,
+        var(--bs-secondary-bg));
 }
 
 /*
@@ -3209,18 +3246,36 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-sight-org-6: #9d755d;
 
     /*
-     * The two contradicting types keep the page's own vocabulary: a
-     * false positive is the benign case arguing, an expiration is the
-     * quiet one. Neither is a seventh organisation, and neither may be
-     * mistaken for one in a stack.
+     * The two contradicting types, in the vocabulary MISP already
+     * speaks. `sighting_field.ctp` prints every attribute's sightings
+     * as `(green/red/orange)` — sightings, false positives,
+     * expirations — on the event view, and this chart is the same
+     * three counts. Borrowing the verdict palette instead put a
+     * benign green on false positives and a grey on expirations,
+     * which said the opposite of the row above it.
+     *
+     * The green also failed on measurement rather than only on
+     * meaning. Against the organisation ramp its worst adjacent pair
+     * — the benign green under a brown organisation — separated by
+     * ΔE 4.1 under deuteranopia, so a false positive and a seventh
+     * organisation were the same bar. Red at this step reads 11.1,
+     * and the grey is gone from a data series entirely: at chroma
+     * 0.016 it carried no identity, and grey is this chart's chrome
+     * — the navigator strip under it is drawn in exactly that ink.
      */
-    --vp-sight-fp: var(--vp-ben);
-    --vp-sight-exp: var(--vp-unknown);
+    --vp-sight-fp: #a51c30;
+    --vp-sight-exp: #d97706;
 
-    /* The curves are the verdict's own conflict amber and the primary,
-     * so a line is never the same hue as a bar underneath it. */
-    --vp-sight-curve-1: var(--vp-conflict);
-    --vp-sight-curve-2: var(--primary);
+    /*
+     * The curves are violet and a deep teal, which the organisation
+     * ramp does not reach: a line is never the hue of a bar under it
+     * (worst pair ΔE 11.2), and neither is now the red or the orange
+     * the two contradicting types took. The rail beside the chart
+     * paints each model's bar from the same two variables, so a model
+     * carries one colour across both cards.
+     */
+    --vp-sight-curve-1: #7c3aed;
+    --vp-sight-curve-2: #155e75;
 
     --vp-sight-nav: var(--bs-secondary-color);
 }
@@ -3232,6 +3287,16 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-sight-org-4: #cf96c0;
     --vp-sight-org-5: #ffb9c0;
     --vp-sight-org-6: #bd9379;
+
+    /*
+     * The red lightens to clear the lightened brown (ΔE 9.3) and the
+     * ground; the orange holds, being the one step that clears both
+     * grounds. The curves lighten because they are strokes on a dark
+     * ground rather than fills on a light one.
+     */
+    --vp-sight-fp: #cf4a63;
+    --vp-sight-curve-1: #a78bfa;
+    --vp-sight-curve-2: #a5f3fc;
 }
 
 /* ------------------------------------------------------------------
@@ -3382,8 +3447,7 @@ th[aria-sort="descending"] .sort-icon::before {
     background: var(--vp-sight-fp);
 }
 
-.vp-sight-swatch-expiration,
-.vp-sight-swatch-exp {
+.vp-sight-swatch-expiration {
     background: var(--vp-sight-exp);
 }
 
@@ -3403,14 +3467,46 @@ th[aria-sort="descending"] .sort-icon::before {
  * The legend
  * ------------------------------------------------------------------ */
 
+/*
+ * Two groups, each behind its own heading and on its own row. The chart
+ * carries two scales and the legend has to say which key belongs to
+ * which; one run of keys said that a decay score was a seventh
+ * reporter.
+ *
+ * Stacked rather than side by side because the reporter group is
+ * however many organisations have reported the value — two on one
+ * value and twenty-three on another — so a rule between the groups
+ * would land wherever that run happened to wrap. Down the page it is
+ * always between them.
+ */
 .vp-sight-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: var(--bs-body-color);
+}
+
+.vp-sight-legend-group {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 4px 14px;
-    margin-top: 10px;
-    font-size: 0.72rem;
-    color: var(--bs-body-color);
+}
+
+.vp-sight-legend-group-score {
+    padding-top: 6px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-sight-legend-head {
+    color: var(--bs-secondary-color);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .vp-sight-key {
@@ -3424,8 +3520,44 @@ th[aria-sort="descending"] .sort-icon::before {
     color: var(--bs-secondary-color);
 }
 
-.vp-sight-key-quiet {
+/*
+ * A reporter key is a button. It looks like the span it replaced until
+ * the pointer is on it, because a legend that announces itself as a
+ * control is a legend nobody reads as a legend.
+ */
+.vp-sight-key-org {
+    padding: 1px 5px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.vp-sight-key-org:hover:not(:disabled),
+.vp-sight-key-org:focus-visible {
+    background: var(--bs-secondary-bg);
+}
+
+/*
+ * Switched off, not gone. The name and its count stay legible — the
+ * count is a fact about the range either way — and the swatch hollows
+ * out, which is the state the chart is in.
+ */
+.vp-sight-key-org[aria-pressed="false"] {
     color: var(--bs-secondary-color);
+}
+
+.vp-sight-key-org[aria-pressed="false"] .vp-sight-swatch {
+    background: none;
+    box-shadow: inset 0 0 0 1.5px var(--vp-sight-hue);
+    opacity: 0.65;
+}
+
+.vp-sight-key-org:disabled {
+    cursor: default;
+    opacity: 0.45;
 }
 
 .vp-sight-swatch {
@@ -3442,10 +3574,102 @@ th[aria-sort="descending"] .sort-icon::before {
     border-radius: 2px;
 }
 
-.vp-sight-swatch-dash {
-    height: 0;
-    border-top: 1px dashed var(--vp-sight-hue);
-    background: none;
+/* ------------------------------------------------------------------
+ * The readout
+ * ------------------------------------------------------------------
+ * HTML rather than the canvas tooltip, because it has two sections and
+ * a rule, which Chart.js will not draw. It is placed inside the chart's
+ * own box by `sightTip()` and never takes the pointer — a readout that
+ * can be hovered is a readout that flickers.
+ * ------------------------------------------------------------------ */
+
+.vp-tip {
+    position: absolute;
+    z-index: 3;
+    min-width: 148px;
+    max-width: 260px;
+    padding: 8px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    background: var(--bs-body-bg);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.09s ease-out;
+}
+
+.vp-tip-on {
+    opacity: 1;
+}
+
+.vp-tip-head {
+    margin-bottom: 5px;
+    color: var(--bs-secondary-color);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-tip-sec + .vp-tip-sec {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-tip-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 3px;
+    color: var(--bs-secondary-color);
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.vp-tip-sec-head > b {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+/*
+ * The number leads and the name follows — the legend's hierarchy
+ * inverted, because a reader who has already aimed at a series wants
+ * the value, not to be told what they pointed at.
+ */
+.vp-tip-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.vp-tip-row > b {
+    min-width: 1.6em;
+    color: var(--bs-body-color);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.vp-tip-row > span {
+    overflow: hidden;
+    color: var(--bs-secondary-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * A stroke, not a block. At this density a filled swatch is
+ * data-weight ink doing a label's job, and every row here keys a mark
+ * the reader is already looking at.
+ */
+.vp-tip-key {
+    flex: 0 0 auto;
+    width: 10px;
+    height: 3px;
+    border-radius: 2px;
 }
 
 /* ------------------------------------------------------------------

@@ -2327,6 +2327,13 @@
         // Which of the three types are drawn. A type with no rows at
         // all is disabled in the markup and never reaches this.
         shown: { sighting: true, fp: true, expiration: true },
+        // Organisations the legend has switched off, by their index in
+        // `data.orgs`. Keyed by index rather than held as a list of the
+        // survivors so that a colour never moves: the ramp is read off
+        // this index and a filter must not repaint what it left alone.
+        // The chart only — the table below answers to the brush, which
+        // is the gesture that has a date range in it.
+        hiddenOrgs: {},
         // Bucket index bounds of the brush, or null while it covers the
         // whole range.
         brush: null,
@@ -2500,15 +2507,197 @@
         return 'var(--vp-sight-' + name + '-' + ((index % count) + 1) + ')';
     }
 
+    /* ------------------------------------------------------------------
+     * The readout
+     * ------------------------------------------------------------------
+     * Chart.js draws one list, and this chart hovers two scales at
+     * once. A column over a busy week listed nine organisations, a
+     * false positive, an expiration, two model scores and two model
+     * thresholds as thirteen interchangeable rows of `name: number` —
+     * so the count and the score, whose only relationship is the
+     * argument the panel exists to make, looked like members of one
+     * series.
+     *
+     * So the canvas tooltip is off and this one is HTML: two sections
+     * with a rule between them, the reports totalled in their heading,
+     * and the number ahead of the name in every row because the reader
+     * arrived already knowing which series they are pointing at. The
+     * keys are strokes rather than blocks — at this density a filled
+     * swatch is data-weight ink doing a label's job.
+     * ------------------------------------------------------------------ */
+
+    /**
+     * The node, made once per chart and reused. It lives inside the
+     * chart's own relatively-positioned box, so placing it is arithmetic
+     * on the caret rather than on the page.
+     *
+     * @param {Element} host The canvas's parent
+     * @return {Element}
+     */
+    function sightTipNode(host) {
+        var node = host.querySelector('[data-vp-sight-tip]');
+        if (!node) {
+            node = document.createElement('div');
+            node.className = 'vp-tip';
+            node.setAttribute('data-vp-sight-tip', '');
+            node.setAttribute('aria-hidden', 'true');
+            host.appendChild(node);
+        }
+        return node;
+    }
+
+    /**
+     * @param {Element} node
+     * @param {string} title
+     * @param {?number} total Rendered beside the heading when given
+     * @return {Element} The section to append rows to
+     */
+    function sightTipSection(node, title, total) {
+        var section = document.createElement('div');
+        var head = document.createElement('div');
+        var name = document.createElement('span');
+        section.className = 'vp-tip-sec';
+        head.className = 'vp-tip-sec-head';
+        name.textContent = title;
+        head.appendChild(name);
+        if (total !== null) {
+            var count = document.createElement('b');
+            count.textContent = total;
+            head.appendChild(count);
+        }
+        section.appendChild(head);
+        node.appendChild(section);
+        return section;
+    }
+
+    /**
+     * One row. `textContent` throughout: an organisation name is
+     * whatever a remote instance called itself.
+     *
+     * @param {Element} section
+     * @param {string} colour Already resolved off the canvas
+     * @param {number} value
+     * @param {string} name
+     */
+    function sightTipRow(section, colour, value, name) {
+        var row = document.createElement('div');
+        var key = document.createElement('i');
+        var num = document.createElement('b');
+        var label = document.createElement('span');
+        row.className = 'vp-tip-row';
+        key.className = 'vp-tip-key';
+        key.style.background = colour;
+        num.textContent = value;
+        label.textContent = name;
+        row.appendChild(key);
+        row.appendChild(num);
+        row.appendChild(label);
+        section.appendChild(row);
+        return row;
+    }
+
+    /**
+     * Chart.js hands the whole tooltip model here on every move.
+     *
+     * @param {Object} context `{chart, tooltip}`
+     */
+    function sightTip(context) {
+        var chart = context.chart;
+        var model = context.tooltip;
+        var node = sightTipNode(chart.canvas.parentNode);
+
+        if (!model || model.opacity === 0) {
+            node.classList.remove('vp-tip-on');
+            return;
+        }
+
+        var labels = (sight.data && sight.data.labels) || {};
+        var points = model.dataPoints || [];
+        var bars = [];
+        var lines = [];
+        points.forEach(function (point) {
+            if (point.dataset.type === 'line') {
+                lines.push(point);
+            } else {
+                bars.push(point);
+            }
+        });
+
+        node.textContent = '';
+        var head = document.createElement('div');
+        head.className = 'vp-tip-head';
+        head.textContent = model.title.length ? model.title[0] : '';
+        node.appendChild(head);
+
+        /*
+         * The heading totals the column rather than the rows, because
+         * the rows are filtered: an organisation reporting nothing this
+         * week is not a row, and a column of nothing at all is still a
+         * `0` the reader asked for by pointing at it.
+         */
+        var drawn = chart.data.datasets.filter(function (set) {
+            return set.type !== 'line';
+        });
+        if (drawn.length) {
+            var at = points.length ? points[0].dataIndex : null;
+            var total = 0;
+            if (at !== null) {
+                drawn.forEach(function (set) {
+                    total += set.data[at] || 0;
+                });
+            }
+            var reports = sightTipSection(node, labels.reports || '', total);
+            bars.forEach(function (point) {
+                sightTipRow(
+                    reports,
+                    point.dataset.backgroundColor,
+                    point.parsed.y,
+                    point.dataset.label
+                );
+            });
+        }
+        if (lines.length) {
+            var scores = sightTipSection(node, labels.score || '', null);
+            lines.forEach(function (point) {
+                sightTipRow(
+                    scores,
+                    point.dataset.borderColor,
+                    point.parsed.y,
+                    point.dataset.label
+                );
+            });
+        }
+
+        node.classList.add('vp-tip-on');
+        var left = model.caretX + 14;
+        if (left + node.offsetWidth > chart.width) {
+            left = model.caretX - node.offsetWidth - 14;
+        }
+        var top = model.caretY - (node.offsetHeight / 2);
+        node.style.left = Math.max(0, Math.min(
+            left,
+            chart.width - node.offsetWidth
+        )) + 'px';
+        node.style.top = Math.max(0, Math.min(
+            top,
+            chart.height - node.offsetHeight
+        )) + 'px';
+    }
+
     /**
      * The overlay itself: one stacked bar dataset per organisation on
-     * the count axis, one line per decaying model on the score axis,
-     * and a dotted threshold under each line.
+     * the count axis and one line per decaying model on the score axis.
      *
-     * The thresholds are drawn as datasets rather than annotations —
-     * the annotation plugin is not loaded — and labelled by a plugin
-     * declared inline, which is the one thing this chart does that
-     * `value_chart` could not have done for it.
+     * The thresholds used to be here too, as a dotted dataset each plus
+     * an inline plugin that chipped their value over the plot. They are
+     * gone: a threshold is a constant, it was drawn per model and
+     * listed again in the readout at every column, and the rail beside
+     * the chart already carries it as the tick across each model's bar.
+     *
+     * An organisation the legend has switched off is skipped rather
+     * than emptied, and the colour still comes from its position in
+     * `data.orgs` — filtering the series must not repaint the ones that
+     * stayed.
      *
      * @param {Element} el
      * @return {Object}
@@ -2518,43 +2707,51 @@
         var range = sightRange();
         var datasets = [];
 
+        /*
+         * A hairline of the page's own ground between stacked segments.
+         * Without it a stack of three organisations with counts 1, 1, 1
+         * is one bar in three tones, and the tones are what the reader
+         * is being asked to count.
+         */
+        function segment(extra) {
+            return Object.assign({
+                type: 'bar',
+                stack: 'reports',
+                yAxisID: 'y',
+                order: 3,
+                borderColor: 'var(--bs-body-bg)',
+                borderWidth: { top: 1, right: 0, bottom: 0, left: 0 },
+                borderSkipped: false,
+            }, extra);
+        }
+
         if (sight.shown.sighting) {
             range.org.forEach(function (counts, i) {
-                datasets.push({
-                    type: 'bar',
+                if (sight.hiddenOrgs[i]) {
+                    return;
+                }
+                datasets.push(segment({
                     label: data.orgs[i],
                     data: counts,
                     backgroundColor: sightHue(i, SIGHT_ORG_COLOURS, 'org'),
-                    stack: 'reports',
-                    yAxisID: 'y',
-                    order: 3,
-                });
+                }));
             });
         }
         if (sight.shown.fp) {
-            datasets.push({
-                type: 'bar',
+            datasets.push(segment({
                 label: data.labels.falsePositive,
                 data: range.fp,
                 backgroundColor: 'var(--vp-sight-fp)',
-                stack: 'reports',
-                yAxisID: 'y',
-                order: 3,
-            });
+            }));
         }
         if (sight.shown.expiration) {
-            datasets.push({
-                type: 'bar',
+            datasets.push(segment({
                 label: data.labels.expiration,
                 data: range.expiration,
                 backgroundColor: 'var(--vp-sight-exp)',
-                stack: 'reports',
-                yAxisID: 'y',
-                order: 3,
-            });
+            }));
         }
 
-        var thresholds = [];
         range.curves.forEach(function (curve, i) {
             var colour = sightHue(i, SIGHT_CURVE_COLOURS, 'curve');
             datasets.push({
@@ -2571,23 +2768,6 @@
                 yAxisID: 'score',
                 order: 1,
             });
-            var line = range.labels.map(function () {
-                return curve.threshold;
-            });
-            var label = data.labels.threshold.replace('%s', curve.threshold);
-            datasets.push({
-                type: 'line',
-                label: label,
-                data: line,
-                borderColor: colour,
-                borderWidth: 1,
-                borderDash: [4, 3],
-                pointRadius: 0,
-                pointHoverRadius: 0,
-                yAxisID: 'score',
-                order: 2,
-            });
-            thresholds.push({ value: curve.threshold, text: label });
         });
 
         var config = window.VP.chart.resolve({
@@ -2642,45 +2822,23 @@
                             return item.parsed.y !== 0
                                 || item.dataset.type === 'line';
                         },
+                        // The reports first, the scores after, whatever
+                        // order the datasets went in — the readout is
+                        // grouped and the groups have to stay whole.
+                        itemSort: function (a, b) {
+                            var rank = function (item) {
+                                return item.dataset.type === 'line' ? 1 : 0;
+                            };
+                            return rank(a) - rank(b)
+                                || a.datasetIndex - b.datasetIndex;
+                        },
+                        enabled: false,
+                        external: sightTip,
                     },
                 },
             },
         }, el);
 
-        /*
-         * A dotted line at 60 means nothing until it says 60. Chart.js
-         * has no annotation plugin loaded, so the labels are drawn here
-         * — on a chip of the page's own ground, because a curve passing
-         * under the text is the normal case rather than the unlucky
-         * one.
-         */
-        config.plugins = [{
-            id: 'vpThresholdLabels',
-            afterDatasetsDraw: function (chart) {
-                var scale = chart.scales.score;
-                var ctx = chart.ctx;
-                var style = getComputedStyle(el);
-                var ink = style.getPropertyValue('--bs-secondary-color')
-                    .trim();
-                var ground = style.getPropertyValue('--bs-body-bg').trim();
-                ctx.save();
-                ctx.font = '10px sans-serif';
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'middle';
-                thresholds.forEach(function (threshold) {
-                    var right = chart.chartArea.right - 3;
-                    var y = scale.getPixelForValue(threshold.value);
-                    var width = ctx.measureText(threshold.text).width;
-                    ctx.globalAlpha = 0.88;
-                    ctx.fillStyle = ground;
-                    ctx.fillRect(right - width - 4, y - 7, width + 6, 14);
-                    ctx.globalAlpha = 1;
-                    ctx.fillStyle = ink;
-                    ctx.fillText(threshold.text, right, y);
-                });
-                ctx.restore();
-            },
-        }];
         config.type = 'bar';
         return new Chart(el, config);
     }
@@ -2740,6 +2898,18 @@
             .forEach(function (key) {
                 var i = parseInt(key.dataset.vpSightKeyOrg, 10);
                 setText(key, '[data-vp-sight-key-count]', range.orgCounts[i]);
+                /*
+                 * The count is the range's and stays put whether or not
+                 * the bar is drawn: switching an organisation off asks
+                 * the chart a question, not the data.
+                 */
+                key.setAttribute(
+                    'aria-pressed',
+                    sight.hiddenOrgs[i] ? 'false' : 'true'
+                );
+                // Nothing to take out of the chart while the whole
+                // sighting type is switched off above.
+                key.disabled = !sight.shown.sighting;
             });
         setText(panel, '[data-vp-sight-key-fp]', range.fpCount);
         setText(panel, '[data-vp-sight-key-exp]', range.expirationCount);
@@ -3012,6 +3182,7 @@
             // the chart has to land on the same one.
             sightToSpan(sight.rangeKey);
             sight.shown = { sighting: true, fp: true, expiration: true };
+            sight.hiddenOrgs = {};
             panel.querySelectorAll('[data-vp-sight-type]')
                 .forEach(function (button) {
                     if (button.disabled) {
@@ -3058,6 +3229,24 @@
             var key = toggle.dataset.vpSightType;
             sight.shown[key] = !sight.shown[key];
             toggle.setAttribute('aria-pressed', String(sight.shown[key]));
+            refreshSight(panel);
+            return true;
+        }
+
+        /*
+         * The legend as a filter. A stack of a dozen organisations is
+         * a wall at the one bar the reader cares about, and until now
+         * the only way to thin it was the three type toggles, which
+         * cannot say `just this one`.
+         */
+        var org = event.target.closest('[data-vp-sight-key-org]');
+        if (org && !org.disabled && panel) {
+            var at = parseInt(org.dataset.vpSightKeyOrg, 10);
+            if (sight.hiddenOrgs[at]) {
+                delete sight.hiddenOrgs[at];
+            } else {
+                sight.hiddenOrgs[at] = true;
+            }
             refreshSight(panel);
             return true;
         }

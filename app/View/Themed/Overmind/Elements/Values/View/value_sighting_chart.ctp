@@ -6,8 +6,15 @@
  * had anywhere to draw it against the sightings that move it. That is
  * the whole argument for this panel, and it is why the curve is not in
  * a card of its own: on one axis pair the reader can see a burst of
- * reports lift a line back over its threshold, and — the harder thing —
- * see a false positive land and lift nothing.
+ * reports lift a line, and — the harder thing — see a false positive
+ * land and lift nothing.
+ *
+ * The thresholds are not drawn. Two dotted lines, two labels chipped
+ * over the plot and two more legend keys were four marks per model
+ * saying one number that does not move, and they were in the readout
+ * at every hovered column as well. The number lives in the rail
+ * beside the chart, as the tick across each model's bar, which is
+ * where a reader asking `is it under?` is already looking.
  *
  * Both axes are captioned in words above the chart. An overlay with two
  * scales that labels neither is a trick, and the left one is a count
@@ -142,7 +149,15 @@ if ($series !== null) {
         'default' => $series['default_span'],
         'models' => $decay,
         'labels' => array(
-            'threshold' => __('threshold %s'),
+            /*
+             * The two halves of the readout. They are headings rather
+             * than row labels because the tooltip groups by scale: the
+             * rows above one are counts on the left axis and the rows
+             * above the other are scores on the right, and a flat list
+             * of both was the tab's least readable thing.
+             */
+            'reports' => __('Reports'),
+            'score' => __('Decay score'),
             'perUnit' => array(
                 'day' => __(
                     'Sightings per day, stacked by organisation'
@@ -264,50 +279,109 @@ if ($series !== null) {
                 )) ?>
             </div>
 
+            <?php
+            /*
+             * The legend is two groups with a rule between them,
+             * matching the tooltip: what was reported, then what the
+             * models make of it. Reading down one column of the chart
+             * means reading a count and a score at once, and a single
+             * run of keys made those look like one series.
+             *
+             * The reporter keys are buttons. A stack of a dozen
+             * organisations is unreadable at the bar it matters in, and
+             * the only control the tab offered was three type toggles
+             * that cannot say `just this org` — so the legend, which is
+             * already the list of organisations and already sits under
+             * the chart, becomes the filter. The type toggles above
+             * stay what they are: they choose which of the three kinds
+             * of report are drawn at all.
+             */
+            ?>
+            <?php
+            /*
+             * A never-sighted value keeps its axes and its curve, so it
+             * reaches here with no reporter, no false positive and no
+             * expiration. The heading goes with them: `Reported by`
+             * over nothing at all is a label looking for a list.
+             */
+            $reported = !empty($series['orgs'])
+                || $sightings['fp'] > 0
+                || $sightings['expiration'] > 0;
+            ?>
             <div class="vp-sight-legend" data-vp-sight-legend>
-                <?php foreach ($series['orgs'] as $i => $org): ?>
-                    <span class="vp-sight-key"
-                          data-vp-sight-key-org="<?= (int)$i ?>">
-                        <span class="vp-sight-swatch"
-                              style="--vp-sight-hue: var(--vp-sight-org-<?=
-                                  (int)($i % 6) + 1 ?>);"></span>
-                        <?= h($org) ?>
-                        <b data-vp-sight-key-count></b>
+                <?php if ($reported): ?>
+                <div class="vp-sight-legend-group">
+                    <span class="vp-sight-legend-head">
+                        <?= __('Reported by') ?>
                     </span>
-                <?php endforeach; ?>
-                <?php if ($sightings['fp'] > 0): ?>
-                    <span class="vp-sight-key">
-                        <span class="vp-sight-swatch vp-sight-swatch-fp"></span>
-                        <?= __('False positive') ?>
-                        <b data-vp-sight-key-fp></b>
-                    </span>
+                    <?php foreach ($series['orgs'] as $i => $org): ?>
+                        <button type="button" class="vp-sight-key
+                                vp-sight-key-org"
+                                data-vp-sight-key-org="<?= (int)$i ?>"
+                                aria-pressed="true"
+                                title="<?= h(sprintf(
+                                    __('Show or hide %s in the chart'),
+                                    $org
+                                )) ?>">
+                            <span class="vp-sight-swatch"
+                                  style="--vp-sight-hue: var(--vp-sight-org-<?=
+                                      (int)($i % 6) + 1 ?>);"></span>
+                            <?= h($org) ?>
+                            <b data-vp-sight-key-count></b>
+                        </button>
+                    <?php endforeach; ?>
+                    <?php
+                    /*
+                     * The hue goes in the same variable the reporter
+                     * keys use rather than through the `-fp` class the
+                     * toggles carry. `.vp-sight-swatch` is declared
+                     * after those classes and paints from
+                     * `--vp-sight-hue`, so a legend swatch keyed by
+                     * class alone came out transparent — these two
+                     * have been invisible since the legend was
+                     * written.
+                     */
+                    ?>
+                    <?php if ($sightings['fp'] > 0): ?>
+                        <span class="vp-sight-key">
+                            <span class="vp-sight-swatch"
+                                  style="--vp-sight-hue:
+                                      var(--vp-sight-fp);"></span>
+                            <?= __('False positive') ?>
+                            <b data-vp-sight-key-fp></b>
+                        </span>
+                    <?php endif; ?>
+                    <?php if ($sightings['expiration'] > 0): ?>
+                        <span class="vp-sight-key">
+                            <span class="vp-sight-swatch"
+                                  style="--vp-sight-hue:
+                                      var(--vp-sight-exp);"></span>
+                            <?= __('Expiration') ?>
+                            <b data-vp-sight-key-exp></b>
+                        </span>
+                    <?php endif; ?>
+                </div>
                 <?php endif; ?>
-                <?php if ($sightings['expiration'] > 0): ?>
-                    <span class="vp-sight-key">
-                        <span class="vp-sight-swatch
-                                     vp-sight-swatch-exp"></span>
-                        <?= __('Expiration') ?>
-                        <b data-vp-sight-key-exp></b>
-                    </span>
+                <?php if (!empty($decay)): ?>
+                    <div class="vp-sight-legend-group<?= $reported
+                        ? ' vp-sight-legend-group-score'
+                        : '' ?>">
+                        <span class="vp-sight-legend-head">
+                            <?= __('Decay score') ?>
+                        </span>
+                        <?php foreach ($decay as $i => $model): ?>
+                            <span class="vp-sight-key">
+                                <span class="vp-sight-swatch
+                                             vp-sight-swatch-line"
+                                      style="--vp-sight-hue:
+                                          var(--vp-sight-curve-<?=
+                                          (int)($i % 2) + 1 ?>);"></span>
+                                <?= h($model['model']) ?>
+                                <b><?= h($model['score']) ?></b>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
-                <?php foreach ($decay as $i => $model): ?>
-                    <span class="vp-sight-key">
-                        <span class="vp-sight-swatch vp-sight-swatch-line"
-                              style="--vp-sight-hue: var(--vp-sight-curve-<?=
-                                  (int)($i % 2) + 1 ?>);"></span>
-                        <?= h($model['model']) ?>
-                        <b><?= h($model['score']) ?></b>
-                    </span>
-                    <span class="vp-sight-key vp-sight-key-quiet">
-                        <span class="vp-sight-swatch vp-sight-swatch-dash"
-                              style="--vp-sight-hue: var(--vp-sight-curve-<?=
-                                  (int)($i % 2) + 1 ?>);"></span>
-                        <?= h(sprintf(
-                            __('threshold %s'),
-                            $model['threshold']
-                        )) ?>
-                    </span>
-                <?php endforeach; ?>
             </div>
 
             <?php
@@ -322,6 +396,13 @@ if ($series !== null) {
              */
             ?>
             <p class="vp-sight-legend-note">
+                <?php if (!empty($series['orgs'])): ?>
+                    <?= h(__(
+                        'Click an organisation to take it out of the'
+                        . ' chart; its count stays, and the table below'
+                        . ' is not filtered by it.'
+                    )) ?>
+                <?php endif; ?>
                 <?= h(__(
                     'Organisation counts are sightings in the selected'
                     . ' range. False positives and expirations are'
