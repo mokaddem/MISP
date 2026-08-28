@@ -406,109 +406,6 @@ ob_start();
 <?php
 $headerSub = ob_get_clean();
 ?>
-<div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
-     style="--vp-panel-color: var(--vp-rel-co);"
-     data-vp-list
-     data-vp-group-active="value">
-
-    <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => __('Co-occurrence'),
-        'panelIcon' => 'fas fa-link',
-        'panelColor' => 'var(--vp-rel-co)',
-        'panelSub' => $headerSub,
-        'panelExtra' => $headerExtra,
-    )) ?>
-
-    <?php if ($co['suppressed']): ?>
-
-        <?php
-        /*
-         * Not an empty state — the opposite claim, and one a reader who
-         * saw an empty table would get exactly backwards. There is a
-         * neighbourhood; it is in events so large that reading one
-         * would say nothing about this value in particular.
-         */
-        ?>
-        <div class="vp-suppressed">
-            <i class="fas fa-circle-exclamation"></i>
-            <div>
-                <span class="vp-suppressed-badge">
-                    <?= $scanned
-                        ? __('Too large to read')
-                        : __('Suppressed by MISP') ?>
-                </span>
-                <?php if ($scanned): ?>
-                    <div class="mt-2">
-                        <?= sprintf(
-                            __(
-                                '%1$s holds more than %2$s attributes. In'
-                                . ' an event that size every value'
-                                . ' co-occurs with every other, so a'
-                                . ' neighbour list drawn from one would'
-                                . ' describe the event rather than this'
-                                . ' value — and this panel does not draw'
-                                . ' one.'
-                            ),
-                            '<strong>' . h(__n(
-                                'The one event this value appears in',
-                                'Every one of the %d events this value'
-                                    . ' appears in',
-                                $scan['events_seen'],
-                                $scan['events_seen']
-                            )) . '</strong>',
-                            '<strong>' . h(number_format(
-                                $scan['size_cap']
-                            )) . '</strong>'
-                        ) ?>
-                    </div>
-                    <div class="mt-2">
-                        <?= h(__(
-                            'Nothing is hidden from you here and nothing'
-                            . ' is missing. The object siblings below sit'
-                            . ' in those same events and are listed in'
-                            . ' full, because an object is a statement'
-                            . ' somebody made about which attributes'
-                            . ' belong together — it does not get larger'
-                            . ' because the event around it did.'
-                        )) ?>
-                    </div>
-                <?php else: ?>
-                    <div class="mt-2">
-                        <?= sprintf(
-                            __(
-                                'This value occurs %1$s times — past'
-                                . ' %2$s, which is %3$d. MISP stored'
-                                . ' %4$s and recorded the value in'
-                                . ' %5$s instead.'
-                            ),
-                            '<strong>' . h(number_format(
-                                $summary['recorded']
-                            )) . '</strong>',
-                            '<code>MISP.correlation_limit</code>',
-                            $relations['settings']['correlation_limit'],
-                            '<strong>' . h(__('no correlation at all'))
-                                . '</strong>',
-                            '<code>over_correlating_values</code>'
-                        ) ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        </div>
-
-    <?php elseif (!$hasRows): ?>
-
-        <div class="p-3">
-            <div class="vp-empty">
-                <i class="fas fa-link"></i>
-                <span>
-                    <?= __('No correlation the engine has stored for'
-                        . ' this value.') ?>
-                </span>
-            </div>
-        </div>
-
-    <?php endif; ?>
-
     <?php if (!empty($siblings['rows'])): ?>
 
         <?php
@@ -535,28 +432,59 @@ $headerSub = ob_get_clean();
         // A count taken over a capped join is a floor, and says so.
         $sibFloor = $sibCapped ? '≥&nbsp;' : '';
         ?>
+        <?php
+        /*
+         * Its own panel, because the tab said `Co-occurrence` over both
+         * tables and two tables under one heading read as one answer in
+         * two halves. These are two answers: this one is what somebody
+         * put in a box with this value, the one below is what happened
+         * to be written up near it. They are also bounded differently
+         * and can disagree about how much they saw, which a single
+         * header cannot state twice.
+         */
+        ob_start();
+        ?>
+            <span class="vp-rel-tag me-1">
+                <i class="fas fa-link"></i><?= h(__('Co-occurrence')) ?>
+            </span>
+            <?= $sibFloor ?><?= h(sprintf(
+                __n('%s sibling', '%s siblings', $siblings['total'],
+                    number_format($siblings['total']))
+            )) ?>
+            <?= h(sprintf(
+                __n('in %s object', 'in %s objects',
+                    $siblings['objects'],
+                    number_format($siblings['objects']))
+            )) ?>
+            &nbsp;·&nbsp;<?= h(__('same object')) ?>&nbsp;·&nbsp;
+            <span class="vp-rel-prov"><i class="fas fa-gauge"></i><?=
+                h(__('Machine-derived')) ?></span>
+        <?php
+        $sibHeaderSub = ob_get_clean();
+        ?>
+        <div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
+             style="--vp-panel-color: var(--vp-rel-co);">
+
+        <?= $this->element('Values/View/value_panel_header', array(
+            'panelTitle' => __('In the same object'),
+            'panelIcon' => 'misp-icon misp-icon-object misp-simple',
+            'panelColor' => 'var(--vp-rel-co)',
+            'panelSub' => $sibHeaderSub,
+        )) ?>
+
         <div data-vp-list>
 
             <div class="px-3 pt-3">
-                <div class="vp-subhead d-flex align-items-center gap-2">
-                    <span class="misp-icon misp-icon-object
-                                 misp-simple"></span>
-                    <?= __('Object siblings — the same object, other'
-                        . ' relations') ?>
-                    <?php
-                    /*
-                     * The value's own number of distinct siblings, not
-                     * the number of rows this fragment carries. The
-                     * badge used to print the row count and read as a
-                     * total, which is the defect this section is here
-                     * to fix.
-                     */
-                    ?>
-                    <span class="badge text-bg-secondary">
-                        <?= $sibFloor ?><?=
-                            h(number_format($siblings['total'])) ?>
-                    </span>
-                </div>
+                <?php
+                /*
+                 * No sub-heading of its own any more. It used to name
+                 * the section inside a panel called `Co-occurrence` and
+                 * carry the sibling count as a badge; the panel is now
+                 * called `In the same object` and its header states the
+                 * count in words, so a heading here would say the same
+                 * thing twice in eight words less.
+                 */
+                ?>
                 <?php
                 /*
                  * One sentence, and it spends its length on what the
@@ -903,7 +831,119 @@ $headerSub = ob_get_clean();
 
         </div>
 
+        </div>
+
     <?php endif; ?>
+
+<div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
+     style="--vp-panel-color: var(--vp-rel-co);"
+     data-vp-list
+     data-vp-group-active="value">
+
+    <?php
+    /*
+     * Named for the half of the tab it is, now that the object join has
+     * a panel of its own. The two controls that used to sit on the right
+     * of this header are down beside the narrowing they belong with.
+     */
+    ?>
+    <?= $this->element('Values/View/value_panel_header', array(
+        'panelTitle' => __('In the same events'),
+        'panelIcon' => 'fas fa-link',
+        'panelColor' => 'var(--vp-rel-co)',
+        'panelSub' => $headerSub,
+    )) ?>
+
+    <?php if ($co['suppressed']): ?>
+
+        <?php
+        /*
+         * Not an empty state — the opposite claim, and one a reader who
+         * saw an empty table would get exactly backwards. There is a
+         * neighbourhood; it is in events so large that reading one
+         * would say nothing about this value in particular.
+         */
+        ?>
+        <div class="vp-suppressed">
+            <i class="fas fa-circle-exclamation"></i>
+            <div>
+                <span class="vp-suppressed-badge">
+                    <?= $scanned
+                        ? __('Too large to read')
+                        : __('Suppressed by MISP') ?>
+                </span>
+                <?php if ($scanned): ?>
+                    <div class="mt-2">
+                        <?= sprintf(
+                            __(
+                                '%1$s holds more than %2$s attributes. In'
+                                . ' an event that size every value'
+                                . ' co-occurs with every other, so a'
+                                . ' neighbour list drawn from one would'
+                                . ' describe the event rather than this'
+                                . ' value — and this panel does not draw'
+                                . ' one.'
+                            ),
+                            '<strong>' . h(__n(
+                                'The one event this value appears in',
+                                'Every one of the %d events this value'
+                                    . ' appears in',
+                                $scan['events_seen'],
+                                $scan['events_seen']
+                            )) . '</strong>',
+                            '<strong>' . h(number_format(
+                                $scan['size_cap']
+                            )) . '</strong>'
+                        ) ?>
+                    </div>
+                    <div class="mt-2">
+                        <?= h(__(
+                            'Nothing is hidden from you here and nothing'
+                            . ' is missing. The object siblings below sit'
+                            . ' in those same events and are listed in'
+                            . ' full, because an object is a statement'
+                            . ' somebody made about which attributes'
+                            . ' belong together — it does not get larger'
+                            . ' because the event around it did.'
+                        )) ?>
+                    </div>
+                <?php else: ?>
+                    <div class="mt-2">
+                        <?= sprintf(
+                            __(
+                                'This value occurs %1$s times — past'
+                                . ' %2$s, which is %3$d. MISP stored'
+                                . ' %4$s and recorded the value in'
+                                . ' %5$s instead.'
+                            ),
+                            '<strong>' . h(number_format(
+                                $summary['recorded']
+                            )) . '</strong>',
+                            '<code>MISP.correlation_limit</code>',
+                            $relations['settings']['correlation_limit'],
+                            '<strong>' . h(__('no correlation at all'))
+                                . '</strong>',
+                            '<code>over_correlating_values</code>'
+                        ) ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+    <?php elseif (!$hasRows): ?>
+
+        <div class="p-3">
+            <div class="vp-empty">
+                <i class="fas fa-link"></i>
+                <span>
+                    <?= __('No correlation the engine has stored for'
+                        . ' this value.') ?>
+                </span>
+            </div>
+        </div>
+
+    <?php endif; ?>
+
 
     <?php if ($hasRows): ?>
 
@@ -1053,6 +1093,28 @@ $headerSub = ob_get_clean();
                         )) ?>
                     <?php endif; ?>
                 </span>
+            </div>
+        <?php endif; ?>
+
+        <?php
+        /*
+         * The roll-up and the ranking, down here with the narrowing they
+         * belong beside rather than up in the panel header. They govern
+         * this table and nothing else, and the header is where a reader
+         * looks for what the panel *is*, not for what to do to it.
+         *
+         * Outside the block below, and that is the point of it being its
+         * own row: `Group by` is what puts that block away, so a reader
+         * who had grouped by event would have no control left to get
+         * back with. Both apply to all three roll-ups — every row
+         * carries the `data-vp-num` the ranking reads.
+         */
+        ?>
+        <?php if ($headerExtra !== null): ?>
+            <div class="px-3 pt-3 d-flex flex-wrap gap-2
+                        align-items-center">
+                <span class="vp-subhead mb-0 me-1"><?= __('Show') ?></span>
+                <?= $headerExtra ?>
             </div>
         <?php endif; ?>
 
