@@ -501,7 +501,7 @@ document that filled it.
 | Overview | `viewContext` | `value_context` | — | — | — | — |
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | — |
 | Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
-| Overview | `viewSightings` | `value_sightings` | — | — | — | — |
+| Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
 | Overview | `viewExternal` | `value_external` | — | — | — | — |
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
@@ -524,9 +524,18 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Six rows are filled; the rest are `—` because nothing else is wired. A row
+Seven rows are filled; the rest are `—` because nothing else is wired. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
+
+**One of the seven is on a tab whose phase has not run.** `viewSightings` is
+the Overview's sightings card, converted after phase 23 because it is made of
+that phase's `sightingContext` and because leaving it meant a card and a tab on
+one page that could disagree about the same value. It is filled against **23**,
+whose §12.1 records its numbers. The Overview's other rows stay `—`, and
+whichever phase converts them inherits one row already done rather than a tab
+half-owned — which is the note below about a tab not being indivisible, used in
+earnest.
 
 `Q` on every converted row is its **ceiling**, measured, and on every one of
 them the ceiling is reached by a *small* value rather than a large one.
@@ -546,6 +555,11 @@ involve — `MispAttribute::fetchAttributes` resolves one per query (§14.10) �
 and not the occurrence count. `23-sightings.md` §4 has the breakdown and §10.2
 the measurements, including the two rewrites §8.2 there records: the first
 version was flat in query count and took 3.4 seconds.
+
+The Overview's card is 13, which is the same ceiling as the two Sightings
+panels that do no decay work — it shares their `sightingContext` and adds one
+in-memory fold. A panel converted by reusing another's context costs what that
+context costs, and nothing more.
 
 **Four rows are blocked rather than unstarted**, and they are not all on the
 Verdict tab: the Overview's `value_verdict_card` shows the disposition and the

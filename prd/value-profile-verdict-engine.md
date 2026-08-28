@@ -137,9 +137,20 @@ editorial label — and the design has to say which.
 
 Beyond the three in §2, these are already open and land on this engine:
 
-- **The decay aggregation rule.** Undecided, and now owned by `ValueDecayTool`
-  (§14.5). Two ledger rows read decay scores, so the engine cannot be specified
-  while it is open.
+- **~~The decay aggregation rule.~~ Decided by phase 23** and owned by
+  `ValueDecayTool`: the per-day maximum across a value's occurrences, labelled
+  with the occurrence holding it (`value-profile-live/23-sightings.md` §5).
+  This entry stood open because two ledger rows read decay scores and the
+  engine could not be specified while it was; it no longer blocks anything.
+- **Two decay formulas have never been run.** `ValueDecayTool`'s
+  per-occurrence fallback covers the `Sightings` and `PolynomialExtended`
+  formulas, and no model MISP ships uses either, so phase 23 left that branch
+  written and unexercised (`23-sightings.md` §10.7). **Carried here on
+  2026-08-28**: this phase reworks the decaying model substantially, so the
+  formula classes are under a microscope anyway and exercising the branch is
+  cheaper as part of that than as a bolt-on. It needs a model built with one
+  of those formulas — the instance has none — so it is a seeding job as much
+  as a code one.
 - **The opinion colour contradiction.** The Overview preview paints "Agree"
   green while the Verdict histogram paints anything above 50 red
   (`value-profile-tabs/05-analyst.md` §11). Analyst opinion is a plausible

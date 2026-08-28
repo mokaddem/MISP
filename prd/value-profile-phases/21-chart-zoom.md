@@ -187,6 +187,17 @@ The month grain's first offset is normally negative, because a month bucket is
 a whole calendar month at the low end — a bar labelled `Jun` that begins on
 the 14th is not June — and the browser clips it into the span.
 
+> **The day grain became an exception on 2026-08-28**, and the rule above is
+> better read as *ships every string the browser cannot already derive*. A day
+> bucket's label is `j M` of `from + i` and can be nothing else — the one case
+> where the second formatter costs no second decision, unlike `F Y` on a
+> calendar month or `j M` on a week end the server chose. It was also the
+> expensive one: at the Sightings span cap, 1,095 labels and 1,095 titles were
+> 26.7 KB of a 38.4 KB payload. `label` and `title` are now `null` for that
+> grain, on the same convention `starts` uses, and each grain carries a `count`
+> so a grain with no arrays still knows its length. Week and month are
+> untouched. `value-profile-live/23-sightings.md` §12.1 has the measurements.
+
 **Two encodings for a tally, and the choice is the caller's.**
 `tally()` returns one count per day of the span; `sparse()` returns only the
 offsets that carry something. §13.1 measured both regimes and neither wins

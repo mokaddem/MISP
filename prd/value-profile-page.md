@@ -54,12 +54,15 @@ render their own content; nothing on the page is a placeholder.
 **Phases 22 and 23 started the live campaign.** The Occurrences and Sightings
 tabs now read the database; the other seven tabs still read the fixture, so the
 two regimes sit side by side until the campaign finishes. **Nothing writes**, on
-either side. `live/00-contract.md` §14.12 is the panel-level record — six of
+either side. `live/00-contract.md` §14.12 is the panel-level record — seven of
 twenty-seven endpoints have moved.
 
-One card on a converted tab is deliberately still fixture-backed: the
-**Overview's** `value_sightings` rail card, which belongs to the Overview's
-phase rather than to the Sightings tab's.
+The seventh is on a tab whose phase has not run: the **Overview's**
+`value_sightings` card was converted with phase 23's follow-ups, because it is
+built from that phase's own `sightingContext` and because a card and a tab on
+one page that could disagree about the same value is worse than a tab converted
+out of order. Everything else on the Overview still reads the fixture,
+`value_verdict_card` included — that one is blocked on the verdict engine.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
@@ -100,7 +103,7 @@ goes first argues why in its own document.
 
 | Phase | Converts | Document | Status |
 |---|---|---|---|
-| 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine |
+| 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine. One card is already done: `value_sightings`, converted with phase 23's follow-ups |
 | — | Verdict | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **BLOCKED** — no engine computes a verdict; needs its own PRD and grilling session first |
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | 22+ | Sightings | — | not started |

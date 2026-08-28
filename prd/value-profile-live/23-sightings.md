@@ -724,8 +724,23 @@ All pass, none logs an error.
 uses either, so the per-occurrence fallback path in §5.2 is written and
 unexercised.
 
+> **Carried to the Verdict phase** (2026-08-28). It stays unexercised
+> here rather than being covered by a model written for the purpose: the
+> Verdict tab reworks the decaying model substantially, so the formula
+> classes will be under a microscope there and exercising this path is
+> that phase's work rather than a bolt-on to this one. It is the only
+> unexercised branch this phase leaves.
+
 **`Plugin.Sightings_anonymise`.** Off on this instance. The *Others*
 collapse is implemented and unrun.
+
+> **Now run** (2026-08-28), while linking the `Organisation` column: the
+> setting was turned on, `8.8.8.8` rendered for a CIRCL org admin, and
+> the foreign reports collapsed to one unlinked *Others* row while the
+> reader's own organisation stayed named and linked. The setting was
+> turned off again. Nothing on the instance has a null `org_id`, so
+> flipping it is the only way to reach this state and there is no seeded
+> row standing in for it.
 
 ---
 
@@ -814,27 +829,83 @@ the one real defect of the phase turned up (§8.3).
 
 ### 12.1 Follow-ups this phase names
 
+**Five were named. Four are done and one will not be built** — settled on
+2026-08-28, in the commits that follow this phase. The list is left as
+written with each outcome under it, because what was predicted and what
+it cost are both worth keeping.
+
 - **The day grain's labels are most of the payload.** 1,095 labels plus
   1,095 titles is roughly 26 KB of the 43 KB ceiling, and every one is
   derivable in the browser from `plan.from` plus an offset. Trimming them
   is a JS change and would roughly halve the fragment. Not done here
   because this phase deliberately did not touch `value-profile.js`.
+
+  **Done.** The chart fragment went 52.0 KB → 27.6 KB and its payload
+  38.4 KB → 13.9 KB, so *roughly halve* was right.
+  `ValueProfileBuckets::plan` sends the day grain's `label` and `title`
+  as null and `zoomDayLabel` writes them. Two things the estimate did
+  not include: the grain needs a `count`, since one with no label array
+  cannot be measured by it; and `today` — the last bar's label at every
+  grain — is a translated word and the one string that cannot be
+  derived, so it ships once as `plan.last_label` and the browser
+  substitutes it. All 1,095 derived titles were diffed against
+  `describe()` and are identical.
+
 - **The gap rows `02-sightings.md` §1 called the best single idea in the
   set** — *"8 days with no sighting · NIDS 80 → 55 · crossed below 60 on
   2025-08-07"* — are still deferred, and are now cheaper than when they
   were deferred: the envelope already carries a per-day score and a
   per-day owner, so the crossing dates are a walk over an array the
   panel has in hand.
+
+  **Will not be built**, and cheapness is why the decision had to be
+  taken rather than left: it would have been easy to build the wrong
+  thing. A gap row puts a derived claim about a score into a table whose
+  every other row is one report somebody filed, and the two are not the
+  same kind of thing. The question it answers is the chart's, and the
+  chart answers it — the curve crosses the threshold line exactly where
+  the row would have said so. `02-sightings.md` §11 carries the
+  decision.
+
 - **`S3`'s baseline split**, false positives drawn below the axis, still
   deferred. Also cheaper now: `daily.fp` is already its own series.
+
+  **Done**, before this list was next read: contradictions and
+  expirations hang below the axis at every grain and in both themes.
+  This entry was already stale when the tab was reviewed on 2026-08-28.
+
 - **The Overview's `value_sightings` card** is the one sightings-shaped
   element still on the fixture. It needs `sightings.spark`, which is 40
   buckets over 90 days — derivable from the same rows this tab already
   fetches, and the reason it was not done here is that it belongs to the
   Overview's phase and would have meant converting one card of a tab
   whose verdict card is blocked.
+
+  **Done**, and converting one card of a blocked tab turned out to be
+  the right shape rather than a compromise — §14.12 already says a tab
+  is not indivisible. `ValueProfile::forSightings` shares this tab's
+  `sightingContext`, so it costs the same 13 queries the list and the
+  reporters panels do, and the card and the tab cannot disagree because
+  they are not two readings of the database but one. The rest of the
+  Overview, `value_verdict_card` included, stays on the fixture.
+
 - **Every Values panel returns 500 for a `.json` extension**, including
   the four phase 22 converted and the fixture-backed ones. Pre-existing,
   not this phase's, and harmless — these endpoints are not API surface —
   but it is the reason API-key authentication cannot be used to fetch a
   fragment for verification, so it is worth someone's ten minutes.
+
+  **Done, and the diagnosis was wrong in a way worth recording.** The
+  500 is not about JSON: `AppController` resolves a theme only for a
+  non-REST request, an extension makes a request REST, and every element
+  on this page lives only under `Themed/Overmind` — so the render had no
+  theme path and threw `MissingViewException`. The same exception is
+  reachable with no extension at all, on an ordinary browser request, if
+  `MISP.enable_themes` is off. `ValuesController` now refuses a
+  non-HTML extension with a 404 and falls back to its own theme when it
+  has none.
+
+  **It does not buy what this entry wanted it for.** Fetching a fragment
+  with an API key needs the request to be REST for the authkey to be
+  read and non-REST for the theme to resolve, and those are the same
+  flag. Verification still goes through a browser or a console render.

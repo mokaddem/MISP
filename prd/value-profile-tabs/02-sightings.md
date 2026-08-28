@@ -14,17 +14,23 @@ that puts the curve in a card of its own has lost the argument before it starts,
 which is why `S1` keeps the panel-plus-rail grammar the Overview and Verdict
 tabs already speak and spends the width on one chart instead.
 
-**Not taken.** Per the 2026-08-25 decision to ship bare picks, two grafts are
-deferred:
+**Not taken.** Per the 2026-08-25 decision to ship bare picks, two grafts were
+deferred. Both are now settled — one built, one declined — and §11 carries the
+reasoning:
 
 - `S4`'s gap rows (*"8 days with no sighting · NIDS 80 → 55 · crossed below 60
   on 2025-08-07"*). The phase 7 review called this the best single idea in the
   set, and it is a loop over the sighting list. It is the first thing to add
   after the tab renders.
+  **Declined on 2026-08-28.** It would put a derived claim about a score into a
+  table of reports people filed, and the chart already answers the question it
+  asks.
 - `S3`'s baseline split, drawing false positives *below* the axis rather than
   stacked on top so a contradiction can never read as an addition. Until then
   the false-positive series is a distinct hue in the stack and the panel says in
   words that it moves no score.
+  **Built.** Contradictions and expirations hang below the axis at every grain
+  and in both themes, and colour was freed to carry identity alone.
 
 ## 2. Layout
 
@@ -41,7 +47,11 @@ individual-sightings panel. Right: three rail cards.
 | `viewSightingReporters($b64value)` | ajax | `value_sighting_reporters` |
 | `viewSightingAdd($b64value)` | ajax | `value_sighting_add` |
 
-`viewSightings` stays the Overview's rail card and is untouched.
+`viewSightings` stays the Overview's rail card and this phase does not touch it.
+It was converted to the database afterwards, on 2026-08-28, precisely because it
+is built out of this tab's `sightingContext` — see
+[`../value-profile-live/23-sightings.md`](../value-profile-live/23-sightings.md)
+§12.1.
 
 ## 4. Templates
 
@@ -217,7 +227,17 @@ the fourth and is gone (§7).
 
 ## 11. Deferred, and what live data will hit
 
-**Deferred by choice:** `S4`'s gap rows; `S3`'s baseline split.
+**`S3`'s baseline split is built** — contradictions and expirations are drawn
+below the axis, at every grain and in both themes.
+
+**`S4`'s gap rows will not be built.** Decided on 2026-08-28, and it is a
+decision rather than another deferral: the row it proposed — *"8 days with no
+sighting · NIDS 80 → 55 · crossed below 60 on 2025-08-07"* — puts a derived
+claim about a decay score into a table whose every other row is one report
+somebody filed. The two are not the same kind of thing and interleaving them
+makes the list harder to read, not easier. The question it answers, *when did
+this stop being trusted*, is the chart's question and the chart already draws
+it: the curve crosses the threshold line where the gap row would have said so.
 
 **From §7.9 — this tab has the hardest live-data story of the five:**
 
