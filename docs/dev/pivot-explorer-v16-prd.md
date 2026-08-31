@@ -617,8 +617,6 @@ seeded L0+L1 · 86 nodes · L2 skipped (28,410 objects not shown) · 5,629 corre
 The second line is not decoration: D11 and D12 both *require* the graph to state which resolution
 levels it seeded and what it left out, and this is where that statement lives.
 
-### Open — sign-off requested
-
 #### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
 Today's sidebar panel titled **"Unlinked attributes"** (`:832`) lists every attribute and object
@@ -660,6 +658,8 @@ better than a narrow sidebar column — and the sidebar keeps the analyst-data p
 **Why this is load-bearing rather than cosmetic:** the graph now seeds on relationships and a
 budget, so for the ~92% of events with no authored relationship, and for every event above 1,500
 nodes, this pane is the *only* in-graph route to the event's contents.
+
+### Open — sign-off requested
 
 #### D13 — Does the seed get its own endpoint? ⚠️ NOT YET DECIDED
 
