@@ -1,9 +1,9 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D2, D3, D4, D6, D7 await sign-off; D1, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D2b, D3, D4, D6, D7 await sign-off; D1, D2, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
-**Grilled:** 2026-08-28 — see §5 for what was settled and what changed as a result
+**Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
 **Working dir:** /home/sami/git/MISP
 **Branch:** `worktree-pivotick-v16` off `develop` (bundle upgrade already committed there)
 **Library:** Pivotick v1.6.0 (`app/webroot/js/pivotick.iife.js`, `app/webroot/css/pivotick.css`)
@@ -423,18 +423,78 @@ Three constraints the implementation must honour (§7 carries the edge cases):
   entirely (`:648-652`).
 - Containment stays **nesting**, not an edge. `tag`/`galaxy` edges remain out of scope.
 
+#### D2 — Channel allocation; the "pending" state is removed ✅ SETTLED
+
+A node can only look so many ways, and v1.6.0 took one of the channels MISP was using. Selection
+now draws on the node's **rim** ("keeps its own `color` and takes the selection colour on its
+rim"), where highlight already lived — so the rim has four claimants, two of them library-owned
+and overriding: selection, highlight, MISP's pending-reference ring, and MISP's image-node frame.
+
+**Final allocation:**
+
+| What it says | Channel |
+|---|---|
+| what kind of thing it is (attribute / object / event / feed / server) | fill `color`, `shape`, `size` |
+| which attribute or object type | `iconClass` (misp-iconify) |
+| attachment preview | `imagePath` |
+| **an analyst has commented here** | **one folded badge** — count as `text`, colour as sentiment |
+| **from another event** | **saturation** (paler = foreign) |
+| selected / hovered | **rim — left entirely to the library** |
+
+**Provenance is binary.** There are four ways to be foreign — extended event, correlated event,
+feed, server — but feed, server and event-proxy nodes already announce themselves through node
+*type* (own shape and fill). The only ambiguous node is an attribute or object that looks
+identical to this event's but is not, so saturation need only say mine / not-mine.
+
+**Notes and opinions fold into one badge.** They are the same message to an analyst — *somebody
+has commented on this* — and one badge carries both: the note count as its text, endorsed /
+disputed / neutral as its colour. This matters because only **two** badge corners are free on an
+expandable node (both East corners are reserved for the expand affordance) and object nodes are
+expandable.
+
+**The "pending / not yet saved" state is removed entirely**, and its `styleCb` ring
+(`:395-400`) is deleted. Rationale: putting an attribute on the canvas is a **view write** in
+§2.2's taxonomy — the attribute was always in the event, and showing it changes nothing in MISP.
+Only the edge is a save. The old pending ring existed because the previous design treated a
+dragged-in node as half-created; it never was.
+
+Two things fall out for free:
+
+- **A bug in today's code disappears.** The pending ring is invisible whenever the node is
+  selected — and a freshly dropped node is selected on drop, which is exactly when "unsaved"
+  matters. Deleting the concept removes the collision rather than working around it.
+- **The badge budget drops to one**, comfortable even on expandable nodes.
+
 ### Open — sign-off requested
 
-#### D2 — Which channel carries event provenance
+#### D2b — Which link kind does a drawn edge become?
 
-`color`/`shape`/`size` are spent on node kind and `strokeColor` on pending state, so provenance
-goes on **desaturation** (and, where warranted, a container). **Badges are reserved for analyst
-data** — provenance would badge every foreign node, and only two corners are free on an
-expandable node anyway (both East corners are reserved for the expand affordance).
+Drawing an edge can mean two different writes, and the constraints do **not** always pick one.
 
-Consequence: a provenance legend section is keyed on a dimension the colours do **not** encode,
-so it must declare `entries` with explicit `color` values or it takes the first node's colour
-and warns.
+- An object reference's **source is always an object**: `ObjectReferencesController::add()`
+  resolves it strictly in the `Object` table (`Object.uuid`/`Object.id`, `deleted = 0`) and throws
+  `Invalid object.` otherwise. Its *target* may be an attribute (`referenced_type 0`) or an object
+  (`1`). It is intra-event by construction.
+- An analyst relationship's endpoints may be any of `AnalystData::valid_targets` — Attribute,
+  Event, EventReport, GalaxyCluster, Galaxy, Object, Note, Opinion, Relationship, Organisation,
+  SharingGroup — and **not** Feed or Server.
+
+| Source → Target | Possible link |
+|---|---|
+| object → object/attribute, **same event** | **either kind — ambiguous** |
+| attribute → anything | analyst relationship only (an attribute cannot be a reference source) |
+| anything → node in another event | analyst relationship only |
+| anything → feed / server | **nothing** — not a valid analyst target either |
+
+Only the first row is undecidable from the endpoints, and it is the most common gesture on this
+page. Options: **(a)** same-event + object source always means object reference (simple, but the
+dev instance holds 112 Object→Object *analyst* relationships, so the case is real);
+**(b)** ask — `ctx.promptData` is already opening a form, so it is one more field;
+**(c)** infer from the active rail mode (Create → reference, Explore → assertion);
+**(d)** infer from the user's rights (event edit → reference, else assertion).
+
+Regardless of the choice, `isValidConnection` must **reject feed and server nodes as targets
+outright** — no persistable edge can point at them.
 
 #### D3 — Legend sections
 
@@ -538,20 +598,27 @@ edge with a missing endpoint (`:277`). Count the skips and report them in the pa
 
 ### 6.2 Analyst-data badges and panel
 
+Notes and opinions fold into **one** badge (D2): the count as its text, the sentiment as its
+colour.
+
 ```js
 badges: node => {
-    const d = node.getData();
-    const out = [];
-    if (d.noteCount) out.push({ position: 'nw', text: String(d.noteCount),
-                                color: '#6fbe80', title: d.noteCount + ' notes' });
-    if (d.disputed)  out.push({ position: 'sw', iconClass: '…exclamation',
-                                color: '#b94a48', title: 'Disputed' });
-    return out;
+    const a = node.getData()?.analyst;
+    if (!a || !a.count) return [];              // [] is how a node says it wears none
+    return [{
+        position: 'nw',
+        text:  String(a.count),                 // >3 chars renders as 99+
+        color: a.mood === 'disputed' ? '#b94a48'
+             : a.mood === 'endorsed' ? '#6fbe80' : '#999',
+        title: a.count + ' notes/opinions — ' + a.mood,
+    }];
 }
 ```
 
-`'nw'`/`'sw'` deliberately: on an expandable node **both East corners are reserved** for the
-expand affordance (north-east collapsed, south-east expanded), and object nodes are expandable.
+`'nw'` deliberately: on an expandable node **both East corners are reserved** for the expand
+affordance (north-east collapsed, south-east expanded), and object nodes are expandable. Folding
+the two facts into one badge leaves the second free corner genuinely spare.
+
 Badges do not aggregate children, so an object's count must walk `node.children` in the `badges`
 function if it should include its attributes (§7).
 
@@ -593,8 +660,8 @@ filter — and it is the affordance that turns the correlation layer on after §
 
 Every node gains `data.scope` (`'self'` | `'foreign'`) and `data.event_uuid`, derived from the
 `event_id` each attribute/object already carries. `styleCb` desaturates `foreign` — and because
-`styleCb` already returns the pending ring, provenance must be merged into the same return value
-(`styleCb` wins outright over the style maps rather than merging).
+the pending ring is deleted (D2), `styleCb` now returns saturation alone — no merge needed, and
+the rim is left to the library.
 
 Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event` — the
 `nodeStyleMap` already registers a green hexagon for `event` that nothing currently creates —
