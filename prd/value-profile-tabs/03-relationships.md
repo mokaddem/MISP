@@ -684,9 +684,17 @@ events at all.
   25-row cap and the standard cap notice covers the instance. A cap is
   not a permission — §8 — so that notice stays whoever is reading.
 - **Opening a remote event leaves the instance.** It is the only
-  affordance on this page that is not a local read: `previewEvent`
-  fetches from the feed or server at request time. The row says so
-  rather than looking like the internal links above it.
+  affordance on this page that is not a local read: `previewEvent` reads
+  from the feed or server at request time. The row says so rather than
+  looking like the internal links above it.
+
+  **The word is *preview*, never *fetch*.** In MISP, fetching a remote
+  event is what pulling it into the local database is called, and
+  `previewEvent` does not do that — it renders somebody else's event
+  without storing any of it. A tooltip saying *fetch* would promise the
+  destructive-ish version of an entirely read-only action, so both the
+  per-link tooltip and the note under the table say *preview*, and the
+  note adds that nothing is copied here.
 
 ### 20.5 States, and the two ways this design was nearly wrong
 

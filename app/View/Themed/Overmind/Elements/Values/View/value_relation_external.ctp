@@ -21,10 +21,14 @@
  *                       notice that appeared only when something was
  *                       hidden would be an existence oracle at one bit
  *                       (`live/00-contract.md` §14.6).
- *   the link leaves     opening a remote event is a fetch to the feed
- *                       or server at request time, not a local read. It
- *                       is the only affordance on this page that does
- *                       that, so it says so.
+ *   the link leaves     opening a remote event previews it from the
+ *                       feed or server at request time. It is the only
+ *                       affordance on this page that is not a local
+ *                       read, so it says so — and it says *preview*
+ *                       rather than *fetch*, because a MISP reader hears
+ *                       "fetch" as pulling the event into this instance,
+ *                       which is precisely what previewEvent does not
+ *                       do.
  *
  * Lazily loaded from ValuesController::viewRelationExternal.
  *
@@ -180,7 +184,7 @@ $icon = 'fas fa-cloud-arrow-down';
                                                 <a class="vp-external-event"
                                                    href="<?= h($event['url']) ?>"
                                                    title="<?= h(sprintf(
-                                                       __('Fetches this event from %s when opened'),
+                                                       __('Preview this event from %s — read live, not copied here'),
                                                        $source['name']
                                                    )) ?>">
                                                     <i class="fas fa-arrow-up-right-from-square"></i>
@@ -207,7 +211,7 @@ $icon = 'fas fa-cloud-arrow-down';
 
             <div class="vp-fact-line-sub mt-2">
                 <i class="fas fa-arrow-up-right-from-square"></i>
-                <?= __('Opening a remote event fetches it from the feed or server at that moment. Every other link on this page reads local data.') ?>
+                <?= __('Opening a remote event previews it from the feed or server as it is right now. Nothing is copied onto this instance, and every other link on this page reads local data.') ?>
             </div>
 
         <?php endif; ?>
