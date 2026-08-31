@@ -1437,6 +1437,54 @@ publisher cached that exact string, and the quick-cache path at `:1705`
 takes hashes straight from the feed's own file, so mixed normalisation
 is baked in and cannot be legislated away from one end.
 
+
+**What the second lookup costs, measured.** The worry is a feed with
+millions of entries. It is not the cost that scales:
+
+| Set | Cardinality | `sismember` |
+|---|---|---|
+| Malware Bazaar | 744 | 0.0368 ms |
+| URLHaus | 15,266 | 0.0460 ms |
+| Botvrij | 28,342 | 0.0424 ms |
+| CIRCL OSINT | 536,803 | 0.0302 ms |
+| Threatfox | 1,545,743 | 0.0393 ms |
+| `feed_cache:combined` | 2,092,449 | 0.0347 ms |
+
+Flat across three orders of magnitude, because a Redis set membership
+test is a hash lookup. **A feed's size is irrelevant to this read.** What
+scales is the number of cached *sources*, linearly, at about one round
+trip each.
+
+Against that, the second hash is cheaper than it sounds, because it is
+only computed when it differs:
+
+| Values | 1 hash | 2 hashes |
+|---|---|---|
+| already lowercase | 0.199 ms, 12 calls | 0.164 ms, 12 calls |
+| mixed case | 0.332 ms, 12 calls | 0.791 ms, 24 calls |
+
+For a lowercase value the two hashes are the same string, so the second
+lookup collapses away and the fix is **free**. Only a value carrying
+uppercase or surrounding whitespace pays, and it pays by doubling a
+count of O(1) calls — not by changing the complexity of anything.
+
+**The fix is worth pairing with pipelining, which turns it into a
+speed-up.** The per-source loop issues its membership tests one at a
+time; queued into a single round trip, the whole two-hash workload
+measured **0.0557 ms per value** — roughly six times faster than
+today's unpipelined single-hash loop. `attachFeedCorrelations` already
+pipelines, so the precedent is in the same file.
+
+That distinction matters at scale rather than here. Six cached sources
+cost 28 unpipelined calls for two hashes; 98 of them — this instance's
+feed count, were they all cached — cost 396, which is around 14 ms of
+round trips for one value. Pipelined it stays one round trip whatever
+the source count. So the ceiling on this read is the number of sources
+and whether the loop batches, and neither has anything to do with how
+many entries a feed holds.
+
+`24-external-presence-bench.php`, beside this document, is the
+measurement.
 ### 17.7 The probe
 
 `24-external-presence-probe.php`, beside this document. It reports the
