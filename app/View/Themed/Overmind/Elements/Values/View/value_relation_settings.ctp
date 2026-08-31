@@ -93,7 +93,20 @@ foreach ($split as $part) {
         'panelTitle' => __('What is counted'),
         'panelIcon' => 'fas fa-sliders',
         'panelColor' => 'var(--bs-secondary-color)',
-        'panelSub' => h(__('The settings and caches these sections depend on')),
+        /*
+         * The settings are read live; the counts at the foot come from
+         * the held digest, so the age is disclosed here for §16.7's
+         * reason rather than left to be assumed current.
+         */
+        'panelSub' => h(__('The settings and caches these sections depend on'))
+            . '&nbsp;·&nbsp;' . $this->element(
+                'Values/View/value_read_age',
+                array(
+                    'readAt' => isset($relations['read_at'])
+                        ? $relations['read_at'] : 0,
+                    'prefix' => __('counts read %s'),
+                )
+            ),
     )) ?>
 
     <div class="p-3 d-flex flex-column gap-2">

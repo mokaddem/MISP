@@ -1432,21 +1432,13 @@ class ValueProfile extends AppModel
     public function forRelationGraph(array $user, $value,
         array $options = array()
     ) {
-        $context = $this->cooccurrenceContext($user, $value, $options);
-        $types = $this->model('Value')->typesFor($user, $value, $options);
-        $near = $this->nearMatches($user, $value, $types);
-        $asserted = $this->assertedClaims($user, $value, $options);
-        $summary = $this->relationSummary($user, $value, $options, array(
-            'cooccurrence' => $context['co'],
-            'near' => $near,
-            'asserted' => $asserted,
-        ));
+        $digest = $this->relationDigest($user, $value, $options);
         return array(
             'value' => $value,
             'relationships' => array(
-                'summary' => $summary,
-                'graph' => $this->graphFor($context['co'], $near,
-                    $asserted, $value),
+                'summary' => $digest['summary'],
+                'graph' => $digest['graph'],
+                'read_at' => $digest['read_at'],
             ),
         );
     }
@@ -1468,24 +1460,21 @@ class ValueProfile extends AppModel
     public function forRelationSettings(array $user, $value,
         array $options = array()
     ) {
-        $context = $this->cooccurrenceContext($user, $value, $options);
-        $types = $this->model('Value')->typesFor($user, $value, $options);
-        $near = $this->nearMatches($user, $value, $types);
-        $asserted = $this->assertedClaims($user, $value, $options);
-        $external = $this->externalPresence($user, $value);
+        $digest = $this->relationDigest($user, $value, $options);
         return array(
             'value' => $value,
             'relationships' => array(
-                'summary' => $this->relationSummary($user, $value,
-                    $options, array(
-                        'cooccurrence' => $context['co'],
-                        'near' => $near,
-                        'asserted' => $asserted,
-                        'external' => $external,
-                    )),
-                'external' => $external,
-                'cooccurrence' => $context['co'],
+                'summary' => $digest['summary'],
+                /*
+                 * Only the flag, not the fold. This card reads
+                 * `suppressed` and nothing else off the neighbourhood.
+                 */
+                'cooccurrence' => array(
+                    'suppressed' => $digest['suppressed'],
+                ),
+                // config, so read live rather than held with the digest
                 'settings' => $this->relationSettings($user, $value),
+                'read_at' => $digest['read_at'],
             ),
         );
     }
@@ -1798,6 +1787,96 @@ class ValueProfile extends AppModel
      * @param bool $fresh
      * @return array
      */
+    /**
+     * The tab's numbers and its graph feed, held as one small entry.
+     *
+     * **This is §15.1 item 1.** The tab fires six requests, and two of
+     * them are rail cards that describe the other four. They used to
+     * re-assemble every section to do it: on `8.8.8.8` the graph card
+     * cost 245 ms and the settings card 210 ms against a warm cache,
+     * more than the 190 ms section they were summarising, because both
+     * inflated an 11.6 MB scan out of Redis and re-folded 21,904 rows to
+     * print a handful of counts.
+     *
+     * What they actually need is small — four integers, a suppressed
+     * flag, and a graph capped at `GRAPH_NODE_CAP` per notion, so at
+     * most 37 nodes. That is what is stored here, under its own key, so
+     * a rail card reads kilobytes instead of megabytes.
+     *
+     * **Held on the same terms as the scan** (§16.7): the same TTL, the
+     * same per-viewer key because every number in it went through
+     * `buildConditions($user)`, and Redis being unavailable falls
+     * through to computing it. `read_at` is the *scan's* stamp rather
+     * than this entry's, because the co-occurrence counts are the oldest
+     * thing in here and the honest age to disclose is the oldest one.
+     * Both rail cards print it, for the reason §16.7 gives: a cached
+     * read that does not say how old it is is a trap.
+     *
+     * Cold costs what it always did — whichever request misses first
+     * assembles everything, and on a cold tab several miss at once.
+     * What this removes is the repeat.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array `summary`, `graph`, `suppressed`, `read_at`
+     */
+    private function relationDigest(array $user, $value,
+        array $options = array()
+    ) {
+        $fresh = !empty($options['fresh']);
+        $keyOptions = $options;
+        unset($keyOptions['fresh']);
+        $key = 'misp:value_profile:relation_digest:' . (int)$user['id']
+            . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
+
+        $redis = null;
+        try {
+            $redis = RedisTool::init();
+        } catch (Exception $e) {
+            $redis = null;
+        }
+        if ($redis !== null && !$fresh) {
+            $cached = RedisTool::deserialize(
+                RedisTool::decompress($redis->get($key))
+            );
+            if (!empty($cached)) {
+                return $cached;
+            }
+        }
+
+        $context = $this->cooccurrenceContext($user, $value, $options);
+        $types = $this->model('Value')->typesFor($user, $value, $options);
+        $near = $this->nearMatches($user, $value, $types);
+        $asserted = $this->assertedClaims($user, $value, $options);
+        $external = $this->externalPresence($user, $value);
+
+        $digest = array(
+            'summary' => $this->relationSummary($user, $value, $options,
+                array(
+                    'cooccurrence' => $context['co'],
+                    'near' => $near,
+                    'asserted' => $asserted,
+                    'external' => $external,
+                )),
+            'graph' => $this->graphFor($context['co'], $near, $asserted,
+                $value),
+            'suppressed' => !empty($context['co']['suppressed']),
+            'read_at' => isset($context['co']['scan']['read_at'])
+                ? (int)$context['co']['scan']['read_at']
+                : time(),
+        );
+
+        if ($redis !== null) {
+            $redis->setex(
+                $key,
+                self::RELATION_SCAN_TTL,
+                RedisTool::compress(RedisTool::serialize($digest))
+            );
+        }
+        return $digest;
+    }
+
     private function relationScan(array $user, $value, array $options,
         $fresh = false
     ) {

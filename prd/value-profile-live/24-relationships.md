@@ -936,10 +936,11 @@ this instance, and `1.0.155.105` is the one that cannot be read.
 
 ### 15.1 Follow-ups this phase names
 
-1. **A tab-level context.** The two rail cards each repeat all three
-   sections (§5.4). The fix is one shared per-request assembly or one
-   endpoint, and it is the first concrete customer §14.11's caching
-   exclusion has had.
+1. **A tab-level context** — **done**, and neither of the two shapes this
+   item guessed at. Not one endpoint and not a per-request assembly: the
+   duplication is across the six requests, so it took a held digest of
+   what the rail cards actually need. §18 has the design and the
+   measurements — 663 ms to 222 ms warm on `8.8.8.8`.
 2. **Feed co-occurrence** — **done.** `03-relationships.md` §20 is the
    design and §21 the build; §17 has the measurements and the two
    `Feed::searchCaches` fixes it needed. The gate turned out to be per
@@ -1535,3 +1536,100 @@ rm app/Console/Command/ValueExternalProbeShell.php
 The `40000` limit on its value scan is the only tuning knob; the
 `MispAttribute` alias rather than `Attribute` is not optional, since PHP
 8's built-in `Attribute` wins the `ClassRegistry` lookup otherwise.
+
+---
+
+## 18. §15.1 item 1 — the rail cards stopped re-assembling the tab
+
+**Done 2026-08-31.** The tab fires six requests and two of them are rail
+cards that describe the other four. They described them by building them
+again.
+
+### 18.1 What it cost, before
+
+Six endpoints, timed one after another against a warm cache, `8.8.8.8`:
+
+| Endpoint | Warm |
+|---|---|
+| `viewRelationCooccurrence` | 190.0 ms |
+| `viewRelationNearMatch` | 1.3 ms |
+| `viewRelationExternal` | 2.7 ms |
+| `viewRelationAsserted` | 14.3 ms |
+| **`viewRelationGraph`** | **244.8 ms** |
+| **`viewRelationSettings`** | **210.0 ms** |
+| sum of six | 663.0 ms |
+
+**The two rail cards were 455 ms of 663 ms** — each costing more than the
+section it summarises. Neither needed the rows: the graph draws at most
+`GRAPH_NODE_CAP` nodes per notion and the settings card prints four
+integers and a flag. They were inflating an 11.6 MB scan out of Redis and
+re-folding 21,904 rows to do it.
+
+### 18.2 What ships
+
+**Not one endpoint, and not an in-request assembly.** One endpoint was
+rejected when the tab was designed and the reason still holds — the
+sections cost wildly different amounts and one slow scan must not hold up
+the claims. An in-request memo fixes nothing either: each of the six is a
+separate PHP request, and inside its own request no builder runs twice.
+The duplication is *across* requests, so the fix has to be a held read,
+which is what §16.7 already established for the scan.
+
+`relationDigest()` holds what the rail cards actually need — four counts,
+the suppressed flag, and the graph feed, so kilobytes rather than
+megabytes — under its own key, on the same terms as the scan: same TTL,
+same per-viewer key because every number in it went through
+`buildConditions($user)`, and Redis being unavailable falls through to
+computing it.
+
+| Endpoint | Warm, before | Warm, after |
+|---|---|---|
+| `viewRelationGraph` | 244.8 ms | **0.5 ms** |
+| `viewRelationSettings` | 210.0 ms | **1.1 ms** |
+| sum of six | 663.0 ms | **222.4 ms** |
+
+Three times faster over the whole tab, and the remaining 214 ms is the
+co-occurrence section reading its own scan — which is the panel that
+needs the rows.
+
+`zxzhjlk.artenadigital.com`, the mid-size case: 97.9 ms → **27.2 ms**.
+
+### 18.3 Cold is unchanged, and that is not hidden
+
+Whichever request misses first assembles everything, and on a cold tab
+several miss at once because the six fire in parallel. Sequentially the
+bench shows 1,009 ms → 712 ms, but that gain is an artefact of the graph
+card running before the settings card and leaving the digest behind;
+in a browser they race. **What this removes is the repeat, not the first
+read.** Nothing bounds the first read except the caps already in §4.
+
+### 18.4 Cached numbers have to say how old they are
+
+§16.7 held the scan and made the section print `Scanned 3 minutes ago`,
+on the argument that a cached read which does not disclose its age is a
+trap. The same argument now applies to the rail cards, so both print it:
+`read 43 seconds ago` on the graph card, `counts read 43 seconds ago` on
+the settings card.
+
+**The stamp is the scan's, not the digest's.** The co-occurrence counts
+are the oldest thing in the digest, so the honest age to show is the
+oldest one — and it means all three panels print the same number, which
+they would not if each timed its own write.
+
+The phrasing moved into `Values/View/value_read_age`, used by all three.
+It was inline in the co-occurrence template; a second and third copy
+would have drifted.
+
+**What this does not fix:** `Scan again` re-requests the co-occurrence
+panel only, so the rail cards keep their held numbers until the reader
+reloads. That was already true of them as separate fragments, and the age
+they now print is what makes it visible rather than silent.
+
+### 18.5 A pre-existing JS error, found while verifying
+
+The page logs `e.target.closest is not a function` three times on this
+tab. **It is not from this change** — the same error appears on the
+Sightings tab, and it comes from the shipped bundles rather than from
+anything the Relationships panels do. Recorded here because it was found
+here, and left alone because fixing it belongs to whoever owns that
+handler.

@@ -137,7 +137,14 @@ $key = array(
             __('The value at the centre · %1$d of %2$s edges drawn'),
             $graph['edges'],
             number_format($summary['correlations'])
-        )),
+        )) . '&nbsp;·&nbsp;' . $this->element(
+            'Values/View/value_read_age',
+            array(
+                'readAt' => isset($relations['read_at'])
+                    ? $relations['read_at'] : 0,
+                'prefix' => __('read %s'),
+            )
+        ),
     )) ?>
 
     <?php if ($feed !== null): ?>

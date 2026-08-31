@@ -1161,22 +1161,8 @@ $headerSub = ob_get_clean();
              * stays true if the tab is left open — the fragment is
              * server-rendered, so the words freeze where they were.
              */
+            // the phrase itself lives in Values/View/value_read_age
             $readAt = isset($scan['read_at']) ? (int)$scan['read_at'] : 0;
-            $readAge = $readAt > 0 ? max(0, time() - $readAt) : null;
-            if ($readAge === null || $readAge < 5) {
-                $readWhen = __('just now');
-            } elseif ($readAge < 60) {
-                $readWhen = sprintf(
-                    __n('%d second ago', '%d seconds ago', $readAge,
-                        $readAge)
-                );
-            } else {
-                $readMinutes = (int)round($readAge / 60);
-                $readWhen = sprintf(
-                    __n('%d minute ago', '%d minutes ago', $readMinutes,
-                        $readMinutes)
-                );
-            }
             $budgetBit = !empty($scan['events_unread']);
             $scanScope = $scan['events_read'] === $scan['events_seen']
                 ? __n(
@@ -1243,15 +1229,8 @@ $headerSub = ob_get_clean();
                             )
                         )) ?>
                     <?php endif; ?>
-                    <span<?= $readAt > 0
-                        ? ' title="' . h(sprintf(
-                            __('Scanned at %s'),
-                            date('Y-m-d H:i:s', $readAt)
-                        )) . '"'
-                        : '' ?>><?= h(sprintf(
-                        __('Scanned %s.'),
-                        $readWhen
-                    )) ?></span>
+                    <?= $this->element('Values/View/value_read_age',
+                        array('readAt' => $readAt)) ?>
                     <button type="button"
                             class="btn btn-sm btn-link p-0 align-baseline
                                    vp-rel-again"
