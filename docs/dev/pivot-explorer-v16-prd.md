@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D2c, D4, D6, D7 await sign-off; D1, D2, D2b, D3, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D4, D6, D7 await sign-off; D1, D2, D2b, D2c, D3, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -574,20 +574,37 @@ desaturated orange keys it to attributes, while objects are blue and feeds diffe
 Corner budget is fine: the legend defaults to `bottom-left`, the minimap to `bottom-right`
 (`Minimap.ts:113`), so they do not collide.
 
+#### D2c — Provenance has no canvas encoding ✅ SETTLED
+
+Foreign nodes are **not** dimmed, tinted or otherwise marked. Provenance lives in the sidebar
+panel, the dock table's column, and the `scope` filter facet (D3) — nothing on the canvas.
+
+**Rationale, and it is the important part:** fading is not a neutral cue, it encodes a *judgment*
+that this event is the subject. An analyst may legitimately pivot outward and make the foreign
+material the focus — following a correlation into a campaign, treating this event as one exhibit
+among several — and a baked-in fade fights that the whole way. A filter facet is symmetric: it
+isolates `self` or `foreign` with equal ease, and lets the analyst declare what the subject is
+instead of the renderer assuming it.
+
+Rejected: **(a)** fading (asymmetric, per above) and **(c)** foreign variants of each node type
+(`attribute (other event)`, …), which would make provenance legend-describable but multiplies the
+type space and makes the `Element` section do two jobs.
+
+**Consequence — the chrome becomes the only "you are here".** With no canvas encoding, nothing
+inside the graph says which event seeded it. That is tolerable on `/events/view2`, where the
+surrounding page identifies the event, but not once the same component is mounted from a pivot
+route (§11) with no event page around it. So the component carries its own header, via
+`UI.mainHeader.render` or the card header:
+
+```
+Event 1234 · <info> · <orgc> · <date>
+seeded L0+L1 · 86 nodes · L2 skipped (28,410 objects not shown) · 5,629 correlations available
+```
+
+The second line is not decoration: D11 and D12 both *require* the graph to state which resolution
+levels it seeded and what it left out, and this is where that statement lives.
+
 ### Open — sign-off requested
-
-#### D2c — Does provenance get a canvas encoding at all?
-
-D3 keeps provenance out of the legend. The remaining question is whether it is drawn at all, and
-if so how — the channels left are saturation, or folding provenance into the node-type dimension
-where the legend *can* describe it.
-
-Options: **(a)** fade foreign nodes (no legend key, self-teaching); **(b)** no canvas encoding at
-all — provenance lives only in the sidebar panel, the dock table's column and the `scope` facet,
-so a foreign attribute looks identical to a local one; **(c)** give foreign attributes/objects
-their own node types (`attribute (other event)`, `object (other event)`), making provenance part
-of the colour dimension and therefore legend-describable, at the cost of growing `Element` from
-5 rows to 7.
 
 #### D4 — Editor tray → dock pane
 
@@ -752,9 +769,10 @@ explicitly, requires `id` and `color`; `label` defaults to a prettified `id`.)
 ### 6.4 Event provenance and correlated events (D2)
 
 Every node gains `data.scope` (`'self'` | `'foreign'`) and `data.event_uuid`, derived from the
-`event_id` each attribute/object already carries. `styleCb` desaturates `foreign` — and because
-the pending ring is deleted (D2), `styleCb` now returns saturation alone — no merge needed, and
-the rim is left to the library.
+`event_id` each attribute/object already carries. It drives the `scope` **filter facet**, the
+sidebar panel and the dock's column — and **nothing on the canvas** (D2c). With the pending ring
+also deleted (D2), `styleCb` has no remaining job on this page and the rim belongs entirely to the
+library.
 
 Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event` — the
 `nodeStyleMap` already registers a green hexagon for `event` that nothing currently creates —
@@ -920,8 +938,9 @@ relationships, and the events in §3.5 as fixtures):
    node's shape still selects it.
 6. Legend: three sections folding independently; two sections filtering AND together;
    `Relationship` section and the panel's `Relationships` section stay in sync.
-7. Provenance: an `extended:1` event shows desaturated foreign nodes; a correlated-event proxy
-   navigates on double-click.
+7. Provenance: an `extended:1` event's foreign nodes are visually identical to local ones (D2c);
+   the `scope` facet isolates each set; the header states which event seeded the graph; a
+   correlated-event proxy navigates on double-click.
 8. Write gating: with `$mayModify` false, no Create affordances in the chrome at all; with it
    true, an invalid connect target is marked during the drag, a vetoed edge leaves no node
    behind, a persisted edge survives reload.
@@ -944,7 +963,7 @@ relationships, and the events in §3.5 as fixtures):
 | 5c | `relationship_type` text facet as the second edge dimension (D1) | 2 |
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
-| 8 | `data.scope` + desaturation + correlated-event proxy nodes | 5 |
+| 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
 | 9 | Editor tray → dock pane; enable `UI.table` | 1 |
 | 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
