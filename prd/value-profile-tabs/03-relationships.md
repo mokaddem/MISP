@@ -764,14 +764,17 @@ scroll position trades a structural rule for a habit.
   so there is no Timeline lane here. Settled already in
   `06-timeline.md` §12.
 
-### 20.8 Blocked on
+### 20.8 Was blocked on — cleared
 
-`Feed::searchCaches` misattributes remote event uuids across sources —
-**11% of hitting values on this instance** — so the links this section
-exists to render are wrong for one row in nine. It is a three-line fix
-in MISP, mirroring the reader that already gets it right, and it lands
-before this section is built rather than after.
-`24-relationships.md` §17.2.
+`Feed::searchCaches` misattributed remote event uuids across sources on
+**11% of hitting values**, so the links this section exists to render
+were wrong for one row in nine. **Fixed 2026-08-31**, mirroring the
+reader that already got it right; `24-relationships.md` §17.2 has the
+before-and-after and the invariant it was verified against.
+
+Nothing else gates the build. The hash mismatch of §17.6 is still open
+and still under-reports rather than misattributes, so it is a caveat for
+the empty state rather than a blocker.
 
 ### 20.9 Why this does not gate every feed on `perm_view_feed_correlations`
 

@@ -876,8 +876,8 @@ each with a reason rather than a shrug.
 
 > **§17 supersedes the feeds and servers paragraph below.** Both grounds
 > for that deferral are gone: the cache is populated, and the permission
-> question is answered in `03-relationships.md` §20. What remains is one
-> MISP defect — §17.2.
+> question is answered in `03-relationships.md` §20. The one MISP defect
+> that stood in the way is fixed — §17.2.
 
 **Proposals — deferred, and the decision is stated.** A proposed
 addition (`ShadowAttribute.old_id = 0`) in an event that already holds
@@ -940,13 +940,12 @@ this instance, and `1.0.155.105` is the one that cannot be read.
    sections (§5.4). The fix is one shared per-request assembly or one
    endpoint, and it is the first concrete customer §14.11's caching
    exclusion has had.
-2. **Feed co-occurrence** — **designed, and blocked on one MISP
-   defect.** `03-relationships.md` §20 is the design, §17 the
-   measurements against a now-populated cache. The gate turned out to be
-   per source rather than one permission (§20.2, §20.9), and the blocker
-   is `searchCaches` misattributing remote event uuids across sources
-   (§17.2). The graph's fourth edge kind stays deferred for the reason
-   §20.7 gives.
+2. **Feed co-occurrence** — **designed and unblocked; ready to build.**
+   `03-relationships.md` §20 is the design, §17 the measurements against
+   a now-populated cache. The gate turned out to be per source rather
+   than one permission (§20.2, §20.9), and the defect that would have
+   made its links wrong is fixed (§17.2). The graph's fourth edge kind
+   stays deferred for the reason §20.7 gives.
 3. **Claim prose**, as child Notes on each relationship (§7), once
    that section has decided its own per-claim bound.
 4. **pivotick's edge layers.** 1.6 ships exactly the three-notion switch
@@ -1282,7 +1281,7 @@ sees five feeds, and on a stock instance the same user sees none. Any
 verification of the notice has to flip `lookup_visible` to 0 rather than
 trust what this instance shows.
 
-### 17.2 The defect that blocks the section
+### 17.2 The defect that blocked the section — fixed
 
 `searchCaches` reads the **global** per-value uuid set inside its
 per-source loop and strips the source id without checking it
@@ -1314,10 +1313,46 @@ if ($feedId != $sourceId) {
 }
 ```
 
-The fix is that filter, in the two places `searchCaches` is missing it.
-It is a MISP fix rather than a page fix, and it lands before the section
-is built: a panel whose entire content is *which remote event* cannot
-ship on a primitive that misattributes them.
+**Fixed 2026-08-31** — that filter, in the two places `searchCaches` was
+missing it. Both branches now build their uuid list by reading the set
+once and keeping only the entries whose prefix is the source being
+processed, which also removes the index-rewriting the server branch was
+doing in the middle of composing its `direct_urls`.
+
+Same value, after:
+
+```
+MISP Feed    1   CIRCL OSINT Feed   feeds/previewEvent/1/031fb9c1-…
+MISP Feed    64  Threatfox          feeds/previewEvent/64/fd94eeff-…
+MISP Server  1   Training Main      servers/previewEvent/1/031fb9c1-…
+```
+
+Four links became three, and each one names the source that holds it.
+
+**Verified by invariant, not by inspection.** For every distinct local
+value with a cache hit, every uuid `searchCaches` returns for a source
+must appear in the lookup set under that source's own prefix, and every
+uuid the set holds for a hitting source must be returned:
+
+| | |
+|---|---|
+| values with a cache hit checked | 4,761 |
+| of which the lookup set names more than one source | 543 |
+| event uuids returned | 10,011 |
+| attributed to a source that does not hold them | **0** |
+| held by the source and not returned | **0** |
+
+The second row is the one that matters: the 543 multi-source values are
+exactly the population that was broken, and they are inside the run that
+comes back clean. The two-sided check is what rules out a fix that
+simply drops uuids — 10,011 returned against a measured median of 2 per
+value is the same volume as before, redistributed correctly.
+
+`24-external-presence-verify.php`, beside this document, is that check;
+it runs the same way as the probe of §17.7.
+
+This was a MISP fix rather than a page fix, and it is in this branch
+alongside the design.
 
 ### 17.3 The card's count is not a lighter read
 

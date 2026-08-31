@@ -2019,9 +2019,14 @@ class Feed extends AppModel
                 foreach ($feeds as $feed) {
                     if (($v === false) || $redis->sismember('misp:feed_cache:' . $feed['Feed']['id'], md5($v))) {
                         if ($feed['Feed']['source_format'] === 'misp') {
-                            $uuid = $redis->smembers('misp:feed_cache:event_uuid_lookup:' . md5($v));
-                            foreach ($uuid as $k => $url) {
-                                $uuid[$k] = explode('/', $url)[1];
+                            // the lookup set is global, so entries for other feeds must be skipped
+                            $uuid = array();
+                            foreach ($redis->smembers('misp:feed_cache:event_uuid_lookup:' . md5($v)) as $url) {
+                                list($sourceId, $eventUuid) = explode('/', $url);
+                                if ($sourceId != $feed['Feed']['id']) {
+                                    continue;
+                                }
+                                $uuid[] = $eventUuid;
                             }
                             $feed['Feed']['uuid'] = $uuid;
                             if (!empty($feed['Feed']['uuid'])) {
@@ -2069,20 +2074,23 @@ class Feed extends AppModel
                 ));
                 foreach ($servers as $server) {
                     if ($v === false || $redis->sismember('misp:server_cache:' . $server['Server']['id'], md5($v))) {
-                        $uuid = $redis->smembers('misp:server_cache:event_uuid_lookup:' . md5($v));
-                        if (!empty($uuid)) {
-                            foreach ($uuid as $k => $url) {
-                                $uuid[$k] = explode('/', $url)[1];
-                                $server['Server']['direct_urls'][] = array(
-                                    'url' => sprintf(
-                                        '%s/servers/previewEvent/%s/%s',
-                                        Configure::read('MISP.baseurl'),
-                                        h($server['Server']['id']),
-                                        h($uuid[$k])
-                                    ),
-                                    'name' => __('Event %s', h($uuid[$k]))
-                                );
+                        // the lookup set is global, so entries for other servers must be skipped
+                        $uuid = array();
+                        foreach ($redis->smembers('misp:server_cache:event_uuid_lookup:' . md5($v)) as $url) {
+                            list($sourceId, $eventUuid) = explode('/', $url);
+                            if ($sourceId != $server['Server']['id']) {
+                                continue;
                             }
+                            $uuid[] = $eventUuid;
+                            $server['Server']['direct_urls'][] = array(
+                                'url' => sprintf(
+                                    '%s/servers/previewEvent/%s/%s',
+                                    Configure::read('MISP.baseurl'),
+                                    h($server['Server']['id']),
+                                    h($eventUuid)
+                                ),
+                                'name' => __('Event %s', h($eventUuid))
+                            );
                         }
                         $server['Server']['uuid'] = $uuid;
                         $server['Server']['type'] = 'MISP Server';
