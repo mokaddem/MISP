@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D6, D7, D13 await sign-off; D1–D4, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D6, D7 await sign-off; D1–D4, D5′, D8–D13 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -661,23 +661,26 @@ nodes, this pane is the *only* in-graph route to the event's contents.
 
 ### Open — sign-off requested
 
-#### D13 — Does the seed get its own endpoint? ⚠️ NOT YET DECIDED
+#### D13 — A dedicated seed endpoint, in its own PRD ✅ SETTLED
 
-Exposed by §3.5's payload measurement and, of everything left open, the one with the largest
-consequences.
+Exposed by §3.5's payload measurement: every budget in this document caps something *downstream*
+— D12 the canvas, D9 the correlation fetch, D4 the listing — while the opening fetch stays
+unbounded. `/events/view/4116.json` is ~100 MB and the graph draws 86 nodes from it. Once D4's
+pane is server-paged, **nothing in the design needs the full payload in memory**.
 
-Every decision so far budgets what is *drawn* (D10, D12) or *fetched later* (D9), while the
-opening fetch stays unbounded: `/events/view/{id}.json` for event 4116 is ~100 MB, of which the
-graph uses 86 nodes. D4's pane is now server-paged, so nothing else in the design needs the full
-payload in memory either.
+**Resolution: build a dedicated graph endpoint returning `{nodes, edges, meta}`** — the server
+knows which elements carry relationships and can answer in kilobytes what now costs 100 MB. It
+also collapses two other items: the dedicated correlation endpoint (§11) and the client-side
+graph construction that keeps the `.ctp` at 858 lines.
 
-Options: **(a)** keep the current fetch — no controller change, and the page is no worse than
-today (it already downloads this); **(b)** add named parameters to trim it (attributes only where
-they participate in a relationship); **(c)** a dedicated seed endpoint returning the D12 levels
-directly — `{nodes, edges, meta}`, the shape §11 already sketches, which also removes the
-client-side graph-building from the `.ctp`.
+**Deferred to its own document:** [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md).
+It is a new endpoint with its own ACL, sharing-group filtering and test surface, whereas every
+other decision here is implementable against the existing payload. So this PRD ships against
+`/events/view/{id}.json` unchanged, and **knowingly accepts that large events stay slow to
+open** until the endpoint lands.
 
-Bears on §4's "no controller change in Phase 1" and on §9's ordering. Needs its own pass.
+Rejected: named parameters to trim `fetchEvent` — it grows an already-large option surface for a
+partial win, and would still ship the whole event's tags and analyst data.
 
 #### D6 — Write path onto the before-hooks
 
@@ -1059,8 +1062,9 @@ No controller change, no new endpoint, no schema change in Phase 1.
 3. **Declarative initial filter value** (library ask). `FilterOptions`/`FilterFacet` carry no
    opening value (§3.2). Not needed under D9, but any future default-off layer needs it, and it
    would let a filter apply before the first layout as v1.6.0 intends.
-4. **A dedicated correlation endpoint** — `/events/correlations/{id}.json` returning only
-   `RelatedAttribute`, instead of refetching the whole event with a named parameter (§6.7).
+4. **A dedicated correlation endpoint** — folded into D13's graph endpoint
+   ([`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md)) rather than
+   built separately; until it lands, §6.7 refetches the event with a named parameter.
 5. **The pivot entry point** — a route seeding the same component from one indicator, defaulting
    to Explore. §4 keeps it out of scope; the seed/mode parameterisation is designed for it.
 6. **Analyst-data and enrichment write paths** — both gated in §2.2's taxonomy, neither built.
