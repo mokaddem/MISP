@@ -2765,3 +2765,393 @@ touches no physics preset, no flyout and no CSS hook of the library's.
 The exposure of the swap is the event Pivot Explorer's, not this tab's —
 which is an argument for doing the swap on this tab's schedule and
 paying the re-verification once.
+
+---
+
+## 24. §22 measured, and most of it does not survive
+
+§22 is entirely reasoned. It argues the graph should stop being a star,
+become two-mode — `value → event → neighbour` — and then read clusters,
+bridges, hubs and isolates off the topology. §22.4 names twelve reads
+"only the graph can serve" and rests the whole redesign on them.
+
+This section measures that against the instance, before any of it is
+built. **Most of it does not survive.**
+
+### 24.1 What was run
+
+`24-graph-topology-probe.php`, a scratch shell that calls the tab's own
+private `relationScan` by reflection — so it measures exactly the rows
+the panel reads, not a re-derivation — folds them into
+`value → set(event)`, and computes the two-mode topology at four cuts:
+the shipped `GRAPH_NODE_CAP` of 12, then 30, 60, and uncapped.
+
+Components are computed **over the neighbours alone**. The centre
+touches every neighbour by construction, so a graph including it is
+always one component and the number would say nothing; what the rail's
+proposed sentence wants to report is whether the neighbours hang
+together once the value they all share is taken out.
+
+Three populations, 2026-08-31, as the site admin:
+
+- **§12.1's six**, the tab's own verification values.
+- **Eighteen sampled by attribute id** — which turned out to be
+  contaminated: the walk struck a run of domains all belonging to one
+  event, so most rows are the same measurement repeated. Recorded as an
+  artifact, not a finding, and not counted below.
+- **Ten values occurring in 8–15 events** — the graph's *best case*,
+  and the only population where a topology can exist at all. A
+  single-event value is a star by construction and proves nothing
+  either way.
+
+### 24.2 The best case, at the sizes a canvas can draw
+
+| Value | Events | Neighbours | Components @ 12 / 30 / 60 | Bridges | Isolates |
+|---|---|---|---|---|---|
+| `31.57.216.28` | 15 | 14,254 | 2 / 2 / 4 | 0 | 0 / 0 / 1 |
+| `45.9.74.70` | 13 | 5,020 | 1 / 1 / 1 | 0 | 0 |
+| `75.2.11.125` | 12 | 8,860 | 3 / 3 / 3 | 0 | 0 |
+| `216.9.225.163` | 11 | 8,299 | 1 / 1 / 1 | 0 | 0 |
+| `1536` | 10 | 1,619 | 1 / 1 / 1 | 0 | 0 |
+| `84.46.239.239` | 10 | 7,637 | 1 / 1 / 1 | 0 | 0 |
+| `120.24.210.164` | 9 | 6,616 | 1 / 1 / 1 | 0 | 0 |
+| `37/68` | 9 | 11,858 | 1 / 1 / 1 | 0 | 0 |
+| `…r2.dev/captcha-verify…` | 9 | 4,132 | 1 / 1 / 1 | 0 | 0 |
+| `23.247.130.245` | 8 | 8,684 | 1 / 2 / 2 | 0 | 0 |
+
+And §12.1's six: `8.8.8.8` 1/1/1, `443` 1/2/1, `0.0.0.0` 2/2/2,
+`185.92.180.100` 1/1/1 (one event, 100 % glue — a pure star, honestly
+drawn). **`1.0.155.105` and `github.com` produce no neighbours at all**
+— their only event is oversized, so the scan reads nothing and there is
+nothing to draw. That is two of the tab's six verification values where
+the graph is empty.
+
+### 24.3 Bridges: one, across sixteen values and four cuts
+
+**Item 4 — "which neighbour is the bridge, the highest-value next click
+on the page" — fires once in the entire measurement**: `443` at cap 30.
+Everywhere else, at every cut, the count is zero.
+
+It was one of §22.4's twelve, and §22.6 called it the thing Tier A
+exists to surface. The data says there is nothing to surface.
+
+**Item 6 — isolates — is zero in every case but one** (`31.57.216.28`
+at cap 60, a single node). Also dead.
+
+### 24.4 Components: one clump and crumbs
+
+At drawable caps the answer is 1 in eleven of sixteen values, and where
+it is 2–4 the extra components are remainders, not clusters: largest 10
+of 12, 28 of 30, 33 of 60. So **the rail's proposed verdict sentence
+would read "One cluster" on almost every value on this instance** — a
+sentence that is true, cheap to compute, and says nothing a reader did
+not assume.
+
+Item 1 was the headline of §22.5. It is answerable, and the answer is
+almost always the same one.
+
+### 24.5 The scale the panel is not telling the truth about
+
+This is the one finding that is worse than §22 thought rather than
+better. Neighbour counts on real values:
+
+    1,619 · 4,132 · 5,020 · 6,616 · 7,637 · 8,299 · 8,684
+    8,860 · 10,024 · 10,647 · 11,858 · 14,254 · 18,859
+
+The rail's sub-line reads **`7 of 31 edges drawn`**. The real ratio is
+twelve of eight thousand. `03-relationships.md` §9's number came from
+the fixture and nothing has re-derived it against live data since;
+§10.1's *"the sub-line says how many of the total are drawn"* is
+therefore printing a true fraction of a false denominator on most
+values. **That is a live honesty defect on the shipped panel**, and it
+is independent of every design question in §22.
+
+### 24.6 The cap ranking does not just lose nodes, it destroys the structure
+
+§22.8 recorded that ranking by `shared_events` "cannot show a bridge if
+the bridge ranked thirteenth" and left the fix undefined. The
+measurement is sharper than that.
+
+`216.9.225.163` occurs in **11 events**. At cap 12, 30 and 60 the graph
+draws **one event** and twelve, thirty, sixty neighbours with
+`multi-event 0`. Same for `84.46.239.239` (10 events → 1 drawn) and
+`120.24.210.164` (9 → 1). Ranking by shared events picks the neighbours
+of the single largest event and nothing else, so a value with a genuine
+multi-event spread is rendered as a single-event star.
+
+Uncapped, those three read **components 11, 10 and 9 against 11, 10 and
+9 events** — one component per event, `multi-event 0`. Which is the
+next finding, and the one that explains all of the others.
+
+### 24.7 Why: events do not share attributes
+
+For a large share of values the events are **disjoint in their
+neighbour sets**. Components equals event count, and no neighbour
+belongs to two events. The two-mode graph is then a set of disjoint
+stars sharing only the centre — a star of stars, with no cross-link
+anywhere for a bridge to be.
+
+That is not a property of the drawing, the cap or the ranking. It is a
+property of the data: **MISP events are largely self-contained, and
+co-occurrence through an event therefore recovers the event, not a
+cluster.** The "clusters" the graph would find *are the events*, which
+the co-occurrence panel's event roll-up already lists in a sortable
+table with `info`, `date`, `org` and `shared_values` on it.
+
+§3 found that the correlation engine has nothing to say about a value's
+neighbours. This is the same shape of finding one level out: the event
+join has nothing to say about a value's *structure*.
+
+### 24.8 What does survive
+
+- **The two-mode edge count is real.** 10,100 against 26,975,914
+  projected on `8.8.8.8`; 12,079 against 29,453,286 on `37/68`. §22.2's
+  arithmetic holds — it is simply an efficiency argument for a picture
+  that has little to show.
+- **The glue percentage is a genuine finding, and it is a sentence.**
+  "One event supplies 100 % of what is drawn" is true on nine of the
+  sixteen at cap 12, and it is worth telling a reader. It needs no
+  canvas.
+- **Item 9 — structural versus statistical — is untouched by this.**
+  Object siblings are a join on `object_id`, not on the event, and they
+  remain the one co-occurrence notion with semantics behind it. Nothing
+  measured here weakens them.
+- **Items 8, 12, 16, 23 and 26** — two-hop reach, the single-org
+  subgraph, the actor read, burst-versus-accretion and expand-one-hop —
+  were **not** tested. They need the expand endpoint or a different
+  probe. Nothing here says they are dead; nothing here says they are
+  alive.
+- **The `full`-mode and bundle-swap questions (§23) are unaffected.**
+  They are about what the library offers, not about what the data holds.
+
+### 24.9 What this does to §22
+
+Six of §22.4's twelve — items 1, 3, 4, 5, 6 and 7 — are the topology
+reads, and the measurement kills or empties all six on this instance.
+That is the list §22 rested the redesign on, so **Tier A, the tier §22.6
+says everything else depends on, has no structure to find.**
+
+The diagnosis in §22.1 stands unchanged: the current graph is a star and
+a star carries nothing the panels do not print. What does not stand is
+§22's cure. Rebuilding it two-mode would produce a picture that is
+better-founded, cheaper in edges, and still substantially a star —
+because on this data, that is what the neighbourhood is.
+
+Three readings are open, and this document does not pick between them:
+
+1. **Drop the canvas from the rail**, keep the sentence, and spend the
+   space on the glue percentage and the honest scale. Cheapest, and
+   the measurement supports it.
+2. **Keep a canvas only in the overlay**, built two-mode, and justify it
+   on the untested items (8, 12, 16, 23, 26) rather than on topology —
+   which means testing those first.
+3. **Build it as designed anyway**, on the argument that this instance's
+   data is not every instance's. Defensible, but it should be said out
+   loud rather than assumed, because nothing here is instance-specific
+   in an obvious way — self-contained events are how MISP is used.
+
+**Independent of all three: §24.5's `7 of 31` is wrong on the shipped
+page and should be fixed whatever happens to the graph.**
+
+---
+
+## 25. Three pivots that actually pay, and what they change
+
+§24 measured co-occurrence *through events* and found it flat: one
+component, no bridges, no isolates. This section asks the opposite
+question — not "what does the neighbourhood look like" but **"what
+does an analyst learn by walking from one value to the next"** — and
+answers it with three chains traced end to end on this instance.
+
+All three work. And tracing them turns up the reason §24 came back
+empty, which is the more important finding: **§24 measured the wrong
+relation.**
+
+### 25.1 Example one — a hostname's resolution history
+
+**Start:** `draculax.myq-see.com`
+**Event 1416** — CIRCL, 2021-03-31, *"OSINT — Cheating the cheater: How
+adversaries are using backdoored video game cheat engines and modding
+tools"*, `tlp:white`, `type:OSINT`.
+
+Five dated resolutions, from `passive-dns` objects:
+
+| Resolved to | First seen | Last seen |
+|---|---|---|
+| `141.255.159.82` | 2017-04-11 22:13 | 2017-04-11 22:13 |
+| `168.181.48.248` | 2017-04-14 20:25 | 2017-04-14 20:26 |
+| `168.181.51.45` | 2017-04-18 01:03 | 2017-04-18 01:13 |
+| `141.255.147.117` | 2017-04-25 10:38 | 2017-04-25 10:38 |
+| `200.101.151.150` | 2021-03-30 16:00 | 2021-03-30 16:00 |
+
+**What an analyst reads off it:** four addresses in fourteen days in
+April 2017 — infrastructure churn, and two of the four sit in the same
+`/16` pair, which is a hosting choice rather than a coincidence — then
+nothing for four years, then a single Brazilian host the day before the
+report. Dormant-then-reactivated is a different story from
+continuously-live, and it is not visible from any one attribute.
+
+**The sibling:** `dracula4000.duckdns.org` → `179.253.227.97`
+(2021-01-24) sits in the same event. A naming convention, and therefore
+a second thing to hunt.
+
+**The catch, and it matters:** every one of those six IPs occurs in
+**exactly one event, one row**. As neighbours they are dead ends. So
+the value of this pivot is entirely in the *history* — the dates on the
+edge — and not at all in the neighbourhood the IP leads to. A graph
+drawn to show "what is near this hostname" would draw six dead ends and
+call it a picture; the timeline is the artefact that carries the
+insight.
+
+### 25.2 Example two — one address, and the target list falls out
+
+**Start:** `45.77.250.80`
+**Event 1179** — CIRCL, 2018-06-26, *"OSINT — RedAlpha: New Campaigns
+Discovered Targeting the Tibetan Community"*, tagged
+`misp-galaxy:threat-actor="RedAlpha"`, `misp-galaxy:rat="NJRat"`,
+`misp-galaxy:tool="njRAT"`, `misp-galaxy:sector="NGO"`, `tlp:white`.
+
+**One hop** — the `domain-ip` objects that address sits in — gives 22
+domains:
+
+    apple. · artvoice. · blog.tibetcul. · business. · cfr. ·
+    chinaaid. · doc. · docs. · epochtimes. · item. · ndtv. · oc. ·
+    rediff. · savetibet. · thewire. · tibet. · tootopia. · video. ·
+    vot. · www.apple. · www.doc.        [all *.internetdocss.com]
+
+plus `my.anti-spammail.services`.
+
+**What an analyst reads off it:** the subdomain list *is* the targeting
+picture. Tibetan civil society (`savetibet`, `tibet`, `vot` — Voice of
+Tibet, `blog.tibetcul`, `chinaaid`), diaspora and India-facing news
+(`epochtimes`, `ndtv`, `rediff`, `thewire`, `artvoice`), a US foreign
+policy institution (`cfr`), and a credential-harvest lure
+(`apple`, `docs`). One pivot from a bare IP produces a victim profile, a
+named actor and a tool — without opening the report.
+
+**This is the strongest of the three**, and note what carries it: not
+the topology, but the *labels on the far end*. Twenty-two nodes in a
+fan, which §22.1 would correctly call a star — and the star is fine
+here, because the reading is the list, not the shape.
+
+### 25.3 Example three — an address that bridges two impersonated brands
+
+**Start:** any one of `luxtrust.support`, `cns-lu.com`, `ccss-public.com`
+**Event 1507** — CIRCL, 2023-12-19, *"Phishing targeting Luxembourg
+services (hosted and served on/from AWS)"*.
+
+Pivot to the IP, and the IP carries names from **more than one brand**:
+
+| Address | Names on it |
+|---|---|
+| `18.117.184.102` | `ccss-public.com` · `cns-lu.com` · `luxtrust.help` · `luxtrust.support` |
+| `3.71.1.255` | `ccss-lu.eu` · `cns-public.eu` · `www-cns-lu.com` |
+| `35.177.103.239` | `luxtrust.co` · `tango-lu.com` · `www-cns-lu.com` |
+| `13.48.203.238` | `luxtrust-cancel.com` · `www-cns.com` |
+| `35.180.136.109` | `ccss-sante-lu.com` · `luxtrust-unlock.com` |
+| `54.93.211.218` | `luxtrust.co` · `www-cns-lu.com` |
+
+**What an analyst reads off it:** CNS and CCSS are the Luxembourg
+national health bodies, LuxTrust is the national eID, and `tango-lu` is
+a telco. Standing on `luxtrust.support` you see a LuxTrust phishing
+domain. Standing on `18.117.184.102` you see that **the same operator is
+impersonating the health service and the eID from one host** — and
+`35.177.103.239` adds the telco. That is a claim about the campaign that
+no single domain's page can make, and it is exactly §22.3's item 4, *the
+neighbour that bridges two otherwise-separate clusters.*
+
+**§24 said that read never fires. Here it fires six times in one event.**
+
+### 25.4 Why §24 missed all of it
+
+Every address in §25.3 occurs in **exactly one event — 1507**. Checked:
+seven of seven. So co-occurrence *through events* puts the entire
+campaign in one component and reports "one cluster", which is what §24
+measured and what §24 correctly reported.
+
+The structure is not between events. **It is inside objects.**
+
+    §24 measured:   value ── shares an event ── value      flat
+    the pivots use: value ── shares an object ── value      typed
+
+A `passive-dns` object exists to assert *this name resolved to this
+address, between these dates*. A `domain-ip` object exists to assert
+*this domain is on this address*. These are **relational objects** —
+their whole purpose is to link two values — and the link carries a type
+and often a pair of timestamps. An event, by contrast, is a container:
+sharing one means almost nothing, which is precisely what §24 found.
+
+§22's item 9 — *structural versus statistical, same object versus same
+event* — was the one item §24.8 left standing. It is not a survivor. **It
+is the whole thing**, and §22 ranked it ninth.
+
+**Scale on this instance:** 568,606 attributes sit in objects against
+2,216,345 that do not, across 66,587 objects holding two or more
+attributes. So the object-mediated graph is real and substantial — and
+it covers roughly a fifth of attributes, which is a bound the design has
+to state rather than discover.
+
+### 25.5 Relational objects and descriptive ones
+
+The distinction the design needs, and neither §22 nor the tab brief
+draws it:
+
+- **Relational** — the object *is* an edge: `passive-dns` (827),
+  `domain-ip` (456), `url` (549), `network-connection` (718),
+  `whois` (62), `rogue-dns` (56). Pivoting through one of these is
+  meaningful, and the `object_relation` names which end you are on
+  (`rrname` / `rdata`, `domain` / `ip`).
+- **Descriptive** — the object describes one thing in several fields:
+  `file` (12,608), `pe-section`, `virustotal-report` (7,118),
+  `ghidra-function`. Siblings here are *facets of the same artefact* —
+  an md5 and a sha256 of one file are not two neighbours, they are two
+  names for one thing.
+
+Drawing both as one "sibling" edge, which is what the tab does today,
+merges *"resolved to"* with *"is the same file as"*. Those are not the
+same claim, and only the first is a pivot.
+
+`ObjectReference.relationship_type` is the third layer and it is
+populated: `communicates-with` (153), `downloaded-from` (36),
+`redirects-to` (24), `drops` / `dropped-by` (27 / 24),
+`connected-to` (67), `detected-as` (29). Typed edges between objects,
+already in the database, drawn nowhere on this page.
+
+### 25.6 What this does to §22 and §24
+
+- **§24's negative result stands, and its scope narrows.** Event
+  co-occurrence is flat. That is true and it is worth having measured.
+  It is not a verdict on the graph; it is a verdict on the *relation
+  §22 chose to draw*.
+- **§22.2's two-mode model is right in shape and wrong in the middle
+  node.** Not `value → event → neighbour` but **`value → object →
+  value`**, with the object's template naming the edge and
+  `object_relation` naming the direction. Same two-mode argument, same
+  avoidance of the per-event clique, an incomparably better edge.
+- **§22.4's twelve are re-scored.** Item 4 (the bridge) is alive after
+  all — §25.3 is six of them in one event. Items 1, 5, 6 and 7 remain
+  as §24 found them. Item 9 moves from ninth to first.
+- **Item 26 — expand one hop — stops being optional.** All three
+  examples are two or three hops. A page that shows one hop and links
+  out is a page where the analyst does the walking; the whole value of
+  §25.2 and §25.3 is in the *second* hop.
+- **The timeline is an artefact the graph does not have.** §25.1's
+  insight is entirely in `time_first` / `time_last` on the edge. A
+  canvas draws six dead ends; a dated table draws the story. That is an
+  argument for putting resolution history on the page as *its own
+  panel*, and it belongs to the Timeline tab as much as to this one.
+
+### 25.7 What was run
+
+Read-only SQL against the instance the worktree serves, 2026-08-31:
+object-template and `object_references.relationship_type` census; the
+`passive-dns`, `domain-ip` and `url` object shapes by
+`object_relation`; the three chains above traced from value to event to
+tags; and a check that each address in §25.3 occurs in exactly one
+event. No writes, and nothing installed in `app/`.
+
+The three values are worth adding to §12.1's verification set —
+`draculax.myq-see.com`, `45.77.250.80` and `18.117.184.102` — because
+between them they exercise a dated relational object, a 22-way fan and
+a genuine bridge, and the tab currently has no value that exercises any
+of the three.
