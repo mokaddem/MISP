@@ -1314,8 +1314,14 @@
      * @param {Element} list
      * @return {string}
      */
-    function narrowUrl(list) {
+    function narrowUrl(list, fresh) {
         var params = [];
+        if (fresh) {
+            // Skips the held scan on the way in and rewrites it on the
+            // way out, so one press lands on new rows rather than on an
+            // empty cache.
+            params.push('fresh=1');
+        }
         ownNodes(list, 'input[data-vp-facet-key]:checked')
             .forEach(function (box) {
                 params.push('f[' + box.dataset.vpFacetKey + '][]='
@@ -1357,7 +1363,7 @@
      * @param {Element} list
      * @return {boolean} Whether the request could be made
      */
-    function narrowRemotely(list) {
+    function narrowRemotely(list, fresh) {
         var container = list.closest('.ajax-tab-content, .ajax-card');
         if (!container || typeof window.reloadAjaxTabIndex !== 'function') {
             return false;
@@ -1365,8 +1371,8 @@
         list.classList.add('vp-narrowing');
         window.clearTimeout(narrowTimers.get(list));
         narrowTimers.set(list, window.setTimeout(function () {
-            window.reloadAjaxTabIndex(container, narrowUrl(list));
-        }, 300));
+            window.reloadAjaxTabIndex(container, narrowUrl(list, fresh));
+        }, fresh ? 0 : 300));
         return true;
     }
 
@@ -5854,6 +5860,21 @@
             var more = event.target.closest('[data-vp-facet-more]');
             if (more) {
                 expandFacetGroup(more);
+                return;
+            }
+
+            /*
+             * The one control on this page that asks for a read rather
+             * than accepting the one it was given. It goes remote
+             * whatever the panel holds, because the rows themselves are
+             * what it is refusing.
+             */
+            var again = event.target.closest('[data-vp-narrow-fresh]');
+            if (again) {
+                var againList = again.closest('[data-vp-list]');
+                if (againList) {
+                    narrowRemotely(againList, true);
+                }
                 return;
             }
 

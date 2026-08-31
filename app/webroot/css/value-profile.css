@@ -4083,6 +4083,24 @@ th[aria-sort="descending"] .sort-icon::before {
 }
 
 /*
+ * `Scan again`, inline in the sentence that says how old the rows are.
+ * A link and not a button, because it belongs to the sentence.
+ */
+.vp-rel-again {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: var(--bs-link-color);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.vp-rel-again:hover {
+    color: var(--bs-link-hover-color);
+}
+
+/*
  * A narrowing the panel has gone to ask about. The rows underneath are
  * the previous answer and are about to be replaced, so they are dimmed
  * rather than filtered to something the reader did not ask for.

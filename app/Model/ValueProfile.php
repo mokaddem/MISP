@@ -143,15 +143,17 @@ class ValueProfile extends AppModel
      *
      * Narrowing the co-occurrence table re-requests the panel, and each
      * request would otherwise repeat the whole scan to fold the same
-     * rows differently. Cached, ticking three facets costs one scan.
+     * rows differently. Cached, a session of narrowing costs one scan.
      *
-     * **60 and not more, because nothing invalidates this.** No
-     * event-change hook reaches here, so the only bound on a stale
-     * neighbourhood is the clock — and somebody who has just added an
-     * attribute should not have to wonder why it is missing. Raise it
-     * when an invalidation hook exists to raise it against.
+     * **Five minutes, because the panel says how old the read is and
+     * offers to redo it.** Nothing invalidates this entry — no
+     * event-change hook reaches here — so without those two the only
+     * bound on a stale neighbourhood would be the clock, and this would
+     * have to stay at a minute. It still does not go higher: the reader
+     * has a cue for *I* just added something, and none at all for
+     * *somebody else* did.
      */
-    const RELATION_SCAN_TTL = 60;
+    const RELATION_SCAN_TTL = 300;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1510,7 +1512,9 @@ class ValueProfile extends AppModel
             return $this->cooccurrence;
         }
         $this->cooccurrenceFilters = $filters;
-        $scan = $this->relationScan($user, $value, $options);
+        $fresh = !empty($options['fresh']);
+        unset($options['fresh']);
+        $scan = $this->relationScan($user, $value, $options, $fresh);
 
         $co = ValueRelationTool::cooccurrence($scan['rows'], array(
             'orgs' => $scan['orgs'],
@@ -1532,6 +1536,15 @@ class ValueProfile extends AppModel
             'budget' => self::RELATION_SCAN_BUDGET,
             'rows_read' => count($scan['rows']),
             'row_cap' => self::RELATION_ROW_CAP,
+            /*
+             * When the rows under this panel were read. Zero seconds on
+             * a scan that just ran, up to `RELATION_SCAN_TTL` on one
+             * served from Redis — and the panel prints it, because a
+             * cached read that does not say how old it is is the reason
+             * a cache this long would otherwise be a trap.
+             */
+            'read_at' => $scan['read_at'],
+            'ttl' => self::RELATION_SCAN_TTL,
         );
         /*
          * Not "the engine stored nothing" — the opposite claim. Every
@@ -1560,13 +1573,19 @@ class ValueProfile extends AppModel
      * the same neighbourhood. Redis being unavailable is not an error:
      * the scan runs, and the page is merely as slow as it was before.
      *
+     * `$fresh` is the reader pressing the panel's own refresh: the
+     * entry is skipped on the way in and rewritten on the way out, so
+     * one press lands on new rows rather than on an empty cache.
+     *
      * @param array $user
      * @param string $value
      * @param array $options
+     * @param bool $fresh
      * @return array
      */
-    private function relationScan(array $user, $value, array $options)
-    {
+    private function relationScan(array $user, $value, array $options,
+        $fresh = false
+    ) {
         $key = 'misp:value_profile:relation_scan:' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($options));
         $redis = null;
@@ -1575,7 +1594,7 @@ class ValueProfile extends AppModel
         } catch (Exception $e) {
             $redis = null;
         }
-        if ($redis !== null) {
+        if ($redis !== null && !$fresh) {
             $cached = RedisTool::deserialize(
                 RedisTool::decompress($redis->get($key))
             );
@@ -1584,6 +1603,7 @@ class ValueProfile extends AppModel
             }
         }
         $scan = $this->readRelationScan($user, $value, $options);
+        $scan['read_at'] = time();
         if ($redis !== null) {
             $redis->setex(
                 $key,

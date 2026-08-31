@@ -334,7 +334,12 @@ class ValuesController extends AppController
             $b64value,
             'forRelationCooccurrence',
             'value_relation_cooccurrence',
-            array('filters' => $this->relationFilters())
+            array(
+                'filters' => $this->relationFilters(),
+                // The panel's own refresh, and the only thing on this
+                // page that asks for a read rather than accepting one.
+                'fresh' => !empty($this->request->query['fresh']),
+            )
         );
     }
 

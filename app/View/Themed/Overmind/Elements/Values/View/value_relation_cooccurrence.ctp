@@ -1152,6 +1152,31 @@ $headerSub = ob_get_clean();
              * 3 events`, which is a fraction a reader has to divide
              * before learning it means everything.
              */
+            /*
+             * The read's age, because the rows under this panel are
+             * held for `RELATION_SCAN_TTL` and a cache that does not
+             * say how old it is is the reason a long one is a trap. The
+             * phrase is relative because that is what a reader can act
+             * on; the exact stamp is in the `title`, and it is what
+             * stays true if the tab is left open — the fragment is
+             * server-rendered, so the words freeze where they were.
+             */
+            $readAt = isset($scan['read_at']) ? (int)$scan['read_at'] : 0;
+            $readAge = $readAt > 0 ? max(0, time() - $readAt) : null;
+            if ($readAge === null || $readAge < 5) {
+                $readWhen = __('just now');
+            } elseif ($readAge < 60) {
+                $readWhen = sprintf(
+                    __n('%d second ago', '%d seconds ago', $readAge,
+                        $readAge)
+                );
+            } else {
+                $readMinutes = (int)round($readAge / 60);
+                $readWhen = sprintf(
+                    __n('%d minute ago', '%d minutes ago', $readMinutes,
+                        $readMinutes)
+                );
+            }
             $budgetBit = !empty($scan['events_unread']);
             $scanScope = $scan['events_read'] === $scan['events_seen']
                 ? __n(
@@ -1218,6 +1243,19 @@ $headerSub = ob_get_clean();
                             )
                         )) ?>
                     <?php endif; ?>
+                    <span<?= $readAt > 0
+                        ? ' title="' . h(sprintf(
+                            __('Scanned at %s'),
+                            date('Y-m-d H:i:s', $readAt)
+                        )) . '"'
+                        : '' ?>><?= h(sprintf(
+                        __('Scanned %s.'),
+                        $readWhen
+                    )) ?></span>
+                    <button type="button" class="vp-rel-again"
+                            data-vp-narrow-fresh>
+                        <?= __('Scan again') ?>
+                    </button>
                 </span>
             </div>
         <?php endif; ?>
