@@ -3,6 +3,7 @@ App::uses('AppModel', 'Model');
 App::uses('ValueStatsTool', 'Tools');
 App::uses('ValueDecayTool', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
+App::uses('RedisTool', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -136,6 +137,21 @@ class ValueProfile extends AppModel
 
     /** Rows per page in the co-occurrence and sibling lists. */
     const RELATION_PAGE_SIZE = 8;
+
+    /**
+     * Seconds the Relationships scan's reads are held in Redis.
+     *
+     * Narrowing the co-occurrence table re-requests the panel, and each
+     * request would otherwise repeat the whole scan to fold the same
+     * rows differently. Cached, ticking three facets costs one scan.
+     *
+     * **60 and not more, because nothing invalidates this.** No
+     * event-change hook reaches here, so the only bound on a stale
+     * neighbourhood is the clock — and somebody who has just added an
+     * attribute should not have to wonder why it is missing. Raise it
+     * when an invalidation hook exists to raise it against.
+     */
+    const RELATION_SCAN_TTL = 60;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1494,6 +1510,100 @@ class ValueProfile extends AppModel
             return $this->cooccurrence;
         }
         $this->cooccurrenceFilters = $filters;
+        $scan = $this->relationScan($user, $value, $options);
+
+        $co = ValueRelationTool::cooccurrence($scan['rows'], array(
+            'orgs' => $scan['orgs'],
+            'events' => $scan['event_meta'],
+            'sharing_groups' => $scan['sharing_groups'],
+            'our_objects' => $scan['our_objects'],
+            'filters' => $filters,
+            'row_cap' => self::RELATION_ROW_CAP,
+            'page_size' => self::RELATION_PAGE_SIZE,
+        ));
+        $co['siblings'] = $scan['siblings'];
+        $co['scan'] = array(
+            'events_read' => count($scan['picked']),
+            'events_seen' => $scan['events_seen'],
+            'events_oversized' => $scan['events_oversized'],
+            'events_unread' => $scan['events_unread'],
+            'event_cap' => self::RELATION_EVENT_CAP,
+            'size_cap' => self::RELATION_EVENT_SIZE_CAP,
+            'budget' => self::RELATION_SCAN_BUDGET,
+            'rows_read' => count($scan['rows']),
+            'row_cap' => self::RELATION_ROW_CAP,
+        );
+        /*
+         * Not "the engine stored nothing" — the opposite claim. Every
+         * event this value appears in is too large to read for
+         * co-occurrence, so there is a neighbourhood and it is not
+         * being shown, which is what `.vp-suppressed` says and what an
+         * empty state would get exactly backwards.
+         */
+        $co['suppressed'] = empty($scan['picked'])
+            && $scan['events_oversized'] > 0;
+
+        $this->cooccurrence = array('co' => $co);
+        return $this->cooccurrence;
+    }
+
+    /**
+     * Everything the fold reads, from Redis where it is still warm.
+     *
+     * The narrowing re-requests the panel, so the same scan would
+     * otherwise run again to fold the same rows against a different
+     * filter. Cached, the first request pays for it and every narrowing
+     * after it is a fold over rows already in hand.
+     *
+     * Keyed on the viewer, because every row in here went through
+     * `buildConditions($user)` and two readers of one value do not see
+     * the same neighbourhood. Redis being unavailable is not an error:
+     * the scan runs, and the page is merely as slow as it was before.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function relationScan(array $user, $value, array $options)
+    {
+        $key = 'misp:value_profile:relation_scan:' . (int)$user['id']
+            . ':' . hash('sha256', $value . '|' . json_encode($options));
+        $redis = null;
+        try {
+            $redis = RedisTool::init();
+        } catch (Exception $e) {
+            $redis = null;
+        }
+        if ($redis !== null) {
+            $cached = RedisTool::deserialize(
+                RedisTool::decompress($redis->get($key))
+            );
+            if (!empty($cached)) {
+                return $cached;
+            }
+        }
+        $scan = $this->readRelationScan($user, $value, $options);
+        if ($redis !== null) {
+            $redis->setex(
+                $key,
+                self::RELATION_SCAN_TTL,
+                RedisTool::compress(RedisTool::serialize($scan))
+            );
+        }
+        return $scan;
+    }
+
+    /**
+     * The scan itself: choose the scope, then read it completely.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function readRelationScan(array $user, $value, array $options)
+    {
         $valueModel = $this->model('Value');
         $events = $valueModel->occurrenceEventsFor(
             $user,
@@ -1529,14 +1639,13 @@ class ValueProfile extends AppModel
             array_merge($options, array('tags' => true))
         );
         $this->attachTags($rows);
-        $sharingGroups = $this->sharingGroupNames($user, $rows);
         $orgs = $this->organisationNames($rows);
 
         /*
-         * The sibling join runs first now, because the co-occurrence
-         * fold needs the object templates this value sits in: `sibling`
-         * is one of the tokens a row is matched on, and a token the
-         * fold cannot build is a filter the fold cannot apply.
+         * The sibling join runs before the fold, because the fold needs
+         * the object templates this value sits in: `sibling` is one of
+         * the tokens a row is matched on, and a token the fold cannot
+         * build is a filter the fold cannot apply.
          */
         $siblings = $this->siblingSection($user, $value, $options, $orgs);
         $ourObjects = array();
@@ -1544,38 +1653,18 @@ class ValueProfile extends AppModel
             $ourObjects[$sibling['object']] = true;
         }
 
-        $co = ValueRelationTool::cooccurrence($rows, array(
-            'orgs' => $orgs,
-            'events' => $this->eventMetadata($user, $picked),
-            'sharing_groups' => $sharingGroups,
-            'our_objects' => $ourObjects,
-            'filters' => $filters,
-            'row_cap' => self::RELATION_ROW_CAP,
-            'page_size' => self::RELATION_PAGE_SIZE,
-        ));
-        $co['siblings'] = $siblings;
-        $co['scan'] = array(
-            'events_read' => count($picked),
+        return array(
+            'rows' => $rows,
+            'picked' => $picked,
             'events_seen' => count($events),
             'events_oversized' => $oversized,
             'events_unread' => $unread,
-            'event_cap' => self::RELATION_EVENT_CAP,
-            'size_cap' => self::RELATION_EVENT_SIZE_CAP,
-            'budget' => self::RELATION_SCAN_BUDGET,
-            'rows_read' => count($rows),
-            'row_cap' => self::RELATION_ROW_CAP,
+            'orgs' => $orgs,
+            'sharing_groups' => $this->sharingGroupNames($user, $rows),
+            'event_meta' => $this->eventMetadata($user, $picked),
+            'siblings' => $siblings,
+            'our_objects' => $ourObjects,
         );
-        /*
-         * Not "the engine stored nothing" — the opposite claim. Every
-         * event this value appears in is too large to read for
-         * co-occurrence, so there is a neighbourhood and it is not
-         * being shown, which is what `.vp-suppressed` says and what an
-         * empty state would get exactly backwards.
-         */
-        $co['suppressed'] = empty($picked) && $oversized > 0;
-
-        $this->cooccurrence = array('co' => $co);
-        return $this->cooccurrence;
     }
 
     /**
