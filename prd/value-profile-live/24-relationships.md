@@ -950,3 +950,219 @@ this instance, and `1.0.155.105` is the one that cannot be read.
 6. **`over_correlating_values.occurrence`** is dead weight on the read
    path (§9.1). Either the router job runs, or the column should stop
    being offered as a number anything can print.
+
+## 16. After the phase: what the follow-up passes changed
+
+Phase 24 put the five panels on live data. Reading them against a real
+instance then found things the fixture could not show, and the passes
+below are what came of that. They are recorded here rather than folded
+into the sections above, for §18's reason in `03-relationships.md`: the
+reasoning that produced the original is worth reading beside the
+correction.
+
+### 16.1 The section became two panels
+
+`Co-occurrence` held the object siblings and the ranked table under one
+header, and the two answer different questions — one structural, one
+statistical. They are now **`In the same object`** and **`In the same
+events`**, each a panel with its own header, its own narrowing bar and
+its own pager. Every narrowing control moved beside the table it
+governs; the sibling table had none of its own before and was narrowed
+by controls sitting above a different table.
+
+`Group by` and `Rank by` are pill groups rather than selects — a select
+hides its alternatives behind a click, which is how the roll-up came to
+be the least-used control on the tab. Both tables sort by column
+heading, three states: ascending, descending, then back to the order
+the model sent, because that order is itself an answer and no column
+would bring it back.
+
+**Row selection is gone.** The checkbox column, its header select-all,
+the `N selected` readout and the two disabled actions beside it —
+`Tag the selection`, `Add selection to a collection` — were a bulk-write
+affordance on a page that does not write, and the column cost a cell in
+every row to say so. `Open all N as a search` stays, and now
+counts what the narrowing matched. `03-relationships.md` §6.6 and §11
+still describe them, marked as superseded by its §19.
+
+### 16.2 Three cells were rounding what they had
+
+**The sibling `Objects` count is a bar.** It is how many objects one
+folded row stands for, and it was a bare right-aligned number while the
+same kind of magnitude in the panel below was drawn on
+`.vp-rel-bar`. It now uses the same bar; the bar prints its own
+reading, so the count is still
+exact, and `$weightBar` takes the `≥` floor marker as a prefix so a
+capped section does not lose it.
+
+**A sibling row with one event links to it.** The fold dropped the event
+id unless the row stood for a single object, so a row folding five
+objects that all sit in the same event read a bare `1` while holding the
+id of the event it meant. The link now survives wherever the fold left
+one event to name:
+
+```php
+$oneEvent = $held === 1 || ($exact && count($events) === 1);
+```
+
+`$exact` is `in_objects <= cap`: above 500 objects the fold is partial,
+so *"these all sit in one event"* would be a claim about what was read
+rather than about the value. The single-object case keeps the link it
+always had, so no row loses one. On `8.8.8.8` this takes linked rows
+from 10 of 22 to 20 of 22; on `443` from 0 to 100 of 100, all naming
+`#3984` — one event holding 271 `ddos-config` objects that each carry
+the value, a case the old rule hid completely because none of those rows
+stands for a single object. Cost: +0.8% fragment, and a fold time inside
+the noise band (best 3.24–3.33 ms either way over 857 triples).
+
+**`Distribution` is a set, not a badge.** The column kept the *widest*
+audience among a row's occurrences and dropped the rest, so a row could
+read `All communities` while one of the records behind it was org-only,
+and `Sharing group` never said which group. The row now carries the
+distinct `(effective level, sharing group)` pairs, widest first by
+`ValueStatsTool`'s own `restrictionRank`, drawn as MISP's badge once per
+audience with `+N more` past three and the group named and linked to
+`/sharing_groups/view/<id>` — the affordance the Occurrences tab already
+had.
+
+`effectiveDistribution` is unchanged and still per occurrence: the
+conjunction of attribute, object and event, tightest wins. What went is
+the *second* fold on top of it, which a set of records spread over
+events cannot honestly have. On `8.8.8.8`, 10 of 100 listed rows have
+more than one audience and were all showing a single badge.
+
+### 16.3 Narrowing now reaches the neighbourhood
+
+**The measurement that opened this.** Ticking a facet emptied the table
+it had just been counted in. Swept across every checkbox on the panel
+for `8.8.8.8`, **60 of 107 led to an empty table**:
+
+| Group | boxes | dead |
+|---|---|---|
+| Tag | 40 | 35 |
+| Type | 26 | 14 |
+| Object | 11 | 7 |
+| Event | 17 | 3 |
+| Organisation | 6 | 1 |
+| Distribution / Sharing group | 6 | 0 |
+
+The worst were the ones a reader is most likely to click: `abuse.ch`
+said **9,791** and showed none, `#2120 ThreatFox IOCs for 2023-09` said
+6,630, `ip-dst|port` said 2,229.
+
+**Two causes, and they compound.** The first is the order of operations:
+fold every value, count the facets over all of them, rank by shared
+events, `array_slice` to `RELATION_ROW_CAP`, ship — and then filter *in
+the browser* over what survived that cut. The counts describe the
+neighbourhood; the filter reached the hundred. `abuse.ch`'s values each
+share one event, so they rank at the bottom and never cross.
+
+The second is smaller and older: the facets count a value under every
+type, category and object it appeared as — §5's own note says so — while
+the row carried only its `dominant()` one. `type` and `object` could not
+find rows they had just counted, cap or no cap.
+
+**A row's tokens are the fold's now.** `tokensFor()` defines one key's
+tokens for one group and is read by both the row builder and the filter,
+so the string a facet counts and the string a filter matches cannot
+drift; the slug is `ValueStatsTool::facetToken`, which is what built the
+facet entries. Every value the group held is emitted, not the dominant
+one. `sibling:yes` is among them, which is why `siblingSection()` now
+runs before the fold and passes `our_objects` — a context key
+`cooccurrence()`'s own signature had documented since the phase and
+nothing had ever set.
+
+**The filter runs before the cut.** `cooccurrence()` takes `filters` and
+applies them to the ranked list before slicing, so the table holds the
+top hundred *of what was asked for*, and returns `matched` so the pager
+reads `1–8 of 100 (9,791 in total)`. Facet counts stay folded over the
+whole scope — they answer *what else is there*, and recomputing them
+under the active filter would make the bar move under the reader's hand.
+
+Semantics match the browser's exactly, because the browser's are the
+ones people already learned: disjunctive inside a key, conjunctive
+across keys, and a select kept apart from the facet arrays under
+`select` because the panel means them differently — two ticks in a
+dropdown are *either*, a select on top of them is *and also* (§16 of
+`03-relationships.md` argued this and it still holds).
+
+**The wire.** `f[<key>][]=<token>` for facets, `f[select][<key>]=<token>`,
+`f[text]`, `f[min_shared]`, `f[rank]`. Nothing is trusted:
+`cleanFilters()` drops every key the tool did not declare, and the values
+are only ever compared against tokens the fold generated itself, so they
+reach no query and no output. The panel re-requests its own endpoint —
+`viewRelationCooccurrence` — through `reloadAjaxTabIndex`, and comes back
+with every control set the way it was left: boxes ticked, selects
+chosen, text and threshold filled, rank pill on.
+
+**The browser still answers what it provably can**, which is the common
+case. Two things stay local:
+
+- **Nothing was cut.** `AF_INET`'s 51 neighbours all fit, so every
+  control on that panel is exact in the markup and no request is ever
+  made.
+- **The entry's whole count is already present.** The fold stamps
+  `data-vp-complete` where a facet's `listed` equals its `count`. Because
+  the client then holds *every* row carrying that token, it holds every
+  subset of them too — so a combination of complete entries is itself
+  complete, whether the boxes are read as *either* or as *and*. 16 of
+  106 entries qualify on `8.8.8.8`.
+
+The search box and the `Shared events ≥` threshold range over values the
+panel never received, so neither can be proven complete and both go to
+the fold whenever a cut happened. Anything remote is debounced 300 ms —
+ticking three boxes is one question — over rows dimmed by `.vp-narrowing`
+rather than filtered to an answer nobody asked for.
+
+**Measured.** `organisation=abuse-ch`: 0 rows before, 9,791 matched and
+100 listed after, 462 ms. `event=2120`: 6,630 / 398 ms. `type=ip-dst-port`:
+2,229 / 413 ms. `tag=tlp-white`: 4. `min_shared=3`: 6. `text=cdn`: 19,
+including `ghdyuienah123.freedynamicdns.org` at one shared event, which
+the browser's own search could never have found. `organisation=hack-lu`,
+complete at 54 of 54: **no request at all**.
+
+A new **`Sharing group`** facet sits beside `Distribution`, keyed per
+group, so *which neighbours touch this group* is a question the bar can
+answer — it never could, because level 4 was one bucket however many
+groups were in it. On `8.8.8.8` it names one group over 30 values, and
+`Your organisation only` moves from a fold-shadowed count to **9,848**.
+
+### 16.4 `Rank by` ranks the neighbourhood
+
+The pills were `data-vp-sort` over the rows already shipped, so `Most
+recent` answered *the most recent of the most shared* while saying *most
+recent*. On `8.8.8.8` its best was `2026-02-26`; the neighbourhood's
+newest values are `2026-07-08`, each sharing a single event and none of
+them anywhere near the cut.
+
+The ranking travels with the narrowing because it decides the same
+thing — which values reach the cut — and takes the same hybrid path: a
+panel holding its whole neighbourhood reorders in place with no request
+(`AF_INET`, verified at zero fetches), one that was cut asks the fold.
+Switching roll-up no longer clears a narrowing the fold applied:
+clearing the controls while the rows stay narrowed leaves the panel
+saying something it is not doing, and `Reset` is what undoes it.
+
+### 16.5 Smaller
+
+- **`1 filters`.** Both counted nouns in both narrowing bars carry their
+  two `__()` forms and the script picks by the number, so a translation
+  can put the boundary where it wants.
+- **The browser harness drove nothing.** It rendered a panel and
+  reported on inert markup: `value-profile.js` returns from `init()`
+  unless the body carries `data-controller="values"`, and a panel's list
+  machinery binds off `misp:container-loaded`. A sort assertion came back
+  green over a table no click had touched. Fixed, with the rule that
+  would have caught it, in
+  [`24-relationships-browser.md`](24-relationships-browser.md).
+
+### 16.6 What is still true of the cut
+
+`RELATION_ROW_CAP` is unchanged and so is the reasoning for it: 100 rows
+is thirteen pager buttons, and the fragment is already three-quarters of
+a megabyte on `8.8.8.8`. What changed is that the cap now applies to the
+set the reader asked for rather than to the set they did not. A
+narrowing that matches more than 100 still says so — the pager prints
+`(9,791 in total)` — and the facet bar's own sentence was rewritten to
+match: narrowing on a count larger than the hundred carried *fetches its
+rows* rather than emptying the table.

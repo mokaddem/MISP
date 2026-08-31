@@ -84,6 +84,10 @@ point: a claim looks like a claim everywhere on the page.
 
 ## 6. Section one — co-occurrence
 
+> **§19 supersedes items 2, 3, 5 and 6 below, and the two selects.** The
+> section is two panels now, the selects are pill groups, and the
+> narrowing runs in the fold rather than in the browser.
+
 Header: title **Co-occurrence**, a `.vp-rel-tag` naming the notion, sub-line
 `18 distinct values across 7 events · correlation engine · Machine-derived`, and
 two selects — rank (`shared events` / `most recent`) and group (`value` /
@@ -205,6 +209,10 @@ should trust.
 | Unknown value | the three empty states above, plus the rail's settings card, which is still true |
 
 ## 11. Interactions
+
+> **§19 supersedes this section.** Row selection is gone, `Open the full
+> graph` works, and narrowing and ranking are only client-side where the
+> panel provably holds every row they could reach.
 
 Working, client-side: rank and group selects, the filter row, the facet
 dropdowns, `Reset`, pagination, `Similarity ≥`, the relationship-type filter,
@@ -451,7 +459,8 @@ inside `viewRelationCooccurrence` outside whatever short-circuits the band.
 [`../value-profile-live/24-relationships.md`](../value-profile-live/24-relationships.md).
 Four things in this document are now known to be wrong, and they are left
 in place above rather than edited, because the reasoning that produced
-them is worth reading beside the correction.
+them is worth reading beside the correction. §19 does the same for the
+passes that came after the phase.
 
 **§6's provenance word.** Section one is not correlation-engine output
 and cannot be. A `default_correlations` row links two attributes that
@@ -490,3 +499,59 @@ and `Tag` facet dropdowns have been rendering blank labels since this
 phase shipped: `value_facet_group` draws `html` where a caller supplies
 one and the bare `label` otherwise, and neither facet has a label. Fixed
 in phase 24.
+
+## 19. What the follow-up passes changed
+
+Phase 24 converted the panels; reading them against a real instance then
+found what the fixture could not show. `24-relationships.md` §16 carries
+the detail and the measurements. In brief, and in the order a reader
+meets them:
+
+**The section is two panels.** `In the same object` and `In the same
+events`, each with its own header, narrowing bar and pager — one answers
+a structural question and one a statistical one. Every narrowing control
+moved beside the table it governs; §6.2 and §6.3 describe one bar above
+both.
+
+**The two selects are pill groups**, and both tables sort by column
+heading (ascending, descending, back to the model's order). §16's
+argument for the rank control's wording survives the change of control.
+
+**Row selection is gone** — the checkbox column, the select-all, the
+`N selected` readout and the two disabled actions of §6.6. It was a
+bulk-write affordance on a page that does not write, costing a cell in
+every row to say so. `Open all N as a search` stays, and now counts what
+the narrowing matched.
+
+**§6.5's `Distribution` column is a set.** One badge per distinct
+*(effective level, sharing group)* the row's occurrences state, widest
+first, `+N more` past three, and the sharing group named and linked. The
+single badge was the *widest* of them, so a row could read `All
+communities` while a record behind it was org-only. A **`Sharing group`**
+facet joins §6.3's list, because level 4 was one bucket however many
+groups were in it.
+
+**§6.4's sibling table** draws its `Objects` count on the same weight
+bar as everything else, and its `Event` column links wherever the fold
+left one event to name rather than only where the row stands for a
+single object.
+
+**§6.3's facet counts now reach the table.** They were exact over the
+neighbourhood while the filter ran in the browser over the hundred rows
+that survived the cut — so on `8.8.8.8`, 60 of 107 checkboxes emptied a
+table they had just been counted in, `abuse.ch` promising 9,791 and
+showing none. The narrowing runs in the fold, before the cut, and the
+panel re-requests itself for anything its own markup cannot answer. The
+browser still answers what it provably holds — everything when nothing
+was cut, and any facet whose whole count is present — so the quick path
+covers the common case. The sentence §6.3 says must not be dropped is
+still there, rewritten: narrowing on a count larger than the hundred
+carried *fetches its rows*.
+
+**§11's ranking has the same shape.** `Most recent` reordered the rows
+already shipped, which is the most recent *of the most shared*; it now
+ranks the neighbourhood, locally where nothing was cut and through the
+fold where something was.
+
+**§6.7's `.vp-acl-note` is gone**, with the other two §14.6 notes —
+`24-relationships.md` §8.
