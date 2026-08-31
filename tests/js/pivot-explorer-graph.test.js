@@ -384,6 +384,70 @@ test('a read-only viewer gets no editor tray at all', async () => {
     eq('no tray', g.tray, []);
 });
 
+test('edges are tagged with the kind that created them (D1 dimension 1)', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', ObjectReference: [
+            ref({ referenced_uuid: 'B' }),
+            ref({ referenced_uuid: 'B', relationship_type: 'includes' }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('every edge carries object-reference',
+       [...new Set(g.edges.map(e => e.data.kind))], ['object-reference']);
+    eq('the label still carries relationship_type',
+       g.edges.map(e => e.data.label).sort(), ['includes', 'related-to']);
+});
+
+test('the edge-kind dimension is declared for pivotick', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    const r = g.opts.render;
+
+    ok('edgeTypeAccessor declared', typeof r.edgeTypeAccessor === 'function');
+    eq('it reads .kind off the edge data',
+       r.edgeTypeAccessor({ getData: () => ({ kind: 'object-reference' }) }), 'object-reference');
+    eq('it tolerates an edge with no getData', r.edgeTypeAccessor({}), undefined);
+    eq('it tolerates an edge whose data is null',
+       r.edgeTypeAccessor({ getData: () => null }), undefined);
+
+    eq('object-reference is styled in D1 blue',
+       r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
+    eq('only the one implemented kind is styled so far',
+       Object.keys(r.edgeStyleMap), ['object-reference']);
+
+    const facets = g.opts.UI.filter.edgeFacets;
+    eq('one edge facet — the layer switch', facets.length, 1);
+    eq('it is the kind facet', facets[0],
+       { key: 'kind', label: 'Relationship', type: 'multiselect' });
+});
+
+test('INVARIANT: every kind the builder emits resolves to a styled kind', async () => {
+    // Closes the loop between the tag and the style map: a typo on either side
+    // silently drops edges back to the default stroke. Must keep holding as
+    // tasks 3, 5 and 5b add their own kinds.
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1' })],
+        Object: [
+            obj({ uuid: 'A', ObjectReference: [
+                ref({ referenced_uuid: 'B' }),
+                ref({ referenced_uuid: 'e1', referenced_type: '0' }),
+            ] }),
+            obj({ uuid: 'B', Attribute: [attr({ uuid: 'b1' })] }),
+        ],
+    }));
+    const styled = Object.keys(g.opts.render.edgeStyleMap);
+    const accessor = g.opts.render.edgeTypeAccessor;
+
+    ok('there are edges to check', g.edges.length === 2, String(g.edges.length));
+    g.edges.forEach(e => {
+        const resolved = accessor({ getData: () => e.data });
+        ok('kind ' + JSON.stringify(resolved) + ' for ' + e.from + '->' + e.to + ' is styled',
+           styled.indexOf(resolved) !== -1, 'styled kinds: ' + JSON.stringify(styled));
+    });
+});
+
 /* ───────────────────────────── runner ─────────────────────────── */
 
 (async () => {

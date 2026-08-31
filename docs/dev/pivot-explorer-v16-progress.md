@@ -6,8 +6,8 @@ same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `worktree-pivotick-v16` (tracks `mokaddem/worktree-pivotick-v16`)
 - **Last updated:** 2026-08-31
-- **Status:** 3 done · 1 part-done and blocked · 16 not started
-- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 42 assertions, no dependencies
+- **Status:** 4 done · 1 part-done and blocked · 15 not started
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 55 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -25,7 +25,7 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
 | 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
 | 1b | Regression pass under v1.6.0 (§8.1) | 🔜 ⏸ | 0 | **Gate — blocks 2, 6, 9, 11.** Needs the dev server; see §3 |
-| 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer, no behaviour change) | ⬚ | 1 | |
+| 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer) | ✅ | 1 | Built ahead of the 1b gate, deliberately. Edge stroke becomes explicit blue — see §2 |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ⬚ | 2 | |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ⬚ | 2 | |
 | 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ⬚ | 3, 3b | |
@@ -71,10 +71,24 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | v1.6.0 bundle (task 0) | ✅ | `node --check`; `window.Pivotick` footer present; byte-identical (md5 `140ead0d…`) to a fresh `vite build` of the `v1.6.0` tag | Browser regression = §8.1 |
 | Extraction (E) — PHP side | ✅ | Stub-harness render, 3 cases: `data-pe-*` populate, `"` in `$baseurl` escapes to `&quot;`, no `<script>` left, `<style>` still gated on `$canEdit`; `php -l` clean | — |
 | Extraction (E) — JS side | ✅ | `node --check`; no PHP tags remain; `diff` proves the 745 logic lines byte-identical; stubbed-DOM harness **24/24** (boot timing, lazy tab activation, `_initialized` guard, URL assembly, error-as-text, `canEdit` gating) | **Browser check — folded into §8.1** |
-| Graph builder — connectivity, nesting, tombstones, edge dedupe, `compact()`, truncation, image detection, tray/canvas invariant | ✅ | `tests/js/pivot-explorer-graph.test.js`, 42 assertions over 13 cases, zero-dependency plain node | Nothing — this layer no longer needs the server |
+| Graph builder — connectivity, nesting, tombstones, edge dedupe, `compact()`, truncation, image detection, tray/canvas invariant | ✅ | `tests/js/pivot-explorer-graph.test.js`, 55 assertions over 16 cases, zero-dependency plain node | Nothing — this layer no longer needs the server |
+| Task 2 — `kind` tagging, `edgeTypeAccessor`, `edgeStyleMap`, `edgeFacets` | ✅ data + config | Same suite: every edge tagged, accessor resolves it, and the invariant that each emitted kind is a styled kind | **The grey→blue stroke change is visual — §8.1** |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
 
-The graph-builder suite is **mutation-tested**: ten targeted breaks — dropped tombstone guard, removed connectivity gate, removed edge-existence check, disabled dedupe, kept nulls, disabled truncation, broken image regex, unreferenced attributes admitted, dropped `related-to` fallback, nested deleted children — and the suite caught **10/10**. So a green run means something.
+**Task 2 has one visible consequence.** Pivotick's default edge stroke is grey
+(`var(--pvt-edge-stroke, #999)`); D1 allocates `#428bca` to `object-reference`, and every
+edge on the canvas today is one — so all edges go grey→blue. That is the settled palette
+(task 3 adds orange for analyst relationships), not a regression, but it is a rendering
+change no harness can confirm. Everything else about task 2 is data and config, and tested.
+
+**Known gap:** `kind` is part of the edge dedupe key, but with one kind in existence that
+is unobservable — a mutant removing it still passes. Task 3 makes it testable by adding
+the second kind.
+
+The graph-builder suite is **mutation-tested**: seventeen targeted breaks — ten — dropped tombstone guard, removed connectivity gate, removed edge-existence check, disabled dedupe, kept nulls, disabled truncation, broken image regex, unreferenced attributes admitted, dropped `related-to` fallback, nested deleted children, plus seven on task 2 (tag/style-map mismatch, missing kind,
+renamed accessor, accessor reading the wrong field, wrong stroke, wrong facet key, and the
+dedupe-key gap above) — and the suite behaved as predicted on **17/17**, catching 16 and
+escaping only the one predicted above. So a green run means something.
 
 **The extraction has never been opened in a browser.** Harnesses covered the config
 plumbing and boot order, not rendering. §8.1's five interactions — graph renders, objects
@@ -108,8 +122,8 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   pivotick's themed `promptData()` — so only the tray and ghost (~19 lines) are a genuine
   CSS-extraction candidate.
 - **~16 hardcoded English UI strings** in `pivot-explorer.js` — `'Unlinked attributes'`
-  (`:749`), `'Filter…'` (`:481`), `'Unlinked '` (`:473`), the empty states (`:514`), four
-  notifier messages (`:640`, `:696`, `:701`), and the picker's own labels. Untranslatable
+  (`:776`), `'Filter…'` (`:505`), `'Unlinked '` (`:497`), the empty states (`:538`), four
+  notifier messages (`:664`, `:723`, `:728`), and the picker's own labels. Untranslatable
   as they stand, and unchanged by the extraction — they were identical inline. Pivotick has
   no consumer-facing i18n (no `setLocale` / `translations`), so anything MISP writes stays
   MISP's to translate. Task 10 absorbs the picker strings; ~9 remain.

@@ -86,22 +86,22 @@ persisting enrichment into the event (`events/queryEnrichment`, `perm_add` — `
 
 `event_pivot_explorer.ctp` is now 117 lines — markup, the editor CSS, and the `data-pe-*`
 config attributes on `#pe-card`. All behaviour lives in `app/webroot/js/pivot-explorer.js`
-(798 lines), loaded by the element's `assetLoader` call beside `pivotick.iife`. **Bare
+(825 lines), loaded by the element's `assetLoader` call beside `pivotick.iife`. **Bare
 `:NNN` references in this section and in §6 point into that module.** It fetches
 `/events/view/{id}.json` and builds:
 
 | Element | Source | Notes |
 |---|---|---|
 | Object nodes | `ev.Object` | Only objects `computeConnectivity()` finds connected |
-| Attribute nodes | `obj.Attribute` | Nested as cluster **children** of their object (`:229-241`) |
-| Event-level attribute nodes | `ev.Attribute` | Only when an object reference points at them (`:212-218`) |
+| Attribute nodes | `obj.Attribute` | Nested as cluster **children** of their object (`:236-248`) |
+| Event-level attribute nodes | `ev.Attribute` | Only when an object reference points at them (`:219-225`) |
 | Edges | `obj.ObjectReference` | The **only** edge kind; label = `relationship_type` |
 | Editor tray | `UI.extraPanels` | Unconnected attributes/objects as draggable chips |
 
 Node style is keyed on kind via `nodeStyleMap` — event = green hexagon, object = blue square,
-attribute = orange circle (`:272-277`) — with `iconClass` carrying the misp-iconify glyph,
+attribute = orange circle (`:280-285`) — with `iconClass` carrying the misp-iconify glyph,
 `imagePath` carrying attachment thumbnails, and `styleCb` spending `strokeColor`/`strokeWidth`
-on the pending-reference ring (`:300-305`). Every styling channel is committed.
+on the pending-reference ring (`:308-313`). Every styling channel is committed.
 
 ### 3.2 What v1.6.0 adds that this graph can use
 
@@ -135,12 +135,12 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 
 - Uses none of the removed/renamed API: no `UI.selectionMenu`, `graphControls`, `graphToolbar`,
   `graphNaviation`.
-- The extra panel's `render` returns an **HTMLElement** (`pivot-explorer.js:751`), so the
+- The extra panel's `render` returns an **HTMLElement** (`pivot-explorer.js:778`), so the
   1.5.0 "a `string` never
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
-- `graph.on('edgeAdd', …)` (`pivot-explorer.js:756`) and `simulation.d3LinkDistance` still exist.
+- `graph.on('edgeAdd', …)` (`pivot-explorer.js:783`) and `simulation.d3LinkDistance` still exist.
 - v1.6.0's breaking changes are confined to physics presets. As the code stands, the graph
-  **configures** `d3LinkDistance: 200` (`pivot-explorer.js:317-318`), so physics stays
+  **configures** `d3LinkDistance: 200` (`pivot-explorer.js:334-335`), so physics stays
   `'manual'` — auto declines
   to take over a graph that tuned any knob it drives, and layout is unchanged by the upgrade
   alone. **D7 then deliberately opts into `'auto'`.**
@@ -150,7 +150,7 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 One **user-visible** change to communicate, not fix: 1.5.0 replaced full-mode chrome with the B3
 mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. The comment that
 still described "pivotick's Edit ▸ Add edge tool" has been refreshed accordingly
-(`pivot-explorer.js:391-394`) — the second half of task 1.
+(`pivot-explorer.js:415-418`) — the second half of task 1.
 
 ### 3.4 MISP data already available
 
@@ -478,7 +478,7 @@ expandable node (both East corners are reserved for the expand affordance) and o
 expandable.
 
 **The "pending / not yet saved" state is removed entirely**, and its `styleCb` ring
-(`:300-305`) is deleted. Rationale: putting an attribute on the canvas is a **view write** in
+(`:308-313`) is deleted. Rationale: putting an attribute on the canvas is a **view write** in
 §2.2's taxonomy — the attribute was always in the event, and showing it changes nothing in MISP.
 Only the edge is a save. The old pending ring existed because the previous design treated a
 dragged-in node as half-created; it never was.
@@ -558,7 +558,7 @@ So the relationship-type field depends on the chosen link type, which the declar
 variant (`render` + `getValues`); the one-kind case can stay declarative.
 
 **A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
-string concatenation into `innerHTML` (`:709-712`). It is fed from the hardcoded 25-entry array
+string concatenation into `innerHTML` (`:736-739`). It is fed from the hardcoded 25-entry array
 today, so nothing is exploitable — but `object_relationships` contains a row literally named
 `<script>alert('name')</script>`, so wiring the real vocabulary into that builder would introduce
 stored XSS. `ctx.promptData()` removes the sink, and v1.5.0's rule that a consumer `string`
@@ -628,7 +628,7 @@ levels it seeded and what it left out, and this is where that statement lives.
 
 #### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
-Today's sidebar panel titled **"Unlinked attributes"** (`:749`) lists every attribute and object
+Today's sidebar panel titled **"Unlinked attributes"** (`:776`) lists every attribute and object
 not on the canvas as draggable chips. It is doing two jobs, and they scale differently:
 
 - *getting one specific element onto the canvas* — has to live inside the graph, and is the only
@@ -1084,7 +1084,7 @@ relationships, and the events in §3.5 as fixtures):
 |---|---|---|
 | 0 | ✅ Bundle to v1.6.0 + compatibility audit | — |
 | 1 | Regression pass on the existing graph under v1.6.0 (§8.1); refresh the stale Edit▸Add-edge comment | 0 |
-| 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer, no behaviour change) | 1 |
+| 2 | ✅ Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer) | 1 |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
 | 3c | L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |

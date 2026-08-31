@@ -178,12 +178,19 @@
             nodeSet[id] = true;
             nodes.push(node);
         }
-        function addEdge(from, to, label) {
+        // `kind` is how the edge came to exist (D1's first edge dimension) and is
+        // part of the edge's identity: two kinds may assert the same label between
+        // the same pair, and both belong on the canvas.
+        function addEdge(from, to, label, kind) {
             if (!nodeSet[from] || !nodeSet[to]) return;   // only link existing nodes
-            var key = from + ' ' + to + ' ' + (label || '');
+            var key = kind + ' ' + from + ' ' + to + ' ' + (label || '');
             if (edgeSet[key]) return;
             edgeSet[key] = true;
-            edges.push({ from: from, to: to, data: { label: label || '' } });
+            edges.push({
+                from: from,
+                to:   to,
+                data: { kind: kind, label: label || '' }
+            });
         }
 
         // Register an attribute's id (dedupe + edge existence) and return its node
@@ -250,7 +257,8 @@
                 if (isDeleted(ref)) return;
                 var prefix   = (String(ref.referenced_type) === '1') ? 'obj:' : 'attr:';
                 var targetId = prefix + ref.referenced_uuid;
-                addEdge(objId, targetId, ref.relationship_type || 'related-to');
+                addEdge(objId, targetId, ref.relationship_type || 'related-to',
+                        'object-reference');
             });
         });
 
@@ -306,6 +314,15 @@
                         return {};
                     }
                 },
+                // D1's first edge dimension. Only `object-reference` exists so far;
+                // the remaining kinds arrive with their own layers (PRD tasks 3, 5, 5b).
+                edgeTypeAccessor: function (edge) {
+                    var d = edge.getData ? edge.getData() : null;
+                    return d ? d.kind : undefined;
+                },
+                edgeStyleMap: {
+                    'object-reference': { strokeColor: '#428bca' }
+                },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
                     labelAccessor: function (edge) {
@@ -319,7 +336,14 @@
             },
             UI: {
                 mode: 'full',
-                theme: 'dark'
+                theme: 'dark',
+                // The layer switch. Declaring the facet is what makes edges
+                // filterable at all — pivotick never derives edge facets.
+                filter: {
+                    edgeFacets: [
+                        { key: 'kind', label: 'Relationship', type: 'multiselect' }
+                    ]
+                }
             }
         };
     }
@@ -688,8 +712,11 @@
                 return res.json().catch(function () { return {}; });
             })
             .then(function () {
-                if (edge.updateData) edge.updateData({ label: rel });
-                else if (edge.setData) edge.setData({ label: rel });
+                // Tag it like a built edge, or it draws in the default stroke and
+                // stays invisible to the `kind` layer filter until the next reload.
+                var saved = { kind: 'object-reference', label: rel };
+                if (edge.updateData) edge.updateData(saved);
+                else if (edge.setData) edge.setData(saved);
                 clearPending(sourceUuid);   // a staged object can be the source
                 clearPending(targetUuid);
                 if (graph.simulation && graph.simulation.reheat) graph.simulation.reheat();
