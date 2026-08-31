@@ -65,7 +65,17 @@ class ValueExternalBenchShell extends AppShell
     private function searchCachesCost()
     {
         $this->out('=== Feed::searchCaches, as shipped ===');
-        foreach (array('hit' => $this->hitting, 'miss' => $this->missing) as $label => $values) {
+        $mixed = array(
+            'XOR',
+            'POST',
+            'https://x.com/Malwarehunterr/status/2071679859819237847',
+        );
+        $cases = array(
+            'hit' => $this->hitting,
+            'hit/mixed' => $mixed,
+            'miss' => $this->missing,
+        );
+        foreach ($cases as $label => $values) {
             $t = microtime(true);
             $n = 0;
             for ($i = 0; $i < self::ITER; $i++) {
@@ -75,7 +85,7 @@ class ValueExternalBenchShell extends AppShell
                 }
             }
             $per = (microtime(true) - $t) / $n;
-            $this->out(sprintf('  %-5s %s per value', $label, $this->ms($per)));
+            $this->out(sprintf('  %-10s %s per value', $label, $this->ms($per)));
         }
         $this->out('');
     }

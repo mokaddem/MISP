@@ -1359,13 +1359,14 @@ alongside the design.
 The Overview card was proposed as a "light check" on the grounds of
 cost. There is no cost to save:
 
-| Read | Time |
-|---|---|
-| `searchCaches($v, false)` — everything, including uuids | 0.5–1.5 ms |
-| `searchCaches($v, true)` — the `$limited` path | 0.0–0.7 ms |
-| the two `sismember` calls on the combined sets alone | 0.09–0.15 ms |
+| Read | Before §17.6 | After |
+|---|---|---|
+| `searchCaches($v)`, value already lowercase | 0.565 ms | 0.302 ms |
+| `searchCaches($v)`, mixed case — two hashes | — | 0.389 ms |
+| `searchCaches($v)`, no hit | 0.038 ms | 0.020 ms |
+| the two `sismember` calls on the combined sets alone | 0.09–0.15 ms | unchanged |
 
-All three are noise beside the 173–535 ms §16.7 measures for section
+All of them are noise beside the 173–535 ms §16.7 measures for section
 one. So the card being a count is an **editorial** decision about what a
 rail has room for, recorded as such in §20.3 — not a performance one,
 and nothing stops the card carrying more later.
@@ -1428,14 +1429,42 @@ https://x.com/Fact_Finder03/status/2071599266104275219
 Mixed-case URLs are the systematic class, and they are ordinary threat
 intel.
 
-This one does not block §20 — it under-reports rather than
-misattributes, which is the failure direction the page can carry — but
-it belongs in the same MISP change. The honest fix is to test **both**
-hashes on read rather than to change either side's normalisation: a
-false positive is impossible, since a hit on either hash means some
-publisher cached that exact string, and the quick-cache path at `:1705`
-takes hashes straight from the feed's own file, so mixed normalisation
-is baked in and cannot be legislated away from one end.
+**Fixed 2026-08-31.** `searchCaches` now tests **both** hashes rather
+than changing either side's normalisation, because a false positive is
+impossible — a hit on either hash means some publisher cached that
+exact string — and because the quick-cache path at `:1705` takes hashes
+straight from the feed's own file, so mixed normalisation is baked in and
+cannot be legislated away from one end. The second hash is only added
+when it differs, so a lowercase value still does exactly one lookup.
+
+**Pipelined in the same pass**, which is what made the fix free. The
+method used to issue one `sismember` per source in a loop, and to re-read
+the *same* global uuid set once per hitting MISP feed. It now issues two
+round trips per value — the combined checks, then every per-source test
+and both uuid sets together — because the uuid key depends on the hash
+alone and never on which source hit. `attachFeedCorrelations` already
+pipelined; the precedent was in the same file.
+
+| `searchCaches($v)` | Before | After |
+|---|---|---|
+| value already lowercase | 0.565 ms | **0.302 ms** |
+| mixed case, so two hashes | 0.565 ms, and wrong | **0.389 ms** |
+| no hit | 0.038 ms | **0.020 ms** |
+
+**Verified, both directions.** The six known gap values return two hits
+each where they returned none. Across the same value scan, with the
+invariant of §17.2 rebuilt to take truth from both hashes:
+
+| | Before | After |
+|---|---|---|
+| values found to have a cache hit | 4,761 | **4,798** |
+| event uuids returned | 10,011 | **10,158** |
+| attributed to a source that does not hold them | 0 | **0** |
+| held by the source and not returned | 0 | **0** |
+
+37 values and 147 remote events that were in the cache and unreachable.
+The invariant staying at zero is the half that matters: the widened
+lookup did not start crediting sources with events belonging to another.
 
 
 **What the second lookup costs, measured.** The worry is a feed with
@@ -1455,36 +1484,33 @@ test is a hash lookup. **A feed's size is irrelevant to this read.** What
 scales is the number of cached *sources*, linearly, at about one round
 trip each.
 
-Against that, the second hash is cheaper than it sounds, because it is
-only computed when it differs:
+Against that, the second hash never doubles the complexity of anything —
+it doubles a count of O(1) calls, and only for a value carrying
+uppercase or surrounding whitespace. Measured on the unpipelined shape
+the method used to have, so that the two effects can be read apart:
 
 | Values | 1 hash | 2 hashes |
 |---|---|---|
 | already lowercase | 0.199 ms, 12 calls | 0.164 ms, 12 calls |
 | mixed case | 0.332 ms, 12 calls | 0.791 ms, 24 calls |
 
-For a lowercase value the two hashes are the same string, so the second
-lookup collapses away and the fix is **free**. Only a value carrying
-uppercase or surrounding whitespace pays, and it pays by doubling a
-count of O(1) calls — not by changing the complexity of anything.
+The first row is the same work twice — for a lowercase value the two
+hashes are the same string and the second lookup collapses away — so its
+two columns differing by 20% is the run-to-run noise on this box, and it
+sets the floor for reading the rest.
 
-**The fix is worth pairing with pipelining, which turns it into a
-speed-up.** The per-source loop issues its membership tests one at a
-time; queued into a single round trip, the whole two-hash workload
-measured **0.0557 ms per value** — roughly six times faster than
-today's unpipelined single-hash loop. `attachFeedCorrelations` already
-pipelines, so the precedent is in the same file.
-
-That distinction matters at scale rather than here. Six cached sources
-cost 28 unpipelined calls for two hashes; 98 of them — this instance's
-feed count, were they all cached — cost 396, which is around 14 ms of
-round trips for one value. Pipelined it stays one round trip whatever
+**Where the source count bites, and it is not the entry count.** Six
+cached sources cost 28 unpipelined calls for two hashes; 98 — this
+instance's feed count, were they all cached — cost 396, about 14 ms of
+round trips for a single value. Pipelined it is two round trips whatever
 the source count. So the ceiling on this read is the number of sources
-and whether the loop batches, and neither has anything to do with how
-many entries a feed holds.
+and whether the loop batches; neither has anything to do with how many
+entries a feed holds.
 
 `24-external-presence-bench.php`, beside this document, is the
-measurement.
+measurement, and the numbers above are the state it found before the
+fix.
+
 ### 17.7 The probe
 
 `24-external-presence-probe.php`, beside this document. It reports the
