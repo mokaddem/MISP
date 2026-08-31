@@ -27,8 +27,8 @@ task 1 is split into `1a`/`1b` because only one half needs the dev server.
 | 1b | Regression pass under v1.6.0 (§8.1) | 🔜 ⏸ | 0 | **Gate — blocks 2, 6, 9, 11.** Needs the dev server; see §3 |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer) | ✅ | 1 | Built ahead of the 1b gate, deliberately. Edge stroke becomes explicit blue — see §2 |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ✅ | 2 | Also fixed a pre-existing seeding bug — see §2 |
-| 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `664fcd5f6` (2026-08-31), shared with 3c — see §2 |
-| 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `664fcd5f6` (2026-08-31). **Changes what most events draw** — see §2 |
+| 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ✅ | 2 | `7ab4f859f` (2026-08-31), shared with 3c — see §2 |
+| 3c | L2: budget-capped containment-only objects + "skipped, N not shown" statement (D10, D12) | ✅ | 3, 3b | `7ab4f859f` (2026-08-31). **Changes what most events draw** — see §2 |
 | 4 | D11 empty-state message + wiring for the on-demand fetch | 🔜 | 3c | Unblocked; `#pe-resolution` is where the message goes |
 | 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | ⬚ | 4 | |
 | 5b | `feed` / `server` node types + `feed-correlation` layer, incl. the `FeedHit` degraded shape (D1) | ⬚ | 2 | |
