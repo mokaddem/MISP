@@ -80,9 +80,22 @@ class ValueRelationTool
          * `abuse.ch`, 9,791 values none of which rank that high, used
          * to empty the table it had just been counted in.
          */
-        $filters = isset($context['filters'])
-            ? self::cleanFilters($context['filters'])
+        $narrowing = isset($context['filters'])
+            ? (array)$context['filters']
             : array();
+        $filters = self::cleanFilters($narrowing);
+        /*
+         * The ranking travels with the narrowing because it decides the
+         * same thing: which values reach the cut. Ordering the hundred
+         * that were already chosen by shared events cannot answer
+         * *most recent* — the most recent value in a neighbourhood this
+         * size is usually one that shares a single event and never
+         * ranked near the top.
+         */
+        $rank = isset($narrowing['rank'])
+            && $narrowing['rank'] === 'recent'
+            ? 'recent'
+            : 'shared';
         $rowCap = isset($context['row_cap']) ? $context['row_cap'] : 200;
         $pageSize = isset($context['page_size'])
             ? $context['page_size']
@@ -184,13 +197,18 @@ class ValueRelationTool
         $distinct = count($groups);
 
         $ranked = array_values($groups);
-        usort($ranked, function ($a, $b) {
+        usort($ranked, function ($a, $b) use ($rank) {
             $events = count($b['events']) - count($a['events']);
-            if ($events !== 0) {
-                return $events;
+            $last = $a['last'] === $b['last']
+                ? 0
+                : $b['last'] - $a['last'];
+            $first = $rank === 'recent' ? $last : $events;
+            if ($first !== 0) {
+                return $first;
             }
-            if ($a['last'] !== $b['last']) {
-                return $b['last'] - $a['last'];
+            $second = $rank === 'recent' ? $events : $last;
+            if ($second !== 0) {
+                return $second;
             }
             return strcmp($a['value'], $b['value']);
         });
@@ -243,6 +261,7 @@ class ValueRelationTool
              */
             'matched' => count($matched),
             'filters' => $filters,
+            'rank' => $rank,
             'events' => count($eventRows),
             'page_size' => $pageSize,
             'rollups' => array(

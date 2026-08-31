@@ -431,7 +431,7 @@ ob_start();
         'event' => __('Event'),
         'object' => __('Object'),
     )) ?>
-    <?= $pillGroup('sort', __('Rank by'), 'shared', array(
+    <?= $pillGroup('sort', __('Rank by'), $co['rank'], array(
         'shared' => __('Most shared'),
         'recent' => __('Most recent'),
     )) ?>
@@ -693,11 +693,17 @@ $headerSub = ob_get_clean();
                         </span>
                         <span class="vp-facet-summary-some">
                             <span data-vp-facet-count-active>0</span>
-                            <?= __('filters') ?>
+                            <span data-vp-plural="filters"
+                                  data-vp-one="<?= h(__('filter')) ?>"
+                                  data-vp-many="<?= h(__('filters')) ?>"><?=
+                                h(__('filters')) ?></span>
                             &middot;
                             <span data-vp-facet-rows><?=
                                 h(count($siblings['rows'])) ?></span>
-                            <?= __('rows') ?>
+                            <span data-vp-plural="rows"
+                                  data-vp-one="<?= h(__('row')) ?>"
+                                  data-vp-many="<?= h(__('rows')) ?>"><?=
+                                h(__('rows')) ?></span>
                         </span>
                     </span>
 
@@ -1344,11 +1350,17 @@ $headerSub = ob_get_clean();
                     </span>
                     <span class="vp-facet-summary-some">
                         <span data-vp-facet-count-active>0</span>
-                        <?= __('filters') ?>
+                        <span data-vp-plural="filters"
+                              data-vp-one="<?= h(__('filter')) ?>"
+                              data-vp-many="<?= h(__('filters')) ?>"><?=
+                            h(__('filters')) ?></span>
                         &middot;
                         <span data-vp-facet-rows><?=
                             h(count($valueRows)) ?></span>
-                        <?= __('rows') ?>
+                        <span data-vp-plural="rows"
+                              data-vp-one="<?= h(__('row')) ?>"
+                              data-vp-many="<?= h(__('rows')) ?>"><?=
+                            h(__('rows')) ?></span>
                     </span>
                 </span>
 

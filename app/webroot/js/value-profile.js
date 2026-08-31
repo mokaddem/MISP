@@ -1159,6 +1159,19 @@
             // page three of a new order is not the rows the reader was
             // looking at either.
             listPages.set(list, 1);
+            /*
+             * And where rows were cut, it changes which rows there
+             * are. `Most recent` over the hundred already chosen by
+             * shared events is the most recent of that hundred, which
+             * is not what the control says — the neighbourhood's most
+             * recent value usually shares one event and never ranked
+             * near the top.
+             */
+            if (list.dataset.vpNarrowUrl && list.dataset.vpNarrowCut
+                && narrowRemotely(list)
+            ) {
+                return;
+            }
             refreshList(list);
         }
     }
@@ -1190,7 +1203,16 @@
         list.querySelectorAll('[data-vp-group-not]').forEach(function (el) {
             el.classList.toggle('d-none', el.dataset.vpGroupNot === group);
         });
-        clearListFilters(list);
+        /*
+         * Clearing on the way out assumes the rows can be un-narrowed
+         * without asking anyone, which holds only while the browser did
+         * the narrowing. Where the fold did it, the rows on screen are
+         * the narrowed ones until a request says otherwise — so the
+         * controls keep saying so, and Reset is what undoes it.
+         */
+        if (!list.dataset.vpNarrowActive) {
+            clearListFilters(list);
+        }
         listPages.set(list, 1);
         refreshList(list);
     }
@@ -1313,6 +1335,12 @@
         var min = ownNode(list, '[data-vp-filter-min]');
         if (min && parseInt(min.value, 10) > 1) {
             params.push('f[min_shared]=' + parseInt(min.value, 10));
+        }
+        var sort = ownNode(list, '[data-vp-sort]');
+        if (sort && controlValue(sort) !== '' && controlValue(sort)
+            !== 'shared'
+        ) {
+            params.push('f[rank]=' + encodeURIComponent(controlValue(sort)));
         }
         return list.dataset.vpNarrowUrl
             + (params.length ? '?' + params.join('&') : '');
@@ -1454,6 +1482,26 @@
     }
 
     /**
+     * A counted noun, in the form its number asks for.
+     *
+     * Both forms are rendered by the template so they come from
+     * `__()`, and a translation is free to disagree with English about
+     * where the boundary falls.
+     *
+     * @param {Element} list
+     * @param {string} key
+     * @param {number} n
+     */
+    function setOwnPlural(list, key, n) {
+        ownNodes(list, '[data-vp-plural="' + key + '"]')
+            .forEach(function (el) {
+                el.textContent = n === 1
+                    ? (el.dataset.vpOne || el.textContent)
+                    : (el.dataset.vpMany || el.textContent);
+            });
+    }
+
+    /**
      * The lines that say what the reader is looking at. `shown` is the
      * rows the filter left; the list's total is left alone, because it
      * is what the value has and not what this panel is displaying —
@@ -1468,6 +1516,8 @@
         setOwnText(list, '[data-vp-list-shown]', shown);
         setOwnText(list, '[data-vp-facet-rows]', shown);
         setOwnText(list, '[data-vp-facet-count-active]', activeCount);
+        setOwnPlural(list, 'rows', shown);
+        setOwnPlural(list, 'filters', activeCount);
 
         var summary = ownNode(list, '[data-vp-facet-summary]');
         if (summary) {
