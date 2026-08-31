@@ -517,6 +517,13 @@ button rather than a canvas that looked live and was not. That was the
 right call then and it is the one stub on this tab whose missing piece
 was a feed rather than a write path.
 
+> **§22 re-evaluates what this graph draws.** The feed below is real
+> and stays; what it builds is a **star**, and a star carries nothing
+> the three panels underneath it do not already print. §22 lists what a
+> CTI analyst wants from a value-centred graph, splits it into the
+> rail's peek and the overlay's full read, and names the one edge the
+> scan already holds and this function discards.
+
 ### 10.1 The feed
 
 `ValueProfile::graphFor` builds nodes and edges from the tab's own three
@@ -2158,3 +2165,336 @@ is one query* — and it is recorded here for the same reason.
   being left unread. **`authors`, `created` and the claim's own UUID are
   now on no surface of this page**, which is a real subtraction and is
   named here in case it should come back somewhere.
+
+---
+
+## 22. The neighbourhood graph, re-evaluated
+
+§10 turned the rail's static sketch into a real node/edge feed and
+un-disabled *Open the full graph*. That closed the one stub on this tab
+whose missing piece was data rather than a write path, and none of it is
+being taken back here. What is being asked is the next question, and it
+is a fair one: now that the picture is real, **does it tell a reader
+anything the three panels underneath it do not?**
+
+The answer, as it stands, is no. §22.1 says why in structural terms,
+§22.2 names the one edge the page already holds and refuses to draw,
+§22.3 lists what a CTI analyst actually wants from a value-centred
+graph, and §22.5 and §22.6 split that list into the rail's peek and the
+overlay's full read.
+
+### 22.1 The complaint is structural, and it is right
+
+Every edge `graphFor` builds is incident on the centre. `co:*`, `near:*`
+and `human:*` all attach to `value` and to nothing else. The result is a
+**star**, and a star of degree *n* carries exactly *n* plus its edge
+labels — three degree counts and a list of neighbour names.
+
+The three panels below print those same three counts in their headers,
+print the same neighbour names in sortable, filterable, copyable rows,
+and print six columns per row that the star has nowhere to put. So the
+graph's entire information content is a strict subset of the tables',
+rendered less precisely. It is a spring-embedded list.
+
+This is not fixable by making the star bigger, prettier, or labelled.
+§10.3 already gave the overlay labels and larger nodes, and the overlay
+is a labelled star. The test a graph has to pass is narrower than that:
+
+> **A graph earns its pixels only when it draws a relation between two
+> things that are neither of them the centre.**
+
+Nothing in the current feed does. Twelve neighbours per notion arranged
+around a hub is a table with springs on it, and the honest reading of
+the rail's `7 of 31 edges drawn` is that it is a rendering statistic —
+it says how much of a list was drawn, not what the drawing found.
+
+### 22.2 The one edge the page already holds and does not draw
+
+The co-occurrence fold keeps, per neighbour value, **the set of event
+ids it shares with the centre** (`ValueRelationTool::emptyGroup`,
+`$group['events']`). Two neighbours that appear in the same event are
+related to each other, and the scan already knows it. No query, no
+column, no new model method — the relation is sitting in the digest and
+`graphFor` discards it.
+
+The naive use of it is wrong. Projecting the bipartite graph down to
+value→value edges gives a complete graph per event: twelve neighbours
+from one event is sixty-six edges, and the hairball that results says
+*less* than the star does, because a clique carries no shape either.
+
+So **draw the event.**
+
+    value ──▶ event ──▶ neighbour
+
+Two-mode, and `eventRollup` already builds precisely these nodes with
+`info`, `date`, `org`, `shared_values`, `distribution` and `tags` on
+them. Edge count falls from O(n²) per event to O(n), the layout has real
+structure to lay out, and every read in family **A** below falls out of
+the topology instead of having to be computed and printed as a number.
+
+Two constraints come with it:
+
+- **An event node is not a value node.** It links to `/events/view/<id>`,
+  it has no Value Profile to pivot to, and it must not carry the
+  double-click affordance §10.1 gave neighbours. Different shape, and
+  the key has to say so.
+- **The object is the tighter version of the same idea.** A sibling
+  shares an *object*, not just an event — `domain-ip`, `file`,
+  `email` — which is a hard relation where the event join is a soft one
+  (§3.2). Object nodes belong in the same two-mode picture, drawn
+  distinctly, or the graph flattens the one distinction the tab was
+  built to keep.
+
+### 22.3 What a CTI analyst wants — the whole list
+
+Twenty-nine items, in five families. Each is stated as the question a
+reader arrives with, not as a feature.
+
+**A. The shape of the neighbourhood** *(topology; a table cannot hold
+these at all)*
+
+1. **How many distinct clusters is this value in?** One coherent
+   infrastructure set, or several unrelated ones that happen to share
+   one attribute.
+2. **What is the glue?** Which single event — or object — supplies most
+   of the neighbourhood. "Thirty-one neighbours" from one report is one
+   fact, not thirty-one.
+3. **Is this value itself a bridge?** Does it join two clusters that are
+   otherwise unconnected. That is the difference between a pivot point
+   and a member.
+4. **Which *neighbour* is the bridge?** The neighbour attached to two
+   otherwise-separate clusters is the highest-value next click on the
+   page, and nothing on this tab currently ranks it.
+5. **Which neighbours are hubs?** A neighbour that co-occurs with
+   everything is usually infrastructure noise — a CDN address, a
+   sinkhole, a shared host, an empty-file hash — and should be visible
+   as noise rather than rank third in a table.
+6. **Which are isolates?** Neighbours reached through exactly one event
+   and connected to nothing else. The long tail, and often the freshest
+   and most specific indicators in the set.
+7. **How redundant is the tie?** Is this value bound to its cluster
+   through one event or through several independent ones. One event is
+   one report is one source, and a claim resting on it is fragile.
+8. **What is two hops out?** Values that never share an event with the
+   centre but sit one neighbour away. This is the pivot suggestion a
+   table structurally cannot make.
+9. **Structural or statistical?** Same object versus same event. A
+   file's C2 address and an email's sender are hard relations; sharing
+   a 400-attribute event is a weak one.
+
+**B. Provenance and trust**
+
+10. **Which notion is this edge?** Shared event, near-match engine, or a
+    human claim — §5's separation. Already carried four ways; keep it.
+11. **How many organisations attest to it?** An edge four orgs
+    independently reported is not the same object as one org's.
+12. **Which part of this rests on a single org?** Colouring by reporter
+    exposes the echo chamber — a neighbourhood that looks corroborated
+    but is one report copied forward.
+13. **Did *we* see this?** Our own org's contribution versus someone
+    else's picture we are reading.
+14. **What can be re-shared?** Which neighbours are community-visible
+    and which are org-only. This governs what can go in the outgoing
+    report, and it is a decision made while looking at the graph.
+15. **What is not shown?** The per-notion cap, the events skipped by the
+    scan budget, the events too large to read (§4.2), and the ACL cut. A
+    graph that truncates silently lies more loudly than a table that
+    does, because a table looks like a page of a list and a graph looks
+    like the whole world.
+
+**C. What it means**
+
+16. **Which actor or campaign?** The galaxy clusters and tags reaching
+    this value through its events and its neighbours. *"Sits between an
+    APT28 cluster and a commodity loader"* is the single highest-value
+    sentence this page could produce.
+17. **What is it surrounded by?** A value ringed by hashes is a delivery
+    node; ringed by addresses, infrastructure; ringed by e-mail
+    attributes, a phishing artefact. Type composition names the role.
+18. **Where in the intrusion?** The category mix — Payload delivery,
+    Network activity, Persistence — read off the neighbourhood rather
+    than off one attribute.
+19. **What is it, inside its object?** `domain-ip`'s `ip` versus
+    `file`'s `md5` versus `email`'s `from`. The object template names
+    the role the value plays, and the sibling section already has it.
+20. **Is any of this known-benign?** Warninglist hits among the
+    neighbours, de-emphasised on the canvas rather than silently ranked
+    into third place.
+21. **Does anyone outside this instance agree?** Neighbours that also
+    appear in the feeds and servers this instance caches (§17).
+
+**D. Time**
+
+22. **How old is each relation?** A 2019 co-occurrence and a last-week
+    one should not draw identically.
+23. **Did this form in a burst or accrete?** A neighbourhood that
+    appeared inside one week is a campaign. One that grew over four
+    years is long-lived infrastructure, or benign.
+24. **Is it still live?** The date of the newest edge, read without
+    sorting a column.
+
+**E. Doing something with it**
+
+25. **Pivot** to a neighbour's own Value Profile. *(Exists — §10.1.)*
+26. **Expand a neighbour one hop, in place**, without losing the
+    current canvas. This is what turns a picture into an investigation,
+    and it is what makes item 8 reachable.
+27. **Focus and hide** — drop a notion, drop a hub, re-layout on what is
+    left. The hairball is survivable if the reader can subtract.
+28. **Trace** — pick two nodes, show the path between them and the
+    events along it.
+29. **Hand a selection to a search.** Not a write, so it does not touch
+    §14's rule that every write control on this page stays disabled.
+
+### 22.4 What only the graph can say
+
+Several items above are already answered elsewhere on the tab, and the
+brief should say so rather than claim them: item 2 is the event
+roll-up's whole purpose, 10 is the three panels, 11/13/14 are table
+columns, 17/18 are facets, 22 is the `Last together` column, and 15 is
+the cap sentences.
+
+Strip those out and what is left is the actual justification for keeping
+a canvas on this tab at all:
+
+> **1, 3, 4, 5, 6, 7, 8, 9, 12, 16, 23, 26.**
+
+Twelve reads, every one of which is about a relation between two things
+that are not the centre, or about the shape of the whole. None of them
+can be put in a column. **This is the list the graph exists to serve**,
+and the current star serves none of them.
+
+### 22.5 Section one — the rail's peek
+
+Measured constraints, from §10.3: a 340 px column, no labels (thirty-seven
+of them overlap into illegibility), lazily loaded, no queries of its own
+beyond the digest, and it shares the rail with the settings card. What a
+reader can take from a picture that size, without text, is **the number
+of blobs, their relative size, colour mass, and one highlighted node.**
+
+That is enough for five of the twelve, and the rail should carry exactly
+those and stop there:
+
+| # | Read | How it renders at 340 px |
+|---|---|---|
+| 1 | How many clusters | separated blobs |
+| 2 | The glue | one visibly dominant hub node |
+| 5 | Hubs | a node most edges pass through |
+| 6 | Isolates | single-edge nodes on the rim |
+| 10 | Notion mix | colour mass, already there |
+| 15 | The cut | one line of text, already there |
+
+And one thing that is new, and is the most valuable single change in
+this section:
+
+**The rail states its finding in words.** The sub-line stops being
+`7 of 31 edges drawn` — a fact about the renderer — and becomes a
+sentence about the neighbourhood, computed in PHP beside the feed so it
+cannot disagree with the panels below:
+
+    One cluster · event 4471 supplies 18 of its 21 values
+    Three clusters · 3.94.98.10 is the only value in two of them
+    21 values, no shared structure — each from its own event
+    Nothing to draw — none of this value's events could be read
+
+A picture at 340 px is a claim the reader cannot check. The sentence is
+what makes the picture trustworthy, and on the days when the graph has
+nothing to say the sentence still does. It is also the honest test of
+whether the redesign worked: if no sentence can be written from the
+topology, the topology was not worth drawing.
+
+Explicitly **not** in the rail: labels, time, organisations, tags,
+clusters, warninglists, and every action. Each needs either text the
+column cannot fit or a visual channel already spent on the three
+notions.
+
+### 22.6 Section two — the full graph
+
+The overlay is where the other twenty-four live. Staged, because the
+order matters more than the list:
+
+**Tier A — makes it a graph rather than a table with springs.**
+Items **1–9** and **15**. The two-mode `value → event → neighbour`
+model of §22.2, with objects as the tighter second mode; siblings drawn
+as their own hard edge kind rather than folded into co-occurrence; hub
+and bridge nodes marked as such; and the cut stated **on the canvas**,
+not only in the panel that opened it.
+
+This tier is the whole of §22.4's justification list except 12, 16, 23
+and 26. Without it the overlay stays a labelled star and none of the
+rest is worth building.
+
+**Tier B — makes it CTI rather than topology.**
+Items **11–14**, **16–24**. Colour by galaxy cluster or tag rather than
+by notion, as a switchable mode; a time brush over the edges, which the
+page already has the vocabulary for from §21's chart work; edge weight
+or opacity by attesting organisation count; warninglist hits knocked
+back; type glyphs on nodes; a marker for neighbours corroborated in the
+feed caches.
+
+The rule for this tier is **one channel at a time**. Colour is already
+spent on the three notions; a cluster-colour mode has to *replace* it
+and say so in the key, not fight it.
+
+**Tier C — makes it a workbench.**
+Items **25–29**. Expand-one-hop is the large one and the one that makes
+item 8 real; it is also the only item in the whole list that needs a new
+endpoint. Focus/hide is cheap and buys back the hairball. Path trace and
+hand-off-to-search are the smallest and can wait.
+
+pivotick's **edge layers** (§15.1 item 4) are what Tier B's mode
+switching and Tier C's focus want, and they are already recorded as an
+upstream follow-up. That dependency is now load-bearing rather than
+nice-to-have.
+
+### 22.7 What each of these costs
+
+The finding that matters for planning: **twenty-one of the twenty-nine
+need no new query.** The digest already holds them and `graphFor`
+discards them.
+
+**Free from the held scan** — 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13,
+14, 15, 16, 17, 18, 19, 22, 23, 24. Every one is derivable from
+`$group['events']`, `$group['orgs']`, `$group['tags']`,
+`$group['types']`, `$group['categories']`, `$group['distributions']`,
+`$group['last']`, the sibling section, and `event_meta` — all of which
+§18's digest already computes and holds for five minutes.
+
+**Cheap, one new read** — 20. `Warninglist` already carries
+`attachWarninglistToAttributes()`, which takes the neighbour rows by
+reference; one call per render.
+
+**Expensive, and already named** — 21 (external presence per neighbour
+is one remote fetch per event, which is §15.1 item 2's still-open
+sub-item and waits on the same thing).
+
+**A new endpoint** — 8 and 26. Expanding a node is another relation scan
+for that value, which is exactly what `relationScan` already does and
+already caches per user per value. The cost is bounded and the cache is
+written; what is missing is the route and the client-side merge.
+
+**Client-side only** — 27, 28, 29. **Already shipping** — 25.
+
+Cluster detection for the rail's sentence is a connected-components pass
+over the two-mode graph, O(V+E), no library, computed in PHP so the
+sentence and the panels agree.
+
+### 22.8 What this does not solve
+
+- **The hairball is deferred, not removed.** Two-mode drawing avoids the
+  per-event clique, but a value in forty events still draws forty event
+  nodes. The cap has to move from twelve-per-notion to something the
+  topology chooses — highest-degree events first, and the sentence in
+  §22.5 has to say what that left out.
+- **The overlay needs its own cap sentence.** The rail has one. The
+  overlay currently inherits the same twelve and says nothing.
+- **`GRAPH_NODE_CAP = 12` is a rendering constant standing in for an
+  analytic one.** Twelve arbitrary neighbours cannot show a bridge if
+  the bridge ranked thirteenth. Whatever ranks nodes for the graph has
+  to rank them by structural role, not by the table's `shared_events`
+  order — which is the one place where the graph and the table below it
+  should legitimately disagree.
+- **None of this makes the correlation engine say more.** §3 still
+  stands: the engine has nothing to say about a value's neighbours, and
+  every edge here remains a join over attributes the page can already
+  see.

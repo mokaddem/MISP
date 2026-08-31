@@ -190,6 +190,14 @@ shown."*
 
 ## 9. The rail
 
+> **The graph became real in phase 24 and is re-evaluated in
+> `24-relationships.md` §22.** The sketch and the disabled button are
+> gone; what replaced them is a *star*, which carries nothing the three
+> panels below it do not print. §22 lists the twelve reads only a graph
+> can serve, splits them into this rail's peek and the overlay's full
+> read, and finds twenty-one of twenty-nine already free in the held
+> scan.
+
 **`value_relation_graph`** — title **Neighbourhood**, sub-line `The value at the
 centre · 7 of 31 edges drawn`. A static inline SVG sketch (`00-shared.md` §7:
 there is no value-centred graph feed to drive a real one), then a key with one
