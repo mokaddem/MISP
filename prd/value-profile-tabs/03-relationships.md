@@ -910,3 +910,30 @@ The state not exercised: **nothing cached on the instance**. It needs
 flip than the one above and undoes work this phase depended on getting.
 The branch is one `empty()` on two counts that the other rows prove are
 populated.
+
+### 21.5 The remote-event links were white on white
+
+The first cut styled them as `<a class="badge … vp-external-event">`,
+borrowing Bootstrap's pill shape. BS5's `.badge` sets `color: #fff` and
+**no background**, so the chip was legible only while
+`value-profile.css` supplied the rest — and the asset URL's `?v=` is
+MISP's version rather than a file timestamp, so a browser that had
+already fetched that stylesheet kept the old copy and rendered white
+text on the white card.
+
+Measured on the running instance, with the sheet blocked to stand in for
+the cached one: `color: rgb(255, 255, 255)`, background
+`rgba(0, 0, 0, 0)`. With it present the colours were correct all along,
+which is why a cold-cache check did not reproduce it.
+
+**Fixed by not borrowing `.badge`.** The chip carries its own radius,
+size and weight, exactly as `.vp-rel-tag` above it already did — the
+convention was there and the first cut ignored it. Blocked-sheet
+fallback is now Bootstrap's ordinary link colour,
+`rgb(24, 146, 177)`, which is readable rather than invisible. Contrast
+was raised at the same time, 8% → 12% of the notion colour in light and
+a 24% dark-theme rule matching the chip beside it.
+
+**The lesson worth keeping:** a chip must not need a second stylesheet to
+be readable. Whatever a missing rule degrades to has to be legible,
+because `?v=` will not change when only a CSS file does.

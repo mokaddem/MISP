@@ -4237,26 +4237,43 @@ tr.vp-rel-k-external > td:first-child {
 
 /*
  * A remote event, as a link that admits where it goes. Outlined rather
- * than filled: every other badge on this page stands for something the
+ * than filled: every other chip on this page stands for something the
  * instance holds, and this one stands for something it has only been
  * told about.
+ *
+ * Carries its own shape and deliberately not Bootstrap's `.badge`, which
+ * the first cut borrowed for the pill. `.badge` sets `color: #fff` and no
+ * background at all, so the moment this rule was missing — a stylesheet
+ * still cached under the same `?v=` — the links rendered white on the
+ * white card. Same reason `.vp-rel-tag` above does not use it either: a
+ * chip must not need a second stylesheet to be legible.
  */
 .vp-external-event {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-weight: 500;
-    padding: 3px 8px;
-    border: 1px dashed color-mix(in srgb, var(--vp-rel-external) 55%, transparent);
-    background: color-mix(in srgb, var(--vp-rel-external) 8%, var(--bs-body-bg));
+    padding: 2px 9px;
+    border: 1px dashed color-mix(in srgb, var(--vp-rel-external) 45%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-rel-external) 12%, var(--bs-body-bg));
     color: var(--vp-rel-external);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+[data-bs-theme="dark"] .vp-external-event {
+    background: color-mix(in srgb, var(--vp-rel-external) 24%, var(--bs-body-bg));
 }
 
 .vp-external-event:hover,
 .vp-external-event:focus-visible {
     border-style: solid;
-    background: color-mix(in srgb, var(--vp-rel-external) 18%, var(--bs-body-bg));
+    background: color-mix(in srgb, var(--vp-rel-external) 26%, var(--bs-body-bg));
     color: var(--vp-rel-external);
+    text-decoration: none;
 }
 
 .vp-external-event > i {

@@ -177,7 +177,7 @@ $icon = 'fas fa-cloud-arrow-down';
                                     <?php else: ?>
                                         <div class="d-flex flex-wrap gap-1">
                                             <?php foreach ($source['events'] as $event): ?>
-                                                <a class="badge text-decoration-none vp-external-event"
+                                                <a class="vp-external-event"
                                                    href="<?= h($event['url']) ?>"
                                                    title="<?= h(sprintf(
                                                        __('Fetches this event from %s when opened'),
