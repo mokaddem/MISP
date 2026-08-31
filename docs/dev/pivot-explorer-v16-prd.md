@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D2b, D3, D4, D6, D7 await sign-off; D1, D2, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D3, D4, D6, D7 await sign-off; D1, D2, D2b, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -237,9 +237,10 @@ already in the response it fetches, and the library now has the channels to show
 - **Lazy expansion of correlated events.** Needs `childrenProvider` / a fired
   `onBeforeNodeExpansion`, which v1.6.0 did not ship. Correlated events appear as leaf proxy
   nodes only (§6.4).
-- **Writing analyst data from the graph.** Read-only in this phase. The *gating model* (§6.6) is
-  built so that adding it later is configuration, not restructuring — but the write path itself
-  is Phase 2.
+- **Writing notes and opinions from the graph.** Read-only — they are displayed (badge + panel)
+  but not authored here. Analyst **relationships** *are* written (D2b): they are the assertion an
+  exploration produces, and D8 turns on being able to record one. Notes and opinions are a form
+  problem rather than a graph problem, and the existing `analystData/add` UI already solves it.
 - **Enrichment from the graph** (either variety). The taxonomy in §2.2 exists so the design
   accommodates it; no enrichment call is made here.
 - **Backend aggregation of objects.** A behemoth's L2 is *skipped*, not summarised. The
@@ -254,7 +255,7 @@ already in the response it fetches, and the library now has the channels to show
 
 ## 5. Design Decisions
 
-### Settled in review (2026-08-28)
+### Settled in review (2026-08-28 → 2026-08-31)
 
 #### D8 — One implementation; writes gated by what you clicked ✅ SETTLED
 
@@ -465,9 +466,7 @@ Two things fall out for free:
   matters. Deleting the concept removes the collision rather than working around it.
 - **The badge budget drops to one**, comfortable even on expandable nodes.
 
-### Open — sign-off requested
-
-#### D2b — Which link kind does a drawn edge become?
+#### D2b — Which link kind a drawn edge becomes ✅ SETTLED
 
 Drawing an edge can mean two different writes, and the constraints do **not** always pick one.
 
@@ -487,14 +486,63 @@ Drawing an edge can mean two different writes, and the constraints do **not** al
 | anything → feed / server | **nothing** — not a valid analyst target either |
 
 Only the first row is undecidable from the endpoints, and it is the most common gesture on this
-page. Options: **(a)** same-event + object source always means object reference (simple, but the
-dev instance holds 112 Object→Object *analyst* relationships, so the case is real);
-**(b)** ask — `ctx.promptData` is already opening a form, so it is one more field;
-**(c)** infer from the active rail mode (Create → reference, Explore → assertion);
-**(d)** infer from the user's rights (event edit → reference, else assertion).
+page.
 
-Regardless of the choice, `isValidConnection` must **reject feed and server nodes as targets
-outright** — no persistable edge can point at them.
+**Resolution: narrow first, ask only when genuinely ambiguous.** One function answers "what could
+this edge be", from the endpoints *and* the user's rights:
+
+```js
+function possibleKinds(source, target) {
+    const s = source.getData?.() || {}, t = target.getData?.() || {};
+    const kinds = [];
+    // an object reference's source is ALWAYS an object, and it is intra-event
+    if (canEdit && s.type === 'object'
+        && (t.type === 'object' || t.type === 'attribute')
+        && s.scope === 'self' && t.scope === 'self') {
+        kinds.push('object-reference');
+    }
+    // feed/server are not in AnalystData::valid_targets
+    if (permAnalystData && t.type !== 'feed' && t.type !== 'server') {
+        kinds.push('analyst-relationship');
+    }
+    return kinds;
+}
+```
+
+| `possibleKinds()` | Behaviour |
+|---|---|
+| 0 | `isValidConnection` returns `false` — the target is marked invalid live during the drag, and `onBeforeEdgeCreate` is never consulted |
+| 1 | no link-type question; the form asks only for the relationship type |
+| 2 | the form carries a **pre-filled link type**, defaulted to `object-reference` |
+
+The extra field therefore appears only where both writes are genuinely available — which for a
+user without event edit rights is **never**. This cannot produce an impossible write (unlike
+"always an object reference"), does not make identical gestures mean different things for
+different users (unlike inferring from rights alone), and does not hide the decision in rail-mode
+state.
+
+**The two kinds do not share a vocabulary**, which decides the form's shape:
+
+- **Object references** draw on `object_relationships` — **262 rows** on the dev instance, so it
+  is populated and authoritative. The ctp's hardcoded `DEFAULT_RELATIONSHIPS` (25 entries, `:129`)
+  is a stale fallback.
+- **Analyst relationships** take free text (`relationship_type varchar(255)`, no vocabulary).
+
+So the relationship-type field depends on the chosen link type, which the declarative
+`promptData({ fields })` form cannot express. The two-kind case needs `promptData`'s custom
+variant (`render` + `getValues`); the one-kind case can stay declarative.
+
+**A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
+string concatenation into `innerHTML` (`:792-795`). It is fed from the hardcoded 25-entry array
+today, so nothing is exploitable — but `object_relationships` contains a row literally named
+`<script>alert('name')</script>`, so wiring the real vocabulary into that builder would introduce
+stored XSS. `ctx.promptData()` removes the sink, and v1.5.0's rule that a consumer `string`
+renders as text rather than markup means the library will not reintroduce it.
+
+`isValidConnection` **rejects feed and server nodes as targets outright** — no persistable edge
+can point at them.
+
+### Open — sign-off requested
 
 #### D3 — Legend sections
 
@@ -696,44 +744,52 @@ The relationship picker overlay is **removed** in favour of `ctx.promptData()` (
 
 ```js
 editors: {                       // affordance removal, not veto
-    edgeEditor:  { enabled: canEdit },
+    edgeEditor:  { enabled: canEdit || permAnalystData },
     nodeCreator: { enabled: canEdit },
     deletion:    { enabled: canEdit },
 },
 callbacks: {
-    // (source: Node | Note, target: Node) => boolean — runs on every pointer move
-    isValidConnection: (source, target) =>
-        source.getData?.()?.type === 'object' && target.getData?.()?.scope === 'self',
+    // (source: Node | Note, target: Node) => boolean — runs on every pointer move.
+    // Cheap: property lookups only. Zero possible kinds ⇒ the target reads invalid.
+    isValidConnection: (source, target) => possibleKinds(source, target).length > 0,
 
     // (context: EdgeCreateContext) => EdgeCreateDecision | Promise<…>  — ONE argument
     onBeforeEdgeCreate: async (ctx) => {
         if (ctx.kind !== 'edge') return true;               // note-links pass through
-        const values = await ctx.promptData({ fields: [
-            { name: 'relationship_type', type: 'select',
-              label: 'Relationship', options: DEFAULT_RELATIONSHIPS },
-        ]});
+        const kinds = possibleKinds(ctx.source, ctx.target);
+        if (!kinds.length) return false;
+
+        // one kind: declarative form, no link-type question
+        // two kinds: custom form, because the vocabulary depends on the choice (D2b)
+        const values = kinds.length === 1
+            ? await ctx.promptData({ fields: fieldsFor(kinds[0]) })
+            : await ctx.promptData({ render: renderLinkTypeForm, getValues });
         if (!values) return false;                          // cancelled → veto
-        const ok = await persistObjectReference(ctx.source, ctx.target,
-                                               values.relationship_type);
-        return ok ? { accept: true, data: { kind: 'object-reference',
-                                            label: values.relationship_type } }
-                  : false;
+
+        const kind = values.kind || kinds[0];
+        const ok = kind === 'object-reference'
+            ? await persistObjectReference(ctx.source, ctx.target, values.relationship_type)
+            : await persistAnalystRelationship(ctx.source, ctx.target, values.relationship_type);
+        return ok ? { accept: true, data: { kind, label: values.relationship_type } } : false;
     },
 }
 ```
 
-Three notes:
+Four notes:
 
-- **`ctx.promptData()` replaces the bespoke relationship picker.** The overlay built today — a
-  backdrop plus a `<select>` assembled with `innerHTML` (`:793-795`) — is what
-  `promptData({ fields })` provides, with the shadow-edge preview held up while it is open.
-  `ctx.promptLabel()` is the one-field variant. This deletes code rather than adding it.
-- `isValidConnection` encodes both halves of D8's rule — object source, `scope === 'self'`
-  target — as a live affordance, which is the legacy Event Graph's `can_be_referenced()` refusal
-  (`event-graph.js:1684`) turned from an after-the-fact error into a cursor state.
-  `onBeforeEdgeCreate` is not consulted for a target it rejects.
-- Programmatic mutation never invokes these hooks, so the drag-in staging path (`graph.addNode`)
-  is unaffected.
+- **`ctx.promptData()` replaces the bespoke relationship picker**, and removes a latent
+  stored-XSS sink on the way — see D2b. `ctx.promptLabel()` is the one-field variant. Net code
+  deletion.
+- **`isValidConnection` is the single gate**, driven by `possibleKinds()` (D2b). It turns the
+  legacy Event Graph's after-the-fact refusal — `can_be_referenced()`'s *"Cannot reference a node
+  not belonging in this event"* (`event-graph.js:1684`) — into a cursor state during the drag, and
+  it covers the feed/server rejection at the same time. `onBeforeEdgeCreate` is not consulted for
+  a target it rejects.
+- **`edgeEditor` stays enabled for a user with only `perm_analyst_data`.** They cannot create
+  object references, but they can assert analyst relationships (D8), so removing the affordance
+  wholesale on `!canEdit` would deny the write MISP permits.
+- Programmatic mutation never invokes these hooks, so putting a node on the canvas from the dock
+  (`graph.addNode`) is unaffected — and under D2 that is a pure view write with nothing to save.
 
 ### 6.7 Payload: two requests (D9)
 
@@ -845,7 +901,8 @@ relationships, and the events in §3.5 as fixtures):
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` + desaturation + correlated-event proxy nodes | 5 |
 | 9 | Editor tray → dock pane; enable `UI.table` | 1 |
-| 10 | Write path onto `onBeforeEdgeCreate` + `isValidConnection` + `editors.*.enabled` | 1 |
+| 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
+| 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
 
 Tasks 2, 6, 9 and 10 are mutually independent. All seed-related decisions (D5′, D9, D10, D12) are
 settled, so tasks 3–5 are unblocked.
