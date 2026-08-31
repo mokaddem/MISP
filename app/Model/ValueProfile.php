@@ -187,6 +187,17 @@ class ValueProfile extends AppModel
     const CLAIM_OCCURRENCE_CAP = 300;
 
     /**
+     * Remote events listed per external source.
+     *
+     * Measured over 4,798 cached values on a live instance: a median of
+     * 2 remote events per hitting value, 4 at p95, 52 at the most
+     * (`live/24-relationships.md` §17.4). Twenty-five covers everything
+     * seen with room to spare, and a source past it says so — a cap is
+     * not a permission, so that notice reads the same for every reader.
+     */
+    const EXTERNAL_EVENT_CAP = 25;
+
+    /**
      * @var array Lazily loaded models, by alias
      */
     private $models = array();
@@ -1474,6 +1485,174 @@ class ValueProfile extends AppModel
                 'settings' => $this->relationSettings($user, $value),
             ),
         );
+    }
+
+    /**
+     * The Overview card: how many feeds and sync servers hold this value,
+     * counting only the ones this reader may be told about.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options Reserved
+     * @return array
+     */
+    public function forExternal(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'external' => $this->externalPresence($user, $value),
+        );
+    }
+
+    /**
+     * Section four: the remote events a feed or sync server holds this
+     * value in.
+     *
+     * The same method the Overview card counts. Two panels filtering
+     * independently is how the looser one becomes a disclosure and the
+     * stricter one's accuracy becomes decorative
+     * (`tabs/03-relationships.md` §20.1).
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options Reserved
+     * @return array
+     */
+    public function forRelationExternal(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'external' => $this->externalPresence($user, $value),
+        );
+    }
+
+    /**
+     * Which cached feeds and sync servers hold this value, filtered to
+     * what this reader may see.
+     *
+     * **The visibility rule is per source, not per reader**, and it is
+     * chosen so the page is never looser than a surface MISP already
+     * ships and stricter in exactly one place:
+     *
+     *   lookup_visible = 1   every role — `/feeds/searchCaches` is
+     *                        reachable by everyone and returns these by
+     *                        name, so gating them here would hide what
+     *                        the same reader gets one click away.
+     *   lookup_visible = 0   `perm_view_feed_correlations`, which is the
+     *                        gate the event view applies. The column
+     *                        defaults to 0, so on a stock instance this
+     *                        is every feed.
+     *   sync servers         site admin only. One notch stricter than
+     *                        the event view, which admits the host org,
+     *                        because `servers/previewEvent` is site
+     *                        admin only and the link is the row's whole
+     *                        value.
+     *
+     * `Feed::searchCaches` applies no role check at all, so nothing here
+     * may render its output directly. It is called for the whole
+     * instance and its hits are then intersected with the ids this
+     * reader is allowed to be told about.
+     *
+     * **`restricted` is keyed on the role and never on the value.** It
+     * is true whenever the instance holds cached sources of that kind
+     * that this reader's role cannot reach, whether or not this
+     * particular value hits any of them — which is what lets it exist
+     * at all under `live/00-contract.md` §14.6. A notice that appeared
+     * only when something was hidden would be the same disclosure at
+     * one bit.
+     *
+     * @param array $user
+     * @param string $value
+     * @return array
+     */
+    private function externalPresence(array $user, $value)
+    {
+        $feedModel = $this->model('Feed');
+        $serverModel = $this->model('Server');
+
+        $isSiteAdmin = !empty($user['Role']['perm_site_admin']);
+        $mayViewCorrelations = $isSiteAdmin
+            || !empty($user['Role']['perm_view_feed_correlations']);
+
+        $cachedFeeds = $feedModel->find('all', array(
+            'conditions' => array('Feed.caching_enabled' => 1),
+            'recursive' => -1,
+            'fields' => array('Feed.id', 'Feed.lookup_visible'),
+        ));
+        $cachedServerCount = $serverModel->find('count', array(
+            'conditions' => array('Server.caching_enabled' => 1),
+            'recursive' => -1,
+        ));
+
+        $visibleFeedIds = array();
+        $withheldFeeds = 0;
+        foreach ($cachedFeeds as $feed) {
+            if ($mayViewCorrelations || !empty($feed['Feed']['lookup_visible'])) {
+                $visibleFeedIds[(string)$feed['Feed']['id']] = true;
+            } else {
+                $withheldFeeds++;
+            }
+        }
+
+        $presence = array(
+            'sources' => array(),
+            'counts' => array('feeds' => 0, 'servers' => 0),
+            'events' => 0,
+            // role and instance config only — never this value
+            'restricted' => array(
+                'feeds' => $withheldFeeds > 0,
+                'servers' => !$isSiteAdmin && $cachedServerCount > 0,
+            ),
+            'cached' => array(
+                'feeds' => count($cachedFeeds),
+                'servers' => $cachedServerCount,
+            ),
+            'event_cap' => self::EXTERNAL_EVENT_CAP,
+        );
+
+        if (empty($visibleFeedIds) && !$isSiteAdmin) {
+            return $presence;
+        }
+        if (empty($cachedFeeds) && empty($cachedServerCount)) {
+            return $presence;
+        }
+
+        foreach ($feedModel->searchCaches($value, false) as $hit) {
+            $source = $hit['Feed'];
+            $isServer = ($source['type'] === 'MISP Server');
+            if ($isServer) {
+                if (!$isSiteAdmin) {
+                    continue;
+                }
+            } elseif (!isset($visibleFeedIds[(string)$source['id']])) {
+                continue;
+            }
+
+            $events = array();
+            if (!empty($source['direct_urls']) && !empty($source['uuid'])) {
+                foreach ($source['direct_urls'] as $link) {
+                    $events[] = array(
+                        'name' => $link['name'],
+                        'url' => $link['url'],
+                    );
+                }
+            }
+            $presence['sources'][] = array(
+                'id' => $source['id'],
+                'name' => $source['name'],
+                'url' => isset($source['url']) ? $source['url'] : null,
+                'kind' => $source['type'],
+                'scope' => $isServer ? 'server' : 'feed',
+                'events' => array_slice($events, 0, self::EXTERNAL_EVENT_CAP),
+                'events_total' => count($events),
+            );
+            $presence['events'] += count($events);
+            $presence['counts'][$isServer ? 'servers' : 'feeds']++;
+        }
+
+        return $presence;
     }
 
     /**

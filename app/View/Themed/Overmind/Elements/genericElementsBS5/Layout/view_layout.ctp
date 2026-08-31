@@ -145,6 +145,10 @@ function currentTabId() {
     return active ? active.getAttribute('href').replace('#tab-', '') : null;
 }
 
+// A link to #tab-<id> from inside a panel has to switch tabs, not just move
+// the hash. Bootstrap does not watch the hash, so neither did this.
+window.addEventListener('hashchange', activateTabFromHash);
+
 document.addEventListener('DOMContentLoaded', function () {
     // Restore active tab from URL hash on load
     activateTabFromHash();

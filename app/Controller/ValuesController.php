@@ -188,9 +188,24 @@ class ValuesController extends AppController
         $this->renderPanel($this->profileFor($b64value), 'value_lifecycle');
     }
 
+    /**
+     * The Overview's external presence card.
+     *
+     * Live for feeds and sync servers, and a count rather than a list:
+     * the detail is the Relationships tab's fourth section, reading the
+     * same filtered method so the two cannot disagree
+     * (`tabs/03-relationships.md` §20.1).
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewExternal($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_external');
+        $this->renderRelationPanel(
+            $b64value,
+            'forExternal',
+            'value_external'
+        );
     }
 
     /**
@@ -358,6 +373,15 @@ class ValuesController extends AppController
             $b64value,
             'forRelationAsserted',
             'value_relation_asserted'
+        );
+    }
+
+    public function viewRelationExternal($b64value = null)
+    {
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationExternal',
+            'value_relation_external'
         );
     }
 

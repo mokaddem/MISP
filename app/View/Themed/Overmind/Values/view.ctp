@@ -306,17 +306,21 @@ $tabRegistry = array(
          * `ValueProfile::forTabCounts` holds the reasoning and the
          * condition for putting a number back.
          *
-         * Three panels rather than one, top to bottom in the order the
-         * three notions should be read: what shares an event, what is
-         * merely close, and what a person asserted. They are separate
-         * endpoints because they cost wildly different amounts — the
-         * first reads up to 20,000 rows and the third a handful — and
-         * one slow scan must not hold up the claims, the only part of
-         * this tab somebody wrote by hand.
+         * Four panels rather than one, top to bottom in the order the
+         * four notions should be read: what shares an event, what is
+         * merely close, what somebody outside this instance holds it
+         * alongside, and what a person asserted. Machine-derived before
+         * human, which is what the separation rule encodes.
+         *
+         * They are separate endpoints because they cost wildly
+         * different amounts — the first reads up to 20,000 rows and the
+         * last a handful — and one slow scan must not hold up the
+         * claims, the only part of this tab somebody wrote by hand.
          */
         'left' => array(
             $panel('viewRelationCooccurrence'),
             $panel('viewRelationNearMatch'),
+            $panel('viewRelationExternal'),
             $panel('viewRelationAsserted'),
         ),
         'right' => array(

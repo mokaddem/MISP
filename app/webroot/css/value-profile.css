@@ -4006,17 +4006,20 @@ th[aria-sort="descending"] .sort-icon::before {
     --vp-rel-co: #b4610b;      /* --correlation #E67F0D */
     --vp-rel-near: #0b7f61;    /* --type #06D6A0 */
     --vp-rel-human: #8f2d56;   /* --analystData */
+    --vp-rel-external: #3f51a3; /* --feed, darkened for the light ground */
 }
 
 [data-bs-theme="dark"] {
     --vp-rel-co: #f0a95f;
     --vp-rel-near: #4fd6b0;
     --vp-rel-human: #e58cad;
+    --vp-rel-external: #8f9ce0;
 }
 
 .vp-rel-k-co { --vp-rel-color: var(--vp-rel-co); }
 .vp-rel-k-near { --vp-rel-color: var(--vp-rel-near); }
 .vp-rel-k-human { --vp-rel-color: var(--vp-rel-human); }
+.vp-rel-k-external { --vp-rel-color: var(--vp-rel-external); }
 
 /*
  * The notion chip. Carried by every section header so a reader never
@@ -4219,6 +4222,46 @@ tr.vp-rel-stripe > td:first-child {
 
 tr.vp-rel-k-near > td:first-child {
     border-left-style: dashed;
+}
+
+/*
+ * The fourth notion is machine-derived like the first two, but the row
+ * it names is not on this instance. A double edge rather than a third
+ * dash pattern: dashed already means "close but not equal", and reusing
+ * it would say the wrong thing about a value a feed holds exactly.
+ */
+tr.vp-rel-k-external > td:first-child {
+    border-left-style: double;
+    border-left-width: 4px;
+}
+
+/*
+ * A remote event, as a link that admits where it goes. Outlined rather
+ * than filled: every other badge on this page stands for something the
+ * instance holds, and this one stands for something it has only been
+ * told about.
+ */
+.vp-external-event {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border: 1px dashed color-mix(in srgb, var(--vp-rel-external) 55%, transparent);
+    background: color-mix(in srgb, var(--vp-rel-external) 8%, var(--bs-body-bg));
+    color: var(--vp-rel-external);
+}
+
+.vp-external-event:hover,
+.vp-external-event:focus-visible {
+    border-style: solid;
+    background: color-mix(in srgb, var(--vp-rel-external) 18%, var(--bs-body-bg));
+    color: var(--vp-rel-external);
+}
+
+.vp-external-event > i {
+    font-size: 0.72em;
+    opacity: 0.75;
 }
 
 /*

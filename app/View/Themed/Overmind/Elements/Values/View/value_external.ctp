@@ -2,10 +2,22 @@
 /**
  * Where this value appears outside this instance's own events.
  *
- * "Is anyone outside our instance seeing this?" — the feeds carrying it,
- * the sync servers whose cache matches, and the SightingDB count. All
- * three are corroboration from somewhere this instance does not control,
- * which is why they sit apart from the sightings card.
+ * "Is anyone outside our instance seeing this?" — corroboration from
+ * somewhere this instance does not control, which is why it sits apart
+ * from the sightings card.
+ *
+ * **A count, and the count is the link.** The detail — which feed, which
+ * sync server, and which remote event inside them — is the Relationships
+ * tab's fourth section, reading the same filtered method this card
+ * counts (`tabs/03-relationships.md` §20.1). A rail has room for a
+ * number; naming five feeds and their events in it does not make the
+ * number easier to read.
+ *
+ * Every number here is the sources this reader may see, like every other
+ * number on the page. There is no count of what is withheld and no
+ * standing caveat — `live/00-contract.md` §14.6 — but a reader whose
+ * role reaches nothing is told so, keyed on the role and identical on
+ * every value.
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewExternal.
  *
@@ -13,14 +25,29 @@
  * @var string $valueB64
  */
 $external = $valueProfile['external'];
-$feeds = $external['feeds'];
-$anything = !empty($feeds)
-    || !empty($external['servers'])
-    || !empty($external['sightingdb']);
+$counts = $external['counts'];
+$restricted = $external['restricted'];
+$cached = $external['cached'];
 
-$subtitle = $anything
-    ? h(sprintf(__('%s feeds carry it'), count($feeds)))
+$hits = $counts['feeds'] + $counts['servers'];
+$nothingCached = empty($cached['feeds']) && empty($cached['servers']);
+// keyed on the role, shown on every value — see the section's own note
+$roleRestricted = $restricted['feeds'] || $restricted['servers'];
+
+$subtitle = $hits
+    ? h(__n('%d source holds it', '%d sources hold it', $hits, $hits))
     : h(__('Not seen outside this instance'));
+
+/*
+ * `$valueB64` rather than encoding the value again here: the controller's
+ * own encoder is URL-safe, and a value carrying `/` would not survive a
+ * plain base64 in a path segment.
+ */
+$sectionUrl = $this->Html->url(array(
+    'controller' => 'values',
+    'action' => 'view',
+    $valueB64,
+)) . '#tab-relationships';
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
      style="--vp-panel-color: var(--enrichment);">
@@ -32,71 +59,106 @@ $subtitle = $anything
         'panelSub' => $subtitle,
     )) ?>
 
-    <?php if (!$anything): ?>
-        <div class="vp-empty">
-            <i class="fas fa-cloud"></i>
-            <span>
-                <?= __('No feed, sync server or SightingDB carries this.') ?>
-            </span>
-        </div>
-    <?php else: ?>
-        <div class="p-3 d-flex flex-column gap-3">
+    <div class="p-3 d-flex flex-column gap-3">
 
-            <?php if (!empty($feeds)): ?>
-                <div>
-                    <div class="vp-subhead"><?= __('Feeds') ?></div>
-                    <?php foreach ($feeds as $feed): ?>
-                        <div class="vp-external-row">
-                            <i class="fas fa-rss"></i>
-                            <div class="vp-min-w-0">
-                                <div class="fw-semibold text-truncate"
-                                     title="<?= h($feed['name']) ?>">
-                                    <?= h($feed['name']) ?>
-                                </div>
-                                <div class="vp-fact-line-sub">
-                                    <?= h($feed['provider']) ?>
-                                </div>
-                            </div>
-                            <span class="vp-external-count"
-                                  title="<?= h(__('Events in this feed')) ?>">
-                                <?= h($feed['events']) ?>
-                            </span>
+        <?php if ($roleRestricted): ?>
+            <div class="vp-acl-note-band">
+                <i class="fas fa-lock"></i>
+                <span>
+                    <?php if ($restricted['feeds'] && $restricted['servers']): ?>
+                        <?= __('Your role cannot view feed correlations, and sync server hits require site admin. Neither is counted here, on any value.') ?>
+                    <?php elseif ($restricted['feeds']): ?>
+                        <?= __('Your role cannot view feed correlations, so feeds an administrator has not published for lookup are not counted here, on any value.') ?>
+                    <?php else: ?>
+                        <?= __('Sync server hits require site admin, so they are not counted here, on any value.') ?>
+                    <?php endif; ?>
+                </span>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($nothingCached): ?>
+
+            <div class="vp-empty">
+                <i class="fas fa-cloud"></i>
+                <span>
+                    <?= __('No feed or sync server on this instance has caching enabled.') ?>
+                </span>
+            </div>
+
+        <?php elseif (!$hits): ?>
+
+            <div class="vp-empty">
+                <i class="fas fa-cloud-arrow-down"></i>
+                <span>
+                    <?= __('No feed or sync server you can see holds this value.') ?>
+                </span>
+            </div>
+
+        <?php else: ?>
+
+            <?php
+            $lines = array(
+                array(
+                    'icon' => 'fas fa-rss',
+                    'count' => $counts['feeds'],
+                    'label' => __n('%d hit in feeds', '%d hits in feeds',
+                        $counts['feeds']),
+                    // caching is independent of enabling: a disabled feed
+                    // can hold a populated cache, so "pulls from" would
+                    // be wrong for most rows on a real instance
+                    'sub' => __('Held in a feed cache on this instance'),
+                ),
+                array(
+                    'icon' => 'fas fa-server',
+                    'count' => $counts['servers'],
+                    'label' => __n('%d hit on sync servers',
+                        '%d hits on sync servers', $counts['servers']),
+                    'sub' => __('Held in a connected server\'s cache'),
+                ),
+            );
+            ?>
+            <?php foreach ($lines as $line): ?>
+                <?php if (!$line['count']) { continue; } ?>
+                <a class="vp-external-row text-decoration-none text-reset"
+                   href="<?= h($sectionUrl) ?>"
+                   title="<?= h(__('Open the Relationships tab, where each source and its remote events are listed')) ?>">
+                    <i class="<?= h($line['icon']) ?>"></i>
+                    <div class="vp-min-w-0">
+                        <div class="fw-semibold">
+                            <?= h(sprintf($line['label'], $line['count'])) ?>
                         </div>
-                    <?php endforeach; ?>
+                        <div class="vp-fact-line-sub">
+                            <?= h($line['sub']) ?>
+                        </div>
+                    </div>
+                    <span class="vp-external-count">
+                        <i class="fas fa-chevron-right"></i>
+                    </span>
+                </a>
+            <?php endforeach; ?>
+
+            <?php if (!empty($external['events'])): ?>
+                <div class="vp-fact-line-sub">
+                    <?= h(__n(
+                        '%d remote event names this value.',
+                        '%d remote events name this value.',
+                        $external['events'],
+                        $external['events']
+                    )) ?>
                 </div>
             <?php endif; ?>
 
-            <div class="vp-external-row">
-                <i class="fas fa-server"></i>
-                <div class="vp-min-w-0">
-                    <div class="fw-semibold">
-                        <?= h(sprintf(
-                            __('%s sync servers'),
-                            $external['servers']
-                        )) ?>
-                    </div>
-                    <div class="vp-fact-line-sub">
-                        <?= __('Hold this value in their cache') ?>
-                    </div>
-                </div>
-            </div>
+        <?php endif; ?>
 
-            <div class="vp-external-row">
-                <i class="fas fa-database"></i>
-                <div class="vp-min-w-0">
-                    <div class="fw-semibold">
-                        <?= h(sprintf(
-                            __('%s SightingDB hits'),
-                            $external['sightingdb']
-                        )) ?>
-                    </div>
-                    <div class="vp-fact-line-sub">
-                        <?= __('Counted outside MISP, by anyone querying') ?>
-                    </div>
-                </div>
+        <div class="vp-panel-stub">
+            <span class="vp-panel-stub-badge">
+                <?= __('Not implemented') ?>
+            </span>
+            <div class="vp-panel-stub-note">
+                <?= __('SightingDB is not read by this page. The primitive is Sightingdb::queryValues, and wiring it is a decision about querying a third party at render time.') ?>
             </div>
-
         </div>
-    <?php endif; ?>
+
+    </div>
 
 </div>

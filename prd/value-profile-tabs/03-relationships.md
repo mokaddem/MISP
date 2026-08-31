@@ -37,8 +37,9 @@ segment.
 
 ## 2. Layout
 
-`col-lg-9` + `col-lg-3`. Left: three section panels, top to bottom. Right: the
-neighbourhood sketch and a card naming the engine settings the tab depends on.
+`col-lg-9` + `col-lg-3`. Left: three section panels, top to bottom — **four
+since §20**. Right: the neighbourhood sketch and a card naming the engine
+settings the tab depends on.
 
 ## 3. Controller
 
@@ -47,10 +48,11 @@ neighbourhood sketch and a card naming the engine settings the tab depends on.
 | `viewRelationCooccurrence($b64value)` | ajax | `value_relation_cooccurrence` |
 | `viewRelationNearMatch($b64value)` | ajax | `value_relation_near_match` |
 | `viewRelationAsserted($b64value)` | ajax | `value_relation_asserted` |
+| `viewRelationExternal($b64value)` | ajax | `value_relation_external` (§20) |
 | `viewRelationGraph($b64value)` | ajax | `value_relation_graph` |
 | `viewRelationSettings($b64value)` | ajax | `value_relation_settings` |
 
-Three separate endpoints for the three notions, not one: they have different
+Separate endpoints per notion, not one: they have different
 costs when they go live, and one slow correlation query must not hold up the
 asserted claims, which are cheap and complete.
 
@@ -61,6 +63,7 @@ app/View/Themed/Overmind/Elements/Values/View/
     value_relation_cooccurrence.ctp   siblings + values table + facets
     value_relation_near_match.ctp     one block per engine, including the absent one
     value_relation_asserted.ctp       human claims as .vp-analyst blocks
+    value_relation_external.ctp       remote events, per source (§20)
     value_relation_graph.ctp          rail: the neighbourhood sketch
     value_relation_settings.ctp       rail: what is counted
 ```
@@ -815,3 +818,95 @@ accepting any value a reader types.
 So `perm_view_feed_correlations` gates every feed the administrator has
 not published, which on a stock instance is all of them. `value_external`
 and this section apply it identically, through the one method of §20.1.
+
+---
+
+## 21. Built, and the three places it departed from §20
+
+**Built 2026-08-31**, against the populated cache and the two
+`searchCaches` fixes of `24-relationships.md` §17.
+
+| Piece | Where |
+|---|---|
+| the filtered lookup | `ValueProfile::externalPresence()`, private |
+| the card's facade | `ValueProfile::forExternal()` |
+| the section's facade | `ValueProfile::forRelationExternal()` |
+| endpoints | `ValuesController::viewExternal`, `::viewRelationExternal` |
+| templates | `value_external.ctp`, `value_relation_external.ctp` |
+| notion colour | `--vp-rel-external`, `.vp-rel-k-external` |
+| ACL | `'viewRelationExternal' => ['theming_enabled']` |
+
+Both facades return the same `externalPresence()` array, which is §20.1's
+requirement expressed as the only way to get the data.
+
+`Feed::searchCaches` is called once for the whole instance and its hits
+are then intersected with the ids this reader may be told about, rather
+than filtered by passing `$limited` — which §20.2 forbids because that
+flag cannot say *site admin sees servers, host org does not*. The feed
+id set comes from a separate query that reads `lookup_visible`, a column
+`searchCaches` does not select.
+
+### 21.1 The role notice is unconditional, which §20.5 asked for and the
+first cut got wrong
+
+The first implementation showed the notice only when the reader had **no
+visible sources at all**. That is wrong twice over, and the second way is
+the one that matters:
+
+- A reader who can see feeds but not servers was never told servers
+  existed. The section silently answered half a question.
+- Gating on *this value produced nothing visible* makes the notice's
+  presence depend on the value, which is the one-bit disclosure §14.6
+  names.
+
+It now renders whenever the reader's **role** cannot reach a kind of
+source the instance holds cached, on every value alike. Verified against
+the property that matters: withholding a feed this value does **not** hit
+changed the notice and left the count at `2 remote events across 2 feeds`
+— the notice moved, the number did not.
+
+### 21.2 SightingDB stays a stub, and says which primitive it needs
+
+§2.6 of the page brief promises the card three things and this build
+delivers two. `Sightingdb::queryValues` exists, so the gap is a decision
+rather than a missing primitive: reading it means querying a third party
+at render time, which is the kind of call the Enrichment tab exists to
+require a press for. Drawn with `.vp-panel-stub` and its badge, which is
+§1.3's *not implemented* state — distinct from the two empty states
+beside it, and not a zero.
+
+### 21.3 A link to a tab had to start working
+
+The card's count links to `#tab-relationships`, and nothing was listening
+for it: `activateTabFromHash` ran on `DOMContentLoaded` only, so an
+in-page link moved the hash and left the tab where it was. One line in
+`genericElementsBS5/Layout/view_layout.ctp` — a `hashchange` listener on
+the function that already existed. Every deep link to a tab now works,
+not just this one.
+
+**The link lands on the tab, not on the section.** The section is third
+of four panels, so a reader may have to scroll. Carrying an anchor
+*through* a tab switch means either a second hash convention or a scroll
+in JS, and neither is worth it for one card; the section has an
+`id="vp-external-presence"` for whoever decides otherwise.
+
+### 21.4 Verified
+
+Rendered through `24-relationships-render.php`, `debug = 2`, so a missing
+key or an undefined index lands in the markup:
+
+| Reader | Value | Reads |
+|---|---|---|
+| site admin | `zxzhjlk.artenadigital.com` | `3 remote events across 2 feeds, 1 sync server`; three rows, each event under the source that holds it |
+| plain user | same | `2 remote events across 2 feeds`; no server row, notice naming the server restriction |
+| plain user, feed 2 unpublished | same | both restrictions named in one sentence, **count unchanged** |
+| site admin | a value in no cache | `No feed or sync server you can see holds this value.` |
+
+No PHP notice or warning in any fragment. `lookup_visible` on feed 2 was
+flipped for the third row and put back.
+
+The state not exercised: **nothing cached on the instance**. It needs
+`caching_enabled = 0` across five feeds and a server, which is a bigger
+flip than the one above and undoes work this phase depended on getting.
+The branch is one `empty()` on two counts that the other rows prove are
+populated.
