@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D6, D7 await sign-off; D1–D4, D5′, D8–D13 settled (D5 withdrawn)
+**Status:** DRAFT — all decisions settled (D1–D4, D5′, D6–D13; D5 withdrawn). Ready for implementation.
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -134,9 +134,10 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 - The extra panel's `render` returns an **HTMLElement** (`:834`), so the 1.5.0 "a `string` never
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
 - `graph.on('edgeAdd', …)` (`:839`) and `simulation.d3LinkDistance` still exist.
-- v1.6.0's breaking changes are confined to physics presets. Because the graph **configures**
-  `d3LinkDistance: 200` (`:412-413`), physics stays `'manual'` — auto explicitly declines to
-  take over a graph that tuned any knob it drives, so layout is unchanged.
+- v1.6.0's breaking changes are confined to physics presets. As the code stands, the graph
+  **configures** `d3LinkDistance: 200` (`:412-413`), so physics stays `'manual'` — auto declines
+  to take over a graph that tuned any knob it drives, and layout is unchanged by the upgrade
+  alone. **D7 then deliberately opts into `'auto'`.**
 - Bundle verified: `node --check` passes, the `window.Pivotick` footer is present, and the
   deployed file is byte-identical (md5 `140ead0d…`) to a fresh `vite build` of the `v1.6.0` tag.
 
@@ -268,7 +269,7 @@ already in the response it fetches, and the library now has the channels to show
 
 ## 5. Design Decisions
 
-### Settled in review (2026-08-28 → 2026-08-31)
+### All settled in review (2026-08-28 → 2026-08-31)
 
 #### D8 — One implementation; writes gated by what you clicked ✅ SETTLED
 
@@ -659,8 +660,6 @@ better than a narrow sidebar column — and the sidebar keeps the analyst-data p
 budget, so for the ~92% of events with no authored relationship, and for every event above 1,500
 nodes, this pane is the *only* in-graph route to the event's contents.
 
-### Open — sign-off requested
-
 #### D13 — A dedicated seed endpoint, in its own PRD ✅ SETTLED
 
 Exposed by §3.5's payload measurement: every budget in this document caps something *downstream*
@@ -682,16 +681,51 @@ open** until the endpoint lands.
 Rejected: named parameters to trim `fetchEvent` — it grows an already-large option surface for a
 partial win, and would still ship the whole event's tags and analyst data.
 
-#### D6 — Write path onto the before-hooks
+#### D6 — Deletion removes relationships, never elements ✅ SETTLED
 
-Replace `graph.on('edgeAdd', onEdgeAdd)` (`:839`) with `onBeforeEdgeCreate` (veto and narrow
-before anything is added) plus `isValidConnection` (mark an invalid target live during the drag).
-Additionally `editors.*.enabled` ← `$mayModify`, per §6.6.
+D6's original content — `onBeforeEdgeCreate`, `isValidConnection`, `editors.*.enabled` — was
+absorbed into **D2b** with more detail. What remained was the one unexamined part of the write
+path, and the riskiest: deletion. Pivotick puts Delete in the bulk-action row **directly beside
+Hide**, and the two mean entirely different things.
 
-#### D7 — Physics: stay manual
+**Resolution:**
 
-Keep `d3LinkDistance: 200` so physics stays `'manual'` and layout does not change under this
-release. Opting into `'auto'` is a separate isolated experiment.
+- **Deleting an edge deletes the underlying relationship** — the object reference or the analyst
+  relationship — which is the exact inverse of what D2b creates.
+- **Deleting a node is not offered.** `editors.deletion.enabled` is a single flag and cannot
+  distinguish nodes from edges, so node deletes are **vetoed in `onBeforeDelete`** with an
+  explanation.
+- **Every edge deletion goes behind `ctx.confirm()`**, naming the specific relationship.
+
+Rationale for refusing node deletion:
+
+- Remove-from-canvas is already **Hide**. Two adjacent buttons where one is reversible and the
+  other soft-deletes event data is an accident waiting to happen.
+- Deleting an attribute that is a cluster child *inside* an object is a different operation from
+  deleting the object; `cascadingEdges` makes that ambiguity visible rather than resolving it.
+- MISP's event view already deletes attributes properly, with context and confirmation. The graph
+  does not need to be a second, worse place to do something destructive.
+
+`DeleteContext` gives `{ nodes, edges, notes, cascadingEdges, origin, confirm }`, with `edges` and
+`cascadingEdges` guaranteed not to overlap — so each deletion can be persisted exactly once. With
+node deletion vetoed, `cascadingEdges` is always empty here.
+
+#### D7 — Physics opts into `'auto'` ✅ SETTLED (revises the original recommendation)
+
+Keep `d3LinkDistance: 200` **and** add `physics: 'auto'`.
+
+The original D7 said stay manual so that "layout does not change under this release". **D12
+invalidated that reasoning:** the seed rule means the canvas is 86 nodes, or 20, or 1,500
+containment-only clusters depending on the event, so layout was never going to stay unchanged, and
+one hand-tuned link distance cannot suit that range. Auto re-tunes from node count, node sizes and
+canvas size and keeps doing so as the graph changes — precisely the variability D12 introduced.
+
+Setting both is explicitly legal: the explicit d3 values **seed the opening frame** and auto takes
+over from there. So the first paint is the layout that exists today, and it adapts afterwards
+rather than staying tuned for a graph shape that no longer occurs.
+
+Note this supersedes the §3.3 audit line that inferred physics would stay `'manual'` — that was
+true of the code as it stands, not of the code this PRD produces.
 
 ## 6. Detailed Design
 
@@ -899,7 +933,27 @@ callbacks: {
             : await persistAnalystRelationship(ctx.source, ctx.target, values.relationship_type);
         return ok ? { accept: true, data: { kind, label: values.relationship_type } } : false;
     },
+
+    // (context: DeleteContext) => DeleteDecision | Promise<…>            (D6)
+    // { nodes, edges, notes, cascadingEdges, origin, confirm }
+    onBeforeDelete: async (ctx) => {
+        if (ctx.nodes.length) {
+            notify('Remove a node from the canvas with Hide. '
+                 + 'Attributes and objects are deleted from the event view.');
+            return false;                          // node deletion is never offered (D6)
+        }
+        if (!ctx.edges.length) return false;
+        const labels = ctx.edges.map(describeRelationship).join(', ');
+        if (!await ctx.confirm({ body: 'Delete ' + labels + '?' })) return false;
+        return { edges: await deleteRelationships(ctx.edges) };   // narrow to what persisted
+    },
 }
+```
+
+Physics (D7) — the explicit value seeds the opening frame, auto adapts from there:
+
+```js
+simulation: { physics: 'auto', d3LinkDistance: 200 }
 ```
 
 Four notes:
@@ -1008,6 +1062,11 @@ relationships, and the events in §3.5 as fixtures):
 8. Write gating: with `$mayModify` false, no Create affordances in the chrome at all; with it
    true, an invalid connect target is marked during the drag, a vetoed edge leaves no node
    behind, a persisted edge survives reload.
+8b. Deletion (D6): deleting an edge confirms, names the relationship, and the deletion survives
+   reload; deleting a node is refused with the Hide explanation and removes nothing; a
+   multi-selection containing both nodes and edges is refused whole rather than partially applied.
+8c. Physics (D7): the opening frame matches today's layout on event 1195, and a 1,500-node L2 seed
+   is legibly spaced rather than piled up.
 9. Dock: pane lists the event, filter narrows it, scroll position survives a tab switch.
 10. An event with zero analyst data renders exactly as before (no badges, no empty sections).
 
@@ -1031,6 +1090,8 @@ relationships, and the events in §3.5 as fixtures):
 | 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
 | 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
+| 10c | `onBeforeDelete`: edge deletion behind `ctx.confirm()`, node deletion vetoed (D6) | 10 |
+| 11 | `simulation.physics: 'auto'` alongside `d3LinkDistance: 200` (D7) | 1 |
 
 Tasks 2, 6, 9 and 10 are mutually independent. All seed-related decisions (D5′, D9, D10, D12) are
 settled, so tasks 3–5 are unblocked.
