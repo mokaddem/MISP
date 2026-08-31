@@ -4478,6 +4478,134 @@ th.vp-rel-num {
     color: color-mix(in srgb, var(--bs-warning) 70%, var(--bs-body-color));
 }
 
+/* ------------------------------------------------------------------
+ * The claim's hover card
+ * ------------------------------------------------------------------
+ * Everything the block deliberately does not carry: the claim's own
+ * provenance, the occurrence it was written against, and the far end's
+ * stored columns.
+ *
+ * CSS on :hover and :focus-within rather than a Bootstrap tooltip. The
+ * panel arrives through loadAjaxContainer, and MISP's only tooltip
+ * initialiser runs once at DOMContentLoaded — a data-bs-toggle here
+ * would never bind, and would fail silently. This also reaches the
+ * keyboard, which a native `title` does not.
+ * ------------------------------------------------------------------ */
+
+.vp-claim-tipwrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.vp-claim-more {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+    line-height: 1;
+    opacity: 0.55;
+    transition: opacity 0.1s ease-out, color 0.1s ease-out;
+}
+
+.vp-claim-more:hover,
+.vp-claim-more:focus-visible {
+    color: var(--vp-rel-human);
+    opacity: 1;
+}
+
+.vp-claim-tip {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 7px);
+    left: -8px;
+    width: 21rem;
+    max-width: 90vw;
+    padding: 9px 11px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 7px;
+    background: var(--bs-body-bg);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    font-size: 0.7rem;
+    line-height: 1.5;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s ease-out, visibility 0.1s;
+}
+
+.vp-claim-tipwrap:hover .vp-claim-tip,
+.vp-claim-tipwrap:focus-within .vp-claim-tip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/*
+ * The card is close enough to the trigger to move the pointer into,
+ * which is what makes its links reachable — the chart readout above
+ * takes no pointer for the opposite reason.
+ */
+.vp-claim-tiphead {
+    margin-bottom: 3px;
+    color: var(--bs-secondary-color);
+    font-size: 0.63rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.vp-claim-tiphead:not(:first-child) {
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-claim-tiprow {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+/*
+ * A fixed label column, so three sections of rows line up as one
+ * table. Wide enough for `Sharing group`, which is the longest label
+ * any of the four kinds produces.
+ */
+.vp-claim-tiprow > b {
+    flex: 0 0 5.6rem;
+    color: var(--bs-secondary-color);
+    font-weight: 500;
+}
+
+.vp-claim-tiprow > span {
+    min-width: 0;
+    color: var(--bs-body-color);
+    overflow-wrap: anywhere;
+}
+
+/*
+ * Inside the card a link looks like one. The rule above that mutes the
+ * meta line's links is about a block with four of them competing with
+ * the target; here two rows of fourteen lead somewhere, and hiding
+ * which two would waste the only navigation the card offers.
+ */
+.vp-claim-tip .vp-claim-link {
+    color: var(--bs-link-color);
+}
+
+/*
+ * The badge factory wraps its label in an inline-flex span sized for a
+ * table cell; at this size it needs to sit on the row's baseline like
+ * a word.
+ */
+.vp-claim-tiprow .badge {
+    font-size: 0.63rem;
+    vertical-align: baseline;
+}
+
 /*
  * The Narrow by bar. A dropdown per facet key rather than a rail:
  * this pane already spends its width on eleven columns, and the

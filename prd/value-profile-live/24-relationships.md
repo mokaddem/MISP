@@ -977,11 +977,14 @@ this instance, and `1.0.155.105` is the one that cannot be read.
 6. **`over_correlating_values.occurrence`** is dead weight on the read
    path (§9.1). Either the router job runs, or the column should stop
    being offered as a number anything can print.
-7. **A claim's tooltip**, carrying what §19.9 kept out of the block: the
-   occurrence the claim is written *against* (free — `occurrenceUuidsFor`
-   already returns it), the claim's own UUID, `created` beside
-   `modified`, `authors`, and the sharing group behind a level-4
-   distribution. Asked for alongside §19 and deliberately taken after it.
+7. **A claim's tooltip** — **done**, §20. It carries what §19.9 kept out
+   of the block: the occurrence the claim is written *against*, the
+   claim's own UUID, `created` beside `modified`, `authors`, the sharing
+   group behind a level-4 distribution, and per-kind columns of the far
+   end. No queries; the fragment doubles. **Still open from it:** a
+   claim's child Notes are item 3 and the card is where their absence is
+   now most visible — the one thing a reader hovering a claim might
+   expect to find and cannot.
 
 ## 16. After the phase: what the follow-up passes changed
 
@@ -1847,3 +1850,158 @@ That, the claim's own UUID, `created` beside `modified`, `authors`, and
 the sharing group behind a level-4 distribution are what the follow-up
 tooltip should carry. The block says what a reader scanning needs; the
 hover is where the rest belongs.
+
+---
+
+## 20. The claim's hover card — §15.1 item 7
+
+§19.9 named what it kept out of the block and why: a claim had just
+gained a third line, and the rest of its record would have made a fourth.
+This is the rest of the record, on hover.
+
+### 20.1 Three sections, because a claim has three parts
+
+The card reads down in the order the claim is made of — **what was
+asserted, which end of it is ours, what the other end is**:
+
+```
+THIS CLAIM
+Type         connects-to
+Written      2026-08-28 11:59:17
+Authors      vp-phase-24-seed
+Audience     [All communities]
+UUID         2d33e488-0d0c-4d83-8689-47b1eead3dd7
+
+WRITTEN AGAINST
+Occurrence   ip-dst · #2117833 in event #3888        ← links
+UUID         52f425d7-e045-4ab5-9a03-07893f4bb726
+
+POINTS AT · ATTRIBUTE
+Target       domain · deadnxuyla.ru                  ← links
+IDS flag     set
+Audience     [Inherited]
+UUID         a6679030-617a-49e3-a730-75ad44ee9e74
+```
+
+**`WRITTEN AGAINST` is the section this was worth building for.** The
+panel's footer has said since it shipped that a claim is stored against
+an occurrence and not against the value; on `8.8.8.8`, with 23 of them,
+nothing on the page said *which*. It costs nothing — `claimFrom` has
+already decided which endpoint column holds one of ours in order to
+work out the direction, and `occurrenceUuidsFor` already returned the id,
+the event and the type for it.
+
+### 20.2 The card lists stored columns
+
+That is the rule, and it settles what goes in. `direction` is the one
+thing left out that a reader might expect: it is derived from which
+endpoint column matched, not stored, and the chip two lines above
+already says it.
+
+The same rule is what admits the rest — `to_ids`, `attribute_count`,
+`template_version`, `tag_name`, `analysis` — and what keeps the card from
+drifting into commentary. Per kind, beyond what the block already shows:
+
+| Kind | Rows |
+|---|---|
+| `Event` | Analysis, Attributes, Audience |
+| `Attribute` | IDS flag, Comment, Audience |
+| `Object` | Template, Comment, Audience |
+| `GalaxyCluster` | Tag, Description, Audience |
+
+**`attribute_count` is denormalised and can lag.** It is still the right
+number: it is what MISP's own event index prints for the same event, so a
+reader who follows the link and counts something else has found a
+discrepancy in the instance rather than in this card.
+
+**A cluster's description is clipped at `CLAIM_PROSE_CAP` (180).** It is
+the only free text that reaches this section and it runs to paragraphs.
+A hover is not a page, and the card links to the one that is.
+
+**An empty column is not a row.** Most attributes carry no comment, and a
+`Comment` label with nothing beside it is worse than no label — the
+detail list is filtered before it is drawn.
+
+### 20.3 An unresolved target does not say the same thing twice
+
+An unresolved target's *label is* its UUID, so the first cut printed it
+as `Target` and again as `UUID` — two rows, one fact. It now gets
+`Status  not held here, or not visible to you` and the UUID once.
+
+The section head names the kind in words too: `POINTS AT · GALAXY
+CLUSTER`, not the uppercased model name.
+
+### 20.4 A level-4 claim names its group beside the badge
+
+`AnalystData::rearrangeSharingGroup` nests the group on a distribution-4
+row — and fetches it when it is not contained, whether this panel reads
+the result or not — so the name is free wherever it exists.
+
+The first cut put it on its own row, directly under an `Audience` badge
+already reading *Sharing group*: a whole line spent repeating the label
+to deliver one word. It now reads `Audience  [Sharing group] Test SG`.
+
+No claim on this instance is level 4, so the row was exercised by
+flipping one seeded claim to `distribution = 4, sharing_group_id = 1`,
+capturing it, and reverting — the same borrow §19.5 made for `held by`,
+and for the same reason.
+
+### 20.5 CSS on hover and focus, not a Bootstrap tooltip
+
+**A `data-bs-toggle="tooltip"` here would never bind.** MISP's only
+initialiser is in `mispOvermind.js` and runs once on `DOMContentLoaded`;
+this panel arrives later through `loadAjaxContainer`. It would have
+failed silently, which is the worst way for it to fail.
+
+So the card is `:hover` and `:focus-within` on a wrapper, with a small
+`ⓘ` button as the trigger. That has no lifecycle to get wrong, adds no
+JS to a page that already runs plenty, and reaches the keyboard — which a
+native `title` does not. Verified: focusing the button shows the card
+(`opacity: 1, visibility: visible`), and the button is in the tab order.
+
+**The card takes the pointer**, unlike `.vp-tip` above it in the
+stylesheet. That readout is a chart's and must not be hoverable; this one
+has two links in it, and a card you cannot move into is a card whose
+links do not exist.
+
+**A trigger, not the whole block.** Hovering a claim to open a card would
+fire five of them while a reader scans the list.
+
+**Nothing clips it.** Measured on the running instance: no ancestor
+between the card and `<body>` sets `overflow` to anything but `visible`,
+so opening downward from the last claim in the list is safe. The card is
+336 × 351 at the widest content this instance produces.
+
+### 20.6 What it costs
+
+**No queries at all.** Every column it prints was on a row already
+fetched. Measured with the same probe as §19.7, and the counts are
+identical to that pass: 15 on `8.8.8.8`, 8 on `deadnxuyla.ru`, 2 on
+every claimless value, 1 on an unknown one.
+
+**The fragment doubles**, and that is the real cost:
+
+| | Raw | Over the wire |
+|---|---|---|
+| Before | 23,894 B | 3,993 B |
+| After | 45,285 B | 6,048 B |
+
+Six claims, so ~3.6 KB of markup per claim raw and ~340 B gzipped. The
+section is never truncated, so this scales with how many claims people
+have written on one value: a hundred would be ~380 KB raw, ~34 KB gzipped,
+which is well inside what §12.3 measured the co-occurrence table at. It is
+recorded rather than capped, because capping *this* section is the one
+thing its whole argument forbids.
+
+### 20.7 Verified
+
+- All four target kinds and the unresolved one, in both themes, on
+  `8.8.8.8`; the `held by` and sharing-group rows by temporary flip and
+  revert.
+- Keyboard: the trigger is in the tab order and focus shows the card.
+  (An earlier read said otherwise and was wrong — it sampled the
+  computed style inside the 0.1 s transition.)
+- Six rows, six triggers, six cards; the relationship-type filter still
+  narrows 6 → 2 → 6; no JS errors from this panel.
+- The `e.target.closest is not a function` error is still logged and is
+  still not ours — §18.5.

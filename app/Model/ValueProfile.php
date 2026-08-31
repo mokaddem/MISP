@@ -187,6 +187,16 @@ class ValueProfile extends AppModel
     const CLAIM_OCCURRENCE_CAP = 300;
 
     /**
+     * Characters of a target's own prose a claim's hover card carries.
+     *
+     * A galaxy cluster's description is the only free text that reaches
+     * this section, and it runs to paragraphs. The card is a hover, not
+     * a page — what it cannot hold is one click away on the target
+     * itself, which the same card links to.
+     */
+    const CLAIM_PROSE_CAP = 180;
+
+    /**
      * Remote events listed per external source.
      *
      * Measured over 4,798 cached values on a live instance: a median of
@@ -2619,6 +2629,20 @@ class ValueProfile extends AppModel
         $owner = $relationship['org_uuid'] === $relationship['orgc_uuid']
             ? null
             : self::claimOrg($relationship, 'Org');
+        /*
+         * **Which occurrence this claim was written against.** The
+         * footer has said since the panel shipped that claims are
+         * stored against an occurrence rather than against the value;
+         * this is the one place that says *which* of them, and on a
+         * value with 23 it is the difference between a sentence and a
+         * fact. Free — `occurrenceUuidsFor` already returned it, and
+         * the branch above has already decided which end is ours.
+         */
+        $nearUuid = $outbound
+            ? $relationship['object_uuid']
+            : $relationship['related_object_uuid'];
+        $against = $occurrences[$nearUuid];
+        $against['uuid'] = $nearUuid;
         return array(
             'relationship_type' => empty($relationship['relationship_type'])
                 ? __('related-to')
@@ -2654,7 +2678,43 @@ class ValueProfile extends AppModel
             'owner_id' => $owner === null ? null : $owner['id'],
             'date' => substr($relationship['modified'], 0, 10),
             'distribution' => (int)$relationship['distribution'],
+            'against' => $against,
+            /*
+             * The rest of the record, for the hover rather than for the
+             * block. None of it costs a query: every column is on the
+             * row already fetched, and `SharingGroup` is nested by
+             * `AnalystData::rearrangeSharingGroup` — which does fetch,
+             * but only for a level-4 claim, and does it whether this
+             * panel reads the result or not.
+             */
+            'uuid' => $relationship['uuid'],
+            'created' => $relationship['created'],
+            'modified' => $relationship['modified'],
+            'authors' => self::claimAuthors($relationship),
+            'sharing_group' => empty($relationship['SharingGroup']['name'])
+                ? null
+                : $relationship['SharingGroup']['name'],
         );
+    }
+
+    /**
+     * Whoever the claim credits by name, as one string.
+     *
+     * `authors` is a text column that reaches here as a string on some
+     * rows and as a list on others — `AnalystData` decodes it where it
+     * parses as JSON — and MISP's own analyst-data popover joins the
+     * list for the same reason.
+     *
+     * @param array $relationship
+     * @return string|null
+     */
+    private static function claimAuthors(array $relationship)
+    {
+        if (empty($relationship['authors'])) {
+            return null;
+        }
+        $authors = $relationship['authors'];
+        return is_array($authors) ? implode(', ', $authors) : $authors;
     }
 
     /**
@@ -2715,7 +2775,7 @@ class ValueProfile extends AppModel
         }
         $orgs = $this->claimTargetOrgs($claims);
         foreach ($claims as $key => $claim) {
-            $claims[$key]['target'] = self::claimTarget(
+            $claims[$key]['target'] = $this->claimTarget(
                 $claim['target']['kind'],
                 $claim['target']['uuid'],
                 $claim['target']['element'],
@@ -2823,7 +2883,7 @@ class ValueProfile extends AppModel
      * @param array $orgs id => name, from claimTargetOrgs
      * @return array
      */
-    private static function claimTarget($kind, $uuid, array $element,
+    private function claimTarget($kind, $uuid, array $element,
         array $orgs
     ) {
         $target = array(
@@ -2834,6 +2894,15 @@ class ValueProfile extends AppModel
             'event' => null,
             'org' => null,
             'facts' => array(),
+            /*
+             * Kind-specific rows for the hover, as label/value pairs.
+             * Every one of them is a column already on the row that was
+             * fetched — nothing here is worth a second query, and a
+             * detail that would need one belongs on the page it lives
+             * on rather than in a tooltip.
+             */
+            'detail' => array(),
+            'distribution' => null,
             'resolved' => false,
         );
         if (empty($element[$kind]['id'])) {
@@ -2843,6 +2912,9 @@ class ValueProfile extends AppModel
         $target['id'] = (int)$row['id'];
         $target['org'] = self::claimTargetOrg($row, $orgs);
         $target['resolved'] = true;
+        if (isset($row['distribution'])) {
+            $target['distribution'] = (int)$row['distribution'];
+        }
         if ($kind === 'Event') {
             $target['label'] = sprintf('#%s %s', $row['id'], $row['info']);
             $target['facts'] = array(
@@ -2856,6 +2928,21 @@ class ValueProfile extends AppModel
                  */
                 empty($row['published']) ? __('unpublished') : '',
             );
+            /*
+             * `attribute_count` is denormalised and can lag, and it is
+             * still the right number to print: it is what MISP's own
+             * event index shows for the same event, so a reader who
+             * follows the link and counts something else has found a
+             * discrepancy in the instance rather than in this card.
+             */
+            $analysis = $this->model('Event')->analysisLevels;
+            $level = (int)$row['analysis'];
+            $target['detail'] = array(
+                __('Analysis') => isset($analysis[$level])
+                    ? __($analysis[$level])
+                    : '',
+                __('Attributes') => $row['attribute_count'],
+            );
         } elseif ($kind === 'Attribute') {
             $target['label'] = sprintf('%s · %s', $row['type'],
                 $row['value']);
@@ -2867,12 +2954,23 @@ class ValueProfile extends AppModel
                 $target['facts'][] = sprintf('%s ↦ %s',
                     $row['Object']['name'], $row['object_relation']);
             }
+            $target['detail'] = array(
+                __('IDS flag') => empty($row['to_ids'])
+                    ? __('not set')
+                    : __('set'),
+                __('Comment') => $row['comment'],
+            );
         } elseif ($kind === 'Object') {
             $target['label'] = sprintf('%s · #%s', $row['name'],
                 $row['id']);
             $target['event'] = self::claimTargetEvent($row);
             $target['facts'] = array(
                 empty($row['meta-category']) ? '' : $row['meta-category'],
+            );
+            $target['detail'] = array(
+                __('Template') => sprintf('%s v%s', $row['name'],
+                    $row['template_version']),
+                __('Comment') => $row['comment'],
             );
         } elseif ($kind === 'GalaxyCluster') {
             $target['label'] = $row['value'];
@@ -2882,6 +2980,10 @@ class ValueProfile extends AppModel
                     : $row['Galaxy']['name'],
                 empty($row['source']) ? '' : $row['source'],
             );
+            $target['detail'] = array(
+                __('Tag') => $row['tag_name'],
+                __('Description') => self::claimClip($row['description']),
+            );
         } else {
             /*
              * A kind this panel has no link and no facts for. It keeps
@@ -2889,10 +2991,31 @@ class ValueProfile extends AppModel
              */
             $target['id'] = null;
             $target['org'] = null;
+            $target['distribution'] = null;
             $target['resolved'] = false;
         }
         $target['facts'] = array_values(array_filter($target['facts']));
+        // An empty column is not a row. A blank comment would otherwise
+        // draw a label with nothing beside it on most attributes.
+        $target['detail'] = array_filter($target['detail'], 'strlen');
         return $target;
+    }
+
+    /**
+     * Prose cut to something a hover card can hold.
+     *
+     * @param string|null $text
+     * @return string
+     */
+    private static function claimClip($text)
+    {
+        if (empty($text)) {
+            return '';
+        }
+        if (mb_strlen($text) <= self::CLAIM_PROSE_CAP) {
+            return $text;
+        }
+        return mb_substr($text, 0, self::CLAIM_PROSE_CAP - 1) . '…';
     }
 
     /**

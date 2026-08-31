@@ -1056,9 +1056,32 @@ per block read as a page of links rather than as a sentence somebody
 wrote — the same argument §19's sightings table makes for its two
 columns.
 
-**Still not taken, and named as the next step:** the *near* end. A claim
-is stored against one occurrence, and the footer sentence has said so
-since §8; the block still does not say which of the 23 it was. That, the
-claim UUID, `created` beside `modified`, `authors` and the sharing group
-behind a level-4 distribution belong to the tooltip this section is
-getting next, not to a fourth line.
+**The rest of the record is on hover**, not on a fourth line — built
+straight after, and in `24-relationships.md` §20. A small `ⓘ` at the end
+of the meta line opens a card with three sections, in the order a claim
+is made of:
+
+- **This claim** — type, when it was written, authors, the audience in
+  words, the relationship UUID.
+- **Written against** — *which* of the value's occurrences carries it,
+  linked. §8's footer has said since it shipped that a claim is stored
+  against an occurrence rather than against the value; on a value with 23
+  of them, this is the only place that says which.
+- **Points at · `<kind>`** — the target linked, its UUID, its audience,
+  and the columns that are only true of its kind: `Analysis` and
+  `Attributes` for an event, `IDS flag` and `Comment` for an attribute,
+  `Template` for an object, `Tag` and a clipped `Description` for a
+  cluster.
+
+**The card lists stored columns.** That rule is what admits all of the
+above and what excludes `direction`, the one thing a reader might expect
+to see: it is derived from which endpoint column matched, not stored, and
+the chip two lines above already says it.
+
+**Hover and keyboard focus in CSS, not a Bootstrap tooltip** — this panel
+arrives through `loadAjaxContainer` and MISP's only tooltip initialiser
+runs at `DOMContentLoaded`, so a declared one would never bind. It costs
+no queries and roughly doubles the fragment; §20.6 has both numbers.
+
+**Still not taken:** a claim's child Notes (§12's list, item 3). The card
+is where their absence is now most visible.

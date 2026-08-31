@@ -113,6 +113,43 @@ $targetTitle = function ($target) {
     );
 };
 
+/*
+ * The hover card's three parts. Rows rather than prose: everything in
+ * it is a stored column, and a reader who opens it is checking one.
+ */
+
+/**
+ * @param string $text
+ * @return string
+ */
+$tipHead = function ($text) {
+    return '<div class="vp-claim-tiphead">' . h($text) . '</div>';
+};
+
+/**
+ * @param string $label
+ * @param string $html Already escaped, or built from escaped parts
+ * @param string $class
+ * @return string Empty when there is no value, so the row does not draw
+ */
+$tipRaw = function ($label, $html, $class = '') {
+    if ($html === '' || $html === null) {
+        return '';
+    }
+    return '<div class="vp-claim-tiprow"><b>' . h($label) . '</b>'
+        . '<span class="' . h($class) . '">' . $html . '</span></div>';
+};
+
+/**
+ * @param string $label
+ * @param string|null $value
+ * @param string $class
+ * @return string
+ */
+$tipRow = function ($label, $value, $class = '') use ($tipRaw) {
+    return $tipRaw($label, $value === null ? '' : h($value), $class);
+};
+
 /**
  * An organisation, linked wherever there is an id to link it by.
  *
@@ -434,6 +471,179 @@ if (empty($claims)) {
                                     'full' => false,
                                 )
                             ) ?>
+                            <?php
+                            /*
+                             * The rest of the record, on hover and on
+                             * keyboard focus. Not `data-bs-toggle` and
+                             * not a `title`: this panel arrives through
+                             * `loadAjaxContainer`, and the only
+                             * Bootstrap tooltip initialiser MISP has
+                             * runs once at `DOMContentLoaded` — a
+                             * tooltip declared here would silently
+                             * never bind. CSS on `:hover` and
+                             * `:focus-within` has no such lifecycle,
+                             * needs no JS on a page that already runs
+                             * plenty, and reaches the keyboard, which a
+                             * native `title` does not.
+                             */
+                            $against = $claim['against'];
+                            $againstUrl = $baseurl . '/events/view2/'
+                                . $against['event_id'] . '#tab-attributes';
+                            $fullDist = $this->element(
+                                'genericElementsBS5/Badges/distribution',
+                                array(
+                                    'distribution' =>
+                                        (int)$claim['distribution'],
+                                    'full' => true,
+                                )
+                            );
+                            /*
+                             * The group named beside the badge rather
+                             * than under it. At level 4 the badge reads
+                             * *Sharing group*, so a `Sharing group` row
+                             * below it spent a whole line repeating the
+                             * label to deliver one word.
+                             */
+                            if ($claim['sharing_group'] !== null) {
+                                $fullDist .= ' ' . h($claim['sharing_group']);
+                            }
+                            ?>
+                            <span class="vp-claim-tipwrap">
+                                <button type="button" class="vp-claim-more"
+                                        aria-label="<?= h(__('Everything'
+                                            . ' recorded about this claim'))
+                                        ?>">
+                                    <i class="fas fa-circle-info"></i>
+                                </button>
+                                <div class="vp-claim-tip" role="tooltip">
+
+                                    <?php
+                                    /*
+                                     * The card lists what the row
+                                     * *stores*. `direction` is derived
+                                     * from which endpoint column holds
+                                     * one of our occurrences, and the
+                                     * chip two lines above already says
+                                     * it, so it is the one thing here
+                                     * that is not a column and is not
+                                     * listed.
+                                     */
+                                    ?>
+                                    <?= $tipHead(__('This claim')) ?>
+                                    <?= $tipRow(__('Type'),
+                                        $claim['relationship_type']) ?>
+                                    <?php
+                                    /*
+                                     * One row while the two timestamps
+                                     * agree. Printing `Created` and
+                                     * `Modified` with the same value
+                                     * under each other reads as a
+                                     * defect in the card rather than as
+                                     * a claim nobody has edited.
+                                     */
+                                    ?>
+                                    <?php if ($claim['modified']
+                                        === $claim['created']): ?>
+                                        <?= $tipRow(__('Written'),
+                                            $claim['created']) ?>
+                                    <?php else: ?>
+                                        <?= $tipRow(__('Created'),
+                                            $claim['created']) ?>
+                                        <?= $tipRow(__('Modified'),
+                                            $claim['modified']) ?>
+                                    <?php endif; ?>
+                                    <?= $tipRow(__('Authors'),
+                                        $claim['authors']) ?>
+                                    <?= $tipRaw(__('Audience'),
+                                        $fullDist) ?>
+                                    <?= $tipRow(__('UUID'), $claim['uuid'],
+                                        'font-monospace') ?>
+
+                                    <?php
+                                    /*
+                                     * The near end, which the block has
+                                     * never named. The panel's footer
+                                     * has said since it shipped that a
+                                     * claim is stored against an
+                                     * occurrence and not against the
+                                     * value; on a value with 23 of them
+                                     * this is the only place that says
+                                     * which one.
+                                     */
+                                    ?>
+                                    <?= $tipHead(__('Written against')) ?>
+                                    <?= $tipRaw(
+                                        __('Occurrence'),
+                                        '<a class="vp-claim-link" href="'
+                                        . h($againstUrl) . '">'
+                                        . h(sprintf(
+                                            __('%1$s · #%2$s in event #%3$s'),
+                                            $against['type'],
+                                            $against['id'],
+                                            $against['event_id']
+                                        )) . '</a>'
+                                    ) ?>
+                                    <?= $tipRow(__('UUID'),
+                                        $against['uuid'], 'font-monospace') ?>
+
+                                    <?= $tipHead(sprintf(
+                                        __('Points at · %s'),
+                                        isset($kindWords[$target['kind']])
+                                            ? $kindWords[$target['kind']]
+                                            : $target['kind']
+                                    )) ?>
+                                    <?php
+                                    /*
+                                     * An unresolved target's label *is*
+                                     * its UUID, so naming it twice
+                                     * would fill two rows with one
+                                     * fact. It gets the UUID row and
+                                     * the reason, and nothing else here
+                                     * is known.
+                                     */
+                                    ?>
+                                    <?php if ($target['resolved']): ?>
+                                        <?= $tipRaw(
+                                            __('Target'),
+                                            $url === null
+                                                ? h($target['label'])
+                                                : '<a class="vp-claim-link"'
+                                                    . ' href="' . h($url)
+                                                    . '">'
+                                                    . h($target['label'])
+                                                    . '</a>'
+                                        ) ?>
+                                        <?php foreach ($target['detail']
+                                            as $label => $value): ?>
+                                            <?= $tipRow($label, $value) ?>
+                                        <?php endforeach; ?>
+                                        <?php if ($target['distribution']
+                                            !== null): ?>
+                                            <?= $tipRaw(
+                                                __('Audience'),
+                                                $this->element(
+                                                    'genericElementsBS5'
+                                                        . '/Badges'
+                                                        . '/distribution',
+                                                    array(
+                                                        'distribution' =>
+                                                            $target[
+                                                            'distribution'],
+                                                        'full' => true,
+                                                    )
+                                                )
+                                            ) ?>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <?= $tipRow(__('Status'),
+                                            __('not held here, or not'
+                                                . ' visible to you')) ?>
+                                    <?php endif; ?>
+                                    <?= $tipRow(__('UUID'),
+                                        $target['uuid'], 'font-monospace') ?>
+
+                                </div>
+                            </span>
                         </div>
                     </div>
                 </div>
