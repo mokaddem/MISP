@@ -196,7 +196,11 @@ shown."*
 > panels below it do not print. §22 lists the twelve reads only a graph
 > can serve, splits them into this rail's peek and the overlay's full
 > read, and finds twenty-one of twenty-nine already free in the held
-> scan.
+> scan. **`24-relationships.md` §23** then reads pivotick 1.6.0
+> (released 2026-08-28) against that list: the key this section
+> specifies is now a library feature that filters, and twelve of the
+> twenty-nine move into the library — three of them whole, nine of them
+> as far as the rendering, with the derivation still ours.
 
 **`value_relation_graph`** — title **Neighbourhood**, sub-line `The value at the
 centre · 7 of 31 edges drawn`. A static inline SVG sketch (`00-shared.md` §7:

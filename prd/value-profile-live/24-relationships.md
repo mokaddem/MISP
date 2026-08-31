@@ -583,12 +583,16 @@ know:
   budget by 2.5; with larger nodes in the overlay that is about sixteen
   characters, and the tooltip carries the whole value.
 
-**Not upgraded.** pivotick 1.6 ships *edge layers* — edges keyed by kind,
+**Not swapped.** pivotick 1.6 ships *edge layers* — edges keyed by kind,
 styled per kind and switched on and off without moving the graph — which
-is precisely the three-notion switch this tab wants. Swapping the bundle
-would touch the event Pivot Explorer too and is not a wiring phase's
-work; `../pivotick`'s own `prd/` is where that belongs. Recorded as a
-follow-up (§15).
+is precisely the three-notion switch this tab wants. It **released on
+2026-08-28**, and three of the six findings above closed with it:
+`styleCb` on a default style block is called, `textTruncate: false`
+retires the six-character label budget, and a custom SVG path gives the
+fourth notion a shape. §23.6 has the detail. Swapping the bundle still
+touches the event Pivot Explorer and is still not a wiring phase's work,
+so what is recorded as the follow-up is the swap (§15 item 4), not the
+feature.
 
 ### 10.3 The rail shows the shape, the overlay shows the names
 
@@ -624,6 +628,13 @@ the honest way to keep one disabled is not to offer it.
 
 *Open the full graph* is the one control on this tab that stopped being
 disabled, and its reason went away rather than being deferred again.
+
+> **§23.5 re-opens half of this.** 1.6 adds
+> `editors.<editor>.enabled: false`, which *removes* an editing
+> affordance rather than vetoing it — the verb this section says it
+> wanted. **Notes** has no such switch, so the objection holds for that
+> one alone, and it is now the only thing keeping this graph out of
+> `full` mode and away from the data dock.
 
 ---
 
@@ -974,10 +985,13 @@ this instance, and `1.0.155.105` is the one that cannot be read.
    `externalPresence` runs twice per Relationships render.
 3. **Claim prose**, as child Notes on each relationship (§7), once
    that section has decided its own per-claim bound.
-4. **pivotick's edge layers.** 1.6 ships exactly the three-notion switch
-   this tab wants; the shipped bundle predates it (§10.2). Upstream, via
-   `../pivotick`'s `prd/`, and then one bundle swap that the event Pivot
-   Explorer has to be re-verified against.
+4. **pivotick's edge layers** — **released**, in 1.6.0 on 2026-08-28,
+   and the release carries far more than this item asked for (§23). The
+   shipped bundle still predates it, so the bundle swap and the event
+   Pivot Explorer's re-verification stand. What does **not** stand is
+   the upstream ask: edge layers need nothing from us, and the
+   `../pivotick` `prd/` item is now `editors.notes.enabled`, which is
+   what still keeps this tab out of `full` mode (§23.5).
 5. **A `Sighting`-style counting method for `Relationship`**, so the tab
    bar could carry a claim count without running the panel — the same
    shape phase 23's §12.1 asked for on sightings, and the same reason.
@@ -2442,10 +2456,11 @@ item 8 real; it is also the only item in the whole list that needs a new
 endpoint. Focus/hide is cheap and buys back the hairball. Path trace and
 hand-off-to-search are the smallest and can wait.
 
-pivotick's **edge layers** (§15.1 item 4) are what Tier B's mode
-switching and Tier C's focus want, and they are already recorded as an
-upstream follow-up. That dependency is now load-bearing rather than
-nice-to-have.
+pivotick's **edge layers** are what Tier B's mode switching and Tier C's
+focus want, and **they shipped on 2026-08-28** — along with a filtering
+legend, a data dock and rim badges that between them cover six more of
+these items. §23 reads the release against this list; what is left after
+it is Tier A, which no library was ever going to supply.
 
 ### 22.7 What each of these costs
 
@@ -2477,7 +2492,16 @@ written; what is missing is the route and the client-side merge.
 
 Cluster detection for the rail's sentence is a connected-components pass
 over the two-mode graph, O(V+E), no library, computed in PHP so the
-sentence and the panels agree.
+sentence and the panels agree — and **no library is not a shortcut**:
+pivotick 1.6 computes no communities either (§23.7), so this pass is
+ours whichever bundle is served.
+
+> **§23 revises the client half of this costing, not the server half.**
+> Every query cost above stands — a library release cannot change what
+> the digest holds. What it changes is the *build* cost of items 5, 6,
+> 10, 11, 14, 16, 17, 20, 21, 26, 27 and 29, which 1.6 turns from code
+> into configuration (§23.2), against the price of one bundle swap
+> (§23.8).
 
 ### 22.8 What this does not solve
 
@@ -2498,3 +2522,246 @@ sentence and the panels agree.
   stands: the engine has nothing to say about a value's neighbours, and
   every edge here remains a join over attributes the page can already
   see.
+
+---
+
+## 23. pivotick 1.6.0 shipped, and it moves most of §22
+
+§22 was written against the bundle MISP ships and against §15.1 item 4,
+which recorded edge layers as an upstream ask. **1.6.0 was released on
+2026-08-28** and it is a much larger release than that item anticipated.
+This section reads it against §22's list.
+
+**MISP is on a pre-1.6 build.** `app/webroot/js/pivotick.iife.js` is
+559,576 B dated 24 Aug; `~/git/pivotick/dist/pivotick.iife.js` is
+775,624 B dated the release day, and `package.json` reads `1.6.0`.
+Checked by marker rather than by date, per the standing rule that `dist`
+can lag:
+
+| Marker | MISP | 1.6 dist |
+|---|---|---|
+| `edgeTypeAccessor` · `edgeStyleMap` · `edgeFacets` | 0 | present |
+| `layerVisible` · `visibleIgnoringLayer` · `setEdgeFilter` | 0 | present |
+| `hideDisconnected` | 0 | present |
+| `addDockTab` · `tableColumns` | 0 | present |
+| `minimap` · `getContentBounds` · `setViewport` | 0 | present |
+| `setLegend` · `legendToggle` | 0 | present |
+| `badges` · `onBadgeClick` | 0 | present |
+| `setBorderBox` · `getBorderDistance` | 0 | present |
+| `asyncContent` · `textTruncate` | 0 | present |
+| `selectElements` · `addToSelection` | 0 | present |
+
+Not one of them is in the copy MISP serves. Everything below therefore
+costs a bundle swap first, which is §23.8.
+
+### 23.1 §15.1 item 4 is no longer an upstream ask
+
+Edge layers shipped, and they arrived as three cooperating pieces rather
+than the one the follow-up named:
+
+    render.edgeTypeAccessor   name the kind
+    render.edgeStyleMap       style it apart
+    UI.filter.edgeFacets      switch it off
+
+`docs/edge-layers.md` opens with `reference` / `correlation` / `sighting`
+as its worked example, so the vocabulary the feature was designed
+against is already ours.
+
+The property that matters for this tab is stated as the reason the
+feature exists: **switching a layer off does not move the graph.**
+Layout, selection and camera come back bit-for-bit identical, because
+the link force gates on the new `Edge.visibleIgnoringLayer` rather than
+on `visible` — an edge whose layer is off goes on pulling its endpoints
+together. That is precisely what §5's three notions want: three lenses
+over one neighbourhood, not three different pictures.
+
+It also retires a hand-rolled workaround. `ValueProfile::graphEdge`
+carries a per-edge style nested under `edge` because the shipped build
+silently ignores a flat one (§10.2); under 1.6 the three notions are a
+declaration — one accessor, one map of three entries — and the
+per-edge style object goes away.
+
+### 23.2 What 1.6 hands us, item by item
+
+Against §22.3's numbering. *Ours* is what still has to be built on the
+MISP side after the swap.
+
+| # | §22 read | 1.6 gives | Ours |
+|---|---|---|---|
+| 5 | hub neighbours | dock `Degree` / `degreeIn` / `degreeOut`, sortable | mark hubs on the canvas |
+| 6 | isolates | `UI.filter.hideDisconnected`, dock `Visibility` | — |
+| 10 | notion separation | edge layers + legend section | the accessor |
+| 11 | corroboration | `EdgeStyle.strokeWidth` per kind | the org count |
+| 14 | distribution | a second legend section | the key |
+| 16 | actor / campaign | `NodeStyle.badges`, or a legend section | the cluster read |
+| 17 | type composition | `nodeTypeAccessor` + auto legend with counts | — |
+| 20 | known-benign | `badges` — a channel nothing else is spending | the lookup |
+| 21 | external corroboration | `badges` | the fetch (still §15.1 item 2) |
+| 26 | expand one hop | async content hooks + `RenderContext` | the endpoint |
+| 27 | focus and hide | legend click, `Alt`-click show-only, layer toggles | — |
+| 29 | hand off a selection | shared dock selection, CSV / JSON export | the search URL |
+
+**Twelve of the twenty-nine move**, and it is worth being exact about
+how far. Three come over whole — 6, 17 and 27 need nothing from us at
+all. The other nine come over in halves: 1.6 supplies the rendering and
+the control, and the derivation behind them stays ours — the library
+draws a badge, it does not know a warninglist; it stacks a legend
+section, it does not know which organisations attested.
+
+Tier A — the two-mode feed — is untouched by the release and is still
+entirely ours (§23.7).
+
+### 23.3 The legend is the key we already hand-drew, and it filters
+
+`03-relationships.md` §9 specifies a key that "draws line samples rather
+than squares, so it teaches the edge styles as well as the colours", and
+the `.ctp` hand-draws it. `UI.legend` **is** that key: a swatch, a label
+and a count per category, rows that are real buttons carrying
+`aria-pressed`, and a hidden row drawn with a hollow swatch so colour is
+never the only signal — which is §13's greyscale check, met by the
+library. A section taking `scope: 'edge'` lists the kinds with a **line**
+swatch showing stroke colour, dash and marker as the renderer resolved
+them.
+
+**Clicking a row hides that category**, which makes the key the fastest
+filter on the canvas, and a toggle writes to `graph.queryEngine` rather
+than being a parallel mechanism — so it composes with everything else
+instead of fighting it.
+
+`sections` is the part that fits this tab exactly. The changelog's own
+motivating case is *"a graph that encodes kind in the fill, provenance in
+an enclosure and sharing in the stroke needs three keys, not one"* —
+which is this tab's notion / organisation / distribution problem in the
+release notes' own words. Each section is independent: its own entries,
+counts, fold state and filter, and switching `attribute` off in one and
+`self` off in another leaves the nodes that are neither.
+
+One caution the docs are explicit about: **the legend can only sample
+colour.** A section keyed on a dimension the colours do not encode takes
+the first node's colour and warns. A provenance or distribution section
+here has to declare its own `entries` with `color`.
+
+### 23.4 The data dock reframes the complaint that opened §22
+
+§22.1 argued the graph loses to the tables below it. 1.6's answer is
+that this was the wrong contest: `UI.table` splits a dock off the bottom
+of the canvas and states the intended loop as **table to find, canvas to
+understand, sidebar to read**. The reasoning is the same as §22.1's — *"a
+force layout is structurally bad at three things people do constantly:
+reading exact values, selecting at scale, and working out where to
+start"*.
+
+Two things in it are worth this tab specifically:
+
+- **`Apply to graph`** pushes the dock's column filters onto the canvas,
+  which is the bridge between narrowing what you *read* and narrowing
+  what is *drawn*. It lands as a single filter under a reserved key, so
+  it composes with the panel rather than clobbering it.
+- **The `Visibility` gutter lists the whole graph, not the canvas** —
+  `visible`, `filtered`, `excluded`, `endpoint`, `nested`. §22.3 item 15
+  asked for the cut to be stated rather than implied; the dock states it
+  per row, which is stronger than the sentence §22.5 proposes and does
+  not replace it.
+
+**The dock is `full` mode only**, which is the next section.
+
+### 23.5 §10.4 is half re-opened
+
+§10.4 kept both graphs in `viewer` because `light` and `full` carry the
+main header, and that header carries **Edit Graph** and **Notes** — two
+affordances that mutate the canvas and write nothing to MISP. The
+sentence it closed on was *"the honest way to keep one disabled is not to
+offer it."*
+
+**1.6 provides exactly that verb.** `editors.<editor>.enabled: false`
+*removes* an affordance rather than vetoing it, and the documentation
+gives the same reason §10.4 did — a veto is the wrong answer when an
+operation is never allowed:
+
+| Flag | Removes |
+|---|---|
+| `editors.deletion.enabled` | bulk **Delete**, node / edge / note delete entries |
+| `editors.nodeCreator.enabled` | **Create ▸ Add node**, canvas **Add Node Here** |
+| `editors.nodeEditor.enabled` | **Create ▸ Edit node** |
+| `editors.edgeEditor.enabled` | the edge menu's **Edit Edge** |
+
+So the editing half of §10.4's objection is answerable by configuration.
+
+**The Notes half is not.** `src/interfaces/GraphUI.ts` carries no notes
+switch — `note` appears there only in `editors.deletion`'s comment about
+which delete entries it removes — so `full` mode still mounts a
+note-authoring affordance on a page where §14 holds every write control
+disabled. The two honest readings are: stay in `viewer` and forgo the
+dock, the sidebar and the legend's home; or ask upstream for
+`editors.notes.enabled`.
+
+**That ask replaces §15.1 item 4 as this tab's `../pivotick` `prd/`
+item**, and it is very much smaller than the one it replaces.
+
+### 23.6 Three of §10.2's six findings are closed
+
+§10.2 recorded six things that had to be found by reading the bundle.
+Against 1.6:
+
+- **`styleCb` on a default style block is finally called.**
+  `render.defaultNodeStyle`, `defaultEdgeStyle` and `defaultLabelStyle`
+  each accepted one that no drawer ever invoked. Fixed, with the
+  precedence documented as specificity ordering rather than
+  callback-beats-static.
+- **The label budget is no longer six characters.** `textTruncate: false`
+  draws the whole label, on the themed pill a floated label already uses.
+  §10.2's `textVerticalShift` workaround — a 2.5× budget, about sixteen
+  characters in the overlay — is not needed under 1.6.
+- **`diamond` is reachable.** `StandardShape` is still
+  `circle | square | triangle | hexagon | none`, so it is not a fourth
+  standard shape; but `CustomNodeShape` takes an SVG path `d`, so a
+  fourth notion can have a shape of its own without the
+  `getBBox is not a function` throw §10.2 hit. `shape: 'none'` is new
+  beside it, and makes an HTML card the node itself.
+
+Still the caller's problem, unchanged: **`render.type` must be `'svg'`**
+for the full style vocabulary — the canvas renderer gained
+`edgeStyleMap` in 1.6 but still resolves only four of the nine
+`EdgeStyle` properties — and **a `d-none` container is still 0×0**, so
+the stage still has to be revealed before the constructor runs.
+
+### 23.7 What 1.6 does *not* give, and §22 still has to build
+
+**No community detection.** Nothing in the library computes clusters —
+no Louvain, no modularity, no connected components exposed as data. Its
+"clusters" are declared parent/child groupings, not found ones. So
+§22.7's costing stands unchanged: the cluster count, the bridge, the
+hub-by-structural-role and the rail's verdict sentence are a
+connected-components pass in **PHP**, over the two-mode graph, computed
+beside the feed so the sentence and the panels agree.
+
+**The two-mode feed is untouched by the release.** `value → event →
+neighbour` (§22.2), the ranking that decides which nodes survive the cap,
+and every number the sentence prints remain ours. 1.6 supplies the
+*rendering* and the *controls*; the *reading* does not come in a bundle.
+
+Worth naming so it is not mistaken for the answer: pivotick has an
+**`egoTree`** layout, which *"builds a star from the root's own
+neighbours"*. That is the shape §22.1 objects to, with a name. Adopting
+it would make the current graph official rather than better.
+
+### 23.8 What the swap costs
+
+One bundle, and the **event Pivot Explorer re-verified against it** —
+which is the same condition §15.1 item 4 attached, and it has not got
+cheaper.
+
+Breaking changes a consumer can trip on: `PHYSICS_PRESETS.default` is
+gone, `PhysicsKnobs` widened from four fields to six, the
+`PHYSICS_KNOB_RANGES.linkDistance` ceiling moved to 600,
+`toggleView()` / `isViewActive()` are deprecated in favour of
+`toggleFlyout(mode)`, and the flyout CSS hooks renamed from
+`.pvt-viewflyout-*` to `.pvt-flyout-*`. `UI.modeRail` is removed, but on
+`Unreleased` rather than in 1.6.0.
+
+**Value Profile's own graph reads none of them.** It constructs in
+`viewer` with a feed, a node style map and a per-edge style object, and
+touches no physics preset, no flyout and no CSS hook of the library's.
+The exposure of the swap is the event Pivot Explorer's, not this tab's —
+which is an argument for doing the swap on this tab's schedule and
+paying the re-verification once.
