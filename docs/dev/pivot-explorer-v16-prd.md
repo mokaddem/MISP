@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D4, D6, D7 await sign-off; D1, D2, D2b, D2c, D3, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D6, D7, D13 await sign-off; D1–D4, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -196,6 +196,19 @@ Everything below is a live measurement, and it is what the seed rule (D5′) is 
   using analyst data heavily would differ; the object-reference figures would not).
 - Correlations: **336,221** rows. Event 4116 alone has 5,629.
 - 80% of all attributes (2.2M of 2.8M) are **event-level**, not inside an object.
+
+**Payload size — the unbudgeted cost.** `/events/view/{id}.json` returns the whole event, and the
+Pivot Explorer fetches it today:
+
+| Event | Attribute JSON (conservative) |
+|---|---|
+| 4116 | **~81 MB** |
+| 1195 | ~5.5 MB |
+
+That is attributes alone, before 28,410 objects, tags, analyst data or feed correlations — so
+event 4116's view is on the order of a **100 MB download**. The seed budget (D12) caps the canvas
+at 1,500 nodes while still transferring 370,000 attributes to get there, and no client-side
+paging can fix a payload that has already arrived. See **D13**.
 
 **Two conclusions drawn from this:**
 
@@ -606,17 +619,65 @@ levels it seeded and what it left out, and this is where that statement lives.
 
 ### Open — sign-off requested
 
-#### D4 — Editor tray → dock pane
+#### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
-Move the unconnected-element tray from `UI.extraPanels` to `UIManager.addDockTab()`. The dock's
-intended loop — *table to find, canvas to understand, sidebar to read* — is the tray's job, and
-it is a wide horizontal region rather than a narrow sidebar column, which suits a list of
-attribute values. The sidebar keeps the analyst-data panel (§6.2).
+Today's sidebar panel titled **"Unlinked attributes"** (`:832`) lists every attribute and object
+not on the canvas as draggable chips. It is doing two jobs, and they scale differently:
 
-**D5′ raises the stakes:** the graph now seeds on relationships, so for the ~92% of events with
-no authored relationship the dock is the *only* route to the event's contents. It stops being a
-convenience and becomes the primary navigation surface — which also means §7's dock-paging
-concern is on the critical path, not a nicety.
+- *getting one specific element onto the canvas* — has to live inside the graph, and is the only
+  thing the panel uniquely provides;
+- *browsing the event's contents* — which the event page's own attribute table already does
+  properly, with paging, sorting and filtering.
+
+**Resolution:** the pane keeps a **search box at every size** — type `evil.com`, get a handful of
+matches, click to add to the canvas — and adapts its listing to the event:
+
+| Event size | Listing |
+|---|---|
+| short / medium | the full list, as today |
+| large | a **server-paged, sortable** table |
+
+Search is bounded by construction and works identically on a 20-attribute event and a
+370,000-attribute one, which is what makes it the primitive rather than the list.
+
+**The listing is server-backed, not paged in the browser.** MISP already provides it twice:
+`EventsController::viewEventAttributes($id, $all)` (ACL `*`, `ACLComponent.php:441`) — the
+endpoint the event page's own table uses — and `AttributesController::index()`, which accepts
+`page`, `limit`, `sort`, `direction` alongside `value`/`type`/`category`/`uuid` filters
+(`:104`). Neither needs building.
+
+The library's own table goes in the drawer beside it and shows **what is in the graph** — a small
+set after the seed rule — with its `Visibility` column explaining what is hidden and why. The two
+panes have different scopes on purpose: yours is the event, the library's is the canvas.
+
+Rejected: leaving the panel in the sidebar (a narrow column for long attribute values, and it
+splits two differently-scoped lists across two places), and deleting it outright in favour of the
+page's table (which would remove the only in-graph route to adding an element).
+
+It mounts via `UIManager.addDockTab()` — a wide horizontal region suits long attribute values far
+better than a narrow sidebar column — and the sidebar keeps the analyst-data panel (§6.2).
+
+**Why this is load-bearing rather than cosmetic:** the graph now seeds on relationships and a
+budget, so for the ~92% of events with no authored relationship, and for every event above 1,500
+nodes, this pane is the *only* in-graph route to the event's contents.
+
+#### D13 — Does the seed get its own endpoint? ⚠️ NOT YET DECIDED
+
+Exposed by §3.5's payload measurement and, of everything left open, the one with the largest
+consequences.
+
+Every decision so far budgets what is *drawn* (D10, D12) or *fetched later* (D9), while the
+opening fetch stays unbounded: `/events/view/{id}.json` for event 4116 is ~100 MB, of which the
+graph uses 86 nodes. D4's pane is now server-paged, so nothing else in the design needs the full
+payload in memory either.
+
+Options: **(a)** keep the current fetch — no controller change, and the page is no worse than
+today (it already downloads this); **(b)** add named parameters to trim it (attributes only where
+they participate in a relationship); **(c)** a dedicated seed endpoint returning the D12 levels
+directly — `{nodes, edges, meta}`, the shape §11 already sketches, which also removes the
+client-side graph-building from the `.ctp`.
+
+Bears on §4's "no controller change in Phase 1" and on §9's ordering. Needs its own pass.
 
 #### D6 — Write path onto the before-hooks
 
@@ -891,8 +952,8 @@ Two smaller items:
   L2-seeded canvas. The library deliberately leaves a cluster's *interior* alone but not its
   parent. Not a blocker — but the switch's label and D11's message must both speak about
   **relationships**, not about content, or the behaviour reads as a bug.
-- **The dock on a huge event.** It lists everything, so on event 4116 that's a 398,000-row
-  table. Needs paging or a server-side listing; the graph's seed rule does not protect it.
+- **The dock on a huge event.** Resolved by D4: the pane pages server-side via
+  `viewEventAttributes` / `attributes/index` rather than listing an in-memory 398,000 rows.
 - **`hideDisconnected` after a correlation fetch.** Turning the correlation layer back off
   strands the foreign nodes it brought in. The View flyout switch is the user's remedy; we should
   not force it on, since it moves the graph.
@@ -964,7 +1025,7 @@ relationships, and the events in §3.5 as fixtures):
 | 6 | Analyst-data badges + selection-reactive sidebar panel | 1 |
 | 7 | Sectioned legend | 3, 5, 6 |
 | 8 | `data.scope` facet + header (event identity + resolution statement) + correlated-event proxy nodes (D2c) | 5 |
-| 9 | Editor tray → dock pane; enable `UI.table` | 1 |
+| 9 | "Unlinked attributes" → dock pane: search box + full list, server-paged table above a size threshold (D4); library `UI.table` as a second pane | 1 |
 | 10 | `possibleKinds()` + write path onto `onBeforeEdgeCreate` / `isValidConnection` / `editors.*.enabled`; delete the innerHTML picker and the pending ring (D2, D2b) | 1, 8 |
 | 10b | Analyst-relationship persistence (`analystData/add`) as the second write target (D2b) | 10 |
 
