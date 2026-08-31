@@ -98,32 +98,111 @@
         return !!rec && (rec.deleted === true || rec.deleted === 1 || rec.deleted === '1');
     }
 
-    // Single source of truth for "what is connected" — used by both the canvas
-    // builder and the editor tray so they never disagree. An object counts as
-    // connected if it is a reference source, an object-target, OR owns a child
-    // attribute that some (live) reference points at.
-    function computeConnectivity(ev) {
-        var referencedAttrUuids = {};
-        var connectedObjUuids   = {};
-        var attrOwner           = {};   // object child attr uuid -> owning object uuid
+    // Node id an analyst relationship's target maps to, or null when it has no
+    // node on this canvas. AnalystData::valid_targets is far wider than the
+    // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
+    // analyst-data types are all legal targets. 'Event' joins this list with L0.
+    function analystTargetId(rel) {
+        var t = String(rel.related_object_type || '');
+        if (t === 'Attribute') return 'attr:' + rel.related_object_uuid;
+        if (t === 'Object')    return 'obj:'  + rel.related_object_uuid;
+        return null;
+    }
+
+    // Walk every outbound analyst relationship in the event, calling
+    // cb(relationship, sourceNodeId). Sources are event-level attributes,
+    // objects, and objects' child attributes; a tombstoned owner is skipped
+    // whole, exactly as it is on the canvas.
+    //
+    // RelationshipInbound is deliberately absent: the bulk path attaches it only
+    // at event level (PRD §3.4), and the event node arrives with L0 (task 3b).
+    function eachAnalystRelationship(ev, cb) {
+        function walk(rec, sourceId) {
+            if (isDeleted(rec)) return;
+            (rec.Relationship || []).forEach(function (rel) {
+                if (!isDeleted(rel)) cb(rel, sourceId);
+            });
+        }
+        (ev.Attribute || []).forEach(function (a) { walk(a, 'attr:' + a.uuid); });
         (ev.Object || []).forEach(function (obj) {
-            (obj.Attribute || []).forEach(function (a) { attrOwner[a.uuid] = obj.uuid; });
+            if (isDeleted(obj)) return;
+            walk(obj, 'obj:' + obj.uuid);
+            (obj.Attribute || []).forEach(function (a) { walk(a, 'attr:' + a.uuid); });
+        });
+    }
+
+    // Single source of truth for "what is authored" — used by both the canvas
+    // builder and the editor tray so they never disagree. D5' seeds any element
+    // participating in an object reference *or* an analyst relationship. An
+    // object counts if it is an endpoint itself, OR owns a child attribute that
+    // some live relationship touches.
+    function computeConnectivity(ev) {
+        var linkedAttrUuids   = {};
+        var connectedObjUuids = {};
+        var attrOwner         = {};   // object child attr uuid -> owning object uuid
+        var liveObj           = {};   // uuid -> true, for endpoint resolution
+        var liveAttr          = {};
+
+        (ev.Attribute || []).forEach(function (a) {
+            if (!isDeleted(a)) liveAttr[a.uuid] = true;
         });
         (ev.Object || []).forEach(function (obj) {
-            (obj.ObjectReference || []).forEach(function (ref) {
-                if (isDeleted(ref)) return;
-                connectedObjUuids[obj.uuid] = true;
-                if (String(ref.referenced_type) === '1') {
-                    connectedObjUuids[ref.referenced_uuid] = true;
-                } else {
-                    referencedAttrUuids[ref.referenced_uuid] = true;
-                    if (attrOwner[ref.referenced_uuid]) {
-                        connectedObjUuids[attrOwner[ref.referenced_uuid]] = true;
-                    }
-                }
+            var live = !isDeleted(obj);
+            if (live) liveObj[obj.uuid] = true;
+            (obj.Attribute || []).forEach(function (a) {
+                attrOwner[a.uuid] = obj.uuid;
+                if (live && !isDeleted(a)) liveAttr[a.uuid] = true;
             });
         });
-        return { referencedAttrUuids: referencedAttrUuids, connectedObjUuids: connectedObjUuids };
+
+        // Does this node id name a live element of *this* event? A relationship
+        // whose other end is a tombstone, lives in another event, or is an
+        // element type the canvas does not draw is not drawable — and an
+        // undrawable relationship must seed neither end, or its source arrives
+        // as an isolated node with no edge.
+        function exists(id) {
+            if (!id) return false;
+            return id.indexOf('obj:') === 0
+                ? !!liveObj[id.slice(4)]
+                : !!liveAttr[id.slice(5)];
+        }
+
+        // Mark one endpoint, given the node id it would carry. A touched child
+        // attribute pulls its owning object onto the canvas with it.
+        function markEndpoint(id) {
+            if (!id) return;
+            if (id.indexOf('obj:') === 0) {
+                connectedObjUuids[id.slice(4)] = true;
+                return;
+            }
+            var uuid = id.slice(5);
+            linkedAttrUuids[uuid] = true;
+            if (attrOwner[uuid]) connectedObjUuids[attrOwner[uuid]] = true;
+        }
+
+        (ev.Object || []).forEach(function (obj) {
+            if (isDeleted(obj)) return;
+            (obj.ObjectReference || []).forEach(function (ref) {
+                if (isDeleted(ref)) return;
+                var targetId = (String(ref.referenced_type) === '1' ? 'obj:' : 'attr:')
+                               + ref.referenced_uuid;
+                if (!exists(targetId)) return;
+                markEndpoint('obj:' + obj.uuid);
+                markEndpoint(targetId);
+            });
+        });
+
+        eachAnalystRelationship(ev, function (rel, sourceId) {
+            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) {
+                return;   // self-reference; the model rejects these, guard anyway
+            }
+            var targetId = analystTargetId(rel);
+            if (!exists(targetId)) return;
+            markEndpoint(sourceId);
+            markEndpoint(targetId);
+        });
+
+        return { linkedAttrUuids: linkedAttrUuids, connectedObjUuids: connectedObjUuids };
     }
 
     // Shared object node data (graph builder + editor drop handler).
@@ -181,16 +260,18 @@
         // `kind` is how the edge came to exist (D1's first edge dimension) and is
         // part of the edge's identity: two kinds may assert the same label between
         // the same pair, and both belong on the canvas.
-        function addEdge(from, to, label, kind) {
-            if (!nodeSet[from] || !nodeSet[to]) return;   // only link existing nodes
+        function addEdge(from, to, label, kind, extra) {
+            if (!nodeSet[from] || !nodeSet[to]) return false;   // only link existing nodes
             var key = kind + ' ' + from + ' ' + to + ' ' + (label || '');
-            if (edgeSet[key]) return;
+            if (edgeSet[key]) return false;
             edgeSet[key] = true;
-            edges.push({
-                from: from,
-                to:   to,
-                data: { kind: kind, label: label || '' }
-            });
+            var data = { kind: kind, label: label || '' };
+            // Same null-dropping as node data: a null value breaks the filter builder.
+            for (var k in (extra || {})) {
+                if (extra[k] != null) data[k] = extra[k];
+            }
+            edges.push({ from: from, to: to, data: data });
+            return true;
         }
 
         // Register an attribute's id (dedupe + edge existence) and return its node
@@ -210,18 +291,18 @@
             return 'attr:' + attr.uuid;
         }
 
-        /* Which event-level attributes are pointed at by an object reference?
-           (referenced_type 0 = attribute). These are the only standalone
-           attributes worth showing — they anchor to the object graph rather
-           than floating free, and this also covers referenced screenshots. */
+        /* Which event-level attributes does an authored relationship touch?
+           These are the only standalone attributes worth showing — they anchor
+           to the graph rather than floating free, and this also covers
+           referenced screenshots. */
         var conn                = computeConnectivity(ev);
-        var referencedAttrUuids = conn.referencedAttrUuids;
+        var linkedAttrUuids     = conn.linkedAttrUuids;
         var connectedObjUuids   = conn.connectedObjUuids;
 
-        /* Event-level attributes: surfaced only when an object references them,
-           so every node stays connected to the graph. */
+        /* Event-level attributes: surfaced only when an authored relationship
+           touches them, so every node stays connected to the graph. */
         (ev.Attribute || []).forEach(function (attr) {
-            if (!isDeleted(attr) && referencedAttrUuids[attr.uuid]) {
+            if (!isDeleted(attr) && linkedAttrUuids[attr.uuid]) {
                 addAttributeNode(attr);
             }
         });
@@ -262,7 +343,32 @@
             });
         });
 
-        return { nodes: nodes, edges: edges };
+        /* Analyst relationships (D1's second kind, L1 alongside object
+           references). Both endpoints were seeded above, so a rejected edge
+           means the target has no node on this canvas at all — a relationship
+           pointing at another event's attribute, or at an element type the
+           canvas does not draw. Those are counted, not silently dropped. */
+        var relationshipsSkipped = 0;
+        eachAnalystRelationship(ev, function (rel, sourceId) {
+            if (rel.related_object_uuid && rel.object_uuid === rel.related_object_uuid) {
+                relationshipsSkipped++;
+                return;
+            }
+            var targetId = analystTargetId(rel);
+            if (!targetId || !nodeSet[targetId] || !nodeSet[sourceId]) {
+                relationshipsSkipped++;
+                return;
+            }
+            addEdge(sourceId, targetId, rel.relationship_type || 'related-to',
+                    'analyst-relationship',
+                    { authors: rel.authors, orgc: rel.orgc_uuid });
+        });
+
+        return {
+            nodes: nodes,
+            edges: edges,
+            stats: { relationshipsSkipped: relationshipsSkipped }
+        };
     }
 
     /* ── pivotick options ──────────────────────────────────── */
@@ -314,14 +420,15 @@
                         return {};
                     }
                 },
-                // D1's first edge dimension. Only `object-reference` exists so far;
-                // the remaining kinds arrive with their own layers (PRD tasks 3, 5, 5b).
+                // D1's first edge dimension. Two kinds so far; correlations and
+                // feed/server kinds arrive with their layers (PRD tasks 5, 5b).
                 edgeTypeAccessor: function (edge) {
                     var d = edge.getData ? edge.getData() : null;
                     return d ? d.kind : undefined;
                 },
                 edgeStyleMap: {
-                    'object-reference': { strokeColor: '#428bca' }
+                    'object-reference':     { strokeColor: '#428bca' },
+                    'analyst-relationship': { strokeColor: '#f39a1f', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
@@ -393,7 +500,11 @@
                 var opts   = graphOptions();
                 if (editor) opts.UI.extraPanels = [editor.panel];
 
-                _graph = new window.Pivotick(containerEl, data, opts);
+                _graph = new window.Pivotick(
+                    containerEl,
+                    { nodes: data.nodes, edges: data.edges },   // `stats` is ours, not pivotick's
+                    opts
+                );
 
                 if (editor) {
                     try { editor.attach(_graph); }
@@ -435,12 +546,12 @@
         /* ── unlinked inventory (what's NOT on the canvas) ──── */
         // Same connectivity rule as the canvas builder, so the tray lists exactly
         // the attributes/objects buildGraphData chose to omit.
-        var conn           = computeConnectivity(ev);
-        var referencedAttr = conn.referencedAttrUuids;
-        var connectedObj   = conn.connectedObjUuids;
+        var conn         = computeConnectivity(ev);
+        var linkedAttr   = conn.linkedAttrUuids;
+        var connectedObj = conn.connectedObjUuids;
         var items = [];
         (ev.Attribute || []).forEach(function (a) {
-            if (isDeleted(a) || referencedAttr[a.uuid]) return;
+            if (isDeleted(a) || linkedAttr[a.uuid]) return;
             items.push({
                 kind:  'attribute', uuid: a.uuid, attr: a,
                 label: (a.value != null ? String(a.value) : ''),

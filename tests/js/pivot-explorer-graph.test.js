@@ -174,6 +174,12 @@ const obj = o => Object.assign({
 
 const ref = o => Object.assign({ referenced_type: '1', relationship_type: 'related-to' }, o);
 
+// An outbound analyst relationship, as it arrives on an Attribute or Object.
+const arel = o => Object.assign({
+    relationship_type: 'analysed-with', authors: 'alice', orgc_uuid: 'org-1',
+    related_object_type: 'Object',
+}, o);
+
 /* ──────────────────────── assertions ──────────────────────────── */
 
 let passed = 0, failed = 0;
@@ -414,8 +420,10 @@ test('the edge-kind dimension is declared for pivotick', async () => {
 
     eq('object-reference is styled in D1 blue',
        r.edgeStyleMap['object-reference'], { strokeColor: '#428bca' });
-    eq('only the one implemented kind is styled so far',
-       Object.keys(r.edgeStyleMap), ['object-reference']);
+    eq('both implemented kinds are styled',
+       Object.keys(r.edgeStyleMap), ['object-reference', 'analyst-relationship']);
+    eq('analyst relationships are dashed orange (D1 palette)',
+       r.edgeStyleMap['analyst-relationship'], { strokeColor: '#f39a1f', dashed: true });
 
     const facets = g.opts.UI.filter.edgeFacets;
     eq('one edge facet — the layer switch', facets.length, 1);
@@ -445,6 +453,250 @@ test('INVARIANT: every kind the builder emits resolves to a styled kind', async 
         const resolved = accessor({ getData: () => e.data });
         ok('kind ' + JSON.stringify(resolved) + ' for ' + e.from + '->' + e.to + ' is styled',
            styled.indexOf(resolved) !== -1, 'styled kinds: ' + JSON.stringify(styled));
+    });
+});
+
+test('an analyst relationship becomes an edge of its own kind', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'B' }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('both endpoints seeded with no object reference in sight',
+       ids(g.nodes), ['obj:A', 'obj:B']);
+    eq('one analyst edge', edgeKeys(g.edges), ['obj:A->obj:B:analysed-with']);
+    eq('tagged with its kind', g.edges[0].data.kind, 'analyst-relationship');
+    eq('provenance carried on the edge',
+       [g.edges[0].data.authors, g.edges[0].data.orgc], ['alice', 'org-1']);
+});
+
+test('D5 prime: an analyst relationship alone is enough to seed an element', async () => {
+    // Before task 3 neither of these was on the canvas: A has no object
+    // reference, and e1 is an event-level attribute nothing references.
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', value: 'linked-by-analyst' }),
+                    attr({ uuid: 'e2', value: 'truly-loose' })],
+        Object: [
+            obj({ uuid: 'A', Relationship: [
+                arel({ object_uuid: 'A', related_object_uuid: 'e1',
+                       related_object_type: 'Attribute' }),
+            ] }),
+            obj({ uuid: 'Z' }),
+        ],
+    }));
+    eq('the analyst-linked pair is seeded', ids(g.nodes), ['attr:e1', 'obj:A']);
+    eq('edge points at the attribute', edgeKeys(g.edges), ['obj:A->attr:e1:analysed-with']);
+    eq('the untouched ones stay in the tray',
+       g.tray.map(t => t.label).sort(), ['file', 'truly-loose']);
+});
+
+test('a relationship on a child attribute pulls its owning object in', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'OWNER', Attribute: [
+            attr({ uuid: 'c1', Relationship: [
+                arel({ object_uuid: 'c1', related_object_uuid: 'T' }),
+            ] }),
+        ] }),
+        obj({ uuid: 'T' }),
+    ] }));
+    eq('owner seeded via its child', ids(g.nodes), ['obj:OWNER', 'obj:T']);
+    eq('the child is nested, not top-level',
+       byId(g.nodes, 'obj:OWNER').children.map(c => c.id), ['attr:c1']);
+    eq('the edge starts at the child attribute',
+       edgeKeys(g.edges), ['attr:c1->obj:T:analysed-with']);
+});
+
+test('CLOSES THE TASK-2 GAP: kind is part of edge identity', async () => {
+    // Same pair, same label, two different kinds — both edges belong. This is
+    // what makes `kind` in the dedupe key observable.
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A',
+              ObjectReference: [ref({ referenced_uuid: 'B', relationship_type: 'includes' })],
+              Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'B',
+                                    relationship_type: 'includes' })] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('two edges, not one', g.edges.length, 2);
+    eq('one of each kind',
+       g.edges.map(e => e.data.kind).sort(), ['analyst-relationship', 'object-reference']);
+    eq('both carry the same label',
+       [...new Set(g.edges.map(e => e.data.label))], ['includes']);
+});
+
+test('relationships the canvas cannot draw are skipped, not half-drawn', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', Relationship: [
+            // legal AnalystData targets with no node on this canvas
+            arel({ object_uuid: 'A', related_object_uuid: 'r1', related_object_type: 'EventReport' }),
+            arel({ object_uuid: 'A', related_object_uuid: 'g1', related_object_type: 'GalaxyCluster' }),
+            arel({ object_uuid: 'A', related_object_uuid: 'o1', related_object_type: 'Organisation' }),
+            // Event is legal but its node only arrives with L0 (task 3b)
+            arel({ object_uuid: 'A', related_object_uuid: 'ev1', related_object_type: 'Event' }),
+            // an Object in some *other* event
+            arel({ object_uuid: 'A', related_object_uuid: 'elsewhere' }),
+            // self-reference — the model rejects these, we guard anyway
+            arel({ object_uuid: 'A', related_object_uuid: 'A' }),
+            // the one that does resolve
+            arel({ object_uuid: 'A', related_object_uuid: 'B' }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('only the resolvable relationship drew an edge',
+       edgeKeys(g.edges), ['obj:A->obj:B:analysed-with']);
+    eq('no phantom nodes for unresolvable targets', ids(g.nodes), ['obj:A', 'obj:B']);
+    eq('no console errors', g.errors, []);
+});
+
+test('an object whose only reference dangles stays off the canvas', async () => {
+    // Pre-existing behaviour change from task 3: the source used to be seeded
+    // before the target was checked, so such an object appeared alone with no
+    // edge. It belongs in the tray, where it can be dragged in deliberately.
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', name: 'dangler', ObjectReference: [
+            ref({ referenced_uuid: 'not-in-this-event' }),
+        ] }),
+        obj({ uuid: 'B', name: 'linked', ObjectReference: [ref({ referenced_uuid: 'C' })] }),
+        obj({ uuid: 'C', name: 'target' }),
+    ] }));
+    eq('only the real pair is on the canvas', ids(g.nodes), ['obj:B', 'obj:C']);
+    eq('the dangler is offered in the tray', g.tray.map(t => t.label), ['dangler']);
+    eq('no edge was invented', edgeKeys(g.edges), ['obj:B->obj:C:related-to']);
+});
+
+test('a reference to a deleted element does not seed its source', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', name: 'points-at-tombstone',
+              ObjectReference: [ref({ referenced_uuid: 'D' })] }),
+        obj({ uuid: 'D', deleted: true }),
+    ] }));
+    eq('nothing on the canvas', ids(g.nodes), []);
+    eq('the source is in the tray', g.tray.map(t => t.label), ['points-at-tombstone']);
+});
+
+test('a deleted link between two on-canvas elements still draws nothing', async () => {
+    // The realistic soft-delete: a user removes one link of several. Both ends
+    // stay on the canvas for other reasons, so the seeding pass cannot save us
+    // here — the drawing pass has to honour the tombstone itself.
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', ObjectReference: [
+            ref({ referenced_uuid: 'B', relationship_type: 'includes' }),
+            ref({ referenced_uuid: 'B', relationship_type: 'was-linked', deleted: true }),
+        ], Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'B',
+                   relationship_type: 'was-asserted', deleted: 1 }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('both ends are on the canvas', ids(g.nodes), ['obj:A', 'obj:B']);
+    eq('only the live reference drew an edge',
+       edgeKeys(g.edges), ['obj:A->obj:B:includes']);
+});
+
+test('a relationship pointing at a tombstoned element seeds neither end', async () => {
+    // The deleted attribute is never drawn, so seeding its partner would leave
+    // that partner alone on the canvas with nothing to connect to.
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', value: 'gone', deleted: true })],
+        Object: [obj({ uuid: 'A', name: 'points-at-gone', Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'e1',
+                   related_object_type: 'Attribute' }),
+        ] })],
+    }));
+    eq('nothing on the canvas', ids(g.nodes), []);
+    eq('no edges', g.edges, []);
+    eq('the source is offered in the tray', g.tray.map(t => t.label), ['points-at-gone']);
+});
+
+test('the target TYPE gates resolution, not just whether the uuid exists', async () => {
+    // 'B' is a real Object here. A relationship naming uuid B but declaring a
+    // non-canvas target type must still be skipped — otherwise the type check is
+    // only working by accident, rescued by uuids that happen not to exist.
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'EventReport' }),
+            arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'GalaxyCluster' }),
+            arel({ object_uuid: 'A', related_object_uuid: 'B', related_object_type: 'Event' }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    eq('no edges — every target type is off-canvas', g.edges, []);
+    eq('and nothing was seeded by them', ids(g.nodes), []);
+});
+
+test('an event-level attribute can be the source of a relationship', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', value: 'source-attr', Relationship: [
+            arel({ object_uuid: 'e1', related_object_uuid: 'B' }),
+        ] })],
+        Object: [obj({ uuid: 'B' })],
+    }));
+    eq('both ends seeded', ids(g.nodes), ['attr:e1', 'obj:B']);
+    eq('edge runs from the event-level attribute',
+       edgeKeys(g.edges), ['attr:e1->obj:B:analysed-with']);
+    eq('nothing left in the tray', g.tray, []);
+});
+
+test('tombstones apply to analyst relationships too', async () => {
+    const g = await buildGraph(ev({ Object: [
+        // a deleted relationship on a live object
+        obj({ uuid: 'A', Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'B', deleted: true }),
+        ] }),
+        obj({ uuid: 'B' }),
+        // a live relationship on a deleted object
+        obj({ uuid: 'X', deleted: 1, Relationship: [
+            arel({ object_uuid: 'X', related_object_uuid: 'B' }),
+        ] }),
+        // a live relationship on a deleted child attribute
+        obj({ uuid: 'Y', Attribute: [attr({ uuid: 'y1', deleted: '1', Relationship: [
+            arel({ object_uuid: 'y1', related_object_uuid: 'B' }),
+        ] })] }),
+        // a deleted object whose child attribute is live and carries one: the
+        // tombstoned owner takes the child's relationship with it
+        obj({ uuid: 'W', deleted: true, Attribute: [attr({ uuid: 'w1', Relationship: [
+            arel({ object_uuid: 'w1', related_object_uuid: 'B' }),
+        ] })] }),
+    ] }));
+    eq('nothing is seeded and nothing is drawn', ids(g.nodes), []);
+    eq('no edges', g.edges, []);
+});
+
+test('null provenance is dropped from edge data, not carried as null', async () => {
+    const g = await buildGraph(ev({ Object: [
+        obj({ uuid: 'A', Relationship: [
+            arel({ object_uuid: 'A', related_object_uuid: 'B', authors: null, orgc_uuid: null }),
+        ] }),
+        obj({ uuid: 'B' }),
+    ] }));
+    const d = g.edges[0].data;
+    ok('authors key absent', !('authors' in d), JSON.stringify(d));
+    ok('orgc key absent', !('orgc' in d));
+    eq('the kind and label survive', [d.kind, d.label], ['analyst-relationship', 'analysed-with']);
+});
+
+test('INVARIANT still holds with two kinds in play', async () => {
+    const g = await buildGraph(ev({
+        Attribute: [attr({ uuid: 'e1', value: 'analyst-linked' }),
+                    attr({ uuid: 'e2', value: 'loose' })],
+        Object: [
+            obj({ uuid: 'A', ObjectReference: [ref({ referenced_uuid: 'B' })],
+                  Relationship: [arel({ object_uuid: 'A', related_object_uuid: 'e1',
+                                        related_object_type: 'Attribute' })] }),
+            obj({ uuid: 'B' }),
+            obj({ uuid: 'C', name: 'url' }),
+        ],
+    }));
+    const canvas = new Set(g.nodes.map(n => n.id.replace(/^(obj|attr):/, '')));
+    const tray = new Set(g.tray.map(t => t.label));
+    eq('canvas', [...canvas].sort(), ['A', 'B', 'e1']);
+    eq('tray holds only what no relationship touches', [...tray].sort(), ['loose', 'url']);
+
+    const styled = Object.keys(g.opts.render.edgeStyleMap);
+    const accessor = g.opts.render.edgeTypeAccessor;
+    g.edges.forEach(e => {
+        ok('kind ' + JSON.stringify(e.data.kind) + ' is styled',
+           styled.indexOf(accessor({ getData: () => e.data })) !== -1);
     });
 });
 
