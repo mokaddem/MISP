@@ -1434,7 +1434,10 @@ $chartPayload = array(
                                             'size' => $pageSize,
                                             'shown' => $group['count'],
                                             'total' => $group['count'],
-                                            'noun' => __('entries'),
+                                            'noun' => array(
+                                                'one' => __('entry'),
+                                                'many' => __('entries'),
+                                            ),
                                         )
                                     ) ?>
                                 </div>
@@ -1469,7 +1472,10 @@ $chartPayload = array(
                                 'size' => $sectionSize,
                                 'shown' => $history['occurrences'],
                                 'total' => $history['occurrences'],
-                                'noun' => __('occurrences'),
+                                'noun' => array(
+                                    'one' => __('occurrence'),
+                                    'many' => __('occurrences'),
+                                ),
                             )
                         ) ?>
                     </div>
@@ -1565,7 +1571,10 @@ $chartPayload = array(
                                             'size' => $pageSize,
                                             'shown' => $eventTotal,
                                             'total' => $eventTotal,
-                                            'noun' => __('entries'),
+                                            'noun' => array(
+                                                'one' => __('entry'),
+                                                'many' => __('entries'),
+                                            ),
                                         )
                                     ) ?>
                                 </div>

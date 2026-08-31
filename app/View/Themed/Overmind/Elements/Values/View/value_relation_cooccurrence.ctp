@@ -892,7 +892,10 @@ $headerSub = ob_get_clean();
                     'size' => $siblings['page_size'],
                     'shown' => count($siblings['rows']),
                     'total' => $siblings['total'],
-                    'noun' => __('siblings'),
+                    'noun' => array(
+                        'one' => __('sibling'),
+                        'many' => __('siblings'),
+                    ),
                 )) ?>
             </div>
 
@@ -1739,7 +1742,10 @@ $headerSub = ob_get_clean();
                 'size' => $co['page_size'],
                 'shown' => count($valueRows),
                 'total' => $co['matched'],
-                'noun' => __('rows'),
+                'noun' => array(
+                    'one' => __('row'),
+                    'many' => __('rows'),
+                ),
             )) ?>
         </div>
 

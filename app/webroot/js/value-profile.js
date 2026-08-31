@@ -1479,6 +1479,7 @@
         setOwnText(list, '[data-vp-page-from]', from);
         setOwnText(list, '[data-vp-page-to]', to);
         setOwnText(list, '[data-vp-page-of]', of);
+        setOwnPlural(list, 'pager', of);
     }
 
     /**

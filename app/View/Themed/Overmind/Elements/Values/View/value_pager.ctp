@@ -15,7 +15,10 @@
  * @var int    $size  Rows per page
  * @var int    $shown Rows this panel was given
  * @var int    $total The value's own count, which filtering never changes
- * @var string $noun  Optional label for the range line
+ * @var mixed  $noun  Optional label for the range line. A string is
+ *                    printed as given; `['one' => …, 'many' => …]` is
+ *                    counted, and the script swaps the two as the range
+ *                    changes under a filter
  * @var array  $sizes Optional page sizes to offer; absent for a caller
  *                    that wants the fixed size it passed
  */
@@ -23,6 +26,13 @@ $size = max(1, (int)($size ?? 10));
 $shown = (int)($shown ?? 0);
 $total = (int)($total ?? $shown);
 $noun = $noun ?? null;
+/*
+ * A counted noun needs both forms in the markup, because the number
+ * beside it changes client-side and `__n()` has long since run. Callers
+ * that pass a plain string get exactly what they passed.
+ */
+$nounOne = is_array($noun) ? $noun['one'] : null;
+$nounMany = is_array($noun) ? $noun['many'] : null;
 $sizes = $sizes ?? null;
 
 $pages = max(1, (int)ceil($shown / $size));
@@ -42,7 +52,12 @@ $from = $shown > 0 ? 1 : 0;
             data-vp-page-to><?= h($to) ?></span>
         <?= __('of') ?>
         <span data-vp-page-of><?= h($shown) ?></span>
-        <?php if ($noun !== null): ?>
+        <?php if ($nounOne !== null): ?>
+            <span data-vp-plural="pager"
+                  data-vp-one="<?= h($nounOne) ?>"
+                  data-vp-many="<?= h($nounMany) ?>"><?=
+                h($shown === 1 ? $nounOne : $nounMany) ?></span>
+        <?php elseif ($noun !== null): ?>
             <?= h($noun) ?>
         <?php endif; ?>
         <?php if ($total !== $shown): ?>
