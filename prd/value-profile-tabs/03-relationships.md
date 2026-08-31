@@ -195,6 +195,10 @@ graph`.
 **`value_relation_settings`** — title **What is counted**, sub-line *"The engine
 settings this tab depends on"*. `.vp-fact-line` rows:
 
+> **§21.6 extends this card to the fourth section.** A fourth row names the
+> feed and server caches, the split has four bars carrying their units, and
+> the sub-line covers caches as well as engine settings.
+
 - `Correlation limit 20.` (warn-toned) *"Above it MISP stores no correlations at
   all and records the value in `over_correlating_values` instead. That is a
   fourth state for the first section, not an empty one."*
@@ -946,3 +950,51 @@ a 24% dark-theme rule matching the chip beside it.
 **The lesson worth keeping:** a chip must not need a second stylesheet to
 be readable. Whatever a missing rule degrades to has to be legible,
 because `?v=` will not change when only a CSS file does.
+
+### 21.6 "What is counted" now covers all four sections
+
+§9 specifies this card as the engine's settings plus the arithmetic, and
+after §20 it described three quarters of the tab. Four changes:
+
+**A fourth fact line, for the rules section four answers to.** The other
+three lines name correlation settings; this one names the cache — how many
+feeds and servers have caching switched on, how many of them this reader
+may read, and the per-source event cap, with the md5-membership caveat
+that rules out a date or a near-match. Warn-toned when nothing is cached
+at all, because then section four is empty for every value and the reason
+is configuration rather than absence.
+
+**It says how many sources the reader may read, and that is not a §14.6
+disclosure.** *"5 feeds and 1 sync server cached. You may read 5 feeds and
+0 servers of them."* names a difference the reader is on the wrong side
+of — but it is a statement about the instance and their own role, not
+about any value. Vary the value and the sentence does not move, which is
+the same oracle test §20.5 applies to the role notice, and the same
+answer. Stating it here is also what §9 says this card is *for*: rules
+behind numbers that are otherwise invisible.
+
+**Four bars, and each names its unit.** `Co-occurrence (values)`,
+`Near-match (values)`, `Outside (events)`, `Asserted (claims)`. The units
+were already mixed before — matches and claims are not values either —
+but a fourth notion made the pretence expensive, so the labels now carry
+it. `--vp-rel-external` keeps the section's own colour.
+
+**The heading stopped claiming a sum.** It read *"The 1,214
+machine-derived, split three ways"*, printing co-occurrence plus
+near-match as one machine total. Remote events cannot join that number —
+an event is not a value — and a total that silently excludes one of the
+three machine notions is worse than no total. It now reads **"Four
+notions, counted apart"**, which is §5's rule rather than an arithmetic
+claim. `summary.correlations` still exists and still means co-occurrence
+plus near-match; nothing prints it.
+
+**A non-zero count never draws as an empty bar.** Three remote events
+beside 1,214 co-occurring values rounds to `0%`, and the bar then
+contradicted the `3` printed next to it. Anything present now floors at
+4%; only a real zero is empty. This was already latent for a single
+near-match.
+
+Verified on the running instance in both themes, and through the Console
+renderer as a plain user: `You may read 5 feeds and 0 servers of them`,
+followed by *"The rest are withheld from your role, on every value
+alike."*

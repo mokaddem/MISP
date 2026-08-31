@@ -1472,6 +1472,7 @@ class ValueProfile extends AppModel
         $types = $this->model('Value')->typesFor($user, $value, $options);
         $near = $this->nearMatches($user, $value, $types);
         $asserted = $this->assertedClaims($user, $value, $options);
+        $external = $this->externalPresence($user, $value);
         return array(
             'value' => $value,
             'relationships' => array(
@@ -1480,7 +1481,9 @@ class ValueProfile extends AppModel
                         'cooccurrence' => $context['co'],
                         'near' => $near,
                         'asserted' => $asserted,
+                        'external' => $external,
                     )),
+                'external' => $external,
                 'cooccurrence' => $context['co'],
                 'settings' => $this->relationSettings($user, $value),
             ),
@@ -1567,21 +1570,31 @@ class ValueProfile extends AppModel
      * @param string $value
      * @return array
      */
-    private function externalPresence(array $user, $value)
+    /**
+     * Which cached sources exist, and which of them this reader may be
+     * told about — the config half of §20.2's rule, with no value in it.
+     *
+     * Split out from `externalPresence()` because the rail's "What is
+     * counted" card states these rules for a value with nothing to
+     * count, so it needs them without paying for a cache lookup.
+     * Everything it returns is a property of the instance and the
+     * reader's role, never of a value.
+     *
+     * @param array $user
+     * @return array
+     */
+    private function externalVisibility(array $user)
     {
-        $feedModel = $this->model('Feed');
-        $serverModel = $this->model('Server');
-
         $isSiteAdmin = !empty($user['Role']['perm_site_admin']);
         $mayViewCorrelations = $isSiteAdmin
             || !empty($user['Role']['perm_view_feed_correlations']);
 
-        $cachedFeeds = $feedModel->find('all', array(
+        $cachedFeeds = $this->model('Feed')->find('all', array(
             'conditions' => array('Feed.caching_enabled' => 1),
             'recursive' => -1,
             'fields' => array('Feed.id', 'Feed.lookup_visible'),
         ));
-        $cachedServerCount = $serverModel->find('count', array(
+        $cachedServerCount = $this->model('Server')->find('count', array(
             'conditions' => array('Server.caching_enabled' => 1),
             'recursive' => -1,
         ));
@@ -1596,26 +1609,49 @@ class ValueProfile extends AppModel
             }
         }
 
-        $presence = array(
-            'sources' => array(),
-            'counts' => array('feeds' => 0, 'servers' => 0),
-            'events' => 0,
-            // role and instance config only — never this value
-            'restricted' => array(
-                'feeds' => $withheldFeeds > 0,
-                'servers' => !$isSiteAdmin && $cachedServerCount > 0,
-            ),
+        return array(
+            'site_admin' => $isSiteAdmin,
+            'visible_feed_ids' => $visibleFeedIds,
             'cached' => array(
                 'feeds' => count($cachedFeeds),
                 'servers' => $cachedServerCount,
             ),
+            'visible' => array(
+                'feeds' => count($visibleFeedIds),
+                'servers' => $isSiteAdmin ? $cachedServerCount : 0,
+            ),
+            // role and instance config only — never a value
+            'restricted' => array(
+                'feeds' => $withheldFeeds > 0,
+                'servers' => !$isSiteAdmin && $cachedServerCount > 0,
+            ),
+            'event_cap' => self::EXTERNAL_EVENT_CAP,
+        );
+    }
+
+    private function externalPresence(array $user, $value)
+    {
+        $feedModel = $this->model('Feed');
+        $visibility = $this->externalVisibility($user);
+        $visibleFeedIds = $visibility['visible_feed_ids'];
+        $isSiteAdmin = $visibility['site_admin'];
+
+        $presence = array(
+            'sources' => array(),
+            'counts' => array('feeds' => 0, 'servers' => 0),
+            'events' => 0,
+            'restricted' => $visibility['restricted'],
+            'cached' => $visibility['cached'],
+            'visible' => $visibility['visible'],
             'event_cap' => self::EXTERNAL_EVENT_CAP,
         );
 
         if (empty($visibleFeedIds) && !$isSiteAdmin) {
             return $presence;
         }
-        if (empty($cachedFeeds) && empty($cachedServerCount)) {
+        if (empty($visibility['cached']['feeds'])
+            && empty($visibility['cached']['servers'])
+        ) {
             return $presence;
         }
 
@@ -2589,6 +2625,14 @@ class ValueProfile extends AppModel
                 ->isValueExcluded($value),
             'over_correlating' => $this
                 ->model('OverCorrelatingValue')->isBlocked($value),
+            /*
+             * Section four is governed by the feed cache rather than by
+             * the correlation engine, and its rules are just as
+             * invisible from the page: which sources are cached at all,
+             * which of them this reader may be told about, and the
+             * per-source event cap. Config and role only — no value.
+             */
+            'external' => $this->externalVisibility($user),
         );
     }
 
@@ -2619,10 +2663,26 @@ class ValueProfile extends AppModel
         $asserted = isset($parts['asserted'])
             ? (int)$parts['asserted']['total']
             : 0;
+        /*
+         * Remote events, which is what section four's own header counts,
+         * and deliberately not added to `correlations`: that total is
+         * *values* related to this one, and an event is not a value.
+         * Summing them would invent a strength out of two units, which
+         * is the blend §5 of the tab brief exists to prevent.
+         */
+        $external = isset($parts['external'])
+            ? (int)$parts['external']['events']
+            : 0;
+        $externalSources = isset($parts['external'])
+            ? (int)$parts['external']['counts']['feeds']
+                + (int)$parts['external']['counts']['servers']
+            : 0;
         return array(
             'correlations' => $cooccurrence + $near,
             'cooccurrence' => $cooccurrence,
             'near' => $near,
+            'external' => $external,
+            'external_sources' => $externalSources,
             'asserted' => $asserted,
             /*
              * The viewer's own occurrence count and not
