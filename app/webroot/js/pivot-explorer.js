@@ -388,8 +388,10 @@
        - a pivotick sidebar extraPanel listing the event's unlinked
          attributes as draggable chips
        - drop a chip on the canvas to stage its node
-       - draw an edge with pivotick's Edit ▸ Add edge tool; we intercept
-         edgeAdd to validate the source, pick a relationship, and persist
+       - draw an edge in pivotick's Create mode (v1.5.0 dropped the old
+         Edit ▸ Add edge tool and its `e` toggle for the mode rail); we
+         intercept edgeAdd to validate the source, pick a relationship,
+         and persist
        ══════════════════════════════════════════════════════════ */
     function createEditor(event) {
         var ev = (event && event.Event) ? event.Event : {};

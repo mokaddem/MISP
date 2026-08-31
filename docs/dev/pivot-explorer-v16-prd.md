@@ -86,7 +86,7 @@ persisting enrichment into the event (`events/queryEnrichment`, `perm_add` — `
 
 `event_pivot_explorer.ctp` is now 117 lines — markup, the editor CSS, and the `data-pe-*`
 config attributes on `#pe-card`. All behaviour lives in `app/webroot/js/pivot-explorer.js`
-(796 lines), loaded by the element's `assetLoader` call beside `pivotick.iife`. **Bare
+(798 lines), loaded by the element's `assetLoader` call beside `pivotick.iife`. **Bare
 `:NNN` references in this section and in §6 point into that module.** It fetches
 `/events/view/{id}.json` and builds:
 
@@ -135,10 +135,10 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 
 - Uses none of the removed/renamed API: no `UI.selectionMenu`, `graphControls`, `graphToolbar`,
   `graphNaviation`.
-- The extra panel's `render` returns an **HTMLElement** (`pivot-explorer.js:749`), so the
+- The extra panel's `render` returns an **HTMLElement** (`pivot-explorer.js:751`), so the
   1.5.0 "a `string` never
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
-- `graph.on('edgeAdd', …)` (`pivot-explorer.js:754`) and `simulation.d3LinkDistance` still exist.
+- `graph.on('edgeAdd', …)` (`pivot-explorer.js:756`) and `simulation.d3LinkDistance` still exist.
 - v1.6.0's breaking changes are confined to physics presets. As the code stands, the graph
   **configures** `d3LinkDistance: 200` (`pivot-explorer.js:317-318`), so physics stays
   `'manual'` — auto declines
@@ -148,8 +148,9 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
   deployed file is byte-identical (md5 `140ead0d…`) to a fresh `vite build` of the `v1.6.0` tag.
 
 One **user-visible** change to communicate, not fix: 1.5.0 replaced full-mode chrome with the B3
-mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. The comment at
-`pivot-explorer.js:392-396` describing "pivotick's Edit ▸ Add edge tool" is stale guidance.
+mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. The comment that
+still described "pivotick's Edit ▸ Add edge tool" has been refreshed accordingly
+(`pivot-explorer.js:391-394`) — the second half of task 1.
 
 ### 3.4 MISP data already available
 
@@ -557,7 +558,7 @@ So the relationship-type field depends on the chosen link type, which the declar
 variant (`render` + `getValues`); the one-kind case can stay declarative.
 
 **A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
-string concatenation into `innerHTML` (`:707-710`). It is fed from the hardcoded 25-entry array
+string concatenation into `innerHTML` (`:709-712`). It is fed from the hardcoded 25-entry array
 today, so nothing is exploitable — but `object_relationships` contains a row literally named
 `<script>alert('name')</script>`, so wiring the real vocabulary into that builder would introduce
 stored XSS. `ctx.promptData()` removes the sink, and v1.5.0's rule that a consumer `string`
@@ -627,7 +628,7 @@ levels it seeded and what it left out, and this is where that statement lives.
 
 #### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
-Today's sidebar panel titled **"Unlinked attributes"** (`:747`) lists every attribute and object
+Today's sidebar panel titled **"Unlinked attributes"** (`:749`) lists every attribute and object
 not on the canvas as draggable chips. It is doing two jobs, and they scale differently:
 
 - *getting one specific element onto the canvas* — has to live inside the graph, and is the only

@@ -6,7 +6,8 @@ same pass as the code, not in a catch-up sweep.
 
 - **Branch:** `worktree-pivotick-v16` (tracks `mokaddem/worktree-pivotick-v16`)
 - **Last updated:** 2026-08-31
-- **Status:** 2 done · 1 next (blocked) · 16 not started
+- **Status:** 3 done · 1 part-done and blocked · 16 not started
+- **Tests:** `node tests/js/pivot-explorer-graph.test.js` — 42 assertions, no dependencies
 
 `✅` done · `🔜` next · `⏸` blocked · `⬚` not started
 
@@ -14,14 +15,16 @@ same pass as the code, not in a catch-up sweep.
 
 ## 1. Tasks
 
-One commit per task, per PRD §9. `E` is the prerequisite extraction, which was not a
-numbered task.
+One commit per task, per PRD §9. `E` and `T` are prerequisites, not numbered PRD tasks;
+task 1 is split into `1a`/`1b` because only one half needs the dev server.
 
 | # | Task | Status | Depends on | Commit / note |
 |---|---|---|---|---|
 | 0 | Bundle to v1.6.0 + compatibility audit | ✅ | — | `e02a24710` (2026-08-28) |
 | E | Extract inline JS out of the `.ctp` into `webroot/js/pivot-explorer.js` | ✅ | 0 | `edc6a0caa` (2026-08-31) |
-| 1 | Regression pass under v1.6.0 (§8.1); refresh the stale `Edit ▸ Add edge` comment | 🔜 ⏸ | 0 | **Gate — blocks 2, 6, 9, 11.** Needs the dev server; see §3 |
+| T | Graph-builder unit tests, `tests/js/pivot-explorer-graph.test.js` | ✅ | E | Not a PRD task; possible only once E made the builder loadable outside a browser |
+| 1a | Refresh the stale `Edit ▸ Add edge` comment | ✅ | 0 | Comment only, nothing to verify |
+| 1b | Regression pass under v1.6.0 (§8.1) | 🔜 ⏸ | 0 | **Gate — blocks 2, 6, 9, 11.** Needs the dev server; see §3 |
 | 2 | Tag object-reference edges with `kind`; add `edgeTypeAccessor` / `edgeStyleMap` / `edgeFacets` (one layer, no behaviour change) | ⬚ | 1 | |
 | 3 | Generalise `computeConnectivity()` to any authored relationship; analyst-relationship edges as a second layer (L1, D5′) | ⬚ | 2 | |
 | 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | ⬚ | 2 | |
@@ -42,17 +45,18 @@ numbered task.
 ### Critical path
 
 ```
-0 ✅ ─ E ✅ ─ 1 ⏸ ─┬─ 2 ─┬─ 3 ─┬─ 3c ─ 4 ─ 5 ─ 8 ─ 10 ─┬─ 10b
-                   │     │     │                        └─ 10c
-                   │     ├─ 3b ─┘
-                   │     ├─ 5b
-                   │     └─ 5c
-                   ├─ 6 ──────────── 7   (also needs 3, 5)
-                   ├─ 9
-                   └─ 11
+0 ✅ ─ E ✅ ─ T ✅
+         └──── 1b ⏸ ─┬─ 2 ─┬─ 3 ─┬─ 3c ─ 4 ─ 5 ─ 8 ─ 10 ─┬─ 10b
+                      │     │     │                        └─ 10c
+                      │     ├─ 3b ─┘
+                      │     ├─ 5b
+                      │     └─ 5c
+                      ├─ 6 ──────────── 7   (also needs 3, 5)
+                      ├─ 9
+                      └─ 11
 ```
 
-Task 1 unblocks four independent fronts (2, 6, 9, 11). The longest chain behind it is
+Task 1b unblocks four independent fronts (2, 6, 9, 11). The longest chain behind it is
 `2 → 3 → 3c → 4 → 5 → 8 → 10 → 10b/10c`, so **task 10's write path is eight tasks deep** —
 worth knowing before promising the editor rework early.
 
@@ -67,18 +71,21 @@ What has actually been checked, and how. Manual test-plan items are PRD §8.
 | v1.6.0 bundle (task 0) | ✅ | `node --check`; `window.Pivotick` footer present; byte-identical (md5 `140ead0d…`) to a fresh `vite build` of the `v1.6.0` tag | Browser regression = §8.1 |
 | Extraction (E) — PHP side | ✅ | Stub-harness render, 3 cases: `data-pe-*` populate, `"` in `$baseurl` escapes to `&quot;`, no `<script>` left, `<style>` still gated on `$canEdit`; `php -l` clean | — |
 | Extraction (E) — JS side | ✅ | `node --check`; no PHP tags remain; `diff` proves the 745 logic lines byte-identical; stubbed-DOM harness **24/24** (boot timing, lazy tab activation, `_initialized` guard, URL assembly, error-as-text, `canEdit` gating) | **Browser check — folded into §8.1** |
+| Graph builder — connectivity, nesting, tombstones, edge dedupe, `compact()`, truncation, image detection, tray/canvas invariant | ✅ | `tests/js/pivot-explorer-graph.test.js`, 42 assertions over 13 cases, zero-dependency plain node | Nothing — this layer no longer needs the server |
 | Everything else | ⬚ | — | PRD §8.2–§8.10 |
+
+The graph-builder suite is **mutation-tested**: ten targeted breaks — dropped tombstone guard, removed connectivity gate, removed edge-existence check, disabled dedupe, kept nulls, disabled truncation, broken image regex, unreferenced attributes admitted, dropped `related-to` fallback, nested deleted children — and the suite caught **10/10**. So a green run means something.
 
 **The extraction has never been opened in a browser.** Harnesses covered the config
 plumbing and boot order, not rendering. §8.1's five interactions — graph renders, objects
 expand, chips drag in, an edge is created, it persists — cover the bundle bump *and* the
-file split in one sitting, which is why task 1 is doing double duty.
+file split in one sitting, which is why task 1b is doing double duty.
 
 ---
 
 ## 3. Blockers
 
-**Task 1 needs the dev server, which is not ours to point.** misp-track selects which tree
+**Task 1b needs the dev server, which is not ours to point.** misp-track selects which tree
 `misp-core` serves; on 2026-08-31 it was serving `attribute-value-page-brief` for a parallel
 job. **The user owns that switch** — read `~/git/misp-docker-2.5/.misp-track.state` to see
 the current selection and ask; never repoint it.
@@ -101,8 +108,8 @@ Real work, deliberately outside PRD §9. Listed so it is not rediscovered as a s
   pivotick's themed `promptData()` — so only the tray and ghost (~19 lines) are a genuine
   CSS-extraction candidate.
 - **~16 hardcoded English UI strings** in `pivot-explorer.js` — `'Unlinked attributes'`
-  (`:747`), `'Filter…'` (`:479`), `'Unlinked '` (`:471`), the empty states (`:512`), four
-  notifier messages (`:638`, `:694`, `:699`), and the picker's own labels. Untranslatable
+  (`:749`), `'Filter…'` (`:481`), `'Unlinked '` (`:473`), the empty states (`:514`), four
+  notifier messages (`:640`, `:696`, `:701`), and the picker's own labels. Untranslatable
   as they stand, and unchanged by the extraction — they were identical inline. Pivotick has
   no consumer-facing i18n (no `setLocale` / `translations`), so anything MISP writes stays
   MISP's to translate. Task 10 absorbs the picker strings; ~9 remain.
