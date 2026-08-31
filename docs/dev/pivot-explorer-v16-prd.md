@@ -1,6 +1,6 @@
 # PRD: Pivot Explorer — leveraging Pivotick v1.6.0 on `/events/view2`
 
-**Status:** DRAFT — D3, D4, D6, D7 await sign-off; D1, D2, D2b, D5′, D8–D12 settled (D5 withdrawn)
+**Status:** DRAFT — D2c, D4, D6, D7 await sign-off; D1, D2, D2b, D3, D5′, D8–D12 settled (D5 withdrawn)
 **Owner:** Sami Mokaddem (Claude-assisted)
 **Created:** 2026-08-28
 **Grilled:** 2026-08-28 → 2026-08-31 — see §5 for what was settled and what changed as a result
@@ -439,13 +439,16 @@ and overriding: selection, highlight, MISP's pending-reference ring, and MISP's 
 | which attribute or object type | `iconClass` (misp-iconify) |
 | attachment preview | `imagePath` |
 | **an analyst has commented here** | **one folded badge** — count as `text`, colour as sentiment |
-| **from another event** | **saturation** (paler = foreign) |
+| from another event | **undecided — see D2c** |
 | selected / hovered | **rim — left entirely to the library** |
 
-**Provenance is binary.** There are four ways to be foreign — extended event, correlated event,
-feed, server — but feed, server and event-proxy nodes already announce themselves through node
-*type* (own shape and fill). The only ambiguous node is an attribute or object that looks
-identical to this event's but is not, so saturation need only say mine / not-mine.
+**Provenance is binary** wherever it is drawn. There are four ways to be foreign — extended
+event, correlated event, feed, server — but feed, server and event-proxy nodes already announce
+themselves through node *type* (own shape and fill). The only ambiguous node is an attribute or
+object that looks identical to this event's but is not, so the cue need only say mine / not-mine.
+
+The *channel* for it is **not** settled — an earlier revision of this document recorded
+saturation as decided, which over-read the review. It is now D2c.
 
 **Notes and opinions fold into one badge.** They are the same message to an analyst — *somebody
 has commented on this* — and one badge carries both: the note count as its text, endorsed /
@@ -542,13 +545,49 @@ renders as text rather than markup means the library will not reintroduce it.
 `isValidConnection` **rejects feed and server nodes as targets outright** — no persistable edge
 can point at them.
 
+#### D3 — Two legend sections; provenance is not one of them ✅ SETTLED
+
+**Two** sections, not three:
+
+| Section | Keys on | Rows |
+|---|---|---|
+| `Element` | the `render.nodeTypeAccessor` dimension (neither `key` nor `entries`) | 5 — attribute, object, event, feed, server |
+| `Relationship` | `scope: 'edge'`, `key: 'kind'` | 5 — the D1 kinds |
+
+Sections AND together, so "attributes, correlated" is expressible. The `Relationship` section
+names the same key as the `edgeFacets` declaration, so panel and legend are two views of one
+filter, and it is the affordance that switches the correlation layer on once D9's fetch has run.
+
+**Provenance is deliberately excluded.** The legend is *descriptive* — it samples the colour the
+renderer resolved and reports it. Provenance is not encoded in colour (D2c), so any provenance
+section would have to invent swatches that appear nowhere on the canvas, and the library warns
+about exactly this case. A legend row that disagrees with the canvas is worse than no row.
+
+Provenance filtering instead lives in the **filter panel** as an ordinary `scope` node facet — a
+checkbox, which is the right control for a dimension with no colour. Nothing is lost: a facet
+there filters exactly as a legend row would.
+
+Rejected alternative worth recording: swatches showing the same hue at two saturations, so the
+swatch demonstrates the encoding. It only tells the truth for one node kind — a saturated and
+desaturated orange keys it to attributes, while objects are blue and feeds different again.
+
+Corner budget is fine: the legend defaults to `bottom-left`, the minimap to `bottom-right`
+(`Minimap.ts:113`), so they do not collide.
+
 ### Open — sign-off requested
 
-#### D3 — Legend sections
+#### D2c — Does provenance get a canvas encoding at all?
 
-Three: `Element` (node kind, the `nodeTypeAccessor` dimension), `Provenance` (declared
-`entries`, per D2), `Relationship` (`scope: 'edge'`). Sections AND together — "attributes, in
-this event, that are correlated".
+D3 keeps provenance out of the legend. The remaining question is whether it is drawn at all, and
+if so how — the channels left are saturation, or folding provenance into the node-type dimension
+where the legend *can* describe it.
+
+Options: **(a)** fade foreign nodes (no legend key, self-teaching); **(b)** no canvas encoding at
+all — provenance lives only in the sidebar panel, the dock table's column and the `scope` facet,
+so a foreign attribute looks identical to a local one; **(c)** give foreign attributes/objects
+their own node types (`attribute (other event)`, `object (other event)`), making provenance part
+of the colour dimension and therefore legend-describable, at the cost of growing `Element` from
+5 rows to 7.
 
 #### D4 — Editor tray → dock pane
 
@@ -688,21 +727,27 @@ UI: {
         position: 'bottom-left',
         sections: [
             { title: 'Element' },                                  // nodeTypeAccessor dimension
-            { title: 'Provenance', key: 'scope', entries: [
-                { id: 'self',    label: 'This event',  color: '#f39a1f' },
-                { id: 'foreign', label: 'Other event', color: '#6b6b6b' },
-            ]},
             { title: 'Relationship', scope: 'edge', key: 'kind' },
+        ],
+    },
+    filter: {
+        facets: [{ key: 'scope', label: 'Provenance', type: 'multiselect' }],   // D3
+        edgeFacets: [
+            { key: 'kind',              label: 'Relationship', type: 'multiselect' },
+            { key: 'relationship_type', label: 'Asserts',      type: 'text' },
         ],
     },
 }
 ```
 
-`LegendEntry` requires `id` (the toggle key and the value written to the filter) and `color`;
-`label` defaults to a prettified `id`. Exactly one section may omit both `key` and `entries` (the
-`nodeTypeAccessor` dimension); a second is dropped with a warning. The `Relationship` section
-names the same key as the `edgeFacets` declaration, so panel and legend become two views of one
-filter — and it is the affordance that turns the correlation layer on after §6.7 has fetched it.
+Two sections, not three — provenance is a filter-panel facet rather than a legend section (D3),
+because the legend can only sample colour and provenance is not encoded in colour.
+
+Exactly one section may omit both `key` and `entries` (the `nodeTypeAccessor` dimension); a second
+is dropped with a warning. The `Relationship` section names the same key as the `edgeFacets`
+declaration, so panel and legend become two views of one filter — and it is the affordance that
+turns the correlation layer on after §6.7 has fetched it. (`LegendEntry`, if ever declared
+explicitly, requires `id` and `color`; `label` defaults to a prettified `id`.)
 
 ### 6.4 Event provenance and correlated events (D2)
 
