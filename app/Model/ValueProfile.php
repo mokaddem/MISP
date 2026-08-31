@@ -2544,6 +2544,7 @@ class ValueProfile extends AppModel
                 $claims[$row['Relationship']['uuid']] = $claim;
                 $orgs[$claim['org']] = true;
             }
+            $claims = $this->resolveClaimTargets($user, $claims);
         }
         return array(
             'total' => count($claims),
@@ -2606,15 +2607,34 @@ class ValueProfile extends AppModel
         } else {
             return null;
         }
+        $author = self::claimOrg($relationship, 'Orgc');
+        /*
+         * Owner and creator are separate columns and are the same row
+         * on an instance nothing has synced into. Compared on the
+         * uuids rather than on the two contained names, because that
+         * is the comparison the schema actually stores; the second
+         * name is dropped when it says nothing, so the meta line grows
+         * only where the two really differ.
+         */
+        $owner = $relationship['org_uuid'] === $relationship['orgc_uuid']
+            ? null
+            : self::claimOrg($relationship, 'Org');
         return array(
             'relationship_type' => empty($relationship['relationship_type'])
                 ? __('related-to')
                 : $relationship['relationship_type'],
             'direction' => $outbound ? 'outbound' : 'inbound',
+            /*
+             * The far end as fetched, not as rendered.
+             * `resolveClaimTargets` turns it into the display shape
+             * once the whole list is known, so the two lookups it
+             * still needs are one query each rather than one per
+             * claim.
+             */
             'target' => array(
                 'kind' => $kind,
-                'id' => $uuid,
-                'label' => self::claimLabel($kind, $uuid, $target),
+                'uuid' => $uuid,
+                'element' => $target,
             ),
             /*
              * There is no prose to render. Left as an empty string
@@ -2624,66 +2644,298 @@ class ValueProfile extends AppModel
              * every claim.
              */
             'text' => '',
-            /*
-             * Nested inside the row, not beside it.
-             * `AnalystData::rearrangeOrganisation` moves a contained
-             * `Orgc` under the record and unsets the top-level key, so
-             * the obvious read finds nothing and every claim silently
-             * reports *Unknown organisation*.
-             */
-            'org' => empty($relationship['Orgc']['name'])
+            'org' => $author === null
                 ? __('Unknown organisation')
-                : $relationship['Orgc']['name'],
+                : $author['name'],
+            // Null is *no link*, not *no name*: a claim whose author
+            // organisation did not resolve still says who it credits.
+            'org_id' => $author === null ? null : $author['id'],
+            'owner' => $owner === null ? null : $owner['name'],
+            'owner_id' => $owner === null ? null : $owner['id'],
             'date' => substr($relationship['modified'], 0, 10),
             'distribution' => (int)$relationship['distribution'],
         );
     }
 
     /**
-     * What to call the other end of a claim.
+     * One organisation off a claim, as a name and something to link.
+     *
+     * **Nested inside the row, not beside it.**
+     * `AnalystData::rearrangeOrganisation` moves a contained `Orgc`
+     * under the record and unsets the top-level key, so the obvious
+     * read finds nothing and every claim silently reports *Unknown
+     * organisation*.
+     *
+     * @param array $relationship
+     * @param string $key `Org` or `Orgc`
+     * @return array|null id and name, or null when it did not resolve
+     */
+    private static function claimOrg(array $relationship, $key)
+    {
+        if (empty($relationship[$key]['name'])) {
+            return null;
+        }
+        return array(
+            'id' => empty($relationship[$key]['id'])
+                ? null
+                : (int)$relationship[$key]['id'],
+            'name' => $relationship[$key]['name'],
+        );
+    }
+
+    /**
+     * Fill in what each claim's far end actually is.
+     *
+     * `claimFrom` stops at whatever `getRelatedElement` handed back,
+     * because two of the things a target line wants are not on it and
+     * both are cheaper asked once for the whole list than once per
+     * claim: a galaxy cluster, which `getRelatedElement` does not
+     * resolve at all, and the creator organisation of an event target,
+     * which arrives as a bare `orgc_id` and no name.
+     *
+     * Two queries for the section, each skipped when nothing needs it —
+     * the same trade `assertedClaims` already makes by containing the
+     * authors rather than letting `afterFind` fetch them per row.
+     *
+     * @param array $user
+     * @param array $claims Keyed by relationship UUID
+     * @return array The same claims, targets in display shape
+     */
+    private function resolveClaimTargets(array $user, array $claims)
+    {
+        $clusters = $this->claimClusters($user, $claims);
+        foreach ($claims as $key => $claim) {
+            $target = $claim['target'];
+            if ($target['kind'] === 'GalaxyCluster'
+                && isset($clusters[$target['uuid']])
+            ) {
+                $claims[$key]['target']['element']
+                    = $clusters[$target['uuid']];
+            }
+        }
+        $orgs = $this->claimTargetOrgs($claims);
+        foreach ($claims as $key => $claim) {
+            $claims[$key]['target'] = self::claimTarget(
+                $claim['target']['kind'],
+                $claim['target']['uuid'],
+                $claim['target']['element'],
+                $orgs
+            );
+        }
+        return $claims;
+    }
+
+    /**
+     * The galaxy clusters this section's claims point at, in one fetch.
+     *
+     * `Relationship::getRelatedElement` handles Event, Attribute,
+     * Object, Note, Opinion and Relationship and stops there, while
+     * `AnalystData::valid_targets` allows six more — so a cluster
+     * target used to render as a bare UUID with nowhere to go, and the
+     * one such claim on the verification instance still does, because
+     * the cluster it names is not stored here.
+     *
+     * `fetchGalaxyClusters` is the reader the galaxy pages themselves
+     * use, so a cluster the viewer may not see stays unresolved rather
+     * than appearing.
+     *
+     * @param array $user
+     * @param array $claims
+     * @return array uuid => row, as fetchGalaxyClusters returns it
+     */
+    private function claimClusters(array $user, array $claims)
+    {
+        $uuids = array();
+        foreach ($claims as $claim) {
+            if ($claim['target']['kind'] === 'GalaxyCluster') {
+                $uuids[$claim['target']['uuid']] = true;
+            }
+        }
+        if (empty($uuids)) {
+            return array();
+        }
+        $rows = $this->model('GalaxyCluster')->fetchGalaxyClusters(
+            $user,
+            array('conditions' => array(
+                'GalaxyCluster.uuid' => array_keys($uuids),
+            ))
+        );
+        $found = array();
+        foreach ($rows as $row) {
+            $found[$row['GalaxyCluster']['uuid']] = $row;
+        }
+        return $found;
+    }
+
+    /**
+     * Names for the organisation ids a target carries but cannot name.
+     *
+     * An `Attribute` or `Object` target arrives with its event's
+     * creator organisation already nested — `Relationship::rearrangeData`
+     * puts it there — while an `Event` target is fetched with no
+     * contain at all and a cluster with only its galaxy. Those two hold
+     * an id and nothing to print, and the id is what this fills in.
+     *
+     * @param array $claims
+     * @return array id => name
+     */
+    private function claimTargetOrgs(array $claims)
+    {
+        $ids = array();
+        foreach ($claims as $claim) {
+            $kind = $claim['target']['kind'];
+            $element = $claim['target']['element'];
+            if (empty($element[$kind]['orgc_id'])) {
+                // Also the galaxy clusters MISP ships, which are
+                // nobody's: `orgc_id` 0 is not an organisation.
+                continue;
+            }
+            $ids[(int)$element[$kind]['orgc_id']] = true;
+        }
+        if (empty($ids)) {
+            return array();
+        }
+        return $this->model('Organisation')->find('list', array(
+            'conditions' => array('Organisation.id' => array_keys($ids)),
+            'fields' => array('Organisation.id', 'Organisation.name'),
+            'recursive' => -1,
+        ));
+    }
+
+    /**
+     * The far end of a claim, as the panel draws it.
+     *
+     * Four kinds, four different things worth knowing, one shape: a
+     * label, an id the view turns into a link, the event the target
+     * lives in when it lives in one, the organisation behind it, and a
+     * short list of facts that are only true of that kind.
      *
      * **A target that does not resolve keeps its UUID**, and that is
-     * not a fallback nobody will hit: two of the seven attribute-facing
-     * relationships on the verification instance point at attribute
-     * UUIDs that no longer exist, so `getRelatedElement` returns an
-     * empty array for them. A claim about something deleted is still a
-     * claim somebody made, and dropping the row would hide it; naming
-     * it by UUID says what is known.
-     *
-     * `GalaxyCluster` never resolves either, and for a different
-     * reason: `Relationship::getRelatedElement` handles Event,
-     * Attribute, Object, Note, Opinion and Relationship, and stops
-     * there — while `AnalystData::valid_targets` allows six more.
+     * not a fallback nobody will hit — the verification instance has a
+     * claim naming a galaxy cluster this instance does not hold. Then
+     * `resolved` is false, the view gives it no link and says why: a
+     * claim about something that cannot be shown is still a claim
+     * somebody made, and dropping the row would hide it.
      *
      * @param string $kind
      * @param string $uuid
-     * @param array $target As getRelatedElement returns it
-     * @return string
+     * @param array $element As getRelatedElement returns it
+     * @param array $orgs id => name, from claimTargetOrgs
+     * @return array
      */
-    private static function claimLabel($kind, $uuid, array $target)
+    private static function claimTarget($kind, $uuid, array $element,
+        array $orgs
+    ) {
+        $target = array(
+            'kind' => $kind,
+            'uuid' => $uuid,
+            'id' => null,
+            'label' => $uuid,
+            'event' => null,
+            'org' => null,
+            'facts' => array(),
+            'resolved' => false,
+        );
+        if (empty($element[$kind]['id'])) {
+            return $target;
+        }
+        $row = $element[$kind];
+        $target['id'] = (int)$row['id'];
+        $target['org'] = self::claimTargetOrg($row, $orgs);
+        $target['resolved'] = true;
+        if ($kind === 'Event') {
+            $target['label'] = sprintf('#%s %s', $row['id'], $row['info']);
+            $target['facts'] = array(
+                $row['date'],
+                /*
+                 * Said only when it is true. An unpublished event has
+                 * not left this instance, so a claim pointing at one
+                 * points somewhere nobody else can follow — and the
+                 * silence in the other direction is what *published*
+                 * means, which needs no word.
+                 */
+                empty($row['published']) ? __('unpublished') : '',
+            );
+        } elseif ($kind === 'Attribute') {
+            $target['label'] = sprintf('%s · %s', $row['type'],
+                $row['value']);
+            $target['event'] = self::claimTargetEvent($row);
+            $target['facts'] = array($row['category']);
+            if (!empty($row['Object']['name'])) {
+                // Where in the object, not just which object: an
+                // attribute's meaning inside one is its relation.
+                $target['facts'][] = sprintf('%s ↦ %s',
+                    $row['Object']['name'], $row['object_relation']);
+            }
+        } elseif ($kind === 'Object') {
+            $target['label'] = sprintf('%s · #%s', $row['name'],
+                $row['id']);
+            $target['event'] = self::claimTargetEvent($row);
+            $target['facts'] = array(
+                empty($row['meta-category']) ? '' : $row['meta-category'],
+            );
+        } elseif ($kind === 'GalaxyCluster') {
+            $target['label'] = $row['value'];
+            $target['facts'] = array(
+                empty($row['Galaxy']['name'])
+                    ? $row['type']
+                    : $row['Galaxy']['name'],
+                empty($row['source']) ? '' : $row['source'],
+            );
+        } else {
+            /*
+             * A kind this panel has no link and no facts for. It keeps
+             * its UUID rather than being drawn as something it is not.
+             */
+            $target['id'] = null;
+            $target['org'] = null;
+            $target['resolved'] = false;
+        }
+        $target['facts'] = array_values(array_filter($target['facts']));
+        return $target;
+    }
+
+    /**
+     * The event a target lives in, when it lives in one.
+     *
+     * @param array $row An Attribute or Object, as rearranged
+     * @return array|null
+     */
+    private static function claimTargetEvent(array $row)
     {
-        if (!empty($target['Event']['info'])) {
-            return sprintf(
-                '#%s %s',
-                $target['Event']['id'],
-                $target['Event']['info']
+        if (empty($row['Event']['id'])) {
+            return null;
+        }
+        return array(
+            'id' => (int)$row['Event']['id'],
+            'info' => $row['Event']['info'],
+        );
+    }
+
+    /**
+     * The organisation behind a target, from whichever end carries it.
+     *
+     * `Relationship::rearrangeData` nests the event's creator
+     * organisation under an Attribute or Object target, so those two
+     * arrive named. An Event target and a cluster arrive with an id,
+     * and `claimTargetOrgs` is what turned that into a name.
+     *
+     * @param array $row
+     * @param array $orgs id => name
+     * @return array|null
+     */
+    private static function claimTargetOrg(array $row, array $orgs)
+    {
+        if (!empty($row['Organisation']['name'])) {
+            return array(
+                'id' => (int)$row['Organisation']['id'],
+                'name' => $row['Organisation']['name'],
             );
         }
-        if (!empty($target['Attribute']['value'])) {
-            return sprintf(
-                '%s · %s',
-                $target['Attribute']['type'],
-                $target['Attribute']['value']
-            );
-        }
-        if (!empty($target['Object']['name'])) {
-            return sprintf(
-                '%s · #%s',
-                $target['Object']['name'],
-                $target['Object']['id']
-            );
-        }
-        return $uuid;
+        $id = empty($row['orgc_id']) ? 0 : (int)$row['orgc_id'];
+        return isset($orgs[$id])
+            ? array('id' => $id, 'name' => $orgs[$id])
+            : null;
     }
 
     /**
