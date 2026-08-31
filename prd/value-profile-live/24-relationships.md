@@ -940,12 +940,19 @@ this instance, and `1.0.155.105` is the one that cannot be read.
    sections (§5.4). The fix is one shared per-request assembly or one
    endpoint, and it is the first concrete customer §14.11's caching
    exclusion has had.
-2. **Feed co-occurrence** — **designed and unblocked; ready to build.**
-   `03-relationships.md` §20 is the design, §17 the measurements against
-   a now-populated cache. The gate turned out to be per source rather
-   than one permission (§20.2, §20.9), and the defect that would have
-   made its links wrong is fixed (§17.2). The graph's fourth edge kind
-   stays deferred for the reason §20.7 gives.
+2. **Feed co-occurrence** — **done.** `03-relationships.md` §20 is the
+   design and §21 the build; §17 has the measurements and the two
+   `Feed::searchCaches` fixes it needed. The gate turned out to be per
+   source rather than one permission (§20.2, §20.9). **Still open from
+   it:** the graph's fourth edge kind (§20.7 — one remote fetch per
+   event, so it waits on item 4), SightingDB on the Overview card
+   (§21.2 — the primitive exists, the decision does not), and the
+   *nothing cached on this instance* state, which §21.4 could not
+   exercise without undoing the cache this phase needed.
+
+   It also **made item 1 worse**: `forRelationSettings` now assembles a
+   fourth section as well, so the settings card repeats all four and
+   `externalPresence` runs twice per Relationships render.
 3. **Claim prose**, as child Notes on each relationship (§7), once
    that section has decided its own per-claim bound.
 4. **pivotick's edge layers.** 1.6 ships exactly the three-notion switch
