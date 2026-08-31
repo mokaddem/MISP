@@ -693,8 +693,9 @@ events at all.
   `previewEvent` does not do that — it renders somebody else's event
   without storing any of it. A tooltip saying *fetch* would promise the
   destructive-ish version of an entirely read-only action, so both the
-  per-link tooltip and the note under the table say *preview*, and the
-  note adds that nothing is copied here.
+  per-link tooltip and the note under the table say *preview*. That word
+  carries it on its own; spelling out that nothing is saved locally only
+  raises the question it was answering.
 
 ### 20.5 States, and the two ways this design was nearly wrong
 

@@ -184,7 +184,7 @@ $icon = 'fas fa-cloud-arrow-down';
                                                 <a class="vp-external-event"
                                                    href="<?= h($event['url']) ?>"
                                                    title="<?= h(sprintf(
-                                                       __('Preview this event from %s — read live, not copied here'),
+                                                       __('Preview this event from %s'),
                                                        $source['name']
                                                    )) ?>">
                                                     <i class="fas fa-arrow-up-right-from-square"></i>
@@ -211,7 +211,7 @@ $icon = 'fas fa-cloud-arrow-down';
 
             <div class="vp-fact-line-sub mt-2">
                 <i class="fas fa-arrow-up-right-from-square"></i>
-                <?= __('Opening a remote event previews it from the feed or server as it is right now. Nothing is copied onto this instance, and every other link on this page reads local data.') ?>
+                <?= __('Opening a remote event previews it from the feed or server as it is right now. Every other link on this page reads local data.') ?>
             </div>
 
         <?php endif; ?>
