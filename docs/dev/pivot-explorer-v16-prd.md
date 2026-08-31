@@ -84,20 +84,24 @@ persisting enrichment into the event (`events/queryEnrichment`, `perm_add` — `
 
 ### 3.1 What the Pivot Explorer builds today
 
-`event_pivot_explorer.ctp` (858 lines) fetches `/events/view/{id}.json` and builds:
+`event_pivot_explorer.ctp` is now 117 lines — markup, the editor CSS, and the `data-pe-*`
+config attributes on `#pe-card`. All behaviour lives in `app/webroot/js/pivot-explorer.js`
+(796 lines), loaded by the element's `assetLoader` call beside `pivotick.iife`. **Bare
+`:NNN` references in this section and in §6 point into that module.** It fetches
+`/events/view/{id}.json` and builds:
 
 | Element | Source | Notes |
 |---|---|---|
 | Object nodes | `ev.Object` | Only objects `computeConnectivity()` finds connected |
-| Attribute nodes | `obj.Attribute` | Nested as cluster **children** of their object (`:324-336`) |
-| Event-level attribute nodes | `ev.Attribute` | Only when an object reference points at them (`:307-313`) |
+| Attribute nodes | `obj.Attribute` | Nested as cluster **children** of their object (`:229-241`) |
+| Event-level attribute nodes | `ev.Attribute` | Only when an object reference points at them (`:212-218`) |
 | Edges | `obj.ObjectReference` | The **only** edge kind; label = `relationship_type` |
 | Editor tray | `UI.extraPanels` | Unconnected attributes/objects as draggable chips |
 
 Node style is keyed on kind via `nodeStyleMap` — event = green hexagon, object = blue square,
-attribute = orange circle (`:367-372`) — with `iconClass` carrying the misp-iconify glyph,
+attribute = orange circle (`:272-277`) — with `iconClass` carrying the misp-iconify glyph,
 `imagePath` carrying attachment thumbnails, and `styleCb` spending `strokeColor`/`strokeWidth`
-on the pending-reference ring (`:395-400`). Every styling channel is committed.
+on the pending-reference ring (`:300-305`). Every styling channel is committed.
 
 ### 3.2 What v1.6.0 adds that this graph can use
 
@@ -131,11 +135,13 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 
 - Uses none of the removed/renamed API: no `UI.selectionMenu`, `graphControls`, `graphToolbar`,
   `graphNaviation`.
-- The extra panel's `render` returns an **HTMLElement** (`:834`), so the 1.5.0 "a `string` never
+- The extra panel's `render` returns an **HTMLElement** (`pivot-explorer.js:749`), so the
+  1.5.0 "a `string` never
   renders as markup" change does not bite. Its `innerHTML` writes are all to its own DOM.
-- `graph.on('edgeAdd', …)` (`:839`) and `simulation.d3LinkDistance` still exist.
+- `graph.on('edgeAdd', …)` (`pivot-explorer.js:754`) and `simulation.d3LinkDistance` still exist.
 - v1.6.0's breaking changes are confined to physics presets. As the code stands, the graph
-  **configures** `d3LinkDistance: 200` (`:412-413`), so physics stays `'manual'` — auto declines
+  **configures** `d3LinkDistance: 200` (`pivot-explorer.js:317-318`), so physics stays
+  `'manual'` — auto declines
   to take over a graph that tuned any knob it drives, and layout is unchanged by the upgrade
   alone. **D7 then deliberately opts into `'auto'`.**
 - Bundle verified: `node --check` passes, the `window.Pivotick` footer is present, and the
@@ -143,7 +149,7 @@ v1.5.0 carries two breaking sections. Audit result: **the existing integration i
 
 One **user-visible** change to communicate, not fix: 1.5.0 replaced full-mode chrome with the B3
 mode rail and removed the `e` "Edit Graph" toggle in favour of **Create mode**. The comment at
-`:477-481` describing "pivotick's Edit ▸ Add edge tool" is stale guidance.
+`pivot-explorer.js:392-396` describing "pivotick's Edit ▸ Add edge tool" is stale guidance.
 
 ### 3.4 MISP data already available
 
@@ -471,7 +477,7 @@ expandable node (both East corners are reserved for the expand affordance) and o
 expandable.
 
 **The "pending / not yet saved" state is removed entirely**, and its `styleCb` ring
-(`:395-400`) is deleted. Rationale: putting an attribute on the canvas is a **view write** in
+(`:300-305`) is deleted. Rationale: putting an attribute on the canvas is a **view write** in
 §2.2's taxonomy — the attribute was always in the event, and showing it changes nothing in MISP.
 Only the edge is a save. The old pending ring existed because the previous design treated a
 dragged-in node as half-created; it never was.
@@ -541,7 +547,8 @@ state.
 **The two kinds do not share a vocabulary**, which decides the form's shape:
 
 - **Object references** draw on `object_relationships` — **262 rows** on the dev instance, so it
-  is populated and authoritative. The ctp's hardcoded `DEFAULT_RELATIONSHIPS` (25 entries, `:129`)
+  is populated and authoritative. The module's hardcoded `DEFAULT_RELATIONSHIPS` (25 entries,
+  `:34`)
   is a stale fallback.
 - **Analyst relationships** take free text (`relationship_type varchar(255)`, no vocabulary).
 
@@ -550,7 +557,7 @@ So the relationship-type field depends on the chosen link type, which the declar
 variant (`render` + `getValues`); the one-kind case can stay declarative.
 
 **A latent stored-XSS is removed on the way.** The current picker builds its `<option>` list by
-string concatenation into `innerHTML` (`:792-795`). It is fed from the hardcoded 25-entry array
+string concatenation into `innerHTML` (`:707-710`). It is fed from the hardcoded 25-entry array
 today, so nothing is exploitable — but `object_relationships` contains a row literally named
 `<script>alert('name')</script>`, so wiring the real vocabulary into that builder would introduce
 stored XSS. `ctx.promptData()` removes the sink, and v1.5.0's rule that a consumer `string`
@@ -620,7 +627,7 @@ levels it seeded and what it left out, and this is where that statement lives.
 
 #### D4 — "Unlinked attributes" becomes search + a server-paged table ✅ SETTLED
 
-Today's sidebar panel titled **"Unlinked attributes"** (`:832`) lists every attribute and object
+Today's sidebar panel titled **"Unlinked attributes"** (`:747`) lists every attribute and object
 not on the canvas as draggable chips. It is doing two jobs, and they scale differently:
 
 - *getting one specific element onto the canvas* — has to live inside the graph, and is the only
@@ -670,7 +677,7 @@ pane is server-paged, **nothing in the design needs the full payload in memory**
 **Resolution: build a dedicated graph endpoint returning `{nodes, edges, meta}`** — the server
 knows which elements carry relationships and can answer in kilobytes what now costs 100 MB. It
 also collapses two other items: the dedicated correlation endpoint (§11) and the client-side
-graph construction that keeps the `.ctp` at 858 lines.
+graph construction that is the bulk of `pivot-explorer.js`.
 
 **Deferred to its own document:** [`pivot-explorer-graph-endpoint-prd.md`](pivot-explorer-graph-endpoint-prd.md).
 It is a new endpoint with its own ACL, sharing-group filtering and test surface, whereas every
@@ -1096,8 +1103,19 @@ relationships, and the events in §3.5 as fixtures):
 Tasks 2, 6, 9 and 10 are mutually independent. All seed-related decisions (D5′, D9, D10, D12) are
 settled, so tasks 3–5 are unblocked.
 
-Extraction of the inline JS out of the `.ctp` into a real asset file is not a task above, but
-should be considered before task 3 — the file is 858 lines and every task adds to it.
+**✅ Done (prerequisite, not a task above).** The inline JS is extracted out of the `.ctp` into
+`app/webroot/js/pivot-explorer.js`, leaving the element at 117 lines of markup + CSS + config.
+The move was behaviour-preserving: the 745 lines of graph and editor logic are byte-identical,
+and only the five PHP interpolation points changed shape. Config now arrives via `data-pe-*`
+attributes on `#pe-card` (`event-id`, `baseurl`, `can-edit`, and the two translated error
+strings), read in a new `boot()` that waits for `DOMContentLoaded` because `assetLoader`
+emits the `<script>` ahead of the element's own markup.
+
+Two follow-ups this exposes, neither blocking: the editor's ~15 UI strings (`Filter…`,
+`Add relationship`, `Cancel`, `Save`, …) were hardcoded English in the `.ctp` and still are
+in the module — they want the same `data-pe-*` treatment to become translatable; and the
+`<style>` block (78 lines, still inline under `if ($canEdit)`) is the same extraction again
+for CSS.
 
 ## 10. Files Touched
 
@@ -1105,7 +1123,8 @@ should be considered before task 3 — the file is 858 lines and every task adds
 |---|---|
 | `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0) |
 | `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0) |
-| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | all of §6.1–§6.7 |
+| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines) |
+| `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
 | `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
 
