@@ -161,6 +161,12 @@ Then one block per engine, each in one of three states:
 
 ## 8. Section three — asserted by analysts
 
+> **§22 rewrites the claim block.** A claim is three lines: the target
+> is linked, a detail line under it says what the target actually is,
+> and the meta line names which of the two organisations it is naming.
+> The `.vp-acl-note` below went with the other two — `24-relationships.md`
+> §8.
+
 Header sub-line: `4 claims from 3 organisations · analyst-data relationships ·
 Human claim`, plus an all-types filter.
 
@@ -998,3 +1004,61 @@ Verified on the running instance in both themes, and through the Console
 renderer as a plain user: `You may read 5 feeds and 0 servers of them`,
 followed by *"The rest are withheld from your role, on every value
 alike."*
+
+---
+
+## 22. Section three — a claim says what it points at
+
+§8 gave a claim a target's kind and label, and a meta line with org, date
+and distribution. Both turned out to be dead ends on live data: the label
+named the far end and went nowhere, and a bare `ADMIN` beside a date did
+not say which of the two organisation columns it was.
+
+**Every name in a claim block is now reachable, and the far end carries
+one line saying what it actually is.** The build, the query cost and the
+verification are in
+[`../value-profile-live/24-relationships.md`](../value-profile-live/24-relationships.md)
+§19; what changes in *this* document is §8's description of the block.
+
+**A claim is three lines, not two.** The target line, a detail line under
+it, and the meta line — and the detail line is drawn in the same order
+for every kind, *where it lives, what it is, who made it*, so four kinds
+of target still read down one column:
+
+| Kind | Label, linked | The line under it |
+|---|---|---|
+| `Event` | `#4182 AgentTesla host indicators [2026-06-30]` | `2026-06-30 · unpublished · StoneCo` |
+| `Attribute` | `domain · deadnxuyla.ru` | `#4345 Test phishing event for SkillAegis · Network activity · url ↦ domain · ADMIN` |
+| `Object` | `domain-ip · #1` | `#1 Test event · network · ADMIN` |
+| `GalaxyCluster` | `TAG-53` | `Threat Actor · MISP Project` |
+
+**A galaxy cluster resolves now.** §8 listed `GalaxyCluster` among the
+target kinds and the fixture drew it as a name; live it was a bare UUID,
+because `Relationship::getRelatedElement` stops at six types and this is
+not one of them. The panel fetches it itself.
+
+**A target that cannot be shown says so**, in place of the detail line
+and warn-toned: *"Not held on this instance, or not visible to you — the
+claim is shown by the UUID it names."* Both reasons, because the two
+readers behind it are ACL'd and nothing here can tell them apart —
+guessing at one would be the §14.6 disclosure, and naming both says
+nothing about whether the thing exists.
+
+**The meta line names which organisation is which.** `Asserted by ADMIN`,
+and — only when `org_uuid` and `orgc_uuid` actually differ, which on an
+instance nothing has synced into is never — `held by StoneCo` beside it.
+
+**One link colour per claim, and it is the target.** The other three
+names on the block (the event the target lives in, and the two
+organisations) sit on lines that are already meta and keep those lines'
+colour, underlining and colouring on hover. Four permanently blue runs
+per block read as a page of links rather than as a sentence somebody
+wrote — the same argument §19's sightings table makes for its two
+columns.
+
+**Still not taken, and named as the next step:** the *near* end. A claim
+is stored against one occurrence, and the footer sentence has said so
+since §8; the block still does not say which of the 23 it was. That, the
+claim UUID, `created` beside `modified`, `authors` and the sharing group
+behind a level-4 distribution belong to the tooltip this section is
+getting next, not to a fourth line.

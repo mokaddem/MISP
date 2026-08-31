@@ -4393,6 +4393,92 @@ th.vp-rel-num {
 }
 
 /*
+ * Every way out of a claim: the thing it points at, the event that
+ * thing lives in, and the two organisations. Underlined on hover only,
+ * for the reason the sightings table gives — a block with four
+ * permanently underlined runs of text reads as a page of links rather
+ * than as a sentence somebody wrote.
+ *
+ * Carries its own colour rather than borrowing `.badge` or a Bootstrap
+ * utility, so a stylesheet still cached under an older `?v=` degrades
+ * this to unstyled link colour and never to invisible — the failure
+ * `.vp-external-event` above was fixed for.
+ */
+.vp-claim-link {
+    color: var(--bs-link-color);
+    text-decoration: none;
+}
+
+.vp-claim-link:hover,
+.vp-claim-link:focus-visible {
+    text-decoration: underline;
+}
+
+/*
+ * One link per claim carries the link colour, and it is the target —
+ * the thing the claim is *about*. The other three (the event it lives
+ * in, and the two organisations) sit on lines that are already meta and
+ * keep those lines' colour, so a block ends up with one blue run rather
+ * than four and the eye still lands on the subject.
+ */
+.vp-claim-target {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.vp-claim-facts .vp-claim-link,
+.vp-analyst-meta .vp-claim-link {
+    color: inherit;
+}
+
+.vp-claim-facts .vp-claim-link:hover,
+.vp-claim-facts .vp-claim-link:focus-visible,
+.vp-analyst-meta .vp-claim-link:hover,
+.vp-analyst-meta .vp-claim-link:focus-visible {
+    color: var(--bs-link-color);
+}
+
+/*
+ * What the far end is, under what it is called. One indented line at
+ * the meta size, so a claim gains a line of detail without gaining the
+ * weight of a second statement.
+ */
+.vp-claim-facts {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-claim-facts > i {
+    flex: 0 0 auto;
+    opacity: 0.55;
+}
+
+.vp-claim-facts > span {
+    min-width: 0;
+}
+
+.vp-claim-sep {
+    opacity: 0.5;
+}
+
+/*
+ * A target this instance cannot show. Warn-toned rather than muted: it
+ * is the one line in the block that says a fact is missing, and the
+ * claim above it is still true.
+ */
+.vp-claim-unresolved {
+    color: var(--bs-warning-text-emphasis);
+}
+
+[data-bs-theme="dark"] .vp-claim-unresolved {
+    color: color-mix(in srgb, var(--bs-warning) 70%, var(--bs-body-color));
+}
+
+/*
  * The Narrow by bar. A dropdown per facet key rather than a rail:
  * this pane already spends its width on eleven columns, and the
  * counts have to be reachable without pushing the table narrower.

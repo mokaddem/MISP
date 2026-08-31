@@ -254,6 +254,12 @@ to read (§3.1, and §12 of the tab brief).
 
 ### 5.3 Asserted — four, plus about one per claim
 
+> **§19.7 adds at most two more, for the section rather than per claim:**
+> one `GalaxyCluster` fetch when a claim names one, and one
+> `Organisation::find('list')` when an `Event` or cluster target arrives
+> holding an id and no name. Both skipped when nothing needs them —
+> `8.8.8.8` goes 13 → 15 and `deadnxuyla.ru` stays at 8.
+
 Two of ours: the value's occurrence UUIDs, capped at 300, and one
 `Relationship::find` over both endpoint columns with
 `AnalystData::buildConditions` as the ACL. Two of MISP's:
@@ -357,6 +363,11 @@ is how the gap stays visible.
 ---
 
 ## 7. Asserted: a claim with no text
+
+> **§19 extends what a claim shows.** The target is linked and carries a
+> line of its own facts, a galaxy cluster resolves, and the meta line
+> names which organisation is which. A claim still has no prose — that
+> part of this section stands.
 
 `relationships` carries `relationship_type`, the two endpoints,
 `authors`, an author organisation, `created`, `modified`, `distribution`
@@ -966,6 +977,11 @@ this instance, and `1.0.155.105` is the one that cannot be read.
 6. **`over_correlating_values.occurrence`** is dead weight on the read
    path (§9.1). Either the router job runs, or the column should stop
    being offered as a number anything can print.
+7. **A claim's tooltip**, carrying what §19.9 kept out of the block: the
+   occurrence the claim is written *against* (free — `occurrenceUuidsFor`
+   already returns it), the claim's own UUID, `created` beside
+   `modified`, `authors`, and the sharing group behind a level-4
+   distribution. Asked for alongside §19 and deliberately taken after it.
 
 ## 16. After the phase: what the follow-up passes changed
 
@@ -1633,3 +1649,201 @@ Sightings tab, and it comes from the shipped bundles rather than from
 anything the Relationships panels do. Recorded here because it was found
 here, and left alone because fixing it belongs to whoever owns that
 handler.
+
+---
+
+## 19. A claim now says what it points at, and links to it
+
+§7 shipped a claim as a type, a direction, a target's kind and label, an
+author organisation, a date and a distribution. Read against the
+instance, two of those turned out to be dead ends: the label named the
+far end and went nowhere, and `ADMIN` beside a date did not say which of
+the two organisation columns it was.
+
+**What ships: every name in a claim block is now reachable, and the far
+end carries a line saying what it actually is.**
+
+### 19.1 The far end, in four kinds and one order
+
+`claimTarget` builds one shape for all four, and the panel draws the
+facts in the same order every time — *where it lives, what it is, who
+made it* — so six claims pointing at four kinds of thing still read down
+one column:
+
+| Kind | Label | The line under it |
+|---|---|---|
+| `Event` | `#4182 AgentTesla host indicators [2026-06-30]` | `2026-06-30 · unpublished · StoneCo` |
+| `Attribute` | `domain · deadnxuyla.ru` | `#4345 Test phishing event for SkillAegis · Network activity · url ↦ domain · ADMIN` |
+| `Object` | `domain-ip · #1` | `#1 Test event · network · ADMIN` |
+| `GalaxyCluster` | `TAG-53` | `Threat Actor · MISP Project` |
+
+Three of those facts are worth naming individually.
+
+**`unpublished`, and only when it is true.** An unpublished event has not
+left this instance, so a claim pointing at one points somewhere nobody
+else can follow. The silence in the other direction is what *published*
+means, and it needs no word.
+
+**`url ↦ domain` is where in the object, not just which object.** An
+attribute's meaning inside an object is its relation, and the object name
+alone loses it. Same arrow the analyst-data popover uses for the same
+thing.
+
+**The organisation is the target's, not the claim's**, and it is the last
+fact for every kind so the two never swap places. On `8.8.8.8` they
+differ on every event claim — written by `ADMIN`, pointing at a
+`StoneCo` event — which is exactly the pair the old block collapsed into
+one unlabelled `ADMIN`.
+
+### 19.2 Where the links go, and the one that is not the obvious one
+
+| Kind | Opens |
+|---|---|
+| `Event` | `/events/view2/<id>` |
+| `Attribute` | `/events/view2/<event_id>#tab-attributes` |
+| `Object` | `/events/view2/<event_id>#tab-objects` |
+| `GalaxyCluster` | `/galaxy_clusters/view/<id>` |
+
+**Not `/attributes/view` and not `focus:`.** MISP's own analyst-data
+popover builds `/events/view/<id>/focus:<uuid>`, and this theme's event
+view takes no `focus:` parameter — verified: `view2` never reads it. The
+two flat views redirect to the event and lose which record they were
+asked about. So the link goes to the event's own tab for that kind, which
+is the choice the sightings table already made for the same reason, and
+the record the reader wanted is on the link's title:
+*"Attribute #3858978, in the Attributes tab of event #4345"*.
+
+Verified by following all 18 links the panel draws on `8.8.8.8`: every
+one answers 200, the org links land on `Organisation StoneCo`,
+`Organisation ADMIN` and `Organisation CIRCL`, and the two anchors select
+the pane they name — `#tab-objects` activates `tab-objects`,
+`#tab-attributes` activates `tab-attributes`, and an event link with no
+anchor stays on `tab-general`.
+
+### 19.3 A galaxy cluster is resolved now, by this panel
+
+§7 recorded that `Relationship::getRelatedElement` handles Event,
+Attribute, Object, Note, Opinion and Relationship and stops there, while
+`AnalystData::valid_targets` allows six more — so a cluster target
+rendered as a bare UUID with nothing to say and nowhere to go.
+
+`claimClusters` fills that in with one `GalaxyCluster::fetchGalaxyClusters`
+for the whole section, keyed on every cluster UUID the claims name. It is
+the reader the galaxy pages themselves use, so a cluster the viewer may
+not see stays unresolved rather than appearing.
+
+**This does not fix the other five kinds** — `EventReport`, `Galaxy`,
+`Note`, `Opinion`, `Organisation`, `SharingGroup` — and it deliberately
+does not try. Each needs its own fetch, its own label and its own URL,
+and none of them appears on this instance. A kind the panel has no link
+and no facts for keeps its UUID and falls through to the unresolved line,
+which is the same honest outcome as before, reached explicitly rather
+than by accident.
+
+### 19.4 A target this instance cannot show says so
+
+> ⃝? Not held on this instance, or not visible to you — the claim is
+> shown by the UUID it names.
+
+The verification instance has exactly one: a `similar-to` claim naming a
+galaxy cluster that is not stored here. It used to render as a UUID and
+no explanation, which reads as a bug in the panel rather than as a fact
+about the data.
+
+**Both reasons, and the panel does not know which.** `getRelatedElement`
+and `fetchGalaxyClusters` are both ACL'd, so an empty answer means *gone*
+or *not yours* and nothing distinguishes them from here. Naming both is
+what §14.6 allows: the claim itself is already visible to this reader,
+the UUID is already on it, and the sentence says nothing about whether
+the thing it names exists. Guessing at one reason would be the disclosure.
+
+The line is warn-toned rather than muted. It is the one line in a block
+that says a fact is missing, and the claim above it is still true.
+
+### 19.5 Two organisations, named
+
+The meta line reads **`Asserted by ADMIN · 2026-08-28 · [distribution]`**.
+The two words are new and they earn their place: a second organisation
+now appears two lines above, and a bare `ADMIN` beside a date said
+nothing about which of the two it was.
+
+`relationships` carries `org_uuid` and `orgc_uuid` — owner and creator —
+and on an instance nothing has synced into they are the same row on every
+claim, which is true of all six here. So the second name is drawn **only
+when the two columns differ**, compared on the uuids rather than on the
+two contained names, because that is the comparison the schema stores.
+Then it reads `Asserted by CIRCL · held by StoneCo · …`.
+
+That branch was exercised by flipping `org_uuid` on one seeded claim,
+capturing it, and reverting — the instance has no synced analyst data to
+show it with, and authoring one to host the state would be worse than
+borrowing an existing row for a minute.
+
+### 19.6 One blue link per claim
+
+The first cut linked all four names and left the target the muted colour
+the unlinked label had. That is backwards twice over: four blue runs per
+block read as a page of links rather than as a sentence somebody wrote,
+and the one thing the claim is *about* was the only thing that did not
+look reachable.
+
+So the target carries the link colour and the other three inherit their
+line's — hover and focus underline them and bring the colour up. Same
+rule the sightings table applies to its two columns, and the same reason.
+
+`.vp-claim-link` sets its own colour rather than borrowing `.badge` or a
+Bootstrap utility, so a stylesheet still cached under an older `?v=`
+degrades these to plain link colour and never to invisible — the failure
+`03-relationships.md` §21.5 was written for.
+
+### 19.7 What it costs
+
+Measured with the same probe before and after, site admin, first call in
+the process:
+
+| Value | Claims | Queries before | Queries after |
+|---|---|---|---|
+| `8.8.8.8` | 6 | 13 | **15** |
+| `deadnxuyla.ru` | 1 | 8 | **8** |
+| `443`, `0.0.0.0`, `185.92.180.100`, `1.0.155.105` | 0 | 2 | **2** |
+| unknown value | 0 | 1 | **1** |
+
+**Two queries for the section, not two per claim**, and each is skipped
+when nothing needs it. `deadnxuyla.ru` is the proof: its one claim points
+at an `Attribute`, which arrives with its event's creator organisation
+already nested by `Relationship::rearrangeData`, and it names no cluster
+— so neither query fires and the count does not move. `8.8.8.8` pays both:
+one `fetchGalaxyClusters` because a cluster is named, and one
+`Organisation::find('list')` because an `Event` target is fetched with no
+contain at all and arrives holding an `orgc_id` and no name.
+
+This amends §5.3's heading. Asserted is **four, plus about one per claim,
+plus at most two for the section** — and the per-claim term is still the
+one that is not ours.
+
+### 19.8 Verified
+
+- Both themes on the running instance, `8.8.8.8` (six claims, all four
+  target kinds, both resolved and unresolved) and `deadnxuyla.ru` (one
+  claim, inbound, an attribute that is not inside an object — so the
+  `↦` fact is absent rather than empty).
+- All 18 links followed: 200 each, correct destinations, both tab
+  anchors selecting their pane.
+- The relationship-type filter still narrows the new markup: 6 → 2
+  (`similar-to`) → 1 (`derived-from`) → 6, with no JS errors.
+- The two rail cards still render — `graphFor` reads `target.label` and
+  `target.kind`, both of which survive the reshape, and the graph now
+  gets a cluster's name wherever one resolves instead of a UUID.
+
+### 19.9 What this pass did not take
+
+**The near end.** A claim is written against one occurrence of the value,
+and with 23 occurrences of `8.8.8.8` the panel still does not say which.
+`occurrenceUuidsFor` already returns the id, the event and the type per
+UUID, so it costs nothing to fetch — it costs a fourth line in a block
+that just gained a third.
+
+That, the claim's own UUID, `created` beside `modified`, `authors`, and
+the sharing group behind a level-4 distribution are what the follow-up
+tooltip should carry. The block says what a reader scanning needs; the
+hover is where the rest belongs.

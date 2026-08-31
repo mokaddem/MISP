@@ -49,6 +49,92 @@ $targetIcons = array(
 );
 
 /*
+ * The same four kinds in a sentence. `strtolower` on the model name
+ * would say *this galaxycluster*.
+ */
+$kindWords = array(
+    'Event' => __('event'),
+    'GalaxyCluster' => __('galaxy cluster'),
+    'Object' => __('object'),
+    'Attribute' => __('attribute'),
+);
+
+/**
+ * Where a claim's far end opens.
+ *
+ * **To the event's own tab and not to `/attributes/view` or
+ * `/objects/view`**, which is the choice the sightings table already
+ * made for the same reason: this theme's event view takes no `focus:`
+ * parameter, and the two flat views redirect to the event and lose
+ * which record they were asked about. The link's title carries the
+ * record, so what the cell cannot show the hover does.
+ *
+ * @param array $target
+ * @return string|null Null when there is nowhere to send the reader
+ */
+$targetUrl = function ($target) use ($baseurl) {
+    if (empty($target['resolved'])) {
+        return null;
+    }
+    if ($target['kind'] === 'Event') {
+        return $baseurl . '/events/view2/' . $target['id'];
+    }
+    if ($target['kind'] === 'GalaxyCluster') {
+        return $baseurl . '/galaxy_clusters/view/' . $target['id'];
+    }
+    if (empty($target['event'])) {
+        return null;
+    }
+    return $baseurl . '/events/view2/' . $target['event']['id']
+        . ($target['kind'] === 'Object'
+            ? '#tab-objects'
+            : '#tab-attributes');
+};
+
+/**
+ * What that link promises, which is not always the target itself.
+ *
+ * @param array $target
+ * @return string
+ */
+$targetTitle = function ($target) {
+    if ($target['kind'] === 'Event') {
+        return sprintf(__('Open event #%s'), $target['id']);
+    }
+    if ($target['kind'] === 'GalaxyCluster') {
+        return __('Open this galaxy cluster');
+    }
+    return sprintf(
+        $target['kind'] === 'Object'
+            ? __('Object #%1$s, in the Objects tab of event #%2$s')
+            : __('Attribute #%1$s, in the Attributes tab of event #%2$s'),
+        $target['id'],
+        empty($target['event']) ? '?' : $target['event']['id']
+    );
+};
+
+/**
+ * An organisation, linked wherever there is an id to link it by.
+ *
+ * @param array|null $org
+ * @param string $title
+ * @return string
+ */
+$orgChip = function ($org, $title) use ($baseurl) {
+    if (empty($org['name'])) {
+        return '';
+    }
+    $glyph = '<i class="fas fa-building me-1"></i>';
+    if (empty($org['id'])) {
+        return '<span title="' . h($title) . '">' . $glyph
+            . h($org['name']) . '</span>';
+    }
+    return '<a class="vp-claim-link" title="' . h($title) . '" href="'
+        . h($baseurl . '/organisations/view/' . $org['id']) . '">'
+        . $glyph . h($org['name']) . '</a>';
+};
+
+/*
  * The relationship types actually present, for the filter. Offering a
  * type nobody used would be a control that can only empty the list.
  */
@@ -158,6 +244,7 @@ if (empty($claims)) {
                     ? $targetIcons[$target['kind']]
                     : 'fas fa-cube';
                 $outbound = $claim['direction'] === 'outbound';
+                $url = $targetUrl($target);
                 ?>
                 <div class="vp-analyst vp-rel-claim"
                      data-vp-list-row
@@ -192,9 +279,24 @@ if (empty($claims)) {
                                 <span class="fw-semibold">
                                     <?= h($target['kind']) ?>
                                 </span>
-                                <span class="text-muted">
-                                    <?= h($target['label']) ?>
-                                </span>
+                                <?php if ($url === null): ?>
+                                    <?php
+                                    /*
+                                     * A UUID and not a name, so it is
+                                     * set in the face that says so.
+                                     */
+                                    ?>
+                                    <span class="text-muted <?= $target[
+                                        'resolved'] ? '' : 'font-monospace' ?>">
+                                        <?= h($target['label']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <a class="vp-claim-link vp-claim-target"
+                                       href="<?= h($url) ?>"
+                                       title="<?= h($targetTitle($target)) ?>">
+                                        <?= h($target['label']) ?>
+                                    </a>
+                                <?php endif; ?>
                             </span>
                         </div>
                         <?php if ($claim['text'] !== ''): ?>
@@ -202,11 +304,126 @@ if (empty($claims)) {
                                 <?= h($claim['text']) ?>
                             </div>
                         <?php endif; ?>
+                        <?php
+                        /*
+                         * What the far end *is*, under what it is
+                         * called. Ordered the same way for every kind —
+                         * where it lives, what it is, who made it — so
+                         * six claims pointing at four kinds of thing
+                         * still read down one column.
+                         */
+                        $facts = array();
+                        if (!empty($target['event'])) {
+                            $facts[] = '<a class="vp-claim-link" href="'
+                                . h($baseurl . '/events/view2/'
+                                    . $target['event']['id'])
+                                . '" title="' . h(__('Open the event'))
+                                . '">' . h(sprintf(
+                                    '#%s %s',
+                                    $target['event']['id'],
+                                    $target['event']['info']
+                                )) . '</a>';
+                        }
+                        foreach ($target['facts'] as $fact) {
+                            $facts[] = h($fact);
+                        }
+                        $facts[] = $orgChip(
+                            $target['org'],
+                            sprintf(
+                                __('The organisation that created this %s'),
+                                isset($kindWords[$target['kind']])
+                                    ? $kindWords[$target['kind']]
+                                    : $target['kind']
+                            )
+                        );
+                        $facts = array_filter($facts);
+                        ?>
+                        <?php if (!$target['resolved']): ?>
+                            <?php
+                            /*
+                             * Two reasons, one line, and the panel does
+                             * not know which: `getRelatedElement` and
+                             * `fetchGalaxyClusters` are both ACL'd, so
+                             * an empty answer means gone *or* not
+                             * yours. Naming both is what §14.6 allows —
+                             * the claim itself is already visible, and
+                             * this says nothing about whether the thing
+                             * it names exists.
+                             */
+                            ?>
+                            <div class="vp-claim-facts vp-claim-unresolved">
+                                <i class="fas fa-circle-question"></i>
+                                <span>
+                                    <?= __('Not held on this instance, or'
+                                        . ' not visible to you — the claim'
+                                        . ' is shown by the UUID it names.')
+                                    ?>
+                                </span>
+                            </div>
+                        <?php elseif (!empty($facts)): ?>
+                            <div class="vp-claim-facts">
+                                <i class="fas fa-turn-up fa-rotate-90"></i>
+                                <span>
+                                    <?= implode(
+                                        ' <span class="vp-claim-sep">·</span> ',
+                                        $facts
+                                    ) ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
                         <div class="vp-analyst-meta d-flex align-items-center
                                     gap-2 flex-wrap">
-                            <span><?= h($claim['org']) ?></span>
+                            <?php
+                            /*
+                             * Named, now that a second organisation can
+                             * appear two lines above it. `ADMIN` beside
+                             * a date said nothing about which of the
+                             * two it was.
+                             */
+                            ?>
+                            <span>
+                                <?= sprintf(
+                                    __('Asserted by %s'),
+                                    $orgChip(
+                                        array(
+                                            'id' => $claim['org_id'],
+                                            'name' => $claim['org'],
+                                        ),
+                                        __('The organisation credited with'
+                                            . ' writing this claim')
+                                    )
+                                ) ?>
+                            </span>
+                            <?php if ($claim['owner'] !== null): ?>
+                                <?php
+                                /*
+                                 * Only when the two columns differ,
+                                 * which on an instance nothing has
+                                 * synced into is never. A claim that
+                                 * arrived over a sync is owned by the
+                                 * organisation that passed it on and
+                                 * credited to the one that wrote it.
+                                 */
+                                ?>
+                                <span>·</span>
+                                <span>
+                                    <?= sprintf(
+                                        __('held by %s'),
+                                        $orgChip(
+                                            array(
+                                                'id' => $claim['owner_id'],
+                                                'name' => $claim['owner'],
+                                            ),
+                                            __('The organisation this'
+                                                . ' instance holds the'
+                                                . ' claim for')
+                                        )
+                                    ) ?>
+                                </span>
+                            <?php endif; ?>
                             <span>·</span>
-                            <span class="font-monospace">
+                            <span class="font-monospace"
+                                  title="<?= h(__('Last modified')) ?>">
                                 <?= h($claim['date']) ?>
                             </span>
                             <?= $this->element(
