@@ -1252,9 +1252,12 @@ $headerSub = ob_get_clean();
                         __('Scanned %s.'),
                         $readWhen
                     )) ?></span>
-                    <button type="button" class="vp-rel-again"
+                    <button type="button"
+                            class="btn btn-sm btn-link p-0 align-baseline
+                                   vp-rel-again"
                             data-vp-narrow-fresh>
-                        <?= __('Scan again') ?>
+                        <i class="fas fa-rotate me-1"></i><?=
+                            __('Scan again') ?>
                     </button>
                 </span>
             </div>
