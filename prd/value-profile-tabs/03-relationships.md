@@ -67,6 +67,10 @@ app/View/Themed/Overmind/Elements/Values/View/
 
 ## 5. The rule the tab lives or dies by
 
+> **§20.6 adds a fourth column to the table below.** `Outside this
+> instance` is a fourth machine-derived notion; it takes third place on
+> the page and asserted becomes fourth.
+
 **A machine relation is a table row. A human claim is never a row — it is
 `.vp-analyst`, with an author on it.** Separation is carried four ways at once,
 never by hue alone:
@@ -566,3 +570,244 @@ the read's age on the sentence that already describes the read —
 `Scanned 3 minutes ago` — and a `Scan again` beside it that re-requests
 with `fresh=1`, carrying the current narrowing. `24-relationships.md`
 §16.7.
+
+---
+
+## 20. Section four — outside this instance
+
+**Agreed 2026-08-31.** `24-relationships.md` §15.1 item 2 named feed
+co-occurrence as a follow-up and deferred it on two grounds: the
+permission question was a decision rather than a wiring detail, and the
+instance had no populated cache to build against. A feed and a sync
+server were then enabled and cached, which settles the second; this
+section settles the first. `24-relationships.md` §17 carries the
+measurements, and the defect this section waits on.
+
+The notion is **co-occurrence the instance never recorded**: a
+MISP-format feed or a cached sync server holds this value inside a
+remote event, and that event can be named and opened. §12 recorded that
+no value-centred graph feed existed and §10 of the live phase built one;
+this is the same argument one step further out. The neighbourhood does
+not stop at the instance boundary, and until now the page could not see
+past it.
+
+### 20.1 One filter, two panels
+
+`Feed::searchCaches($value)` answers for the whole instance and applies
+**no role check at all** (`Feed.php:1990`; its ACL entry is
+`'searchCaches' => ['*']`). Nothing on this page may render that output
+directly.
+
+One method — `externalPresenceFor($value, $user)` — returns only the
+sources this viewer may see, and both panels read it:
+
+| Panel | Reads | Renders |
+|---|---|---|
+| `value_external`, Overview rail | that method | a count per kind, linking here |
+| this section | that method | a row per source, with its remote events |
+
+Two panels filtering independently is the failure mode: the looser one
+becomes the disclosure and the stricter one's accuracy is decorative.
+The count on the card and the rows in this section are one list, counted
+in the first place and listed in the second.
+
+### 20.2 Who may see which source
+
+Per source, not per viewer:
+
+| Source | Visible to |
+|---|---|
+| Feed, `lookup_visible = 1` | every role |
+| Feed, `lookup_visible = 0` | `perm_view_feed_correlations` |
+| Sync server | site admin only |
+
+The rule is chosen so that **the page is never looser than a surface
+MISP already ships, and stricter in exactly one documented place.**
+Check it against both existing readers:
+
+| Reader | Gives | This rule gives |
+|---|---|---|
+| the event view, with `perm_view_feed_correlations` (`Feed.php:521`) | every cached feed | the same: `lookup_visible = 1` to everyone, the rest to the permission holder |
+| `/feeds/searchCaches`, plain user (`$limited`) | `lookup_visible = 1` feeds, no servers | the same |
+| `/feeds/searchCaches`, site admin or host org | every feed, **and servers** | stricter for a host-org non-admin: no servers |
+
+**`lookup_visible` defaults to `0`** (`INSTALL/MYSQL.sql:572`), so on a
+stock instance the first row of the first table is empty and a plain
+user sees nothing — which is what `value-profile-coverage.md` §3.2 is
+protecting, and it is protected. §20.9 argues the one place this
+departs from that document's instruction.
+
+The server row is one notch stricter than the event view, which admits
+the host org (`Feed.php:650`). It is stricter because
+`servers/previewEvent` is **site admin only** (`ACLComponent.php:742` —
+the empty array, which the component's header defines as site-admin
+only) while `feeds/previewEvent` is open to every role (`:472`), and the
+link is the row's whole value. A host-org reader would otherwise get
+rows they cannot open.
+
+Do not reach any of this by passing `$limited`. That flag conflates two
+decisions — restrict feeds to `lookup_visible`, and drop the server
+branch entirely (`Feed.php:2062`) — so it cannot express *site admin
+sees servers, host org does not*.
+
+### 20.3 The Overview card
+
+One line per kind, counting only the sources this viewer may see:
+
+```
+4 hits in feeds
+1 hit on sync servers
+```
+
+The number is the link, anchored to this section. Nothing else changes
+on the card: it stays a count, and the detail lives one click away
+rather than in the rail.
+
+### 20.4 The section
+
+`Source · Kind · Remote events`, one row per visible source. `Kind` is
+`searchCaches`' own word — `MISP Feed`, `Feed`, `MISP Server` — because
+the distinction it draws is the one that decides whether a row has
+events at all.
+
+- **A source with no published event still gets a row**, marked as
+  holding the value with no event to open. A CSV or freetext feed never
+  names one. Drop those rows and the card's count stops matching the
+  section's rows, which is the thing that makes a reader distrust both
+  numbers.
+- **No pager, no facet bar.** Measured, the neighbourhood out there is
+  small: a median of 2 remote events per hitting value, 4 at p95, 52 at
+  the maximum (`24-relationships.md` §17.4). A plain table with a
+  25-row cap and the standard cap notice covers the instance. A cap is
+  not a permission — §8 — so that notice stays whoever is reading.
+- **Opening a remote event leaves the instance.** It is the only
+  affordance on this page that is not a local read: `previewEvent`
+  fetches from the feed or server at request time. The row says so
+  rather than looking like the internal links above it.
+
+### 20.5 States, and the two ways this design was nearly wrong
+
+`00-contract.md` §14.6 governs, and it is stricter than either of the
+first two drafts of this section. It decides that the page states
+nothing about data hidden from the viewer — *not a count, not a
+proportion, and not the bare fact that something is hidden* — because
+the URL takes any value a reader types, so a count that includes
+invisible sources turns the page into a membership oracle.
+
+**So there is no count of hidden sources.** *"2 hits in feeds you cannot
+see"* is forbidden, and it is also very nearly the whole intelligence
+fact: *which* feed is decoration next to *this value is in somebody's
+feed*. A viewer who may see no source therefore reads exactly what a
+viewer whose value hit nothing reads. §14.6 states that cost in its own
+words and accepts it deliberately.
+
+**And there is no permanent caveat.** §14.6's exception is for a panel
+that renders a *computed judgement*; the rule it draws is that a panel
+which renders a **count** does not get one. This panel counts.
+
+**A role-keyed notice is neither of those, and it is what ships.** The
+bands removed in `24-relationships.md` §8 all said *N things are hidden
+from you on this value*. A sentence keyed on the viewer's **role**
+instead — shown on every value that viewer opens, whether or not
+anything hit — says nothing about any value:
+
+```
+Your role cannot view feed correlations.
+Sync server hits require site admin.
+```
+
+This is a small extension of §14.6, recorded as one rather than
+smuggled: **a statement keyed on the viewer's role rather than on the
+value is not a statement about hidden data.** The test is the oracle
+test — vary the value, and the sentence does not move. It gives back
+the transparency §14.6's cost paragraph gives up, without giving back
+the oracle.
+
+The empty states are three, and they are three different sentences:
+
+| State | What it says |
+|---|---|
+| no visible source holds it | not present in any feed or server you can see |
+| the viewer may see no source of that kind | the role notice above |
+| no feed or server has caching enabled | a configuration fact, safe to state: it is instance-wide and does not vary by value or by reader |
+
+### 20.6 Where it sits in §5's separation
+
+§5's table gains a fourth column, and the section takes third place on
+the page — machine-derived before human claims, which is what §5's
+`Place` row encodes:
+
+| | Outside this instance |
+|---|---|
+| Colour | `--vp-rel-external` |
+| Form | table row, outlined stripe — distinct from near-match's dashed |
+| Word | `Machine-derived` + `feed cache` |
+| Place | third section; asserted becomes fourth |
+
+Asserted moving down one is a real cost against the worry §7.5.3 of the
+page brief names. The answer is its anchor in the tab bar, not its
+scroll position: breaking the machine-before-human ordering to protect a
+scroll position trades a structural rule for a habit.
+
+### 20.7 What this section is not
+
+- **Not a presence list.** *Which* feeds hold the value, with no event
+  to open, is the card's answer and stays there.
+- **Not a graph.** Expanding a remote event into its attributes costs
+  one remote fetch per event. The graph gains a fourth edge kind only
+  once that cost is paid somewhere other than a page render — the
+  ruling in `24-relationships.md` §14 stands.
+- **Not a near-match source.** The cache is set membership on an md5:
+  no CIDR, no substring, no fuzzy partner. It cannot feed section two,
+  and a feed carrying `1.2.3.0/24` does not hit for `1.2.3.4`.
+- **Not datable.** One timestamp per feed, rewritten on every re-cache,
+  so there is no Timeline lane here. Settled already in
+  `06-timeline.md` §12.
+
+### 20.8 Blocked on
+
+`Feed::searchCaches` misattributes remote event uuids across sources —
+**11% of hitting values on this instance** — so the links this section
+exists to render are wrong for one row in nine. It is a three-line fix
+in MISP, mirroring the reader that already gets it right, and it lands
+before this section is built rather than after.
+`24-relationships.md` §17.2.
+
+### 20.9 Why this does not gate every feed on `perm_view_feed_correlations`
+
+`value-profile-coverage.md` §3.2 gives whoever wires this panel a direct
+instruction, and it is the one thing in the corpus §20.2 departs from:
+
+> apply `perm_view_feed_correlations` in the panel, even though
+> `searchCaches()` does not. Render the ACL-gated empty state, not an
+> empty result.
+
+**Taken, with one exception: feeds an administrator has set
+`lookup_visible = 1` on.**
+
+The reasoning §3.2 gives is that on a stock instance a plain user sees no
+feed correlations on any event view, so rendering `searchCaches` output
+would hand them a fact MISP withholds everywhere else. That is correct,
+and it **stays** correct under §20.2 — `lookup_visible` defaults to `0`,
+so on an instance where nobody has touched the flag the two rules are
+the same rule and produce the same empty state.
+
+Where an administrator *has* set it, the flag is not an oversight: it
+means *this feed's membership may be looked up by anyone*, and MISP
+already acts on it. `/feeds/searchCaches` is reachable by every role
+(`ACLComponent.php:476`) and returns those feeds by name. Gating them a
+second time here would hide, on this page, what the same reader gets by
+pasting the value into a page one click away — which teaches them to
+distrust the page rather than to trust the gate.
+
+The two readers are also different shapes of question, which is why MISP
+gates them differently and why this page follows the one it resembles.
+`attachFeedCorrelations` decorates attributes inside an event the reader
+already holds — the permission is about enriching something they can see.
+`searchCaches` takes a bare value from anyone and answers who holds it,
+which is this page's own shape: §14.6's whole argument turns on the URL
+accepting any value a reader types.
+
+So `perm_view_feed_correlations` gates every feed the administrator has
+not published, which on a stock instance is all of them. `value_external`
+and this section apply it identically, through the one method of §20.1.

@@ -251,6 +251,11 @@ MISP deliberately withholds from them everywhere else.**
 > **The rule for whoever wires this panel:** apply
 > `perm_view_feed_correlations` in the panel, even though `searchCaches()` does
 > not. Render the ACL-gated empty state, not an empty result.
+>
+> **Taken, with one exception argued in `tabs/03-relationships.md` §20.9:**
+> feeds an administrator has set `lookup_visible = 1` on. The column defaults
+> to `0` (`INSTALL/MYSQL.sql:572`), so on an instance where nobody has touched
+> the flag that exception is empty and this rule is unchanged.
 
 `$limited` is a second, narrower gate on the same call, and it is not a
 substitute for the first. `FeedsController.php:1654` sets
@@ -323,6 +328,17 @@ failure mode here.
 
 The MISP-feed event uuids from §3.1 are the one piece of genuine upside, and §5
 routes them to Relationships rather than to Overview.
+
+> **Settled 2026-08-31, and the split is finer than this section states.**
+> `tabs/03-relationships.md` §20 is the agreed design and
+> `live/24-relationships.md` §17 the measurements against a populated cache.
+> The card keeps the *count*; the *detail* — which source, and which remote
+> event — is a fourth section on Relationships, and one method filters for
+> both so they cannot disagree (§20.1). Two refinements to this section: the
+> three empty states of §3.5 survive but the *not permitted* one is keyed on
+> the viewer's **role** rather than on the value, which is what lets it exist
+> at all under `live/00-contract.md` §14.6 (§20.5); and §3.2's instruction
+> below is taken with one argued exception (§20.9).
 
 ---
 

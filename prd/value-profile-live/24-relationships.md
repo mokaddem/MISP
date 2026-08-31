@@ -874,6 +874,11 @@ Measured rather than eyeballed, in **both themes**:
 case) / weak**. All three are addressed and all three are **deferred**,
 each with a reason rather than a shrug.
 
+> **§17 supersedes the feeds and servers paragraph below.** Both grounds
+> for that deferral are gone: the cache is populated, and the permission
+> question is answered in `03-relationships.md` §20. What remains is one
+> MISP defect — §17.2.
+
 **Proposals — deferred, and the decision is stated.** A proposed
 addition (`ShadowAttribute.old_id = 0`) in an event that already holds
 this value is a co-occurrence that does not exist yet, and §5 is right
@@ -935,9 +940,13 @@ this instance, and `1.0.155.105` is the one that cannot be read.
    sections (§5.4). The fix is one shared per-request assembly or one
    endpoint, and it is the first concrete customer §14.11's caching
    exclusion has had.
-2. **Feed co-occurrence** (§14), behind a `perm_view_feed_correlations`
-   gate, on an instance with a populated cache. The graph is ready for a
-   fourth edge kind.
+2. **Feed co-occurrence** — **designed, and blocked on one MISP
+   defect.** `03-relationships.md` §20 is the design, §17 the
+   measurements against a now-populated cache. The gate turned out to be
+   per source rather than one permission (§20.2, §20.9), and the blocker
+   is `searchCaches` misattributing remote event uuids across sources
+   (§17.2). The graph's fourth edge kind stays deferred for the reason
+   §20.7 gives.
 3. **Claim prose**, as child Notes on each relationship (§7), once
    that section has decided its own per-claim bound.
 4. **pivotick's edge layers.** 1.6 ships exactly the three-notion switch
@@ -1226,3 +1235,187 @@ cue for *I* just added something and none at all for *somebody else*
 did, and no affordance fixes that — only invalidation would. That is the
 condition for raising this, and it is the same shape as §15.1's other
 follow-ups: a hook that does not exist yet.
+
+---
+
+## 17. External presence — the design is settled, and what the cache showed
+
+§14 deferred feeds and servers on two grounds and §15.1 item 2 carried
+them forward: the permission question was a decision rather than a
+wiring detail, and the instance held 88 feeds with **none enabled**, so a
+panel built against the cache would ship unexercised.
+
+**Both grounds are now gone.** A feed and a sync server were enabled and
+cached on 2026-08-31, and the permission question is answered in
+`03-relationships.md` §20 — which is the design, agreed the same day.
+This section is the reality against it: what the populated cache
+actually holds, and the two defects found reading it. One of them blocks
+the build.
+
+### 17.1 The cache, as it now stands
+
+| Source | Format | Enabled | `lookup_visible` | Cached values |
+|---|---|---|---|---|
+| Feed 1 — CIRCL OSINT Feed | misp | 1 | 1 | 536,803 |
+| Feed 2 — The Botvrij.eu Data | misp | 0 | 1 | 28,342 |
+| Feed 41 — URLHaus Malware URLs | csv | 0 | 1 | 15,266 |
+| Feed 62 — Malware Bazaar | csv | 0 | 1 | 744 |
+| Feed 64 — Threatfox | misp | 0 | 1 | 1,545,743 |
+| Server 1 — Training Main | — | — | — | 542,072 |
+
+`misp:feed_cache:combined` holds 2,092,449 hashes and
+`misp:server_cache:combined` 542,072. `MISP.host_org_id` is 1.
+
+Two things to read off this table, and the second one matters more:
+
+**Caching is independent of enabling.** Four of the five feeds are
+disabled and cached. So the section's rows can name a source the
+instance is not pulling from, and its remote-event links still resolve,
+because `previewEvent` fetches from the feed URL rather than from
+anything local.
+
+**All five carry `lookup_visible = 1`, which is not the default.**
+`INSTALL/MYSQL.sql:572` defaults the column to `0`. This instance is
+therefore *more* permissive than a stock one, and cannot be used to
+judge how §20.5's role notice will read in the field — here a plain user
+sees five feeds, and on a stock instance the same user sees none. Any
+verification of the notice has to flip `lookup_visible` to 0 rather than
+trust what this instance shows.
+
+### 17.2 The defect that blocks the section
+
+`searchCaches` reads the **global** per-value uuid set inside its
+per-source loop and strips the source id without checking it
+(`explode('/', $url)[1]`, `Feed.php:2022` for feeds and `:2072` for
+servers). Every hitting source is then handed every uuid.
+
+Measured on `zxzhjlk.artenadigital.com`, whose uuid set is exactly two
+entries from two different feeds:
+
+```
+1/031fb9c1-32e9-4363-aa51-6f4df779cb14      CIRCL OSINT Feed
+64/fd94eeff-6af7-453d-ab6e-3552ad2dcbba     Threatfox
+```
+
+`searchCaches` returns feed 1 with **both** uuids and feed 64 with
+**both** uuids — four `previewEvent` links, of which two name a feed
+that does not hold that event.
+
+**543 of the 4,761 hitting values in a 40,000-value sample — 11% — have
+a uuid set spanning more than one feed**, so this is not a corner case.
+It lands precisely on the affordance §20 exists to provide.
+
+`attachFeedCorrelations` already gets this right, at `Feed.php:670`:
+
+```php
+list($feedId, $eventUuid) = explode('/', $url);
+if ($feedId != $sourceId) {
+    continue; // just process current source, skip others
+}
+```
+
+The fix is that filter, in the two places `searchCaches` is missing it.
+It is a MISP fix rather than a page fix, and it lands before the section
+is built: a panel whose entire content is *which remote event* cannot
+ship on a primitive that misattributes them.
+
+### 17.3 The card's count is not a lighter read
+
+The Overview card was proposed as a "light check" on the grounds of
+cost. There is no cost to save:
+
+| Read | Time |
+|---|---|
+| `searchCaches($v, false)` — everything, including uuids | 0.5–1.5 ms |
+| `searchCaches($v, true)` — the `$limited` path | 0.0–0.7 ms |
+| the two `sismember` calls on the combined sets alone | 0.09–0.15 ms |
+
+All three are noise beside the 173–535 ms §16.7 measures for section
+one. So the card being a count is an **editorial** decision about what a
+rail has room for, recorded as such in §20.3 — not a performance one,
+and nothing stops the card carrying more later.
+
+### 17.4 The section is small
+
+Remote events per hitting value, over the same 4,761:
+
+| min | median | p95 | max |
+|---|---|---|---|
+| 0 | 2 | 4 | 52 |
+
+Exactly one value has zero, and it is the non-MISP-format case of
+§17.5. This is why §20.4 gives the section no pager and no facet bar: a
+25-row cap covers the instance with room to spare, and the whole
+neighbourhood out there is smaller than a single page of section one.
+
+### 17.5 The two panels agree here, and that is instance-specific
+
+`onlyOtherFormatFeed` — a value that hits a CSV or freetext feed and
+nothing else, so the card counts a hit the section has no event for —
+came to **1 value in 40,000**:
+`http://79.135.225.50:13477/.i`, feed 41.
+
+So on this instance the card's count and the section's rows will
+essentially always match. That is a property of *which* feeds are
+cached: the two non-MISP feeds hold 15,266 and 744 values against
+2.09M combined. An instance caching a large freetext feed would widen
+the gap. §20.4's "present, no event to open" row is therefore cheap
+insurance rather than a common state, and it stays for that reason.
+
+Separately, 45 values hit **only** the server cache. Those are the ones
+that make §20.2's server rule visible: read through the `$limited` path,
+which drops the server branch entirely (`Feed.php:2062`), all 45 return
+zero hits — a value sitting on the sync server, reported as absent.
+`mailout-us.gmx.ru` is one, and it is the value to test that state
+against.
+
+### 17.6 A second defect: written raw, read lowercased
+
+The writer hashes the value **raw** — `$md5 = md5($v)` at
+`Feed.php:1663`, written to the per-feed set, the combined set and the
+uuid lookup at `:1666`. `searchCaches` hashes it **lowercased and
+trimmed** — `md5(strtolower(trim($v)))` at `:2007`. The event view's
+reader hashes raw, `md5($part)` at `:579`, so it agrees with the writer
+and `searchCaches` does not.
+
+**21 of the 40,000 values are in the feed cache under `md5($value)` and
+absent under the lowercased hash**, so `searchCaches` cannot see them at
+all while the event view can:
+
+```
+XOR
+US
+POST
+https://x.com/Malwarehunterr/status/2071679859819237847
+https://x.com/Fact_Finder03/status/2071599266104275219
+```
+
+Mixed-case URLs are the systematic class, and they are ordinary threat
+intel.
+
+This one does not block §20 — it under-reports rather than
+misattributes, which is the failure direction the page can carry — but
+it belongs in the same MISP change. The honest fix is to test **both**
+hashes on read rather than to change either side's normalisation: a
+false positive is impossible, since a hit on either hash means some
+publisher cached that exact string, and the quick-cache path at `:1705`
+takes hashes straight from the feed's own file, so mixed normalisation
+is baked in and cannot be legislated away from one end.
+
+### 17.7 The probe
+
+`24-external-presence-probe.php`, beside this document. It reports the
+cache state, classifies every distinct local value against both caches,
+and prints the misattribution case and the normalisation gap with
+examples. Same convention as this phase's other two scratch shells:
+
+```
+cp prd/value-profile-live/24-external-presence-probe.php \
+   app/Console/Command/ValueExternalProbeShell.php
+app/Console/cake ValueExternalProbe
+rm app/Console/Command/ValueExternalProbeShell.php
+```
+
+The `40000` limit on its value scan is the only tuning knob; the
+`MispAttribute` alias rather than `Attribute` is not optional, since PHP
+8's built-in `Attribute` wins the `ClassRegistry` lookup otherwise.
