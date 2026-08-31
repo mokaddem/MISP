@@ -1855,6 +1855,13 @@ hover is where the rest belongs.
 
 ## 20. The claim's hover card — §15.1 item 7
 
+> **§21 reshapes this card.** It is now about the target only: the
+> `THIS CLAIM` and `WRITTEN AGAINST` sections below are gone, the glyph
+> moved beside the target's kind, the card opens to the right, and the
+> event gains its tags and clusters. The mechanism §20.5 argues for is
+> unchanged, and the sections here are left as written because the
+> reasoning that produced them is worth reading beside the correction.
+
 §19.9 named what it kept out of the block and why: a claim had just
 gained a third line, and the rest of its record would have made a fourth.
 This is the rest of the record, on hover.
@@ -2005,3 +2012,149 @@ thing its whole argument forbids.
   narrows 6 → 2 → 6; no JS errors from this panel.
 - The `e.target.closest is not a function` error is still logged and is
   still not ours — §18.5.
+
+---
+
+## 21. The card is about the target, not about the claim
+
+§20 built the hover card as a record of the *claim* — its provenance,
+the occurrence it was written against, then the far end. Read against
+the page, the first two sections were repeating the row: the type, the
+author, the date and the audience are all already on the block, and a
+reader had to scroll past four facts they had just read to reach the one
+they opened the card for.
+
+**The card is now entirely about the far end.** It moved to sit beside
+it, `THIS CLAIM` and `WRITTEN AGAINST` are gone, and what it says about
+the target grew to fill the space they left.
+
+### 21.1 Two sections, and the second is the event
+
+```
+ATTRIBUTE
+Category     Network activity
+IDS flag     set
+Audience     [Inherited]
+UUID         a6679030-617a-49e3-a730-75ad44ee9e74
+
+IN EVENT #4345
+Info         Test phishing event for SkillAegis
+Date         2026-07-08
+Analysis     Initial
+Attributes   61
+Audience     [This community only]
+Tags (2)     [adversary:infrastructure-type="c2"] [C2]
+Clusters (3) [Account Discovery - T1087] [0kilobypt] [APT-C-27]
+UUID         985f91d5-f651-4ffb-9bfa-3924274a6438
+```
+
+**An attribute and an object are always inside an event**, and whether a
+claim matters usually turns on which event that is — its date, how far
+the analysis got, and what it was labelled with. An `Event` target has no
+second section, because it *is* the event: the same rows appear once,
+under `EVENT`.
+
+**One definition, drawn twice.** `claimEventFacts` builds the event block
+for both cases. Two definitions would drift, and the reader would be told
+different things about the same event depending on which claim they
+happened to hover.
+
+**`Type` is not a row.** The label the card hangs off reads `type ·
+value`, so an attribute's `Type` row printed the first half of it back.
+
+### 21.2 Tags and clusters, which are the reason to open it at all
+
+`getRelatedElement` contains `Event` for an attribute and an object
+target and fetches the event itself for an event target, so every column
+above except the labels was already in hand. The labels were not.
+
+**`claimEventTags` is one `EventTag` find for every event in the
+section** — the target events and the parent events together — with the
+same `Tag` contain `eventMetadata` above uses.
+
+**Galaxy tags are kept rather than dropped, and that inverts this page's
+own habit.** Everywhere else in `ValueProfile` a galaxy tag is filtered
+out, because the Tags column does not draw one and a facet on something
+invisible is not a facet. Here they are the point: a cluster is what an
+analyst reaching for context is looking for.
+
+**A cluster is named, not printed raw.** `misp-galaxy:threat-actor=
+"TAG-53"` is a storage key, not a label. The names come from
+`fetchGalaxyClusters`, which `claimClusters` was already calling for
+cluster *targets* — so the tag names join that call as a second `OR`
+branch rather than a second query.
+
+That also keeps the ACL honest: a galaxy tag whose cluster the viewer may
+not read resolves to nothing and is dropped. Printing the tag string
+instead would have disclosed, in a string, the cluster the instance was
+withholding.
+
+**The count is in the label.** `Clusters (6)` — the chip list scrolls
+past four wrapped rows, and a reader who cannot see the bottom of it has
+no way to know whether they are looking at four labels or forty.
+
+### 21.3 It opens to the right, and the glyph moved to make that safe
+
+Opening downward put the card over the two claims below it, which is the
+wrong place to read something *about* the one above. It now opens beside
+the glyph.
+
+**Which is why the glyph sits before the target's name, not after it.**
+The card's left edge is the glyph's position, and a glyph placed after a
+label of unbounded length inherits that label's length: measured, an
+event title on `8.8.8.8` pushed the card's right edge to 1031 px and gave
+the whole page a horizontal scrollbar below 1024 px. Before the name, the
+glyph's x is bounded by the longest kind word, and the widest card on
+this instance ends at 742 px in a 900 px viewport.
+
+`Object ⓘ domain-ip · #1` also reads correctly: the glyph is attached to
+the kind, and what it opens is that kind's record.
+
+**The 900 px horizontal scrollbar is still there and is not this.**
+`.vp-pivot` overflows to 1238 px with nothing hovered at all. Found while
+measuring the above, left alone: it belongs to whoever owns that element.
+
+### 21.4 What it costs
+
+| Value | Claims | §20 | Now |
+|---|---|---|---|
+| `8.8.8.8` | 6 | 15 | **22** |
+| `deadnxuyla.ru` | 1 | 8 | **9** |
+| `443`, `0.0.0.0`, `185.92.180.100`, `1.0.155.105` | 0 | 2 | **2** |
+| unknown value | 0 | 1 | **1** |
+
+**One of those seven is mine.** `deadnxuyla.ru` shows it: its event
+carries no galaxy tag, so the whole cost is the one `EventTag` find.
+
+The other six are what `GalaxyCluster::fetchGalaxyClusters` does once it
+returns rows rather than nothing — `SharingGroup::authorizedIds`, a
+sharing-group fetch with its orgs and servers, an organisation list and a
+user setting. §20 called the same method and paid none of it, because the
+one cluster UUID on this instance does not resolve and the fetch came
+back empty.
+
+**It is per section, not per claim or per cluster**, which is what makes
+it acceptable: six claims across five events and eleven clusters cost the
+same six. This is the same category as §5.3's note about
+`Relationship::afterFind` — *never assume a `find` on one of these models
+is one query* — and it is recorded here for the same reason.
+
+**The fragment got smaller**, because two sections left and one grew:
+41,280 B raw and 5,899 B gzipped, against §20.6's 45,285 and 6,048.
+
+### 21.5 Verified
+
+- All four target kinds and the unresolved one, both themes, on
+  `8.8.8.8`; `deadnxuyla.ru` for an inbound attribute target whose
+  parent event has tags but no clusters.
+- Right-edge behaviour measured at 1700, 1280, 1024 and 900 px: no card
+  overflows at any of them, and the page's own horizontal scroll at
+  900 px is the pre-existing `.vp-pivot` one.
+- Keyboard: the glyph is in the tab order and focus opens the card.
+- Six rows, six glyphs, six cards; the type filter still narrows
+  6 → 2 → 6; no JS errors from this panel.
+- The model keys the removed sections used — `against`, `uuid`,
+  `created`, `authors`, `sharing_group` — went with them rather than
+  being left unread. **`authors`, `created` and the claim's own UUID are
+  now on no surface of this page**, which is a real subtraction and is
+  named here in case it should come back somewhere.

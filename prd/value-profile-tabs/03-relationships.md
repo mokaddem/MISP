@@ -1056,32 +1056,35 @@ per block read as a page of links rather than as a sentence somebody
 wrote — the same argument §19's sightings table makes for its two
 columns.
 
-**The rest of the record is on hover**, not on a fourth line — built
-straight after, and in `24-relationships.md` §20. A small `ⓘ` at the end
-of the meta line opens a card with three sections, in the order a claim
-is made of:
+**What the target *is* goes on hover**, not on a fourth line — built
+straight after, and in `24-relationships.md` §20 and §21. A small `ⓘ`
+between the target's kind and its name opens a card to the right of it,
+with two sections:
 
-- **This claim** — type, when it was written, authors, the audience in
-  words, the relationship UUID.
-- **Written against** — *which* of the value's occurrences carries it,
-  linked. §8's footer has said since it shipped that a claim is stored
-  against an occurrence rather than against the value; on a value with 23
-  of them, this is the only place that says which.
-- **Points at · `<kind>`** — the target linked, its UUID, its audience,
-  and the columns that are only true of its kind: `Analysis` and
-  `Attributes` for an event, `IDS flag` and `Comment` for an attribute,
-  `Template` for an object, `Tag` and a clipped `Description` for a
-  cluster.
+- **`<kind>`** — the target's own stored columns. `Date`, `Analysis`,
+  `Attributes` and its tags and clusters for an event; `Category`, `IDS
+  flag`, `Comment` and first/last seen for an attribute; `Template` and
+  the same for an object; `Tag` and a clipped `Description` for a
+  cluster. Then its audience in words, and its UUID.
+- **`In event #N`** — for an attribute or an object, which are always
+  inside one: the event's own row of the same kind, tags and clusters
+  included. An event target has no second section, because it is the
+  event.
 
-**The card lists stored columns.** That rule is what admits all of the
-above and what excludes `direction`, the one thing a reader might expect
-to see: it is derived from which endpoint column matched, not stored, and
-the chip two lines above already says it.
+**The card says nothing about the claim.** The first cut opened with the
+claim's type, author, date and audience — all four already on the block —
+so a reader scrolled past what they had just read to reach what they
+opened it for. `24-relationships.md` §21.
+
+**A galaxy cluster is named, not printed as its tag string**, and a
+cluster the viewer may not read is dropped rather than disclosed by the
+tag that stores it.
 
 **Hover and keyboard focus in CSS, not a Bootstrap tooltip** — this panel
 arrives through `loadAjaxContainer` and MISP's only tooltip initialiser
-runs at `DOMContentLoaded`, so a declared one would never bind. It costs
-no queries and roughly doubles the fragment; §20.6 has both numbers.
+runs at `DOMContentLoaded`, so a declared one would never bind. The glyph
+sits *before* the target's name so the card's left edge does not inherit
+a label of unbounded length; §21.3 has the measurement that forced it.
 
 **Still not taken:** a claim's child Notes (§12's list, item 3). The card
 is where their absence is now most visible.

@@ -4516,13 +4516,23 @@ th.vp-rel-num {
     opacity: 1;
 }
 
+/*
+ * Opens to the right of the glyph, not under it. The glyph sits at the
+ * end of the target line and the claim blocks are full-width, so the
+ * room is beside them; opening downward put the card over the two
+ * claims below, which is the wrong place to read something *about* the
+ * one above.
+ *
+ * Pulled up by a line so the card's first row sits level with the line
+ * that opened it.
+ */
 .vp-claim-tip {
     position: absolute;
     z-index: 5;
-    top: calc(100% + 7px);
-    left: -8px;
+    top: -0.6rem;
+    left: calc(100% + 9px);
     width: 21rem;
-    max-width: 90vw;
+    max-width: min(21rem, calc(100vw - 3rem));
     padding: 9px 11px;
     border: 1px solid var(--bs-border-color);
     border-radius: 7px;
@@ -4570,12 +4580,12 @@ th.vp-rel-num {
 }
 
 /*
- * A fixed label column, so three sections of rows line up as one
- * table. Wide enough for `Sharing group`, which is the longest label
- * any of the four kinds produces.
+ * A fixed label column, so both sections of rows line up as one table.
+ * Wide enough for `Clusters (12)`, which is the longest label any of
+ * the four kinds produces.
  */
 .vp-claim-tiprow > b {
-    flex: 0 0 5.6rem;
+    flex: 0 0 5.9rem;
     color: var(--bs-secondary-color);
     font-weight: 500;
 }
@@ -4604,6 +4614,58 @@ th.vp-rel-num {
 .vp-claim-tiprow .badge {
     font-size: 0.63rem;
     vertical-align: baseline;
+}
+
+/*
+ * Tags and clusters wrap rather than stretching the card. An event with
+ * nine tags is common and the card is 21rem wide by choice.
+ */
+.vp-claim-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1px;
+    /* Four wrapped rows, then it scrolls; the label carries the count
+     * so a list cut off at the fold still says how long it is. */
+    max-height: 7.6rem;
+    overflow-y: auto;
+}
+
+.vp-claim-chips > div {
+    display: inline-flex;
+}
+
+.vp-claim-chips .badge {
+    margin-bottom: 0 !important;
+}
+
+/*
+ * A cluster is not a tag, and does not borrow the tag's colour: the
+ * galaxy glyph and an outline say *this is a cluster* where a filled
+ * chip would say *this is a label somebody attached*.
+ */
+.vp-claim-cluster {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 3px 2px 0;
+    padding: 1px 7px;
+    border: 1px solid color-mix(in srgb, var(--vp-rel-human) 40%,
+        transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-rel-human) 10%,
+        var(--bs-body-bg));
+    color: var(--vp-rel-human);
+    font-size: 0.63rem;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+[data-bs-theme="dark"] .vp-claim-cluster {
+    background: color-mix(in srgb, var(--vp-rel-human) 22%,
+        var(--bs-body-bg));
+    color: color-mix(in srgb, var(--vp-rel-human) 45%,
+        var(--bs-body-color));
 }
 
 /*

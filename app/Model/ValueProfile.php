@@ -2629,20 +2629,6 @@ class ValueProfile extends AppModel
         $owner = $relationship['org_uuid'] === $relationship['orgc_uuid']
             ? null
             : self::claimOrg($relationship, 'Org');
-        /*
-         * **Which occurrence this claim was written against.** The
-         * footer has said since the panel shipped that claims are
-         * stored against an occurrence rather than against the value;
-         * this is the one place that says *which* of them, and on a
-         * value with 23 it is the difference between a sentence and a
-         * fact. Free — `occurrenceUuidsFor` already returned it, and
-         * the branch above has already decided which end is ours.
-         */
-        $nearUuid = $outbound
-            ? $relationship['object_uuid']
-            : $relationship['related_object_uuid'];
-        $against = $occurrences[$nearUuid];
-        $against['uuid'] = $nearUuid;
         return array(
             'relationship_type' => empty($relationship['relationship_type'])
                 ? __('related-to')
@@ -2678,43 +2664,7 @@ class ValueProfile extends AppModel
             'owner_id' => $owner === null ? null : $owner['id'],
             'date' => substr($relationship['modified'], 0, 10),
             'distribution' => (int)$relationship['distribution'],
-            'against' => $against,
-            /*
-             * The rest of the record, for the hover rather than for the
-             * block. None of it costs a query: every column is on the
-             * row already fetched, and `SharingGroup` is nested by
-             * `AnalystData::rearrangeSharingGroup` — which does fetch,
-             * but only for a level-4 claim, and does it whether this
-             * panel reads the result or not.
-             */
-            'uuid' => $relationship['uuid'],
-            'created' => $relationship['created'],
-            'modified' => $relationship['modified'],
-            'authors' => self::claimAuthors($relationship),
-            'sharing_group' => empty($relationship['SharingGroup']['name'])
-                ? null
-                : $relationship['SharingGroup']['name'],
         );
-    }
-
-    /**
-     * Whoever the claim credits by name, as one string.
-     *
-     * `authors` is a text column that reaches here as a string on some
-     * rows and as a list on others — `AnalystData` decodes it where it
-     * parses as JSON — and MISP's own analyst-data popover joins the
-     * list for the same reason.
-     *
-     * @param array $relationship
-     * @return string|null
-     */
-    private static function claimAuthors(array $relationship)
-    {
-        if (empty($relationship['authors'])) {
-            return null;
-        }
-        $authors = $relationship['authors'];
-        return is_array($authors) ? implode(', ', $authors) : $authors;
     }
 
     /**
@@ -2753,9 +2703,12 @@ class ValueProfile extends AppModel
      * resolve at all, and the creator organisation of an event target,
      * which arrives as a bare `orgc_id` and no name.
      *
-     * Two queries for the section, each skipped when nothing needs it —
-     * the same trade `assertedClaims` already makes by containing the
-     * authors rather than letting `afterFind` fetch them per row.
+     * Three queries for the section, each skipped when nothing needs it
+     * — the same trade `assertedClaims` already makes by containing the
+     * authors rather than letting `afterFind` fetch them per row. The
+     * tags come first because the galaxy ones among them name clusters,
+     * and those resolve in the same fetch as the clusters a claim
+     * points *at* rather than in a second one.
      *
      * @param array $user
      * @param array $claims Keyed by relationship UUID
@@ -2763,26 +2716,125 @@ class ValueProfile extends AppModel
      */
     private function resolveClaimTargets(array $user, array $claims)
     {
-        $clusters = $this->claimClusters($user, $claims);
+        $tags = $this->claimEventTags($claims);
+        $clusters = $this->claimClusters($user, $claims,
+            array_keys($tags['galaxy']));
         foreach ($claims as $key => $claim) {
             $target = $claim['target'];
             if ($target['kind'] === 'GalaxyCluster'
-                && isset($clusters[$target['uuid']])
+                && isset($clusters['by_uuid'][$target['uuid']])
             ) {
                 $claims[$key]['target']['element']
-                    = $clusters[$target['uuid']];
+                    = $clusters['by_uuid'][$target['uuid']];
             }
         }
-        $orgs = $this->claimTargetOrgs($claims);
+        $lookups = array(
+            'orgs' => $this->claimTargetOrgs($claims),
+            'tags' => $tags['plain'],
+            'galaxy_by_event' => $tags['galaxy_by_event'],
+            'clusters' => $clusters['by_tag'],
+        );
         foreach ($claims as $key => $claim) {
             $claims[$key]['target'] = $this->claimTarget(
                 $claim['target']['kind'],
                 $claim['target']['uuid'],
                 $claim['target']['element'],
-                $orgs
+                $lookups
             );
         }
         return $claims;
+    }
+
+    /**
+     * Every event a claim's far end sits in, tagged, in one fetch.
+     *
+     * An event target *is* the event; an attribute or object target
+     * carries its own. Both are wanted, because a reader deciding
+     * whether a claim matters wants what the event was labelled with —
+     * and on this page the label is the tag.
+     *
+     * **Galaxy tags come back separately rather than being dropped.**
+     * Everywhere else on this page they are filtered out, because the
+     * Tags column does not draw them and a facet on something invisible
+     * is not a facet. Here they are the point: a cluster is what an
+     * analyst reaching for context is looking for, and the tag name is
+     * how the event stores it.
+     *
+     * @param array $claims
+     * @return array plain => event id => tag rows, galaxy => name => true
+     */
+    private function claimEventTags(array $claims)
+    {
+        $eventIds = array();
+        foreach ($claims as $claim) {
+            $id = self::claimEventId($claim['target']);
+            if ($id !== null) {
+                $eventIds[$id] = true;
+            }
+        }
+        $found = array(
+            'plain' => array(),
+            'galaxy' => array(),
+            'galaxy_by_event' => array(),
+        );
+        if (empty($eventIds)) {
+            return $found;
+        }
+        $rows = $this->model('EventTag')->find('all', array(
+            'conditions' => array(
+                'EventTag.event_id' => array_keys($eventIds),
+            ),
+            'recursive' => -1,
+            'contain' => array('Tag' => array('fields' => array(
+                'Tag.id', 'Tag.name', 'Tag.colour', 'Tag.is_galaxy',
+            ))),
+        ));
+        foreach ($rows as $row) {
+            if (empty($row['Tag']['name'])) {
+                continue;
+            }
+            $eventId = (int)$row['EventTag']['event_id'];
+            if (empty($row['Tag']['is_galaxy'])) {
+                $found['plain'][$eventId][] = $row['Tag'];
+                continue;
+            }
+            $found['galaxy'][$row['Tag']['name']] = true;
+            $found['plain'][$eventId] = isset($found['plain'][$eventId])
+                ? $found['plain'][$eventId]
+                : array();
+        }
+        /*
+         * Which event each galaxy tag was on, kept beside the names so
+         * the fetch above stays one query and the card can still say
+         * *this* event's clusters rather than the section's.
+         */
+        foreach ($rows as $row) {
+            if (empty($row['Tag']['is_galaxy'])) {
+                continue;
+            }
+            $eventId = (int)$row['EventTag']['event_id'];
+            $found['galaxy_by_event'][$eventId][] = $row['Tag']['name'];
+        }
+        return $found;
+    }
+
+    /**
+     * The event id a target sits in, or is.
+     *
+     * @param array $target As claimFrom left it, element and all
+     * @return int|null
+     */
+    private static function claimEventId(array $target)
+    {
+        $element = $target['element'];
+        $kind = $target['kind'];
+        if ($kind === 'Event' && !empty($element['Event']['id'])) {
+            return (int)$element['Event']['id'];
+        }
+        if (!empty($element[$kind]['Event']['id'])) {
+            return (int)$element[$kind]['Event']['id'];
+        }
+        return null;
     }
 
     /**
@@ -2799,30 +2851,46 @@ class ValueProfile extends AppModel
      * use, so a cluster the viewer may not see stays unresolved rather
      * than appearing.
      *
+     * **Two callers, one query.** A cluster a claim points at is looked
+     * up by UUID; a cluster an event is tagged with is looked up by the
+     * tag name that stores it. Both are `GalaxyCluster` rows under the
+     * same ACL, so they are one `OR` rather than two round trips.
+     *
      * @param array $user
      * @param array $claims
-     * @return array uuid => row, as fetchGalaxyClusters returns it
+     * @param array $tagNames Galaxy tag names found on the events
+     * @return array by_uuid => uuid => row, by_tag => tag name => row
      */
-    private function claimClusters(array $user, array $claims)
-    {
+    private function claimClusters(array $user, array $claims,
+        array $tagNames = array()
+    ) {
         $uuids = array();
         foreach ($claims as $claim) {
             if ($claim['target']['kind'] === 'GalaxyCluster') {
                 $uuids[$claim['target']['uuid']] = true;
             }
         }
-        if (empty($uuids)) {
-            return array();
+        $found = array('by_uuid' => array(), 'by_tag' => array());
+        $or = array();
+        if (!empty($uuids)) {
+            $or['GalaxyCluster.uuid'] = array_keys($uuids);
+        }
+        if (!empty($tagNames)) {
+            $or['GalaxyCluster.tag_name'] = $tagNames;
+        }
+        // An empty `IN ()` is not a query worth sending.
+        if (empty($or)) {
+            return $found;
         }
         $rows = $this->model('GalaxyCluster')->fetchGalaxyClusters(
             $user,
-            array('conditions' => array(
-                'GalaxyCluster.uuid' => array_keys($uuids),
-            ))
+            array('conditions' => array('OR' => $or))
         );
-        $found = array();
         foreach ($rows as $row) {
-            $found[$row['GalaxyCluster']['uuid']] = $row;
+            $found['by_uuid'][$row['GalaxyCluster']['uuid']] = $row;
+            if (!empty($row['GalaxyCluster']['tag_name'])) {
+                $found['by_tag'][$row['GalaxyCluster']['tag_name']] = $row;
+            }
         }
         return $found;
     }
@@ -2880,11 +2948,11 @@ class ValueProfile extends AppModel
      * @param string $kind
      * @param string $uuid
      * @param array $element As getRelatedElement returns it
-     * @param array $orgs id => name, from claimTargetOrgs
+     * @param array $lookups orgs, tags and clusters for the whole list
      * @return array
      */
     private function claimTarget($kind, $uuid, array $element,
-        array $orgs
+        array $lookups
     ) {
         $target = array(
             'kind' => $kind,
@@ -2903,6 +2971,8 @@ class ValueProfile extends AppModel
              */
             'detail' => array(),
             'distribution' => null,
+            'tags' => array(),
+            'clusters' => array(),
             'resolved' => false,
         );
         if (empty($element[$kind]['id'])) {
@@ -2910,7 +2980,7 @@ class ValueProfile extends AppModel
         }
         $row = $element[$kind];
         $target['id'] = (int)$row['id'];
-        $target['org'] = self::claimTargetOrg($row, $orgs);
+        $target['org'] = self::claimTargetOrg($row, $lookups['orgs']);
         $target['resolved'] = true;
         if (isset($row['distribution'])) {
             $target['distribution'] = (int)$row['distribution'];
@@ -2929,24 +2999,20 @@ class ValueProfile extends AppModel
                 empty($row['published']) ? __('unpublished') : '',
             );
             /*
-             * `attribute_count` is denormalised and can lag, and it is
-             * still the right number to print: it is what MISP's own
-             * event index shows for the same event, so a reader who
-             * follows the link and counts something else has found a
-             * discrepancy in the instance rather than in this card.
+             * The target *is* the event, so the event's own card rows
+             * are the target's. An attribute or object target gets the
+             * same shape one section below it, built by the same call —
+             * what this panel says about an event should not depend on
+             * how the reader arrived at it.
              */
-            $analysis = $this->model('Event')->analysisLevels;
-            $level = (int)$row['analysis'];
-            $target['detail'] = array(
-                __('Analysis') => isset($analysis[$level])
-                    ? __($analysis[$level])
-                    : '',
-                __('Attributes') => $row['attribute_count'],
-            );
+            $event = $this->claimEventFacts($row, $lookups);
+            $target['detail'] = $event['detail'];
+            $target['tags'] = $event['tags'];
+            $target['clusters'] = $event['clusters'];
         } elseif ($kind === 'Attribute') {
             $target['label'] = sprintf('%s · %s', $row['type'],
                 $row['value']);
-            $target['event'] = self::claimTargetEvent($row);
+            $target['event'] = $this->claimTargetEvent($row, $lookups);
             $target['facts'] = array($row['category']);
             if (!empty($row['Object']['name'])) {
                 // Where in the object, not just which object: an
@@ -2954,23 +3020,31 @@ class ValueProfile extends AppModel
                 $target['facts'][] = sprintf('%s ↦ %s',
                     $row['Object']['name'], $row['object_relation']);
             }
+            // No `Type` row: the label above the card is `type · value`,
+            // so it would print the first half of it back.
             $target['detail'] = array(
+                __('Category') => $row['category'],
                 __('IDS flag') => empty($row['to_ids'])
                     ? __('not set')
                     : __('set'),
                 __('Comment') => $row['comment'],
+                __('First seen') => self::claimSeen($row, 'first_seen'),
+                __('Last seen') => self::claimSeen($row, 'last_seen'),
             );
         } elseif ($kind === 'Object') {
             $target['label'] = sprintf('%s · #%s', $row['name'],
                 $row['id']);
-            $target['event'] = self::claimTargetEvent($row);
+            $target['event'] = $this->claimTargetEvent($row, $lookups);
             $target['facts'] = array(
                 empty($row['meta-category']) ? '' : $row['meta-category'],
             );
             $target['detail'] = array(
                 __('Template') => sprintf('%s v%s', $row['name'],
                     $row['template_version']),
+                __('Category') => $row['meta-category'],
                 __('Comment') => $row['comment'],
+                __('First seen') => self::claimSeen($row, 'first_seen'),
+                __('Last seen') => self::claimSeen($row, 'last_seen'),
             );
         } elseif ($kind === 'GalaxyCluster') {
             $target['label'] = $row['value'];
@@ -3021,18 +3095,107 @@ class ValueProfile extends AppModel
     /**
      * The event a target lives in, when it lives in one.
      *
+     * Free apart from its tags: `Relationship::getRelatedElement`
+     * contains `Event` for both an Attribute and an Object target, so
+     * the whole row is already here.
+     *
      * @param array $row An Attribute or Object, as rearranged
+     * @param array $lookups
      * @return array|null
      */
-    private static function claimTargetEvent(array $row)
+    private function claimTargetEvent(array $row, array $lookups)
     {
         if (empty($row['Event']['id'])) {
             return null;
         }
-        return array(
+        $event = $this->claimEventFacts($row['Event'], $lookups);
+        return array_merge($event, array(
             'id' => (int)$row['Event']['id'],
             'info' => $row['Event']['info'],
+        ));
+    }
+
+    /**
+     * What this panel says about an event, wherever it is drawn.
+     *
+     * One definition for the two places an event reaches the card — as
+     * a claim's target, and as the event an attribute or object target
+     * sits in. Two definitions would drift, and the reader would be
+     * told different things about the same event depending on which
+     * claim they hovered.
+     *
+     * @param array $row An `Event` row
+     * @param array $lookups tags and clusters, keyed for the section
+     * @return array detail, distribution, uuid, tags, clusters
+     */
+    private function claimEventFacts(array $row, array $lookups)
+    {
+        $id = (int)$row['id'];
+        $analysis = $this->model('Event')->analysisLevels;
+        $level = (int)$row['analysis'];
+        /*
+         * `attribute_count` is denormalised and can lag, and it is
+         * still the right number to print: it is what MISP's own event
+         * index shows for the same event, so a reader who follows the
+         * link and counts something else has found a discrepancy in the
+         * instance rather than in this card.
+         */
+        $facts = array(
+            'detail' => array(
+                __('Date') => $row['date'],
+                __('Analysis') => isset($analysis[$level])
+                    ? __($analysis[$level])
+                    : '',
+                __('Attributes') => $row['attribute_count'],
+            ),
+            'distribution' => isset($row['distribution'])
+                ? (int)$row['distribution']
+                : null,
+            'uuid' => isset($row['uuid']) ? $row['uuid'] : null,
+            'tags' => isset($lookups['tags'][$id])
+                ? $lookups['tags'][$id]
+                : array(),
+            'clusters' => array(),
         );
+        $facts['detail'] = array_filter($facts['detail'], 'strlen');
+        /*
+         * A galaxy tag names a cluster the reader may not be allowed to
+         * read. `fetchGalaxyClusters` is the ACL, so a name with no row
+         * behind it is dropped rather than printed raw — the tag string
+         * would disclose the cluster this instance is withholding.
+         */
+        if (empty($lookups['galaxy_by_event'][$id])) {
+            return $facts;
+        }
+        foreach ($lookups['galaxy_by_event'][$id] as $name) {
+            if (!isset($lookups['clusters'][$name])) {
+                continue;
+            }
+            $cluster = $lookups['clusters'][$name]['GalaxyCluster'];
+            $facts['clusters'][] = array(
+                'id' => (int)$cluster['id'],
+                'value' => $cluster['value'],
+                'galaxy' => empty($cluster['Galaxy']['name'])
+                    ? $cluster['type']
+                    : $cluster['Galaxy']['name'],
+            );
+        }
+        return $facts;
+    }
+
+    /**
+     * A first/last seen stamp, only where one was actually recorded.
+     *
+     * @param array $row
+     * @param string $key
+     * @return string
+     */
+    private static function claimSeen(array $row, $key)
+    {
+        if (empty($row[$key])) {
+            return '';
+        }
+        return substr(str_replace('T', ' ', $row[$key]), 0, 19);
     }
 
     /**
