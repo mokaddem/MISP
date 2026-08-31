@@ -19,6 +19,12 @@
      data-pe-lib-missing="<?= h(__('Graph library failed to load.')) ?>"
      data-pe-load-failed="<?= h(__('Failed to load event graph.')) ?>">
 
+    <!-- Resolution statement (D12): which levels the seed took and what it
+         left out. Filled and revealed by pivot-explorer.js once the graph is
+         built; hidden when there is nothing to say. -->
+    <div class="card-header bg-transparent border-0 py-1 px-2 small text-muted"
+         id="pe-resolution" style="display:none;"></div>
+
     <!-- BODY -->
     <div class="position-relative" id="pe-stage">
 

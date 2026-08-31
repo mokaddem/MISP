@@ -101,12 +101,31 @@
     // Node id an analyst relationship's target maps to, or null when it has no
     // node on this canvas. AnalystData::valid_targets is far wider than the
     // canvas — EventReport, GalaxyCluster, Organisation, SharingGroup and the
-    // analyst-data types are all legal targets. 'Event' joins this list with L0.
+    // analyst-data types are all legal targets. 'Event' resolves now that L0
+    // draws this event and the events it correlates with.
     function analystTargetId(rel) {
         var t = String(rel.related_object_type || '');
-        if (t === 'Attribute') return 'attr:' + rel.related_object_uuid;
-        if (t === 'Object')    return 'obj:'  + rel.related_object_uuid;
+        if (t === 'Attribute') return 'attr:'  + rel.related_object_uuid;
+        if (t === 'Object')    return 'obj:'   + rel.related_object_uuid;
+        if (t === 'Event')     return 'event:' + rel.related_object_uuid;
         return null;
+    }
+
+    // L0's candidate event nodes: this event, plus one proxy per correlated
+    // event. `RelatedEvent` is the correlation aggregate MISP already ships
+    // (Event.php:3358) — 5,629 correlations collapse to 86 neighbours.
+    function relatedEvents(ev) {
+        var selfUuid = ev.uuid ? String(ev.uuid) : '';
+        var seen     = {};
+        var out      = [];
+        (ev.RelatedEvent || []).forEach(function (entry) {
+            var e = (entry && entry.Event) ? entry.Event : entry;
+            if (!e || !e.uuid || String(e.uuid) === selfUuid) return;
+            if (seen[e.uuid]) return;         // extended events merge two lists
+            seen[e.uuid] = true;
+            out.push(e);
+        });
+        return out;
     }
 
     // Walk every outbound analyst relationship in the event, calling
@@ -139,9 +158,14 @@
     function computeConnectivity(ev) {
         var linkedAttrUuids   = {};
         var connectedObjUuids = {};
+        var eventTouched      = {};   // event node id -> true
         var attrOwner         = {};   // object child attr uuid -> owning object uuid
         var liveObj           = {};   // uuid -> true, for endpoint resolution
         var liveAttr          = {};
+        var liveEvent         = {};   // event node id -> true (L0 candidates)
+
+        if (ev.uuid) liveEvent['event:' + ev.uuid] = true;
+        relatedEvents(ev).forEach(function (e) { liveEvent['event:' + e.uuid] = true; });
 
         (ev.Attribute || []).forEach(function (a) {
             if (!isDeleted(a)) liveAttr[a.uuid] = true;
@@ -162,6 +186,7 @@
         // as an isolated node with no edge.
         function exists(id) {
             if (!id) return false;
+            if (id.indexOf('event:') === 0) return !!liveEvent[id];
             return id.indexOf('obj:') === 0
                 ? !!liveObj[id.slice(4)]
                 : !!liveAttr[id.slice(5)];
@@ -171,6 +196,10 @@
         // attribute pulls its owning object onto the canvas with it.
         function markEndpoint(id) {
             if (!id) return;
+            if (id.indexOf('event:') === 0) {
+                eventTouched[id] = true;
+                return;
+            }
             if (id.indexOf('obj:') === 0) {
                 connectedObjUuids[id.slice(4)] = true;
                 return;
@@ -202,7 +231,103 @@
             markEndpoint(targetId);
         });
 
-        return { linkedAttrUuids: linkedAttrUuids, connectedObjUuids: connectedObjUuids };
+        return {
+            linkedAttrUuids:   linkedAttrUuids,
+            connectedObjUuids: connectedObjUuids,
+            eventTouched:      eventTouched
+        };
+    }
+
+    // Pivotick's own detail threshold: past 1,500 nodes the minimap stops
+    // resolving per-node style and reads as a density map. D12 reuses it as the
+    // seed budget, so the canvas never opens past the point of legibility.
+    var NODE_BUDGET = 1500;
+
+    function liveChildCount(obj) {
+        var n = 0;
+        (obj.Attribute || []).forEach(function (a) { if (!isDeleted(a)) n++; });
+        return n;
+    }
+
+    // The seed (D12). Decides which resolution levels this event affords and
+    // which elements each one contributes, analytically — no nodes are built.
+    // The canvas builder and the editor tray both read it, so they cannot
+    // disagree about what is drawn.
+    //
+    //   L0  event node + one proxy per correlated event
+    //   L1  everything an object reference or analyst relationship touches
+    //   L2  the remaining objects, containment only, if the whole set fits
+    //
+    // L2 is all-or-nothing on purpose. D10 says that above the budget "the seed
+    // stops at L0+L1": a greedy partial fill would draw an arbitrary 40 of
+    // 28,410 objects, and no statement could honestly explain which 40.
+    function computeSeed(ev) {
+        var conn    = computeConnectivity(ev);
+        var selfId  = ev.uuid ? 'event:' + ev.uuid : null;
+        var proxies = selfId ? relatedEvents(ev) : [];
+
+        // The event node needs an edge to be worth drawing — a proxy to
+        // correlate with, or an analyst relationship pointing at the event.
+        // Without that gate a bare hexagon would make L0 permanently non-empty
+        // and D11's "nothing to draw" message unreachable.
+        var seedEventNode = !!selfId
+            && (proxies.length > 0 || !!conn.eventTouched[selfId]);
+
+        var l1 = 0;
+        (ev.Attribute || []).forEach(function (a) {
+            if (!isDeleted(a) && conn.linkedAttrUuids[a.uuid]) l1++;
+        });
+
+        var l2Uuids = {};
+        var l2Count = 0;   // objects
+        var l2Cost  = 0;   // nodes: the object plus its live children
+        (ev.Object || []).forEach(function (obj) {
+            if (isDeleted(obj)) return;
+            var cost = 1 + liveChildCount(obj);
+            if (conn.connectedObjUuids[obj.uuid]) { l1 += cost; return; }
+            l2Uuids[obj.uuid] = true;
+            l2Count++;
+            l2Cost += cost;
+        });
+
+        var l0     = seedEventNode ? 1 + proxies.length : 0;
+        var l2Fits = (l0 + l1 + l2Cost) <= NODE_BUDGET;
+
+        return {
+            linkedAttrUuids:   conn.linkedAttrUuids,
+            connectedObjUuids: conn.connectedObjUuids,
+            selfId:            selfId,
+            proxies:           proxies,
+            seedEventNode:     seedEventNode,
+            // Objects L2 actually draws — empty when the level did not fit, so
+            // "is this object on the canvas?" is one lookup for every caller.
+            l2Uuids:           l2Fits ? l2Uuids : {},
+            objectsSkipped:    l2Fits ? 0 : l2Count,
+            cost:              { l0: l0, l1: l1, l2: l2Fits ? l2Cost : 0 },
+            budget:            NODE_BUDGET
+        };
+    }
+
+    // Event node — this event, or a correlated-event proxy. `info` is what an
+    // analyst recognises an event by; `event_id` is what the double-click
+    // navigation needs. Proxies are leaves: correlated events do not expand in
+    // this phase (PRD §4).
+    function eventNodeData(e) {
+        var info = e.info != null ? String(e.info) : '';
+        var org  = (e.Orgc && e.Orgc.name) || (e.Org && e.Org.name) || '';
+        var meta = [];
+        if (e.date) meta.push(String(e.date));
+        if (org)    meta.push(org);
+        return compact({
+            type:        'event',
+            label:       truncate(info || ('Event ' + (e.id || '')), 42),
+            description: meta.join(' · ') || 'Event',
+            info:        info,
+            date:        e.date,
+            org:         org || undefined,
+            event_id:    e.id,
+            uuid:        e.uuid
+        });
     }
 
     // Shared object node data (graph builder + editor drop handler).
@@ -291,27 +416,39 @@
             return 'attr:' + attr.uuid;
         }
 
-        /* Which event-level attributes does an authored relationship touch?
-           These are the only standalone attributes worth showing — they anchor
-           to the graph rather than floating free, and this also covers
-           referenced screenshots. */
-        var conn                = computeConnectivity(ev);
-        var linkedAttrUuids     = conn.linkedAttrUuids;
-        var connectedObjUuids   = conn.connectedObjUuids;
+        /* The seed decides what each resolution level contributes (D12); this
+           builder only lays it out. */
+        var seed                = computeSeed(ev);
+        var linkedAttrUuids     = seed.linkedAttrUuids;
+        var connectedObjUuids   = seed.connectedObjUuids;
 
-        /* Event-level attributes: surfaced only when an authored relationship
-           touches them, so every node stays connected to the graph. */
+        /* L0 — the event and the events it correlates with. Only drawn when the
+           event node has an edge to carry (see computeSeed). */
+        if (seed.seedEventNode) {
+            addNode(seed.selfId, { id: seed.selfId, data: eventNodeData(ev) });
+            seed.proxies.forEach(function (e) {
+                var id = 'event:' + e.uuid;
+                addNode(id, { id: id, data: eventNodeData(e) });
+            });
+        }
+
+        /* L1 — event-level attributes, surfaced only when an authored
+           relationship touches them, so every node stays connected to the
+           graph. This also covers referenced screenshots. */
         (ev.Attribute || []).forEach(function (attr) {
             if (!isDeleted(attr) && linkedAttrUuids[attr.uuid]) {
                 addAttributeNode(attr);
             }
         });
 
-        /* Objects and their attributes (attributes nested inside the object) */
+        /* L1 objects (an authored relationship touches them) and, when the
+           level fits the budget, L2's containment-only clusters. An L2 object
+           has no relationship by definition, so it arrives with no edge — the
+           cluster's own structure is what it says. */
         (ev.Object || []).forEach(function (obj) {
             if (isDeleted(obj)) return;
-            // Reference-less objects live in the editor tray, not the canvas.
-            if (!connectedObjUuids[obj.uuid]) return;
+            // Everything else lives in the editor tray, not on the canvas.
+            if (!connectedObjUuids[obj.uuid] && !seed.l2Uuids[obj.uuid]) return;
             var objId = 'obj:' + obj.uuid;
 
             // Attributes are nested as children of their object rather than
@@ -330,6 +467,18 @@
                 data:     objectNodeData(obj)
             });
         });
+
+        /* L0's edges — the correlation aggregate, event to event. Its own kind
+           rather than `correlation`: 86 correlated events and 5,629 attribute
+           correlations (event 4116) are different granularities that must
+           toggle apart, and under D9 the `correlation` layer has to stay empty
+           until it is fetched. The label is blank because there is no assertion
+           here — only "these two events share a value". */
+        if (seed.seedEventNode) {
+            seed.proxies.forEach(function (e) {
+                addEdge(seed.selfId, 'event:' + e.uuid, '', 'event-correlation');
+            });
+        }
 
         /* Object references (added last so both ends already exist) */
         (ev.Object || []).forEach(function (obj) {
@@ -364,11 +513,48 @@
                     { authors: rel.authors, orgc: rel.orgc_uuid });
         });
 
+        /* What the graph must be able to say about itself (D12, §7): which
+           levels it took, how big that made it, and what it left out. */
+        var levels = [];
+        if (seed.cost.l0) levels.push('L0');
+        if (seed.cost.l1) levels.push('L1');
+        if (seed.cost.l2) levels.push('L2');
+
         return {
             nodes: nodes,
             edges: edges,
-            stats: { relationshipsSkipped: relationshipsSkipped }
+            stats: {
+                levels:               levels,
+                nodeCount:            seed.cost.l0 + seed.cost.l1 + seed.cost.l2,
+                budget:               seed.budget,
+                objectsSkipped:       seed.objectsSkipped,
+                relationshipsSkipped: relationshipsSkipped
+            }
         };
+    }
+
+    // D12's resolution statement. Without it 87 nodes read as the whole of a
+    // 28,410-object event (§7). Task 8 folds this into the header above the
+    // event's own identity line; task 4 owns the nothing-was-drawn case (D11).
+    function resolutionStatement(stats) {
+        var parts = [];
+        // A seed that took no level at all still owes the skip clause: an event
+        // whose only content is 28,410 relationship-less objects draws nothing
+        // and must say why, not fall silent.
+        if (stats.levels.length) {
+            parts.push('Seeded ' + stats.levels.join('+'));
+            parts.push(stats.nodeCount + (stats.nodeCount === 1 ? ' node' : ' nodes'));
+        }
+        if (stats.objectsSkipped) {
+            parts.push('L2 skipped (' + stats.objectsSkipped + ' object'
+                       + (stats.objectsSkipped === 1 ? '' : 's') + ' not shown)');
+        }
+        if (stats.relationshipsSkipped) {
+            parts.push(stats.relationshipsSkipped + ' relationship'
+                       + (stats.relationshipsSkipped === 1 ? '' : 's')
+                       + ' not drawable');
+        }
+        return parts.join(' · ');
     }
 
     /* ── pivotick options ──────────────────────────────────── */
@@ -428,7 +614,10 @@
                 },
                 edgeStyleMap: {
                     'object-reference':     { strokeColor: '#428bca' },
-                    'analyst-relationship': { strokeColor: '#f39a1f', dashed: true }
+                    'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
+                    // Green to match the event nodes it joins; dashed like every
+                    // other derived (as opposed to authored) relationship.
+                    'event-correlation':    { strokeColor: '#6fbe80', dashed: true }
                 },
                 // Draw the relationship_type on every edge (referenced + newly created).
                 defaultLabelStyle: {
@@ -440,6 +629,17 @@
             },
             simulation: {
                 d3LinkDistance: 200
+            },
+            callbacks: {
+                // A correlated event is a leaf here (PRD §4) — it cannot expand
+                // in place, so double-click hands the analyst over to its own
+                // event page rather than leaving the proxy a dead end.
+                onNodeDbclick: function (e, node) {
+                    var d = node && node.getData ? node.getData() : null;
+                    if (!d || d.type !== 'event') return;
+                    if (!d.event_id || String(d.event_id) === String(eventId)) return;
+                    window.location.href = baseurl + '/events/view2/' + d.event_id;
+                }
             },
             UI: {
                 mode: 'full',
@@ -494,6 +694,13 @@
                 if (loaderEl)    loaderEl.style.display    = 'none';
                 if (containerEl) containerEl.style.display = '';
 
+                var resEl = document.getElementById('pe-resolution');
+                var res   = resolutionStatement(data.stats);
+                if (resEl && res) {
+                    resEl.textContent    = res;
+                    resEl.style.display  = '';
+                }
+
                 // Build the editor first so its sidebar panel can be handed to
                 // pivotick at construction time (extraPanels are options-time only).
                 var editor = canEdit ? createEditor(event) : null;
@@ -544,11 +751,12 @@
         var staged = {};   // attr uuid -> { nodeId, saved }
 
         /* ── unlinked inventory (what's NOT on the canvas) ──── */
-        // Same connectivity rule as the canvas builder, so the tray lists exactly
-        // the attributes/objects buildGraphData chose to omit.
-        var conn         = computeConnectivity(ev);
-        var linkedAttr   = conn.linkedAttrUuids;
-        var connectedObj = conn.connectedObjUuids;
+        // Same seed as the canvas builder, so the tray lists exactly the
+        // attributes/objects buildGraphData chose to omit — including the L2
+        // objects it drew, which must not be offered twice.
+        var seed         = computeSeed(ev);
+        var linkedAttr   = seed.linkedAttrUuids;
+        var connectedObj = seed.connectedObjUuids;
         var items = [];
         (ev.Attribute || []).forEach(function (a) {
             if (isDeleted(a) || linkedAttr[a.uuid]) return;
@@ -560,7 +768,7 @@
             });
         });
         (ev.Object || []).forEach(function (o) {
-            if (isDeleted(o) || connectedObj[o.uuid]) return;
+            if (isDeleted(o) || connectedObj[o.uuid] || seed.l2Uuids[o.uuid]) return;
             items.push({
                 kind:  'object', uuid: o.uuid, obj: o,
                 label: (o.name || 'Object'),

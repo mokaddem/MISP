@@ -352,6 +352,12 @@ distinct related events, and `RelatedEvent` — that exact aggregate — is alre
 (`Event.php:2953-2954`). So backend aggregation for the dimension that actually explodes
 (336,221 correlation rows vs 11,330 references) costs nothing and is available today.
 
+**L0 needs an edge to exist** (settled 2026-08-31, task 3b). The event node is drawn only when
+something connects to it — a correlated-event proxy, or an analyst relationship pointing at the
+event. Otherwise D11 could never fire: a bare hexagon on every event would make L0 permanently
+non-empty, and "L0, L1 and L2 are all empty" unreachable. It would also be a floating dot, which is
+the failure D5 was withdrawn for. Identity is the header's job (D2c), not a node's.
+
 **What is *not* aggregated:** objects. There is no existing "28,410 objects → 12,000 file, 8,000
 url" roll-up, and building one is real endpoint work. D10's ceiling means Phase 1 does not need
 it — objects above the budget simply are not drawn and the dock lists them. Logged in §11.
@@ -371,6 +377,13 @@ budget (L2 in D12); above it the seed stops at L0+L1. Justified by the distribut
 
 342 of 350 events cost under 1,000 nodes; three events account for half a million. A single
 threshold separates them with almost nothing in between.
+
+**All-or-nothing, not greedy** (settled 2026-08-31, task 3c). L2 is admitted whole or not at all —
+"above it the seed stops at L0+L1" is a statement about the *level*, not about individual objects.
+A greedy fill to the budget would draw an arbitrary 40 of event 4116's 28,410 objects, and no
+honest statement could explain which 40 or why; the analyst would read a fragment as a sample. The
+cost is computed before anything is built: each object costs 1 + its live children, so 750
+two-attribute objects cost 2,250, not 750.
 
 **Event-level attributes are never seeded without a relationship**, and the asymmetry is
 principled rather than convenient: an object is a cluster with a template type and named
@@ -392,14 +405,14 @@ a button. This replaces today's silent blank, which four of the six largest even
 Note that D12 **demotes this message considerably**: it now fires only when L0, L1 and L2 are all
 empty, rather than whenever the event is large. A behemoth gets L0's aggregated view instead.
 
-#### D1 — Two edge dimensions, five kinds, plus feed/server nodes ✅ SETTLED
+#### D1 — Two edge dimensions, six kinds, plus feed/server nodes ✅ SETTLED
 
 Edges carry **two orthogonal dimensions**, because "show me only analyst relationships" and "show
 me only `communicates-with`" are different questions:
 
 | Dimension | Meaning | Values | Control |
 |---|---|---|---|
-| `kind` | how the edge came to exist | 5 | `multiselect` edge facet + legend section (the layer switch) |
+| `kind` | how the edge came to exist | 6 | `multiselect` edge facet + legend section (the layer switch) |
 | `relationship_type` | what it asserts | ~143 | `text`/`regex` edge facet |
 
 `relationship_type` is deliberately **not** a `multiselect`: object references alone use 143
@@ -408,15 +421,26 @@ distinct values (`analysed-with` 6,968, then a long tail through `opened`, `incl
 concedes the pattern — its table row filters switch from a dropdown to a text box past 50 distinct
 values. A substring box ("everything `*-of`") is the usable form.
 
-**The five `kind` values:**
+**The six `kind` values:**
 
 | `kind` | Source | In payload? |
 |---|---|---|
 | `object-reference` | `obj.ObjectReference` | yes |
 | `analyst-relationship` | `.Relationship[]` + `.RelationshipInbound[]` | yes |
+| `event-correlation` | `RelatedEvent` | **yes, free** (`includeEventCorrelations` defaults true) |
 | `correlation` | `RelatedAttribute` | **no** — on demand (D9) |
 | `feed-correlation` | `attribute.Feed[]` | **yes, free** (`includeFeedCorrelations = 1` unconditionally, `EventsController.php:1857`) |
 | `server-correlation` | `attribute.Server[]` | no — needs `includeServerCorrelations:1` (forced to 0 for REST, `:1864-1866`) |
+
+**`event-correlation` is not folded into `correlation`** (settled 2026-08-31, task 3b), and the
+split is load-bearing.
+Both are correlation-derived, but they are different granularities of the same fact: event 4116
+has **86** `event-correlation` edges and **5,629** `correlation` edges saying the same thing at
+attribute resolution. One `kind` for both would break two things at once — the layer switch could
+no longer keep the cheap aggregate while hiding the expensive detail, which is the entire point of
+D12's resolution levels; and the `correlation` layer would appear populated the moment the graph
+opens, contradicting D9's promise that correlations are absent until fetched. Palette: `#6fbe80`
+dashed, the green of the event nodes it joins.
 
 **Inbound analyst relationships share the `analyst-relationship` kind.** The graph is
 `isDirected: true`, so the arrowhead already carries which way the assertion points; a separate
@@ -739,7 +763,7 @@ true of the code as it stands, not of the code this PRD produces.
 
 ### 6.1 Relationship layers and the seed rule (D1, D5′)
 
-`buildGraphData` produces two edge kinds at load and a third on demand:
+`buildGraphData` produces three edge kinds at load and a fourth on demand:
 
 ```js
 // object references — existing, now tagged
@@ -751,6 +775,10 @@ edges.push({ from: srcId, to: dstId,
              data: { kind: 'analyst-relationship', label: r.relationship_type,
                      authors: r.authors, orgc: r.orgc_uuid } });
 
+// L0's correlation aggregate — one edge per RelatedEvent, no assertion to label
+edges.push({ from: 'event:' + ev.uuid, to: 'event:' + related.uuid,
+             data: { kind: 'event-correlation', label: '' } });
+
 // correlations — added later, by §6.7's second request
 ```
 
@@ -758,7 +786,7 @@ Seed membership follows D12's resolution levels, taking the highest that fits th
 budget:
 
 ```
-L0  always      event node + one proxy node per RelatedEvent
+L0  if edged    event node + one proxy node per RelatedEvent
 L1  always      elements participating in an object reference or analyst relationship
                 (+ the attribute children of any object node, as today)
 L2  if it fits  objects with no relationship, as containment-only clusters
@@ -766,8 +794,21 @@ L3  on demand   per-attribute correlations (§6.7)
 ```
 
 `computeConnectivity()` generalises from "a reference touches it" to "any authored relationship
-touches it", and gains a second pass for L2 that adds remaining objects while the budget holds.
-Event-level attributes are never added by L2 — see D10's governing principle.
+touches it", and now resolves `event:` endpoints too, so an analyst relationship may target this
+event or one of its correlated neighbours. `computeSeed()` sits above it and owns the level
+arithmetic: it costs L0 and L1, then admits L2 whole or not at all (D10). Event-level attributes
+are never added by L2 — see D10's governing principle.
+
+**One seed, two readers.** `computeSeed()` is what the canvas builder and the editor tray both
+consult, so the invariant that every live element is on the canvas *or* in the tray — never both,
+never neither — survives L2 moving most objects from the second to the first. On an event whose L2
+does not fit, the tray is again the only route to those objects (D4).
+
+The graph states the outcome (§7, D12): *"Seeded L0+L1 · 4 nodes · L2 skipped (28,410 objects not
+shown) · 3 relationships not drawable"*. It renders into `#pe-resolution` in the card; task 8 moves
+it under the event-identity line of the header D2c calls for. A seed that took **no** level still
+owes the skip clause — an event whose only content is relationship-less objects draws nothing and
+must say why rather than fall silent.
 
 Feed and server correlations add two node types and two more kinds (D1). Source nodes come from
 the deduplicated `event['Feed']` / `event['Server']` maps — one node per source — and the edges
@@ -791,6 +832,7 @@ render: {
     edgeStyleMap: {
         'object-reference':     { strokeColor: '#428bca' },
         'analyst-relationship': { strokeColor: '#f39a1f', dashed: true },
+        'event-correlation':    { strokeColor: '#6fbe80', dashed: true },
         'correlation':          { strokeColor: '#888', dashed: true },
         'feed-correlation':     { strokeColor: '#5bc0de', dashed: true },
         'server-correlation':   { strokeColor: '#9b59b6', dashed: true },
@@ -883,7 +925,9 @@ library.
 Correlated events (`RelatedEvent`) render as **leaf proxy nodes** of type `event` — the
 `nodeStyleMap` already registers a green hexagon for `event` that nothing currently creates —
 labelled from `info`/`date`/`org`. They are **not** expandable containers in this phase (§4);
-double-click navigates to that event's own `view2`.
+double-click navigates to that event's own `view2`. ✅ Built in task 3b, navigation included:
+`callbacks.onNodeDbclick` sends the analyst to `/events/view2/{id}` for any `event` node but the
+one the graph was seeded from. What task 8 still owes these nodes is `data.scope` and the header.
 
 Extended events (`extended:1` merges foreign attributes/objects into the same arrays, provenance
 in `Event.extensionEvents`) are `scope: 'foreign'` and, unlike correlated events, are real nodes
@@ -1005,13 +1049,15 @@ Two smaller items:
 
 ## 7. Edge Cases
 
-- **The 92% case.** Most events have no authored relationship, so L1 is empty and the seed rests
-  on L0 + L2. For the 306 events costing ≤100 nodes that is a complete picture of the event's
+- **The 92% case.** ✅ Handled by task 3c. Most events have no authored relationship, so L1 is
+  empty and the seed rests on L0 + L2. For the 306 events costing ≤100 nodes that is a complete picture of the event's
   composition; D11's message now fires only when L0, L1 and L2 are all empty.
 - **Event 4116.** 369,822 attributes, 28,410 objects, 0 references, 5,629 correlations. L1 empty,
   L2 does not fit (523,677 nodes across the three monsters), so it seeds at **L0: 86
   correlated-event proxies**. The graph must say that L2 was skipped and why, or the analyst reads
-  86 nodes as the whole event.
+  86 nodes as the whole event. ✅ Built in tasks 3b/3c; the statement is `#pe-resolution`. The
+  arithmetic is unit-tested at the boundary (1,500 fits, 1,501 skips whole) rather than against
+  the live event, which the opening payload makes too slow to iterate on.
 - **The L2/`hideDisconnected` collision.** A containment-only cluster parent has no edges, so
   `hideDisconnected` treats it as disconnected and flipping *Hide unconnected* blanks an
   L2-seeded canvas. The library deliberately leaves a cluster's *interior* alone but not its
@@ -1086,8 +1132,8 @@ relationships, and the events in §3.5 as fixtures):
 | 1 | Regression pass on the existing graph under v1.6.0 (§8.1); refresh the stale Edit▸Add-edge comment | 0 |
 | 2 | ✅ Tag object-reference edges with `kind`; add `edgeTypeAccessor`/`edgeStyleMap`/`edgeFacets` (one layer) | 1 |
 | 3 | ✅ Generalise `computeConnectivity()` to any authored relationship; add analyst-relationship edges as a second layer (L1, D5′) | 2 |
-| 3b | L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
-| 3c | L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
+| 3b | ✅ L0: event node + `RelatedEvent` proxy nodes (free, already in payload) | 2 |
+| 3c | ✅ L2: budget-capped containment-only objects, with a "skipped, N not shown" statement (D10, D12) | 3, 3b |
 | 4 | D11 empty-state message + wiring for the on-demand fetch | 3c |
 | 5 | On-demand correlation fetch as a third layer, capped (D9, §6.7) | 4 |
 | 5b | `feed`/`server` node types + `feed-correlation` layer (free in payload), incl. the `FeedHit` degraded shape (D1) | 2 |
@@ -1124,8 +1170,9 @@ for CSS.
 |---|---|
 | `app/webroot/js/pivotick.iife.js` | ✅ replaced (v1.6.0) |
 | `app/webroot/css/pivotick.css` | ✅ replaced (v1.6.0) |
-| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines) |
+| `app/View/Themed/Overmind/Elements/Events/View/event_pivot_explorer.ctp` | ✅ trimmed to markup + CSS + `data-pe-*` config (858 → 117 lines); ✅ `#pe-resolution` line added (task 3c) |
 | `app/webroot/js/pivot-explorer.js` | ✅ new — all behaviour, extracted from the `.ctp`; all of §6.1–§6.7 lands here |
+| `tests/js/pivot-explorer-graph.test.js` | ✅ new — zero-dependency unit suite over the seed and the graph builder |
 | `app/Model/Behavior/AnalystDataParentBehavior.php` | Phase 2 only — `RelationshipInbound` in the bulk path |
 | `docs/dev/pivot-explorer-v16-prd.md` | this document |
 
