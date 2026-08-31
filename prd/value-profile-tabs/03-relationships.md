@@ -555,3 +555,14 @@ fold where something was.
 
 **§6.7's `.vp-acl-note` is gone**, with the other two §14.6 notes —
 `24-relationships.md` §8.
+
+**The scan behind section one is held for five minutes.** Narrowing
+re-requests the panel, so the same scan would otherwise run again to
+fold the same rows differently; cached, a session of narrowing costs one
+scan (`8.8.8.8`: 431 ms cold, ~190 ms warm, 408 KB stored, keyed on the
+viewer because every row is ACL'd to them). Nothing invalidates it, so
+the panel carries the two things that make a window that long honest:
+the read's age on the sentence that already describes the read —
+`Scanned 3 minutes ago` — and a `Scan again` beside it that re-requests
+with `fresh=1`, carrying the current narrowing. `24-relationships.md`
+§16.7.

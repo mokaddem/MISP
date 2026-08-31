@@ -1166,3 +1166,63 @@ narrowing that matches more than 100 still says so — the pager prints
 `(9,791 in total)` — and the facet bar's own sentence was rewritten to
 match: narrowing on a count larger than the hundred carried *fetches its
 rows* rather than emptying the table.
+
+### 16.7 The scan is held for five minutes, and says so
+
+Narrowing re-requests the panel (§16.3), and each request repeated the
+whole scan to fold the same rows against a different filter. The reads
+— the event sizing, the neighbour scan, `attachTags`, the sibling join
+and the two name lookups — now come from Redis where they are still
+warm, so the first request pays and every narrowing after it is a fold
+over rows already in hand.
+
+| | cold | warm |
+|---|---|---|
+| `8.8.8.8` | 431–535 ms | 173–203 ms |
+| `443` | 1,153 ms | 454–491 ms |
+| second filter, warm (`8.8.8.8`) | — | 255–302 ms, against 400–480 |
+
+**The entry is smaller than the rows are.** 11.6 MB serialised and
+**408 KB stored** on `8.8.8.8`, 18.3 MB and 670 KB on `443`: the rows
+repeat their own shape and `RedisTool::compress` collapses them about
+28:1. A minute of one reader on one value costs well under a megabyte.
+
+**Keyed on the viewer.** Every row in there went through
+`buildConditions($user)`, so two readers of one value do not see the
+same neighbourhood and cannot share an entry. That means a cold cache
+per reader, which is the price of not having to reason about whether a
+cache can leak across an ACL boundary. Redis being unavailable is not an
+error: `RedisTool::init()` throwing falls through to the live scan and
+the page is as slow as it was before.
+
+**Five minutes, and the reason it is not sixty seconds.** Nothing
+invalidates this entry — no event-change hook reaches here — so on its
+own the clock would be the only bound on a stale neighbourhood, and
+somebody who had just added an attribute would be left wondering why it
+was missing. Two things buy the longer window:
+
+- **The panel says how old the read is.** The sentence that already
+  describes the read ends with `Scanned 3 minutes ago.` The phrase is
+  relative because that is what a reader can act on; the exact stamp is
+  in the `title`, and it is the half that stays true if the tab is left
+  open, because the fragment is server-rendered and the words freeze
+  where they were.
+- **`Scan again` beside it**, which re-requests the panel with
+  `fresh=1`: the held entry is skipped on the way in and rewritten on
+  the way out, so one press lands on new rows rather than on an empty
+  cache. It carries the narrowing with it, so pressing it under a filter
+  comes back filtered. Verified: the stored read time moves rather than
+  merely being bypassed.
+
+**Why a refresh parameter and not a clear-cache endpoint.** A clear
+endpoint takes two steps to get to fresh data — clear, then reload —
+and costs a new action, a new ACL entry and a state-changing `GET` that
+a prefetcher could fire. `fresh=1` is the request the narrowing already
+makes. Its cost is bounded by what the page did before any of this: one
+scan.
+
+**It still does not go higher than five minutes.** The reader now has a
+cue for *I* just added something and none at all for *somebody else*
+did, and no affordance fixes that — only invalidation would. That is the
+condition for raising this, and it is the same shape as §15.1's other
+follow-ups: a hook that does not exist yet.
