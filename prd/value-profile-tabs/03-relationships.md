@@ -93,7 +93,9 @@ point: a claim looks like a claim everywhere on the page.
 
 > **§19 supersedes items 2, 3, 5 and 6 below, and the two selects.** The
 > section is two panels now, the selects are pill groups, and the
-> narrowing runs in the fold rather than in the browser.
+> narrowing runs in the fold rather than in the browser. **§27 corrects
+> item 4:** a file's hashes are one click away, its filename usually is
+> not, because MISP does not correlate on filenames.
 
 Header: title **Co-occurrence**, a `.vp-rel-tag` naming the notion, sub-line
 `18 distinct values across 7 events · correlation engine · Machine-derived`, and
@@ -1850,6 +1852,21 @@ on screen to say why. A facet called **Field kind** has to mean the
 field. The vote is local to what the panel read — the same field can be
 classed differently on two values — which is the honest reading and the
 caption states it.
+
+**File objects are the cleanest case, and they cost the caption its
+example.** Every hash `file` declares is `disable_correlation = 0` and
+the instance agrees without exception — md5 8,645, sha256 10,115, sha1
+8,088, ssdeep 762, tlsh 449, vhash 96, all flagged 0, not one flagged 1.
+`filename` is the opposite: the template declares it 1 and the
+attributes split 708 to 2,576 the same way. That is MISP being right —
+correlating on `invoice.pdf` is a false-positive engine — but the
+panel's caption named *a file's other hashes and its filename* as where
+you pivot next, and the table now dims the second half of its own
+example. Worse, it dims it *unpredictably*: on a hash whose object
+holds one of the 708 the filename is undimmed, and on the next hash it
+is not. The caption now names hashes as the pivot and filename as the
+clearest descriptive field, which is what the reader sees two rows
+down.
 
 **Three surfaces, no new element.** A descriptive row's relation chip
 is dimmed and untinted, against the linking chip's object tint. A fifth

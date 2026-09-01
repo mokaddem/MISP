@@ -581,9 +581,9 @@ $headerSub = ob_get_clean();
                 ?>
                 <div class="small mb-2">
                     <?= __('What else was recorded alongside this value'
-                        . ' in the same object — a file\'s other hashes'
-                        . ' and its filename, an IP\'s resolved domains'
-                        . ' — and usually where you pivot next.') ?>
+                        . ' in the same object — a file\'s other hashes,'
+                        . ' an IP\'s resolved domains — and usually'
+                        . ' where you pivot next.') ?>
                 </div>
                 <?php
                 /*
@@ -600,8 +600,10 @@ $headerSub = ob_get_clean();
                 <div class="small text-muted mb-2">
                     <?= __('Fields the correlation engine links on are'
                         . ' listed first; the rest describe the capture'
-                        . ' rather than lead out of it, and are dimmed'
-                        . ' in the Relation column. Nothing is hidden —'
+                        . ' rather than lead out of it — a file\'s'
+                        . ' filename, a capture\'s timestamps — and are'
+                        . ' dimmed in the Relation column.'
+                        . ' Nothing is hidden —'
                         . ' <strong>Field kind</strong> below cuts them'
                         . ' in one click. MISP records that flag per'
                         . ' attribute and object templates are not'
