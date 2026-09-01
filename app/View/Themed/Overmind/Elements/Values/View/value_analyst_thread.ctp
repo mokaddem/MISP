@@ -236,6 +236,53 @@ $readsBadge = function ($reads) {
     return 'secondary';
 };
 
+/**
+ * An opinion's score, drawn beside the number.
+ *
+ * `82/100` is exact and says nothing about where 82 sits. The scale is
+ * the standing panel's lane at thread scale — a pivot at 50, a bar
+ * growing from it toward the score — so the same encoding carries the
+ * same meaning on both panels: direction is the side, length is the
+ * conviction.
+ *
+ * Deliberately not a left-anchored fill. That would read as "magnitude
+ * from zero" about a number whose whole meaning is which side of 50 it
+ * falls on, and would make 45 and 55 look nearly identical rather than
+ * opposed.
+ *
+ * The hue is inherited: the item's own `.vpa-side-*` class sets
+ * `--vpa-side`, and an opinion that rates a note carries the neutral
+ * one, so its scale is grey without this closure knowing why.
+ *
+ * Hidden from assistive technology — the badge beside it already states
+ * the label and the score, and a second announcement of the same number
+ * is noise.
+ *
+ * @param int $score
+ * @return string
+ */
+$opinionScale = function ($score) {
+    $score = max(0, min(100, (int)$score));
+    $from = min(50, $score);
+    $to = max(50, $score);
+    if ($score > 50) {
+        $note = __('%d/100 — above the 50 pivot, agreeing');
+    } elseif ($score < 50) {
+        $note = __('%d/100 — below the 50 pivot, disputing');
+    } else {
+        $note = __('%d/100 — on the pivot, arguing neither way');
+    }
+    return '<span class="vpa-scale" aria-hidden="true" title="'
+        . h(sprintf($note, $score)) . '">'
+        . '<span class="vpa-scale-track"></span>'
+        . '<span class="vpa-scale-pivot"></span>'
+        . '<span class="vpa-scale-bar" style="left: ' . $from
+        . '%; right: ' . (100 - $to) . '%;"></span>'
+        . '<span class="vpa-scale-dot" style="left: ' . $score
+        . '%;"></span>'
+        . '</span>';
+};
+
 /*
  * One item and everything written under it. Recursive, because the
  * shape is: MISP returns two levels and the template renders exactly
@@ -248,7 +295,8 @@ $renderItem = function ($item, $depth) use (
     $isMarkdown,
     $attachChip,
     $distribution,
-    $readsBadge
+    $readsBadge,
+    $opinionScale
 ) {
     $isOpinion = $item['kind'] === 'opinion';
     $ratesNote = $item['rates'] !== 'value';
@@ -280,7 +328,8 @@ $renderItem = function ($item, $depth) use (
         $out .= '<span class="badge bg-' . $colour . '-subtle text-'
             . $colour . '-emphasis border border-' . $colour
             . '-subtle fw-semibold">' . h($item['label'])
-            . ' &middot; ' . h($item['score']) . '/100</span>';
+            . ' &middot; ' . h($item['score']) . '/100</span>'
+            . $opinionScale($item['score']);
     } elseif ($isMarkdown($item['body'])) {
         $out .= '<span class="vpa-chip" title="'
             . h(__(

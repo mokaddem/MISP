@@ -223,9 +223,11 @@ Panel one: `.vpa-s-*` (the reading, as one custom property pair),
 `.vpa-lane-dot`, `.vpa-lane-val`, `.vpa-reading`, `.vpa-age*`, `.vpa-stats`,
 `.vpa-stat`, `.vpa-stat-void`.
 
-Panel two, unchanged: `.vpa-side-*`, `.vpa-chip`, `.vpa-md`, `.vpa-reply`,
-`.vpa-thread`, `.vpa-composer*`, `.vpa-depth`, `.vpa-notcounted`,
-`.vpa-replybtn`.
+Panel two: `.vpa-side-*`, `.vpa-chip`, `.vpa-md`, `.vpa-reply`, `.vpa-thread`,
+`.vpa-composer*`, `.vpa-depth`, `.vpa-notcounted`, `.vpa-replybtn`, and
+`.vpa-scale*` — an opinion's score drawn beside the number (§16.7). The three
+`.vpa-side-*` rules now also set `--vpa-side` / `--vpa-side-ink`, so anything
+nested in an item takes its hue from the item.
 
 `.vpa-mean` is kept and shared: the ledger's summary row carries it so the mean
 still arrives dashed and conditionally struck through, with
@@ -696,3 +698,46 @@ one cell at a time, ties falling back to the previous order, and no page errors.
 The occurrence table's twelve headings and the sightings list's five were
 re-checked in the same pass — the first unchanged, the second newly marking its
 column.
+
+### 16.7 The caret, and an opinion's score
+
+**The caret was a tofu box.** `mainOvermind.css` gives `.sort-icon` its resting
+glyph, its font and its hover reveal through three `th .sort-icon` rules, and
+the ledger's headings are grid cells — so none of them applied. The
+`[aria-sort]` overrides set `content` and no `font-family`, which left the
+codepoint rendering in the body font: a rectangle rather than a caret, and
+nothing at all at rest. `.vpa-h` and `.vpa-ruler` now carry the base
+`::before` with `"Font Awesome 7 Free"` at weight 900, and the hover reveal.
+Worth noting for the next panel that borrows a sortable heading without a
+`<th>` around it.
+
+**An opinion's score gets a scale.** `82/100` is exact and says nothing about
+where 82 sits, so each opinion in *Notes and opinions* now carries `.vpa-scale`
+beside its badge: the standing panel's lane at thread scale — a pivot at 50, a
+bar growing from it toward the score, a dot at the score.
+
+Deliberately the same encoding rather than a second one. A left-anchored fill —
+which is what `.vp-opinion` draws, and what the deleted standing table used —
+reads as *magnitude from zero* about a number whose whole meaning is which side
+of 50 it falls on, and would make 45 and 55 look nearly identical rather than
+opposed.
+
+**The hue is inherited, not restated.** The item already carries its side as
+`.vpa-side-agree` / `-disagree` / `-none`; those rules now set `--vpa-side`, and
+the scale reads it. So the closure that draws the scale never asks which side
+the opinion is on, an opinion that rates a note gets the neutral grey for free —
+matching the secondary badge it already had, and withholding a side claim about
+the value while still placing the number — and a score cannot be one colour here
+and another in its organisation's lane.
+
+The pivot is drawn full height and at 0.55 opacity: at 84px wide a bar whose end
+sits on an invisible centre says nothing, and the bar's rounded end lands exactly
+on the pivot in both directions.
+
+The scale is `aria-hidden`; the badge beside it already states the label and the
+score, and a second announcement of the same number is noise.
+
+**Verified** on `185.234.219.24`, whose five opinions cover all three cases —
+green growing right at 85 and 75, red growing left at 30, and grey at 68 for the
+opinion that rates the note above it — in light and dark theme, with the three
+sortable tables re-checked in the same pass.

@@ -3287,6 +3287,25 @@ tr.vp-occ-deleted .vp-occ-orgdot {
  * attribute is what a screen reader announces, so hanging the visual on
  * it means the two cannot disagree.
  */
+/*
+ * `mainOvermind.css` gives the caret its glyph, its font and its hover
+ * reveal through `th .sort-icon` — three rules the ledger's headings
+ * never matched, being grid cells. Without the font-family the
+ * codepoint below renders in the body font, which draws a tofu box
+ * rather than a caret.
+ */
+.vpa-h .sort-icon::before,
+.vpa-ruler .sort-icon::before {
+    content: "\f0dc"; /* fa-sort */
+    font-family: "Font Awesome 7 Free";
+    font-weight: 900;
+}
+
+.vpa-h:hover .sort-icon,
+.vpa-ruler:hover .sort-icon {
+    opacity: 1;
+}
+
 th[aria-sort] .sort-icon,
 .vpa-h[aria-sort] .sort-icon,
 .vpa-ruler[aria-sort] .sort-icon {
@@ -6281,16 +6300,95 @@ th.vp-rel-num {
 /* Which way an item argues about the value, on its own rail. An item
    that rates a note takes the neutral border: it has a score, and the
    score is not about this value. */
+/*
+ * The marker, and the hue for anything nested inside the item. Custom
+ * properties inherit, so an opinion's scale reads its side off the item
+ * it sits in rather than being told again — which is what keeps a
+ * score's colour here identical to the same score's lane one panel up.
+ */
 .vp-analyst.vpa-side-agree {
+    --vpa-side: var(--vp-ben);
+    --vpa-side-ink: var(--vp-ben-ink);
     border-left-color: var(--vp-ben);
 }
 
 .vp-analyst.vpa-side-disagree {
+    --vpa-side: var(--vp-mal);
+    --vpa-side-ink: var(--vp-mal-ink);
     border-left-color: var(--vp-mal);
 }
 
 .vp-analyst.vpa-side-none {
+    --vpa-side: var(--bs-secondary-color);
+    --vpa-side-ink: var(--bs-secondary-color);
     border-left-color: var(--bs-border-color);
+}
+
+/* ------------------------------------------------------------------
+ * An opinion's scale, beside its score
+ * ------------------------------------------------------------------
+ * The ledger's lane at thread scale: a pivot at 50, a bar growing from
+ * it toward the score, a dot at the score. The same encoding rather
+ * than a second one — a left-anchored fill would say "magnitude from
+ * zero" about a number whose meaning is which side of 50 it falls on.
+ *
+ * An opinion that rates a note takes `.vpa-side-none`, so its scale is
+ * grey: it still shows where 68 sits without claiming a side about the
+ * value, which is the same thing its badge does.
+ * ------------------------------------------------------------------ */
+
+.vpa-scale {
+    position: relative;
+    display: inline-block;
+    flex: 0 0 auto;
+    width: 84px;
+    height: 14px;
+    vertical-align: middle;
+}
+
+.vpa-scale-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: var(--bs-border-color);
+}
+
+/* Taller than the bar and dark enough to read at 84px wide: it is the
+   landmark the bar's direction is measured against, and a bar whose
+   end sits on an invisible centre says nothing. */
+.vpa-scale-pivot {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: var(--bs-secondary-color);
+    opacity: 0.55;
+}
+
+.vpa-scale-bar {
+    position: absolute;
+    top: 50%;
+    height: 5px;
+    border-radius: 2px;
+    transform: translateY(-50%);
+    background: var(--vpa-side, var(--bs-secondary-color));
+    opacity: 0.85;
+}
+
+.vpa-scale-dot {
+    position: absolute;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    border: 1.5px solid var(--bs-body-bg);
+    background: var(--vpa-side, var(--bs-secondary-color));
 }
 
 /* What the item is attached to. Analyst data hangs off an
