@@ -4839,8 +4839,14 @@ th.vp-rel-num {
 }
 
 /*
- * Near-match engines, and the three states one can be in: running,
- * inapplicable to this type, and absent from MISP altogether.
+ * Near-match engines, and the four states one can be in: running,
+ * inapplicable to this type, present but unable to run here, and
+ * absent from MISP altogether.
+ *
+ * Two of those get a block: the one that ran, and the one that could
+ * have. The other two are a single fact each and get
+ * `.vp-rel-engine-line`, which is the same row with the padding of a
+ * list item rather than of a section.
  */
 .vp-rel-engine {
     display: flex;
@@ -4870,6 +4876,23 @@ th.vp-rel-num {
 
 .vp-rel-engine-name {
     font-weight: 600;
+}
+
+/*
+ * An engine that is not running, in one line. The state column keeps
+ * its width so the label still lines up with the block above it, and
+ * `align-items: baseline` sits the name on the same baseline as the
+ * state rather than 2px below it, which is what the block's
+ * `padding-top` was compensating for.
+ */
+.vp-rel-engine-line {
+    align-items: baseline;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.vp-rel-engine-line .vp-rel-engine-state {
+    padding-top: 0;
 }
 
 .vp-rel-score {

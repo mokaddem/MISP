@@ -34,7 +34,7 @@ live instance and recorded in its own section below.
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
 | B1 | The references panel's object link | `value_relation_references` | XS | no | no | **done** |
-| B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | todo |
+| B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | **done** |
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | todo |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | todo |
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | todo |
@@ -200,6 +200,96 @@ replaceable by a block.
 **Verify.** Render `8.8.8.8` (CIDR active, two lines) and a hash value
 from the ssdeep seed family (ssdeep active, two lines); measure the
 section height before and after.
+
+### 4.1 Done — 2026-09-01
+
+`$engineLine($state, $name, $reason)` renders a non-running engine as
+one row: the state column the active block already uses, the engine's
+name, an em dash, and the reason. The two collapsed states now read
+
+> **NOT APPLICABLE** · ssdeep fuzzy similarity — compares `ssdeep`
+> attributes; does not run on `ip-dst`.
+>
+> **NO ENGINE** · Domain / TLD tree — nothing in MISP computes a
+> parent-domain, registrable-domain or public-suffix relation.
+
+and the CSS is one modifier, `.vp-rel-engine-line`, that swaps a
+section's padding for a list item's and puts the name on the state's
+baseline. Nothing else about the row changes, so the three engines
+still align down the state column and still read as one list.
+
+**Measured on the live instance**, section height, viewport 1400px:
+
+| Value | Engine that ran | Before | After | Saved |
+|---|---|---|---|---|
+| `8.8.8.8` | CIDR, 4 rows | 758px | 498px | 260px (34%) |
+| `3072:u4PrXcuQ…` | ssdeep, 0 rows | 523px | 287px | 236px (45%) |
+| `github.com` | none | 525px | 233px | 292px (56%) |
+
+Per engine: a *not applicable* block was 73–96px and is now 40px; the
+*no engine* stub was 185px inside a 32px wrapper — 217px — and is now
+38px. The PRD's estimate of ~760px for `8.8.8.8` was exactly right.
+
+**Three states collapse, not two.** The task named *does not apply*
+and *does not exist*. The live panel has a fourth state — *cannot run*,
+where MISP ships the engine and it applies to this value but the PHP
+extension behind it is not loaded — and that one **keeps its block**.
+It is the only one of the four that reports on the instance rather than
+on the value, and the only one anybody can act on; shrinking it would
+be shrinking the one non-active state with something to say. The
+template's header docblock now lists four states and says which two get
+a block and why.
+
+**What the collapse dropped.** The *not applicable* paragraph for
+ssdeep also taught what a score looks like, with a sample
+`ssdeep 92%` badge — on the one screen where the engine never produces
+one. The active branch says the same thing where the reader can watch
+it happen, so the lesson moved rather than went. The TLD stub's longer
+note was two things at once: the fact (no public-suffix list, no table,
+no code path) and an argument to the next reader of the template about
+why a gap in the brief is drawn rather than dropped. The fact is on the
+line; the argument is now a docblock, which is where it was always
+addressed.
+
+**Considered and not done: putting the active engine first.** With
+ssdeep active, CIDR's line sits *above* the block that ran, because the
+engines render in a fixed order. Reordering by state would read better
+on that one value and would cost the reader the stable position of each
+engine, which is worth more once B10 adds a fourth. Left as it is;
+B10's grilling is the place to reopen it.
+
+**Verified** by driving the real page — logged in, Relationships tab
+clicked, lazy panel awaited — and reading `getBoundingClientRect()` off
+the panel and every engine row, in light and dark. The *cannot run*
+block was rendered by forcing the state in the model for one fetch and
+reverting it, since this instance has the ssdeep extension loaded.
+
+### 4.2 Found while measuring: ssdeep compares 100 candidates, not all
+
+Not a B2 change and not fixed here, recorded because the measurement
+walked into it.
+
+`ValueProfile::ssdeepEngine` fetches candidates with
+`occurrencesOfType(..., RELATION_ROW_CAP)` — 100, ordered by
+`Attribute.timestamp DESC` — and then compares the value against those
+100. The cap is a *row* cap everywhere else on the tab, where it bounds
+what is shown; here it bounds what is **compared**, before any
+comparison happens, so it changes the verdict rather than the listing.
+
+The verification instance has 1,399 `ssdeep` attributes. Comparing one
+seeded family member against all of them with
+`ssdeep_fuzzy_compare()` directly finds **45 partners over the
+threshold of 40, the closest at 96**. The panel, for that same value,
+says *"Compared against every other `ssdeep` attribute you can see, **0
+pairs** cleared the threshold of 40."* Both halves of that sentence are
+wrong: it compared 100 of them, and it found none only because the
+family was not in the 100 most recent.
+
+This is the subphase's own inherited rule — every cap states itself in
+the panel — failing in the one place where the cap is load-bearing, and
+it is why the ssdeep seed family has never shown a row. Needs a task:
+either raise the candidate set to the type's full population with a
+stated bound, or keep a bound and say what it was in the sentence.
 
 ## 5. B3 — outside this instance: counts first, absence framed as novelty
 
@@ -523,6 +613,9 @@ actually do.
   follow-up item 5.
 - **A matched hash opening its own value page** — §28.9; the
   promote-list question.
+- **The ssdeep candidate cap** — §4.2, found while measuring B2 and
+  unowned. Listed here so it is not mistaken for done; it wants a task
+  of its own, because it is a wrong answer rather than a small one.
 - **The Timeline source lane** — the Timeline tab's phase;
   `url-honeypot-detection` joined `passive-dns` as a candidate.
 - **WHOIS history, JARM/favicon/cert pivots, contacted

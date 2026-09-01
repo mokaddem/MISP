@@ -7,14 +7,23 @@
  * panel says so above the rows rather than trusting a dashed border to
  * carry the argument.
  *
- * Three engine states appear here and all three are different:
+ * Four engine states appear here and all four are different:
  *
  *   active           the engine runs for this type and found rows.
+ *   cannot run       MISP ships the engine and it applies to this
+ *                    value, but the extension behind it is not loaded
+ *                    here. A fact about the instance, not the value,
+ *                    and the only one of the four somebody can fix.
  *   not applicable   the engine exists and runs, but not on a value of
  *                    this type. Nothing is missing, nothing is hidden.
  *   no engine        MISP has no such engine at all. Not empty, not
- *                    inapplicable — absent, and drawn as a stub so the
- *                    gap is visible rather than quietly dropped.
+ *                    inapplicable — absent, and still named so the gap
+ *                    is visible rather than quietly dropped.
+ *
+ * The first two get a block, because each has something to report. The
+ * last two are one fact apiece and get one line apiece — see
+ * `$engineLine`. Before that they spent ~310px of a ~760px section
+ * explaining, at length, that they had done nothing.
  *
  * Nothing here reads a provenance column, because there is none: the
  * correlation table stores `value`, two event ids, two attribute ids,
@@ -365,56 +374,96 @@ if (empty($near['matches'])) {
             </div>
             <?php
         };
+
+        /**
+         * An engine that is not running, in one line.
+         *
+         * Two of the four states are a single fact — the engine does
+         * not apply to a value of this type, or MISP has no such
+         * engine — and a fact does not need a heading and a paragraph
+         * to land. These keep the state column and the engine name the
+         * active block above them uses, so the engines still read as
+         * one comparable list, and they keep the reason, because an
+         * engine that goes quiet without saying why is the thing this
+         * section exists to refuse.
+         *
+         * *Active* keeps its block. So does *cannot run*: alone among
+         * the four it reports on the instance rather than on the value,
+         * and alone among them it is something a reader can act on.
+         *
+         * **This line is the slot a real engine's block replaces.**
+         * B10 puts a typosquat engine where the domain/TLD line now
+         * sits (`24b-relationships.md` §12); at this end that is one
+         * `$engineLine()` call giving way to a `vp-rel-engine` block
+         * and an `$engineTable()`, which is why the line is a call and
+         * not eleven lines of inline markup.
+         *
+         * @param string $state Label for the state column
+         * @param string $name The engine's name
+         * @param string $reason Why it is not running — **HTML**, so
+         *                       that a type name can be monospaced;
+         *                       callers escape their own values
+         * @return void
+         */
+        $engineLine = function ($state, $name, $reason) {
+            ?>
+            <div class="vp-rel-engine vp-rel-engine-off
+                        vp-rel-engine-line">
+                <span class="vp-rel-engine-state">
+                    <?= h($state) ?>
+                </span>
+                <div class="vp-min-w-0 flex-grow-1 small">
+                    <span class="vp-rel-engine-name"><?= h($name) ?></span>
+                    <span class="text-muted">&mdash; <?= $reason ?></span>
+                </div>
+            </div>
+            <?php
+        };
         ?>
 
         <?php if (isset($engines['cidr'])): ?>
 
             <?php $cidr = $engines['cidr']; ?>
-            <div class="vp-rel-engine vp-rel-engine-<?= $cidr['state']
-                === 'active' ? 'on' : 'off' ?>">
+            <?php if ($cidr['state'] !== 'active'): ?>
+                <?php $engineLine(
+                    __('Not applicable'),
+                    __('CIDR containment'),
+                    sprintf(
+                        __('compares %1$s attributes; does not run on'
+                            . ' %2$s.'),
+                        '<span class="font-monospace">ip-src /'
+                            . ' ip-dst</span>',
+                        '<span class="font-monospace">'
+                            . h($primaryType) . '</span>'
+                    )
+                ) ?>
+            <?php else: ?>
+            <div class="vp-rel-engine vp-rel-engine-on">
                 <span class="vp-rel-engine-state">
-                    <?= $cidr['state'] === 'active'
-                        ? __('Active')
-                        : __('Not applicable') ?>
+                    <?= __('Active') ?>
                 </span>
                 <div class="vp-min-w-0 flex-grow-1">
                     <div class="fw-semibold small vp-rel-engine-name">
                         <?= __('CIDR containment') ?>
                     </div>
                     <div class="small text-muted mt-1">
-                        <?php if ($cidr['state'] !== 'active'): ?>
-                            <?= sprintf(
-                                __(
-                                    'CIDR containment runs for %1$s'
-                                    . ' attributes. This value is %2$s,'
-                                    . ' so the engine never runs for it.'
-                                ),
-                                '<span class="font-monospace">ip-src /'
-                                    . ' ip-dst</span>',
-                                '<span class="font-monospace">'
-                                    . h($primaryType) . '</span>'
-                            ) ?>
-                        <?php else: ?>
-                            <?= h(__n(
-                                '%d network-block attribute contains this'
-                                . ' address.',
-                                '%d network-block attributes contain this'
-                                . ' address.',
-                                count($cidr['rows']),
-                                count($cidr['rows'])
-                            )) ?>
-                            <?= __('Re-derived at render time from the'
-                                . ' same CIDR list the engine walks —'
-                                . ' the stored correlation row does not'
-                                . ' record which engine wrote it.') ?>
-                        <?php endif; ?>
+                        <?= h(__n(
+                            '%d network-block attribute contains this'
+                            . ' address.',
+                            '%d network-block attributes contain this'
+                            . ' address.',
+                            count($cidr['rows']),
+                            count($cidr['rows'])
+                        )) ?>
+                        <?= __('Re-derived at render time from the'
+                            . ' same CIDR list the engine walks —'
+                            . ' the stored correlation row does not'
+                            . ' record which engine wrote it.') ?>
                     </div>
                 </div>
             </div>
 
-            <?php if ($cidr['state'] === 'active'
-                && !empty($cidr['rows'])
-            ): ?>
+            <?php if (!empty($cidr['rows'])): ?>
                 <?php $engineTable(
                     $cidr,
                     __('Containing block'),
@@ -432,7 +481,7 @@ if (empty($near['matches'])) {
                         </span>
                     </div>
                 </div>
-            <?php elseif ($cidr['state'] === 'active'): ?>
+            <?php else: ?>
                 <div class="px-3 pb-3">
                     <div class="vp-empty vp-empty-inline">
                         <i class="fas fa-code-compare"></i>
@@ -444,21 +493,43 @@ if (empty($near['matches'])) {
                     </div>
                 </div>
             <?php endif; ?>
+            <?php endif; ?>
 
         <?php endif; ?>
 
         <?php if (isset($engines['ssdeep'])): ?>
 
             <?php $ssdeep = $engines['ssdeep']; ?>
+            <?php if ($ssdeep['state'] === 'not_applicable'): ?>
+                <?php
+                /*
+                 * The paragraph this line replaces also taught what an
+                 * ssdeep score looks like, with a sample badge — on the
+                 * one screen where the engine never produces one. The
+                 * active branch below says the same thing where a
+                 * reader can see it happening, so the lesson is not
+                 * lost, only moved off the screen that cannot use it.
+                 */
+                $engineLine(
+                    __('Not applicable'),
+                    __('ssdeep fuzzy similarity'),
+                    sprintf(
+                        __('compares %1$s attributes; does not run on'
+                            . ' %2$s.'),
+                        '<span class="font-monospace">ssdeep</span>',
+                        '<span class="font-monospace">'
+                            . h($primaryType) . '</span>'
+                    )
+                );
+                ?>
+            <?php else: ?>
             <div class="vp-rel-engine vp-rel-engine-<?= $ssdeep['state']
                 === 'active' ? 'on' : 'off' ?>">
                 <span class="vp-rel-engine-state">
                     <?php if ($ssdeep['state'] === 'active'): ?>
                         <?= __('Active') ?>
-                    <?php elseif ($ssdeep['state'] === 'unavailable'): ?>
-                        <?= __('Cannot run') ?>
                     <?php else: ?>
-                        <?= __('Not applicable') ?>
+                        <?= __('Cannot run') ?>
                     <?php endif; ?>
                 </span>
                 <div class="vp-min-w-0 flex-grow-1">
@@ -466,24 +537,7 @@ if (empty($near['matches'])) {
                         <?= __('ssdeep fuzzy similarity') ?>
                     </div>
                     <div class="small text-muted mt-1">
-                        <?php if ($ssdeep['state'] === 'not_applicable'): ?>
-                            <?= sprintf(
-                                __(
-                                    'ssdeep compares %1$s attributes'
-                                    . ' against each other. This value is'
-                                    . ' %2$s, so the engine never runs'
-                                    . ' for it. Where it does apply the'
-                                    . ' score renders as %3$s, recomputed'
-                                    . ' per row — MISP stores the'
-                                    . ' threshold test, not the number.'
-                                ),
-                                '<span class="font-monospace">ssdeep</span>',
-                                '<span class="font-monospace">'
-                                    . h($primaryType) . '</span>',
-                                '<span class="badge vp-rel-score">'
-                                    . h(__('ssdeep 92%')) . '</span>'
-                            ) ?>
-                        <?php elseif ($ssdeep['state'] === 'unavailable'): ?>
+                        <?php if ($ssdeep['state'] === 'unavailable'): ?>
                             <?php
                             /*
                              * A fourth state the brief does not have,
@@ -543,33 +597,43 @@ if (empty($near['matches'])) {
                     null
                 ) ?>
             <?php endif; ?>
+            <?php endif; ?>
 
         <?php endif; ?>
 
         <?php if (isset($engines['tld'])): ?>
 
-            <div class="p-3">
-                <div class="vp-panel-stub">
-                    <span class="vp-panel-stub-badge">
-                        <i class="fas fa-code"></i>
-                        <?= __('No engine in MISP') ?>
-                    </span>
-                    <div class="fw-semibold small mt-2">
-                        <?= __('Domain / TLD tree') ?>
-                    </div>
-                    <p class="vp-panel-stub-note">
-                        <?= __('Nothing in MISP computes a parent-domain,'
-                            . ' registrable-domain or public-suffix'
-                            . ' relation — there is no public-suffix'
-                            . ' list, no table and no code path. Drawn so'
-                            . ' the gap in the brief is visible rather'
-                            . ' than quietly dropped, and deliberately'
-                            . ' unlike the two states above it: this one'
-                            . ' is not empty and not inapplicable, it is'
-                            . ' absent.') ?>
-                    </p>
-                </div>
-            </div>
+            <?php
+            /*
+             * The absent engine, and the reason it is a line and no
+             * longer a dashed stub box.
+             *
+             * The box was carrying two different jobs. One was the
+             * fact — nothing in MISP computes a parent-domain,
+             * registrable-domain or public-suffix relation: no
+             * public-suffix list, no table, no code path — which is
+             * what a reader needs and is one sentence long. The other
+             * was an argument addressed to whoever next reads the
+             * template, about why a gap in the brief is drawn instead
+             * of quietly dropped. That argument belongs here, in the
+             * source, and not on a page an analyst is trying to read
+             * past: at ~217px it cost more of the section than the
+             * engine that actually ran.
+             *
+             * Still deliberately unlike *not applicable* above it —
+             * that engine exists and declines this type, this one does
+             * not exist — which is why the state column says so in its
+             * own words rather than reusing the label.
+             *
+             * B10 replaces this call with a block; see `$engineLine`.
+             */
+            $engineLine(
+                __('No engine'),
+                __('Domain / TLD tree'),
+                h(__('nothing in MISP computes a parent-domain,'
+                    . ' registrable-domain or public-suffix relation.'))
+            );
+            ?>
 
         <?php endif; ?>
 
