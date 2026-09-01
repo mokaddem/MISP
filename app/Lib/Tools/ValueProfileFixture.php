@@ -4960,6 +4960,15 @@ class ValueProfileFixture
                 // grounded in a number rather than in a bar's width.
                 'addresses' => 1 << (32 - $prefix),
                 'event' => $row[2],
+                /*
+                 * The live row names the attribute or object holding the
+                 * block and links to it. A fixture id would link to a
+                 * record that is not there, so these stay null and the
+                 * cell falls back to the event alone.
+                 */
+                'attribute' => null,
+                'object' => null,
+                'object_name' => null,
                 'org' => $row[3],
                 'distribution' => $row[4],
             );

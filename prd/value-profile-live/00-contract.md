@@ -805,7 +805,7 @@ phase should expect:
 - **`fuzzy_correlate_ssdeep` can be empty while the extension is loaded.** 1,387
   `ssdeep` attributes, zero index rows — a dozen seeded ones later put 879 rows
   in it and left the 1,387 untouched. A panel narrowing candidates through
-  MISP's own index would report *no match* for *no index*. §9.4, §28.6.
+  MISP's own index would report *no match* for *no index*. §9.4, §28.7.
 - **A shipped JS library is not the documented one.** The pivotick build in
   `app/webroot/js` predates its current API in four ways that all fail silently
   — an unread flat `style`, ignored style callbacks, a shape name that throws

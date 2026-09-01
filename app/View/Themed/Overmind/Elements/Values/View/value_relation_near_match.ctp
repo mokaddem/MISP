@@ -226,7 +226,7 @@ if (empty($near['matches'])) {
                             <?php if ($extra !== null): ?>
                                 <th><?= h($extra) ?></th>
                             <?php endif; ?>
-                            <th><?= __('Event') ?></th>
+                            <th><?= __('Where it sits') ?></th>
                             <th><?= __('Reported by') ?></th>
                             <th><?= __('Distribution') ?></th>
                         </tr>
@@ -285,11 +285,74 @@ if (empty($near['matches'])) {
                                     </td>
                                 <?php endif; ?>
                                 <td class="text-nowrap">
-                                    <a href="<?= $baseurl ?>/events/view2/<?=
-                                        h($row['event']) ?>"
-                                       class="font-monospace small">
-                                        #<?= h($row['event']) ?>
-                                    </a>
+                                    <?php
+                                    /*
+                                     * The record holding the matched
+                                     * value, and then the event under
+                                     * it — the cell
+                                     * `value_relation_references.ctp`
+                                     * uses for the far end of a
+                                     * reference, with this panel's own
+                                     * choice of destination.
+                                     *
+                                     * **Both go to the themed event
+                                     * view's tab**, because neither
+                                     * record has a page of its own that
+                                     * a reader of this theme wants:
+                                     * `/attributes/view` redirects to
+                                     * the event and loses which
+                                     * attribute it was asked about, and
+                                     * `/objects/view` does the same to
+                                     * `/events/view` — the *unthemed*
+                                     * event page, which is a worse place
+                                     * to land than the tab. This theme's
+                                     * view takes no `focus:`, so the
+                                     * title carries the record's own id;
+                                     * `value_relation_asserted.ctp`
+                                     * reached the same two URLs the same
+                                     * way.
+                                     */
+                                    ?>
+                                    <?php if (!empty($row['object'])): ?>
+                                        <a class="vp-rel-tag"
+                                           href="<?= $baseurl
+                                               ?>/events/view2/<?=
+                                               h($row['event'])
+                                               ?>#tab-objects"
+                                           title="<?= h(sprintf(
+                                               __('%1$s object %2$s in'
+                                                   . ' event %3$s'),
+                                               $row['object_name'],
+                                               $row['object'],
+                                               $row['event']
+                                           )) ?>">
+                                            <i class="fas fa-cube"></i><?=
+                                                h($row['object_name']) ?>
+                                        </a>
+                                    <?php elseif (!empty($row['attribute'])): ?>
+                                        <a class="vp-rel-tag"
+                                           href="<?= $baseurl
+                                               ?>/events/view2/<?=
+                                               h($row['event'])
+                                               ?>#tab-attributes"
+                                           title="<?= h(sprintf(
+                                               __('Attribute %1$s in event'
+                                                   . ' %2$s'),
+                                               $row['attribute'],
+                                               $row['event']
+                                           )) ?>">
+                                            <i class="fas fa-tag"></i><?=
+                                                h(__('attribute')) ?>
+                                        </a>
+                                    <?php endif; ?>
+                                    <div class="vp-fact-line-sub">
+                                        <a href="<?= $baseurl
+                                            ?>/events/view2/<?=
+                                            h($row['event']) ?>"
+                                           class="font-monospace small">
+                                            #<?= h($row['event']) ?>
+                                        </a>
+                                    </div>
                                 </td>
                                 <td class="text-nowrap">
                                     <?= h($row['org']) ?>

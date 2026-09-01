@@ -90,7 +90,8 @@
  */
 class ValueSsdeepSeedShell extends AppShell
 {
-    public $uses = array('MispAttribute', 'Event', 'User');
+    public $uses = array('MispAttribute', 'MispObject', 'ObjectTemplate',
+        'Event', 'User');
 
     const SUBJECT_EVENT = 'ssdeep bench - subject sample and its repacks';
     const PARTNER_EVENT = 'ssdeep bench - the same family, another reporter';
@@ -101,6 +102,9 @@ class ValueSsdeepSeedShell extends AppShell
     /** Seeds for the two independent blobs the ladder is built from. */
     const SUBJECT_SEED = 4242;
     const FOREIGN_SEED = 31337;
+
+    /** `file`, which is the template a sample's hashes belong in. */
+    const FILE_TEMPLATE = '688c46fb-5edb-40a3-8273-1af7923e2215';
 
     /**
      * cake ValueSsdeepSeed run
@@ -151,6 +155,8 @@ class ValueSsdeepSeedShell extends AppShell
                 $row['note']
             ));
         }
+
+        $this->fileObject($partnerEvent, $admin, $subject);
 
         $this->hr();
         $this->out(sprintf('subject   %s', $subject));
@@ -316,6 +322,99 @@ class ValueSsdeepSeedShell extends AppShell
     }
 
     /**
+     * A `file` object whose ssdeep is a near match at 68.
+     *
+     * The near-match row names the record the matched value sits in, and
+     * an attribute in an object is the branch that differs: it links to
+     * `/objects/view` and shows the template's name, where a lone
+     * attribute can only open its event's Attributes tab. Nothing else
+     * in the seed sits in an object, so without this the object branch
+     * has no live coverage.
+     *
+     * A file object is also where an ssdeep hash belongs — beside the
+     * filename, the size and a sha256 that is the **real** digest of the
+     * same synthetic bytes the ssdeep hash was taken from.
+     *
+     * @param int $event
+     * @param array $user
+     * @param string $subject
+     * @return void
+     */
+    private function fileObject($event, array $user, $subject)
+    {
+        $template = $this->ObjectTemplate->find('first', array(
+            'recursive' => -1,
+            'conditions' => array(
+                'ObjectTemplate.uuid' => self::FILE_TEMPLATE,
+            ),
+            'order' => array('ObjectTemplate.version DESC'),
+        ));
+        if (empty($template)) {
+            $this->err('no `file` object template on this instance');
+            return;
+        }
+        $bytes = $this->variant(0.55);
+        $hash = ssdeep_fuzzy_hash($bytes);
+        $fields = array(
+            array('filename', 'filename', 'Payload delivery',
+                'stage2.bin'),
+            array('ssdeep', 'ssdeep', 'Payload delivery', $hash),
+            array('sha256', 'sha256', 'Payload delivery',
+                hash('sha256', $bytes)),
+            array('size-in-bytes', 'size-in-bytes', 'Other',
+                (string)strlen($bytes)),
+        );
+        /*
+         * `Attribute` sits beside `Object`, not inside it.
+         * `MispObject::saveObject` reads `$object['Attribute']` at the
+         * top level; nest it the way `/objects/add` accepts and the
+         * object saves with no attributes at all, under a page of
+         * notices from the foreach that expected them.
+         */
+        $object = array(
+            'Object' => array(
+                'distribution' => 5,
+                'comment' => 'ssdeep inside an object, not beside one',
+            ),
+            'Attribute' => array(),
+        );
+        foreach ($fields as $field) {
+            list($relation, $type, $category, $value) = $field;
+            $object['Attribute'][] = array(
+                'event_id' => $event,
+                'object_relation' => $relation,
+                'type' => $type,
+                /*
+                 * Every attribute names its own category. `ObjectsController
+                 * ::add` pre-validates with `Attribute->set()`, which
+                 * *merges*, so an omitted category inherits the previous
+                 * attribute's — the behaviour `24-near-match-dated-seed.py`
+                 * documents. `saveObject` is a different path and does not
+                 * merge, but a category per attribute costs nothing and
+                 * survives either.
+                 */
+                'category' => $category,
+                'value' => $value,
+                'to_ids' => 0,
+                'distribution' => 5,
+            );
+        }
+        $saved = $this->MispObject->saveObject(
+            $object, $event, $template, $user
+        );
+        if (!is_numeric($saved)) {
+            $this->err(sprintf('  file object: %s', json_encode($saved)));
+            return;
+        }
+        $this->out(sprintf('  %-3s %-14s %-5s %s',
+            (int)ssdeep_fuzzy_compare($subject, $hash),
+            'ssdeep/object',
+            'row',
+            sprintf('in file object %d — links to the object', $saved)
+        ));
+    }
+
+    /**
      * One event, owned by ADMIN and credited to `$orgc`.
      *
      * Two reporters is what makes the `Reported by` column say something
@@ -382,16 +481,30 @@ class ValueSsdeepSeedShell extends AppShell
      */
     private function hashOf($share)
     {
+        return ssdeep_fuzzy_hash($this->variant($share));
+    }
+
+    /**
+     * The bytes of that variant: `$share` of the subject's, then
+     * unrelated ones, at a constant total length.
+     *
+     * Separate from `hashOf` because the `file` object wants a sha256 of
+     * the same bytes, and a digest of something else would be a lie in a
+     * column nobody would check.
+     *
+     * @param float $share 1.0 for the subject itself
+     * @return string
+     */
+    private function variant($share)
+    {
         $len = self::BLOB_LEN;
         $base = $this->blob(self::SUBJECT_SEED, $len);
         if ($share >= 1.0) {
-            return ssdeep_fuzzy_hash($base);
+            return $base;
         }
         $cut = (int)($len * $share);
-        return ssdeep_fuzzy_hash(
-            substr($base, 0, $cut)
-            . substr($this->blob(self::FOREIGN_SEED, $len), 0, $len - $cut)
-        );
+        return substr($base, 0, $cut)
+            . substr($this->blob(self::FOREIGN_SEED, $len), 0, $len - $cut);
     }
 
     /**

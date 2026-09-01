@@ -3664,15 +3664,17 @@ Total length is held constant on purpose: `ssdeep_fuzzy_compare` returns
 seeded row is that case, because a reader who sees a 0 wants to know the
 difference between *compared and unlike* and *not comparable*.
 
-### 28.2 Six rows, and seven that must not appear
+### 28.2 Seven rows, and seven that must not appear
 
-Thirteen attributes across two events. Six clear the threshold, and the
-seven that do not are the reason there are thirteen:
+Thirteen attributes and one `file` object across two events. Seven
+clear the threshold, and the seven that do not are the reason there are
+as many again:
 
 | score | what it is | what the panel does |
 |---|---|---|
 | 99, 88 | repacks, in the ADMIN event | rows |
 | 75, 60, 44 | the same family from CIRCL | rows |
+| 68 | the `ssdeep` of a `file` object — beside its filename, its size and a sha256 that is the real digest of the same bytes | a row, and the only one whose record is an object rather than a lone attribute |
 | 47 | attribute distribution 0, ADMIN event | a row for a site admin, **absent** for an org-9 reader |
 | — | the subject's own hash, in the second event | **excluded**: an exact match is section one's row, and `occurrencesOfType` excludes the value itself |
 | 94 | soft-deleted | **excluded** by `Attribute.deleted = 0` |
@@ -3684,7 +3686,9 @@ seven that do not are the reason there are thirteen:
 Two reporters and two distributions are not decoration. `nearRow` carries
 the creator organisation and the effective audience of the **other**
 value, not of ours, and a column that says `ADMIN` on three rows and
-`CIRCL` on three is the only way to see that it does.
+`CIRCL` on four is the only way to see that it does. The object is there
+for the same reason — §28.6 gives the row a link to the record, and an
+attribute inside an object is the branch that differs.
 
 ### 28.3 A console shell, where the CIDR seed needed HTTP
 
@@ -3701,17 +3705,17 @@ needs no API key, which is the reason to prefer it.
 
 Site admin, then the org-9 org admin, on the subject hash:
 
-- **6 matches from 1 engine · 2 engines do not apply here.** CIDR reads
+- **7 matches from 1 engine · 2 engines do not apply here.** CIDR reads
   *not applicable* and names the type, the TLD stub stays *no engine in
-  MISP*, and the ssdeep strip reads *active* — `6 pairs cleared the
+  MISP*, and the ssdeep strip reads *active* — `7 pairs cleared the
   threshold of 40`.
-- **Rows at 99, 88, 75, 60, 47, 44**, descending, each with its event
-  link, its reporter and its audience badge.
-- **Five rows for the org-9 reader.** The distribution-0 attribute drops
-  out of the candidate set, the header count follows it to 5, and nothing
+- **Rows at 99, 88, 75, 68, 60, 47, 44**, descending, each with its
+  record, its event, its reporter and its audience badge.
+- **Six rows for the org-9 reader.** The distribution-0 attribute drops
+  out of the candidate set, the header count follows it to 6, and nothing
   else changes. The ACL is `fetchAttributesSimple`'s, not this panel's,
   which is the point of routing the candidates through it.
-- **`Similarity ≥ 60` leaves four rows** and 0 restores six, in a browser
+- **`Similarity ≥ 60` leaves five rows** and 0 restores seven, in a browser
   with `24-relationships-browser.md`'s two gates satisfied — so the
   control filters on `closeness:NN` written from a score exactly as it
   does on one written from a prefix. One input, two scales, and the bar
@@ -3737,7 +3741,60 @@ already does with a long source URL two panels down. A CIDR block is
 never long enough to be shortened, so its rows are unchanged and now
 carry a title as well.
 
-### 28.6 What the seed did to MISP's own index
+### 28.6 The row names the record, not just the event
+
+A row said *this block contains your address, in event 4454* and stopped
+there. On a `/8` held by a 300-attribute event that is a search — and
+the panel knew which attribute matched the whole time.
+
+`nearRow` now carries the attribute id, and the object id and template
+name when the attribute sits in one. **It costs no query**:
+`Value::CONTEXT_FIELDS` already contains `Object.id` and `Object.name`,
+and both near-match queries already select `Attribute.id` and
+`Attribute.object_id` — the row was throwing away what it had.
+
+The `Event` column becomes **`Where it sits`**: a chip for the record over
+the event link beneath, which is the cell
+`value_relation_references.ctp` uses for the far end of a reference. Both
+engines get it from the one `$engineTable`, so a CIDR row names the
+network-block attribute and an ssdeep row names the hash's own attribute
+or its `file` object.
+
+**Where those links go, and one that had to be rejected.** Neither record
+has a page worth opening in this theme:
+
+- `/attributes/view/<id>` redirects to the event and loses which
+  attribute it was asked about. Known: the sightings table and
+  `value_relation_asserted.ctp` both say so.
+- `/objects/view/<id>` looked better and is worse. It renders the object
+  only for REST; for HTML it redirects to **`/events/view/<id>`** — the
+  *unthemed* event page, since this theme provides `view2` and not
+  `view`. Measured, not assumed: the link returns 200 and lands on
+  `/events/view/4465`.
+
+So both go to `/events/view2/<event>` with `#tab-attributes` or
+`#tab-objects`, and the title carries the record — `Attribute 3996371 in
+event 4464`, `file object 72004 in event 4465`. That is the pair of URLs
+`value_relation_asserted.ctp` already settled on, reached here by the
+same argument.
+
+**`value_relation_references.ctp` still links `/objects/view`**, so its
+object chip drops the reader on the unthemed page. Same feature, same
+defect, left alone here rather than changed in a panel this pass was not
+about. §28.9.
+
+For CIDR the named record is *an* occurrence of the block and not the
+only one — the engine folds to one row per block deliberately — and it is
+the same occurrence whose event, reporter and audience the row already
+reported. The title states a fact about one attribute rather than
+claiming it is the only one.
+
+The fixture's `relCidrRows` carries the three new keys as nulls and the
+cell falls back to the event alone. A fixture id would link to a record
+that does not exist, and the near-match panel has been live-only since
+phase 24 anyway.
+
+### 28.7 What the seed did to MISP's own index
 
 §9.4 found `fuzzy_correlate_ssdeep` empty against 1,387 `ssdeep`
 attributes. The seed writes through `afterSave` with
@@ -3756,7 +3813,7 @@ Three things follow, and the third is §3.1's argument arriving as data:
   `default_correlations` says an engine wrote them, which is exactly why
   section two re-derives instead of reading.
 
-### 28.7 What was run
+### 28.8 What was run
 
 - `ValueSsdeepSeed show`, before any write, to see the ladder the
   installed extension actually produces.
@@ -3767,7 +3824,11 @@ Three things follow, and the third is §3.1's argument arriving as data:
   the row count moving 6 → 4 → 6 as the witness before reading anything
   off the page, and a screenshot looked at both times.
 - Real HTTP with a logged-in session: `viewRelationNearMatch` 200 and
-  6 rows, `/values/view/<b64>` 200.
+  7 rows — 6 attribute links and 1 object link — `/values/view/<b64>`
+  200, and every destination the new column offers followed to see where
+  it actually lands.
+- `8.8.8.8` re-rendered for the CIDR engine, whose four blocks now name
+  their attributes with the same cell.
 - Read-only SQL for the index and correlation counts above.
 
 The seed's two events are left **unpublished**: this instance has 8 sync
@@ -3775,15 +3836,16 @@ servers configured. `ValueSsdeepSeed wipe` removes both events and
 everything in them; nothing was installed in `app/` — both shells were
 copied in, run and removed.
 
-### 28.8 What is still open
+### 28.9 What is still open
 
-- **A matched hash links nowhere.** `nearRow` carries no encoded value,
-  so the one thing a reader wants to do with a 99% partner — open it —
-  is a copy-paste. It is a row of facts about another value with no way
-  to reach it, which section one's table does not have. Deferred rather
-  than dismissed: the fix is one field, and the question of whether a
-  near-match row *should* be a pivot is the same question §26.3's promote
-  list asks.
+- **A matched hash still does not open its own value page.** §28.6 gives
+  the row its record and its event; what it does not give is the Value
+  Profile of the partner hash, which needs an encoded value on the row
+  and is the same question §26.3's promote list asks. Two of the three
+  destinations a reader might want are now there.
+- **`value_relation_references.ctp` links `/objects/view`**, which
+  redirects to the unthemed `/events/view`. One line, the same fix
+  §28.6 applied here, in a panel this pass was not about.
 - **`filename|ssdeep` is fuzzy-compared by nothing**, here or in MISP.
   Documented above rather than fixed, because a panel that compared them
   would report matches the correlation engine denies — the failure §6

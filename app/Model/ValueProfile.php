@@ -2927,6 +2927,18 @@ class ValueProfile extends AppModel
      * A near-match row, carrying the reporter and the audience of the
      * *other* value rather than of ours.
      *
+     * **The record the matched value sits in**, too, and it costs no
+     * query: `Value::CONTEXT_FIELDS` already contains `Object.id` and
+     * `Object.name`, and both near-match queries already select
+     * `Attribute.id` and `Attribute.object_id`. Without them the row
+     * named an event and left the reader to find the attribute in it,
+     * which on a `/8` in a 300-attribute event is a search.
+     *
+     * For CIDR this is *an* occurrence of the block rather than the only
+     * one — the engine folds to one row per block on purpose — and it is
+     * the same occurrence whose event, reporter and audience the rest of
+     * the row already reports.
+     *
      * @param array $row
      * @param string $label
      * @param int $closeness Prefix length, or an ssdeep score
@@ -2937,12 +2949,20 @@ class ValueProfile extends AppModel
     private function nearRow(array $row, $label, $closeness, $addresses,
         $width
     ) {
+        $object = empty($row['Object']['id'])
+            ? null
+            : (int)$row['Object']['id'];
         return array(
             'block' => $label,
             'prefix' => (int)$closeness,
             'addresses' => $addresses,
             'width' => $width,
             'event' => (int)$row['Attribute']['event_id'],
+            'attribute' => (int)$row['Attribute']['id'],
+            'object' => $object,
+            'object_name' => $object === null
+                ? null
+                : $row['Object']['name'],
             'org' => $row['org'],
             'distribution' => $row['effective_distribution']['level'] === null
                 ? 5
