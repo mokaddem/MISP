@@ -1,0 +1,1860 @@
+<meta charset="utf-8">
+<title>Three Ways to Show the Split</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* ==========================================================
+   Chrome tokens — plum-biased neutrals off MISP's own
+   --analystData (#8F2D56), the accent this card already owns.
+   ========================================================== */
+:root {
+  --ground:      #f7f4f5;
+  --ground-2:    #efe9eb;
+  --panel:       #ffffff;
+  --ink:         #241a20;
+  --ink-2:       #5c4b53;
+  --ink-3:       #8a7880;
+  --rule:        #e6dde1;
+  --rule-2:      #d5c8ce;
+  --accent:      #8f2d56;
+  --accent-soft: #f3e5eb;
+  --mal:         #c0392f;
+  --ben:         #3d8a58;
+  --warn:        #b1650a;
+  --shadow:      0 1px 2px rgba(36,26,32,.06), 0 8px 24px -12px rgba(36,26,32,.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #171013;
+    --ground-2:    #1f161a;
+    --panel:       #221a1e;
+    --ink:         #f2e9ec;
+    --ink-2:       #c0aeb5;
+    --ink-3:       #8d7a82;
+    --rule:        #38292f;
+    --rule-2:      #4a373e;
+    --accent:      #e089ac;
+    --accent-soft: #3a2029;
+    --mal:         #e8837c;
+    --ben:         #74c191;
+    --warn:        #d9a13f;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #171013;
+  --ground-2:    #1f161a;
+  --panel:       #221a1e;
+  --ink:         #f2e9ec;
+  --ink-2:       #c0aeb5;
+  --ink-3:       #8d7a82;
+  --rule:        #38292f;
+  --rule-2:      #4a373e;
+  --accent:      #e089ac;
+  --accent-soft: #3a2029;
+  --mal:         #e8837c;
+  --ben:         #74c191;
+  --warn:        #d9a13f;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1320px; margin: 0 auto; padding: 0 28px 96px; }
+
+/* ---------- masthead ---------- */
+.mast { padding: 56px 0 30px; border-bottom: 1px solid var(--rule); }
+.eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--accent);
+  margin: 0 0 14px;
+}
+.mast h1 {
+  margin: 0 0 14px;
+  font-size: clamp(30px, 4.2vw, 46px);
+  font-weight: 600; line-height: 1.08; letter-spacing: -.02em;
+  text-wrap: balance;
+}
+.mast .lede {
+  margin: 0; max-width: 66ch; font-size: 17px; color: var(--ink-2);
+  text-wrap: pretty;
+}
+.mast .meta {
+  margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 8px 22px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11.5px; color: var(--ink-3);
+}
+.mast .meta b { color: var(--ink-2); font-weight: 500; }
+
+/* ---------- sticky control bar ---------- */
+.bar {
+  position: sticky; top: 0; z-index: 40;
+  margin: 0 -28px; padding: 12px 28px;
+  background: color-mix(in srgb, var(--ground) 86%, transparent);
+  backdrop-filter: blur(12px) saturate(1.4);
+  border-bottom: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+}
+.bar-label {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10.5px; font-weight: 500; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  appearance: none; cursor: pointer;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11.5px; font-weight: 500;
+  padding: 5px 11px; border-radius: 999px;
+  border: 1px solid var(--rule-2); background: var(--panel);
+  color: var(--ink-2); transition: background .13s, color .13s, border-color .13s;
+  white-space: nowrap;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.chip[aria-pressed="true"] {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--panel);
+}
+:root[data-theme="dark"] .chip[aria-pressed="true"],
+html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
+.chip .hyp {
+  display: inline-block; margin-left: 5px; padding: 0 4px;
+  border-radius: 3px; font-size: 9px; letter-spacing: .06em;
+  background: var(--ground-2); color: var(--ink-3); vertical-align: 1px;
+}
+.chip[aria-pressed="true"] .hyp { background: rgba(255,255,255,.22); color: inherit; }
+.bar-sep { width: 1px; align-self: stretch; background: var(--rule); }
+.chip:focus-visible, .swatch:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---------- state readout ---------- */
+.readout {
+  margin: 26px 0 0; padding: 16px 20px;
+  background: var(--panel); border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent); border-radius: 3px;
+  display: flex; flex-wrap: wrap; gap: 6px 34px; align-items: baseline;
+}
+.readout dt {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3); margin: 0 0 3px;
+}
+.readout dd { margin: 0; font-size: 14px; font-weight: 500; }
+.readout dd .mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- sections ---------- */
+.sec { padding-top: 60px; }
+.sec-head { margin-bottom: 22px; }
+.sec-num {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; font-weight: 600; letter-spacing: .14em;
+  color: var(--accent); text-transform: uppercase;
+}
+.sec-head h2 {
+  margin: 8px 0 10px; font-size: 27px; font-weight: 600;
+  letter-spacing: -.015em; text-wrap: balance;
+}
+.sec-head p { margin: 0; max-width: 74ch; color: var(--ink-2); font-size: 15.5px; }
+
+/* ---------- defect list ---------- */
+.defects { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: 3px; }
+.defects li { background: var(--panel); padding: 15px 18px; display: grid;
+  grid-template-columns: 74px 1fr; gap: 16px; align-items: start; }
+.defects .tag {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9.5px; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; padding: 3px 0; text-align: left;
+}
+.tag-bug { color: var(--mal); }
+.tag-taste { color: var(--ink-3); }
+.defects h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; }
+.defects p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.55; }
+.defects code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+  background: var(--ground-2); padding: 1px 5px; border-radius: 3px;
+}
+
+/* ---------- specimen frame ---------- */
+.spec { margin-top: 26px; }
+.spec-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px;
+  padding-bottom: 12px; margin-bottom: 0;
+}
+.spec-name { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin: 0; }
+.spec-strategy {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); padding: 2px 8px; border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+.spec-thesis { margin: 0 0 16px; max-width: 76ch; color: var(--ink-2); font-size: 15px; }
+.stage {
+  padding: 22px; border-radius: 4px;
+  background: var(--ground-2);
+  border: 1px solid var(--rule);
+  overflow-x: auto;
+}
+.stage.dark { background: #14171a; border-color: #2b3138; }
+.trade {
+  margin: 16px 0 0; display: grid; gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  background: var(--rule); border: 1px solid var(--rule); border-radius: 3px;
+}
+.trade > div { background: var(--panel); padding: 14px 17px; }
+.trade dt {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  margin: 0 0 7px;
+}
+.trade .fixes dt { color: var(--ben); }
+.trade .costs dt { color: var(--warn); }
+.trade ul { margin: 0; padding-left: 17px; }
+.trade li { font-size: 13.5px; color: var(--ink-2); line-height: 1.55; margin-bottom: 4px; }
+.trade li:last-child { margin-bottom: 0; }
+
+/* ---------- recommendation ---------- */
+.rec {
+  margin-top: 30px; padding: 26px 28px;
+  background: var(--accent-soft); border: 1px solid var(--rule-2);
+  border-radius: 4px;
+}
+.rec h3 { margin: 0 0 10px; font-size: 19px; font-weight: 600; }
+.rec p { margin: 0 0 12px; color: var(--ink-2); font-size: 15px; max-width: 78ch; }
+.rec p:last-child { margin-bottom: 0; }
+.rec strong { color: var(--ink); }
+
+/* ==========================================================
+   MISP card interiors. Bootstrap 5 tokens verbatim, and
+   MISP's own system font stack — the cards have to read as
+   MISP, not as this page.
+   ========================================================== */
+.misp {
+  --bs-body-bg: #fff;
+  --bs-secondary-bg: #e9ecef;
+  --bs-tertiary-bg: #f8f9fa;
+  --bs-border-color: #dee2e6;
+  --bs-secondary-color: rgba(33, 37, 41, .75);
+  --bs-body-color: #212529;
+  --bs-danger: #dc3545;
+  --bs-success: #198754;
+  --bs-danger-bg-subtle: rgb(248, 214.6, 217.8);
+  --bs-danger-text-emphasis: rgb(88, 21.2, 27.6);
+  --bs-danger-border-subtle: rgb(241, 174.2, 180.6);
+  --bs-success-bg-subtle: rgb(209, 231, 220.8);
+  --bs-success-text-emphasis: rgb(10, 54, 33.6);
+  --bs-success-border-subtle: rgb(163, 207, 186.6);
+  --bs-secondary-bg-subtle: rgb(225.6, 227.4, 229);
+  --analystData: #8F2D56;
+  --report: #4DA167;
+  --correlation: #E67F0D;
+  --vp-mal: var(--bs-danger);
+  --vp-ben: var(--report);
+  --vp-mal-ink: #a71d2a;
+  --vp-ben-ink: #2f6b45;
+  --vp-void: rgba(33, 37, 41, .28);
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--bs-body-color);
+}
+.misp-dark.misp {
+  --bs-body-bg: #212529;
+  --bs-secondary-bg: #343a40;
+  --bs-tertiary-bg: rgb(42.5, 47.5, 52.5);
+  --bs-border-color: #495057;
+  --bs-secondary-color: rgba(222, 226, 230, .75);
+  --bs-body-color: #dee2e6;
+  --bs-danger-bg-subtle: rgb(44, 10.6, 13.8);
+  --bs-danger-text-emphasis: rgb(234, 133.8, 143.4);
+  --bs-danger-border-subtle: rgb(132, 31.8, 41.4);
+  --bs-success-bg-subtle: rgb(5, 27, 16.8);
+  --bs-success-text-emphasis: rgb(117, 183, 152.4);
+  --bs-success-border-subtle: rgb(15, 81, 50.4);
+  --bs-secondary-bg-subtle: rgb(21.6, 23.4, 25);
+  --analystData: #c4577f;
+  --vp-mal-ink: #f1919b;
+  --vp-ben-ink: #8fd0a7;
+  --vp-void: rgba(222, 226, 230, .3);
+}
+.misp .mono {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- card shell, as MISP draws it --- */
+.vp-panel {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: .375rem;
+  box-shadow: 0 .125rem .25rem rgba(0,0,0,.075);
+  overflow: hidden;
+}
+.vp-panel-head {
+  display: flex; align-items: center; gap: .5rem;
+  padding: 1rem; border-bottom: 1px solid var(--bs-border-color);
+}
+.vp-panel-glyph {
+  display: flex; flex: 0 0 auto; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 6px;
+  background: color-mix(in srgb, var(--analystData) 15%, var(--bs-body-bg));
+  color: var(--analystData);
+}
+.vp-panel-title { font-weight: 700; line-height: 1; }
+.vp-panel-sub {
+  font-size: .875rem; color: var(--bs-secondary-color); margin-top: .25rem;
+}
+.vp-panel-sub .num { color: var(--bs-body-color); font-weight: 600; }
+.vp-chip-render {
+  flex: 0 0 auto;
+  font-size: .6875rem; font-weight: 400; padding: .25rem .5rem;
+  border: 1px solid var(--bs-border-color); border-radius: .25rem;
+  background: var(--bs-tertiary-bg); color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+.vp-subhead {
+  font-size: .65rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--bs-secondary-color);
+  margin-bottom: 6px;
+}
+.vp-foot {
+  margin: 0; padding: .75rem 1rem;
+  border-top: 1px solid var(--bs-border-color);
+  background: var(--bs-tertiary-bg);
+  font-size: .72rem; line-height: 1.6; color: var(--bs-secondary-color);
+}
+.vp-foot b { color: var(--bs-body-color); font-weight: 600; }
+.vp-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 40px 16px; font-size: .82rem; text-align: center;
+  color: var(--bs-secondary-color);
+}
+.vp-empty svg { opacity: .5; }
+
+/* Side inks, shared by all three.
+   Named for what the reader is told, not for MISP's internal
+   'malicious'/'benign' — which is precisely the indirection that
+   let the current card paint its histogram backwards. Above 50
+   agrees with the value and is green; below 50 disputes it and is
+   red; exactly 50 takes no side. */
+.ink-agree   { color: var(--vp-ben-ink); }
+.ink-dispute { color: var(--vp-mal-ink); }
+.ink-neither { color: var(--bs-secondary-color); }
+.bg-agree    { background: var(--vp-ben); }
+.bg-dispute  { background: var(--vp-mal); }
+.bg-neither  { background: var(--bs-secondary-color); }
+
+/* a side chip — the reading, said once */
+.sidechip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .7rem; font-weight: 600; white-space: nowrap;
+}
+.sidechip i {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+}
+
+/* staleness */
+.age { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.age-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--correlation); flex: 0 0 auto; }
+.age-stale { color: var(--correlation); font-weight: 600; }
+
+/* ==========================================================
+   PROPOSAL 1 — Aligned rail
+   ========================================================== */
+.r1-body { padding: 1.25rem 1rem .5rem; }
+.r1-block { position: relative; }
+/* The mean gets its own row rather than hanging off the block on a
+   percentage offset, which is how it ended up on the table head. */
+.r1-meanrow { position: relative; height: 44px; }
+.r1-labels { position: relative; }
+.r1-lab {
+  position: absolute; white-space: nowrap; transform: translateX(-50%);
+  font-size: .78rem; line-height: 1.15; text-align: center;
+}
+.r1-lab.clamp-l { transform: translateX(0); text-align: left; }
+.r1-lab.clamp-r { transform: translateX(-100%); text-align: right; }
+.r1-lab-org { font-weight: 600; color: var(--bs-body-color); }
+.r1-lab-score {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums; font-weight: 700;
+}
+.r1-lab-band { font-size: .68rem; color: var(--bs-secondary-color); }
+/* Pinned at the origin and sized by its own width/height attributes,
+   so the viewBox maps 1:1. Stretching it with `inset: 0` lets the
+   default preserveAspectRatio re-centre every leader. */
+.r1-leaders {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none; overflow: visible;
+}
+/* Tall enough to carry the void's caption inside it, so the empty
+   middle is labelled from within the object rather than annotated
+   above it. */
+.r1-rail {
+  position: relative; height: 24px; border-radius: 4px;
+  background: var(--bs-secondary-bg);
+}
+.r1-void {
+  position: absolute; top: 0; bottom: 0;
+  background-image: repeating-linear-gradient(
+    -45deg, transparent 0 4px, var(--vp-void) 4px 5px);
+  border-left: 1px solid var(--vp-void);
+  border-right: 1px solid var(--vp-void);
+}
+.r1-pivot {
+  position: absolute; top: -4px; bottom: -4px; width: 2px;
+  background: var(--bs-secondary-color); opacity: .55;
+  transform: translateX(-50%);
+}
+.r1-dot {
+  position: absolute; top: 50%; width: 15px; height: 15px;
+  border-radius: 50%; transform: translate(-50%, -50%);
+  border: 2.5px solid var(--bs-body-bg);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+}
+/* Two rows, at fixed tops rather than top/bottom of one short box —
+   the numerals and the band words were landing on each other. */
+.r1-axis {
+  position: relative; height: 42px; margin-top: 7px;
+  border-top: 1px solid var(--bs-border-color);
+}
+.r1-tick {
+  position: absolute; top: 6px; transform: translateX(-50%);
+  font-size: .65rem;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums; color: var(--bs-secondary-color);
+}
+.r1-tick::before {
+  content: ""; position: absolute; top: -6px; left: 50%; width: 1px; height: 4px;
+  background: var(--bs-border-color); transform: translateX(-50%);
+}
+.r1-band {
+  position: absolute; top: 25px; transform: translateX(-50%);
+  font-size: .62rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bs-secondary-color); opacity: .8; white-space: nowrap;
+}
+/* The two outermost labels sit against the card edge, so they anchor
+   to their own end instead of centring off it. */
+.r1-tick.edge-l, .r1-band.edge-l { transform: translateX(0); }
+.r1-tick.edge-r, .r1-band.edge-r { transform: translateX(-100%); }
+/* The void's caption, centred inside the void it names. */
+.r1-voidlab {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  font-size: .66rem; font-weight: 600; color: var(--bs-secondary-color);
+  background: var(--bs-body-bg); padding: 1px 7px; white-space: nowrap;
+  border-radius: 3px; line-height: 1.4;
+}
+.r1-mean {
+  position: absolute; top: 0; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+}
+.r1-mean-stem { width: 1px; height: 14px; background: var(--bs-secondary-color); opacity: .6; }
+.r1-mean-pill {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+  border: 1px dashed var(--bs-secondary-color);
+  background: var(--bs-body-bg);
+  font-size: .7rem; color: var(--bs-secondary-color);
+}
+.r1-mean-pill b {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums; color: var(--bs-body-color);
+}
+.r1-mean-pill.orphan b { text-decoration: line-through; }
+/* Colour and face are restated rather than inherited: opened as a
+   bare file with no doctype the page renders in quirks mode, where a
+   table takes neither from its ancestors. */
+.r1-table {
+  width: 100%; border-collapse: collapse; font-size: .8rem;
+  color: var(--bs-body-color); font-family: inherit;
+}
+.r1-table th {
+  font-size: .62rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--bs-secondary-color);
+  text-align: left; padding: .4rem .5rem; white-space: nowrap;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.r1-table td {
+  padding: .45rem .5rem; border-bottom: 1px solid var(--bs-border-color);
+  vertical-align: middle;
+}
+.r1-table tbody tr:last-child td { border-bottom: 0; }
+.r1-table tbody tr:hover { background: var(--bs-tertiary-bg); }
+.r1-table .num {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.r1-table .org { font-weight: 600; display: flex; align-items: center; gap: .4rem; }
+.r1-void-row td {
+  padding: .3rem .5rem; text-align: center; font-size: .72rem;
+  color: var(--bs-secondary-color); background: var(--bs-tertiary-bg);
+}
+
+/* ==========================================================
+   PROPOSAL 2 — Two camps
+   ========================================================== */
+.r2-body { padding: 1rem; }
+.r2-tug {
+  display: flex; height: 30px; border-radius: 4px; overflow: hidden;
+  background: var(--bs-secondary-bg); margin-bottom: 2px;
+}
+.r2-tug-seg {
+  display: flex; align-items: center; gap: .35rem; padding: 0 .6rem;
+  font-size: .72rem; font-weight: 700; color: #fff;
+  min-width: 0; white-space: nowrap; overflow: hidden;
+}
+.r2-tug-seg.right { justify-content: flex-end; }
+.r2-tug-seg .n {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .85rem;
+}
+.r2-tug-none {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: .68rem; color: var(--bs-secondary-color);
+}
+.r2-tug-cap {
+  display: flex; justify-content: space-between;
+  font-size: .62rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--bs-secondary-color); margin-bottom: 1rem;
+}
+.r2-grid {
+  display: grid; grid-template-columns: 1fr 156px 1fr;
+  gap: 0; align-items: stretch;
+}
+.r2-camp { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.r2-camp-head {
+  display: flex; align-items: center; gap: .4rem;
+  padding-bottom: .5rem; margin-bottom: .1rem;
+  border-bottom: 2px solid currentColor;
+  font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.r2-camp.dispute .r2-camp-head { color: var(--vp-mal-ink); }
+.r2-camp.agree   .r2-camp-head { color: var(--vp-ben-ink); }
+.r2-camp.agree   .r2-camp-head { justify-content: flex-end; }
+.r2-camp-head .n {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .8rem;
+}
+.r2-tile {
+  border: 1px solid var(--bs-border-color); border-radius: 4px;
+  background: var(--bs-body-bg); padding: .55rem .7rem;
+  display: grid; gap: .3rem;
+}
+/* The accent sits on the gutter-facing edge of each tile, so the two
+   columns read as facing each other across the empty middle. */
+.r2-camp.dispute .r2-tile { border-right: 3px solid var(--vp-mal); }
+.r2-camp.agree   .r2-tile { border-left: 3px solid var(--vp-ben); text-align: right; }
+.r2-tile-top {
+  display: flex; align-items: baseline; gap: .5rem;
+  justify-content: space-between;
+}
+.r2-camp.agree .r2-tile-top { flex-direction: row-reverse; }
+.r2-tile-org {
+  font-weight: 600; font-size: .84rem; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.r2-tile-score {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem; font-weight: 700; line-height: 1; flex: 0 0 auto;
+}
+.r2-tile-score span { font-size: .62rem; font-weight: 400; color: var(--bs-secondary-color); }
+.r2-tile-bar { height: 5px; border-radius: 3px; background: var(--bs-secondary-bg); position: relative; }
+.r2-tile-bar i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.r2-camp.dispute .r2-tile-bar i { right: 0; }
+.r2-camp.agree   .r2-tile-bar i { left: 0; }
+.r2-tile-meta {
+  display: flex; gap: .7rem; font-size: .68rem;
+  color: var(--bs-secondary-color); justify-content: flex-start;
+}
+.r2-camp.agree .r2-tile-meta { justify-content: flex-end; }
+.r2-tile-meta .mono {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.r2-empty-camp {
+  border: 1px dashed var(--bs-border-color); border-radius: 4px;
+  padding: 1.1rem .7rem; text-align: center;
+  font-size: .74rem; color: var(--bs-secondary-color);
+}
+.r2-gutter {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start; gap: .5rem;
+  padding: 0 .5rem;
+}
+.r2-gutter::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 0; border-left: 1px dashed var(--bs-border-color);
+}
+.r2-gutter-pivot {
+  position: relative; z-index: 1;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .65rem; color: var(--bs-secondary-color);
+  background: var(--bs-body-bg); padding: 0 .3rem;
+}
+.r2-gutter-void {
+  position: relative; z-index: 1; text-align: center;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color); border-radius: 4px;
+  padding: .5rem .4rem;
+  background-image: repeating-linear-gradient(
+    -45deg, transparent 0 5px, color-mix(in srgb, var(--bs-secondary-color) 14%, transparent) 5px 6px);
+}
+.r2-gutter-void .pts {
+  display: block;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.1rem; font-weight: 700; line-height: 1.1;
+  color: var(--bs-body-color);
+}
+.r2-gutter-void .lab {
+  display: block; font-size: .6rem; line-height: 1.3;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bs-secondary-color); margin-top: .15rem;
+}
+.r2-gutter-mean {
+  position: relative; z-index: 1; text-align: center;
+  background: var(--bs-body-bg);
+  border: 1px dashed var(--bs-secondary-color); border-radius: 4px;
+  padding: .35rem .4rem; font-size: .62rem; line-height: 1.35;
+  color: var(--bs-secondary-color);
+}
+.r2-gutter-mean b {
+  display: block;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: .95rem; color: var(--bs-body-color);
+}
+.r2-gutter-mean.orphan b { text-decoration: line-through; }
+
+/* ==========================================================
+   PROPOSAL 3 — Lane ledger
+   ========================================================== */
+.r3-body { padding: 1rem; }
+.r3-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 168px) minmax(320px, 1fr) auto auto auto;
+  align-items: stretch;
+  column-gap: 0; row-gap: 0;
+  position: relative;
+}
+.r3-grid > * { min-width: 0; }
+.r3-h {
+  font-size: .62rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--bs-secondary-color);
+  padding: 0 .5rem .45rem; white-space: nowrap;
+  border-bottom: 1px solid var(--bs-border-color);
+  align-self: end;
+}
+.r3-h.r { text-align: right; }
+/* The shared ruler, sitting in the lane column of the header row.
+   Three rows at fixed tops — band words, numerals, then the void's
+   caption — so none of them can land on another. */
+.r3-ruler {
+  position: relative; height: 50px;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.r3-ruler-band {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: .58rem; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--bs-secondary-color); opacity: .75; white-space: nowrap;
+}
+.r3-ruler-tick {
+  position: absolute; top: 16px; transform: translateX(-50%);
+  font-size: .63rem;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums; color: var(--bs-secondary-color);
+}
+.r3-ruler-tick.edge-l, .r3-ruler-band.edge-l { transform: translateX(0); }
+.r3-ruler-tick.edge-r, .r3-ruler-band.edge-r { transform: translateX(-100%); }
+/* The void's caption hangs off the ruler, which is the one element
+   already spanning the lane column. */
+.r3-ruler-void {
+  position: absolute; top: 33px; transform: translateX(-50%);
+  font-size: .62rem; font-weight: 600; white-space: nowrap;
+  color: var(--bs-secondary-color);
+  background: color-mix(in srgb, var(--bs-secondary-color) 9%, var(--bs-body-bg));
+  padding: 0 6px; border-radius: 3px;
+}
+/*
+ * The void, the pivot and the mean are drawn per lane rather than as
+ * grid items spanning every row: an explicitly-placed child in an
+ * otherwise auto-placed grid displaces every cell after it. Adjacent
+ * lanes make the slices read as one continuous column anyway.
+ */
+.r3-lane-void {
+  position: absolute; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--bs-secondary-color) 7%, transparent);
+  border-left: 1px dashed var(--vp-void);
+  border-right: 1px dashed var(--vp-void);
+}
+.r3-lane-pivot {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--bs-secondary-color); opacity: .3;
+  transform: translateX(-50%);
+}
+.r3-lane-mean {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 1px dashed var(--bs-body-color); opacity: .45;
+  transform: translateX(-50%);
+}
+.r3-cell {
+  padding: .42rem .5rem; font-size: .8rem;
+  border-bottom: 1px solid var(--bs-border-color);
+  display: flex; align-items: center; gap: .4rem;
+  position: relative; z-index: 1;
+}
+.r3-cell.r { justify-content: flex-end; text-align: right; }
+.r3-cell.org { font-weight: 600; }
+.r3-cell.org span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.r3-cell .mono {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.r3-lane {
+  position: relative; z-index: 1;
+  border-bottom: 1px solid var(--bs-border-color);
+  display: flex; align-items: center; min-height: 34px;
+}
+.r3-lane-track {
+  position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+  background: var(--bs-border-color); transform: translateY(-50%);
+}
+.r3-lane-bar {
+  position: absolute; top: 50%; height: 8px; border-radius: 2px;
+  transform: translateY(-50%); opacity: .85;
+}
+.r3-lane-dot {
+  position: absolute; top: 50%; width: 13px; height: 13px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--bs-body-bg);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.14);
+}
+.r3-lane-val {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: .74rem; font-weight: 700; white-space: nowrap;
+}
+.r3-summary {
+  display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .9rem;
+}
+.r3-stat {
+  display: inline-flex; align-items: baseline; gap: .35rem;
+  padding: .25rem .55rem; border-radius: 4px;
+  background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);
+  font-size: .7rem; color: var(--bs-secondary-color); white-space: nowrap;
+}
+.r3-stat b {
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: .82rem; font-weight: 700; color: var(--bs-body-color);
+}
+.r3-stat.orphan b { text-decoration: line-through; }
+.r3-stat.void { border-style: dashed; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .wrap { padding: 0 16px 72px; }
+  .bar { margin: 0 -16px; padding: 10px 16px; }
+  .r2-grid { grid-template-columns: 1fr; }
+  .r2-gutter { flex-direction: row; padding: .75rem 0; }
+  .r2-gutter::before { top: 50%; bottom: auto; left: 0; right: 0; width: auto;
+    border-left: 0; border-top: 1px dashed var(--bs-border-color); }
+  /* Stacked, both columns read the same way round — the mirror only
+     earns its keep when the two are side by side. */
+  .r2-camp.agree .r2-camp-head { justify-content: flex-start; }
+  .r2-camp.dispute .r2-tile { border-right: 0; border-left: 3px solid var(--vp-mal); }
+  .r2-camp.agree .r2-tile { text-align: left; }
+  .r2-camp.agree .r2-tile-top { flex-direction: row; }
+  .r2-camp.agree .r2-tile-meta { justify-content: flex-start; }
+  .r2-camp.dispute .r2-tile-bar i { left: 0; right: auto; }
+  .defects li { grid-template-columns: 1fr; gap: 4px; }
+}
+/* Five band words need about 550px of ruler. Below that they touch,
+   so they go — the numerals are the axis, the words are the gloss. */
+@media (max-width: 820px) {
+  .r1-band, .r3-ruler-band { display: none; }
+  .r1-axis { height: 26px; }
+  .r3-ruler { height: 36px; }
+  .r3-ruler-tick { top: 2px; }
+  .r3-ruler-void { top: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="eyebrow">MISP · Value Profile · Analyst data · phase 13 revision</p>
+    <h1>Three ways to show the split</h1>
+    <p class="lede">
+      The <em>Where the organisations stand</em> card has one job: make disagreement
+      between organisations visible before anyone reads an average. The prototype
+      does say that, but it says it three times over in three encodings, and two of
+      them contradict each other. Here are three replacements — one that fixes the
+      scale, one that abandons it, and one that fuses the chart into the table.
+    </p>
+    <div class="meta">
+      <span>Element <b>value_analyst_standing.ctp</b></span>
+      <span>Spec <b>prd/value-profile-tabs/05-analyst.md §6</b></span>
+      <span>Data <b>ValueProfileFixture</b>, unmodified</span>
+      <span>Status <b>pre-wiring</b></span>
+    </div>
+  </header>
+
+  <div class="bar">
+    <span class="bar-label">Fixture value</span>
+    <div class="chips" id="stateChips"></div>
+    <div class="bar-sep" aria-hidden="true"></div>
+    <span class="bar-label">MISP theme</span>
+    <div class="chips">
+      <button class="chip swatch" id="themeLight" aria-pressed="true">light</button>
+      <button class="chip swatch" id="themeDark" aria-pressed="false">dark</button>
+    </div>
+  </div>
+
+  <dl class="readout" id="readout"></dl>
+
+  <!-- ============================================ -->
+  <section class="sec" id="diagnosis">
+    <div class="sec-head">
+      <span class="sec-num">Diagnosis</span>
+      <h2>What the current card gets wrong</h2>
+      <p>
+        Five of these are defects rather than preferences — they produce a card that
+        states two different things about the same number, or hides the answer it was
+        built to give. Switch the fixture value above and each one is reproducible.
+      </p>
+    </div>
+    <ul class="defects">
+      <li>
+        <span class="tag tag-bug">defect</span>
+        <div>
+          <h4>The histogram is coloured backwards from the table</h4>
+          <p><code>$side = $b &lt; 5 ? 'ben' : 'mal'</code> paints 0–50 green and 50–100 red.
+          The table paints scores above 50 green (<em>supports the value</em>) and below 50 red.
+          On <code>8.8.8.8</code> the two green bars at 0–20 are precisely the two organisations
+          the table shows in red — one card, two opposite encodings of one number.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-bug">defect</span>
+        <div>
+          <h4>Organisation labels collide even when the markers do not</h4>
+          <p>The merge threshold guards the 34-unit discs and ignores the text above them.
+          On <code>8.8.8.8</code> (scores 8 and 15) the discs clear it, so <code>CIRCL</code> and
+          <code>CthulhuSPRL.be</code> overlap. On a card titled <em>Where the organisations
+          stand</em>, names running into each other is the one failure it cannot have.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-bug">defect</span>
+        <div>
+          <h4>Merging discs deletes the names</h4>
+          <p>On <code>104.21.34.198</code> two organisations become a <code>×2</code> disc labelled
+          <em>2 organisations · 10–12</em>. The overlap is resolved by removing the card's
+          primary content; the names survive only in a <code>&lt;title&gt;</code> tooltip and in
+          the table below.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-bug">defect</span>
+        <div>
+          <h4>A red “Neutral”, and a green one</h4>
+          <p>MISP's five band words split the axis at 20/40/60/80; the reading splits it at 50.
+          So <code>Neutral · 45/100</code> takes a red badge and <code>Neutral · 60/100</code> a
+          green one. Two rows labelled <em>Neutral</em> in opposite colours, and nothing on the
+          card explains why.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-bug">defect</span>
+        <div>
+          <h4>Staleness is invisible</h4>
+          <p>On <code>45.155.205.233</code>, CERT-EU's opinion is 102 days old and CIRCL's is one
+          day old. Both render as identical plain monospace dates. For an analyst weighing two
+          conflicting opinions, which one is current is not a detail.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-taste">layout</span>
+        <div>
+          <h4>Three encodings of four numbers</h4>
+          <p>Each organisation's score is drawn as a strip marker, as a histogram bar, and twice
+          inside its own table row (a badge and a <code>.vp-opinion</code> bar). The histogram
+          resolves ten bands over three or four data points, so its count row renders as six
+          middots and three ones, in a quarter of the card's width.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-taste">layout</span>
+        <div>
+          <h4>The strip stacks seven bands of content with no gestalt</h4>
+          <p>Name, date, disc, leader line, band boxes, numeric axis, mean caption. The two
+          things a reader wants — who, and where — sit at opposite ends of that stack, and the
+          mean's caption is ninety units from the marker it describes.</p>
+        </div>
+      </li>
+      <li>
+        <span class="tag tag-taste">layout</span>
+        <div>
+          <h4>Band labels are drawn as boxes inside the track</h4>
+          <p>Five filled rectangles in the track's own grey, separated by body-background
+          hairlines: a continuous 0–100 axis rendered as a five-segment control, competing with
+          the 0/25/50/75/100 ticks directly beneath it.</p>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ============================================ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">Proposal 01</span>
+      <h2>Aligned rail</h2>
+      <p>
+        Keep the 0–100 scale — it is the axis the Verdict tab already taught the reader —
+        and fix its execution. One continuous rail, the empty middle cut into the rail as a
+        hatched void rather than annotated above it, and organisation labels that dodge
+        upward into as many rows as they need so no two ever touch and no marker is ever
+        merged away.
+      </p>
+    </div>
+    <div class="spec">
+      <div class="spec-head">
+        <h3 class="spec-name">Aligned rail</h3>
+        <span class="spec-strategy">fix the axis</span>
+      </div>
+      <p class="spec-thesis">
+        The rail carries position; the label carries identity; the table carries everything
+        that is not a position. Nothing is drawn twice.
+      </p>
+      <div class="stage" id="stage1"><div class="misp" id="card1"></div></div>
+      <dl class="trade">
+        <div class="fixes">
+          <dt>What it fixes</dt>
+          <ul>
+            <li>Labels dodge into stacked rows, so names never collide and markers never merge.</li>
+            <li>The gap is a void cut into the rail — the emptiness is in the object, not a floating bracket.</li>
+            <li>The mean hangs off its own position on a stem, so number and place are one element.</li>
+            <li>The histogram is gone; each score is drawn once on the rail and once as a numeral.</li>
+          </ul>
+        </div>
+        <div class="costs">
+          <dt>What it costs</dt>
+          <ul>
+            <li>Label dodging needs a measure-then-place pass in JS — the strip stops being pure static SVG.</li>
+            <li>Card height varies with how many label rows the data forces.</li>
+            <li>Above ~12 organisations the label stack grows taller than the table beneath it.</li>
+          </ul>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">Proposal 02</span>
+      <h2>Two camps</h2>
+      <p>
+        Stop asking the reader to decode an axis. The question is <em>who is on which side</em>,
+        so answer it with layout: two facing columns, and between them a gutter that physically
+        contains the empty middle. When the mean falls in that gutter, the card's whole argument
+        is a fact about the layout rather than a sentence under a chart.
+      </p>
+    </div>
+    <div class="spec">
+      <div class="spec-head">
+        <h3 class="spec-name">Two camps</h3>
+        <span class="spec-strategy">abandon the axis</span>
+      </div>
+      <p class="spec-thesis">
+        A tug-bar sized by headcount answers “is there a split” in one glance; the columns
+        answer “who”; the gutter is where the mean goes to die.
+      </p>
+      <div class="stage" id="stage2"><div class="misp" id="card2"></div></div>
+      <dl class="trade">
+        <div class="fixes">
+          <dt>What it fixes</dt>
+          <ul>
+            <li>Side is structural, not chromatic — it survives colour blindness and greyscale printing.</li>
+            <li>Organisation names get their own tile and can never overlap, at any headcount.</li>
+            <li>The unanimous case reads correctly: one camp is empty and says so in words.</li>
+            <li>The mean sitting in the gutter <em>is</em> the “reading nobody holds” claim.</li>
+          </ul>
+        </div>
+        <div class="costs">
+          <dt>What it costs</dt>
+          <ul>
+            <li>Absolute position is only readable per-tile; you cannot see at a glance that 80 and 60 are 20 apart.</li>
+            <li>It breaks continuity with the Verdict tab's histogram, which the spec leans on.</li>
+            <li>An uneven split leaves one column much taller than the other.</li>
+          </ul>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">Proposal 03</span>
+      <h2>Lane ledger</h2>
+      <p>
+        The strip and the table are the same four facts in two objects, so make them one
+        object. One row per organisation: the name in a fixed column that cannot collide, and
+        a shared 0–100 lane where a bar grows from the 50 pivot toward that organisation's
+        score. The empty middle becomes a shaded column crossing every lane, which is the
+        most emphatic way a page can say “nobody”.
+      </p>
+    </div>
+    <div class="spec">
+      <div class="spec-head">
+        <h3 class="spec-name">Lane ledger</h3>
+        <span class="spec-strategy">fuse chart and table</span>
+      </div>
+      <p class="spec-thesis">
+        Bar direction is the side, bar length is the conviction, and the gap is a column of
+        white space you cannot read past.
+      </p>
+      <div class="stage" id="stage3"><div class="misp" id="card3"></div></div>
+      <dl class="trade">
+        <div class="fixes">
+          <dt>What it fixes</dt>
+          <ul>
+            <li>One object instead of three; every number appears exactly once.</li>
+            <li>Names live in a fixed column, so collision is structurally impossible.</li>
+            <li>Deviation from the 50 pivot makes “Neutral · 45” visibly a hair to the left of centre.</li>
+            <li>Scales to any headcount by growing rows, the direction a card can afford to grow.</li>
+          </ul>
+        </div>
+        <div class="costs">
+          <dt>What it costs</dt>
+          <ul>
+            <li>Tallest of the three at four organisations — one row per org, not one marker.</li>
+            <li>Cluster shape is harder to read than on a single rail: you infer it from row order.</li>
+            <li>Bars grow from the pivot, so a bar can cross the empty column even though no
+                opinion sits in it — the caption has to say <em>falls in</em>, not <em>is in</em>.</li>
+            <li>Needs a real minimum width; below ~320px of lane the bars stop being comparable.</li>
+          </ul>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">Recommendation</span>
+      <h2>Which one to wire</h2>
+    </div>
+    <div class="rec">
+      <h3>Lane ledger, with the tug-bar borrowed from Two camps.</h3>
+      <p>
+        <strong>Proposal 03</strong> is the only one that removes the redundancy rather than
+        rearranging it, and the only one whose collision-freedom is structural instead of
+        computed — which matters most for the state the fixture cannot show you, an instance
+        with twenty organisations holding opinions. Its shaded gap column crossing every lane
+        is also a stronger statement of the card's thesis than either the bracket or the void.
+      </p>
+      <p>
+        Its one real weakness is that the split's <em>shape</em> — two clusters, this far apart —
+        has to be inferred from row order. <strong>Proposal 02</strong>'s tug-bar fixes that in
+        thirty pixels: one stacked bar sized by headcount, above the lanes, answering “is there
+        a split and how lopsided” before the reader looks at a single lane. That is the
+        combination worth wiring.
+      </p>
+      <p>
+        <strong>Proposal 01</strong> is the safest choice if continuity with the existing spec
+        matters more than the cleanup: it keeps the strip the PRD describes, keeps the Verdict
+        tab's axis, and needs no rewrite of §6 beyond deleting the histogram paragraph. It also
+        keeps a real risk — label dodging is layout logic that has to be correct on data nobody
+        has seen yet.
+      </p>
+      <p>
+        All three drop the histogram, drop the <code>.vp-opinion</code> bar, state each score
+        once, replace <em>supports / disputes the value</em> with a side chip, and add the
+        staleness marker. Those changes are independent of which layout wins.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+
+/* ===========================================================
+   Data — lifted verbatim from ValueProfileFixture via the
+   rendered panels. Bands, sides, mean, gap, clusters and empty
+   bands are recomputed here with the same rules the PHP uses,
+   so nothing is transcribed that can be derived.
+   =========================================================== */
+
+var TODAY = "2025-08-24";
+
+var STATES = [
+  {
+    id: "malicious", label: "185.234.219.24", real: true,
+    note: "mean lands next to a real opinion — the one state where the average is not orphaned",
+    orgs: [
+      { org: "CIRCL",          score: 85, notes: 1, last: "2025-08-22" },
+      { org: "CthulhuSPRL.be", score: 75, notes: 2, last: "2025-08-20" },
+      { org: "Team-CIRCL",     score: 60, notes: 1, last: "2025-08-20" },
+      { org: "ORGNAME",        score: 30, notes: 0, last: "2025-08-18" }
+    ]
+  },
+  {
+    id: "conflicted", label: "104.21.34.198", real: true,
+    note: "two organisations two points apart — the case the current card merges into a ×2 disc",
+    orgs: [
+      { org: "CIRCL",          score: 80, notes: 1, last: "2025-08-23" },
+      { org: "CthulhuSPRL.be", score: 60, notes: 2, last: "2025-08-19" },
+      { org: "Team-CIRCL",     score: 12, notes: 0, last: "2025-08-12" },
+      { org: "ORGNAME",        score: 10, notes: 1, last: "2025-08-20" }
+    ]
+  },
+  {
+    id: "benign", label: "8.8.8.8", real: true,
+    note: "scores 8 and 15 — the case where the current card's labels overlap",
+    orgs: [
+      { org: "ORGNAME",        score: 70, notes: 1, last: "2025-08-05" },
+      { org: "CthulhuSPRL.be", score: 15, notes: 0, last: "2025-08-19" },
+      { org: "CIRCL",          score:  8, notes: 2, last: "2025-08-21" }
+    ]
+  },
+  {
+    id: "scale", label: "45.155.205.233", real: true,
+    note: "a 102-day-old opinion beside a one-day-old one, and a Neutral 45 that reads as a dispute",
+    orgs: [
+      { org: "CIRCL",   score: 90, notes: 1, last: "2025-08-23" },
+      { org: "CERT-EU", score: 80, notes: 0, last: "2025-05-14" },
+      { org: "ORGNAME", score: 45, notes: 0, last: "2025-08-09" }
+    ]
+  },
+  {
+    id: "empty", label: "no opinions", real: true,
+    note: "any value outside KNOWN_VALUES — aggregate is null, not a mean of zero",
+    orgs: []
+  },
+  {
+    id: "unanimous", label: "unanimous", real: false,
+    note: "not in the fixture. Included because a card about disagreement must survive agreement",
+    orgs: [
+      { org: "CIRCL",          score: 90, notes: 2, last: "2025-08-23" },
+      { org: "CERT-EU",        score: 85, notes: 0, last: "2025-08-21" },
+      { org: "CthulhuSPRL.be", score: 82, notes: 1, last: "2025-08-18" },
+      { org: "Team-CIRCL",     score: 78, notes: 0, last: "2025-08-11" }
+    ]
+  },
+  {
+    id: "crowd", label: "12 organisations", real: false,
+    note: "not in the fixture. The headcount an instance actually reaches, and the state no prototype has been drawn against",
+    orgs: [
+      { org: "CIRCL",           score: 96, notes: 3, last: "2025-08-23" },
+      { org: "CERT-EU",         score: 91, notes: 0, last: "2025-08-22" },
+      { org: "NCSC-NL",         score: 88, notes: 1, last: "2025-08-20" },
+      { org: "CthulhuSPRL.be",  score: 84, notes: 2, last: "2025-08-19" },
+      { org: "Team-CIRCL",      score: 81, notes: 0, last: "2025-06-02" },
+      { org: "CERT-LV",         score: 79, notes: 1, last: "2025-08-17" },
+      { org: "ORGNAME",         score: 22, notes: 0, last: "2025-08-16" },
+      { org: "SHADOWSERVER",    score: 19, notes: 2, last: "2025-08-14" },
+      { org: "CERT-BE",         score: 17, notes: 0, last: "2025-08-13" },
+      { org: "ACME-CSIRT",      score: 14, notes: 1, last: "2025-05-29" },
+      { org: "CERT-PL",         score: 11, notes: 0, last: "2025-08-09" },
+      { org: "Sekoia",          score:  9, notes: 0, last: "2025-08-07" }
+    ]
+  }
+];
+
+/* ---------- the fixture's own rules, ported ---------- */
+
+function band(score) {
+  if (score >= 81) return "Strongly agree";
+  if (score >= 61) return "Agree";
+  if (score >= 41) return "Neutral";
+  if (score >= 21) return "Disagree";
+  return "Strongly disagree";
+}
+
+/*
+ * The reading, named for what it says rather than for MISP's
+ * internal 'malicious'/'benign'. The fixture's own helper returns
+ * those words and the current card then maps 'malicious' to the
+ * green token — an inversion two hops long, which is how its
+ * histogram ended up painted the other way round.
+ */
+function side(score) {
+  if (score > 50) return "agree";    // agrees with what the value asserts
+  if (score < 50) return "dispute";  // disputes it
+  return "neither";                  // exactly 50 argues neither way
+}
+
+function bucket(score) {
+  var s = Math.max(0, Math.min(100, score));
+  return s <= 10 ? 0 : Math.ceil(s / 10) - 1;
+}
+
+function dayDiff(a, b) {
+  return Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+}
+
+function ageWord(days) {
+  if (days <= 1)  return days <= 0 ? "today" : "yesterday";
+  if (days < 31)  return days + " days ago";
+  var m = Math.round(days / 30.44);
+  return m + (m === 1 ? " month ago" : " months ago");
+}
+
+var SIDE_WORD = {
+  agree: "agrees", dispute: "disputes", neither: "takes no side"
+};
+
+function derive(state) {
+  var orgs = state.orgs.map(function (o) {
+    var days = dayDiff(o.last, TODAY);
+    return {
+      org: o.org, score: o.score, notes: o.notes, last: o.last,
+      band: band(o.score), side: side(o.score),
+      days: days, age: ageWord(days), stale: days >= 60
+    };
+  }).sort(function (a, b) { return b.score - a.score; });
+
+  var d = { id: state.id, label: state.label, real: state.real,
+            note: state.note, orgs: orgs, n: orgs.length };
+  if (!orgs.length) { d.aggregate = null; return d; }
+
+  var scores = orgs.map(function (o) { return o.score; })
+                   .slice().sort(function (a, b) { return a - b; });
+
+  var gap = null;
+  for (var i = 1; i < scores.length; i++) {
+    var span = scores[i] - scores[i - 1];
+    if (!gap || span > gap.points) {
+      gap = { from: scores[i - 1], to: scores[i], points: span };
+    }
+  }
+
+  var sum = scores.reduce(function (a, b) { return a + b; }, 0);
+  var mean = sum / scores.length;
+  var nearest = Math.min.apply(null, scores.map(function (s) {
+    return Math.abs(mean - s);
+  }));
+
+  var filled = {};
+  scores.forEach(function (s) { filled[bucket(s)] = true; });
+  var empty = 0;
+  for (var b = 0; b < 10; b++) { if (!filled[b]) empty++; }
+
+  var clusters;
+  if (gap && gap.points >= 20) {
+    clusters = [
+      scores.filter(function (s) { return s <= gap.from; }),
+      scores.filter(function (s) { return s >  gap.from; })
+    ];
+  } else {
+    clusters = [scores];
+  }
+
+  d.aggregate = {
+    mean: mean,
+    meanLabel: mean === Math.round(mean)
+      ? String(Math.round(mean))
+      : String(Math.round(mean * 10) / 10),
+    orphan: nearest >= 5,
+    nearest: nearest,
+    gap: gap,
+    showGap: !!gap && gap.points >= 20,
+    clusters: clusters,
+    emptyBands: empty,
+    agree:   orgs.filter(function (o) { return o.side === "agree"; }),
+    dispute: orgs.filter(function (o) { return o.side === "dispute"; }),
+    neither: orgs.filter(function (o) { return o.side === "neither"; })
+  };
+  return d;
+}
+
+function countWord(n) {
+  return ["no", "one", "two", "three", "four", "five", "six",
+          "seven", "eight", "nine", "ten"][n] || String(n);
+}
+
+function subline(d) {
+  if (!d.aggregate) return "No opinion on this value from any organisation";
+  var a = d.aggregate;
+  var bits = [
+    '<span class="num">' + d.n + "</span> " +
+      (d.n === 1 ? "opinion" : "opinions") + " from " +
+      '<span class="num">' + d.n + "</span> " +
+      (d.n === 1 ? "organisation" : "organisations")
+  ];
+  if (a.clusters.length === 2) {
+    bits.push(countWord(2) + " positions <span class=\"num\">" +
+      a.gap.points + "</span> points apart");
+    bits.push("nothing between <span class=\"num\">" + a.gap.from +
+      "</span> and <span class=\"num\">" + a.gap.to + "</span>");
+  } else {
+    bits.push("one position, spanning <span class=\"num\">" +
+      (Math.max.apply(null, d.orgs.map(function (o) { return o.score; })) -
+       Math.min.apply(null, d.orgs.map(function (o) { return o.score; }))) +
+      "</span> points");
+  }
+  return bits.join(" &middot; ");
+}
+
+/* ---------- tiny shared pieces ---------- */
+
+var GLYPH_STAND =
+  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+  'stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M3 4v16M21 4v16M7 12h10M7 12l3-3M7 12l3 3M17 12l-3-3M17 12l-3 3"/></svg>';
+
+var GLYPH_ORG =
+  '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" ' +
+  'aria-hidden="true" style="opacity:.55;flex:0 0 auto">' +
+  '<path d="M2 15V2a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v3h2a1 1 0 0 1 1 1v9h-2v-2h-1v2H2zm2-2h1v-1H4v1zm0-3h1V9H4v1zm0-3h1V6H4v1zm0-3h1V3H4v1zm3 9h1v-1H7v1zm0-3h1V9H7v1zm0-3h1V6H7v1zm0-3h1V3H7v1zm4 9h1v-1h-1v1zm0-3h1V9h-1v1zm0-3h1V6h-1v1z"/></svg>';
+
+var CHIP_RENDER =
+  '<span class="vp-chip-render" title="MISP computes no mean, no ' +
+  'distribution and no per-organisation rollup over analyst data. Every ' +
+  'number on this card is derived from the opinions themselves when the ' +
+  'page is built.">computed at render</span>';
+
+function head(d) {
+  return '<div class="vp-panel-head">' +
+    '<span class="vp-panel-glyph">' + GLYPH_STAND + "</span>" +
+    '<div style="margin-right:auto;min-width:0">' +
+      '<div class="vp-panel-title">Where the organisations stand</div>' +
+      '<div class="vp-panel-sub">' + subline(d) + "</div>" +
+    "</div>" +
+    (d.aggregate ? CHIP_RENDER : "") +
+  "</div>";
+}
+
+function emptyBody() {
+  return '<div class="vp-empty">' + GLYPH_STAND +
+    "<span>No organisation has recorded an opinion on this value.</span></div>";
+}
+
+function sideChip(s) {
+  return '<span class="sidechip ink-' + s + '">' +
+    '<i class="bg-' + s + '"></i>' + SIDE_WORD[s] + "</span>";
+}
+
+function ageCell(o) {
+  return '<span class="age' + (o.stale ? " age-stale" : "") + '">' +
+    (o.stale ? '<i class="age-dot"></i>' : "") + o.age + "</span>";
+}
+
+var FOOT_SCALE =
+  "<b>Above 50 agrees</b> with what the value asserts; below 50 disputes it. " +
+  "The band word is MISP's own five-step scale and splits at 20/40/60/80, so a " +
+  "<b>Neutral</b> opinion can sit on either side of the pivot — 45 disputes, 60 agrees. " +
+  "An opinion written on a note rates the note, not the value, and is not counted here.";
+
+/* ===========================================================
+   PROPOSAL 1 — Aligned rail
+   =========================================================== */
+
+var BANDS = [
+  [0, 20, "Strongly disagree"], [20, 40, "Disagree"], [40, 60, "Neutral"],
+  [60, 80, "Agree"], [80, 100, "Strongly agree"]
+];
+
+function render1(d) {
+  if (!d.aggregate) {
+    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
+  }
+  var a = d.aggregate;
+  var pct = function (s) { return s + "%"; };
+
+  var labels = d.orgs.map(function (o, i) {
+    return '<div class="r1-lab" data-x="' + o.score + '" data-i="' + i + '">' +
+      '<span class="r1-lab-org">' + o.org + "</span> " +
+      '<span class="r1-lab-score ink-' + o.side + '">' + o.score + "</span>" +
+      '<br><span class="r1-lab-band">' + o.band + "</span>" +
+    "</div>";
+  }).join("");
+
+  var dots = d.orgs.map(function (o) {
+    return '<span class="r1-dot bg-' + o.side + '" style="left:' +
+      pct(o.score) + '" title="' + o.org + " · " + o.score + "/100 · " +
+      o.band + '"></span>';
+  }).join("");
+
+  var voidSeg = "";
+  var voidLab = "";
+  if (a.showGap) {
+    voidSeg = '<span class="r1-void" style="left:' + pct(a.gap.from) +
+      ";right:" + (100 - a.gap.to) + '%"></span>';
+    voidLab = '<span class="r1-voidlab" style="left:' +
+      pct((a.gap.from + a.gap.to) / 2) + '">' +
+      a.gap.points + " points &middot; no organisation</span>";
+  }
+
+  var ticks = [0, 25, 50, 75, 100].map(function (t) {
+    var edge = t === 0 ? " edge-l" : (t === 100 ? " edge-r" : "");
+    return '<span class="r1-tick' + edge + '" style="left:' + pct(t) +
+      '">' + t + "</span>";
+  }).join("");
+
+  var bandLabs = BANDS.map(function (b, i) {
+    var edge = i === 0 ? " edge-l" : (i === BANDS.length - 1 ? " edge-r" : "");
+    var at = i === 0 ? 0 : (i === BANDS.length - 1 ? 100 : (b[0] + b[1]) / 2);
+    return '<span class="r1-band' + edge + '" style="left:' + pct(at) +
+      '">' + b[2] + "</span>";
+  }).join("");
+
+  var rows = "";
+  var prev = null;
+  d.orgs.forEach(function (o) {
+    if (prev && prev.side !== "dispute" && o.side === "dispute" && a.showGap) {
+      rows += '<tr class="r1-void-row"><td colspan="6">no organisation between ' +
+        o.score + " and " + prev.score + "</td></tr>";
+    }
+    prev = o;
+    rows += "<tr>" +
+      '<td><span class="org">' + GLYPH_ORG + o.org + "</span></td>" +
+      "<td>" + sideChip(o.side) + "</td>" +
+      '<td class="num ink-' + o.side + '" style="font-weight:700">' + o.score + "</td>" +
+      '<td style="color:var(--bs-secondary-color)">' + o.band + "</td>" +
+      '<td class="num">' + (o.notes || "&mdash;") + "</td>" +
+      '<td style="color:var(--bs-secondary-color)">' + ageCell(o) + "</td>" +
+    "</tr>";
+  });
+
+  return '<div class="vp-panel">' + head(d) +
+    '<div class="r1-body">' +
+      '<div class="r1-block">' +
+        '<div class="r1-labels">' + labels + "</div>" +
+        '<svg class="r1-leaders" aria-hidden="true"></svg>' +
+        '<div class="r1-rail">' + voidSeg + voidLab +
+          '<span class="r1-pivot" style="left:50%"></span>' + dots +
+        "</div>" +
+        '<div class="r1-axis">' + ticks + bandLabs + "</div>" +
+      "</div>" +
+      '<div class="r1-meanrow">' +
+        '<div class="r1-mean" style="left:' + pct(a.mean) + '">' +
+          '<span class="r1-mean-stem"></span>' +
+          '<span class="r1-mean-pill' + (a.orphan ? " orphan" : "") + '">mean ' +
+            "<b>" + a.meanLabel + "</b>" +
+            (a.orphan ? "no organisation holds it" :
+              "nearest opinion " + Math.round(a.nearest * 10) / 10 + " away") +
+          "</span>" +
+        "</div>" +
+      "</div>" +
+      '<div style="margin-top:0;overflow-x:auto">' +
+        '<table class="r1-table"><thead><tr>' +
+          "<th>Organisation</th><th>Reads it as</th>" +
+          '<th style="text-align:right">Opinion</th><th>Band</th>' +
+          '<th style="text-align:right">Notes</th><th>Last activity</th>' +
+        "</tr></thead><tbody>" + rows + "</tbody></table>" +
+      "</div>" +
+    "</div>" +
+    '<p class="vp-foot">' + FOOT_SCALE + "</p>" +
+  "</div>";
+}
+
+/*
+ * Measure, then place. The whole point of proposal 1 is that no two
+ * labels ever touch, and the only honest way to guarantee that is to
+ * ask the browser how wide they actually are.
+ */
+function layout1(root) {
+  var block  = root.querySelector(".r1-block");
+  if (!block) return;
+  var holder = block.querySelector(".r1-labels");
+  var labs   = Array.prototype.slice.call(holder.querySelectorAll(".r1-lab"));
+  var svg    = block.querySelector(".r1-leaders");
+  if (!labs.length) return;
+
+  var W = holder.getBoundingClientRect().width;
+  if (!W) return;
+
+  var ROW = 36, PAD = 10;
+
+  var items = labs.map(function (el) {
+    var x = parseFloat(el.dataset.x) / 100 * W;
+    var w = el.getBoundingClientRect().width;
+    return { el: el, x: x, w: w };
+  }).sort(function (a, b) { return a.x - b.x; });
+
+  // Centre on the marker, then pull back inside the rail's own width.
+  items.forEach(function (it) {
+    it.left = it.x - it.w / 2;
+    it.el.classList.remove("clamp-l", "clamp-r");
+    if (it.left < 0) { it.left = 0; it.el.classList.add("clamp-l"); }
+    if (it.left + it.w > W) {
+      it.left = W - it.w;
+      it.el.classList.add("clamp-r");
+    }
+    it.right = it.left + it.w;
+  });
+
+  // Lowest free row wins, so common cases stay on one line.
+  var rows = [];
+  items.forEach(function (it) {
+    var r = 0;
+    for (;;) {
+      var occupied = rows[r] || (rows[r] = []);
+      var clash = occupied.some(function (o) {
+        return it.left < o.right + PAD && o.left < it.right + PAD;
+      });
+      if (!clash) { occupied.push(it); it.row = r; break; }
+      r++;
+    }
+  });
+
+  var maxRow = rows.length - 1;
+  var H = (maxRow + 1) * ROW;
+  holder.style.height = H + "px";
+
+  items.forEach(function (it) {
+    it.el.style.left = it.left + "px";
+    it.el.style.transform = "none";
+    it.top = (maxRow - it.row) * ROW;
+    it.el.style.top = it.top + "px";
+  });
+
+  // Leaders, drawn after placement so an elbow only appears where a
+  // label had to move off its marker.
+  svg.setAttribute("width", W);
+  svg.setAttribute("height", H + 4);
+  svg.setAttribute("viewBox", "0 0 " + W + " " + (H + 4));
+  var paths = items.map(function (it) {
+    var labBottom = it.top + ROW - 8;
+    var centre = it.left + it.w / 2;
+    var d;
+    if (Math.abs(centre - it.x) < 1.5) {
+      d = "M " + it.x + " " + labBottom + " V " + (H + 4);
+    } else {
+      var mid = labBottom + (H + 4 - labBottom) / 2;
+      d = "M " + centre + " " + labBottom + " V " + mid +
+          " H " + it.x + " V " + (H + 4);
+    }
+    return '<path d="' + d + '" fill="none" stroke="currentColor" ' +
+      'stroke-width="1" opacity=".3"/>';
+  }).join("");
+  svg.innerHTML = paths;
+}
+
+/* ===========================================================
+   PROPOSAL 2 — Two camps
+   =========================================================== */
+
+function render2(d) {
+  if (!d.aggregate) {
+    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
+  }
+  var a = d.aggregate;
+  var nAgree = a.agree.length, nDispute = a.dispute.length, total = d.n;
+
+  var tug = "";
+  if (nDispute) {
+    tug += '<div class="r2-tug-seg bg-dispute" style="width:' +
+      (nDispute / total * 100) + '%">' +
+      '<span class="n">' + nDispute + "</span><span>dispute</span></div>";
+  }
+  if (a.neither.length) {
+    tug += '<div class="r2-tug-seg bg-neither" style="width:' +
+      (a.neither.length / total * 100) + '%">' +
+      '<span class="n">' + a.neither.length + "</span></div>";
+  }
+  if (nAgree) {
+    tug += '<div class="r2-tug-seg right bg-agree" style="width:' +
+      (nAgree / total * 100) + '%">' +
+      "<span>agree</span><span class=\"n\">" + nAgree + "</span></div>";
+  }
+
+  var tile = function (o) {
+    // Bar length is distance from the 50 pivot, so conviction reads
+    // as length and side reads as which way it grows.
+    var reach = Math.abs(o.score - 50) / 50 * 100;
+    return '<div class="r2-tile">' +
+      '<div class="r2-tile-top">' +
+        '<span class="r2-tile-org" title="' + o.org + '">' + o.org + "</span>" +
+        '<span class="r2-tile-score ink-' + o.side + '">' + o.score +
+          "<span>/100</span></span>" +
+      "</div>" +
+      '<div class="r2-tile-bar"><i class="bg-' + o.side +
+        '" style="width:' + reach + '%"></i></div>' +
+      '<div class="r2-tile-meta">' +
+        "<span>" + o.band + "</span>" +
+        "<span>" + (o.notes ? o.notes + (o.notes === 1 ? " note" : " notes") : "no notes") + "</span>" +
+        "<span>" + ageCell(o) + "</span>" +
+      "</div>" +
+    "</div>";
+  };
+
+  /* Most extreme outermost, so each column reads away from the pivot
+     the way the axis it replaces would. */
+  var disputeTiles = nDispute
+    ? a.dispute.slice().sort(function (x, y) { return x.score - y.score; })
+        .map(tile).join("")
+    : '<div class="r2-empty-camp">No organisation disputes this value.</div>';
+  var agreeTiles = nAgree
+    ? a.agree.slice().sort(function (x, y) { return y.score - x.score; })
+        .map(tile).join("")
+    : '<div class="r2-empty-camp">No organisation agrees with this value.</div>';
+
+  var gutter = '<div class="r2-gutter">' +
+    '<span class="r2-gutter-pivot">50</span>' +
+    (a.showGap
+      ? '<div class="r2-gutter-void"><span class="pts">' + a.gap.points +
+        '</span><span class="lab">empty points<br>' +
+        a.gap.from + " &ndash; " + a.gap.to + "</span></div>"
+      : '<div class="r2-gutter-void"><span class="lab">no gap<br>' +
+        "one position</span></div>") +
+    '<div class="r2-gutter-mean' + (a.orphan ? " orphan" : "") + '">' +
+      "<b>" + a.meanLabel + "</b>mean &mdash; " +
+      (a.orphan ? "a reading no organisation holds"
+                : "and an organisation does sit near it") +
+    "</div>" +
+  "</div>";
+
+  return '<div class="vp-panel">' + head(d) +
+    '<div class="r2-body">' +
+      '<div class="r2-tug">' + tug + "</div>" +
+      '<div class="r2-tug-cap"><span>disputes</span>' +
+        "<span>sized by headcount, not by score</span>" +
+        "<span>agrees</span></div>" +
+      '<div class="r2-grid">' +
+        '<div class="r2-camp dispute">' +
+          '<div class="r2-camp-head"><span class="n">' + nDispute + "</span>" +
+            "<span>" +
+            (nDispute === 1 ? "organisation disputes" : "organisations dispute") +
+            "</span></div>" + disputeTiles +
+        "</div>" +
+        gutter +
+        '<div class="r2-camp agree">' +
+          '<div class="r2-camp-head"><span>' +
+            (nAgree === 1 ? "organisation agrees" : "organisations agree") +
+            '</span><span class="n">' + nAgree + "</span></div>" + agreeTiles +
+        "</div>" +
+      "</div>" +
+    "</div>" +
+    '<p class="vp-foot">' + FOOT_SCALE + "</p>" +
+  "</div>";
+}
+
+/* ===========================================================
+   PROPOSAL 3 — Lane ledger
+   =========================================================== */
+
+function render3(d) {
+  if (!d.aggregate) {
+    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
+  }
+  var a = d.aggregate;
+  var pct = function (s) { return s + "%"; };
+
+  var ruler =
+    '<div class="r3-ruler">' +
+    BANDS.map(function (b, i) {
+      var edge = i === 0 ? " edge-l" : (i === BANDS.length - 1 ? " edge-r" : "");
+      var at = i === 0 ? 0 : (i === BANDS.length - 1 ? 100 : (b[0] + b[1]) / 2);
+      return '<span class="r3-ruler-band' + edge + '" style="left:' +
+        pct(at) + '">' + b[2] + "</span>";
+    }).join("") +
+    [0, 25, 50, 75, 100].map(function (t) {
+      var edge = t === 0 ? " edge-l" : (t === 100 ? " edge-r" : "");
+      return '<span class="r3-ruler-tick' + edge + '" style="left:' +
+        pct(t) + '">' + t + "</span>";
+    }).join("") +
+    (a.showGap
+      ? '<span class="r3-ruler-void" style="left:' +
+        pct((a.gap.from + a.gap.to) / 2) + '">no opinion falls in these ' +
+        a.gap.points + " points</span>"
+      : "") +
+    "</div>";
+
+  /* Every lane paints its own slice of the void, the pivot and the
+     mean. Rows are adjacent, so the slices stack into one column. */
+  var guides =
+    (a.showGap
+      ? '<span class="r3-lane-void" style="left:' + pct(a.gap.from) +
+        ";right:" + (100 - a.gap.to) + '%"></span>'
+      : "") +
+    '<span class="r3-lane-pivot" style="left:50%"></span>' +
+    '<span class="r3-lane-mean" style="left:' + pct(a.mean) + '"></span>';
+
+  var lanes = d.orgs.map(function (o) {
+    var from = Math.min(50, o.score), to = Math.max(50, o.score);
+    var outward = o.score >= 50;
+    return '<div class="r3-cell org">' + GLYPH_ORG +
+        "<span>" + o.org + "</span></div>" +
+      '<div class="r3-lane">' + guides +
+        '<span class="r3-lane-track"></span>' +
+        '<span class="r3-lane-bar bg-' + o.side + '" style="left:' + pct(from) +
+          ";right:" + (100 - to) + '%"></span>' +
+        '<span class="r3-lane-dot bg-' + o.side + '" style="left:' +
+          pct(o.score) + '"></span>' +
+        '<span class="r3-lane-val ink-' + o.side + '" style="' +
+          (outward
+            ? "left:calc(" + pct(o.score) + " + 13px)"
+            : "right:calc(" + (100 - o.score) + "% + 13px)") +
+          '">' + o.score + "</span>" +
+      "</div>" +
+      '<div class="r3-cell">' + sideChip(o.side) + "</div>" +
+      '<div class="r3-cell r"><span class="mono">' +
+        (o.notes || "&mdash;") + "</span></div>" +
+      '<div class="r3-cell r" style="color:var(--bs-secondary-color)">' +
+        ageCell(o) + "</div>";
+  }).join("");
+
+  var stats =
+    '<span class="r3-stat"><b>' + a.clusters.length + "</b>" +
+      (a.clusters.length === 1 ? "position" : "positions") + "</span>" +
+    (a.showGap
+      ? '<span class="r3-stat void"><b>' + a.gap.points +
+        "</b>points of empty middle</span>"
+      : "") +
+    '<span class="r3-stat"><b>' + a.emptyBands +
+      "</b>of ten bands unoccupied</span>" +
+    '<span class="r3-stat' + (a.orphan ? " orphan" : "") + '"><b>' +
+      a.meanLabel + "</b>mean" +
+      (a.orphan ? " &mdash; nobody holds it" : "") + "</span>";
+
+  return '<div class="vp-panel">' + head(d) +
+    '<div class="r3-body">' +
+      '<div style="overflow-x:auto"><div class="r3-grid">' +
+        '<div class="r3-h">Organisation</div>' +
+        ruler +
+        '<div class="r3-h">Reads it as</div>' +
+        '<div class="r3-h r">Notes</div>' +
+        '<div class="r3-h r">Last activity</div>' +
+        lanes +
+      "</div></div>" +
+      '<div class="r3-summary">' + stats + "</div>" +
+    "</div>" +
+    '<p class="vp-foot">' + FOOT_SCALE + "</p>" +
+  "</div>";
+}
+
+/* ===========================================================
+   Wiring
+   =========================================================== */
+
+/* The state and the MISP theme live in the hash, so a link can point
+   at the case being argued about rather than at the page. */
+function stateFromHash() {
+  var m = /state=([a-z0-9]+)/i.exec(window.location.hash || "");
+  if (!m) return null;
+  var hit = STATES.filter(function (s) { return s.id === m[1]; })[0];
+  return hit ? hit.id : null;
+}
+
+var current = stateFromHash() || STATES[0].id;
+var mispDark = /misp=dark/i.test(window.location.hash || "");
+
+function writeHash() {
+  if (!window.history || !window.history.replaceState) return;
+  window.history.replaceState(null, "",
+    "#state=" + current + (mispDark ? "&misp=dark" : ""));
+}
+
+function readout(d) {
+  var el = document.getElementById("readout");
+  var source = d.real
+    ? "ValueProfileFixture"
+    : '<span style="color:var(--warn)">hypothetical &mdash; ' +
+      "not in the fixture</span>";
+  var rows = [
+    ["value", '<span class="mono">' + d.label + "</span>"],
+    ["opinions", '<span class="mono">' + d.n + "</span>"],
+    ["source", source],
+    ["why this state", d.note]
+  ];
+  el.innerHTML = rows.map(function (r) {
+    return "<div><dt>" + r[0] + "</dt><dd>" + r[1] + "</dd></div>";
+  }).join("");
+}
+
+function paint() {
+  var raw = STATES.filter(function (s) { return s.id === current; })[0];
+  var d = derive(raw);
+  readout(d);
+  document.getElementById("card1").innerHTML = render1(d);
+  document.getElementById("card2").innerHTML = render2(d);
+  document.getElementById("card3").innerHTML = render3(d);
+  requestAnimationFrame(function () {
+    layout1(document.getElementById("card1"));
+  });
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#stateChips .chip"),
+    function (c) {
+      c.setAttribute("aria-pressed", c.dataset.id === current ? "true" : "false");
+    }
+  );
+}
+
+(function buildChips() {
+  var holder = document.getElementById("stateChips");
+  holder.innerHTML = STATES.map(function (s) {
+    return '<button class="chip" data-id="' + s.id + '" aria-pressed="false">' +
+      s.label + (s.real ? "" : '<span class="hyp">hyp</span>') + "</button>";
+  }).join("");
+  holder.addEventListener("click", function (e) {
+    var b = e.target.closest(".chip");
+    if (!b) return;
+    current = b.dataset.id;
+    writeHash();
+    paint();
+  });
+})();
+
+window.addEventListener("hashchange", function () {
+  var id = stateFromHash();
+  if (id && id !== current) { current = id; paint(); }
+});
+
+(function themeToggle() {
+  var L = document.getElementById("themeLight");
+  var D = document.getElementById("themeDark");
+  function set(dark) {
+    mispDark = dark;
+    ["stage1", "stage2", "stage3"].forEach(function (id) {
+      document.getElementById(id).classList.toggle("dark", dark);
+    });
+    ["card1", "card2", "card3"].forEach(function (id) {
+      document.getElementById(id).classList.toggle("misp-dark", dark);
+    });
+    L.setAttribute("aria-pressed", String(!dark));
+    D.setAttribute("aria-pressed", String(dark));
+    requestAnimationFrame(function () {
+      layout1(document.getElementById("card1"));
+    });
+  }
+  L.addEventListener("click", function () { set(false); writeHash(); });
+  D.addEventListener("click", function () { set(true); writeHash(); });
+  if (mispDark) { set(true); }
+})();
+
+window.addEventListener("resize", function () {
+  layout1(document.getElementById("card1"));
+});
+
+paint();
+</script>

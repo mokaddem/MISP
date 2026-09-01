@@ -417,3 +417,118 @@ contradiction it names: the Overview's preview still paints "Agree" green while
 this tab paints anything above 50 red. Settling it means changing the Overview
 card, which is a decision about a shipped panel rather than a detail of this
 one — recorded here, not taken.
+
+
+## 16. Panel one, re-drawn — three candidates before the wiring
+
+**Phase 13.1.** Panel one ships as specified in §6 and is the panel that has to
+change before live data lands on it. The prototype is legible but it says the
+same four numbers three times — as strip markers, as histogram bars, and twice
+inside each table row — and two of those three encodings disagree with each
+other. Mockup: `prd/phase7/mockups/analyst-standing-v2.html`, which renders all
+three candidates live against every fixture value, the empty state, and two
+clearly-marked hypotheticals the fixture has no value for.
+Artifact: <https://claude.ai/code/artifact/cb15ee44-b74e-4c0b-8ca6-d7715b715e86>
+
+### 16.1 What the built panel gets wrong
+
+Five of these are defects rather than preferences.
+
+**The histogram is coloured backwards from the table.** `value_analyst_standing`
+paints its buckets with `$side = $b < 5 ? 'ben' : 'mal'` — green below 50, red
+above — while `$readsInk` gives the strip and the badges green above 50. This is
+the contradiction §15 records as deferred, except that it is no longer between
+this tab and the Overview: it is between this card's own histogram and its own
+table. On `8.8.8.8` the two green bars in 0–20 are exactly the two
+organisations the table lists in red.
+
+**Organisation labels collide even when the markers do not.** The `$collide`
+test guards the 34-unit discs and ignores the text above them. On `8.8.8.8`,
+scores 8 and 15 are 76 units apart so the discs clear the threshold, and
+`CIRCL` and `CthulhuSPRL.be` overlap. On a panel titled *Where the
+organisations stand*, names running into each other is the one failure it
+cannot have.
+
+**Merging discs deletes the names.** §6 treats `×2` as the answer to overlap.
+It resolves the collision by removing the panel's primary content: on
+`104.21.34.198` the badge reads *2 organisations · 10–12* and the two names
+survive only in a `<title>` tooltip and in the table.
+
+**A red *Neutral*, and a green one.** `opinionBand` splits the axis at
+20/40/60/80 and `opinionReads` splits it at 50, so the 41–60 band straddles the
+pivot by construction. `Neutral · 45/100` takes `$readsBadge('benign')` and
+`Neutral · 60/100` takes `$readsBadge('malicious')` — the same word in opposite
+colours, on `45.155.205.233` and `185.234.219.24` respectively, with nothing on
+the panel explaining why. Any design that colours the band word reproduces
+this; the fix is to colour only the side and leave the band word neutral-toned.
+
+**Staleness is invisible.** On `45.155.205.233`, CERT-EU's opinion is 102 days
+old and CIRCL's is one day old, and both render as plain monospace dates in the
+same ink. Which of two conflicting opinions is current is not a detail.
+
+And three that are layout rather than logic: the histogram resolves ten bands
+over three or four data points, so its count row renders as six middots and
+three ones in a quarter of the panel's width; the strip stacks seven bands of
+content — name, date, disc, leader, band boxes, numeric axis, mean caption —
+with the mean's caption ninety units from the marker it describes; and the five
+band labels are filled rectangles inside the track, which draws a continuous
+0–100 axis as a five-segment control competing with the ticks beneath it.
+
+### 16.2 The three candidates
+
+| | Strategy | Form |
+|---|---|---|
+| `B1` Aligned rail | fix the axis | one rail, void cut into it, labels dodging into stacked rows |
+| `B2` Two camps | abandon the axis | headcount tug-bar, two facing columns, the gap as a literal gutter |
+| `B3` Lane ledger | fuse chart and table | one row per organisation on a shared lane, gap as a column crossing all of them |
+
+`B1` keeps everything §6 describes and repairs it. The rail is continuous and
+tall enough to carry the void's caption inside it, so the empty middle is
+labelled from within the object rather than bracketed above it; the mean hangs
+off its own position on a stem in a row of its own; and labels are measured and
+then placed into as many stacked rows as they need, which removes both the
+collision and the merge. Cost: the strip stops being pure static SVG
+(`00-shared.md` §7) — dodging needs a measure-then-place pass — and panel height
+becomes a function of the data and the viewport.
+
+`B2` answers *who is on which side* with layout instead of an axis. Side becomes
+structural rather than chromatic, so it survives greyscale and colour blindness;
+names get a tile each and cannot overlap at any headcount; and the mean falling
+in the gutter between the two columns *is* the "reading nobody holds" claim
+rather than a sentence under a chart. Cost: absolute position is only readable
+per tile, and it breaks the continuity with the Verdict tab's histogram that §6
+leans on.
+
+`B3` collapses strip, histogram and table into one object. Names sit in a fixed
+column where collision is structurally impossible; a bar grows from the 50 pivot
+to the score, so direction is the side and length is the conviction; and the
+empty middle is a shaded column crossing every lane. It is the only candidate
+that removes the redundancy rather than rearranging it, and the only one that
+holds its shape at twenty organisations. Cost: tallest of the three at four
+organisations, cluster shape has to be inferred from row order, and because bars
+grow from the pivot a bar can cross the empty column — so its caption has to
+read *no opinion falls in these 48 points*, not *nothing is here*.
+
+### 16.3 Recommended
+
+**`B3`, with `B2`'s tug-bar above the lanes.** `B3` for the cleanup and for the
+headcount no fixture value exercises; `B2`'s thirty-pixel stacked bar because
+the one thing `B3` reads poorly is whether the set is split and how lopsided,
+and that bar answers it before the reader looks at a single lane. `B1` is the
+lower-risk choice if continuity with §6 matters more — it needs no rewrite
+beyond deleting the histogram paragraph — but it keeps layout logic that has to
+be correct on data nobody has seen.
+
+Independent of which layout wins, all three drop the histogram, drop the
+`.vp-opinion` bar, state each score once, replace the *supports / disputes the
+value* sentence column with a side chip, and add a staleness marker. Those are
+the changes §16.1 forces; the layout is the choice.
+
+### 16.4 Not decided here
+
+The histogram's removal takes `.vp-hist` out of this panel, which settles
+`A2`'s deferred element-level reuse by deletion rather than by graft — the
+Verdict tab keeps its own histogram and this panel stops having one. Whether
+the Overview's analyst preview is brought onto the same colour rule as the
+winning candidate remains what §15 says it is: a decision about a shipped panel,
+recorded and not taken.
