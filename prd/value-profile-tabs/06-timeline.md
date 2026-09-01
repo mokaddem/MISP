@@ -378,3 +378,29 @@ stub `View`, and through the dev container's live-synced worktree — but not
 fetched from `/values/viewTimeline/<b64>` as a logged-in user, because this
 session had no valid MISP session cookie. The ACL entry was confirmed by
 reading it, which `00-shared.md` §3.1 accepts in place of a non-admin fetch.
+
+---
+
+## 16. An eighth source, named here and scheduled later
+
+**Recorded 2026-09-01**, from the Relationships work.
+
+`passive-dns` objects carry `time_first` and `time_last` on every
+resolution they record, and phase 24's probing found values whose whole
+story is in those dates — `draculax.myq-see.com.` resolved to four
+addresses in fourteen days in April 2017, then to nothing for four
+years, then to one Brazilian host the day before the report that
+captured it. By §1's charter — *everything about this value that carries
+a date, on one axis* — those belong in this tab's chronology, beside
+sightings and publications, as a source lane of their own.
+
+They are **not** being added here. `03-relationships.md` §23.5 builds a
+**Dated relations** panel on the Relationships tab first, because the
+dates are a property of the edge and the reader wanting them is standing
+on that tab. This lane is the second home, not the first, and it costs
+this tab a re-verification it has already passed once.
+
+Scheduled for **phase 22+**. The query is the one
+`value_relation_dated` will already be running; what is new here is a
+lane, its hatching rule when the value sits in no relational object, and
+the chronology rows.

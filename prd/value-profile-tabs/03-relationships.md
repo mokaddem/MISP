@@ -201,6 +201,13 @@ shown."*
 > specifies is now a library feature that filters, and twelve of the
 > twenty-nine move into the library — three of them whole, nine of them
 > as far as the rendering, with the derivation still ours.
+>
+> **§23 of this document supersedes the card described below.**
+> `24-relationships.md` §24 then measured the topology and emptied six
+> of the twelve, and §25 found why: the structure is inside objects, not
+> between events. The rail still holds a canvas, but it draws `value →
+> object → value`, rolled up per template to 1–5 nodes. §26 there
+> records the eleven decisions.
 
 **`value_relation_graph`** — title **Neighbourhood**, sub-line `The value at the
 centre · 7 of 31 edges drawn`. A static inline SVG sketch (`00-shared.md` §7:
@@ -1100,3 +1107,245 @@ a label of unbounded length; §21.3 has the measurement that forced it.
 
 **Still not taken:** a claim's child Notes (§12's list, item 3). The card
 is where their absence is now most visible.
+
+---
+
+## 23. The Neighbourhood, re-founded
+
+**Design settled 2026-09-01.** Four sections of `24-relationships.md`
+lead here — **§22** evaluated the shipped graph, **§23** read pivotick
+1.6 against it, **§24** measured the topology and emptied six of the
+twelve reads §22 rested on, and **§25** traced the three pivots that
+pay. **§26** there records the eleven decisions and what each rejected.
+This section is what ships. Every bare § below is this document's own.
+
+§9 of this brief specifies a rail card whose graph puts the value at the
+centre and hangs its neighbours off it. That graph was built in phase 24
+and it is a **star** — every edge incident on the centre — which carries
+nothing the three panels beneath it do not already print, and which on
+live data draws 36 of `8.8.8.8`'s 10,024 neighbours. Neither the caption
+nor the picture is wrong. The relation being drawn is.
+
+**What replaces it: the object, not the event.** Two values that share an
+*event* share a container, and §24 measured what that is worth —
+components equal event count, no neighbour spans two, bridges fire once
+in sixteen values. Two values that share an *object* are held together
+by something that was written down: a `passive-dns` object says *this
+name resolved to this address between these dates*, a `domain-ip` says
+*this domain is on this address*. §25 traces three chains that pay, and
+all three run through objects.
+
+The arithmetic follows: `8.8.8.8` has **22** object-mediated neighbours
+against 10,024 event-mediated ones, and **95.6 %** of values that sit in
+objects have fifty or fewer.
+
+### 23.1 Five layers
+
+Each switchable, each with its own stroke, shape and row in the key.
+
+| Layer | What an edge means | Typical count |
+|---|---|---|
+| **Object siblings** | shares an object with this value | 14–42 |
+| **Events** | this value appears in this event | 1–35 |
+| **Near-match** | CIDR containment, ssdeep proximity | a handful |
+| **Asserted** | an analyst wrote this claim | a handful |
+| **Object references** | MISP's own typed relation between two objects | 4–17 |
+
+**The event layer draws events, not their values.** An event node is the
+event and stops there; it does not expand into the ten thousand
+attributes inside it. That is what keeps the layer affordable and what
+makes it worth having — *which events is this value in* is a real
+question, and it is the one an event node answers.
+
+**Object references bring object nodes.** A reference is recorded
+between two objects, so drawing it anywhere else would be a re-telling.
+`referenced_type` is `0` for an attribute target (1,142 rows on the
+verification instance) and `1` for an object target (10,191); both
+resolve. This is the only layer with a node kind that is not a value or
+an event, and the key says so.
+
+**Near-match and asserted survive unchanged.** They are small, they are
+semantically distinct from an object join, and §5's separation is the
+thing this tab lives or dies by. An analyst claim is the only edge on
+the page a human wrote.
+
+### 23.2 Edges say what they are; nothing is classified
+
+Every sibling edge carries the object's own words: **`passive-dns ·
+rrname → rdata`**, **`file · md5 ↔ sha256`**, **`domain-ip · domain →
+ip`**. A reference edge carries `relationship_type` verbatim —
+`hosted-by`, `communicates-with`, and `Crush` where somebody typed that.
+
+The alternative was a relational/descriptive split, sorting templates
+that link two things from templates that describe one. It is not taken,
+for a reason that is a fact rather than a preference: **MISP records no
+such distinction.** All 373 object templates carry `attributes`,
+`description`, `meta-category`, `name`, `uuid`, `version`, `required`
+and `requiredOneOf` — nothing structural — and `meta-category` is a
+domain label that puts `passive-dns` and descriptive network objects in
+one bucket and `virustotal-report` in `misc`.
+
+So the split would have to be hand-maintained against 373 templates from
+an upstream project, and it would be wrong at the edges anyway: the
+`url` object holds `url`, `domain`, `host`, `ip`, `resource_path` — the
+domain is both a different thing and a part of the URL, and no boolean
+is true about it.
+
+A label is true where a classification would be arguing. It also tells
+the reader more: *`rrname → rdata`* says which end they are standing on,
+which a flag cannot.
+
+**Deferred, and separable:** a short promote list used only to rank
+pivot-worthy templates higher. Ranking is a different decision from
+meaning, it needs its own evidence, and an unlisted template must still
+draw and still label.
+
+### 23.3 The roll-up, and the bound that is not the wire
+
+Above a legibility bound, siblings collapse into **one node per
+template**, carrying its object count and expandable in place. `0.0.0.0`
+— which sits in 32,922 `paloalto-threat-event` objects and one `pe` —
+draws two nodes, and the count is the finding: 32,922 near-identical
+objects reads as flood-capture noise at a glance.
+
+**Nothing is ever truncated.** Every sibling is drawn or counted in a
+roll-up, so no caption anywhere states a fraction of a whole the reader
+cannot reach. That is the specific defect §22.1 identified, removed
+rather than reduced.
+
+**The bound is what a reader can take in, not what the wire can carry.**
+Those give very different numbers: the fragment budget would allow
+roughly 2,500 nodes (phase 22 measured 5.9 MB as *"a fragment that does
+not arrive"*, and this tab's heaviest today is 1.18 MB), and 2,500 nodes
+is an unreadable hairball that arrived intact. Bounding on legibility
+means the payload never approaches the wire on any value, and pivotick's
+eventual graph-coarsening becomes an enhancement here rather than
+something the design leans on.
+
+**The threshold is ~150–200 and is not yet fixed.** It must be measured
+against real fragment weight **across all five layers at once**, not per
+layer, before it is written into a constant.
+
+### 23.4 Two surfaces, two modes
+
+**The rail is a peek.** `UI.mode: 'viewer'`, with `navigation` left
+unconfigured so its viewport rail does not mount — `UIManager.ts:241`
+gates it on `o.navigation?.enabled`. The result is a card that can be
+nudged and zoomed but carries no controls of its own. It rolls up hard:
+**one node per template, 1–5 in practice**. `luxtrust.support` draws a
+single `passive-dns · 6 objects`; `8.8.8.8` draws three. The only
+control is MISP's own `Open the full graph` beneath it.
+
+Rolling up per template is what makes the rail legible at 340px without
+labels overlapping — §10.3 of `24-relationships.md` measured 37 labels
+as illegible there, and this draws five.
+
+**The overlay is the workbench.** `UI.mode: 'light'`, carrying
+pivotick's legend, filter panel and chrome. `editors.deletion`,
+`nodeCreator`, `nodeEditor` and `edgeEditor` are all `enabled: false` —
+`light` mounts the mode rail and tool panel, and those carry the Create
+tools. The Notes affordance is switched off through the upstream flag
+being added to pivotick for this purpose; until it lands the overlay is
+mounted without it by whatever means that flag provides.
+
+The overlay rolls up at the §23.3 threshold and shows values rather than
+templates.
+
+**The data dock is not used.** `24-relationships.md` §23.4 argued for it
+against a 10,000-node graph with no table equivalent. The graph now
+holds tens of nodes and this tab already carries two sortable, faceted,
+paginated tables that do the job better.
+
+### 23.5 Two new sections
+
+**`value_relation_dated`** — title **Dated relations**, sub-line naming
+the relational objects it read. One row per dated edge: the far value,
+what the object calls it, `first seen`, `last seen`, and the object's
+own origin where it records one.
+
+`draculax.myq-see.com.` renders as five rows — `141.255.159.82`
+2017-04-11, `168.181.48.248` 2017-04-14, `168.181.51.45` 2017-04-18,
+`141.255.147.117` 2017-04-25, then `200.101.151.150` 2021-03-30. Four
+addresses in fourteen days, four years of nothing, then one more.
+
+This is a table and not a canvas because the insight is entirely in the
+dates, and a canvas has nowhere to put them. §25.1 is the worked case.
+
+**`value_relation_references`** — title **Object relationships**,
+sub-line stating its coverage. What this value is related to through
+`ObjectReference`, in both directions: **directly**, where the reference
+targets this value's own attribute, and **through its parent object**,
+where the reference is between the object this value sits in and
+another. Each row: the relationship type verbatim, the direction, the
+far object's template, and the far object's own identifying values.
+
+`18.117.184.102` renders a `hosted-by` reaching the `passive-dns` object
+whose `rdata` is `cns-lu.com` — which is §25.3's bridge, recorded by a
+person rather than inferred by a join.
+
+**Both sections state their coverage rather than let a reader infer
+completeness.** 568,606 attributes sit in objects against 2,216,345 that
+do not, and 7,905 of 69,976 objects carry any reference at all. A reader
+looking at an empty Object relationships panel is looking at the common
+case, and the panel says so.
+
+### 23.6 The library
+
+pivotick **1.6.0** (released 2026-08-28). Both files are taken from the
+`worktree-pivotick-v16` branch — `pivotick.iife.js` 775,624 B and
+`pivotick.css` 196,431 B, byte-identical to `~/git/pivotick/dist`.
+
+A JS-only swap would be wrong: the CSS carries the renamed flyout hooks
+(`.pvt-viewflyout-*` → `.pvt-flyout-*`, `24-relationships.md` §23.8).
+
+**The event Pivot Explorer is not re-verified here.** That work is owned
+elsewhere, on its own branch. This tab takes the bundle for the features
+it needs and does not claim the wider verification.
+
+What the design reads from 1.6: `render.edgeTypeAccessor` and
+`edgeStyleMap` for the five kinds, `UI.filter.edgeFacets` for the layer
+switches (a toggle does not move the layout — the link force gates on
+`Edge.visibleIgnoringLayer`), `UI.legend` with `sections` for the key,
+`NodeStyle.badges` for roll-up counts, and `textTruncate: false` for
+labels. Cluster collapse is not new — `hasChildren` is already in the
+bundle MISP ships.
+
+### 23.7 States
+
+| State | What renders |
+|---|---|
+| Populated | five layers, rail rolled to 1–5 template nodes |
+| No objects | the ~80 % case. The object, reference and dated panels state it plainly; the event, near-match and asserted layers still draw |
+| Rolled up | `0.0.0.0`: two template nodes carrying 32,922 and 1, expandable |
+| No dated relations | the value sits in no object that records a date — said in those words, not as a generic empty |
+| No references | the common case (11 % coverage), and the panel says which case it is |
+| Unreadable | every event oversized, as `1.0.155.105` and `github.com`: no neighbours to fold, and the suppressed band rather than an empty one |
+
+### 23.8 Verification values
+
+§12.1 of `24-relationships.md` names six. Three are added, because none
+of the six exercises what this design is built on:
+
+- **`draculax.myq-see.com.`** — five dated `passive-dns` resolutions
+  spanning four years. The Dated relations panel.
+- **`45.77.250.80`** — 42 siblings across 23 `domain-ip` objects, whose
+  22 domains are a RedAlpha target list. The fan, at a size that draws.
+- **`18.117.184.102`** — four names across two impersonated brands, and
+  a `hosted-by` reference to the object holding a third. The bridge, and
+  the reference layer.
+
+`0.0.0.0` (35,102 siblings, 2 templates) and `443` (845 siblings, 5
+templates) are the roll-up stress cases.
+
+### 23.9 Not in this phase
+
+- **Live expand-one-hop.** Clicking a neighbour and fetching *its*
+  relationships. The Object relationships section gives the second hop
+  as a panel, which is how every other notion here works, and §25's
+  three chains are all readable that way. Recorded as the next
+  increment.
+- **The promote list** (§23.2).
+- **A passive-DNS source lane on the Timeline tab.** Resolutions carry
+  dates, so by that tab's charter they belong in its chronology beside
+  sightings and publications. Timeline is built and verified, and a new
+  lane means re-verifying it, so it is named here and scheduled there.

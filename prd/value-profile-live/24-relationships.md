@@ -2858,13 +2858,23 @@ better. Neighbour counts on real values:
     1,619 · 4,132 · 5,020 · 6,616 · 7,637 · 8,299 · 8,684
     8,860 · 10,024 · 10,647 · 11,858 · 14,254 · 18,859
 
-The rail's sub-line reads **`7 of 31 edges drawn`**. The real ratio is
-twelve of eight thousand. `03-relationships.md` §9's number came from
-the fixture and nothing has re-derived it against live data since;
-§10.1's *"the sub-line says how many of the total are drawn"* is
-therefore printing a true fraction of a false denominator on most
-values. **That is a live honesty defect on the shipped panel**, and it
-is independent of every design question in §22.
+`03-relationships.md` §9 quotes the sub-line as **`7 of 31 edges
+drawn`**, and an earlier draft of this section called that a live
+defect. **It is not, and the correction matters.** `7 of 31` is fixture
+output. On live data the denominator is
+`relationSummary()['correlations']` — `distinct_values + near` — which
+is the true size of the neighbourhood the fold saw, and the numerator is
+the real edge count. The shipped panel prints an honest ratio.
+
+What it honestly prints, on `8.8.8.8`, is **36 of 10,024**. On
+`443`, 36 of 18,859. The canvas draws **a third of one per cent of the
+neighbourhood it is captioned as summarising.**
+
+So there is no defect here to fix. There is something worse: a caption
+that is accurate, and whose accuracy is the argument against the thing
+it captions. A reader who reads it carefully learns that the picture
+above it is a sample of 0.4 %, chosen by a ranking (§24.6) that is not
+the one they would have chosen.
 
 ### 24.6 The cap ranking does not just lose nodes, it destroys the structure
 
@@ -2950,8 +2960,9 @@ Three readings are open, and this document does not pick between them:
    loud rather than assumed, because nothing here is instance-specific
    in an obvious way — self-contained events are how MISP is used.
 
-**Independent of all three: §24.5's `7 of 31` is wrong on the shipped
-page and should be fixed whatever happens to the graph.**
+**Independent of all three: §24.5's ratio is *correct* on the shipped
+page, and what it correctly reports is 36 of 10,024.** There is no
+quick fix to take instead of a decision.
 
 ---
 
@@ -3155,3 +3166,206 @@ The three values are worth adding to §12.1's verification set —
 between them they exercise a dated relational object, a 22-way fan and
 a genuine bridge, and the tab currently has no value that exercises any
 of the three.
+
+---
+
+## 26. The design, decided — eleven questions and what they rejected
+
+§22 evaluated the graph, §23 read pivotick 1.6 against it, §24 measured
+the topology and emptied six of the twelve reads §22 rested on, and §25
+found the relation that was actually being missed. This section records
+what was then decided, question by question, with what each one rejected
+— which is the part a later reader needs and the part that is otherwise
+lost. The specification itself is `03-relationships.md` §23.
+
+Settled 2026-09-01.
+
+### 26.1 A correction that reshaped the first question
+
+An earlier draft of §24.5 called the rail's `7 of 31 edges drawn` a live
+defect. **It is not.** `7 of 31` is fixture output quoted in
+`03-relationships.md` §9; the live denominator is
+`relationSummary()['correlations']` — `distinct_values + near` — which
+is the true size of the neighbourhood the fold saw. The shipped panel
+prints an honest ratio.
+
+What it honestly prints is **36 of 10,024**. The caption is accurate,
+and its accuracy is the argument against the thing it captions. §24.5
+and §24.9 are corrected; the option this removed was *"fix the defect
+and stop"*, which was never available.
+
+### 26.2 Scope — a full re-founding
+
+Rejected: re-pointing the existing canvas at object edges and stopping;
+removing the canvas and keeping the panels; parking the work.
+
+The measurement in §24 could reasonably have ended the graph. What kept
+it is §25: the reads are there, on a relation nobody had drawn.
+
+### 26.3 Edges say what they are
+
+Rejected: a curated relational/descriptive allowlist; a heuristic on
+value types; blocking on an upstream template marker.
+
+The deciding fact is that **MISP records no such distinction** — 373
+templates carrying nothing structural, and `meta-category` is a domain
+label. So a split would be hand-maintained against an upstream project,
+and it would still be wrong on `url`, whose `domain` is both a different
+thing and a part of the URL.
+
+**A promote list is deferred rather than dropped**, and deliberately
+scoped to *ranking* rather than meaning: an unlisted template must still
+draw and still label. Ranking needs its own evidence, and merging the
+two decisions would have let a maintenance list quietly decide what a
+reader is allowed to see.
+
+### 26.4 Both layers, and the event layer collapses
+
+Rejected: object edges only; both layers at full expansion.
+
+The shape that made this work is not one either option offered. The
+event layer draws **the events themselves and stops**, rather than
+expanding into their values — so `8.8.8.8` contributes 17 event nodes
+where the current graph would contribute 10,024 value nodes. *Which
+events is this value in* is a real question and an event node answers
+it; *what else is in those events* is the flat relation §24 measured,
+and the co-occurrence table already serves it better.
+
+### 26.5 The tail rolls up, and the bound is legibility
+
+Rejected: a hard ranked cap; refusing to draw above a threshold.
+
+A hard cap is the current defect at smaller scale — the caption still
+reads *N of 35,102* and the ranking still decides what is never seen.
+Refusing gives the 3 % nothing.
+
+The roll-up gives them an answer instead: `0.0.0.0` draws two nodes
+carrying 32,922 and 1. **Nothing is truncated anywhere**, which removes
+the fraction problem rather than shrinking it.
+
+**On whether pivotick's future graph-coarsening changes this** — it does
+not remove the need, and the reason is the wire. Phase 22 measured
+5.9 MB as a fragment that does not arrive; `0.0.0.0`'s 35,102 siblings
+are roughly 7 MB of nodes, so no client-side algorithm can help a
+payload that never lands. A server-side bound is required either way.
+What coarsening *would* change is the middle band, and bounding on
+legibility rather than transport keeps the payload so far from the wire
+that the question stops mattering here.
+
+**The threshold is an estimate.** ~150–200, to be measured against real
+fragment weight across all five layers at once before it becomes a
+constant.
+
+### 26.6 The rail keeps a canvas
+
+Rejected: §22.5's verdict sentence and composition strip; a rail at full
+detail.
+
+§22.5 proposed dropping the canvas because 10,024 nodes cannot be drawn
+at 340px. Object edges give 14–42, and rolled per template, 1–5 — so the
+premise is gone. Full detail was rejected on §10.3's own measurement:
+37 labels overlap into illegibility at that width.
+
+Rolling the rail harder than the overlay turns the two surfaces into
+progressive disclosure rather than two versions of one picture, and
+`Open the full graph` gains a specific meaning: it expands the
+templates into values.
+
+### 26.7 Dated relations here, Timeline later
+
+Rejected: Timeline only; both at once; an edge hover card.
+
+The dates are a property of the edge and the reader is already on this
+tab when they want them. A hover card is the wrong instrument for five
+rows you scan and compare.
+
+Timeline is the right long-term home by its own charter — *everything
+about this value that carries a date* — but it is built and verified,
+and a new source lane means re-verifying it. Recorded there as a
+paragraph, scheduled separately.
+
+### 26.8 Swap first
+
+Rejected: building against the current bundle and swapping last;
+swapping as its own phase.
+
+`hasChildren` is already in the shipped bundle, so a rolled-up canvas
+could have been built without 1.6 — but the layer switch, the badge
+counts, the full labels and the legend all need it, and building against
+two targets to defer a file copy is not a saving.
+
+**The event Pivot Explorer is not re-verified by this phase.** That
+work is owned elsewhere and already in progress on
+`worktree-pivotick-v16`; this tab takes the same two files from that
+branch — byte-identical to `~/git/pivotick/dist` — and makes no claim
+about the wider verification. That removes almost all of the cost this
+question was weighing.
+
+### 26.9 The rail is `viewer`, the overlay is `light`
+
+Rejected for the rail: `static`. Rejected for the overlay: `viewer` with
+a hand-rolled key.
+
+The rail is a peek. `static` cannot be nudged; `viewer` with
+`navigation` left unconfigured can be panned and zoomed and still mounts
+no controls, because `UIManager.ts:241` gates the viewport rail on
+`o.navigation?.enabled`.
+
+For the overlay, the question was framed around a constraint that has
+since been removed. `legend` and `mainHeader` mount in exactly the same
+modes (`['full', 'light']`), the header appends its notes button
+unconditionally (`Mainheader.ts:72`), and `Shift+N` is registered
+against it whether or not it is visible — so it could not be closed off
+from the consumer side. **pivotick is gaining a flag to disable it**,
+which settles it. `editors.deletion / nodeCreator / nodeEditor /
+edgeEditor` stay `false` regardless: `light` mounts the mode rail and
+tool panel, and those carry the Create tools.
+
+### 26.10 Near-match and asserted stay
+
+Rejected: dropping near-match to its panel; drawing object edges only.
+
+Both are small and cost nothing. Dropping them would narrow the canvas
+below the tab it sits on, and §5's separation of the notions is the
+thing this tab lives or dies by. An analyst claim is the only edge on
+the page a human wrote, which is the strongest reason of the three not
+to lose it in a redesign about object joins.
+
+### 26.11 Typed references, with object nodes — and a section of their own
+
+Rejected: value-to-value reference edges with no object node; deferring
+references entirely.
+
+A reference is recorded between two objects. Drawing it between values
+would be a re-telling, and it would make *which object* unanswerable.
+The node budget absorbs it: 4–17 references on real values.
+
+**The section was not in the options and is the better half of the
+answer.** *Object relationships* lists what this value is related to
+through `ObjectReference` — directly, where the target is its own
+attribute (`referenced_type = 0`, 1,142 rows), and through its parent
+object (`referenced_type = 1`, 10,191). It gives every layer on the
+canvas a panel counterpart, which is how the rest of this tab works, and
+it renders §25.3's bridge as a recorded fact rather than an inference.
+
+### 26.12 Expand-one-hop waits
+
+Rejected: building the endpoint now; calling roll-up expansion
+"expansion".
+
+All three of §25's chains are two or three hops, which is why §25.6
+called this mandatory. What changed is that the Object relationships
+section delivers the second hop as a panel. A live endpoint is a
+client-side merge, a growing feed that breaks the bound §26.5 just set,
+and a caching story of its own — worth doing once the object graph has
+proved itself.
+
+### 26.13 What is still open
+
+- **The legibility threshold**, measured across five layers at once.
+- **The promote list** (§26.3), as its own brief.
+- **The Timeline source lane** (§26.7).
+- **Live expand-one-hop** (§26.12).
+- **Coverage sentences.** ~20 % of attributes sit in objects and 11 % of
+  objects carry a reference. Both panels must state their own bound; the
+  exact wording is not yet written.
