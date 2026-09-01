@@ -202,6 +202,11 @@ html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
   color: var(--accent); padding: 2px 8px; border: 1px solid var(--accent);
   border-radius: 3px;
 }
+.spec-strategy.chosen {
+  background: var(--accent); border-color: var(--accent); color: var(--panel);
+}
+:root[data-theme="dark"] .spec-strategy.chosen,
+html:not([data-theme="light"]) .spec-strategy.chosen { color: #171013; }
 .spec-thesis { margin: 0 0 16px; max-width: 76ch; color: var(--ink-2); font-size: 15px; }
 .stage {
   padding: 22px; border-radius: 4px;
@@ -507,32 +512,44 @@ html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
 }
 
 /* ==========================================================
-   PROPOSAL 2 — Two camps
+   The tug-bar — shared by proposals 2 and 4
+   ==========================================================
+   One stacked bar sized by headcount. Its units are not the
+   0-100 axis, which is why the caption underneath says so and
+   why proposal 4 spans it across the whole card rather than
+   over the lane column: a segment boundary sitting flush above
+   a score tick reads as a score.
    ========================================================== */
-.r2-body { padding: 1rem; }
-.r2-tug {
+.vp-tug {
   display: flex; height: 30px; border-radius: 4px; overflow: hidden;
   background: var(--bs-secondary-bg); margin-bottom: 2px;
 }
-.r2-tug-seg {
+.vp-tug-seg {
   display: flex; align-items: center; gap: .35rem; padding: 0 .6rem;
   font-size: .72rem; font-weight: 700; color: #fff;
   min-width: 0; white-space: nowrap; overflow: hidden;
 }
-.r2-tug-seg.right { justify-content: flex-end; }
-.r2-tug-seg .n {
+.vp-tug-seg.right { justify-content: flex-end; }
+.vp-tug-seg .n {
   font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: .85rem;
 }
-.r2-tug-none {
+.vp-tug-none {
   flex: 1; display: flex; align-items: center; justify-content: center;
   font-size: .68rem; color: var(--bs-secondary-color);
 }
-.r2-tug-cap {
-  display: flex; justify-content: space-between;
+.vp-tug-cap {
+  display: flex; justify-content: space-between; gap: 1rem;
   font-size: .62rem; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--bs-secondary-color); margin-bottom: 1rem;
+  color: var(--bs-secondary-color);
 }
+.vp-tug-cap > span:nth-child(2) { text-align: center; }
+
+/* ==========================================================
+   PROPOSAL 2 — Two camps
+   ========================================================== */
+.r2-body { padding: 1rem; }
+.r2-body .vp-tug-cap { margin-bottom: 1rem; }
 .r2-grid {
   display: grid; grid-template-columns: 1fr 156px 1fr;
   gap: 0; align-items: stretch;
@@ -770,6 +787,28 @@ html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
 .r3-stat.orphan b { text-decoration: line-through; }
 .r3-stat.void { border-style: dashed; }
 
+/* ==========================================================
+   PROPOSAL 4 — Lane ledger, with the tug-bar
+   ==========================================================
+   The ledger unchanged, plus one borrowed component above it.
+   The tug-bar block spans the card's full padded width while
+   the ruler and lanes stay inset in their own column, so the
+   two horizontal bars cannot be read against each other.
+   ========================================================== */
+.r4-body { padding: 1rem; }
+.r4-tugblock {
+  padding-bottom: .85rem; margin-bottom: .9rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.r4-tuglead {
+  display: flex; align-items: baseline; gap: .5rem;
+  margin-bottom: .45rem;
+}
+.r4-tuglead .vp-subhead { margin-bottom: 0; }
+.r4-tuglead .verdict {
+  font-size: .72rem; font-weight: 600; color: var(--bs-body-color);
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .wrap { padding: 0 16px 72px; }
@@ -811,14 +850,15 @@ html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
       The <em>Where the organisations stand</em> card has one job: make disagreement
       between organisations visible before anyone reads an average. The prototype
       does say that, but it says it three times over in three encodings, and two of
-      them contradict each other. Here are three replacements — one that fixes the
-      scale, one that abandons it, and one that fuses the chart into the table.
+      them contradict each other. Three strategies below — fix the scale, abandon it,
+      or fuse the chart into the table — and then the one being built, which is the
+      third with a component borrowed from the second.
     </p>
     <div class="meta">
       <span>Element <b>value_analyst_standing.ctp</b></span>
-      <span>Spec <b>prd/value-profile-tabs/05-analyst.md §6</b></span>
+      <span>Spec <b>prd/value-profile-tabs/05-analyst.md §6, §16</b></span>
       <span>Data <b>ValueProfileFixture</b>, unmodified</span>
-      <span>Status <b>pre-wiring</b></span>
+      <span>Chosen <b>Proposal 04 — lane ledger + tug-bar</b></span>
     </div>
   </header>
 
@@ -1066,36 +1106,87 @@ html:not([data-theme="light"]) .chip[aria-pressed="true"] { color: #171013; }
   <!-- ============================================ -->
   <section class="sec">
     <div class="sec-head">
-      <span class="sec-num">Recommendation</span>
-      <h2>Which one to wire</h2>
+      <span class="sec-num">Proposal 04 &middot; chosen</span>
+      <h2>Lane ledger, with the tug-bar</h2>
+      <p>
+        The ledger exactly as above, and one component borrowed from Two camps to
+        cover the single thing the ledger reads poorly: whether the set is split
+        at all, and how lopsided. Thirty pixels, answered before the reader looks
+        at a lane.
+      </p>
+    </div>
+    <div class="spec">
+      <div class="spec-head">
+        <h3 class="spec-name">Lane ledger + tug-bar</h3>
+        <span class="spec-strategy chosen">to be wired</span>
+      </div>
+      <p class="spec-thesis">
+        Summary above, detail below: headcount first, then one lane per
+        organisation on the axis the headcount says nothing about.
+      </p>
+      <div class="stage" id="stage4"><div class="misp" id="card4"></div></div>
+      <dl class="trade">
+        <div class="fixes">
+          <dt>Why the bar sits on top</dt>
+          <ul>
+            <li>A scanned card surfaces the summary before the detail, and the split
+                <em>is</em> the summary — the header sub-line already says it in words,
+                so the bar restates it in form where the eye lands first.</li>
+            <li>Putting it under the summary chips would bury the card's headline
+                beneath the thing it is meant to frame.</li>
+            <li>Dispute stays left and agree stays right, so its direction agrees with
+                the axis underneath rather than fighting it.</li>
+          </ul>
+        </div>
+        <div class="costs">
+          <dt>The hazard it is drawn around</dt>
+          <ul>
+            <li>Two full-width horizontal bars, one sized by headcount and one by score,
+                invite being read against each other: a 1-against-3 split would put a
+                boundary at 25% and look like a split at score 25.</li>
+            <li>So the tug-bar spans the card's whole padded width while the ruler and
+                lanes stay inset in their grid column — the boundary cannot line up with
+                a tick — and the caption states the units outright.</li>
+            <li>It costs about 60px of card height, and it is the one element on the
+                card whose width means nothing.</li>
+          </ul>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <section class="sec">
+    <div class="sec-head">
+      <span class="sec-num">Decision</span>
+      <h2>What gets wired</h2>
     </div>
     <div class="rec">
-      <h3>Lane ledger, with the tug-bar borrowed from Two camps.</h3>
+      <h3>Proposal 04 — Lane ledger with the tug-bar above it.</h3>
       <p>
-        <strong>Proposal 03</strong> is the only one that removes the redundancy rather than
-        rearranging it, and the only one whose collision-freedom is structural instead of
-        computed — which matters most for the state the fixture cannot show you, an instance
-        with twenty organisations holding opinions. Its shaded gap column crossing every lane
-        is also a stronger statement of the card's thesis than either the bracket or the void.
+        Chosen. <strong>Proposal 03</strong> is the only candidate that removes the
+        redundancy rather than rearranging it, and the only one whose collision-freedom is
+        structural instead of computed — which matters most for the state the fixture cannot
+        show you, an instance with twenty organisations holding opinions. Its shaded gap
+        column crossing every lane is also a stronger statement of the card's thesis than
+        either the bracket or the void.
       </p>
       <p>
-        Its one real weakness is that the split's <em>shape</em> — two clusters, this far apart —
-        has to be inferred from row order. <strong>Proposal 02</strong>'s tug-bar fixes that in
-        thirty pixels: one stacked bar sized by headcount, above the lanes, answering “is there
-        a split and how lopsided” before the reader looks at a single lane. That is the
-        combination worth wiring.
+        Its one real weakness was that the split's <em>shape</em> had to be inferred from row
+        order. <strong>Proposal 02</strong>'s tug-bar covers that, so the two are combined
+        rather than chosen between.
       </p>
       <p>
-        <strong>Proposal 01</strong> is the safest choice if continuity with the existing spec
-        matters more than the cleanup: it keeps the strip the PRD describes, keeps the Verdict
-        tab's axis, and needs no rewrite of §6 beyond deleting the histogram paragraph. It also
-        keeps a real risk — label dodging is layout logic that has to be correct on data nobody
-        has seen yet.
+        <strong>Proposals 01 and 02 stay on this page for the record</strong>, not as live
+        options. 01 remains the lower-risk fallback if continuity with §6 ever matters more
+        than the cleanup — it keeps the strip the spec describes and needs no rewrite beyond
+        deleting the histogram paragraph — but it also keeps label dodging, which is layout
+        logic that has to be correct on data nobody has seen yet.
       </p>
       <p>
-        All three drop the histogram, drop the <code>.vp-opinion</code> bar, state each score
+        All four drop the histogram, drop the <code>.vp-opinion</code> bar, state each score
         once, replace <em>supports / disputes the value</em> with a side chip, and add the
-        staleness marker. Those changes are independent of which layout wins.
+        staleness marker. Those changes are forced by the diagnosis, not by the layout.
       </p>
     </div>
   </section>
@@ -1561,6 +1652,58 @@ function layout1(root) {
 }
 
 /* ===========================================================
+   The tug-bar — one component, two proposals
+   =========================================================== */
+
+/**
+ * Headcount on each side of the pivot, as one stacked bar.
+ * Sized by how many organisations, never by what they scored —
+ * which the caption states, because the bar looks like a scale.
+ */
+function tugBar(d) {
+  var a = d.aggregate;
+  var total = d.n;
+  var segs = "";
+
+  if (a.dispute.length) {
+    segs += '<div class="vp-tug-seg bg-dispute" style="width:' +
+      (a.dispute.length / total * 100) + '%">' +
+      '<span class="n">' + a.dispute.length + "</span><span>dispute</span></div>";
+  }
+  if (a.neither.length) {
+    segs += '<div class="vp-tug-seg bg-neither" style="width:' +
+      (a.neither.length / total * 100) + '%">' +
+      '<span class="n">' + a.neither.length + "</span></div>";
+  }
+  if (a.agree.length) {
+    segs += '<div class="vp-tug-seg right bg-agree" style="width:' +
+      (a.agree.length / total * 100) + '%">' +
+      "<span>agree</span><span class=\"n\">" + a.agree.length + "</span></div>";
+  }
+
+  return '<div class="vp-tug">' + segs + "</div>" +
+    '<div class="vp-tug-cap"><span>disputes</span>' +
+      "<span>sized by headcount, not by score</span>" +
+      "<span>agrees</span></div>";
+}
+
+/**
+ * What the tug-bar amounts to, in one clause. The bar shows the
+ * shape; this says which shape it is, so a reader who has taken
+ * in neither yet gets the answer in words.
+ */
+function splitVerdict(d) {
+  var a = d.aggregate;
+  var nA = a.agree.length, nD = a.dispute.length;
+  if (!nD) { return "every organisation agrees"; }
+  if (!nA) { return "every organisation disputes"; }
+  if (nA === nD) { return "an even split, " + nA + " each way"; }
+  var minor = Math.min(nA, nD);
+  return (nA > nD ? "most agree" : "most dispute") + "; " + minor +
+    " of " + d.n + (minor === 1 ? " does not" : " do not");
+}
+
+/* ===========================================================
    PROPOSAL 2 — Two camps
    =========================================================== */
 
@@ -1569,24 +1712,7 @@ function render2(d) {
     return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
   }
   var a = d.aggregate;
-  var nAgree = a.agree.length, nDispute = a.dispute.length, total = d.n;
-
-  var tug = "";
-  if (nDispute) {
-    tug += '<div class="r2-tug-seg bg-dispute" style="width:' +
-      (nDispute / total * 100) + '%">' +
-      '<span class="n">' + nDispute + "</span><span>dispute</span></div>";
-  }
-  if (a.neither.length) {
-    tug += '<div class="r2-tug-seg bg-neither" style="width:' +
-      (a.neither.length / total * 100) + '%">' +
-      '<span class="n">' + a.neither.length + "</span></div>";
-  }
-  if (nAgree) {
-    tug += '<div class="r2-tug-seg right bg-agree" style="width:' +
-      (nAgree / total * 100) + '%">' +
-      "<span>agree</span><span class=\"n\">" + nAgree + "</span></div>";
-  }
+  var nAgree = a.agree.length, nDispute = a.dispute.length;
 
   var tile = function (o) {
     // Bar length is distance from the 50 pivot, so conviction reads
@@ -1636,10 +1762,7 @@ function render2(d) {
 
   return '<div class="vp-panel">' + head(d) +
     '<div class="r2-body">' +
-      '<div class="r2-tug">' + tug + "</div>" +
-      '<div class="r2-tug-cap"><span>disputes</span>' +
-        "<span>sized by headcount, not by score</span>" +
-        "<span>agrees</span></div>" +
+      tugBar(d) +
       '<div class="r2-grid">' +
         '<div class="r2-camp dispute">' +
           '<div class="r2-camp-head"><span class="n">' + nDispute + "</span>" +
@@ -1660,13 +1783,15 @@ function render2(d) {
 }
 
 /* ===========================================================
-   PROPOSAL 3 — Lane ledger
+   PROPOSAL 3 — Lane ledger, and 4 — the same plus the tug-bar
    =========================================================== */
 
-function render3(d) {
-  if (!d.aggregate) {
-    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
-  }
+/**
+ * The ledger itself: the shared ruler, one lane per organisation,
+ * and the summary chips. Proposals 3 and 4 differ only in what
+ * sits above this, so it is written once.
+ */
+function ledger(d) {
   var a = d.aggregate;
   var pct = function (s) { return s + "%"; };
 
@@ -1737,17 +1862,50 @@ function render3(d) {
       a.meanLabel + "</b>mean" +
       (a.orphan ? " &mdash; nobody holds it" : "") + "</span>";
 
+  return '<div style="overflow-x:auto"><div class="r3-grid">' +
+      '<div class="r3-h">Organisation</div>' +
+      ruler +
+      '<div class="r3-h">Reads it as</div>' +
+      '<div class="r3-h r">Notes</div>' +
+      '<div class="r3-h r">Last activity</div>' +
+      lanes +
+    "</div></div>" +
+    '<div class="r3-summary">' + stats + "</div>";
+}
+
+function render3(d) {
+  if (!d.aggregate) {
+    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
+  }
   return '<div class="vp-panel">' + head(d) +
-    '<div class="r3-body">' +
-      '<div style="overflow-x:auto"><div class="r3-grid">' +
-        '<div class="r3-h">Organisation</div>' +
-        ruler +
-        '<div class="r3-h">Reads it as</div>' +
-        '<div class="r3-h r">Notes</div>' +
-        '<div class="r3-h r">Last activity</div>' +
-        lanes +
-      "</div></div>" +
-      '<div class="r3-summary">' + stats + "</div>" +
+    '<div class="r3-body">' + ledger(d) + "</div>" +
+    '<p class="vp-foot">' + FOOT_SCALE + "</p>" +
+  "</div>";
+}
+
+/*
+ * Proposal 4. The tug-bar goes above the lanes rather than below
+ * them because "is this set split, and how lopsided" is the
+ * question a reader arrives with, and the summary belongs before
+ * the detail. It spans the card's full width while the ruler and
+ * lanes stay inset in their own grid column: a headcount boundary
+ * sitting flush above the 0-100 axis would read as a score, and a
+ * 1-against-3 split would look like a split at 25.
+ */
+function render4(d) {
+  if (!d.aggregate) {
+    return '<div class="vp-panel">' + head(d) + emptyBody() + "</div>";
+  }
+  return '<div class="vp-panel">' + head(d) +
+    '<div class="r4-body">' +
+      '<div class="r4-tugblock">' +
+        '<div class="r4-tuglead">' +
+          '<span class="vp-subhead">The split</span>' +
+          '<span class="verdict">' + splitVerdict(d) + "</span>" +
+        "</div>" +
+        tugBar(d) +
+      "</div>" +
+      ledger(d) +
     "</div>" +
     '<p class="vp-foot">' + FOOT_SCALE + "</p>" +
   "</div>";
@@ -1799,6 +1957,7 @@ function paint() {
   document.getElementById("card1").innerHTML = render1(d);
   document.getElementById("card2").innerHTML = render2(d);
   document.getElementById("card3").innerHTML = render3(d);
+  document.getElementById("card4").innerHTML = render4(d);
   requestAnimationFrame(function () {
     layout1(document.getElementById("card1"));
   });
@@ -1835,10 +1994,10 @@ window.addEventListener("hashchange", function () {
   var D = document.getElementById("themeDark");
   function set(dark) {
     mispDark = dark;
-    ["stage1", "stage2", "stage3"].forEach(function (id) {
+    ["stage1", "stage2", "stage3", "stage4"].forEach(function (id) {
       document.getElementById(id).classList.toggle("dark", dark);
     });
-    ["card1", "card2", "card3"].forEach(function (id) {
+    ["card1", "card2", "card3", "card4"].forEach(function (id) {
       document.getElementById(id).classList.toggle("misp-dark", dark);
     });
     L.setAttribute("aria-pressed", String(!dark));

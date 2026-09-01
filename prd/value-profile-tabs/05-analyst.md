@@ -419,7 +419,7 @@ card, which is a decision about a shipped panel rather than a detail of this
 one — recorded here, not taken.
 
 
-## 16. Panel one, re-drawn — three candidates before the wiring
+## 16. Panel one, re-drawn — and what gets wired
 
 **Phase 13.1.** Panel one ships as specified in §6 and is the panel that has to
 change before live data lands on it. The prototype is legible but it says the
@@ -474,13 +474,14 @@ with the mean's caption ninety units from the marker it describes; and the five
 band labels are filled rectangles inside the track, which draws a continuous
 0–100 axis as a five-segment control competing with the ticks beneath it.
 
-### 16.2 The three candidates
+### 16.2 The candidates
 
 | | Strategy | Form |
 |---|---|---|
 | `B1` Aligned rail | fix the axis | one rail, void cut into it, labels dodging into stacked rows |
 | `B2` Two camps | abandon the axis | headcount tug-bar, two facing columns, the gap as a literal gutter |
 | `B3` Lane ledger | fuse chart and table | one row per organisation on a shared lane, gap as a column crossing all of them |
+| `B4` **chosen** | `B3` plus one borrowed part | the ledger, with `B2`'s tug-bar above it |
 
 `B1` keeps everything §6 describes and repairs it. The rail is continuous and
 tall enough to carry the void's caption inside it, so the empty middle is
@@ -509,20 +510,49 @@ organisations, cluster shape has to be inferred from row order, and because bars
 grow from the pivot a bar can cross the empty column — so its caption has to
 read *no opinion falls in these 48 points*, not *nothing is here*.
 
-### 16.3 Recommended
+### 16.3 Chosen — `B4`, the lane ledger with the tug-bar
 
-**`B3`, with `B2`'s tug-bar above the lanes.** `B3` for the cleanup and for the
-headcount no fixture value exercises; `B2`'s thirty-pixel stacked bar because
-the one thing `B3` reads poorly is whether the set is split and how lopsided,
-and that bar answers it before the reader looks at a single lane. `B1` is the
-lower-risk choice if continuity with §6 matters more — it needs no rewrite
-beyond deleting the histogram paragraph — but it keeps layout logic that has to
-be correct on data nobody has seen.
+**Decided 2026-09-01.** `B3` for the cleanup and for the headcount no fixture
+value exercises, plus `B2`'s tug-bar to cover the one thing `B3` reads poorly:
+whether the set is split at all and how lopsided. The combination is candidate
+`B4` and it is what gets wired. `B1` and `B2` stay on the mockup page for the
+record, not as live options; `B1` remains the lower-risk fallback if continuity
+with §6 ever matters more than the cleanup, at the price of keeping label
+dodging — layout logic that has to be correct on data nobody has seen.
 
-Independent of which layout wins, all three drop the histogram, drop the
+Independent of the layout, all four candidates drop the histogram, drop the
 `.vp-opinion` bar, state each score once, replace the *supports / disputes the
 value* sentence column with a side chip, and add a staleness marker. Those are
-the changes §16.1 forces; the layout is the choice.
+the changes §16.1 forces; the layout was the choice.
+
+#### The tug-bar goes above the lanes, and spans the whole card
+
+**Above**, because a card that is scanned surfaces the summary before the
+detail, and on this card the split *is* the summary — the header sub-line
+already states it in words, so the bar restates it in form where the eye lands
+first. Below, in the summary-chip strip, it would sit underneath the thing it
+exists to frame.
+
+**Spanning the card's full padded width, not the lane column**, because that is
+the one arrangement in which the two horizontal bars cannot be read against
+each other. The tug-bar is sized by headcount and the lane axis by score; stack
+them flush and a one-against-three split puts a segment boundary at 25% of the
+axis, which reads as *the set divides at 25*. Keeping the ruler and lanes inset
+in their own grid column makes the coincidence impossible — the name column and
+the three trailing columns inset the lane asymmetrically, so the lane's centre
+sits left of the card's centre and an even split's boundary lands about 44px
+clear of the 50 pivot at full width. The caption underneath states the units
+outright as the second guard.
+
+Direction still follows the axis: disputes left, agrees right. Costs about 60px
+of card height, and it is the only element on the card whose width means
+nothing.
+
+**The bar carries a clause, not just a shape.** `The split` sub-head is followed
+by one derived phrase — *most agree; 1 of 4 does not*, *an even split, 6 each
+way*, *every organisation agrees* — so a reader who has taken in neither the bar
+nor the lanes still gets the answer in words. Generated from the counts, like
+every other number on the panel.
 
 ### 16.4 Not decided here
 
