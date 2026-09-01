@@ -5,17 +5,36 @@
  * The panel opens on the split rather than on a summary of it. A mean
  * over a divided set is a reading nobody holds, and the Verdict tab
  * already says so about the same numbers; leading with an average here
- * would undo that one tab later. So the strip comes first, the mean is
- * a chip beside a sub-head, and the empty middle is drawn as a bracket
- * and again as a row in the table.
+ * would undo that one tab later.
  *
- * Every number on this panel is computed at render — MISP stores no
- * mean, no buckets and no per-organisation rollup anywhere
- * (`05-analyst.md` §11) — which is what the header chip says out loud.
+ * Two objects, in the order a card is scanned (`05-analyst.md` §16.3):
  *
- * The strip is a static inline SVG scale, not a chart. There is no
- * axis to zoom, no series to hover and nothing to fetch; Chart.js
- * would be a library standing between a reader and eight numbers.
+ * 1. The tug-bar — one stacked bar sized by *headcount*, with the
+ *    split stated beside it in words. It answers "is this set divided,
+ *    and how lopsided" before the reader looks at a single row.
+ * 2. The ledger — one row per organisation on a shared 0-100 lane. A
+ *    bar grows from the 50 pivot to that organisation's score, so
+ *    direction is the side and length is the conviction, and the empty
+ *    middle is a shaded column crossing every lane.
+ *
+ * The two are deliberately not the same width. The tug-bar spans the
+ * panel's whole padded width while the ruler and lanes stay inset in
+ * their own grid column, because the bar is sized by headcount and the
+ * lane axis by score: stack them flush and a one-against-three split
+ * puts a segment boundary at 25% of the axis, which reads as "the set
+ * divides at 25". The name column and the three trailing columns inset
+ * the lane asymmetrically, so the two centres cannot coincide. The
+ * caption under the bar states the units as the second guard.
+ *
+ * There is no histogram. Ten bands over three or four opinions is a
+ * chart of almost nothing, and it was the one place on this panel that
+ * painted the axis the other way round — below 50 green — against the
+ * badges beside it. Each score is now drawn once, as a position, and
+ * said once, as a numeral.
+ *
+ * Every number here is computed at render — MISP stores no mean, no
+ * buckets and no per-organisation rollup anywhere (`05-analyst.md`
+ * §11) — which is what the header chip says out loud.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystStanding.
@@ -27,83 +46,81 @@ $standing = $analyst['standing'];
 $orgs = $standing['orgs'];
 $aggregate = $standing['aggregate'];
 
-/*
- * Geometry, in the SVG's own units. Named rather than inlined because
- * the marker radius is what decides when two organisations collide,
- * and a magic 17 in four places is how that stops being true.
- */
-$stripW = 1180;
-$stripH = 176;
-$padX = 44;
-$trackW = $stripW - ($padX * 2);
-$markR = 17;
-$markY = 56;
-$trackY = 104;
-$trackH = 20;
-
 /**
- * @param int|float $score
- * @return float The x coordinate of a position on the 0-100 scale
+ * Which way an opinion argues, named for what the reader is told
+ * rather than for the fixture's own `malicious` / `benign`.
+ *
+ * The indirection is worth removing rather than carrying: MISP's scale
+ * runs from disagreement to agreement with what the value asserts, so
+ * an opinion above 50 is the *agreeing* one and takes the green the
+ * Overview card uses for agreement. Mapping `malicious` to a green
+ * token two hops away is how the deleted histogram came to disagree
+ * with the table beside it.
+ *
+ * @param string $reads malicious | benign | none
+ * @return string agree | dispute | neither
  */
-$x = function ($score) use ($padX, $trackW) {
-    return round($padX + ($score / 100) * $trackW, 1);
+$sideOf = function ($reads) {
+    if ($reads === 'malicious') {
+        return 'agree';
+    }
+    if ($reads === 'benign') {
+        return 'dispute';
+    }
+    return 'neither';
+};
+
+$sideWord = function ($side) {
+    if ($side === 'agree') {
+        return __('agrees');
+    }
+    if ($side === 'dispute') {
+        return __('disputes');
+    }
+    return __('takes no side');
 };
 
 /*
- * Merge markers that would overlap. Two organisations two points apart
- * are 22 units apart on a 1092-unit scale and their 34-unit discs sit
- * on top of each other, so the strip would show one marker and lose
- * the other — which is the one failure mode a panel about who holds
- * what position cannot have. They become one badged marker instead.
+ * How long ago, in the coarsest unit that is still true. An opinion
+ * held for three months and one held yesterday are different evidence,
+ * and the built panel rendered both as the same plain date.
  */
-$collide = ($markR * 2) + 4;
-$groups = array();
-foreach ($orgs as $org) {
-    $at = $x($org['score']);
-    $last = empty($groups) ? null : count($groups) - 1;
-    if ($last !== null && abs($at - $groups[$last]['x']) < $collide) {
-        $groups[$last]['members'][] = $org;
-        // The group sits at the mean of its members, so a pair reads
-        // as one position rather than as the first one that arrived.
-        $sum = 0;
-        foreach ($groups[$last]['members'] as $member) {
-            $sum += $member['score'];
-        }
-        $groups[$last]['x'] = $x($sum / count($groups[$last]['members']));
-        continue;
-    }
-    $groups[] = array('x' => $at, 'members' => array($org));
-}
+$staleAfter = 60;
 
-$readsWord = function ($reads) {
-    if ($reads === 'malicious') {
-        return __('supports the value');
+$ageLabel = function ($days) {
+    if ($days === null) {
+        return null;
     }
-    if ($reads === 'benign') {
-        return __('disputes the value');
+    if ($days <= 0) {
+        return __('today');
     }
-    return __('argues neither way');
+    if ($days === 1) {
+        return __('yesterday');
+    }
+    if ($days < 31) {
+        return sprintf(__n('%d day ago', '%d days ago', $days), $days);
+    }
+    $months = (int)round($days / 30.44);
+    $months = max(1, $months);
+    return sprintf(
+        __n('%d month ago', '%d months ago', $months),
+        $months
+    );
 };
 
-$readsInk = function ($reads) {
-    if ($reads === 'malicious') {
-        return 'var(--vp-ben)';
-    }
-    if ($reads === 'benign') {
-        return 'var(--vp-mal)';
-    }
-    return 'var(--bs-secondary-color)';
-};
-
-$readsBadge = function ($reads) {
-    if ($reads === 'malicious') {
-        return 'success';
-    }
-    if ($reads === 'benign') {
-        return 'danger';
-    }
-    return 'secondary';
-};
+/*
+ * The five band words, and where each one sits. MISP splits them at
+ * 20/40/60/80 while the reading splits at 50, which is why a band word
+ * is never coloured on this panel: `Neutral` covers 41-60 and so lands
+ * on both sides of the pivot. The footnote says so.
+ */
+$bands = array(
+    array(0, 20, __('Strongly disagree')),
+    array(20, 40, __('Disagree')),
+    array(40, 60, __('Neutral')),
+    array(60, 80, __('Agree')),
+    array(80, 100, __('Strongly agree')),
+);
 
 $subtitle = $aggregate === null
     ? h(__('No opinion on this value from any organisation'))
@@ -143,22 +160,130 @@ $headerExtra = $aggregate === null ? null
             ?></span>
         </div>
     <?php else: ?>
+        <?php
+        /*
+         * The split, counted off the rows this panel is about to
+         * render. Nothing else computes it, so nothing else can
+         * disagree with it.
+         */
+        $bySide = array('agree' => 0, 'dispute' => 0, 'neither' => 0);
+        foreach ($orgs as $org) {
+            $bySide[$sideOf($org['reads'])]++;
+        }
+        $total = count($orgs);
+
+        /*
+         * What the bar amounts to, in one clause, so a reader who has
+         * taken in neither the bar nor the lanes still has the answer.
+         */
+        if ($bySide['dispute'] === 0) {
+            $verdict = __('every organisation agrees');
+        } elseif ($bySide['agree'] === 0) {
+            $verdict = __('every organisation disputes');
+        } elseif ($bySide['agree'] === $bySide['dispute']) {
+            $verdict = sprintf(
+                __('an even split, %s each way'),
+                $bySide['agree']
+            );
+        } else {
+            $minor = min($bySide['agree'], $bySide['dispute']);
+            $verdict = sprintf(
+                $bySide['agree'] > $bySide['dispute']
+                    ? __n(
+                        'most agree; %d of %d does not',
+                        'most agree; %d of %d do not',
+                        $minor
+                    )
+                    : __n(
+                        'most dispute; %d of %d does not',
+                        'most dispute; %d of %d do not',
+                        $minor
+                    ),
+                $minor,
+                $total
+            );
+        }
+
+        $gap = $aggregate['gap'];
+        $showGap = $gap !== null && $gap['points'] >= 20;
+        ?>
         <div class="p-3">
 
             <?php
             /*
-             * ------------------------------------------------------
-             * The position strip
-             * ------------------------------------------------------
-             * One marker per organisation on a 0-100 scale, a bracket
-             * over the widest empty run, and the mean drawn inside
-             * that bracket where it belongs: as a number sitting in a
-             * space nobody occupies.
+             * --------------------------------------------------------
+             * The tug-bar
+             * --------------------------------------------------------
+             * Full panel width, and never aligned to the lane axis
+             * below it — see the note at the head of this file.
              */
-            $gap = $aggregate['gap'];
-            $showGap = $gap !== null && $gap['points'] >= 20;
-            $meanX = $x($aggregate['mean']);
+            $segments = array(
+                array('dispute', $bySide['dispute'], __('dispute')),
+                array('neither', $bySide['neither'], __('neither')),
+                array('agree', $bySide['agree'], __('agree')),
+            );
+            ?>
+            <div class="vpa-tugblock">
+                <div class="vpa-tuglead">
+                    <span class="vp-subhead mb-0"><?= __('The split') ?></span>
+                    <span class="vpa-verdict"><?= h($verdict) ?></span>
+                </div>
 
+                <div class="vpa-tug">
+                    <?php foreach ($segments as $segment):
+                        if ($segment[1] === 0) {
+                            continue;
+                        }
+                        $width = round($segment[1] / $total * 100, 3);
+                        ?>
+                        <div class="vpa-tug-seg vpa-s-<?= $segment[0] ?><?=
+                                  $segment[0] === 'agree' ? ' vpa-tug-end' : ''
+                              ?>"
+                             style="width: <?= $width ?>%;"
+                             title="<?= h(sprintf(
+                                 __n(
+                                     '%1$d organisation %2$s',
+                                     '%1$d organisations %2$s',
+                                     $segment[1]
+                                 ),
+                                 $segment[1],
+                                 $sideWord($segment[0])
+                             )) ?>">
+                            <?php if ($segment[0] === 'agree'): ?>
+                                <span><?= h($segment[2]) ?></span>
+                                <span class="vpa-tug-n"><?=
+                                    (int)$segment[1]
+                                ?></span>
+                            <?php else: ?>
+                                <span class="vpa-tug-n"><?=
+                                    (int)$segment[1]
+                                ?></span>
+                                <span><?= h($segment[2]) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="vpa-tug-cap">
+                    <span><?= __('disputes') ?></span>
+                    <span><?= __('sized by headcount, not by score') ?></span>
+                    <span><?= __('agrees') ?></span>
+                </div>
+            </div>
+
+            <?php
+            /*
+             * --------------------------------------------------------
+             * The ledger
+             * --------------------------------------------------------
+             * A flat grid: five cells in the header row and five per
+             * organisation, with the void, the pivot and the mean
+             * drawn inside each lane. They are per-lane rather than
+             * one element spanning the rows because an explicitly
+             * placed child in an otherwise auto-placed grid displaces
+             * every cell after it; adjacent lanes stack the slices
+             * into one continuous column anyway.
+             */
             $aria = array();
             foreach ($orgs as $org) {
                 $aria[] = sprintf(
@@ -167,423 +292,222 @@ $headerExtra = $aggregate === null ? null
                     $org['score']
                 );
             }
-            $ariaLabel = sprintf(
-                __('Each organisation\'s opinion on the 0 to 100 scale:'
-                    . ' %s.'),
-                implode(__(', '), $aria)
-            );
-
-            $bands = array(
-                array(0, 20, __('Strongly disagree')),
-                array(21, 40, __('Disagree')),
-                array(41, 60, __('Neutral')),
-                array(61, 80, __('Agree')),
-                array(81, 100, __('Strongly agree')),
-            );
             ?>
-            <svg class="vpa-strip"
-                 viewBox="0 0 <?= $stripW ?> <?= $stripH ?>"
-                 role="img" aria-label="<?= h($ariaLabel) ?>">
+            <div class="vpa-ledger-scroll">
+                <div class="vpa-ledger"
+                     role="group"
+                     aria-label="<?= h(sprintf(
+                         __('Each organisation\'s opinion on the 0 to 100'
+                             . ' scale: %s.'),
+                         implode(__(', '), $aria)
+                     )) ?>">
 
-                <rect x="<?= $padX ?>" y="<?= $trackY ?>"
-                      width="<?= $trackW ?>" height="<?= $trackH ?>"
-                      rx="3" style="fill: var(--bs-secondary-bg);"/>
+                    <div class="vpa-h"><?= __('Organisation') ?></div>
 
-                <?php foreach ($bands as $band): ?>
-                    <text x="<?= $x(($band[0] + $band[1]) / 2) ?>"
-                          y="<?= $trackY + 14 ?>" text-anchor="middle"
-                          font-size="10.5"
-                          style="fill: var(--bs-secondary-color);"><?=
-                        h($band[2])
-                    ?></text>
-                <?php endforeach; ?>
+                    <div class="vpa-ruler">
+                        <?php foreach ($bands as $b => $band):
+                            $edge = '';
+                            $at = ($band[0] + $band[1]) / 2;
+                            if ($b === 0) {
+                                $edge = ' vpa-edge-l';
+                                $at = 0;
+                            } elseif ($b === count($bands) - 1) {
+                                $edge = ' vpa-edge-r';
+                                $at = 100;
+                            }
+                            ?>
+                            <span class="vpa-ruler-band<?= $edge ?>"
+                                  style="left: <?= $at ?>%;"><?=
+                                h($band[2])
+                            ?></span>
+                        <?php endforeach; ?>
 
-                <?php foreach (array(20, 40, 60, 80) as $edge): ?>
-                    <line x1="<?= $x($edge) ?>" y1="<?= $trackY ?>"
-                          x2="<?= $x($edge) ?>"
-                          y2="<?= $trackY + $trackH ?>"
-                          style="stroke: var(--bs-body-bg);
-                                 stroke-width: 2;"/>
-                <?php endforeach; ?>
+                        <?php foreach (array(0, 25, 50, 75, 100) as $tick):
+                            $edge = '';
+                            if ($tick === 0) {
+                                $edge = ' vpa-edge-l';
+                            } elseif ($tick === 100) {
+                                $edge = ' vpa-edge-r';
+                            }
+                            ?>
+                            <span class="vpa-ruler-tick<?= $edge ?>"
+                                  style="left: <?= $tick ?>%;"><?=
+                                $tick
+                            ?></span>
+                        <?php endforeach; ?>
 
-                <?php foreach (array(0, 25, 50, 75, 100) as $mark): ?>
-                    <text x="<?= $x($mark) ?>" y="<?= $trackY + 38 ?>"
-                          text-anchor="middle" font-size="10.5"
-                          style="fill: var(--bs-secondary-color);
-                                 font-family:
-                                     var(--bs-font-monospace);"><?=
-                        $mark
-                    ?></text>
-                <?php endforeach; ?>
+                        <?php if ($showGap): ?>
+                            <span class="vpa-ruler-void"
+                                  style="left: <?=
+                                      ($gap['from'] + $gap['to']) / 2
+                                  ?>%;"><?= h(sprintf(
+                                __n(
+                                    'no opinion falls in this %d point',
+                                    'no opinion falls in these %d points',
+                                    $gap['points']
+                                ),
+                                $gap['points']
+                            )) ?></span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="vpa-h"><?= __('Reads it as') ?></div>
+                    <div class="vpa-h vpa-r"><?= __('Notes') ?></div>
+                    <div class="vpa-h vpa-r"><?= __('Last activity') ?></div>
+
+                    <?php foreach ($orgs as $org):
+                        $side = $sideOf($org['reads']);
+                        $score = (int)$org['score'];
+                        $from = min(50, $score);
+                        $to = max(50, $score);
+                        $days = isset($org['days']) ? $org['days'] : null;
+                        $stale = $days !== null && $days >= $staleAfter;
+                        ?>
+                        <div class="vpa-row"
+                             data-vp-a-org="<?= h($org['org']) ?>">
+
+                            <div class="vpa-cell vpa-org">
+                                <span class="misp-icon
+                                             misp-icon-organisation
+                                             misp-simple"></span>
+                                <span class="vp-min-w-0 text-truncate"><?=
+                                    h($org['org'])
+                                ?></span>
+                            </div>
+
+                            <div class="vpa-lane vpa-s-<?= $side ?>"
+                                 title="<?= h(sprintf(
+                                     __('%1$s · %2$s/100 · %3$s'),
+                                     $org['org'],
+                                     $score,
+                                     $org['label']
+                                 )) ?>">
+                                <?php if ($showGap): ?>
+                                    <span class="vpa-lane-void"
+                                          style="left: <?= $gap['from'] ?>%;
+                                                 right: <?=
+                                                     100 - $gap['to']
+                                                 ?>%;"></span>
+                                <?php endif; ?>
+                                <span class="vpa-lane-pivot"
+                                      style="left: 50%;"></span>
+                                <span class="vpa-lane-mean"
+                                      style="left: <?=
+                                          $aggregate['mean']
+                                      ?>%;"></span>
+                                <span class="vpa-lane-track"></span>
+                                <span class="vpa-lane-bar"
+                                      style="left: <?= $from ?>%;
+                                             right: <?= 100 - $to ?>%;"></span>
+                                <span class="vpa-lane-dot"
+                                      style="left: <?= $score ?>%;"></span>
+                                <span class="vpa-lane-val"
+                                      style="<?= $score >= 50
+                                          ? 'left: calc(' . $score
+                                              . '% + 13px);'
+                                          : 'right: calc(' . (100 - $score)
+                                              . '% + 13px);'
+                                      ?>"><?= $score ?></span>
+                            </div>
+
+                            <div class="vpa-cell">
+                                <span class="vpa-reading vpa-s-<?= $side ?>">
+                                    <i></i><?= h($sideWord($side)) ?>
+                                </span>
+                                <span class="vpa-band"><?=
+                                    h($org['label'])
+                                ?></span>
+                            </div>
+
+                            <div class="vpa-cell vpa-r font-monospace"><?=
+                                $org['notes'] > 0
+                                    ? (int)$org['notes']
+                                    : '<span class="text-body-secondary">'
+                                        . '&mdash;</span>'
+                            ?></div>
+
+                            <div class="vpa-cell vpa-r">
+                                <span class="vpa-age<?=
+                                          $stale ? ' vpa-age-stale' : ''
+                                      ?>"
+                                      title="<?= h($org['last']) ?>">
+                                    <?php if ($stale): ?>
+                                        <i class="vpa-age-dot"></i>
+                                    <?php endif; ?>
+                                    <?= h($days === null
+                                        ? $org['last']
+                                        : $ageLabel($days)) ?>
+                                </span>
+                            </div>
+
+                        </div>
+                    <?php endforeach; ?>
+
+                </div>
+            </div>
+
+            <?php
+            /*
+             * The aggregate, as a row of chips rather than a headline.
+             * The mean keeps `.vpa-mean`, so it is struck through here
+             * on exactly the values where it describes nobody.
+             */
+            ?>
+            <div class="vpa-stats">
+                <span class="vpa-stat">
+                    <b><?= count($aggregate['clusters']) ?></b>
+                    <?= h(__n(
+                        'position',
+                        'positions',
+                        count($aggregate['clusters'])
+                    )) ?>
+                </span>
 
                 <?php if ($showGap): ?>
-                    <?php
-                    $gapFrom = $x($gap['from']);
-                    $gapTo = $x($gap['to']);
-                    $gapMid = ($gapFrom + $gapTo) / 2;
-                    ?>
-                    <line x1="<?= $gapFrom ?>" y1="82"
-                          x2="<?= $gapTo ?>" y2="82"
-                          style="stroke: var(--bs-secondary-color);
-                                 stroke-width: 1; stroke-dasharray: 4 3;
-                                 opacity: .8;"/>
-                    <line x1="<?= $gapFrom ?>" y1="78"
-                          x2="<?= $gapFrom ?>" y2="86"
-                          style="stroke: var(--bs-secondary-color);
-                                 stroke-width: 1;"/>
-                    <line x1="<?= $gapTo ?>" y1="78"
-                          x2="<?= $gapTo ?>" y2="86"
-                          style="stroke: var(--bs-secondary-color);
-                                 stroke-width: 1;"/>
-                    <text x="<?= $gapMid ?>" y="72" text-anchor="middle"
-                          font-size="11.5" font-weight="600"
-                          style="fill: var(--bs-secondary-color);"><?=
-                        h(sprintf(
-                            __('%s gap'),
-                            __n(
-                                '%s-point',
-                                '%s-point',
-                                $gap['points'],
-                                $gap['points']
-                            )
-                        ))
-                    ?></text>
+                    <span class="vpa-stat vpa-stat-void">
+                        <b><?= (int)$gap['points'] ?></b>
+                        <?= __('points of empty middle') ?>
+                    </span>
                 <?php endif; ?>
 
-                <?php
-                /*
-                 * The mean, as a marker rather than as a headline. It
-                 * is hollow and struck through when no organisation is
-                 * within half a band of it, which is the only case
-                 * where "a reading nobody holds" is a claim about this
-                 * value rather than a slogan about averages.
-                 */
-                ?>
-                <path d="M <?= $meanX ?> 84 l 7 6 l -7 6 l -7 -6 z"
-                      style="fill: var(--bs-body-bg);
-                             stroke: var(--bs-secondary-color);
-                             stroke-width: 1.5;"/>
-                <text x="<?= $meanX ?>" y="<?= $stripH - 4 ?>"
-                      text-anchor="middle" font-size="11.5"
-                      style="fill: var(--bs-secondary-color);"><?=
-                    h($aggregate['mean_orphan']
-                        ? sprintf(
-                            __('mean %s — a reading no organisation holds'),
-                            $aggregate['mean_label']
-                        )
-                        : sprintf(
-                            __('mean %s'),
-                            $aggregate['mean_label']
-                        ))
-                ?></text>
+                <span class="vpa-stat">
+                    <b><?= (int)$aggregate['empty_bands'] ?></b>
+                    <?= __('of ten bands unoccupied') ?>
+                </span>
 
-                <?php foreach ($groups as $group):
-                    $members = $group['members'];
-                    $merged = count($members) > 1;
-                    $at = $group['x'];
-
-                    $sides = array();
-                    $names = array();
-                    $scores = array();
-                    $titleBits = array();
-                    foreach ($members as $member) {
-                        $sides[$member['reads']] = true;
-                        $names[] = $member['org'];
-                        $scores[] = $member['score'];
-                        $titleBits[] = sprintf(
-                            __('%1$s · %2$s/100 · %3$s'),
-                            $member['org'],
-                            $member['score'],
-                            $member['last']
-                        );
-                    }
-                    $ink = count($sides) === 1
-                        ? $readsInk(key($sides))
-                        : 'var(--bs-secondary-color)';
-                    $fill = 'color-mix(in srgb, ' . $ink
-                        . ' 20%, var(--bs-body-bg))';
-                    ?>
-                    <g class="vpa-mark" data-vp-a-mark="<?=
-                           h(implode('|', $names)) ?>">
-                        <title><?= h(implode(' · ', $titleBits)) ?></title>
-                        <line x1="<?= $at ?>"
-                              y1="<?= $markY + $markR + 4 ?>"
-                              x2="<?= $at ?>" y2="<?= $trackY ?>"
-                              style="stroke: <?= $ink ?>;
-                                     stroke-width: 1.5; opacity: .55;"/>
-                        <circle cx="<?= $at ?>" cy="<?= $markY ?>"
-                                r="<?= $markR ?>"
-                                style="fill: <?= $fill ?>;
-                                       stroke: <?= $ink ?>;
-                                       stroke-width: 2.5;"/>
-                        <text x="<?= $at ?>" y="<?= $markY + 5 ?>"
-                              text-anchor="middle" font-size="13"
-                              font-weight="700"
-                              style="fill: var(--bs-body-color);"><?=
-                            $merged
-                                ? '&#215;' . count($members)
-                                : (int)$members[0]['score']
-                        ?></text>
-                        <text x="<?= $at ?>" y="22" text-anchor="middle"
-                              font-size="13" font-weight="600"
-                              style="fill: var(--bs-body-color);"><?=
-                            h($merged
-                                ? sprintf(
-                                    __n(
-                                        '%s organisation',
-                                        '%s organisations',
-                                        count($members),
-                                        count($members)
-                                    )
-                                )
-                                : $members[0]['org'])
-                        ?></text>
-                        <text x="<?= $at ?>" y="35" text-anchor="middle"
-                              font-size="10.5"
-                              style="fill: var(--bs-secondary-color);"><?=
-                            h($merged
-                                ? min($scores) . '–' . max($scores)
-                                : $members[0]['last'])
-                        ?></text>
-                    </g>
-                <?php endforeach; ?>
-
-            </svg>
-
-            <div class="row g-4 mt-0">
-
-                <?php
-                /*
-                 * ------------------------------------------------
-                 * The histogram
-                 * ------------------------------------------------
-                 * The same ten buckets and the same classes the
-                 * Verdict tab draws, so a reader who has seen one
-                 * recognises the other. Empty bands are a 2% stub
-                 * rather than nothing, because the gaps are the
-                 * point and a missing bar reads as a missing band.
-                 */
-                $tallest = 1;
-                foreach ($aggregate['buckets'] as $bucket) {
-                    $tallest = max($tallest, (int)$bucket['count']);
-                }
-                ?>
-                <div class="col-lg-4">
-                    <div class="vp-subhead"><?=
-                        __('Distribution, 0–100 in ten bands')
-                    ?></div>
-
-                    <div class="vpa-hist-counts">
-                        <?php foreach ($aggregate['buckets'] as $bucket): ?>
-                            <span><?= (int)$bucket['count'] === 0
-                                ? '&middot;'
-                                : (int)$bucket['count'] ?></span>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="vp-hist" style="height: 64px;">
-                        <?php foreach ($aggregate['buckets'] as $b => $bucket):
-                            $count = (int)$bucket['count'];
-                            $side = $b < 5 ? 'ben' : 'mal';
-                            ?>
-                            <span class="vp-hist-bar vp-hist-bar-<?= $side ?><?=
-                                $count === 0 ? ' vp-hist-bar-empty' : '' ?>"
-                                  style="height: <?= $count === 0
-                                      ? 2
-                                      : round($count / $tallest * 100, 2)
-                                  ?>%;"
-                                  title="<?= h(sprintf(
-                                      __n(
-                                          '%1$s opinion in %2$s',
-                                          '%1$s opinions in %2$s',
-                                          $count
-                                      ),
-                                      $count,
-                                      $bucket['label']
-                                  )) ?>"></span>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="vp-hist-axis">
-                        <span>0</span><span>50</span><span>100</span>
-                    </div>
-
-                    <p class="vp-aside-note"><?= h(sprintf(
-                        __(
-                            '%1$s. The same ten buckets the Verdict tab'
-                            . ' draws, so a reader who has seen one'
-                            . ' recognises the other.'
-                        ),
-                        sprintf(
-                            __('%1$s, %2$s'),
-                            __n(
-                                '%s position',
-                                '%s positions',
-                                count($aggregate['clusters']),
-                                count($aggregate['clusters'])
-                            ),
-                            __n(
-                                '%s empty band',
-                                '%s empty bands',
-                                $aggregate['empty_bands'],
-                                $aggregate['empty_bands']
-                            )
-                        )
-                    )) ?></p>
-                </div>
-
-                <div class="col-lg-8">
-                    <div class="d-flex align-items-center gap-2 mb-2
-                                flex-wrap">
-                        <span class="vp-subhead mb-0"><?=
-                            __('Per organisation')
-                        ?></span>
-                        <span class="vpa-mean<?= $aggregate['mean_orphan']
-                                  ? ' vpa-mean-orphan' : '' ?>"
-                              title="<?= h($aggregate['mean_orphan']
-                                  ? __(
-                                      'Shown because the aggregate is'
-                                      . ' specified, struck through'
-                                      . ' because it describes nobody:'
-                                      . ' the nearest opinion is more'
-                                      . ' than half a band away.'
-                                  )
-                                  : __(
-                                      'Shown because the aggregate is'
-                                      . ' specified. On this value an'
-                                      . ' organisation does hold a'
-                                      . ' position within half a band'
-                                      . ' of it.'
-                                  )) ?>">
-                            <?= h(__('mean')) ?>
-                            <span class="vpa-mean-value"><?=
-                                h($aggregate['mean_label'])
-                            ?></span>
-                            <span><?= h(sprintf(
-                                __('over %s'),
-                                __n(
-                                    '%s opinion',
-                                    '%s opinions',
-                                    $aggregate['n'],
-                                    $aggregate['n']
-                                )
-                            )) ?></span>
-                        </span>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle mb-0
-                                      vp-table">
-                            <thead>
-                                <tr>
-                                    <th><?= __('Organisation') ?></th>
-                                    <th><?= __('Opinion') ?></th>
-                                    <th><?= __('Reads the value as') ?></th>
-                                    <th><?= __('Position') ?></th>
-                                    <th class="text-center"><?=
-                                        __('Notes')
-                                    ?></th>
-                                    <th><?= __('Last activity') ?></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                $previous = null;
-                                foreach ($orgs as $org):
-                                    /*
-                                     * The empty middle, rendered as a
-                                     * row. It is the most important
-                                     * thing on the panel, and a table
-                                     * that simply runs 60 into 30 is
-                                     * where it would disappear.
-                                     */
-                                    if (
-                                        $previous !== null
-                                        && $previous['reads'] !== 'benign'
-                                        && $org['reads'] === 'benign'
-                                    ):
-                                        ?>
-                                        <tr class="vpa-gaprow">
-                                            <td colspan="6"
-                                                class="text-center small
-                                                       text-body-secondary
-                                                       py-1"><?=
-                                                h(sprintf(
-                                                    __(
-                                                        'no organisation'
-                                                        . ' between %1$s'
-                                                        . ' and %2$s'
-                                                    ),
-                                                    $org['score'],
-                                                    $previous['score']
-                                                ))
-                                            ?></td>
-                                        </tr>
-                                    <?php endif;
-                                    $previous = $org;
-                                    ?>
-                                    <tr data-vp-a-org="<?= h($org['org']) ?>">
-                                        <td>
-                                            <span class="misp-icon
-                                                         misp-icon-organisation
-                                                         misp-simple me-1">
-                                            </span><?= h($org['org']) ?>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?=
-                                                $readsBadge($org['reads'])
-                                            ?>-subtle text-<?=
-                                                $readsBadge($org['reads'])
-                                            ?>-emphasis border border-<?=
-                                                $readsBadge($org['reads'])
-                                            ?>-subtle fw-semibold">
-                                                <?= h($org['label']) ?>
-                                                &middot;
-                                                <?= h($org['score']) ?>/100
-                                            </span>
-                                        </td>
-                                        <td class="text-body-secondary"><?=
-                                            h($readsWord($org['reads']))
-                                        ?></td>
-                                        <td>
-                                            <span class="vp-opinion">
-                                                <span class="vp-opinion-track">
-                                                    <span
-                                                        class="vp-opinion-fill"
-                                                        style="width: <?=
-                                                            (int)$org['score']
-                                                        ?>%;"></span>
-                                                </span>
-                                                <span class="vp-opinion-value">
-                                                    <?= h($org['score']) ?>/100
-                                                </span>
-                                            </span>
-                                        </td>
-                                        <td class="text-center"><?=
-                                            h($org['notes'])
-                                        ?></td>
-                                        <td class="font-monospace
-                                                   text-body-secondary"><?=
-                                            h($org['last'])
-                                        ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p class="vp-aside-note"><?= __(
-                        'Colour is the agreement, not the reading: green'
-                        . ' above 50 agrees with what the value asserts,'
-                        . ' red below 50 disputes it. This is the scale'
-                        . ' MISP itself puts on an opinion, and the same'
-                        . ' hues the Overview card uses for the bands it'
-                        . ' names. An opinion written on a note takes'
-                        . ' neither.'
-                    ) ?></p>
-                </div>
-
+                <span class="vpa-mean<?= $aggregate['mean_orphan']
+                          ? ' vpa-mean-orphan' : '' ?>"
+                      title="<?= h($aggregate['mean_orphan']
+                          ? __(
+                              'Shown because the aggregate is specified,'
+                              . ' struck through because it describes'
+                              . ' nobody: the nearest opinion is more'
+                              . ' than half a band away.'
+                          )
+                          : __(
+                              'Shown because the aggregate is specified.'
+                              . ' On this value an organisation does hold'
+                              . ' a position within half a band of it.'
+                          )) ?>">
+                    <span class="vpa-mean-value"><?=
+                        h($aggregate['mean_label'])
+                    ?></span>
+                    <span><?= h($aggregate['mean_orphan']
+                        ? __('mean — no organisation holds it')
+                        : __('mean')) ?></span>
+                </span>
             </div>
+
+            <p class="vp-aside-note"><?= __(
+                'Above 50 agrees with what the value asserts; below 50'
+                . ' disputes it — the same hues the Overview card uses'
+                . ' for the bands it names. The band word is MISP\'s own'
+                . ' five-step scale and splits at 20/40/60/80, so a'
+                . ' Neutral opinion can sit on either side of the pivot:'
+                . ' 45 disputes, 60 agrees. An opinion written on a note'
+                . ' rates the note, not the value, and is not counted'
+                . ' here.'
+            ) ?></p>
 
         </div>
     <?php endif; ?>

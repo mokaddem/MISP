@@ -4192,32 +4192,6 @@
     }
 
     /**
-     * A strip marker and the table rows it stands for, lit together.
-     *
-     * A merged marker carries every organisation it swallowed, so
-     * hovering the badged one highlights all of them — which is the
-     * only way the reader finds out which organisations collided.
-     *
-     * @param {Element} mark
-     * @param {boolean} on
-     */
-    function highlightAnalystMark(mark, on) {
-        var panel = mark.closest('[data-vp-analyst-standing]');
-        if (!panel) {
-            return;
-        }
-        mark.classList.toggle('vpa-mark-on', on);
-        (mark.dataset.vpAMark || '').split('|').forEach(function (org) {
-            panel
-                .querySelectorAll('[data-vp-a-org]')
-                .forEach(function (row) {
-                    if (row.dataset.vpAOrg === org) {
-                        row.classList.toggle('vpa-row-on', on);
-                    }
-                });
-        });
-    }
-
     /**
      * @param {Element} root
      */
@@ -5898,28 +5872,10 @@
             }
         });
 
-        // Hovering a strip marker lights the table rows it stands
-        // for. Delegated, because the standing panel arrives after
-        // load like every other fragment on this page.
-        document.addEventListener('mouseover', function (event) {
-            if (!event.target.closest) {
-                return;
-            }
-            var mark = event.target.closest('[data-vp-a-mark]');
-            if (mark) {
-                highlightAnalystMark(mark, true);
-            }
-        });
-
-        document.addEventListener('mouseout', function (event) {
-            if (!event.target.closest) {
-                return;
-            }
-            var leaving = event.target.closest('[data-vp-a-mark]');
-            if (leaving) {
-                highlightAnalystMark(leaving, false);
-            }
-        });
+        // The standing panel used to pair a strip marker with the
+        // table rows it stood for. Its ledger fuses the two — the
+        // marker and the row are one object now — so the hover lives
+        // in `.vpa-row:hover` and needs no script.
 
         document.addEventListener('change', function (event) {
             if (event.target.id === 'vp-occ-deleted-toggle') {

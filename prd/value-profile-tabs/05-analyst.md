@@ -201,11 +201,36 @@ Disabled with a `title`: the composer, its `Attach to` picker, and its submit.
 
 ## 10. CSS
 
-New: `.vpa-strip` (the scale), `.vpa-mean`, `.vpa-side-*`, `.vpa-chip`,
-`.vpa-md`, `.vpa-reply`, `.vpa-hist-counts`, `.vpa-thread`.
+**As built, after §16.** Panel one's classes are the tug-bar and the ledger;
+`.vpa-strip`, `.vpa-hist-counts`, `.vpa-gaprow`, `.vpa-mark*` and `.vpa-row-on`
+are gone with the strip and the histogram they styled.
 
-Reused as-is: `.vp-analyst*`, `.vp-hist*`, `.vp-opinion*`, `.vp-panel*`,
-`.vp-table`, `.vp-empty`, `.vp-acl-note`, `.vp-subhead`.
+Panel one: `.vpa-s-*` (the reading, as one custom property pair),
+`.vpa-tugblock`, `.vpa-tuglead`, `.vpa-verdict`, `.vpa-tug`, `.vpa-tug-seg`,
+`.vpa-tug-end`, `.vpa-tug-n`, `.vpa-tug-cap`, `.vpa-ledger-scroll`,
+`.vpa-ledger`, `.vpa-row`, `.vpa-h`, `.vpa-r`, `.vpa-ruler`,
+`.vpa-ruler-band`, `.vpa-ruler-tick`, `.vpa-ruler-void`, `.vpa-edge-*`,
+`.vpa-cell`, `.vpa-org`, `.vpa-band`, `.vpa-lane`, `.vpa-lane-track`,
+`.vpa-lane-void`, `.vpa-lane-pivot`, `.vpa-lane-mean`, `.vpa-lane-bar`,
+`.vpa-lane-dot`, `.vpa-lane-val`, `.vpa-reading`, `.vpa-age*`, `.vpa-stats`,
+`.vpa-stat`, `.vpa-stat-void`.
+
+Panel two, unchanged: `.vpa-side-*`, `.vpa-chip`, `.vpa-md`, `.vpa-reply`,
+`.vpa-thread`, `.vpa-composer*`, `.vpa-depth`, `.vpa-notcounted`,
+`.vpa-replybtn`.
+
+`.vpa-mean` is kept and shared: the ledger's summary row carries it so the mean
+still arrives dashed and conditionally struck through, with
+`.vpa-stats > .vpa-mean` giving it the chip row's metrics.
+
+**Two names that look like one family and are not.** `.vpa-reading` is panel
+one's side chip; `.vpa-side-*` are panel two's item markers. Neither selector
+matches the other — class names are exact tokens — but the resemblance is worth
+the comment it carries in the stylesheet.
+
+Reused as-is: `.vp-analyst*`, `.vp-opinion*`, `.vp-panel*`, `.vp-empty`,
+`.vp-acl-note`, `.vp-subhead`, `.vp-aside-note`, `.vp-min-w-0`. `.vp-hist*` is
+no longer used by this tab; the Verdict tab keeps it.
 
 ## 11. Deferred, and what live data will hit
 
@@ -562,3 +587,48 @@ Verdict tab keeps its own histogram and this panel stops having one. Whether
 the Overview's analyst preview is brought onto the same colour rule as the
 winning candidate remains what §15 says it is: a decision about a shipped panel,
 recorded and not taken.
+
+### 16.5 Built
+
+`B4` is in `value_analyst_standing.ctp`. Still prototype — the panel reads
+`ValueProfileFixture` exactly as before and nothing writes — so this is the
+mockup's arrangement moved into the element, not the live wiring.
+
+**Four files, not one.** The template is the bulk of it, but the markup needs
+primitives and the codebase keeps panel styles in `value-profile.css` rather
+than inline (§10). Two smaller changes came with it:
+
+- **`value-profile.js`** loses `highlightAnalystMark` and its two delegated
+  `mouseover` / `mouseout` listeners. They paired a strip marker with the table
+  rows it stood for; the ledger fuses the two, so the marker *is* the row and
+  the highlight is `.vpa-row:hover`. The rows are `display: contents` wrappers,
+  which keeps the grid flat while giving the whole row one hover — verified in
+  Chrome, where hovering a lane does light its name cell.
+- **`ValueProfileFixture::analystStanding()`** gains a `days` field per row.
+  Staleness has to be measured against the artboard's `TODAY` and not the
+  clock: a template comparing `$org['last']` to `time()` would age every fixture
+  opinion by however long ago the fixture was written. Live data supplies the
+  same field from the real timestamp, so the template does not change when the
+  source does.
+
+**What the defects in §16.1 look like now.**
+
+| Defect | As built |
+|---|---|
+| Histogram coloured against the table | the histogram is gone; `--vpa-side` sets the hue once and the bar, dot, chip and tug-bar segment all read it |
+| Labels collide at 8 and 15 | names live in a fixed grid column; collision is structurally impossible |
+| `×2` merge deletes names | no merging — 10 and 12 each hold a named row on `104.21.34.198` |
+| red *Neutral*, green *Neutral* | the band word is never coloured; it sits beside the reading as `disputes · Neutral`, and the footnote says why the two partitions differ |
+| staleness invisible | `.vpa-age-stale` gives anything past 60 days the correlation hue and a dot — CERT-EU's 102-day-old opinion on `45.155.205.233` reads `3 months ago` beside CIRCL's `yesterday` |
+
+**One honest edge the fixture shows.** Bars grow from the 50 pivot, so a bar
+crosses the shaded empty column even though no opinion sits in it — on the
+malicious value `Team-CIRCL 60` lies inside the 30–60 void. The caption is
+therefore *no opinion falls in these 30 points*, about where the dots are, not
+about the region being untouched.
+
+**Verified** against all four fixture values and the unknown value, in light and
+dark theme, with no PHP notices on any of the five and the thread panel
+unaffected. The 12-organisation case remains unexercised by any fixture value —
+it is the state §16.2 chose `B3` for and the one nothing on the instance can
+yet show.

@@ -5697,72 +5697,464 @@ th.vp-rel-num {
 /* ==================================================================
  * Analyst data tab
  * ==================================================================
- * The item itself, its badges, its histogram, its bars and its empty
- * states are primitives that already exist — .vp-analyst, .vp-hist,
- * .vp-opinion, .vp-table, .vp-empty, .vp-acl-note, .vp-subhead. What
- * is new here is threading, the 0-100 position strip, the chip naming
- * what an item hangs off, and the composer shell.
+ * The item itself, its badges, its bars and its empty states are
+ * primitives that already exist — .vp-analyst, .vp-opinion,
+ * .vp-table, .vp-empty, .vp-acl-note, .vp-subhead. What is new here is
+ * threading, the standing panel's tug-bar and lane ledger, the chip
+ * naming what an item hangs off, and the composer shell.
  * ================================================================== */
 
-/* The 0-100 position strip. Mostly SVG; this only sizes it and gives
-   its text the page's own font rather than the browser's default. */
-.vpa-strip {
-    display: block;
-    width: 100%;
-    height: auto;
-    margin-bottom: 4px;
-    font-family: var(--bs-body-font-family);
+/* ------------------------------------------------------------------
+ * The reading, as one custom property
+ * ------------------------------------------------------------------
+ * Above 50 agrees with what the value asserts and takes the green the
+ * Overview card uses for agreement; below 50 disputes it and takes the
+ * red. Set once here and read by the bar, the dot, the chip and the
+ * tug-bar segment, so the encoding cannot drift between two elements
+ * of one panel — which is exactly what the deleted histogram did.
+ * ------------------------------------------------------------------ */
+
+.vpa-s-agree {
+    --vpa-side: var(--vp-ben);
+    --vpa-side-ink: var(--vp-ben-ink);
 }
 
-/* A marker and the table row it belongs to light up together, which
-   is the whole reason the strip and the table are one panel. */
-.vpa-mark {
-    cursor: default;
+.vpa-s-dispute {
+    --vpa-side: var(--vp-mal);
+    --vpa-side-ink: var(--vp-mal-ink);
 }
 
-.vpa-mark circle {
-    transition: filter 0.12s ease-out;
+.vpa-s-neither {
+    --vpa-side: var(--bs-secondary-color);
+    --vpa-side-ink: var(--bs-secondary-color);
 }
 
-.vpa-mark-on circle {
-    filter: brightness(1.08);
-    stroke-width: 4;
+/* ------------------------------------------------------------------
+ * The tug-bar
+ * ------------------------------------------------------------------
+ * Headcount on each side of the pivot. Spans the panel's full padded
+ * width while the lanes below stay inset in their grid column, so a
+ * segment boundary can never line up with a score tick.
+ * ------------------------------------------------------------------ */
+
+.vpa-tugblock {
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.9rem;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
-.vp-table tr.vpa-row-on > td {
-    background: color-mix(in srgb, var(--analystData) 10%,
-        var(--bs-body-bg));
-}
-
-[data-bs-theme="dark"] .vp-table tr.vpa-row-on > td {
-    background: color-mix(in srgb, var(--analystData) 22%,
-        var(--bs-body-bg));
-}
-
-/* The empty middle, as a row. Dashed above and below so it reads as a
-   break in the list rather than as a fifth organisation. */
-.vpa-gaprow > td {
-    border-top: 1px dashed var(--bs-border-color) !important;
-    border-bottom: 1px dashed var(--bs-border-color) !important;
-    background: color-mix(in srgb, var(--bs-secondary-bg) 45%,
-        var(--bs-body-bg));
-}
-
-/* Counts above the histogram, so four buckets of one still read as
-   data rather than as four bars of the same height. */
-.vpa-hist-counts {
+.vpa-tuglead {
     display: flex;
-    gap: 3px;
-    margin-bottom: 3px;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
 }
 
-.vpa-hist-counts > span {
-    flex: 1 1 0;
-    text-align: center;
+.vpa-verdict {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+
+.vpa-tug {
+    display: flex;
+    height: 30px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bs-secondary-bg);
+    margin-bottom: 2px;
+}
+
+.vpa-tug-seg {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0 0.6rem;
+    background: var(--vpa-side);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.vpa-tug-end {
+    justify-content: flex-end;
+}
+
+.vpa-tug-n {
     font-family: var(--bs-font-monospace);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.vpa-tug-cap {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
     font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vpa-tug-cap > span:nth-child(2) {
+    text-align: center;
+}
+
+/* ------------------------------------------------------------------
+ * The lane ledger
+ * ------------------------------------------------------------------
+ * Chart and table as one object. The name column is fixed, so two
+ * organisations can never collide however close their scores are —
+ * the failure the position strip could only avoid by merging markers
+ * and dropping the names it existed to show.
+ * ------------------------------------------------------------------ */
+
+.vpa-ledger-scroll {
+    overflow-x: auto;
+}
+
+.vpa-ledger {
+    display: grid;
+    grid-template-columns:
+        minmax(120px, 168px) minmax(320px, 1fr) auto auto auto;
+    align-items: stretch;
+}
+
+.vpa-ledger > * {
+    min-width: 0;
+}
+
+/* The rows exist to carry one organisation's identity and to let the
+   whole row light on hover; they generate no box of their own. */
+.vpa-row {
+    display: contents;
+}
+
+.vpa-h {
+    align-self: end;
+    padding: 0 0.5rem 0.45rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vpa-r {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.vpa-h.vpa-r {
+    text-align: right;
+}
+
+/* Three rows at fixed tops — band words, numerals, then the void's
+   caption — so none of them can land on another. */
+.vpa-ruler {
+    position: relative;
+    height: 50px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vpa-ruler-band {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.vpa-ruler-tick {
+    position: absolute;
+    top: 16px;
+    transform: translateX(-50%);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.63rem;
     font-variant-numeric: tabular-nums;
     color: var(--bs-secondary-color);
+}
+
+.vpa-ruler-void {
+    position: absolute;
+    top: 33px;
+    transform: translateX(-50%);
+    padding: 0 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--bs-secondary-color) 9%,
+        var(--bs-body-bg));
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+/* The two outermost labels sit against the panel edge, so they anchor
+   to their own end instead of centring off it. */
+.vpa-edge-l {
+    transform: translateX(0);
+}
+
+.vpa-edge-r {
+    transform: translateX(-100%);
+}
+
+.vpa-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.5rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.8rem;
+}
+
+.vpa-org {
+    font-weight: 600;
+}
+
+/* The band word sits beside the reading, not instead of it: this is
+   where a reader sees `disputes · Neutral` on a 45 and understands
+   why the two partitions disagree. */
+.vpa-band {
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vpa-band::before {
+    content: "·";
+    margin-right: 0.35rem;
+    opacity: 0.6;
+}
+
+.vpa-lane {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vpa-row:hover > .vpa-cell,
+.vpa-row:hover > .vpa-lane {
+    background: color-mix(in srgb, var(--analystData) 7%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vpa-row:hover > .vpa-cell,
+[data-bs-theme="dark"] .vpa-row:hover > .vpa-lane {
+    background: color-mix(in srgb, var(--analystData) 18%,
+        var(--bs-body-bg));
+}
+
+.vpa-lane-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: var(--bs-border-color);
+}
+
+/* The void, the pivot and the mean are drawn per lane rather than as
+   one element spanning the rows: an explicitly placed child in an
+   otherwise auto-placed grid displaces every cell after it. Adjacent
+   lanes stack the slices into one continuous column. */
+.vpa-lane-void {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: color-mix(in srgb, var(--bs-secondary-color) 7%,
+        transparent);
+    border-left: 1px dashed var(--bs-secondary-color);
+    border-right: 1px dashed var(--bs-secondary-color);
+}
+
+.vpa-lane-pivot {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-50%);
+    background: var(--bs-secondary-color);
+    opacity: 0.3;
+}
+
+.vpa-lane-mean {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    transform: translateX(-50%);
+    border-left: 1px dashed var(--bs-body-color);
+    opacity: 0.45;
+}
+
+/* Length is the conviction, direction is the side. */
+.vpa-lane-bar {
+    position: absolute;
+    top: 50%;
+    height: 8px;
+    border-radius: 2px;
+    transform: translateY(-50%);
+    background: var(--vpa-side);
+    opacity: 0.85;
+}
+
+.vpa-lane-dot {
+    position: absolute;
+    top: 50%;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid var(--bs-body-bg);
+    background: var(--vpa-side);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.14);
+}
+
+.vpa-lane-val {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.74rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--vpa-side-ink);
+    white-space: nowrap;
+}
+
+/* The reading, said once, in words and in colour. Named apart from
+   the thread's `.vpa-side-*` item markers, which are an unrelated
+   family despite the resemblance. */
+.vpa-reading {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--vpa-side-ink);
+    white-space: nowrap;
+}
+
+.vpa-reading > i {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--vpa-side);
+}
+
+/* ------------------------------------------------------------------
+ * Staleness
+ * ------------------------------------------------------------------
+ * An opinion three months old and one from yesterday are different
+ * evidence. Above the threshold the phrase takes the correlation hue
+ * and a dot, so it is findable by scanning rather than by reading.
+ * ------------------------------------------------------------------ */
+
+.vpa-age {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vpa-age-stale {
+    font-weight: 600;
+    color: var(--correlation);
+}
+
+.vpa-age-dot {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--correlation);
+}
+
+/* ------------------------------------------------------------------
+ * The aggregate, as chips
+ * ------------------------------------------------------------------ */
+
+.vpa-stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.9rem;
+}
+
+.vpa-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-tertiary-bg);
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vpa-stat > b {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}
+
+.vpa-stat-void {
+    border-style: dashed;
+}
+
+/* The mean keeps `.vpa-mean` — its dashed border and its conditional
+   strike-through are the treatment the whole page gives an aggregate —
+   but it sits in this row as one chip among four, so it takes the
+   row's metrics. */
+.vpa-stats > .vpa-mean {
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.vpa-stats > .vpa-mean .vpa-mean-value {
+    font-size: 0.82rem;
+    color: var(--bs-body-color);
+}
+
+/* Five band words need about 550px of ruler. Below that they touch,
+   so they go: the numerals are the axis, the words are the gloss. */
+@media (max-width: 820px) {
+    .vpa-ruler-band {
+        display: none;
+    }
+
+    .vpa-ruler {
+        height: 36px;
+    }
+
+    .vpa-ruler-tick {
+        top: 2px;
+    }
+
+    .vpa-ruler-void {
+        top: 19px;
+    }
 }
 
 /* The mean, wherever it appears: present, sourced, and never the

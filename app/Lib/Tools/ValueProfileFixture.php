@@ -6946,6 +6946,19 @@ class ValueProfileFixture
                 'date' => $held['date'],
                 'notes' => $notes,
                 'last' => $last,
+                /*
+                 * How stale the organisation's last activity is, in
+                 * days. Measured here rather than in the template
+                 * because the artboard's "now" is `TODAY` and not the
+                 * clock — a view comparing against `time()` would age
+                 * every fixture opinion by however long ago the
+                 * fixture was written. Live data supplies the same
+                 * field from the real timestamp.
+                 */
+                'days' => self::dayDiff(
+                    substr($last, 0, 10),
+                    self::TODAY
+                ),
             );
         }
 
