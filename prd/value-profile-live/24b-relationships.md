@@ -35,7 +35,7 @@ live instance and recorded in its own section below.
 |---|---|---|---|---|---|---|
 | B1 | The references panel's object link | `value_relation_references` | XS | no | no | **done** |
 | B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | **done** |
-| B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | todo |
+| B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | **done** |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | todo |
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | todo |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence` | M | **yes** | no | todo |
@@ -324,6 +324,102 @@ changes it changes in both.
 counts, do not invent ages. The section's existing cache-age sentence
 ("read just now", the five-minute hold) already covers freshness and
 stays where it is.
+
+### 5.1 Done — 2026-09-01
+
+Both halves landed as specified, and a third thing came out of the pass
+that was larger than either.
+
+**The hit state.** One row per source, and the row's headline is its
+count: the number, in the section's own colour, and the unit beside it.
+The pills sit behind that count in a native `<details>`, and opening it
+shows them exactly as before — the task asked for no change to them and
+they got none. `<details>` rather than the ledger's Bootstrap collapse
+because this fragment is injected lazily and binds no JS of its own; a
+fold that needs `misp:container-loaded` to have fired is a fold that can
+arrive inert. The header now leads with sources — *"2 feeds and 1 sync
+server · 6 remote events"* — and drops the events clause when a source
+holds the value but names no event.
+
+**The miss state has two forms, not one, and the second is the point.**
+The novelty sentence renders as specified for a reader whose role
+searched something: *"In 0 of 5 cached feeds and 1 sync server this
+instance holds. Locally unique, as far as this instance can see."* But
+the denominator is the sources **this reader's role searched**, never
+the instance's total — "0 of 5" when four of the five were never looked
+in is arithmetic that reads as coverage the reader did not get — so a
+restricted reader gets *"In 0 of 5 cached feeds your role can read"* and
+the claim narrows with it. And a reader whose role reaches **no** cached
+source at all gets no novelty claim of any kind, because none was
+measured: *"This instance caches 5 feeds and 1 sync server, and your
+role may be told about none of them, so nothing was looked up. This is
+not a statement that the value is absent from them."* The same sentence
+would otherwise have been false for that reader on every value they ever
+opened, which is the exact shape of claim §14.6 exists to refuse. The
+Overview card takes the same branch — subtitle *"Nothing your role can
+search"* — so the pair still cannot disagree.
+
+Neither new branch is keyed on the value: both read `visible` against
+`cached`, which are properties of the role and the instance config.
+
+**The ACL rule was wrong, and it was disclosing feeds.** Checked because
+the task's own framing — *counts first* — meant deciding what the
+denominators may say to whom. `externalVisibility()` admitted a
+`lookup_visible = 0` feed to any holder of
+`perm_view_feed_correlations`. All three surfaces MISP ships withhold
+such a feed's identity from everyone but a site admin: the event view
+conditions on `lookup_visible = 1` for `!perm_site_admin`
+(`Feed::getCachedFeedsOrServers`), and `/feeds/index` and
+`/feeds/searchCaches` add a host-org branch that cannot fire, because
+they compare a session `org_id` (string `'1'`) to `MISP.host_org_id`
+(int `1`) with `!==`. `AppModel`'s migration sets the permission to 1
+for every existing role and `lookup_visible` defaults to 0, so this was
+the common case on an upgraded instance, not a corner.
+
+Reproduced before the fix by flipping `CIRCL OSINT Feed` to
+`lookup_visible = 0` and running one value through every reader, against
+what each MISP surface would hand the same reader:
+
+| Reader | Panel, before | `searchCaches` | `/feeds/index` |
+|---|---|---|---|
+| site admin | CIRCL, Botvrij, Training Main | same | all five |
+| Org Admin, org CIRCL | Botvrij | Botvrij | four, no CIRCL |
+| **same, `perm_view_feed_correlations` = 1** | **CIRCL + URL + 2 event links**, Botvrij | Botvrij | four, no CIRCL |
+
+The panel also cleared its own withheld-sources band for that reader —
+`restricted` went to false — so it claimed full coverage while showing a
+feed the instance withholds. After the fix the third row is identical to
+the second, and the band fires. `tabs/03-relationships.md` §20.2 and
+§20.9 carry the corrected rule and the reasoning error behind it.
+
+The host-org branch is deliberately not reproduced. Copying it would
+mean copying a comparison that does not do what it reads as doing, and
+fixing it belongs to those two surfaces rather than to a page that only
+reads them. The effect here is that the page is stricter than a host-org
+non-admin could argue for — which is the safe direction, and the
+withheld-sources band tells them so on every value alike.
+
+**One bug the markup could not show.** The pills were wrapped in
+Bootstrap's `.d-flex`, which is declared `!important` and therefore
+beats a closed `<details>`: the fold rendered, the chevron turned, and
+the pills never hid. Caught by asserting the pill's height in a browser
+rather than by reading the fragment. The fold's closed state is now
+stated in `value-profile.css` rather than left to the UA stylesheet, so
+a future utility class cannot quietly undo it again.
+
+**Verified.** Six states rendered through the real view class and theme
+— hit as site admin, hit restricted, novel as site admin, novel
+restricted, nothing-visible, nothing-cached — the last two by flipping
+`lookup_visible` and then `caching_enabled` on the five cached feeds and
+the one cached server, and reverting both. Both themes screenshotted,
+the fold driven in Chromium (closed → pills hidden; summary clicked →
+pills shown), no console errors, no horizontal overflow. Then the two
+endpoints fetched over authenticated HTTPS — `/values/viewRelationExternal`
+and `/values/viewExternal` — which the console render does not exercise:
+200 on both, markup matching. The probe and render shells are
+`24b-external-render.php` beside this document; the reader-versus-surface
+diff in the table above is the check §20.2 had asserted in prose and
+never run.
 
 ## 6. B4 — sibling table: linking fields before describing ones
 

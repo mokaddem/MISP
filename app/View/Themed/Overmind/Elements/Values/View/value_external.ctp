@@ -31,12 +31,28 @@ $cached = $external['cached'];
 
 $hits = $counts['feeds'] + $counts['servers'];
 $nothingCached = empty($cached['feeds']) && empty($cached['servers']);
+/*
+ * Role and instance config, never this value. A reader whose role
+ * reaches no cached source searched nothing, so "not seen outside this
+ * instance" would be a finding no lookup backs — and it would read the
+ * same on every value they ever open. The section states this at
+ * length; the card has room for the distinction and not the reason.
+ */
+$nothingVisible = empty($external['visible']['feeds'])
+    && empty($external['visible']['servers']);
 // keyed on the role, shown on every value — see the section's own note
 $roleRestricted = $restricted['feeds'] || $restricted['servers'];
 
-$subtitle = $hits
-    ? h(__n('%d source holds it', '%d sources hold it', $hits, $hits))
-    : h(__('Not seen outside this instance'));
+if ($hits) {
+    $subtitle = h(__n('%d source holds it', '%d sources hold it',
+        $hits, $hits));
+} elseif ($nothingCached) {
+    $subtitle = h(__('Nothing is cached to look in'));
+} elseif ($nothingVisible) {
+    $subtitle = h(__('Nothing your role can search'));
+} else {
+    $subtitle = h(__('Not seen outside this instance'));
+}
 
 /*
  * `$valueB64` rather than encoding the value again here: the controller's
@@ -66,9 +82,9 @@ $sectionUrl = $this->Html->url(array(
                 <i class="fas fa-lock"></i>
                 <span>
                     <?php if ($restricted['feeds'] && $restricted['servers']): ?>
-                        <?= __('Your role cannot view feed correlations, and sync server hits require site admin. Neither is counted here, on any value.') ?>
+                        <?= __('Feeds an administrator has not published for lookup, and sync server hits, are shown to site admins only. Neither is counted here, on any value.') ?>
                     <?php elseif ($restricted['feeds']): ?>
-                        <?= __('Your role cannot view feed correlations, so feeds an administrator has not published for lookup are not counted here, on any value.') ?>
+                        <?= __('Feeds an administrator has not published for lookup are shown to site admins only, so they are not counted here, on any value.') ?>
                     <?php else: ?>
                         <?= __('Sync server hits require site admin, so they are not counted here, on any value.') ?>
                     <?php endif; ?>
@@ -85,10 +101,19 @@ $sectionUrl = $this->Html->url(array(
                 </span>
             </div>
 
+        <?php elseif ($nothingVisible): ?>
+
+            <div class="vp-empty vp-empty-denied">
+                <i class="fas fa-lock"></i>
+                <span>
+                    <?= __('Your role may be told about none of the cached sources, so nothing was looked up.') ?>
+                </span>
+            </div>
+
         <?php elseif (!$hits): ?>
 
-            <div class="vp-empty">
-                <i class="fas fa-cloud-arrow-down"></i>
+            <div class="vp-empty vp-empty-novel">
+                <i class="fas fa-fingerprint"></i>
                 <span>
                     <?= __('No feed or sync server you can see holds this value.') ?>
                 </span>

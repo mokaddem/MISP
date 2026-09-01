@@ -4816,6 +4816,96 @@ tr.vp-rel-k-external > td:first-child {
 }
 
 /*
+ * The count leads and the UUIDs fold (B3).
+ *
+ * A native `<details>` because the panel is injected lazily and binds no
+ * JS of its own. `list-style: none` plus the WebKit pseudo-element is
+ * both halves of removing the default triangle — Safari ignores the
+ * first — and the chevron then carries the state itself.
+ *
+ * The closed state is spelled out here rather than left to the UA. A
+ * Bootstrap display utility inside a `<details>` is `!important` and
+ * beats the browser's hiding outright, so the pills render with the
+ * fold shut — which is the one thing this task exists to stop. Stating
+ * it means a future utility class cannot quietly undo it.
+ */
+.vp-external-fold:not([open]) > *:not(summary) {
+    display: none;
+}
+
+.vp-external-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.vp-external-fold > summary {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.vp-external-fold > summary::-webkit-details-marker {
+    display: none;
+}
+
+.vp-external-fold > summary > i {
+    font-size: 0.62rem;
+    color: var(--bs-secondary-color);
+    transition: transform 0.15s ease;
+}
+
+.vp-external-fold[open] > summary > i {
+    transform: rotate(180deg);
+}
+
+.vp-external-fold > summary:focus-visible {
+    outline: 2px solid var(--vp-rel-external);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.vp-external-hits {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--vp-rel-external);
+}
+
+.vp-external-hits-unit {
+    font-size: 0.74rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The two miss states this section can be in, which are different
+ * findings and must not read alike: nothing was found, and nothing was
+ * looked for. The novel one is the page's strongest triage fact, so it
+ * gets the section's own colour; the denied one is a dead end, so it
+ * stays grey and only the lock carries it.
+ */
+.vp-empty-novel {
+    color: var(--bs-body-color);
+}
+
+.vp-empty-novel > i {
+    color: var(--vp-rel-external);
+    opacity: 0.85;
+}
+
+.vp-empty-novel strong {
+    color: var(--vp-rel-external);
+}
+
+.vp-empty-denied > i {
+    opacity: 0.45;
+}
+
+/*
  * A value or an event title can be long; the row must not stretch.
  *
  * Goes on something *inside* the cell and never on the `td` itself.

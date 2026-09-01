@@ -30,6 +30,30 @@
  *                       which is precisely what previewEvent does not
  *                       do.
  *
+ * **Counts lead and the UUIDs fold** (subphase B3). A row's headline is
+ * how much presence the source holds; the event pills are a wall of
+ * UUIDs, which is a click target rather than information, so they sit
+ * behind the row's own expander. `<details>` rather than the ledger's
+ * Bootstrap collapse because this fragment is injected lazily and binds
+ * no JS of its own — a fold that needs `misp:container-loaded` to have
+ * fired is a fold that can arrive inert.
+ *
+ * **Absence is the finding, and it is scoped to who asked.** A value in
+ * no cached source is locally novel, which is among the strongest triage
+ * facts this page can state — so the miss state states it, with the
+ * denominator attached. The denominator is the sources *this reader's
+ * role searched*, never the instance's total: "0 of 5" when four of the
+ * five were never looked in reads as coverage the reader did not get.
+ * And a reader whose role reaches no source at all is told that nothing
+ * was looked up, rather than being handed a novelty claim no search
+ * backs — the same sentence would be false for them on every value.
+ *
+ * The Overview's `value_external` card counts what this section lists,
+ * through one `forExternal` (`tabs/03-relationships.md` §20.1), and its
+ * miss state reads *"Not seen outside this instance"*. This section's
+ * novelty sentence is that sentence with the denominator attached; if
+ * the wording moves it moves in both.
+ *
  * Lazily loaded from ValuesController::viewRelationExternal.
  *
  * @var array $valueProfile
@@ -40,8 +64,15 @@ $sources = $external['sources'];
 $counts = $external['counts'];
 $restricted = $external['restricted'];
 $cached = $external['cached'];
+$visible = $external['visible'];
 
 $nothingCached = empty($cached['feeds']) && empty($cached['servers']);
+/*
+ * Role and instance config, never this value: true whenever the reader
+ * may be told about no cached source at all, whether or not this
+ * particular value would have hit one.
+ */
+$nothingVisible = empty($visible['feeds']) && empty($visible['servers']);
 /*
  * Shown whenever this reader's role cannot reach a kind of source the
  * instance holds — on every value alike, and whether or not this one hit
@@ -51,6 +82,43 @@ $nothingCached = empty($cached['feeds']) && empty($cached['servers']);
  * are withheld from them.
  */
 $roleRestricted = $restricted['feeds'] || $restricted['servers'];
+
+/**
+ * "%d feeds and %d sync servers", dropping the kind that is zero.
+ *
+ * Three callers with three meanings — how many sources *hold* the value,
+ * how many this role *searched*, and how many the instance *caches* — so
+ * the phrase is built once and the caller supplies the pair. The two
+ * denominators say "cached" because a denominator has to name the
+ * population it counts; the numerator does not, and would read as a
+ * claim about caching rather than about this value.
+ *
+ * @param int $feeds
+ * @param int $servers
+ * @param bool $namesCache Whether the feed half names the cache
+ * @return string
+ */
+$sourcePhrase = function ($feeds, $servers, $namesCache = false) {
+    $parts = array();
+    if ($feeds) {
+        $parts[] = sprintf($namesCache
+            ? __n('%d cached feed', '%d cached feeds', $feeds)
+            : __n('%d feed', '%d feeds', $feeds), $feeds);
+    }
+    if ($servers) {
+        $parts[] = sprintf(
+            __n('%d sync server', '%d sync servers', $servers), $servers);
+    }
+    if (count($parts) === 2) {
+        return sprintf(__('%1$s and %2$s'), $parts[0], $parts[1]);
+    }
+    return empty($parts) ? '' : $parts[0];
+};
+
+$holding = $sourcePhrase($counts['feeds'], $counts['servers']);
+$searched = $sourcePhrase($visible['feeds'], $visible['servers'], true);
+// plain noun: the sentence it lands in already says "caches"
+$instanceHolds = $sourcePhrase($cached['feeds'], $cached['servers']);
 
 $icon = 'fas fa-cloud-arrow-down';
 ?>
@@ -71,21 +139,14 @@ $icon = 'fas fa-cloud-arrow-down';
             <i class="<?= h($icon) ?>"></i><?= h(__('Outside this instance')) ?>
         </span>
         <?php if (!empty($sources)): ?>
-            <?= h(sprintf(
-                __('%1$s across %2$s'),
-                __n('%d remote event', '%d remote events',
-                    $external['events'], $external['events']),
-                implode(', ', array_filter(array(
-                    $counts['feeds']
-                        ? sprintf(__n('%d feed', '%d feeds',
-                            $counts['feeds']), $counts['feeds'])
-                        : null,
-                    $counts['servers']
-                        ? sprintf(__n('%d sync server', '%d sync servers',
-                            $counts['servers']), $counts['servers'])
-                        : null,
-                )))
-            )) ?>
+            <?= h($holding) ?>
+            <?php if (!empty($external['events'])): ?>
+                &nbsp;·&nbsp;<?= h(sprintf(
+                    __n('%d remote event', '%d remote events',
+                        $external['events']),
+                    $external['events']
+                )) ?>
+            <?php endif; ?>
             &nbsp;·&nbsp;
         <?php endif; ?>
         <span class="vp-rel-prov"><i class="fas fa-gauge"></i><?=
@@ -116,9 +177,9 @@ $icon = 'fas fa-cloud-arrow-down';
                 <i class="fas fa-lock"></i>
                 <span>
                     <?php if ($restricted['feeds'] && $restricted['servers']): ?>
-                        <?= __('Your role cannot view feed correlations, and sync server hits require site admin. Neither is counted here, on any value.') ?>
+                        <?= __('Feeds an administrator has not published for lookup, and sync server hits, are shown to site admins only. Neither is counted here, on any value.') ?>
                     <?php elseif ($restricted['feeds']): ?>
-                        <?= __('Your role cannot view feed correlations, so feeds an administrator has not published for lookup are not counted here, on any value.') ?>
+                        <?= __('Feeds an administrator has not published for lookup are shown to site admins only, so they are not counted here, on any value.') ?>
                     <?php else: ?>
                         <?= __('Sync server hits require site admin, so they are not counted here, on any value.') ?>
                     <?php endif; ?>
@@ -135,12 +196,47 @@ $icon = 'fas fa-cloud-arrow-down';
                 </span>
             </div>
 
+        <?php elseif ($nothingVisible): ?>
+
+            <?php
+            /*
+             * Nothing was searched, so nothing may be concluded. The
+             * novelty sentence below would be false for this reader on
+             * every value alike, which is exactly the shape of claim
+             * this page refuses to make.
+             */
+            ?>
+            <div class="vp-empty vp-empty-denied">
+                <i class="fas fa-lock"></i>
+                <span>
+                    <?= h(sprintf(
+                        __('This instance caches %s, and your role may be'
+                            . ' told about none of them, so nothing was'
+                            . ' looked up. This is not a statement that'
+                            . ' the value is absent from them.'),
+                        $instanceHolds
+                    )) ?>
+                </span>
+            </div>
+
         <?php elseif (empty($sources)): ?>
 
-            <div class="vp-empty">
-                <i class="<?= h($icon) ?>"></i>
+            <div class="vp-empty vp-empty-novel">
+                <i class="fas fa-fingerprint"></i>
                 <span>
-                    <?= __('No feed or sync server you can see holds this value.') ?>
+                    <?php if ($roleRestricted): ?>
+                        <strong><?= h(sprintf(
+                            __('In 0 of %s your role can read.'),
+                            $searched
+                        )) ?></strong>
+                        <?= __('Locally unique, as far as your role can see.') ?>
+                    <?php else: ?>
+                        <strong><?= h(sprintf(
+                            __('In 0 of %s this instance holds.'),
+                            $searched
+                        )) ?></strong>
+                        <?= __('Locally unique, as far as this instance can see.') ?>
+                    <?php endif; ?>
                 </span>
             </div>
 
@@ -184,28 +280,53 @@ $icon = 'fas fa-cloud-arrow-down';
                                             <?= __('Holds the value; publishes no event to open') ?>
                                         </span>
                                     <?php else: ?>
-                                        <div class="d-flex flex-wrap gap-1">
-                                            <?php foreach ($source['events'] as $event): ?>
-                                                <a class="vp-external-event"
-                                                   href="<?= h($event['url']) ?>"
-                                                   title="<?= h(sprintf(
-                                                       __('Preview this event from %s'),
-                                                       $source['name']
-                                                   )) ?>">
-                                                    <i class="fas fa-arrow-up-right-from-square"></i>
-                                                    <?= h($event['name']) ?>
-                                                </a>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <?php if ($source['events_total'] > count($source['events'])): ?>
-                                            <div class="vp-fact-line-sub">
-                                                <?= h(sprintf(
-                                                    __('Showing %1$s of %2$s.'),
-                                                    count($source['events']),
-                                                    $source['events_total']
-                                                )) ?>
+                                        <details class="vp-external-fold">
+                                            <summary title="<?= h(sprintf(
+                                                __('Show the remote events %s names this value in'),
+                                                $source['name']
+                                            )) ?>">
+                                                <span class="vp-external-hits"><?=
+                                                    h(number_format($source['events_total'])) ?></span>
+                                                <span class="vp-external-hits-unit"><?=
+                                                    h(__n('remote event', 'remote events',
+                                                        $source['events_total'])) ?></span>
+                                                <i class="fas fa-chevron-down"></i>
+                                            </summary>
+                                            <?php
+                                            /*
+                                             * Not `.d-flex`. Bootstrap
+                                             * declares it `!important`,
+                                             * which beats the closed
+                                             * `<details>` and leaves the
+                                             * pills on screen with the
+                                             * fold shut — caught in the
+                                             * browser, invisible in the
+                                             * markup.
+                                             */
+                                            ?>
+                                            <div class="vp-external-pills">
+                                                <?php foreach ($source['events'] as $event): ?>
+                                                    <a class="vp-external-event"
+                                                       href="<?= h($event['url']) ?>"
+                                                       title="<?= h(sprintf(
+                                                           __('Preview this event from %s'),
+                                                           $source['name']
+                                                       )) ?>">
+                                                        <i class="fas fa-arrow-up-right-from-square"></i>
+                                                        <?= h($event['name']) ?>
+                                                    </a>
+                                                <?php endforeach; ?>
                                             </div>
-                                        <?php endif; ?>
+                                            <?php if ($source['events_total'] > count($source['events'])): ?>
+                                                <div class="vp-fact-line-sub mt-1">
+                                                    <?= h(sprintf(
+                                                        __('Showing %1$s of %2$s.'),
+                                                        count($source['events']),
+                                                        $source['events_total']
+                                                    )) ?>
+                                                </div>
+                                            <?php endif; ?>
+                                        </details>
                                     <?php endif; ?>
                                 </td>
                             </tr>

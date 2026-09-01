@@ -503,7 +503,7 @@ document that filled it.
 | Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
-| Overview | `viewExternal` | `value_external` | — | — | — | **24** — Q unmeasured, see below |
+| Overview | `viewExternal` | `value_external` | 4 | nothing — flat in cached sources; 2 on a miss | none of the three, see below | **24**, Q by **24b** |
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
@@ -536,12 +536,33 @@ whose §12.1 records its numbers. `viewExternal` is the second: the external
 presence card went live with phase 24's fourth section — the card counts, the
 section lists, one `forExternal` behind both (`tabs/03-relationships.md` §20.1)
 — but this board never recorded it; the 2026-09-01 subphase-B review
-([`24b-relationships.md`](24b-relationships.md) §2.1) found the gap. Its `Q`
-was never measured — `24-relationships.md` §17.3 records timings only — so its
-cells stay visibly blank until whoever next touches `forExternal` records the
-count. The Overview's other rows stay `—`, and whichever phase converts them
-inherits two rows already done rather than a tab half-owned — which is the note
-below about a tab not being indivisible, used in earnest.
+([`24b-relationships.md`](24b-relationships.md) §2.1) found the gap. **B3
+touched `forExternal` and so filled the row**, which is what the blank was
+waiting for. The Overview's other rows stay `—`, and whichever phase converts
+them inherits two rows already done rather than a tab half-owned — which is the
+note below about a tab not being indivisible, used in earnest.
+
+`viewExternal`'s cells need two readings of their own. Its `Q` **ceiling of 4
+is reached by a hit and not by a large value**: two queries read the config
+(which feeds are cached and how many servers are), and a hit adds the two
+`Feed::searchCaches` issues to name the sources it matched. A miss costs 2, and
+nothing in either number grows with the value, the instance's events, or the
+number of sources that hit. Measured 2026-09-01 by
+[`24b-external-count.php`](24b-external-count.php); 11.0 ms cold and 3.2 ms
+warm on the dev instance's five cached feeds and one cached server.
+
+And its **tier is none of §14.4's three**, which is the hole §14.12 predicts
+below in its own words: *a feed column means a Redis pipeline that §14.4's
+tiers have no vocabulary for*. This endpoint is that shape — a config read, a
+Redis set-membership lookup that applies no ACL at all, and the reader's
+permitted source ids intersected with the result afterwards. It is not tier 1
+(no MISP ACL fetcher answers "who holds this value"), and not tier 2 (no
+aggregate over an already-ACL'd id set, because the id set is what the
+intersection produces). Whoever gives §14.4 a fourth tier should start here:
+the safety property that makes it acceptable is written in
+`ValueProfile::externalVisibility`'s docblock and argued in
+`tabs/03-relationships.md` §20.2, and it was wrong once — see
+[`24b-relationships.md`](24b-relationships.md) §5.1.
 
 `Q` on every converted row is its **ceiling**, measured, and on every one of
 them the ceiling is reached by a *small* value rather than a large one.
