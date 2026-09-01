@@ -4034,6 +4034,16 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-rel-near: #0b7f61;    /* --type #06D6A0 */
     --vp-rel-human: #8f2d56;   /* --analystData */
     --vp-rel-external: #3f51a3; /* --feed, darkened for the light ground */
+    /*
+     * The three notions the object re-founding added, and all three
+     * hues are MISP's own for the thing they name — an object join is
+     * --object, an event membership is --event, and a typed reference
+     * borrows --galaxy because it is the remaining distinct hue and
+     * nothing on this tab draws a cluster.
+     */
+    --vp-rel-object: #524948;  /* --object */
+    --vp-rel-event: #14748d;   /* --event #1892B1, darkened */
+    --vp-rel-reference: #6d3fd1; /* --galaxy #8B5CF6, darkened */
 }
 
 [data-bs-theme="dark"] {
@@ -4041,12 +4051,151 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-rel-near: #4fd6b0;
     --vp-rel-human: #e58cad;
     --vp-rel-external: #8f9ce0;
+    --vp-rel-object: #c0b3b0;
+    --vp-rel-event: #5cc4de;
+    --vp-rel-reference: #b79dfa;
 }
 
 .vp-rel-k-co { --vp-rel-color: var(--vp-rel-co); }
 .vp-rel-k-near { --vp-rel-color: var(--vp-rel-near); }
 .vp-rel-k-human { --vp-rel-color: var(--vp-rel-human); }
 .vp-rel-k-external { --vp-rel-color: var(--vp-rel-external); }
+.vp-rel-k-object { --vp-rel-color: var(--vp-rel-object); }
+.vp-rel-k-event { --vp-rel-color: var(--vp-rel-event); }
+.vp-rel-k-reference { --vp-rel-color: var(--vp-rel-reference); }
+
+/*
+ * The graph's fallback, and what replaced the three-region SVG sketch.
+ *
+ * The sketch drew one labelled region per notion and there were three.
+ * There are five now, and five regions in a 300px box is a diagram
+ * about its own layout. What a reader needs when the library did not
+ * arrive is the composition — which notions this value has and how
+ * much of each — and that is a list, honestly, rather than a picture
+ * pretending to be a graph.
+ */
+.vp-rel-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.vp-rel-strip-row {
+    display: grid;
+    grid-template-columns: 10px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 2px;
+    font-size: 0.78rem;
+}
+
+.vp-rel-strip-row + .vp-rel-strip-row {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-rel-strip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: var(--vp-rel-color, var(--bs-secondary-color));
+}
+
+.vp-rel-strip-row.vp-rel-strip-none .vp-rel-strip-dot {
+    background: transparent;
+    border: 1px dashed var(--bs-border-color);
+}
+
+.vp-rel-strip-count {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.vp-rel-strip-row.vp-rel-strip-none {
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-strip-row.vp-rel-strip-none .vp-rel-strip-count {
+    font-weight: 400;
+}
+
+/*
+ * A date pair, in the Dated relations table. The object's own word for
+ * each end sits under the date, because the column header is generic
+ * and the object's word is not.
+ */
+.vp-dated-stamp {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.vp-dated-relation {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+}
+
+.vp-dated-span {
+    color: var(--bs-secondary-color);
+    padding: 0 4px;
+}
+
+/*
+ * A reference's direction. Inbound and outbound are the whole reading
+ * of the row, so the arrow is drawn rather than described — and the
+ * text beside it says which, because an arrow alone is not a word.
+ */
+.vp-ref-dir {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+.vp-ref-type {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--vp-rel-reference);
+}
+
+.vp-ref-unnamed {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--bs-secondary-color);
+}
+
+.vp-ref-faces {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+}
+
+/*
+ * Bounded, because one of these is a whole SOA record. `passive-dns`
+ * files an SOA under `rrname`, so a row on `18.117.184.102` carries
+ * `ns-1064.awsdns-05.org awsdns-hostmaster.amazon.com 1 7200 900
+ * 1209600 86400` beside four normal names and wraps to three lines.
+ * The `title` holds the whole of it and the value's own page holds the
+ * rest.
+ */
+.vp-ref-face {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.76rem;
+    display: inline-block;
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+.vp-ref-face-relation {
+    color: var(--bs-secondary-color);
+}
 
 /*
  * The notion chip. Carried by every section header so a reader never

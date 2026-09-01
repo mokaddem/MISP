@@ -176,6 +176,52 @@ class ValueProfile extends AppModel
     const SIBLING_OBJECT_CAP = 500;
 
     /**
+     * Above this many sibling values the neighbourhood graph draws one
+     * node per object template instead of one per value.
+     *
+     * **A legibility bound, not a transport one** (§23.3). The wire
+     * would allow roughly 2,500 nodes — phase 22 measured 5.9 MB as a
+     * fragment that does not arrive, and this tab's heaviest today is
+     * 1.18 MB — but 2,500 nodes is an unreadable hairball that arrived
+     * intact. Bounding here keeps the payload so far from the wire that
+     * pivotick's eventual graph-coarsening is an enhancement rather
+     * than something this design leans on.
+     *
+     * The expansion also requires the fold to have carried every
+     * sibling it counted: `ValueRelationTool::siblings` caps its rows
+     * at `RELATION_ROW_CAP`, and drawing a hundred of a hundred and
+     * twenty would be the fraction §23.3 exists to remove. So the
+     * effective bound today is the lower of the two, and raising this
+     * one alone changes nothing.
+     */
+    const GRAPH_SIBLING_BOUND = 150;
+
+    /**
+     * Event nodes drawn before the rest roll into one.
+     *
+     * The event layer draws the events themselves and stops — it does
+     * not expand into their attributes (§23.1), which is what keeps it
+     * affordable on a value in two hundred events.
+     */
+    const GRAPH_EVENT_CAP = 40;
+
+    /**
+     * How many of this value's own occurrences the reference reader
+     * offers as reference targets.
+     *
+     * `object_references.referenced_id` is indexed, so the cost here is
+     * the `IN` list rather than the scan. The claims section caps its
+     * own UUID set at `CLAIM_OCCURRENCE_CAP` for the same reason.
+     */
+    const REFERENCE_OCCURRENCE_CAP = 300;
+
+    /** Reference rows read before the panel says the cut bit. */
+    const REFERENCE_ROW_CAP = 200;
+
+    /** Identifying values carried per far object in a reference row. */
+    const REFERENCE_FACE_CAP = 4;
+
+    /**
      * Occurrence UUIDs the asserted section resolves claims against.
      *
      * The only cap on that section, and it is on the *lookup* rather
@@ -224,6 +270,43 @@ class ValueProfile extends AppModel
 
     /** The narrowing `$cooccurrence` was folded under. */
     private $cooccurrenceFilters = array();
+
+    /**
+     * The value the two memos above and below hold.
+     *
+     * A request serves one value, so this never changes inside the
+     * application — but a memo that cannot say which value it holds
+     * hands the wrong neighbourhood to the second caller in any loop,
+     * silently and with no key to notice it by. A console shell walking
+     * eight verification values is exactly that loop.
+     *
+     * @var string|null
+     */
+    private $memoValue = null;
+
+    /**
+     * @var array|null The object-reference read, once per request
+     */
+    private $references = null;
+
+    /**
+     * Drop every per-value memo the moment a different value is asked
+     * for.
+     *
+     * @param string $value
+     * @return void
+     */
+    private function forget($value)
+    {
+        if ($this->memoValue === $value) {
+            return;
+        }
+        $this->memoValue = $value;
+        $this->cooccurrence = null;
+        $this->cooccurrenceFilters = array();
+        $this->references = null;
+        $this->summary = null;
+    }
 
     /**
      * @param string $alias
@@ -655,6 +738,7 @@ class ValueProfile extends AppModel
      */
     private function summaryFor(array $user, $value, array $options)
     {
+        $this->forget($value);
         if ($this->summary === null) {
             $this->summary = $this->model('Value')
                 ->occurrenceSummaryFor($user, $value, $options);
@@ -1425,6 +1509,67 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * Section five: the object joins that carry a pair of dates.
+     *
+     * Folded with the co-occurrence scan rather than queried again, so
+     * this endpoint's cost is the scan's — usually a Redis read — and
+     * never a second object join. `03-relationships.md` §23.5.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forRelationDated(array $user, $value,
+        array $options = array()
+    ) {
+        unset($options['filters']);
+        $context = $this->cooccurrenceContext($user, $value, $options);
+        return array(
+            'value' => $value,
+            'relationships' => array(
+                'dated' => $context['co']['dated'],
+                'siblings' => array(
+                    'in_objects' => $context['co']['siblings']['in_objects'],
+                    'objects' => $context['co']['siblings']['objects'],
+                    'cap' => $context['co']['siblings']['cap'],
+                ),
+                'suppressed' => !empty($context['co']['suppressed']),
+                'read_at' => isset($context['co']['scan']['read_at'])
+                    ? (int)$context['co']['scan']['read_at']
+                    : time(),
+                'ttl' => self::RELATION_SCAN_TTL,
+            ),
+        );
+    }
+
+    /**
+     * Section six: MISP's own typed relation between two objects.
+     *
+     * Its own read and not the scan's, deliberately: three indexed
+     * lookups and a resolve, against a scan that can read 20,000 rows.
+     * A reader whose co-occurrence panel is still working should not be
+     * waiting on it to learn that this address is `hosted-by` something.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forRelationReferences(array $user, $value,
+        array $options = array()
+    ) {
+        unset($options['filters']);
+        return array(
+            'value' => $value,
+            'relationships' => array(
+                'references' => $this->referenceSection($user, $value,
+                    $options),
+            ),
+        );
+    }
+
+    /**
      * The rail's neighbourhood sketch.
      *
      * **The expensive rail card**, and knowingly so: the sketch draws
@@ -1722,9 +1867,11 @@ class ValueProfile extends AppModel
          */
         if ($this->cooccurrence !== null
             && $this->cooccurrenceFilters === $filters
+            && $this->memoValue === $value
         ) {
             return $this->cooccurrence;
         }
+        $this->forget($value);
         $this->cooccurrenceFilters = $filters;
         $fresh = !empty($options['fresh']);
         unset($options['fresh']);
@@ -1740,6 +1887,7 @@ class ValueProfile extends AppModel
             'page_size' => self::RELATION_PAGE_SIZE,
         ));
         $co['siblings'] = $scan['siblings'];
+        $co['dated'] = $scan['dated'];
         $co['scan'] = array(
             'events_read' => count($scan['picked']),
             'events_seen' => $scan['events_seen'],
@@ -1860,6 +2008,7 @@ class ValueProfile extends AppModel
         $near = $this->nearMatches($user, $value, $types);
         $asserted = $this->assertedClaims($user, $value, $options);
         $external = $this->externalPresence($user, $value);
+        $references = $this->referenceSection($user, $value, $options);
 
         $digest = array(
             'summary' => $this->relationSummary($user, $value, $options,
@@ -1868,9 +2017,22 @@ class ValueProfile extends AppModel
                     'near' => $near,
                     'asserted' => $asserted,
                     'external' => $external,
+                    'references' => $references,
                 )),
-            'graph' => $this->graphFor($context['co'], $near, $asserted,
-                $value),
+            'graph' => $this->graphFor(array(
+                'siblings' => $context['co']['siblings'],
+                /*
+                 * The events the scan read, which is the set the tab
+                 * already discloses the bounds of. An event too large
+                 * to fold has no roll-up row and therefore no node —
+                 * the same suppression the co-occurrence panel states
+                 * in words, rather than a second, quieter cut.
+                 */
+                'events' => $context['co']['rollups']['event']['rows'],
+                'near' => $near,
+                'asserted' => $asserted,
+                'references' => $references,
+            ), $value),
             'suppressed' => !empty($context['co']['suppressed']),
             'read_at' => isset($context['co']['scan']['read_at'])
                 ? (int)$context['co']['scan']['read_at']
@@ -1971,7 +2133,8 @@ class ValueProfile extends AppModel
          * the tokens a row is matched on, and a token the fold cannot
          * build is a filter the fold cannot apply.
          */
-        $siblings = $this->siblingSection($user, $value, $options, $orgs);
+        $sections = $this->objectSections($user, $value, $options, $orgs);
+        $siblings = $sections['siblings'];
         $ourObjects = array();
         foreach ($siblings['rows'] as $sibling) {
             $ourObjects[$sibling['object']] = true;
@@ -1987,6 +2150,13 @@ class ValueProfile extends AppModel
             'sharing_groups' => $this->sharingGroupNames($user, $rows),
             'event_meta' => $this->eventMetadata($user, $picked),
             'siblings' => $siblings,
+            /*
+             * Folded here rather than in its own endpoint because it
+             * reads the rows this scan has already fetched. A second
+             * endpoint would mean a second object join for a panel
+             * whose whole input is sitting in this array.
+             */
+            'dated' => $sections['dated'],
             'our_objects' => $ourObjects,
         );
     }
@@ -2161,7 +2331,7 @@ class ValueProfile extends AppModel
      * @param array $orgs Names already resolved for the neighbour rows
      * @return array
      */
-    private function siblingSection(array $user, $value, array $options,
+    private function objectSections(array $user, $value, array $options,
         array $orgs
     ) {
         $valueModel = $this->model('Value');
@@ -2172,6 +2342,10 @@ class ValueProfile extends AppModel
                 'limit' => self::SIBLING_OBJECT_CAP,
             ))
         );
+        $relations = array();
+        foreach ($objects as $objectId => $meta) {
+            $relations[$objectId] = $meta['relation'];
+        }
         $rows = $valueModel->neighbourRowsFor(
             $user,
             $value,
@@ -2179,53 +2353,439 @@ class ValueProfile extends AppModel
             $options
         );
         $missing = $this->organisationNames($rows);
-        return ValueRelationTool::siblings($rows, array(
+        $census = $this->objectCensus($user, $value, $options,
+            count($objects));
+        /*
+         * One context for both folds, because they read the same rows
+         * against the same bounds and a second copy would be a second
+         * place for the caps to drift apart.
+         */
+        $context = array(
             'orgs' => $orgs + $missing,
-            'in_objects' => $this->objectFootprint($user, $value,
-                $options, count($objects)),
+            'relations' => $relations,
+            'in_objects' => $census['total'],
+            'template_totals' => $census['templates'],
             'cap' => self::SIBLING_OBJECT_CAP,
             'row_cap' => self::RELATION_ROW_CAP,
             'page_size' => self::RELATION_PAGE_SIZE,
-        ));
+        );
+        return array(
+            'siblings' => ValueRelationTool::siblings($rows, $context),
+            'dated' => ValueRelationTool::dated($rows, $context),
+            'object_ids' => array_keys($objects),
+        );
     }
 
     /**
-     * How many objects this value sits in altogether, so the sibling
-     * section can say what its cap left out.
+     * How many objects this value sits in altogether, and how they
+     * divide by template.
      *
      * Asked only when the cap actually bit. Below it the answer is the
      * number of objects already fetched, and a `COUNT(DISTINCT …)` over
      * 32,921 rows to learn a number we are holding would be the exact
      * mistake `occurrenceSummaryFor` was written to stop.
      *
+     * **The per-template split is what the roll-up node prints**, and
+     * it costs nothing extra: one `GROUP BY Object.name` gives both the
+     * breakdown and the total, where the old query gave only the total.
+     * Without it `0.0.0.0` would draw `paloalto-threat-event · 500
+     * objects` — the cap's number, not the value's — which is the one
+     * number a roll-up exists to carry.
+     *
      * @param array $user
      * @param string $value
      * @param array $options
      * @param int $fetched
-     * @return int
+     * @return array `total`, and `templates` as name => objects
      */
-    private function objectFootprint(array $user, $value, array $options,
+    private function objectCensus(array $user, $value, array $options,
         $fetched
     ) {
         if ($fetched < self::SIBLING_OBJECT_CAP) {
-            return $fetched;
+            return array('total' => $fetched, 'templates' => array());
         }
         $attributes = $this->model('MispAttribute');
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->model('Value')
             ->conditionsFor($value, $options);
         $conditions['AND'][] = array('Attribute.object_id >' => 0);
-        $row = $attributes->find('first', array(
+        $rows = $attributes->find('all', array(
             'fields' => array(
+                'Object.name',
                 'COUNT(DISTINCT Attribute.object_id) AS objects',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
             'contain' => array('Event', 'Object'),
+            'group' => array('Object.name'),
         ));
-        return empty($row[0]['objects'])
-            ? $fetched
-            : (int)$row[0]['objects'];
+        $templates = array();
+        $total = 0;
+        foreach ($rows as $row) {
+            if (empty($row['Object']['name'])) {
+                continue;
+            }
+            $count = (int)$row[0]['objects'];
+            $templates[$row['Object']['name']] = $count;
+            $total += $count;
+        }
+        return array(
+            'total' => $total === 0 ? $fetched : $total,
+            'templates' => $templates,
+        );
+    }
+
+    /**
+     * Section six: what MISP itself records as related to this value.
+     *
+     * `ObjectReference` is the only typed, directional relation in MISP
+     * that a person wrote and that is not an analyst claim — a
+     * `hosted-by`, a `communicates-with`, and on this instance a
+     * `Crush` where somebody typed that. It is read here in **both
+     * directions and at both depths**:
+     *
+     *     direct     the reference points at this value's own
+     *                attribute (`referenced_type = 0`, 1,142 rows on
+     *                the verification instance)
+     *     by parent  the reference is between the object this value
+     *                sits in and another one (`referenced_type = 1`,
+     *                10,191 rows), in either direction
+     *
+     * **A reference with both ends in this value's own set is
+     * dropped.** `18.117.184.102` sits in four `passive-dns` objects
+     * and every one of them carries a `hosted-by` pointing back at the
+     * bare attribute — the object holding the value saying the value
+     * hosts it. That is a re-telling, not a relation to something else,
+     * and it would have been eight of the twelve rows.
+     *
+     * **Its own read, not the co-occurrence scan's.** The scan reads up
+     * to 20,000 attribute rows; this is three indexed lookups and a
+     * resolve. Hanging it off the scan would make the cheapest section
+     * on the tab wait for the most expensive one, which is the same
+     * argument `ValuesController` makes for splitting the endpoints.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array As ValueRelationTool::references returns
+     */
+    private function referenceSection(array $user, $value,
+        array $options = array()
+    ) {
+        if ($this->references !== null && $this->memoValue === $value) {
+            return $this->references;
+        }
+        $this->forget($value);
+        $fresh = !empty($options['fresh']);
+        $keyOptions = $options;
+        unset($keyOptions['fresh']);
+        $key = 'misp:value_profile:relation_references:' . (int)$user['id']
+            . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
+        $redis = null;
+        try {
+            $redis = RedisTool::init();
+        } catch (Exception $e) {
+            $redis = null;
+        }
+        if ($redis !== null && !$fresh) {
+            $cached = RedisTool::deserialize(
+                RedisTool::decompress($redis->get($key))
+            );
+            if (!empty($cached)) {
+                $this->references = $cached;
+                return $cached;
+            }
+        }
+        $section = $this->readReferences($user, $value, $keyOptions);
+        if ($redis !== null) {
+            $redis->setex(
+                $key,
+                self::RELATION_SCAN_TTL,
+                RedisTool::compress(RedisTool::serialize($section))
+            );
+        }
+        $this->references = $section;
+        return $section;
+    }
+
+    /**
+     * The reference read itself: our two id sets, the reference rows
+     * that touch them, and the far ends resolved through the ACL.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function readReferences(array $user, $value, array $options)
+    {
+        $valueModel = $this->model('Value');
+        $ourAttributes = $valueModel->occurrenceIdsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::REFERENCE_OCCURRENCE_CAP,
+            ))
+        );
+        $ourObjects = $valueModel->occurrenceObjectIdsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::SIBLING_OBJECT_CAP,
+            ))
+        );
+        /*
+         * The objects *read*, not the objects the value sits in.
+         * `occurrenceObjectIdsFor` is capped at `SIBLING_OBJECT_CAP`
+         * and the census that corrects it belongs to the co-occurrence
+         * scan, which this section deliberately does not wait for. So
+         * the panel says "of the 500 objects read" rather than quoting
+         * a total it did not measure.
+         */
+        $context = array(
+            'row_cap' => self::RELATION_ROW_CAP,
+            'page_size' => self::RELATION_PAGE_SIZE,
+            'read_objects' => count($ourObjects),
+            'object_cap' => self::SIBLING_OBJECT_CAP,
+            'occurrences' => count($ourAttributes),
+        );
+        if (empty($ourAttributes) && empty($ourObjects)) {
+            return ValueRelationTool::references(array(), $context);
+        }
+
+        $branches = array();
+        if (!empty($ourAttributes)) {
+            $branches[] = array(
+                'ObjectReference.referenced_type' => 0,
+                'ObjectReference.referenced_id' =>
+                    array_keys($ourAttributes),
+            );
+        }
+        if (!empty($ourObjects)) {
+            $branches[] = array(
+                'ObjectReference.object_id' => array_keys($ourObjects),
+            );
+            $branches[] = array(
+                'ObjectReference.referenced_type' => 1,
+                'ObjectReference.referenced_id' => array_keys($ourObjects),
+            );
+        }
+        $refs = $this->model('ObjectReference')->find('all', array(
+            'conditions' => array(
+                'ObjectReference.deleted' => 0,
+                'OR' => $branches,
+            ),
+            'recursive' => -1,
+            'order' => array('ObjectReference.id DESC'),
+            'limit' => self::REFERENCE_ROW_CAP,
+        ));
+
+        $edges = array();
+        $wantObjects = array();
+        $wantAttributes = array();
+        $carrying = array();
+        foreach ($refs as $ref) {
+            $row = $ref['ObjectReference'];
+            $source = (int)$row['object_id'];
+            $target = (int)$row['referenced_id'];
+            $targetIsObject = (int)$row['referenced_type'] === 1;
+            $sourceIsOurs = isset($ourObjects[$source]);
+            $targetIsOurs = $targetIsObject
+                ? isset($ourObjects[$target])
+                : isset($ourAttributes[$target]);
+            if ($sourceIsOurs) {
+                $carrying[$source] = true;
+            }
+            if ($targetIsOurs && $targetIsObject) {
+                $carrying[$target] = true;
+            }
+            if ($sourceIsOurs && $targetIsOurs) {
+                // Both ends are this value's own. See the docblock.
+                continue;
+            }
+            if ($sourceIsOurs) {
+                $edges[] = array(
+                    'row' => $row,
+                    'direction' => 'outbound',
+                    'near' => array('kind' => 'object', 'id' => $source),
+                    'far' => array(
+                        'kind' => $targetIsObject ? 'object' : 'attribute',
+                        'id' => $target,
+                    ),
+                );
+            } elseif ($targetIsOurs) {
+                $edges[] = array(
+                    'row' => $row,
+                    'direction' => 'inbound',
+                    'near' => array(
+                        'kind' => $targetIsObject ? 'object' : 'attribute',
+                        'id' => $target,
+                    ),
+                    'far' => array('kind' => 'object', 'id' => $source),
+                );
+            } else {
+                continue;
+            }
+            $end = end($edges);
+            if ($end['far']['kind'] === 'object') {
+                $wantObjects[$end['far']['id']] = true;
+            } else {
+                $wantAttributes[$end['far']['id']] = true;
+            }
+            /*
+             * The near object too, for its template. A row that says
+             * *through the `passive-dns` object this value sits in* is
+             * telling the reader which of several parents carried the
+             * reference, which they cannot work out from the far end.
+             */
+            if ($end['near']['kind'] === 'object') {
+                $wantObjects[$end['near']['id']] = true;
+            }
+        }
+        $context['with_references'] = count($carrying);
+        if (empty($edges)) {
+            return ValueRelationTool::references(array(), $context);
+        }
+
+        $faces = $this->referenceFaces(
+            $user,
+            array_keys($wantObjects),
+            array_keys($wantAttributes)
+        );
+        $rows = array();
+        foreach ($edges as $edge) {
+            $far = $this->referenceFace($faces, $edge['far']);
+            if ($far === null) {
+                // Nothing this reader may see at the far end, so there
+                // is no row — not a row saying one was withheld.
+                continue;
+            }
+            $near = $edge['near']['kind'] === 'object'
+                && isset($ourObjects[$edge['near']['id']])
+                ? array(
+                    'kind' => 'object',
+                    'object' => isset($faces['objects']
+                        [$edge['near']['id']]['object'])
+                        ? $faces['objects'][$edge['near']['id']]['object']
+                        : null,
+                    'relation' => $ourObjects[$edge['near']['id']]
+                        ['relation'],
+                )
+                : array('kind' => 'attribute', 'object' => null,
+                    'relation' => '');
+            $rows[] = array(
+                'relationship' => empty($edge['row']['relationship_type'])
+                    ? __('unnamed')
+                    : $edge['row']['relationship_type'],
+                'named' => !empty($edge['row']['relationship_type']),
+                'direction' => $edge['direction'],
+                'comment' => empty($edge['row']['comment'])
+                    ? ''
+                    : $edge['row']['comment'],
+                'near' => $near,
+                'far' => $far,
+                'event' => (int)$edge['row']['event_id'],
+            );
+        }
+        return ValueRelationTool::references($rows, $context);
+    }
+
+    /**
+     * Both far-end kinds resolved in one ACL-filtered read, keyed the
+     * two ways the caller looks them up.
+     *
+     * The near end is resolved by the same query where it happens to be
+     * an object we already asked about — a reference between two of
+     * this value's own objects is dropped, so the only near objects
+     * that survive are ones whose template we still want to print.
+     *
+     * @param array $user
+     * @param array $objectIds
+     * @param array $attributeIds
+     * @return array `objects` and `attributes`, keyed by id
+     */
+    private function referenceFaces(array $user, array $objectIds,
+        array $attributeIds
+    ) {
+        $rows = $this->model('Value')->referenceFacesFor(
+            $user,
+            $objectIds,
+            $attributeIds,
+            self::RELATION_ROW_CAP * self::REFERENCE_FACE_CAP
+        );
+        $objects = array();
+        $attributes = array();
+        foreach ($rows as $row) {
+            $attribute = $row['Attribute'];
+            $id = (int)$attribute['id'];
+            $value = isset($attribute['value']) ? $attribute['value'] : '';
+            if (in_array($id, $attributeIds, true)) {
+                $attributes[$id] = array(
+                    'kind' => 'attribute',
+                    'object' => empty($row['Object']['name'])
+                        ? null
+                        : $row['Object']['name'],
+                    'label' => $value,
+                    'values' => array(array(
+                        'value' => $value,
+                        'relation' => empty($attribute['object_relation'])
+                            ? ''
+                            : $attribute['object_relation'],
+                        'type' => $attribute['type'],
+                    )),
+                    'event' => (int)$attribute['event_id'],
+                    'id' => $id,
+                );
+            }
+            $objectId = (int)$attribute['object_id'];
+            if ($objectId === 0 || !in_array($objectId, $objectIds, true)) {
+                continue;
+            }
+            if (!isset($objects[$objectId])) {
+                $objects[$objectId] = array(
+                    'kind' => 'object',
+                    'object' => empty($row['Object']['name'])
+                        ? null
+                        : $row['Object']['name'],
+                    'label' => '',
+                    'values' => array(),
+                    'event' => (int)$attribute['event_id'],
+                    'id' => $objectId,
+                );
+            }
+            if (count($objects[$objectId]['values'])
+                < self::REFERENCE_FACE_CAP
+            ) {
+                $objects[$objectId]['values'][] = array(
+                    'value' => $value,
+                    'relation' => empty($attribute['object_relation'])
+                        ? ''
+                        : $attribute['object_relation'],
+                    'type' => $attribute['type'],
+                );
+            }
+        }
+        foreach ($objects as $objectId => $object) {
+            $labels = array();
+            foreach ($object['values'] as $entry) {
+                $labels[] = $entry['value'];
+            }
+            $objects[$objectId]['label'] = implode(' · ', $labels);
+        }
+        return array('objects' => $objects, 'attributes' => $attributes);
+    }
+
+    /**
+     * @param array $faces
+     * @param array $end `kind` and `id`
+     * @return array|null
+     */
+    private function referenceFace(array $faces, array $end)
+    {
+        $bucket = $end['kind'] === 'object' ? 'objects' : 'attributes';
+        return isset($faces[$bucket][$end['id']])
+            ? $faces[$bucket][$end['id']]
+            : null;
     }
 
     /**
@@ -3290,6 +3850,23 @@ class ValueProfile extends AppModel
         $external = isset($parts['external'])
             ? (int)$parts['external']['events']
             : 0;
+        /*
+         * Object joins and typed references, counted beside the other
+         * notions and — like `external` — deliberately not added into
+         * `correlations`. A sibling is a value and could be summed; a
+         * reference points at an object, which is not one. Keeping the
+         * two apart is the same rule that keeps a remote event out of
+         * the total.
+         */
+        $siblings = isset($parts['cooccurrence']['siblings'])
+            ? (int)$parts['cooccurrence']['siblings']['total']
+            : 0;
+        $dated = isset($parts['cooccurrence']['dated'])
+            ? (int)$parts['cooccurrence']['dated']['total']
+            : 0;
+        $references = isset($parts['references'])
+            ? (int)$parts['references']['total']
+            : 0;
         $externalSources = isset($parts['external'])
             ? (int)$parts['external']['counts']['feeds']
                 + (int)$parts['external']['counts']['servers']
@@ -3301,6 +3878,9 @@ class ValueProfile extends AppModel
             'external' => $external,
             'external_sources' => $externalSources,
             'asserted' => $asserted,
+            'siblings' => $siblings,
+            'dated' => $dated,
+            'references' => $references,
             /*
              * The viewer's own occurrence count and not
              * `over_correlating_values.occurrence`. That column is
@@ -3315,82 +3895,229 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The neighbourhood as a real node/edge feed.
+     * The neighbourhood as a real node/edge feed, re-founded on the
+     * object rather than on the event.
      *
-     * `03-relationships.md` §12 recorded that **no value-centred graph
-     * feed exists** — `CorrelationGraphTool` expands events, not values
-     * — and shipped a static SVG sketch with a disabled button rather
-     * than a canvas that looked live and was not. This is that feed.
-     * It is not the correlation engine's either; it is the three
-     * sections of this tab, each contributing its own edge kind, which
-     * is exactly the separation §5 of that document says the tab lives
-     * or dies by:
+     * **What this replaced and why** (`03-relationships.md` §23). The
+     * first version of this feed drew one edge per value sharing an
+     * *event* with this one. That is a star, it carries nothing the
+     * three panels beneath it do not already print, and on live data it
+     * drew 36 of `8.8.8.8`'s 10,024 neighbours. §24 of
+     * `24-relationships.md` measured the topology behind it: components
+     * equal event count, no neighbour spans two, a bridge fires once in
+     * sixteen values. Sharing a container is not a relation.
      *
-     *     co      solid, `--vp-rel-co`      shares an event
-     *     near    dashed, `--vp-rel-near`   close without being equal
-     *     human   arrowed, `--vp-rel-human` an analyst said so
+     * Sharing an *object* is. A `passive-dns` object says *this name
+     * resolved to this address between these dates*; a `domain-ip` says
+     * *this domain is on this address*. `8.8.8.8` has 22
+     * object-mediated neighbours against 10,024 event-mediated ones,
+     * and 95.6 % of values that sit in objects have fifty or fewer.
      *
-     * Every neighbour node carries the URL of *its own* Value Profile,
-     * so the graph is a pivot rather than a picture — which is the one
-     * thing a value-centred graph can do that an event-centred one
-     * cannot.
+     * **Five layers, each with its own edge kind:**
      *
-     * The three legacy `nodes` lists survive beside the feed. They are
-     * what the static sketch draws, and the sketch is still the
-     * fallback for a browser where the graph library did not load.
+     *     object      shares an object with this value
+     *     event       this value appears in this event
+     *     near        CIDR containment, ssdeep proximity
+     *     human       an analyst wrote this claim
+     *     reference   MISP's own typed relation between two objects
      *
-     * @param array $co
-     * @param array $near
-     * @param array $asserted
+     * **The event layer draws events and stops.** An event node is the
+     * event; it does not expand into the ten thousand attributes inside
+     * it. That is what keeps the layer affordable and what makes it
+     * worth having — *which events is this value in* is a real
+     * question, and an event node answers it.
+     *
+     * **Nothing is truncated anywhere.** Above the legibility bound the
+     * object layer collapses to one node per template carrying its
+     * object count, and every other layer rolls its tail into a single
+     * counted node rather than dropping it. No caption on this canvas
+     * states a fraction of a whole the reader cannot reach, which is
+     * the defect §22.1 identified.
+     *
+     * **Two feeds, because there are two surfaces.** `peek` is the
+     * rail — rolled hard, one node per template, a single node for the
+     * events — and `feed` is the overlay, which expands the object
+     * layer into values where the bound allows. That is what gives
+     * `Open the full graph` a specific meaning rather than making it a
+     * second copy of the same picture.
+     *
+     * @param array $parts `siblings`, `events`, `near`, `asserted`,
+     *                     `references`
      * @param string $value
      * @return array
      */
-    private function graphFor(array $co, array $near, array $asserted,
-        $value
-    ) {
-        $sketch = array('co' => array(), 'near' => array(),
-            'human' => array());
-        $nodes = array(array(
-            'id' => 'value',
-            'data' => array(
-                'label' => $value,
-                'kind' => 'value',
-                'sub' => __('this value'),
-            ),
-        ));
-        $edges = array();
+    private function graphFor(array $parts, $value)
+    {
+        $siblings = $parts['siblings'];
+        $events = $parts['events'];
+        $near = $parts['near'];
+        $asserted = $parts['asserted'];
+        $references = $parts['references'];
 
-        $rows = $co['rollups']['value']['rows'];
-        foreach (array_slice($rows, 0, self::GRAPH_NODE_CAP) as $i => $row) {
-            $id = 'co:' . $i;
-            $nodes[] = array('id' => $id, 'data' => array(
-                'label' => $row['value'],
-                'kind' => 'co',
-                'type' => $row['type'],
+        $centre = array('id' => 'value', 'data' => array(
+            'label' => $value,
+            'kind' => 'value',
+            'sub' => __('this value'),
+        ));
+        $feed = array('nodes' => array($centre), 'edges' => array());
+        $peek = array('nodes' => array($centre), 'edges' => array());
+        $sketch = array('object' => array(), 'event' => array(),
+            'near' => array(), 'human' => array(), 'reference' => array());
+        $layers = array();
+
+        /*
+         * Layer one — object siblings.
+         *
+         * The rail always draws templates. The overlay draws values
+         * where the fold both counted few enough of them to read and
+         * carried every one it counted: `RELATION_ROW_CAP` bounds the
+         * rows, so expanding past it would draw a hundred of a hundred
+         * and twenty and put a fraction back on the canvas.
+         */
+        $expand = $siblings['total'] <= self::GRAPH_SIBLING_BOUND
+            && $siblings['total'] <= count($siblings['rows']);
+        foreach ($siblings['templates'] as $index => $template) {
+            $id = 'tpl:' . $index;
+            $node = array('id' => $id, 'data' => array(
+                'label' => $template['object'],
+                'kind' => 'template',
+                'type' => $template['object'],
+                'count' => (int)$template['objects'],
                 'sub' => sprintf(
-                    __n('%d shared event', '%d shared events',
-                        $row['shared_events'], $row['shared_events']),
-                    $row['shared_events']
+                    __n('%s object', '%s objects', $template['objects'],
+                        number_format($template['objects'])),
+                    number_format($template['objects'])
                 ),
-                'href' => '/values/view/' . self::b64($row['value']),
             ));
-            $edges[] = self::graphEdge('value', $id, 'co',
-                (string)$row['shared_events']);
-            if (count($sketch['co']) < 3) {
-                $sketch['co'][] = $row['type'] === null
-                    ? __('value')
-                    : $row['type'];
+            $edge = self::graphEdge('value', $id, 'object',
+                self::joinLabel($template['our_relation'],
+                    $template['relations']));
+            $peek['nodes'][] = $node;
+            $peek['edges'][] = $edge;
+            if (!$expand) {
+                $feed['nodes'][] = $node;
+                $feed['edges'][] = $edge;
+            }
+            if (count($sketch['object']) < 3) {
+                $sketch['object'][] = $template['object'];
             }
         }
+        if ($expand) {
+            foreach ($siblings['rows'] as $index => $row) {
+                $id = 'sib:' . $index;
+                $feed['nodes'][] = array('id' => $id, 'data' => array(
+                    'label' => $row['value'],
+                    'kind' => 'sibling',
+                    'type' => $row['type'],
+                    'sub' => $row['relation'] === ''
+                        ? $row['object']
+                        : $row['object'] . ' · ' . $row['relation'],
+                    'href' => '/values/view/' . self::b64($row['value']),
+                ));
+                $feed['edges'][] = self::graphEdge('value', $id, 'object',
+                    self::joinLabel($row['our_relation'],
+                        array($row['relation'])));
+            }
+        }
+        $layers['object'] = array(
+            'templates' => count($siblings['templates']),
+            'values' => (int)$siblings['total'],
+            'objects' => (int)$siblings['in_objects'],
+            'rolled' => !$expand,
+        );
 
+        /*
+         * Layer two — the events themselves.
+         *
+         * The rail carries one node for the lot unless there is exactly
+         * one, because *which* events is a question for the overlay and
+         * *how many* is the whole of the rail's answer.
+         */
+        $drawnEvents = array_slice($events, 0, self::GRAPH_EVENT_CAP);
+        foreach ($drawnEvents as $index => $row) {
+            $id = 'evt:' . $index;
+            $eventId = (int)$row['event']['id'];
+            $feed['nodes'][] = array('id' => $id, 'data' => array(
+                'label' => $row['event']['info'] === ''
+                    ? sprintf(__('Event %s'), $eventId)
+                    : $row['event']['info'],
+                'kind' => 'event',
+                'type' => 'event',
+                'sub' => trim($row['event']['date'] . ' · ' . $row['org'],
+                    ' ·'),
+                'href' => '/events/view/' . $eventId,
+            ));
+            $feed['edges'][] = self::graphEdge('value', $id, 'event',
+                sprintf(__n('%s value here', '%s values here',
+                    $row['shared_values'],
+                    number_format($row['shared_values'])),
+                    number_format($row['shared_values'])));
+            if (count($sketch['event']) < 3) {
+                $sketch['event'][] = $row['event']['date'] === ''
+                    ? __('event')
+                    : $row['event']['date'];
+            }
+        }
+        $restEvents = count($events) - count($drawnEvents);
+        if ($restEvents > 0) {
+            $feed['nodes'][] = self::rollNode('evt:rest', 'event',
+                $restEvents, sprintf(
+                    __n('%s further event', '%s further events',
+                        $restEvents, number_format($restEvents)),
+                    number_format($restEvents)));
+            $feed['edges'][] = self::graphEdge('value', 'evt:rest',
+                'event', '');
+        }
+        if (!empty($events)) {
+            /*
+             * One node whatever the count, and it names the event where
+             * there is only one. The rail's answer to *which events* is
+             * *how many*; the overlay answers the question itself.
+             */
+            $peek['nodes'][] = count($events) === 1
+                ? self::rollNode('evt:all', 'event', 1,
+                    $events[0]['event']['info'] === ''
+                        ? sprintf(__('Event %s'),
+                            (int)$events[0]['event']['id'])
+                        : $events[0]['event']['info'])
+                : self::rollNode('evt:all', 'event', count($events),
+                    sprintf(__n('%s event', '%s events', count($events),
+                        number_format(count($events))),
+                        number_format(count($events))));
+            $peek['edges'][] = self::graphEdge('value', 'evt:all', 'event',
+                '');
+        }
+        $layers['event'] = array(
+            'drawn' => count($drawnEvents),
+            'total' => count($events),
+            'rolled' => $restEvents > 0,
+        );
+
+        /*
+         * Layers three and four — near-match and asserted. Both are
+         * small, both are semantically distinct from an object join,
+         * and an analyst claim is the only edge on this canvas a human
+         * wrote — which is why neither was dropped when the tab was
+         * re-founded on objects.
+         *
+         * The overlay draws each one. The rail carries one counted node
+         * per layer, for the reason §10.3 of `24-relationships.md`
+         * measured: `8.8.8.8` has six claims and three templates, and
+         * fourteen labels at 340px overlap into the illegibility that
+         * finding is about. Rolling every layer but the object one
+         * keeps the rail at three to eight nodes on every value, and
+         * what it loses is one click away in the panel beneath it.
+         */
         $index = 0;
+        $nearTotal = 0;
         foreach ($near['engines'] as $engine) {
             foreach ($engine['rows'] as $row) {
+                $nearTotal++;
                 if ($index >= self::GRAPH_NODE_CAP) {
-                    break 2;
+                    continue;
                 }
                 $id = 'near:' . $index++;
-                $nodes[] = array('id' => $id, 'data' => array(
+                $node = array('id' => $id, 'data' => array(
                     'label' => $row['block'],
                     'kind' => 'near',
                     'type' => $engine['id'] === 'cidr'
@@ -3401,7 +4128,8 @@ class ValueProfile extends AppModel
                         : $row['prefix'] . '%',
                     'href' => '/values/view/' . self::b64($row['block']),
                 ));
-                $edges[] = self::graphEdge('value', $id, 'near',
+                $feed['nodes'][] = $node;
+                $feed['edges'][] = self::graphEdge('value', $id, 'near',
                     $engine['id']);
                 if (count($sketch['near']) < 3) {
                     $sketch['near'][] = $engine['id'] === 'cidr'
@@ -3410,12 +4138,35 @@ class ValueProfile extends AppModel
                 }
             }
         }
+        if ($nearTotal > $index) {
+            $restNear = $nearTotal - $index;
+            $feed['nodes'][] = self::rollNode('near:rest', 'near',
+                $restNear, sprintf(__n('%s further near-match',
+                    '%s further near-matches', $restNear,
+                    number_format($restNear)), number_format($restNear)));
+            $feed['edges'][] = self::graphEdge('value', 'near:rest',
+                'near', '');
+        }
+        if ($nearTotal > 0) {
+            $peek['nodes'][] = self::rollNode('near:all', 'near',
+                $nearTotal, sprintf(__n('%s near-match', '%s near-matches',
+                    $nearTotal, number_format($nearTotal)),
+                    number_format($nearTotal)));
+            $peek['edges'][] = self::graphEdge('value', 'near:all', 'near',
+                '');
+        }
+        $layers['near'] = array(
+            'drawn' => $index,
+            'total' => $nearTotal,
+            'rolled' => $nearTotal > $index,
+        );
 
-        foreach (array_slice($asserted['claims'], 0, self::GRAPH_NODE_CAP)
+        $claims = $asserted['claims'];
+        foreach (array_slice($claims, 0, self::GRAPH_NODE_CAP)
             as $i => $claim
         ) {
             $id = 'human:' . $i;
-            $nodes[] = array('id' => $id, 'data' => array(
+            $node = array('id' => $id, 'data' => array(
                 'label' => $claim['target']['label'],
                 'kind' => 'human',
                 'type' => $claim['target']['kind'],
@@ -3428,7 +4179,8 @@ class ValueProfile extends AppModel
              * the direction chip in the panel exists to say.
              */
             $outbound = $claim['direction'] === 'outbound';
-            $edges[] = self::graphEdge(
+            $feed['nodes'][] = $node;
+            $feed['edges'][] = self::graphEdge(
                 $outbound ? 'value' : $id,
                 $outbound ? $id : 'value',
                 'human',
@@ -3438,12 +4190,153 @@ class ValueProfile extends AppModel
                 $sketch['human'][] = $claim['target']['kind'];
             }
         }
+        $drawnClaims = min(count($claims), self::GRAPH_NODE_CAP);
+        if (count($claims) > $drawnClaims) {
+            $restClaims = count($claims) - $drawnClaims;
+            $feed['nodes'][] = self::rollNode('human:rest', 'human',
+                $restClaims, sprintf(
+                    __n('%s further claim', '%s further claims',
+                        $restClaims, number_format($restClaims)),
+                    number_format($restClaims)));
+            $feed['edges'][] = self::graphEdge('human:rest', 'value',
+                'human', '');
+        }
+        if (!empty($claims)) {
+            $peek['nodes'][] = self::rollNode('human:all', 'human',
+                count($claims), sprintf(
+                    __n('%s analyst claim', '%s analyst claims',
+                        count($claims), number_format(count($claims))),
+                    number_format(count($claims))));
+            $peek['edges'][] = self::graphEdge('human:all', 'value',
+                'human', '');
+        }
+        $layers['human'] = array(
+            'drawn' => $drawnClaims,
+            'total' => count($claims),
+            'rolled' => count($claims) > $drawnClaims,
+        );
+
+        /*
+         * Layer five — object references, and the only layer whose
+         * nodes are objects. A reference is recorded between two
+         * objects, so drawing it between values would be a re-telling
+         * and would make *which object* unanswerable. The rail rolls
+         * them per far template, the overlay draws each one.
+         */
+        $refRows = $references['rows'];
+        $drawnRefs = array_slice($refRows, 0, self::GRAPH_NODE_CAP);
+        foreach ($drawnRefs as $i => $row) {
+            $id = 'ref:' . $i;
+            $far = $row['far'];
+            $feed['nodes'][] = array('id' => $id, 'data' => array(
+                'label' => $far['label'],
+                'kind' => $far['kind'] === 'object' ? 'object' : 'sibling',
+                'type' => $far['object'] === null
+                    ? $far['kind']
+                    : $far['object'],
+                'sub' => $far['object'] === null
+                    ? __('attribute')
+                    : $far['object'],
+                'href' => $far['kind'] === 'object'
+                    ? '/objects/view/' . (int)$far['id']
+                    : '/values/view/' . self::b64($far['label']),
+            ));
+            $outbound = $row['direction'] === 'outbound';
+            $feed['edges'][] = self::graphEdge(
+                $outbound ? 'value' : $id,
+                $outbound ? $id : 'value',
+                'reference',
+                $row['relationship']
+            );
+            if (count($sketch['reference']) < 3) {
+                $sketch['reference'][] = $row['relationship'];
+            }
+        }
+        $restRefs = count($refRows) - count($drawnRefs);
+        if ($restRefs > 0) {
+            $feed['nodes'][] = self::rollNode('ref:rest', 'reference',
+                $restRefs, sprintf(__n('%s further reference',
+                    '%s further references', $restRefs,
+                    number_format($restRefs)), number_format($restRefs)));
+            $feed['edges'][] = self::graphEdge('value', 'ref:rest',
+                'reference', '');
+        }
+        if (!empty($refRows)) {
+            $peek['nodes'][] = self::rollNode('ref:all', 'reference',
+                count($refRows), sprintf(
+                    __n('%s reference', '%s references', count($refRows),
+                        number_format(count($refRows))),
+                    number_format(count($refRows))));
+            $peek['edges'][] = self::graphEdge('value', 'ref:all',
+                'reference', '');
+        }
+        $layers['reference'] = array(
+            'drawn' => count($drawnRefs),
+            'total' => count($refRows),
+            'rolled' => $restRefs > 0,
+        );
 
         return array(
-            'edges' => count($edges),
+            'edges' => count($feed['edges']),
             'nodes' => $sketch,
-            'feed' => array('nodes' => $nodes, 'edges' => $edges),
+            'layers' => $layers,
+            'feed' => $feed,
+            'peek' => $peek,
         );
+    }
+
+    /**
+     * `passive-dns · rrname → rdata`, or as much of it as the object
+     * actually said.
+     *
+     * The arrow is the reader's own position: it says which end of the
+     * join they are standing on, which is the thing a boolean
+     * `relational / descriptive` flag could never have told them
+     * (§23.2). Where the object files one end anonymously the label
+     * degrades to the half it knows rather than inventing the other.
+     *
+     * @param string|null $ours This value's relation in the object
+     * @param array $theirs The far end's relations, ranked
+     * @return string
+     */
+    private static function joinLabel($ours, array $theirs)
+    {
+        $far = array();
+        foreach ($theirs as $relation) {
+            if ($relation !== '' && $relation !== null) {
+                $far[] = $relation;
+            }
+        }
+        $far = implode(', ', array_slice($far, 0, 3));
+        if ($ours === null || $ours === '') {
+            return $far;
+        }
+        return $far === '' ? $ours : $ours . ' → ' . $far;
+    }
+
+    /**
+     * A node standing for everything a layer did not draw one by one.
+     *
+     * The count is the point. A tail that is dropped makes the caption
+     * a fraction; a tail that is counted makes it an answer, and the
+     * number is often the finding — 32,922 near-identical objects reads
+     * as flood capture at a glance.
+     *
+     * @param string $id
+     * @param string $kind
+     * @param int $count
+     * @param string $label
+     * @return array
+     */
+    private static function rollNode($id, $kind, $count, $label)
+    {
+        return array('id' => $id, 'data' => array(
+            'label' => $label,
+            'kind' => $kind,
+            'type' => $kind,
+            'count' => (int)$count,
+            'rolled' => true,
+        ));
     }
 
     /**
@@ -3471,22 +4364,43 @@ class ValueProfile extends AppModel
     private static function graphEdge($from, $to, $kind, $label)
     {
         $ink = array(
-            'co' => 'var(--vp-rel-co)',
+            'object' => 'var(--vp-rel-object)',
+            'event' => 'var(--vp-rel-event)',
             'near' => 'var(--vp-rel-near)',
             'human' => 'var(--vp-rel-human)',
+            'reference' => 'var(--vp-rel-reference)',
+        );
+        /*
+         * Five kinds and five strokes, because the separation has to
+         * survive greyscale as well as colour-blindness: an object join
+         * is solid and heavy, an event membership solid and thin, a
+         * near-match dashed, and the two that carry a direction — an
+         * analyst's claim and MISP's own reference — are the only ones
+         * with an arrowhead. The distinction that matters most is the
+         * last: those two were written by a person.
+         */
+        $directed = $kind === 'human' || $kind === 'reference';
+        $weight = array(
+            'object' => 2.25,
+            'event' => 1.5,
+            'near' => 2,
+            'human' => 2.25,
+            'reference' => 2,
         );
         return array(
             'from' => $from,
             'to' => $to,
             'data' => array('kind' => $kind, 'label' => $label),
             'style' => array('edge' => array(
-                'strokeColor' => $ink[$kind],
-                'strokeWidth' => $kind === 'human' ? 2.25 : 2,
-                // The separation has to survive greyscale, so it is
-                // carried by the stroke as well as by the hue.
-                'dashed' => $kind === 'near',
+                'strokeColor' => isset($ink[$kind])
+                    ? $ink[$kind]
+                    : 'var(--vp-rel-object)',
+                'strokeWidth' => isset($weight[$kind])
+                    ? $weight[$kind]
+                    : 2,
+                'dashed' => $kind === 'near' || $kind === 'event',
                 'animateDash' => false,
-                'markerEnd' => $kind === 'human' ? 'arrow' : 'none',
+                'markerEnd' => $directed ? 'arrow' : 'none',
             )),
         );
     }

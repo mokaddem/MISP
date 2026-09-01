@@ -38,7 +38,10 @@ class ValueRenderShell extends AppShell
 
     private $panels = array(
         'value_relation_cooccurrence' => 'forRelationCooccurrence',
+        'value_relation_dated' => 'forRelationDated',
         'value_relation_near_match' => 'forRelationNearMatch',
+        'value_relation_external' => 'forRelationExternal',
+        'value_relation_references' => 'forRelationReferences',
         'value_relation_asserted' => 'forRelationAsserted',
         'value_relation_graph' => 'forRelationGraph',
         'value_relation_settings' => 'forRelationSettings',

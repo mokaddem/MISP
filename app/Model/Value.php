@@ -499,10 +499,18 @@ class Value extends AppModel
      * a section that read them all would be the slowest thing on the
      * page by two orders of magnitude.
      *
+     * **And which relation the object files this value under**, which
+     * is what turns a sibling into a labelled edge: `passive-dns ·
+     * rrname → rdata` needs both ends, and only the far end is on the
+     * sibling row. `MIN()` rather than the bare column, so the group is
+     * legal under `ONLY_FULL_GROUP_BY` as well as without it; a value
+     * filed twice in one object under two relations is rare enough that
+     * naming the first alphabetically beats a second query.
+     *
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor, plus `limit`
-     * @return array object id => newest occurrence timestamp
+     * @return array object id => ['last' =>, 'relation' =>]
      */
     public function occurrenceObjectIdsFor(array $user, $value,
         array $options = array()
@@ -515,6 +523,7 @@ class Value extends AppModel
             'fields' => array(
                 'Attribute.object_id',
                 'MAX(Attribute.timestamp) AS last_seen',
+                'MIN(Attribute.object_relation) AS our_relation',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -527,8 +536,12 @@ class Value extends AppModel
         }
         $objects = array();
         foreach ($attributes->find('all', $params) as $row) {
-            $objects[(int)$row['Attribute']['object_id']] =
-                (int)$row[0]['last_seen'];
+            $objects[(int)$row['Attribute']['object_id']] = array(
+                'last' => (int)$row[0]['last_seen'],
+                'relation' => $row[0]['our_relation'] === null
+                    ? ''
+                    : $row[0]['our_relation'],
+            );
         }
         return $objects;
     }
@@ -647,6 +660,15 @@ class Value extends AppModel
                 'Attribute.timestamp',
                 'Attribute.distribution',
                 'Attribute.sharing_group_id',
+                /*
+                 * MISP's own record of which attributes in an object
+                 * are there to link and which are there to describe.
+                 * The Dated relations fold reads it to tell a far value
+                 * from a bookkeeping column: in `passive-dns` it is 0
+                 * on `rrname` and `rdata` and 1 on `rrtype`, `count`,
+                 * `origin` and both timestamps.
+                 */
+                'Attribute.disable_correlation',
             ),
             'contain' => self::CONTEXT_FIELDS,
         );
@@ -662,6 +684,71 @@ class Value extends AppModel
             $params['limit'] = $options['limit'];
         }
         return $this->attributes()->fetchAttributesSimple($user, $params);
+    }
+
+    /**
+     * The far ends of a set of object references, as this viewer may
+     * see them.
+     *
+     * A reference names an object or an attribute by id and says
+     * nothing about who may read it, so the row is worthless until the
+     * thing it points at has been through `buildConditions($user)`.
+     * That is the whole job here: an end that resolves to nothing
+     * contributes no row to the panel, which is §14.6 applied to
+     * somebody else's object.
+     *
+     * **One query for both kinds**, because they are the same table
+     * under two conditions. The object branch takes only the
+     * identifying attributes — MISP's own `disable_correlation = 0` —
+     * since a far object is named by what it links, not by its
+     * bookkeeping columns. The attribute branch takes the row whatever
+     * its flag says: a reference that points at one attribute is
+     * pointing at that attribute, and hiding it because the template
+     * marked it non-correlating would drop the reference entirely.
+     *
+     * @param array $user
+     * @param array $objectIds Far objects to identify
+     * @param array $attributeIds Far attributes to resolve
+     * @param int $limit
+     * @return array fetchAttributesSimple rows
+     */
+    public function referenceFacesFor(array $user, array $objectIds,
+        array $attributeIds, $limit = 500
+    ) {
+        $branches = array();
+        if (!empty($objectIds)) {
+            $branches[] = array(
+                'Attribute.object_id' => array_values($objectIds),
+                'Attribute.disable_correlation' => 0,
+            );
+        }
+        if (!empty($attributeIds)) {
+            $branches[] = array(
+                'Attribute.id' => array_values($attributeIds),
+            );
+        }
+        if (empty($branches)) {
+            return array();
+        }
+        return $this->attributes()->fetchAttributesSimple($user, array(
+            'conditions' => array(
+                'Attribute.deleted' => 0,
+                'OR' => $branches,
+            ),
+            'fields' => array(
+                'Attribute.id',
+                'Attribute.event_id',
+                'Attribute.object_id',
+                'Attribute.object_relation',
+                'Attribute.type',
+                'Attribute.value',
+                'Attribute.timestamp',
+                'Attribute.distribution',
+                'Attribute.sharing_group_id',
+            ),
+            'contain' => self::CONTEXT_FIELDS,
+            'limit' => $limit,
+        ));
     }
 
     /**

@@ -306,21 +306,33 @@ $tabRegistry = array(
          * `ValueProfile::forTabCounts` holds the reasoning and the
          * condition for putting a number back.
          *
-         * Four panels rather than one, top to bottom in the order the
-         * four notions should be read: what shares an event, what is
-         * merely close, what somebody outside this instance holds it
-         * alongside, and what a person asserted. Machine-derived before
+         * Six panels rather than one, top to bottom in the order the
+         * six notions should be read: what shares an event and an
+         * object, when an object says that join held, what is merely
+         * close, what somebody outside this instance holds it
+         * alongside, and then the two a person wrote — MISP's own typed
+         * reference and an analyst's claim. Machine-derived before
          * human, which is what the separation rule encodes.
+         *
+         * **Dated relations sits second**, directly under the section
+         * whose rows it dates: it is the object join again, with the
+         * one thing that join records and the table above has no column
+         * for. Splitting it out rather than adding two columns is
+         * `03-relationships.md` §23.5 — most object joins carry no date
+         * at all, and two empty columns on every row would be a worse
+         * answer than a panel that says so once.
          *
          * They are separate endpoints because they cost wildly
          * different amounts — the first reads up to 20,000 rows and the
-         * last a handful — and one slow scan must not hold up the
-         * claims, the only part of this tab somebody wrote by hand.
+         * references a handful — and one slow scan must not hold up the
+         * two sections a person wrote by hand.
          */
         'left' => array(
             $panel('viewRelationCooccurrence'),
+            $panel('viewRelationDated'),
             $panel('viewRelationNearMatch'),
             $panel('viewRelationExternal'),
+            $panel('viewRelationReferences'),
             $panel('viewRelationAsserted'),
         ),
         'right' => array(

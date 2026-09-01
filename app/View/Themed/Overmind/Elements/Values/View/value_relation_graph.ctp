@@ -2,30 +2,43 @@
 /**
  * The rail's neighbourhood graph.
  *
- * **Live since phase 24.** Until then this was a static SVG sketch with
- * a disabled button beside it, because there was nothing to drive a real
- * graph: `CorrelationGraphTool` expands events, not values, so no
- * value-centred node/edge feed existed (`00-shared.md` §7), and a canvas
- * that looked live and was not would have been the one dishonest thing
- * on a page built to avoid exactly that. `ValueProfile::graphFor` is now
- * that feed — assembled from the tab's own three sections rather than
- * from the correlation table, which has nothing to say about a value's
- * neighbours (`24-relationships.md` §3).
+ * **Re-founded on the object in phase 26** (`03-relationships.md` §23).
+ * Until then this drew one edge per value sharing an *event* with the
+ * centre — a star, carrying nothing the panels beneath it did not
+ * already print, and on live data drawing 36 of `8.8.8.8`'s 10,024
+ * neighbours. §24 of `24-relationships.md` measured why: sharing a
+ * container is not a relation.
  *
- * The graph is drawn by **pivotick**, already shipped in
- * `app/webroot/js` and already used by the event Pivot Explorer. One
- * edge kind per notion, carrying §5's separation into the picture:
- * solid for a shared event, dashed for a near-match, arrowed for
- * something an analyst said. Every neighbour node links to *its own*
- * Value Profile, which is the one thing a value-centred graph can do
- * that an event-centred one cannot.
+ * Sharing an object is. The canvas now draws five layers:
  *
- * **The sketch is still here**, as the fallback. A rail that renders
- * nothing when a 560 KB script fails to arrive is worse than a rail
- * that renders a drawing, and the drawing was already written.
+ *     object      shares an object — `passive-dns · rrname → rdata`
+ *     event       this value appears in this event, and stops there
+ *     near        CIDR containment, ssdeep proximity
+ *     human       an analyst wrote this claim
+ *     reference   MISP's own typed relation between two objects
  *
- * The key draws line samples rather than squares, so it teaches the
- * edge styles as well as the colours.
+ * **Two surfaces, two roll-ups.** The rail is a peek: the object layer
+ * is one node per template and every other layer is one counted node,
+ * which is what keeps a 340px column legible — §10.3 of
+ * `24-relationships.md` measured 37 labels there as unreadable, and
+ * this draws three to eight *with* their labels. The overlay expands
+ * the object layer into values where the legibility bound allows.
+ *
+ * **Nothing is truncated on either.** A layer that does not draw its
+ * tail one node at a time draws it as one node carrying the count, so
+ * no caption here states a fraction of a whole the reader cannot reach.
+ *
+ * The graph is drawn by **pivotick 1.6.0**, already shipped in
+ * `app/webroot/js`. What is still to come from that version — the
+ * `light` overlay with pivotick's own legend and edge-facet filters —
+ * is the client-side pass; this one is the feed and the two roll-ups.
+ *
+ * **The fallback is a composition strip, not a sketch.** The old
+ * fallback drew one labelled SVG region per notion and there were
+ * three; there are five, and five regions in a 300px box is a diagram
+ * about its own layout. What a reader needs when a 776 KB script did
+ * not arrive is which notions this value has and how much of each,
+ * which is a list.
  *
  * Lazily loaded from ValuesController::viewRelationGraph.
  *
@@ -36,14 +49,14 @@ $profile = $valueProfile;
 $relations = $profile['relationships'];
 $graph = $relations['graph'];
 $summary = $relations['summary'];
-$nodes = $graph['nodes'];
 
 /*
- * Live data brings a feed; the fixture brings only the three type
- * lists the sketch draws. A fixture-driven render therefore keeps the
- * sketch and the disabled button it always had, and loads no library.
+ * Live data brings the two feeds; a fixture render brings neither, and
+ * keeps the strip alone with the button it always had disabled.
  */
 $feed = isset($graph['feed']) ? $graph['feed'] : null;
+$peek = isset($graph['peek']) ? $graph['peek'] : null;
+$layers = isset($graph['layers']) ? $graph['layers'] : array();
 $graphId = 'vp-relgraph-' . substr(md5($profile['value']), 0, 8);
 
 if ($feed !== null) {
@@ -54,77 +67,128 @@ if ($feed !== null) {
 }
 
 /*
- * A namespaced id so two fragments carrying an arrow marker cannot
- * collide — the tab loads five of them and nothing guarantees an order.
+ * One row per layer, in the order the tab reads them: the machine-
+ * derived joins, then the two a person wrote. Each carries its own
+ * count and says when it is rolled, so the strip is a truthful summary
+ * of the canvas rather than a decoration beside it.
  */
-$markerId = 'vp-rel-arrow-' . substr(md5($profile['value']), 0, 8);
-
-$width = 300;
-$height = 260;
-$centreX = 150;
-$centreY = 130;
-
-/**
- * Evenly spaced y positions for n nodes inside a band.
- *
- * @param int $count
- * @param int $top
- * @param int $bottom
- * @return array
- */
-$slots = function ($count, $top, $bottom) {
-    if ($count < 1) {
-        return array();
-    }
-    if ($count === 1) {
-        return array((int)(($top + $bottom) / 2));
-    }
-    $step = ($bottom - $top) / ($count - 1);
-    $out = array();
-    for ($i = 0; $i < $count; $i++) {
-        $out[] = (int)round($top + ($step * $i));
-    }
-    return $out;
-};
-
-$coSlots = $slots(count($nodes['co']), 36, 224);
-$nearSlots = $slots(count($nodes['near']), 44, 100);
-$humanSlots = $slots(count($nodes['human']), 162, 222);
-
-/**
- * A node label is a MISP type, and `network-block` is longer than the
- * node is wide. SVG clips at its viewport, so an over-long label would
- * lose its tail against the card edge rather than wrapping — the small
- * class buys the four characters that difference costs.
- *
- * @param string $label
- * @return string
- */
-$typeClass = function ($label) {
-    return mb_strlen($label) > 10 ? 'rg-type-xs' : 'rg-type-sm';
-};
-
-$key = array(
+$strip = array(
     array(
-        'class' => '',
-        'colour' => 'var(--vp-rel-co)',
-        'label' => __('Co-occurrence'),
-        // Not the correlation engine — §3 of the phase document.
-        'source' => __('— a shared event'),
+        'kind' => 'object',
+        'label' => __('Object siblings'),
+        'icon' => 'fas fa-cube',
+        'count' => isset($layers['object']['values'])
+            ? (int)$layers['object']['values']
+            : 0,
+        'noun' => array(__('value'), __('values')),
+        'note' => isset($layers['object']['rolled'])
+            && $layers['object']['rolled']
+            ? sprintf(
+                __n('rolled into %d template',
+                    'rolled into %d templates',
+                    (int)$layers['object']['templates'],
+                    (int)$layers['object']['templates']),
+                (int)$layers['object']['templates']
+            )
+            : null,
+        'empty' => __('this value sits in no object'),
     ),
     array(
+        'kind' => 'event',
+        'label' => __('Events'),
+        'icon' => 'fas fa-calendar',
+        'count' => isset($layers['event']['total'])
+            ? (int)$layers['event']['total']
+            : 0,
+        'noun' => array(__('event'), __('events')),
+        'note' => null,
+        'empty' => __('no event small enough to read'),
+    ),
+    array(
+        'kind' => 'near',
+        'label' => __('Near-matches'),
+        'icon' => 'fas fa-arrows-left-right-to-line',
+        'count' => isset($layers['near']['total'])
+            ? (int)$layers['near']['total']
+            : 0,
+        'noun' => array(__('block'), __('blocks')),
+        'note' => null,
+        'empty' => __('nothing close without being equal'),
+    ),
+    array(
+        'kind' => 'reference',
+        'label' => __('Object references'),
+        'icon' => 'fas fa-diagram-project',
+        'count' => isset($layers['reference']['total'])
+            ? (int)$layers['reference']['total']
+            : 0,
+        'noun' => array(__('reference'), __('references')),
+        'note' => null,
+        'empty' => __('no object reference reaches it'),
+    ),
+    array(
+        'kind' => 'human',
+        'label' => __('Asserted'),
+        'icon' => 'fas fa-user-pen',
+        'count' => isset($layers['human']['total'])
+            ? (int)$layers['human']['total']
+            : 0,
+        'noun' => array(__('claim'), __('claims')),
+        'note' => null,
+        'empty' => __('nobody has written one'),
+    ),
+);
+
+/*
+ * The key teaches the stroke as well as the colour, because the
+ * separation has to survive greyscale. Two of the five carry an
+ * arrowhead and they are the two a person wrote — which is the
+ * distinction this tab lives or dies by, drawn rather than captioned.
+ */
+$key = array(
+    array(
+        'kind' => 'object',
+        'class' => '',
+        'colour' => 'var(--vp-rel-object)',
+        'label' => __('Object join'),
+        'source' => __('— a shared object'),
+    ),
+    array(
+        'kind' => 'event',
+        'class' => ' vp-rel-swatch-dash',
+        'colour' => 'var(--vp-rel-event)',
+        'label' => __('Event'),
+        'source' => __('— it appears there'),
+    ),
+    array(
+        'kind' => 'near',
         'class' => ' vp-rel-swatch-dash',
         'colour' => 'var(--vp-rel-near)',
         'label' => __('Near-match'),
         'source' => __('— CIDR / ssdeep'),
     ),
     array(
+        'kind' => 'reference',
+        'class' => ' vp-rel-swatch-arrow',
+        'colour' => 'var(--vp-rel-reference)',
+        'label' => __('Reference'),
+        'source' => __('— MISP\'s own typed link'),
+    ),
+    array(
+        'kind' => 'human',
         'class' => ' vp-rel-swatch-arrow',
         'colour' => 'var(--vp-rel-human)',
         'label' => __('Asserted'),
         'source' => __('— an analyst said so'),
     ),
 );
+
+$rolled = false;
+foreach ($layers as $layer) {
+    if (!empty($layer['rolled'])) {
+        $rolled = true;
+    }
+}
 ?>
 <div class="card shadow-sm mb-3 vp-panel" data-vp-relgraph
      style="--vp-panel-color: var(--bs-secondary-color);">
@@ -133,11 +197,25 @@ $key = array(
         'panelTitle' => __('Neighbourhood'),
         'panelIcon' => 'fas fa-circle-nodes',
         'panelColor' => 'var(--bs-secondary-color)',
+        /*
+         * **No fraction.** The old sub-line read `36 of 10,024 edges
+         * drawn`, which was accurate and was the argument against the
+         * graph it captioned. Every edge is now either drawn or counted
+         * in a roll-up, so the honest sub-line is what is on the canvas
+         * plus whether anything is folded — never a ratio of a whole
+         * the reader has no way to reach.
+         */
         'panelSub' => h(sprintf(
-            __('The value at the centre · %1$d of %2$s edges drawn'),
-            $graph['edges'],
-            number_format($summary['correlations'])
-        )) . '&nbsp;·&nbsp;' . $this->element(
+            __('The value at the centre · %s'),
+            sprintf(
+                __n('%d edge', '%d edges', $graph['edges'],
+                    number_format($graph['edges'])),
+                number_format($graph['edges'])
+            )
+        )) . ($rolled
+            ? '&nbsp;·&nbsp;' . h(__('tail rolled up, nothing dropped'))
+            : '')
+        . '&nbsp;·&nbsp;' . $this->element(
             'Values/View/value_read_age',
             array(
                 'readAt' => isset($relations['read_at'])
@@ -147,10 +225,10 @@ $key = array(
         ),
     )) ?>
 
-    <?php if ($feed !== null): ?>
+    <?php if ($peek !== null): ?>
         <?php
         /*
-         * Empty until the library reports for duty. The sketch below
+         * Empty until the library reports for duty. The strip below
          * stays visible until then, so the card never shows a blank
          * box — and stays visible for good if the script never
          * arrives.
@@ -161,144 +239,43 @@ $key = array(
         </div>
     <?php endif; ?>
 
-    <div class="p-2" data-vp-relgraph-sketch>
-        <svg class="rg-canvas" viewBox="0 0 <?= $width ?> <?= $height ?>"
-             role="img"
-             aria-label="<?= h(sprintf(
-                 __(
-                     'Sketch of the value at the centre with %1$d'
-                     . ' co-occurrence, %2$d near-match and %3$d asserted'
-                     . ' neighbours in three labelled regions'
-                 ),
-                 count($nodes['co']),
-                 count($nodes['near']),
-                 count($nodes['human'])
-             )) ?>">
-
-            <defs>
-                <marker id="<?= h($markerId) ?>" viewBox="0 0 10 10"
-                        refX="9" refY="5" markerWidth="6" markerHeight="6"
-                        orient="auto-start-reverse">
-                    <path d="M0,0 L10,5 L0,10 z" class="rg-accent-human"/>
-                </marker>
-            </defs>
-
-            <?php
-            /*
-             * Each notion owns a labelled region, so the separation
-             * survives the colours being unavailable — printed, in
-             * greyscale, or read by somebody who cannot tell the three
-             * hues apart.
-             */
-            ?>
-            <line x1="150" y1="6" x2="150" y2="254" class="rg-div"/>
-            <line x1="208" y1="130" x2="294" y2="130" class="rg-div"/>
-            <text x="4" y="12" class="rg-sector">
-                <?= h(strtoupper(__('Co-occurrence'))) ?>
-            </text>
-            <text x="212" y="18" class="rg-sector">
-                <?= h(strtoupper(__('Near-match'))) ?>
-            </text>
-            <?php
-            /*
-             * Under the divider rather than at the foot: a label on the
-             * last baseline loses its descenders to the viewBox edge,
-             * and a region label that is itself cut off is a poor
-             * advertisement for a panel about honest truncation.
-             */
-            ?>
-            <text x="212" y="146" class="rg-sector">
-                <?= h(strtoupper(__('Asserted'))) ?>
-            </text>
-
-            <?php foreach ($coSlots as $index => $y): ?>
-                <line x1="84" y1="<?= h($y + 14) ?>" x2="96"
-                      y2="<?= $centreY ?>" class="rg-edge-co"/>
+    <div class="px-3 pt-2" data-vp-relgraph-sketch>
+        <div class="vp-rel-strip">
+            <?php foreach ($strip as $row): ?>
+                <div class="vp-rel-strip-row vp-rel-k-<?= h($row['kind']) ?><?=
+                    $row['count'] === 0 ? ' vp-rel-strip-none' : '' ?>">
+                    <span class="vp-rel-strip-dot"></span>
+                    <span>
+                        <i class="<?= h($row['icon']) ?> me-1"></i><?=
+                            h($row['label']) ?>
+                        <?php if ($row['count'] === 0): ?>
+                            <span class="vp-fact-line-sub">
+                                — <?= h($row['empty']) ?>
+                            </span>
+                        <?php elseif ($row['note'] !== null): ?>
+                            <span class="vp-fact-line-sub">
+                                — <?= h($row['note']) ?>
+                            </span>
+                        <?php endif; ?>
+                    </span>
+                    <span class="vp-rel-strip-count">
+                        <?php if ($row['count'] === 0): ?>
+                            <?= h(__('none')) ?>
+                        <?php else: ?>
+                            <?= h(number_format($row['count'])) ?>
+                            <span class="vp-fact-line-sub"><?= h(
+                                $row['count'] === 1
+                                    ? $row['noun'][0]
+                                    : $row['noun'][1]
+                            ) ?></span>
+                        <?php endif; ?>
+                    </span>
+                </div>
             <?php endforeach; ?>
-            <?php foreach ($coSlots as $index => $y): ?>
-                <g>
-                    <rect x="4" y="<?= h($y) ?>" width="80" height="28"
-                          rx="6" class="rg-node"/>
-                    <rect x="5" y="<?= h($y + 4) ?>" width="3" height="20"
-                          class="rg-accent-co"/>
-                    <text x="14" y="<?= h($y + 15) ?>"
-                          class="<?= h($typeClass($nodes['co'][$index]))
-                              ?> rg-type-co">
-                        <?= h($nodes['co'][$index]) ?>
-                    </text>
-                    <rect x="14" y="<?= h($y + 21) ?>" width="56" height="6"
-                          rx="3" class="rg-sk"/>
-                </g>
-            <?php endforeach; ?>
-
-            <?php foreach ($nearSlots as $index => $y): ?>
-                <line x1="204" y1="120" x2="212" y2="<?= h($y + 14) ?>"
-                      class="rg-edge-near"/>
-                <g>
-                    <rect x="212" y="<?= h($y) ?>" width="84" height="28"
-                          rx="6" class="rg-node"/>
-                    <rect x="213" y="<?= h($y + 4) ?>" width="3" height="20"
-                          class="rg-accent-near"/>
-                    <text x="222" y="<?= h($y + 15) ?>"
-                          class="<?= h($typeClass($nodes['near'][$index]))
-                              ?> rg-type-near">
-                        <?= h($nodes['near'][$index]) ?>
-                    </text>
-                    <rect x="222" y="<?= h($y + 21) ?>" width="60" height="6"
-                          rx="3" class="rg-sk"/>
-                </g>
-            <?php endforeach; ?>
-
-            <?php foreach ($humanSlots as $index => $y): ?>
-                <line x1="204" y1="140" x2="212" y2="<?= h($y + 14) ?>"
-                      class="rg-edge-human"
-                      marker-end="url(#<?= h($markerId) ?>)"/>
-                <g>
-                    <rect x="212" y="<?= h($y) ?>" width="84" height="28"
-                          rx="6" class="rg-node"/>
-                    <rect x="213" y="<?= h($y + 4) ?>" width="3" height="20"
-                          class="rg-accent-human"/>
-                    <text x="222" y="<?= h($y + 15) ?>"
-                          class="<?= h($typeClass($nodes['human'][$index]))
-                              ?> rg-type-human">
-                        <?= h($nodes['human'][$index]) ?>
-                    </text>
-                    <rect x="222" y="<?= h($y + 21) ?>" width="60" height="6"
-                          rx="3" class="rg-sk"/>
-                </g>
-            <?php endforeach; ?>
-
-            <?php if (empty($nodes['co'])): ?>
-                <text x="44" y="134" class="rg-muted" text-anchor="middle">
-                    <?= h(__('none')) ?>
-                </text>
-            <?php endif; ?>
-            <?php if (empty($nodes['near'])): ?>
-                <text x="254" y="76" class="rg-muted" text-anchor="middle">
-                    <?= h(__('none')) ?>
-                </text>
-            <?php endif; ?>
-            <?php if (empty($nodes['human'])): ?>
-                <text x="254" y="196" class="rg-muted" text-anchor="middle">
-                    <?= h(__('none')) ?>
-                </text>
-            <?php endif; ?>
-
-            <g>
-                <circle cx="<?= $centreX ?>" cy="<?= $centreY ?>" r="76"
-                        class="rg-halo"/>
-                <rect x="97" y="111" width="106" height="38" rx="10"
-                      class="rg-centre"/>
-                <text x="<?= $centreX ?>" y="136" class="rg-value"
-                      text-anchor="middle">
-                    <?= h(mb_strimwidth($profile['value'], 0, 18, '…')) ?>
-                </text>
-            </g>
-
-        </svg>
+        </div>
     </div>
 
-    <div class="px-3 pb-3">
+    <div class="px-3 pb-3 pt-2">
         <div class="vp-rel-key">
             <?php foreach ($key as $entry): ?>
                 <span class="vp-rel-key-item">
@@ -315,11 +292,8 @@ $key = array(
                     class="btn btn-sm btn-outline-secondary w-100 mt-3
                            disabled"
                     title="<?= h(__(
-                        'Disabled in this pass — MISP has no'
-                        . ' value-centred graph feed.'
-                        . ' CorrelationGraphTool expands events, not'
-                        . ' values, so a real graph needs an endpoint'
-                        . ' that does not exist yet.'
+                        'Disabled in this pass — this render has no'
+                        . ' node and edge feed behind it.'
                     )) ?>">
                 <i class="fas fa-maximize me-1"></i>
                 <?= __('Open the full graph') ?>
@@ -327,13 +301,11 @@ $key = array(
         <?php else: ?>
             <?php
             /*
-             * No longer disabled, and this is the one write-free
-             * control on the tab whose *reason* for being disabled has
-             * gone away rather than being deferred again: the missing
-             * thing was a value-centred feed, and there is one now.
-             * The overlay draws the same nodes at a size where the
-             * labels are readable and the physics panel is worth
-             * having.
+             * The button now means something specific: the rail draws
+             * one node per object template, and the overlay expands
+             * those templates into the values behind them. Two
+             * surfaces, progressive disclosure — not two sizes of one
+             * picture, which is what it was before the roll-up.
              */
             ?>
             <button type="button"
@@ -341,8 +313,9 @@ $key = array(
                            d-none"
                     data-vp-relgraph-expand
                     title="<?= h(__(
-                        'The same neighbourhood, full width, with'
-                        . ' pivotick\'s own controls.'
+                        'The same five layers, full width, with the'
+                        . ' object templates expanded into the values'
+                        . ' behind them.'
                     )) ?>">
                 <i class="fas fa-maximize me-1"></i>
                 <?= __('Open the full graph') ?>
@@ -350,10 +323,10 @@ $key = array(
         <?php endif; ?>
     </div>
 
-    <?php if ($feed !== null): ?>
+    <?php if ($peek !== null): ?>
         <?php
         /*
-         * The feed is a literal inside this script and not a
+         * Both feeds are literals inside this script and not a
          * `<script type="application/json">` beside it, because
          * `loadAjaxContainer` re-creates every script the fragment
          * brings **without copying its `type`** — a JSON block would
@@ -386,25 +359,40 @@ $key = array(
             );
             if (!stage || !host) return;
 
+            /*
+             * Two feeds, built server-side. The rail's is rolled to one
+             * node per object template and one counted node per other
+             * layer; the overlay's expands the object layer into values
+             * where the legibility bound allows. Rolling in the browser
+             * was the alternative and it is the wrong place for it —
+             * `0.0.0.0`'s 35,102 siblings are roughly 7 MB of nodes,
+             * and no client-side algorithm helps a payload that never
+             * lands.
+             */
+            var peek = <?= json_encode($peek) ?>;
             var data = <?= json_encode($feed) ?>;
-            if (!data || !data.nodes || data.nodes.length < 2) {
-                // One node is not a neighbourhood. The sketch says
-                // "none" in each empty region, which is the better
+            if (!peek || !peek.nodes || peek.nodes.length < 2) {
+                // One node is not a neighbourhood. The strip says
+                // "none" against every empty layer, which is a better
                 // answer than a lone dot with springs on it.
                 return;
             }
 
             var LEGEND = {
-                co: <?= json_encode(h(__('shares an event'))) ?>,
+                object: <?= json_encode(h(__('shares an object'))) ?>,
+                event: <?= json_encode(h(__('appears in this event'))) ?>,
                 near: <?= json_encode(h(__(
                     'close without being equal'
+                ))) ?>,
+                reference: <?= json_encode(h(__(
+                    'MISP records this relation'
                 ))) ?>,
                 human: <?= json_encode(h(__('an analyst said so'))) ?>
             };
 
             function kindOf(item) {
                 var d = item && item.getData ? item.getData() : null;
-                return (d && d.kind) ? d.kind : 'co';
+                return (d && d.kind) ? d.kind : 'object';
             }
 
             function theme() {
@@ -414,7 +402,59 @@ $key = array(
                     : 'light';
             }
 
-            function options(mode, labels) {
+            /*
+             * Seven node kinds and four shapes, because the bundle
+             * knows circle, square, hexagon and triangle and an unknown
+             * shape draws no shape element at all — pivotick then
+             * measures a node that is not there and throws `getBBox is
+             * not a function` on every render tick. Colour separates
+             * the pairs that share a shape, and the key beneath the
+             * canvas names all five edge kinds in words.
+             */
+            var SHAPES = {
+                value: { shape: 'hexagon', color: 'var(--bs-body-color)' },
+                template: {
+                    shape: 'square',
+                    color: 'var(--vp-rel-object)'
+                },
+                sibling: {
+                    shape: 'circle',
+                    color: 'var(--vp-rel-object)'
+                },
+                event: { shape: 'triangle', color: 'var(--vp-rel-event)' },
+                near: { shape: 'square', color: 'var(--vp-rel-near)' },
+                object: {
+                    shape: 'circle',
+                    color: 'var(--vp-rel-reference)'
+                },
+                /*
+                 * A rolled node takes its layer's name, and for this
+                 * layer that is `reference` where the far-end node kind
+                 * is `object`. Without the alias the rail's
+                 * `6 references` node matches nothing in the map and
+                 * pivotick draws its own default — a blue circle in a
+                 * card where blue means nothing.
+                 */
+                reference: {
+                    shape: 'circle',
+                    color: 'var(--vp-rel-reference)'
+                },
+                human: { shape: 'triangle', color: 'var(--vp-rel-human)' }
+            };
+
+            function styleMap(size) {
+                var map = {};
+                Object.keys(SHAPES).forEach(function (kind) {
+                    map[kind] = {
+                        shape: SHAPES[kind].shape,
+                        color: SHAPES[kind].color,
+                        size: kind === 'value' ? size + 8 : size
+                    };
+                });
+                return map;
+            }
+
+            function options(size, rail) {
                 return {
                     isDirected: true,
                     render: {
@@ -422,7 +462,7 @@ $key = array(
                          * Required, not cosmetic: pivotick applies
                          * `defaultEdgeStyle` and the style maps **only**
                          * under the SVG renderer. Left at the default
-                         * the three notions all draw in one colour and
+                         * the five notions all draw in one colour and
                          * the dashes never appear, which is the whole
                          * separation this tab rests on.
                          */
@@ -430,65 +470,46 @@ $key = array(
                         nodeTypeAccessor: function (node) {
                             return kindOf(node);
                         },
-                        nodeStyleMap: {
-                            value: {
-                                shape: 'hexagon',
-                                color: 'var(--bs-body-color)',
-                                size: labels ? 30 : 24
-                            },
-                            co: {
-                                shape: 'circle',
-                                color: 'var(--vp-rel-co)',
-                                size: labels ? 22 : 13
-                            },
-                            near: {
-                                shape: 'square',
-                                color: 'var(--vp-rel-near)',
-                                size: labels ? 22 : 13
-                            },
-                            /*
-                             * `triangle` and not `diamond`: the shipped
-                             * bundle knows circle, square, hexagon and
-                             * triangle, and an unknown shape draws no
-                             * shape element at all — pivotick then
-                             * measures a node that is not there and
-                             * throws `getBBox is not a function` on
-                             * every render tick.
-                             */
-                            human: {
-                                shape: 'triangle',
-                                color: 'var(--vp-rel-human)',
-                                size: labels ? 24 : 15
-                            }
-                        },
+                        nodeStyleMap: styleMap(size),
                         defaultNodeStyle: {
                             /*
-                             * Above the node rather than inside it, in
-                             * the overlay. Pivotick's character budget
-                             * is 2.5× larger for a label it draws
-                             * outside — and a non-zero shift is the
-                             * only way to ask for that, there being no
-                             * `outside` flag. With the larger nodes
-                             * above it takes a value from six readable
-                             * characters to about sixteen.
+                             * Above the node rather than inside it.
+                             * Pivotick's character budget is 2.5×
+                             * larger for a label it draws outside, and
+                             * a non-zero shift is the only way to ask
+                             * for that, there being no `outside` flag.
                              */
-                            textVerticalShift: labels ? 1 : 0,
+                            textVerticalShift: 1,
                             /*
-                             * The rail draws no labels. Thirty-seven
-                             * of them in a 340px column overlap into
-                             * illegibility and the card's job there is
-                             * to show the *shape* of a neighbourhood —
-                             * which is what the sketch it replaces did.
-                             * The overlay is where the names are read.
+                             * 1.6.0, **and only on the rail**. The
+                             * roll-up depends on it there: three to
+                             * eight nodes labelled with template names,
+                             * and truncated to pivotick's
+                             * radius-derived budget
+                             * `paloalto-threat-event` becomes `pa…nt` —
+                             * exactly the name the roll-up exists to
+                             * show.
+                             *
+                             * On the overlay it is the wrong setting
+                             * and the screenshot says so. Fifty-two
+                             * nodes there include event titles like
+                             * *Kunai Analysis Report - Malware Sample
+                             * Abusing Open Recursive DNS for
+                             * Exfiltration*, and untruncated they
+                             * overlap into a wall of text with the
+                             * graph somewhere underneath it. The
+                             * overlay keeps pivotick's own truncation
+                             * and puts the full title in the tooltip,
+                             * which is what a tooltip is for.
                              */
+                            textTruncate: rail ? false : undefined,
                             text: function (node) {
-                                if (!labels) {
-                                    return kindOf(node) === 'value'
-                                        ? '★'
-                                        : '';
-                                }
                                 var d = node.getData();
-                                return d ? d.label : '';
+                                if (!d) return '';
+                                if (d.count && d.rolled) {
+                                    return d.label;
+                                }
+                                return d.label || '';
                             }
                         },
                         /*
@@ -504,7 +525,6 @@ $key = array(
                         },
                         defaultLabelStyle: {
                             labelAccessor: function (edge) {
-                                if (!labels) return '';
                                 var d = edge.getData
                                     ? edge.getData()
                                     : null;
@@ -513,17 +533,17 @@ $key = array(
                         }
                     },
                     /*
-                     * `viewer` in both places, and the overlay could
-                     * have had more. `light` and `full` add pivotick's
-                     * main header, and that header carries **Edit
-                     * Graph** and **Notes** — two affordances that
-                     * mutate the canvas. They write nothing to MISP,
-                     * which is exactly why they would be the wrong
-                     * thing here: a reader dragging out an edge would
-                     * think they had asserted a relationship. §14 keeps
-                     * every write control on this page disabled, and
-                     * the honest way to keep one disabled is not to
-                     * offer it.
+                     * `viewer` in both places. `light` and `full` add
+                     * pivotick's main header, and that header carries
+                     * **Edit Graph** and **Notes** — two affordances
+                     * that mutate the canvas. They write nothing to
+                     * MISP, which is exactly why they would be the
+                     * wrong thing here: a reader dragging out an edge
+                     * would think they had asserted a relationship.
+                     * §14 keeps every write control on this page
+                     * disabled, and the honest way to keep one disabled
+                     * is not to offer it. §23.4's `light` overlay waits
+                     * on the upstream flag that switches Notes off.
                      *
                      * Pivotick paints its own canvas ground and
                      * defaults to the light one, so a dark page gets a
@@ -533,19 +553,24 @@ $key = array(
                      * both themes and the reader chooses.
                      */
                     UI: {
-                        mode: mode,
+                        mode: 'viewer',
                         theme: theme(),
                         /*
-                         * The node label is drawn *inside* the node and
-                         * pivotick shortens it to fit — the character
-                         * budget is derived from the radius and both
-                         * the budget and the font scale together, so a
-                         * bigger node does not buy more letters. Six is
-                         * the ceiling, which turns `update.example.com`
-                         * into `up…com`. The tooltip is where the value
-                         * is legible, and it is the only place it can
-                         * be without rendering nodes by hand.
+                         * **Off on the rail, and it has to be said.**
+                         * §26.9 settled `viewer` on the reading that
+                         * leaving `navigation` unconfigured keeps its
+                         * viewport rail unmounted, because
+                         * `UIManager.ts:241` gates the rail on
+                         * `o.navigation?.enabled`. That was true of the
+                         * build this tab shipped against; **1.6.0
+                         * defaults the flag to `true`**, so the gate now
+                         * opens rather than closes on silence, and a
+                         * 340px card grew four buttons over its own
+                         * canvas. The overlay keeps them: pan and zoom
+                         * are worth a toolbar at 1400px, and the whole
+                         * reason for opening it is to move around.
                          */
+                        navigation: { enabled: !rail },
                         tooltip: {
                             nodeHeaderMap: {
                                 title: function (node) {
@@ -574,13 +599,11 @@ $key = array(
                     },
                     /*
                      * The overlay's labels are the point of opening it,
-                     * so the nodes need room to hold them. The rail's
-                     * own layout keeps pivotick's own tuning, which is
-                     * what packs 19 nodes into 320px.
+                     * so its nodes need room to hold them; the rail
+                     * keeps pivotick's own tuning, which is what packs
+                     * eight nodes into 320px.
                      */
-                    simulation: labels
-                        ? { d3LinkDistance: 220 }
-                        : {},
+                    simulation: rail ? {} : { d3LinkDistance: 320 },
                     /*
                      * A double-click, not a click. A single click is
                      * how pivotick selects and how a reader drags, and
@@ -601,33 +624,6 @@ $key = array(
                 var d = node && node.getData ? node.getData() : null;
                 if (!d || !d.href) return;
                 window.location = <?= json_encode($baseurl) ?> + d.href;
-            }
-
-            /*
-             * The rail's copy, with every label stripped out of the
-             * data. Returning an empty string from `labelAccessor` is
-             * not enough — the shipped build reads `data.label` when
-             * the accessor gives it nothing — so the rail is handed a
-             * graph that has no labels to draw.
-             */
-            function unlabelled(source) {
-                return {
-                    nodes: source.nodes.map(function (node) {
-                        var d = {};
-                        Object.keys(node.data || {}).forEach(function (k) {
-                            if (k !== 'label') d[k] = node.data[k];
-                        });
-                        return { id: node.id, data: d, style: node.style };
-                    }),
-                    edges: source.edges.map(function (edge) {
-                        return {
-                            from: edge.from,
-                            to: edge.to,
-                            data: { kind: edge.data.kind },
-                            style: edge.style
-                        };
-                    })
-                };
             }
 
             var overlay = null;
@@ -663,7 +659,7 @@ $key = array(
                     big = new window.Pivotick(
                         overlay.querySelector('.vp-relgraph-overlay-stage'),
                         data,
-                        options('viewer', true)
+                        options(24, false)
                     );
                 } catch (e) {
                     console.error('[value-profile] full graph failed:', e);
@@ -679,7 +675,7 @@ $key = array(
                      * fetch asynchronously, then runs this one
                      * immediately — so the library is reliably *not*
                      * there on the first tick. Six seconds of 50ms
-                     * polls, then the sketch keeps the card.
+                     * polls, then the strip keeps the card.
                      */
                     if (++tries > 120) return;
                     window.setTimeout(start, 50);
@@ -695,11 +691,10 @@ $key = array(
                 stage.classList.remove('d-none');
                 if (sketch) sketch.classList.add('d-none');
                 try {
-                    new window.Pivotick(host, unlabelled(data),
-                        options('viewer', false));
+                    new window.Pivotick(host, peek, options(16, true));
                 } catch (e) {
                     console.error('[value-profile] neighbourhood graph'
-                        + ' failed, keeping the sketch:', e);
+                        + ' failed, keeping the strip:', e);
                     stage.classList.add('d-none');
                     if (sketch) sketch.classList.remove('d-none');
                     return;

@@ -40,6 +40,17 @@ class ValueRelationTool
     const FACET_CAP = 40;
 
     /**
+     * MISP's one "this is a point in time" attribute type, and the only
+     * marker the dated fold needs. `date-of-birth` and
+     * `whois-creation-date` are dates about a subject rather than about
+     * when a relation held, and neither appears in a pair.
+     */
+    const DATE_TYPE = 'datetime';
+
+    /** What `passive-dns` calls the source of a resolution. */
+    const ORIGIN_RELATION = 'origin';
+
+    /**
      * Fold the value's neighbourhood into the three roll-ups, the six
      * facet groups and the numbers the panel header prints.
      *
@@ -589,18 +600,34 @@ class ValueRelationTool
     public static function siblings(array $rows, array $context)
     {
         $orgs = isset($context['orgs']) ? $context['orgs'] : array();
+        /*
+         * Which relation each object files *this* value under. It has
+         * to arrive from the caller: the rows here are by definition
+         * the attributes that are not ours, so our own end of the join
+         * appears nowhere in them. Without it an edge can say
+         * `passive-dns · rdata` but not `passive-dns · rrname → rdata`,
+         * and the second is the one that tells a reader which end they
+         * are standing on.
+         */
+        $ours = isset($context['relations'])
+            ? $context['relations']
+            : array();
         $triples = array();
         $objects = array();
+        $templates = array();
         foreach ($rows as $row) {
             $attribute = $row['Attribute'];
             if (empty($row['Object']['id'])) {
                 continue;
             }
+            $objectId = (int)$row['Object']['id'];
+            $eventId = (int)$attribute['event_id'];
             $template = $row['Object']['name'];
             $relation = empty($attribute['object_relation'])
                 ? ''
                 : $attribute['object_relation'];
             $value = isset($attribute['value']) ? $attribute['value'] : '';
+            $ourRelation = isset($ours[$objectId]) ? $ours[$objectId] : '';
             $key = $template . "\0" . $relation . "\0" . $value;
             if (!isset($triples[$key])) {
                 $triples[$key] = array(
@@ -611,12 +638,51 @@ class ValueRelationTool
                     'objects' => array(),
                     'events' => array(),
                     'orgs' => array(),
+                    'ours' => array(),
                 );
             }
-            $triples[$key]['objects'][(int)$row['Object']['id']] = true;
-            $triples[$key]['events'][(int)$attribute['event_id']] = true;
+            $triples[$key]['objects'][$objectId] = true;
+            $triples[$key]['events'][$eventId] = true;
             $triples[$key]['orgs'][(int)$row['Event']['orgc_id']] = true;
-            $objects[(int)$row['Object']['id']] = true;
+            if ($ourRelation !== '') {
+                self::tally($triples[$key]['ours'], $ourRelation);
+            }
+            $objects[$objectId] = true;
+
+            if (!isset($templates[$template])) {
+                $templates[$template] = array(
+                    'objects' => array(),
+                    'values' => array(),
+                    'events' => array(),
+                    'ours' => array(),
+                    'relations' => array(),
+                    'linking' => array(),
+                );
+            }
+            $templates[$template]['objects'][$objectId] = true;
+            $templates[$template]['values'][$value] = true;
+            $templates[$template]['events'][$eventId] = true;
+            if ($relation !== '') {
+                self::tally($templates[$template]['relations'], $relation);
+                /*
+                 * Ranked apart, because the edge label is the template's
+                 * *claim* and its bookkeeping is not part of it. Every
+                 * `passive-dns` object carries `count`, `origin` and
+                 * two timestamps as well as `rdata`, and by row count
+                 * the bookkeeping wins — so a label ranked over all of
+                 * them reads `rrname → count, origin, time_first`,
+                 * which names everything the object says except the
+                 * thing it exists to say. `disable_correlation` is
+                 * MISP's own record of which is which.
+                 */
+                if (empty($attribute['disable_correlation'])) {
+                    self::tally($templates[$template]['linking'],
+                        $relation);
+                }
+            }
+            if ($ourRelation !== '') {
+                self::tally($templates[$template]['ours'], $ourRelation);
+            }
         }
 
         $inObjects = (int)$context['in_objects'];
@@ -648,6 +714,7 @@ class ValueRelationTool
             $out[] = array(
                 'object' => $triple['object'],
                 'relation' => $triple['relation'],
+                'our_relation' => self::dominant($triple['ours']),
                 'value' => $triple['value'],
                 'type' => $triple['type'],
                 'objects' => $held,
@@ -689,6 +756,7 @@ class ValueRelationTool
         return array(
             'rows' => $out,
             'facets' => $facets,
+            'templates' => self::templateRollup($templates, $context),
             'total' => $triples,
             'raw' => count($rows),
             'objects' => count($objects),
@@ -696,6 +764,335 @@ class ValueRelationTool
             'cap' => array(
                 'limit' => $limit,
                 'applied' => $inObjects > $limit,
+            ),
+            // §14.6: no count of what the reader cannot see.
+            'hidden' => 0,
+            'page_size' => isset($context['page_size'])
+                ? (int)$context['page_size']
+                : 8,
+        );
+    }
+
+    /**
+     * One row per object template, which is what the graph draws when
+     * the sibling set is past reading.
+
+     * **This is the roll-up that lets nothing be truncated.** A ranked
+     * cap answers `0.0.0.0` with twelve of 35,102 siblings and no way
+     * to reach the rest; two template rows carrying 32,922 and 1 answer
+     * it completely, and the larger number is the finding — 32,922
+     * near-identical `paloalto-threat-event` objects read as
+     * flood-capture noise at a glance.
+
+     * **The object count is the value's own, not the fold's.** The
+     * caller caps the objects it reads at `SIBLING_OBJECT_CAP`, so
+     * counting the folded ones would print 500 where the truth is
+     * 32,922 — a roll-up quietly lying at the one number it exists to
+     * carry. `template_totals` is the census the caller runs when its
+     * cap bit; `folded` stays beside it so a reader of this array can
+     * still tell how much of the template the values came from.
+     *
+     * @param array $templates Per-template sets, from the fold above
+     * @param array $context `template_totals` where the cap bit
+     * @return array
+     */
+    private static function templateRollup(array $templates,
+        array $context
+    ) {
+        $totals = isset($context['template_totals'])
+            ? $context['template_totals']
+            : array();
+        /*
+         * Every template in the census, not only the ones the fold
+         * reached. `0.0.0.0` sits in 32,921 `paloalto-threat-event`
+         * objects and one `pe`, and the read stops at 500 — all of them
+         * paloalto — so a roll-up built from the fold alone would draw
+         * one node and silently lose the template that is actually
+         * unusual. A template with no folded row draws its count and no
+         * values, which is exactly what is known about it.
+         */
+        foreach ($totals as $name => $count) {
+            if (!isset($templates[$name])) {
+                $templates[$name] = array(
+                    'objects' => array(),
+                    'values' => array(),
+                    'events' => array(),
+                    'ours' => array(),
+                    'relations' => array(),
+                    'linking' => array(),
+                );
+            }
+        }
+        $rows = array();
+        foreach ($templates as $name => $group) {
+            $folded = count($group['objects']);
+            $known = isset($totals[$name])
+                ? (int)$totals[$name]
+                : $folded;
+            $relations = empty($group['linking'])
+                ? $group['relations']
+                : $group['linking'];
+            arsort($relations);
+            $rows[] = array(
+                'object' => $name,
+                'objects' => max($folded, $known),
+                'folded' => $folded,
+                'values' => count($group['values']),
+                'events' => count($group['events']),
+                'our_relation' => self::dominant($group['ours']),
+                'relations' => array_slice(array_keys($relations), 0, 4),
+            );
+        }
+        usort($rows, function ($a, $b) {
+            if ($a['objects'] !== $b['objects']) {
+                return $b['objects'] - $a['objects'];
+            }
+            return strcmp($a['object'], $b['object']);
+        });
+        return $rows;
+    }
+
+    /**
+     * Section five: the object joins that carry a pair of dates.
+     *
+     * Folded from **the rows the sibling section already read**, so it
+     * costs no query of its own. Grouped by object rather than by
+     * triple, because the dates are a property of the object and the
+     * whole point of the panel is to put them on the edge.
+
+     * **A dated relation is an object recording two or more dates.**
+     * One date is a moment, not a span, and the instance says why the
+     * distinction has to be drawn: 40,098 objects carry exactly one
+     * `datetime`, and 32,892 of those are `paloalto-threat-event`
+     * saying when the row was generated, with another 6,740 saying when
+     * a sample was last submitted. Neither is a claim about when the
+     * relation held. Requiring a pair keeps `passive-dns`
+     * (`time_first`/`time_last`) and `url-honeypot-detection`
+     * (`first-seen`/`last-seen`) and drops the bookkeeping, without a
+     * per-template list to maintain.
+
+     * **First and last are the earliest and the latest, and each cell
+     * carries the object's own word for it.** The column header is
+     * generic and the label under the date is not, which is §23.2's
+     * rule applied to a timestamp: a label is true where a
+     * classification would be arguing.
+
+     * **The far value is one MISP itself marks as linking.**
+     * `disable_correlation` is 0 on `rrname` and `rdata` and 1 on
+     * `rrtype`, `count`, `origin` and both timestamps — the template's
+     * own record of which attributes are there to join and which are
+     * there to describe. Nothing here classifies templates; it reads a
+     * column that is already written.
+     *
+     * @param array $rows fetchAttributesSimple rows, object-scoped
+     * @param array $context `orgs`, `relations`, `in_objects`, `cap`,
+     *                       `row_cap`, `page_size`
+     * @return array
+     */
+    public static function dated(array $rows, array $context)
+    {
+        $orgs = isset($context['orgs']) ? $context['orgs'] : array();
+        $objects = array();
+        foreach ($rows as $row) {
+            $attribute = $row['Attribute'];
+            if (empty($row['Object']['id'])) {
+                continue;
+            }
+            $objectId = (int)$row['Object']['id'];
+            if (!isset($objects[$objectId])) {
+                $objects[$objectId] = array(
+                    'id' => $objectId,
+                    'object' => $row['Object']['name'],
+                    'event' => (int)$attribute['event_id'],
+                    'org' => (int)$row['Event']['orgc_id'],
+                    'dates' => array(),
+                    'values' => array(),
+                    'origin' => null,
+                );
+            }
+            $relation = empty($attribute['object_relation'])
+                ? ''
+                : $attribute['object_relation'];
+            $value = isset($attribute['value']) ? $attribute['value'] : '';
+            if ($attribute['type'] === self::DATE_TYPE) {
+                $at = strtotime($value);
+                if ($at !== false) {
+                    $objects[$objectId]['dates'][] = array(
+                        'at' => $at,
+                        'raw' => $value,
+                        'relation' => $relation,
+                    );
+                }
+                continue;
+            }
+            /*
+             * Named, because the object names it. `passive-dns` records
+             * where a resolution was observed on 646 of its 673 rows
+             * here, and a resolution history without its source is a
+             * list of claims with no provenance.
+             */
+            if ($relation === self::ORIGIN_RELATION) {
+                $objects[$objectId]['origin'] = $value;
+                continue;
+            }
+            if (!empty($attribute['disable_correlation']) || $value === '') {
+                continue;
+            }
+            $objects[$objectId]['values'][$value] = array(
+                'value' => $value,
+                'relation' => $relation,
+                'type' => $attribute['type'],
+            );
+        }
+
+        $out = array();
+        $templates = array();
+        $dated = 0;
+        foreach ($objects as $object) {
+            if (count($object['dates']) < 2 || empty($object['values'])) {
+                continue;
+            }
+            usort($object['dates'], function ($a, $b) {
+                return $a['at'] === $b['at'] ? 0 : ($a['at'] - $b['at']);
+            });
+            $first = reset($object['dates']);
+            $last = end($object['dates']);
+            $dated++;
+            self::tally($templates, $object['object']);
+            foreach ($object['values'] as $far) {
+                $out[] = array(
+                    'value' => $far['value'],
+                    'relation' => $far['relation'],
+                    'type' => $far['type'],
+                    'object' => $object['object'],
+                    'object_id' => $object['id'],
+                    'event' => $object['event'],
+                    'org' => self::orgName($orgs, $object['org']),
+                    'origin' => $object['origin'],
+                    'first' => $first,
+                    'last' => $last,
+                );
+            }
+        }
+
+        /*
+         * Newest first for the cut, oldest first for the eye. A
+         * resolution history reads forwards — four addresses in
+         * fourteen days, four years of nothing, then one more — but a
+         * cap taken off the front of that would keep 2017 and drop
+         * last week. So the cut keeps the most recent rows and the
+         * table then reads them in the order the story runs.
+         */
+        usort($out, function ($a, $b) {
+            if ($a['last']['at'] !== $b['last']['at']) {
+                return $b['last']['at'] - $a['last']['at'];
+            }
+            return strcmp($a['value'], $b['value']);
+        });
+        $total = count($out);
+        $rowCap = isset($context['row_cap'])
+            ? (int)$context['row_cap']
+            : 100;
+        $out = array_slice($out, 0, $rowCap);
+        usort($out, function ($a, $b) {
+            if ($a['first']['at'] !== $b['first']['at']) {
+                return $a['first']['at'] - $b['first']['at'];
+            }
+            return strcmp($a['value'], $b['value']);
+        });
+        arsort($templates);
+
+        $inObjects = isset($context['in_objects'])
+            ? (int)$context['in_objects']
+            : count($objects);
+        $limit = isset($context['cap']) ? (int)$context['cap'] : 0;
+        return array(
+            'rows' => $out,
+            'total' => $total,
+            'objects' => $dated,
+            'read_objects' => count($objects),
+            'in_objects' => $inObjects,
+            'templates' => array_keys($templates),
+            'cap' => array(
+                'limit' => $limit,
+                'applied' => $limit > 0 && $inObjects > $limit,
+            ),
+            // §14.6: no count of what the reader cannot see.
+            'hidden' => 0,
+            'page_size' => isset($context['page_size'])
+                ? (int)$context['page_size']
+                : 8,
+        );
+    }
+
+    /**
+     * Section six: what MISP itself records as related to this value.
+     *
+     * The rows arrive already resolved and already ACL-filtered — this
+     * only folds them, ranks them and counts the templates, which is
+     * the division of labour every other fold here keeps.
+     *
+     * Ranked by relationship type and then by the far object's
+     * template, so ten `hosted-by` references read as one block rather
+     * than as ten unrelated rows.
+     *
+     * @param array $rows From ValueProfile::objectReferences
+     * @param array $context `row_cap`, `page_size`, `in_objects`
+     * @return array
+     */
+    public static function references(array $rows, array $context)
+    {
+        $types = array();
+        $templates = array();
+        foreach ($rows as $row) {
+            self::tally($types, $row['relationship']);
+            if (!empty($row['far']['object'])) {
+                self::tally($templates, $row['far']['object']);
+            }
+        }
+        usort($rows, function ($a, $b) {
+            $type = strcmp($a['relationship'], $b['relationship']);
+            if ($type !== 0) {
+                return $type;
+            }
+            $far = strcmp($a['far']['object'], $b['far']['object']);
+            return $far === 0
+                ? strcmp($a['far']['label'], $b['far']['label'])
+                : $far;
+        });
+        $total = count($rows);
+        $rowCap = isset($context['row_cap'])
+            ? (int)$context['row_cap']
+            : 100;
+        arsort($types);
+        arsort($templates);
+        $read = isset($context['read_objects'])
+            ? (int)$context['read_objects']
+            : 0;
+        $limit = isset($context['object_cap'])
+            ? (int)$context['object_cap']
+            : 0;
+        return array(
+            'rows' => array_slice($rows, 0, $rowCap),
+            'total' => $total,
+            'types' => $types,
+            'templates' => array_keys($templates),
+            'read_objects' => $read,
+            'occurrences' => isset($context['occurrences'])
+                ? (int)$context['occurrences']
+                : 0,
+            /*
+             * How many of this value's own objects carry a reference at
+             * all — counted before the both-ends-ours rows are dropped,
+             * because the question is whether the value's objects are
+             * referenced, not whether any survived the fold.
+             */
+            'with_references' => isset($context['with_references'])
+                ? (int)$context['with_references']
+                : 0,
+            'cap' => array(
+                'limit' => $limit,
+                'applied' => $limit > 0 && $read >= $limit,
             ),
             // §14.6: no count of what the reader cannot see.
             'hidden' => 0,

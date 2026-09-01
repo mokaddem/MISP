@@ -376,6 +376,40 @@ class ValuesController extends AppController
         );
     }
 
+    /**
+     * Section five. Folded with the co-occurrence scan, so this is
+     * usually a Redis read — see `ValueProfile::forRelationDated`.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewRelationDated($b64value = null)
+    {
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationDated',
+            'value_relation_dated'
+        );
+    }
+
+    /**
+     * Section six, and the cheapest endpoint on the tab: three indexed
+     * lookups against `object_references` and one resolve. Its own
+     * action for exactly that reason — it must not queue behind the
+     * 20,000-row scan section one can run.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewRelationReferences($b64value = null)
+    {
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationReferences',
+            'value_relation_references'
+        );
+    }
+
     public function viewRelationExternal($b64value = null)
     {
         $this->renderRelationPanel(

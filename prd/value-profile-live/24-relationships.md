@@ -3369,3 +3369,197 @@ proved itself.
 - **Coverage sentences.** ~20 % of attributes sit in objects and 11 % of
   objects carry a reference. Both panels must state their own bound; the
   exact wording is not yet written.
+
+---
+
+## 27. The re-founding, built and measured
+
+§26 recorded eleven decisions; `03-relationships.md` §23 is the
+specification and its §24 is what shipped and where the data moved it.
+This section is the measurement, run against the instance the worktree
+serves on 2026-09-01 with
+[`26-object-graph-probe.php`](26-object-graph-probe.php),
+[`26-object-graph-harness.mjs`](26-object-graph-harness.mjs) and
+[`26-panel-harness.mjs`](26-panel-harness.mjs).
+
+### 27.1 The legibility bound, measured across all five layers
+
+§23.3 left the threshold at *"~150–200, to be measured against real
+fragment weight across all five layers at once"*. Measured, as JSON
+bytes of the whole feed:
+
+| Value | Object layer | Rail feed | Overlay feed |
+|---|---|---|---|
+| `1.0.155.105` | 1 template, 11 values | 2 nodes, **442 B** | 12 nodes, 4.2 KB |
+| `github.com` | 1 template, 83 values | 2 nodes, **471 B** | 84 nodes, **37.7 KB** |
+| `45.77.250.80` | 1 template, 42 values | 3 nodes, 805 B | 44 nodes, 17.2 KB |
+| `draculax.myq-see.com.` | 1 template, 21 values | 4 nodes, 1.1 KB | 28 nodes, 10.4 KB |
+| `18.117.184.102` | 1 template, 15 values | 4 nodes, 1.1 KB | 25 nodes, 9.4 KB |
+| `0.0.0.0` | 2 templates, 32,922 objects | 5 nodes, 1.3 KB | 11 nodes, 3.7 KB |
+| `8.8.8.8` | 3 templates, 22 values | 7 nodes, 2.0 KB | 52 nodes, 18.8 KB |
+| `443` | 7 templates, 399 objects | 10 nodes, 3.0 KB | 56 nodes, 21.3 KB |
+
+**About 0.45 KB per node, all five layers included.** At the proposed
+150 that is ~68 KB and at 200 ~90 KB, against phase 22's 5.9 MB *"a
+fragment that does not arrive"* and this tab's heaviest measured
+fragment — the co-occurrence panel on `443` — at **915 KB**. The wire is
+two orders of magnitude away, which settles §23.3's argument in its own
+favour: **the bound is legibility, and nothing about it is about
+transport.**
+
+`GRAPH_SIBLING_BOUND` is therefore set at 150. It is not the binding
+number: the fold caps its rows at `RELATION_ROW_CAP` (100) and the
+overlay expands only when the fold carried every sibling it counted, so
+100 binds first. Recorded rather than hidden, because raising one
+without the other does nothing.
+
+### 27.2 The rail is two to ten nodes, and every label is whole
+
+§23.4 predicted "one node per template, 1–5 in practice". Measured over
+the eight values: **1 to 7 templates**, and 2 to 10 rail nodes once the
+four rolled layer nodes are counted. `443` is the outlier at seven
+templates; every other value is one to three.
+
+Driven in a real browser at 340px, in both themes, no label is
+truncated and none overlaps:
+
+    8.8.8.8   paloalto-threat-event · domain-ip · network-socket
+              17 events · 6 analyst claims · 6 references
+              src → dst · ip → domain
+              ip-dst → address-family, protocol, dst-port
+
+    0.0.0.0   paloalto-threat-event · pe · 7 events · 1 near-match
+              dst → src
+
+`0.0.0.0` is §23.3's specified render arriving exactly: two template
+nodes, the caption *10 edges · tail rolled up, nothing dropped*, and
+the `pe` object — one of 32,922, and the only interesting one — drawn
+rather than ranked away. The old graph drew twelve of 35,102 and
+captioned the fraction.
+
+Computed strokes were read back against the theme tokens in both themes,
+which is §6.1's standing rule applied to a canvas:
+`--vp-rel-object` #524948/#c0b3b0, `--vp-rel-event` #14748d/#5cc4de,
+`--vp-rel-near` #0b7f61/#4fd6b0, `--vp-rel-reference` #6d3fd1/#b79dfa,
+`--vp-rel-human` #8f2d56/#e58cad. All five resolve.
+
+### 27.3 What the two panels hold on real values
+
+| Value | Dated relations | Object relationships |
+|---|---|---|
+| `draculax.myq-see.com.` | **5 rows, 5 `passive-dns` objects** | 5 `related-to` |
+| `45.77.250.80` | 23 rows, 23 `domain-ip` objects | none |
+| `18.117.184.102` | 4 rows, 4 `passive-dns` objects | **8 `hosted-by`** |
+| `github.com` | 46 rows, 21 `url-honeypot-detection` | none |
+| `443` | 4 rows of 397 objects read | 17, three types |
+| `8.8.8.8` | none — no object records a span | 6, five types |
+| `0.0.0.0` | none of 500 read; 32,922 in all | none of 500 read |
+| `1.0.155.105` | none — its one object records none | none |
+
+**§25.1 renders as written.** `draculax.myq-see.com.` gives five rows
+oldest-first — `141.255.159.82` 2017-04-11, `168.181.48.248` 04-14,
+`168.181.51.45` 04-18, `141.255.147.117` 04-25, then
+`200.101.151.150` 2021-03-30 — with `time_first`/`time_last` named under
+each date and CIRCL as the reporter. Four addresses in fourteen days,
+four years of nothing, one more. The panel is the artefact §25.1 said
+the timeline had to be.
+
+**§25.3's bridge renders as a recorded fact.** `18.117.184.102` gives
+eight `hosted-by` rows whose far objects name `ccss-public.com`,
+`cns-lu.com` and `luxtrust.support` — the health service, the eID and a
+third brand, on one host, each a link to its own page. Standing on the
+address, the campaign is on the screen without opening the report.
+
+**The relationship types on this instance are not all MISP's.**
+`hosted-by`, `related-to`, `connect`, `connected-to`, `analysed-with`
+and `authored-by` are; `Crush`, `Co-worker` and `Child` are on
+`8.8.8.8` because somebody typed them. They print verbatim, which is
+§23.2's rule and the only honest option.
+
+### 27.4 Cost, cold and warm
+
+Milliseconds, per facade call, cold after a cache flush and warm on the
+second read:
+
+| Value | Dated | References | Graph |
+|---|---|---|---|
+| `draculax.myq-see.com.` | 67 / 13 | 7 / 1 | 24 / 0 |
+| `45.77.250.80` | 32 / 14 | 5 / 0 | 17 / 0 |
+| `18.117.184.102` | 29 / 9 | 6 / 0 | 8 / 0 |
+| `github.com` | 17 / 1 | 5 / 0 | 7 / 0 |
+| `1.0.155.105` | 64 / 0 | 6 / 0 | 7 / 0 |
+| `8.8.8.8` | 830 / 294 | 8 / 2 | 45 / 0 |
+| `0.0.0.0` | 1,422 / 273 | 298 / 1 | 572 / 0 |
+| `443` | 7,690 / 776 | 1,701 / 2 | 11,188 / 1 |
+
+Three readings, and only one of them is new cost.
+
+**Dated costs nothing of its own.** It is folded inside the
+co-occurrence scan over rows that scan has already fetched, so its
+number *is* the scan's — the probe calls it first and it pays for
+everything. On the tab it is a Redis read behind whichever panel missed
+first.
+
+**References is genuinely independent and genuinely cheap** — 5 to 8 ms
+on six of the eight values. The two exceptions are the two heaviest
+values on the instance, where its own `occurrenceObjectIdsFor` groups
+over 32,922 and 2,691 rows: 298 ms and 1,701 ms cold, 1 ms and 2 ms
+warm. That is the price of not queueing behind a 20,000-row scan, and
+`443`'s co-occurrence panel takes 7.7 s cold on the same page.
+
+**The graph's own arithmetic is free.** Its 11 s on `443` is the digest
+assembling a cold scan; the two feeds are built from data already in
+hand and the folding is not measurable beside it.
+
+### 27.5 A memo that could not say which value it held
+
+Found by the probe on its second value and worth recording, because it
+was invisible inside the application. `ValueProfile` memoises the
+co-occurrence fold and the occurrence summary per request, and a request
+serves one value — so nothing keyed the memo on the value. A console
+shell walking eight verification values got `draculax.myq-see.com.`'s
+neighbourhood eight times, with no key to notice it by.
+
+The memos now carry the value they hold and a `forget()` clears them the
+moment a different one is asked for. Nothing in the application
+behaved differently; every future loop over values will.
+
+### 27.6 What was run
+
+- `26-object-graph-probe.php` over the eight §23.8 values, cold and
+  warm, for shapes, counts, feed weight and timing.
+- `24-relationships-render.php`, extended to the six sections, rendering
+  all eight panels for all eight values under `debug = 2` — 64
+  fragments, no notice, no undefined key, no exception.
+- Real HTTP against the running instance with a logged-in session: all
+  eight `viewRelation*` actions return 200, which exercises the two new
+  `ACLComponent` entries as well as the render.
+- `26-object-graph-harness.mjs` in headless Chromium at 460×1100, light
+  and dark, reading computed strokes and the label list off the SVG, and
+  screenshotting the rail and the expanded overlay.
+- `26-panel-harness.mjs` for the two new tables, with the witness
+  `24-relationships-browser.md` insists on: 46 rows collapsing to 8 with
+  a six-page control before any assertion about what the page showed.
+- Read-only SQL for the `disable_correlation`, `datetime` and
+  `object_references` censuses quoted above.
+
+Nothing was installed in `app/`; both scratch shells were copied in,
+run and removed.
+
+### 27.7 What is still open
+
+- **The `light` overlay** with pivotick's legend and `edgeFacets` layer
+  switches. The server side is done — the feed carries five edge kinds
+  and a `layers` summary — and both surfaces stay `viewer` until the
+  upstream flag that switches Notes off lands (§26.9).
+- **The promote list** (§26.3).
+- **The Timeline source lane** (§26.7). `url-honeypot-detection` joins
+  `passive-dns` as a candidate: `github.com` alone has 46 dated
+  relations across 21 of them.
+- **Live expand-one-hop** (§26.12).
+- **Coverage sentences** (§26.13) are written and are the *value's* own
+  arithmetic rather than the instance's: *"Read from 5 occurrences and 4
+  objects of this value. 4 of them carry a reference."* An
+  instance-wide `7,905 of 69,976` is true and costs two counts over the
+  whole database to print, and it is not the number a reader of one
+  value's page is asking about.

@@ -1349,3 +1349,157 @@ templates) are the roll-up stress cases.
   dates, so by that tab's charter they belong in its chronology beside
   sightings and publications. Timeline is built and verified, and a new
   lane means re-verifying it, so it is named here and scheduled there.
+
+---
+
+## 24. Built, and the seven places it departed from §23
+
+Shipped 2026-09-01. §23 is the design; this is what the code does and
+where the data made it do something else. Measurements are in
+`24-relationships.md` §27.
+
+**The tab is six sections now**, top to bottom: co-occurrence, **Dated
+relations**, near-matches, outside this instance, **Object
+relationships**, asserted. The two new ones sit where their notion
+belongs — the dated table directly under the object join it dates, and
+the references immediately before the analyst claims, because those two
+are the pair a person wrote.
+
+### 24.1 `disable_correlation` is the rule §23.2 was looking for
+
+§23.2 rejects a relational/descriptive split of templates on the
+grounds that **MISP records no such distinction**. That is true of
+templates. It is not true of *attributes*: every attribute carries
+`disable_correlation`, and it is the template's own statement of which
+of its fields are there to link and which are there to describe.
+
+    passive-dns   rrname 0 · rdata 0
+                  rrtype 1 · count 1 · origin 1
+                  time_first 1 · time_last 1
+
+Two things rest on it, and neither is a classification of anything:
+
+- **The far value in a dated row.** Without it `draculax.myq-see.com.`
+  renders `rrtype = A` and `count = 1` as dated relations, which the
+  object does say and no reader wants.
+- **The edge label.** The bookkeeping fields outnumber the linking ones
+  on every `passive-dns` object, so a label ranked over all of them read
+  **`rrname → count, origin, time_first`** — naming everything the
+  object says except the thing it exists to say. Ranked over the
+  linking ones it reads **`rrname → rdata`**, which is §23.2's own
+  example.
+
+It is imperfect where the data is: `domain-ip` carries
+`disable_correlation = 0` on 41 of its `first-seen` rows and 1 on 22 of
+them, so `45.77.250.80` labels `ip → domain, first-seen, last-seen`.
+That is what those objects say, and the panel says it.
+
+### 24.2 A dated relation is an object recording *two* dates
+
+§23.5 says "one row per dated edge" without saying what makes an edge
+dated. The instance answers it: **40,098 objects carry exactly one
+`datetime` attribute** and 32,892 of those are `paloalto-threat-event`
+recording when its row was generated, with another 6,740
+`virustotal-report` recording a last submission. Neither is a claim
+about when a relation held.
+
+So the rule is a **pair**: an object recording two or more `datetime`
+attributes recorded a span, and one recording a single one recorded a
+moment. It keeps `passive-dns` (`time_first`/`time_last`) and
+`url-honeypot-detection` (`first-seen`/`last-seen`), drops the
+bookkeeping, and needs no per-template list. The panel's caption states
+the rule rather than leaving a reader to infer it.
+
+**First and last are the earliest and the latest**, and each cell
+carries the object's own word for its end underneath. Where the two are
+one instant the second cell reads *same instant* rather than repeating
+the timestamp, which looked like a rendering fault in the first render.
+
+### 24.3 The roll-up reads the census, not the fold
+
+§23.3 says `0.0.0.0` draws two nodes carrying 32,922 and 1. Built from
+the fold alone it draws **one**, and the count is wrong: the object read
+stops at `SIBLING_OBJECT_CAP`, all 500 of those objects are
+`paloalto-threat-event`, and the single `pe` object — the interesting
+one — is never seen at all.
+
+`ValueProfile::objectCensus` therefore replaced `objectFootprint`: the
+same query that already ran when the cap bit now carries
+`GROUP BY Object.name`, so it returns the per-template breakdown as well
+as the total for the same cost. `0.0.0.0` draws
+`paloalto-threat-event · 32,921 objects` and `pe · 1 object`.
+
+A template the fold never reached draws its count and no values, which
+is exactly what is known about it.
+
+### 24.4 The rail rolls every layer, not only the object one
+
+§23.4 specifies the object layer rolled to one node per template and
+leaves the other four unstated; §23.7's *no objects* row requires them
+to draw. Measured, drawing them one node at a time puts `8.8.8.8` at
+**fourteen labelled nodes in 340px**, which is the illegibility §10.3 of
+`24-relationships.md` measured.
+
+So the rail draws one node per object template and **one counted node
+per other layer** — `17 events`, `6 analyst claims`, `6 references`.
+Two to ten nodes on every verification value, labelled and readable, and
+what it folds is one click away in the panel beneath it. The overlay
+draws each one.
+
+### 24.5 Three findings about pivotick 1.6.0
+
+- **`navigation` now defaults to on.** §26.9 of `24-relationships.md`
+  settled `UI.mode: 'viewer'` on the reading that leaving `navigation`
+  unconfigured keeps its viewport rail unmounted, because
+  `UIManager.ts:241` gates on `o.navigation?.enabled`. **1.6.0 ships
+  `navigation: {enabled: !0}` as the default**, so silence now opens the
+  gate rather than closing it, and the rail grew four buttons over its
+  own canvas. It is passed `enabled: false` explicitly. The overlay
+  keeps them.
+- **`textTruncate: false` belongs to the rail only.** It is what lets
+  the rail print `paloalto-threat-event` instead of `pa…nt`, and it is
+  what turns the overlay into a wall of text: fifty-two nodes there
+  include event titles like *Kunai Analysis Report — Malware Sample
+  Abusing Open Recursive DNS for Exfiltration*. The overlay keeps
+  pivotick's truncation and its tooltip.
+- **A rolled node takes its layer's name**, so the reference layer's
+  roll-up is `kind: 'reference'` while its expanded nodes are
+  `kind: 'object'`. The style map needs both keys; without the alias
+  pivotick draws its own default and `6 references` was a blue circle in
+  a card where blue means nothing.
+
+### 24.6 The sketch became a composition strip
+
+The fallback for a browser where the 776 KB bundle does not arrive drew
+one labelled SVG region per notion, and there were three. There are
+five, and five regions in a 300×260 box is a diagram about its own
+layout. It is now five rows — notion, count, and the reason when a
+count is zero — which is what a reader actually needs when there is no
+canvas, and it drops about 150 lines of hand-placed SVG.
+
+### 24.7 A reference with both ends in this value's own set is dropped
+
+Not in §23.5, and it is a third of the rows. `18.117.184.102` sits in
+four `passive-dns` objects and **each of them carries a `hosted-by`
+pointing back at the bare attribute** — the object holding the value
+saying the value hosts it. Three of those survive the direct read and
+one the parent read; all four relate the value to itself.
+
+The rule is exact rather than heuristic: a reference is dropped when its
+far end is one of *this value's own* parent objects or attributes.
+`18.117.184.102` renders eight rows instead of twelve, and every one of
+the eight names something else.
+
+### 24.8 What is still open
+
+- **The `light` overlay** with pivotick's own legend and
+  `UI.filter.edgeFacets` layer switches (§23.4, §23.6). The feed carries
+  the five edge kinds the facets would read; both surfaces are `viewer`
+  until the upstream flag that switches Notes off lands.
+- **The legibility bound is measured and is not the binding one.**
+  `GRAPH_SIBLING_BOUND` is 150, and the fold's own `RELATION_ROW_CAP` of
+  100 binds first — the overlay expands only when the fold carried every
+  sibling it counted, because drawing 100 of 120 would put a fraction
+  back on the canvas. Raising the bound alone changes nothing.
+- **The promote list** (§23.2), **the Timeline source lane** and **live
+  expand-one-hop** (§23.9) are unchanged.
