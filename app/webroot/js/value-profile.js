@@ -554,7 +554,77 @@
         } else {
             paginate(list, filtered);
         }
+        // A span strip draws every row the section holds, not the page,
+        // so it follows the narrowing rather than the pager — and it
+        // runs for any list that has one rather than for a named panel.
+        paintSpanStrips(list, filtered);
         updateListNotes(list, filtered.length, activeCount);
+    }
+
+    /**
+     * Dim the spans of rows a filter has removed.
+     *
+     * **Dimmed and not removed**, which is the strip's whole claim on
+     * the panel: the axis is the period the *section* covers, so a
+     * narrowing that drops the oldest resolution must not shorten the
+     * axis under the reader — the gap it left is the reading. A redrawn
+     * strip would rescale, and the dormant-then-reactivated shape §25.1
+     * is about would silently become continuously-live.
+     *
+     * The lane count goes to what survived, with the total kept beneath
+     * it, because a lane still showing 46 over three visible spans is
+     * the one number on the panel nothing on screen agrees with.
+     *
+     * @param {Element} list
+     * @param {Array<Element>} filtered Rows that survived
+     */
+    function paintSpanStrips(list, filtered) {
+        var strips = ownNodes(list, '[data-vp-span-strip]');
+        if (!strips.length) {
+            return;
+        }
+        var kept = {};
+        filtered.forEach(function (row) {
+            if (row.dataset.vpSpanKey) {
+                kept[row.dataset.vpSpanKey] = true;
+            }
+        });
+        strips.forEach(function (strip) {
+            var lanes = {};
+            strip.querySelectorAll('[data-vp-span-row]').forEach(
+                function (span) {
+                    var on = !!kept[span.dataset.vpSpanRow];
+                    span.classList.toggle('vp-lane-span-off', !on);
+                    var lane = span.closest('[data-vp-span-lane]');
+                    if (!lane) {
+                        return;
+                    }
+                    var key = lane.dataset.vpSpanLane;
+                    if (lanes[key] === undefined) {
+                        lanes[key] = 0;
+                    }
+                    if (on) {
+                        lanes[key]++;
+                    }
+                }
+            );
+            Object.keys(lanes).forEach(function (key) {
+                var cell = strip.querySelector(
+                    '[data-vp-span-count="' + key + '"]'
+                );
+                if (!cell) {
+                    return;
+                }
+                var total = parseInt(cell.dataset.vpSpanTotal || '', 10);
+                cell.textContent = String(lanes[key]);
+                var note = cell.parentNode
+                    ? cell.parentNode.querySelector('[data-vp-span-of]')
+                    : null;
+                if (note) {
+                    note.hidden = isNaN(total) || lanes[key] === total;
+                }
+            });
+        });
     }
 
     /**

@@ -2,14 +2,23 @@
 /**
  * Section five: the object joins that carry a pair of dates.
  *
- * **A table and not a canvas, and that is the whole argument for it.**
- * The insight in a resolution history is entirely in the dates —
+ * **A strip over a table, and the table is still the answer.** The
+ * insight in a resolution history is entirely in the dates —
  * `draculax.myq-see.com.` resolves to four addresses in fourteen days
  * in April 2017, then to nothing for four years, then to one Brazilian
  * host the day before the report that named it. Dormant-then-
- * reactivated is a different story from continuously-live, and a
- * canvas has nowhere to put either. `24-relationships.md` §25.1 is the
- * worked case.
+ * reactivated is a different story from continuously-live.
+ * `24-relationships.md` §25.1 is the worked case, and it is what the
+ * span strip above the table draws: the gap between April 2017 and
+ * March 2021 is a shape, and a shape is read in one glance and a column
+ * of dates is not.
+ *
+ * The earlier argument here was that a canvas has nowhere to put that
+ * reading, and against a canvas *instead of* the table it still holds —
+ * which is why the strip carries no numbers, names no organisation and
+ * is not clickable. It shows where the spans are; every fact about any
+ * one of them is in the row underneath, and the two narrow together
+ * through the one `[data-vp-list]` that owns them both.
  *
  * Three things this section is careful about:
  *
@@ -93,6 +102,45 @@ $stamp = function ($stamp) {
 $moment = function ($row) {
     return $row['first']['at'] === $row['last']['at'];
 };
+
+/*
+ * The digits the list framework compares a range bound against —
+ * `YmdHi`, which is what every other range control on this page speaks.
+ */
+$digits = function ($at) {
+    return date('YmdHi', (int)$at);
+};
+
+/*
+ * The facet groups this section offers, and the labels above them. The
+ * keys are the model's; the order is the reader's — template first
+ * because it is what the panel header already named.
+ */
+$facetGroups = array(
+    array(
+        'key' => 'datedobject',
+        'title' => __('Template'),
+        'icon' => 'fas fa-cube',
+    ),
+    array(
+        /*
+         * No honesty note, though the counts here are over a subset:
+         * the group's own numbers sum to fewer rows than the table
+         * holds because most templates record no origin, and the
+         * caption above already says so. A callout repeating it inside
+         * the rail cost three lines of height and pushed the two groups
+         * beside it out of line with each other.
+         */
+        'key' => 'datedorigin',
+        'title' => __('Origin'),
+        'icon' => 'fas fa-satellite-dish',
+    ),
+    array(
+        'key' => 'datedtype',
+        'title' => __('Related value type'),
+        'icon' => 'fas fa-shapes',
+    ),
+);
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-object"
      style="--vp-panel-color: var(--vp-rel-object);"
@@ -193,6 +241,88 @@ $moment = function ($row) {
 
         <?php else: ?>
 
+            <?= $this->element('Values/View/value_span_strip', array(
+                'stripId' => 'vp-dated-strip',
+                'stripSpan' => $dated['span'],
+                'stripLanes' => $dated['lanes'],
+                'stripHue' => 'var(--vp-rel-object)',
+                'stripNoun' => __('spans'),
+                'stripLabel' => __('Each dated relation as a span, in a lane per object template, over the whole period the section covers'),
+            )) ?>
+
+            <?php
+            /*
+             * The narrowing, under the strip it narrows and above the
+             * table it narrows — one control between the two things it
+             * changes, rather than a rail beside them.
+             *
+             * **The two date bounds cross keys on purpose.** `from` is
+             * bound to `last` and `to` to `first`, so a row survives
+             * when its span *ends* at or after the window opens and
+             * *starts* at or before the window closes. That is interval
+             * overlap, expressed in the range control the framework
+             * already has: binding both bounds to one key would ask
+             * whether a single instant fell inside the window, which
+             * for a span that straddles it answers no — the resolution
+             * that ran 2013→2018 would vanish from a 2015 window it
+             * covers completely.
+             */
+            ?>
+            <div class="vp-dated-controls">
+
+                <div class="vp-dated-window">
+                    <div class="vp-subhead">
+                        <i class="fas fa-arrows-left-right-to-line me-1"></i>
+                        <?= h(__('Overlapping')) ?>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <input type="date" class="form-control"
+                               data-vp-range-from="last"
+                               min="<?= h(date('Y-m-d',
+                                   $dated['span']['from'])) ?>"
+                               max="<?= h(date('Y-m-d',
+                                   $dated['span']['to'])) ?>"
+                               aria-label="<?= h(__('Overlapping from')) ?>">
+                        <span class="input-group-text"><?= __('to') ?></span>
+                        <input type="date" class="form-control"
+                               data-vp-range-to="first"
+                               min="<?= h(date('Y-m-d',
+                                   $dated['span']['from'])) ?>"
+                               max="<?= h(date('Y-m-d',
+                                   $dated['span']['to'])) ?>"
+                               aria-label="<?= h(__('Overlapping to')) ?>">
+                    </div>
+                    <div class="vp-tl-why">
+                        <?= h(__('A row is kept when its span overlaps the window, not only when it starts inside it.')) ?>
+                    </div>
+                </div>
+
+                <?php foreach ($facetGroups as $group): ?>
+                    <?= $this->element('Values/View/value_facet_group',
+                        array(
+                            'key' => $group['key'],
+                            'title' => $group['title'],
+                            'icon' => $group['icon'],
+                            'note' => isset($group['note'])
+                                ? h($group['note'])
+                                : null,
+                            'values' => isset($dated['facets'][$group['key']])
+                                ? $dated['facets'][$group['key']]
+                                : array(),
+                        )) ?>
+                <?php endforeach; ?>
+
+            </div>
+
+            <div class="p-3 d-none" data-vp-list-empty>
+                <div class="vp-empty vp-empty-inline">
+                    <i class="fas fa-filter"></i>
+                    <span>
+                        <?= h(__('No dated relation survives that narrowing. The strip above dims the spans it removed rather than redrawing without them, so the period they covered is still on the axis.')) ?>
+                    </span>
+                </div>
+            </div>
+
             <div class="table-responsive" data-vp-list-rows>
                 <table class="table table-sm table-hover vp-table
                               align-middle mb-0">
@@ -216,7 +346,18 @@ $moment = function ($row) {
                     </thead>
                     <tbody>
                         <?php foreach ($rows as $row): ?>
-                            <tr class="vp-rel-stripe vp-rel-k-object">
+                            <tr class="vp-rel-stripe vp-rel-k-object"
+                                data-vp-span-key="<?= h($row['key']) ?>"
+                                data-vp-facet="<?= h(implode(' ',
+                                    $row['tokens'])) ?>"
+                                data-vp-times="first:<?=
+                                    h($digits($row['first']['at'])) ?> last:<?=
+                                    h($digits($row['last']['at'])) ?>"
+                                data-vp-text="<?= h(strtolower(
+                                    $row['value'] . ' ' . $row['object']
+                                    . ' ' . $row['relation'] . ' '
+                                    . (string)$row['origin']
+                                )) ?>">
                                 <td class="font-monospace">
                                     <a class="vp-rel-cell fw-semibold"
                                        href="<?= h($profileUrl(

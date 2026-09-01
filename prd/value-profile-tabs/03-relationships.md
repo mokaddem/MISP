@@ -1680,3 +1680,108 @@ seven agree, on `8.8.8.8` (light) and `0.0.0.0` (dark). No label is
 clipped in either. `0.0.0.0` exercises all three of the new states at
 once: a capped non-zero (`≥ 795 siblings`), two capped zeros rendered
 plain with tooltips, and the zero-claims sentence.
+
+
+---
+
+## 26. A short timeline over the dated table
+
+Shipped 2026-09-01. Section five was a table only, and the argument for
+that was written into its own docblock: *the insight in a resolution
+history is entirely in the dates*, and a canvas has nowhere to put
+dormant-then-reactivated. That argument was right about a canvas
+**instead of** the table and wrong about one **above** it — the shape of
+four addresses in fourteen days, four years of nothing, then one more is
+read in a glance and never in a column of five timestamps.
+
+### 26.1 The Timeline tab's lanes, not a new drawing
+
+The strip is `Elements/Values/View/value_span_strip.ctp`, and it reuses
+the Timeline tab's stylesheet rather than restating it: `.vp-lanes`,
+`.vp-lane-axis`, `.vp-lane-svg`, `.vp-lane-span`, `.vp-lane-mark` and the
+`--vp-tl-…` palette. A span here and a span on the Timeline are the same
+mark, because they are the same claim.
+
+What is deliberately **not** shared is the machinery. Those lanes are
+redrawn in JavaScript from a JSON feed, over a rolling twelve-month
+window a brush moves, across eight fixed sources. This strip is rendered
+by the server, over the rows' own extent, with lanes the caller names.
+Sharing the CSS and not the code is what keeps the two from drifting
+without making either carry the other's requirements.
+
+### 26.2 Three decisions the data forced
+
+**The axis is the extent, not a calendar.** Twelve months is right for
+*what happened lately*, which is the Timeline's question. This section
+asks *how long did each of these hold*, and `draculax.myq-see.com.` —
+2017 to 2021 — would be an empty strip under a twelve-month axis.
+
+**A lane is a template, not a row.** `github.com` has 46 dated relations
+and one template. 46 lanes is a second table; one lane is a reading, and
+the strip stays two rows tall on every value on the instance. It is also
+the grouping the panel header already names, so the strip introduces no
+vocabulary of its own.
+
+**A span too short to draw is drawn as a moment.** This one came out of
+the render. All five of `draculax.myq-see.com.`'s resolutions lasted an
+instant or thirteen minutes; over a four-year axis all five are two
+pixels wide, so bars made the section's own argument invisible, and
+widening them would have claimed days MISP never recorded. Under four
+viewBox units a span becomes the Timeline's point mark instead — narrow,
+taller, fully opaque — which reads as *a thing happened here* rather than
+*this lasted a while*, and is the distinction the table beside it already
+draws with the words *same instant*. The legend appears only when the
+strip is mixing the two, because that is the only time the difference is
+a question.
+
+### 26.3 Filterable through the list that already owns the rows
+
+No new filter framework. The panel was already a `[data-vp-list]`, so the
+rows gained `data-vp-facet` tokens and three counted groups — template,
+origin, related-value type — through `value_facet_group`, and the fold
+stamps the tokens beside the counts so the string a facet counts and the
+string a filter matches come off the same line.
+
+**The window is interval overlap, expressed in a point-in-range
+control.** `data-vp-range-from` is bound to the row's `last` and
+`data-vp-range-to` to its `first`. A row therefore survives when its span
+*ends* at or after the window opens and *starts* at or before it closes,
+which is overlap. Binding both bounds to one key — the obvious reading —
+asks whether a single instant falls inside the window, and the
+resolution that ran 2013→2018 would vanish from a 2015 window it covers
+completely. Measured: a 2014-01-01→2015-01-01 window on `8.8.8.8` keeps
+exactly the 2013→2018 row and drops the two that begin later.
+
+**The strip dims, it does not redraw.** `paintSpanStrips` runs inside
+`refreshList` for any list holding a `[data-vp-span-strip]`, and marks
+the filtered-out spans rather than removing them: the axis is the period
+the *section* covers, so a narrowing that drops the oldest resolution
+must not shorten the axis under the reader — the gap it left is the
+reading. Lane counts fall to what survived and carry the total beneath
+them, because a lane reading 46 over three visible spans is a number
+nothing on screen agrees with.
+
+One CSS trap worth recording: `.vp-lane-span` sets an opacity six hundred
+lines further down the same stylesheet, so a single-class dim rule has
+equal specificity and loses on order. It looked right in the file and did
+nothing on the page. `.vp-lane-span.vp-lane-span-off` fixes it.
+
+### 26.4 Verified
+
+Read out of the rendered page in a browser, light and dark:
+
+| Value | Lanes | Marks | Reads |
+|---|---|---|---|
+| `8.8.8.8` | 2 | 3 spans | the seeded history, both templates |
+| `draculax.myq-see.com.` | 1 | 5 moments | §25.1's shape — cluster, four-year gap, one more |
+| `github.com` | 1 | 46, mixed | one lane, still legible; both legend keys |
+| `9.9.9.9` | — | — | empty state unchanged, no strip |
+
+Ticking `passive-dns` on `8.8.8.8` takes the table to two rows, dims the
+`domain-ip` span, and drops that lane to `0` over `of 1`. The two windows
+above behave as §26.3 states. Dark theme resolves `--vp-rel-object` to
+its light-on-dark variant for the marks, the lane borders and the ticks.
+
+A pre-existing page error, unrelated and untouched:
+`mispOvermind.js:2489` calls `e.target.closest` on a target that has no
+`closest`. It fires on values with no dated relations too.

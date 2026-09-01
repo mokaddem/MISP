@@ -4383,6 +4383,135 @@ th[aria-sort="descending"] .sort-icon::before,
     padding: 0 4px;
 }
 
+/* ------------------------------------------------------------------
+ * The span strip, and the controls under it
+ * ------------------------------------------------------------------
+ * The strip itself is the Timeline tab's lane grid — `.vp-lanes`,
+ * `.vp-lane-axis`, `.vp-lane-span` — reused rather than restated, so a
+ * span in a dated relation and a span on the Timeline are the same mark
+ * with the same meaning. Only what surrounds it is here.
+ * ------------------------------------------------------------------ */
+
+.vp-strip {
+    margin: 14px 0 12px;
+}
+
+/*
+ * The Timeline tab gives its labels 15rem because they are sentences
+ * ("Sightings and reports"); these are template names in a chip, and a
+ * label column that wide would take the axis — the thing the strip is
+ * for — down to half the panel.
+ */
+.vp-strip .vp-lanes {
+    grid-template-columns: 11rem 1fr 5rem;
+}
+
+/*
+ * Two lanes do not need the room seven do. The Timeline's 3.3rem is
+ * sized for a lane that has to carry its own explanation; nothing here
+ * does.
+ */
+.vp-strip .vp-lane-axis {
+    min-height: 2.4rem;
+    padding: 3px 5px;
+}
+
+/*
+ * A grid column does not clip its child by default, so a long template
+ * name walks out of the label column and over the axis. `min-width: 0`
+ * is what lets the chip inside actually shrink.
+ */
+.vp-strip .vp-lane-label {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.vp-strip-tag {
+    max-width: 100%;
+}
+
+.vp-strip-tag-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-strip .vp-lane-svg {
+    height: 26px;
+}
+
+/*
+ * The lane grid's third column is a count, and a count reads right.
+ * The Timeline tab does not need this because its counts sit under a
+ * blank heading; here the heading is a word.
+ */
+.vp-strip-headnum {
+    text-align: right;
+}
+
+/*
+ * A filtered-out span, and the reason it is still drawn: the axis is
+ * the period the section covers, so removing the mark would rescale
+ * nothing and imply the period shrank. Faint enough to read as absent,
+ * present enough that the gap is still a gap.
+ *
+ * Two classes and not one, because `.vp-lane-span` sets an opacity of
+ * its own six hundred lines further down this file — a single class
+ * here has the same specificity and loses on order, which is a rule
+ * that looks right in the stylesheet and does nothing on the page.
+ */
+.vp-lane-span.vp-lane-span-off,
+.vp-lane-mark.vp-lane-span-off {
+    opacity: 0.1;
+}
+
+/*
+ * The key, and it only appears when the strip is mixing bars with dots.
+ * Sits under the lanes rather than over them: it explains a mark the
+ * reader has already seen and gone looking for, which is a different job
+ * from the Timeline tab's legend naming eight sources up front.
+ */
+.vp-strip-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 6px 0 0 11rem;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-strip-swatch {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+/*
+ * One row of controls between the strip and the table, wrapping to as
+ * many lines as the facet groups need. `align-items: start` so a group
+ * that folded its tail does not stretch the window control beside it.
+ */
+.vp-dated-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    gap: 10px 18px;
+    padding: 10px 0 12px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    margin-bottom: 8px;
+}
+
+.vp-dated-window {
+    min-width: 17rem;
+    flex: 0 1 auto;
+}
+
+.vp-dated-controls .vp-facetgrp {
+    flex: 1 1 11rem;
+    min-width: 11rem;
+}
+
 .vp-ref-type {
     font-family: var(--bs-font-monospace);
     font-size: 0.78rem;

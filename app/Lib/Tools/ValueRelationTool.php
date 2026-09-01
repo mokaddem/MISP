@@ -1000,6 +1000,22 @@ class ValueRelationTool
             }
             return strcmp($a['value'], $b['value']);
         });
+        /*
+         * What a row and its span in the strip are both called, stamped
+         * once here rather than derived twice. The object id is not
+         * enough on its own — one object with two correlating
+         * attributes produces two rows that share it, and a key they
+         * shared would dim both spans when the reader filtered one.
+         *
+         * The facet tokens are stamped here for the reason
+         * `tokensFor` exists one section up: the string a facet counts
+         * and the string a filter matches are produced by the same
+         * line, so they cannot drift.
+         */
+        foreach ($out as $index => $row) {
+            $out[$index]['key'] = $row['object_id'] . '-' . $index;
+            $out[$index]['tokens'] = self::datedTokens($row);
+        }
         arsort($templates);
 
         $inObjects = isset($context['in_objects'])
@@ -1013,6 +1029,9 @@ class ValueRelationTool
             'read_objects' => count($objects),
             'in_objects' => $inObjects,
             'templates' => array_keys($templates),
+            'span' => self::datedSpan($out),
+            'lanes' => self::datedLanes($out),
+            'facets' => self::datedFacets($out),
             'cap' => array(
                 'limit' => $limit,
                 'applied' => $limit > 0 && $inObjects > $limit,
@@ -1023,6 +1042,181 @@ class ValueRelationTool
                 ? (int)$context['page_size']
                 : 8,
         );
+    }
+
+    /**
+     * The window every span in the section is drawn against.
+     *
+     * **The rows' own extent, not a calendar window.** The Timeline
+     * tab's spine is twelve months because that tab is asking *what
+     * happened lately*; this section is asking *how long did each of
+     * these hold*, and a resolution history that ran 2013→2018 would be
+     * an empty strip under a twelve-month axis. `draculax.myq-see.com.`
+     * is the case that settles it: four addresses in fourteen days,
+     * four years of nothing, then one more, and the shape of that is
+     * only visible when the axis is the span the data actually covers.
+     *
+     * Derived from `$rows` and not from the objects, so the strip covers
+     * exactly the rows the table holds — the cut above has already run.
+     *
+     * @param array $rows Folded dated rows
+     * @return array `from`, `to`, `seconds`; a zero span when one
+     *               instant is all there is
+     */
+    private static function datedSpan(array $rows)
+    {
+        if (empty($rows)) {
+            return array('from' => 0, 'to' => 0, 'seconds' => 0);
+        }
+        $from = null;
+        $to = null;
+        foreach ($rows as $row) {
+            $first = (int)$row['first']['at'];
+            $last = (int)$row['last']['at'];
+            $from = $from === null ? $first : min($from, $first);
+            $to = $to === null ? $last : max($to, $last);
+        }
+        return array(
+            'from' => $from,
+            'to' => $to,
+            'seconds' => max(0, $to - $from),
+        );
+    }
+
+    /**
+     * One lane per object template, holding that template's spans.
+     *
+     * **The template and not the row is the lane**, which is what keeps
+     * the strip short: `github.com` has 46 dated relations and two
+     * templates, so 46 lanes would be a second table and two lanes are
+     * a reading. It is also the grouping the panel header already
+     * names, so the strip introduces no vocabulary of its own.
+     *
+     * Every entry carries the `key` its table row carries, because the
+     * two have to filter together — a strip still drawing a span whose
+     * row the reader has just filtered away is worse than no strip.
+     *
+     * Ordered by span count, so the template that carries the history
+     * is the lane the eye lands on first.
+     *
+     * @param array $rows Folded dated rows
+     * @return array [['object', 'count', 'entries' => [...]], …]
+     */
+    private static function datedLanes(array $rows)
+    {
+        $lanes = array();
+        foreach ($rows as $row) {
+            $object = $row['object'];
+            if (!isset($lanes[$object])) {
+                $lanes[$object] = array(
+                    'object' => $object,
+                    'token' => ValueStatsTool::facetToken($object),
+                    'count' => 0,
+                    'entries' => array(),
+                );
+            }
+            $lanes[$object]['count']++;
+            $lanes[$object]['entries'][] = array(
+                'key' => $row['key'],
+                'value' => $row['value'],
+                'relation' => $row['relation'],
+                'from' => (int)$row['first']['at'],
+                'to' => (int)$row['last']['at'],
+                'origin' => $row['origin'],
+            );
+        }
+        $lanes = array_values($lanes);
+        usort($lanes, function ($a, $b) {
+            if ($a['count'] !== $b['count']) {
+                return $b['count'] - $a['count'];
+            }
+            return strcmp($a['object'], $b['object']);
+        });
+        return $lanes;
+    }
+
+    /**
+     * One row's narrowing tokens, in the form the filter matches.
+     *
+     * Read by the row builder and produced from the same call
+     * `datedFacets` counts with, which is the rule `tokensFor` keeps for
+     * the co-occurrence pane: a facet that counted `passive-dns` and a
+     * row that spelled it `passive_dns` would be a control that filters
+     * everything away and looks broken.
+     *
+     * A row with no origin carries no origin token, so ticking an
+     * origin drops it — which is the honest answer to *show me what
+     * Farsight said* and not the same thing as excluding it by name.
+     *
+     * @param array $row
+     * @return array
+     */
+    private static function datedTokens(array $row)
+    {
+        $tokens = array(
+            'datedobject:' . ValueStatsTool::facetToken($row['object']),
+            'datedtype:' . ValueStatsTool::facetToken($row['type']),
+        );
+        if ($row['origin'] !== null && $row['origin'] !== '') {
+            $tokens[] = 'datedorigin:'
+                . ValueStatsTool::facetToken($row['origin']);
+        }
+        return $tokens;
+    }
+
+    /**
+     * The narrowing this section offers, counted over its own rows.
+     *
+     * Three keys and no more. Template and origin are what a reader
+     * asks a resolution history — *only the passive DNS*, *only what
+     * Farsight said* — and the far value's type is what separates a
+     * domain from a hostname in a table where both print as text. Event
+     * and organisation are deliberately absent: they are the
+     * co-occurrence pane's narrowing, and offering them twice on one
+     * tab with two different row sets would be two controls that
+     * disagree.
+     *
+     * `origin` counts only the rows that have one. Most templates
+     * record none, and a facet reading *"— 43"* would offer the reader
+     * a filter for the absence of a field rather than for a fact.
+     *
+     * @param array $rows Folded dated rows
+     * @return array Facet groups, ranked and capped
+     */
+    private static function datedFacets(array $rows)
+    {
+        $facets = array(
+            'datedobject' => array(),
+            'datedorigin' => array(),
+            'datedtype' => array(),
+        );
+        foreach ($rows as $row) {
+            self::bump(
+                $facets['datedobject'],
+                ValueStatsTool::facetToken($row['object']),
+                $row['object']
+            );
+            self::bump(
+                $facets['datedtype'],
+                ValueStatsTool::facetToken($row['type']),
+                $row['type']
+            );
+            if ($row['origin'] !== null && $row['origin'] !== '') {
+                self::bump(
+                    $facets['datedorigin'],
+                    ValueStatsTool::facetToken($row['origin']),
+                    $row['origin']
+                );
+            }
+        }
+        foreach ($facets as $key => $group) {
+            $facets[$key] = array_slice(
+                self::rank($group),
+                0,
+                self::FACET_CAP
+            );
+        }
+        return $facets;
     }
 
     /**
