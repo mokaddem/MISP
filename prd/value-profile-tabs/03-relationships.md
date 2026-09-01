@@ -1412,7 +1412,7 @@ of its fields are there to link and which are there to describe.
                   rrtype 1 · count 1 · origin 1
                   time_first 1 · time_last 1
 
-Two things rest on it, and neither is a classification of anything:
+Three things rest on it, and none is a classification of anything:
 
 - **The far value in a dated row.** Without it `draculax.myq-see.com.`
   renders `rrtype = A` and `count = 1` as dated relations, which the
@@ -1423,11 +1423,14 @@ Two things rest on it, and neither is a classification of anything:
   object says except the thing it exists to say. Ranked over the
   linking ones it reads **`rrname → rdata`**, which is §23.2's own
   example.
+- **The sibling table's order and its Field kind facet**, added later —
+  §27.
 
 It is imperfect where the data is: `domain-ip` carries
 `disable_correlation = 0` on 41 of its `first-seen` rows and 1 on 22 of
 them, so `45.77.250.80` labels `ip → domain, first-seen, last-seen`.
-That is what those objects say, and the panel says it.
+That is what those objects say, and the panel says it. §27 says how the
+sibling table votes on the same dirt.
 
 ### 24.2 A dated relation is an object recording *two* dates
 
@@ -1820,3 +1823,54 @@ its light-on-dark variant for the marks, the lane borders and the ticks.
 A pre-existing page error, unrelated and untouched:
 `mispOvermind.js:2489` calls `e.target.closest` on a target that has no
 `closest`. It fires on values with no dated relations too.
+
+## 27. The sibling table leads with the fields you can pivot on
+
+`In the same object` ranked every field by object count, so on
+`8.8.8.8` its first screen was one pivot and seven rows of
+`paloalto-threat-event` bookkeeping — `type = THREAT`,
+`threatid = UDP Flood`, `srcloc = United States`, `app =
+not-applicable`. Descriptions of the telemetry that caught the address,
+in the panel whose caption calls itself *where you pivot next*. The tab
+had known the difference since §24.1 and only the graph and the dated
+table were using it.
+
+**The order.** Linking siblings first — `disable_correlation = 0` —
+then object count as before. Nothing is hidden and nothing is dropped;
+the descriptive rows keep their order and their pages. Sorting a column
+still returns to this order on the third click, and the panel says so.
+
+**The kind is a property of the field.** The vote is taken per
+`(template, relation)` over the attributes the panel read, not inside
+each `(template, relation, value)` triple. Taken per triple it renders
+the *same field* two ways in one table:
+`url-honeypot-detection · last-seen` carries 0 on 376 attributes and 1
+on 10,688, so one timestamp is dimmed and the next is not with nothing
+on screen to say why. A facet called **Field kind** has to mean the
+field. The vote is local to what the panel read — the same field can be
+classed differently on two values — which is the honest reading and the
+caption states it.
+
+**Three surfaces, no new element.** A descriptive row's relation chip
+is dimmed and untinted, against the linking chip's object tint. A fifth
+dropdown, **Field kind**, joins the four in the sibling `Narrow by`
+bar, counted against a two-word vocabulary so it can show a zero. And
+the caption states the rule the same way the dated panel states its
+pair rule.
+
+**What the order costs, and what pays for it.** The sibling bar counts
+over the whole fold and the table carries the first hundred rows, and
+this list — unlike the ranked one beside it — has no narrowing endpoint
+to hand an unanswerable tick to. Once linking rows sort first, a value
+whose siblings run past a hundred fills the table with them: `0.0.0.0`
+has 795 triples, 245 linking, and all 100 carried are linking. So
+*Descriptive 550* would be a control that can only empty the table.
+
+The fold now marks every entry in all five groups with `listed`, the
+number of carried rows it reaches; `value_facet_group` takes a `local`
+flag for a panel with no endpoint behind it and greys such an entry
+rather than offering it; and the caption names the cut where it bites
+— *"550 descriptive siblings are counted below and not listed: the
+table carries 100 rows and the linking ones fill them."* This also
+retires four groups' pre-existing dead entries, which had been emptying
+the table since phase 18.

@@ -86,33 +86,16 @@ $slug = function ($text) {
 };
 
 /*
- * A row's tokens are the fold's, not this template's. They decide what
- * a facet matches, and the fold has to be able to apply the same
- * narrowing over rows this table never received — so one place builds
- * them and both ends agree by construction.
- */
-
-/**
- * The same, for the sibling table, whose keys are prefixed so the two
- * bars in this panel cannot read each other's ticks — `type` there and
- * `type` here narrow different row sets.
+ * A row's tokens are the fold's, not this template's — both tables'.
+ * They decide what a facet matches, and the fold has to be able to
+ * apply the same narrowing over rows this table never received, so one
+ * place builds them and both ends agree by construction.
  *
- * @param array $sibling
- * @return string
+ * The sibling rows' were the exception until the bar started counting
+ * how much of each entry the carried rows reach: a count derived from
+ * one rule against markup written by another is a count that can be
+ * wrong without either side changing.
  */
-$siblingTokens = function ($sibling) use ($slug) {
-    $tokens = array(
-        'sibobject:' . $slug($sibling['object']),
-        'sibtype:' . $slug($sibling['type']),
-    );
-    if ($sibling['relation'] !== '') {
-        $tokens[] = 'sibrelation:' . $slug($sibling['relation']);
-    }
-    foreach ($sibling['orgs'] as $org) {
-        $tokens[] = 'siborg:' . $slug($org);
-    }
-    return implode(' ', $tokens);
-};
 
 /**
  * A row's two orderings, as numbers the sort can read without parsing
@@ -322,13 +305,34 @@ $facetGroups = array(
 );
 
 /*
- * The sibling table's own bar. Four keys and not six: a sibling row
+ * The sibling table's own bar. Five keys and not seven: a sibling row
  * has no tag column and no single distribution to name, and Relation
  * is the dimension that only exists here — it is what separates the
  * `domain` in a `domain-ip` object from the timestamps beside it.
+ *
+ * Field kind leads, because it is the cut this table is worst without.
+ * It is also the only group here whose two entries are a vocabulary
+ * rather than a census, so it is the only one that can show a zero.
  */
 $sibFacets = isset($siblings['facets']) ? $siblings['facets'] : array();
+/*
+ * Descriptive siblings the fold counted and the table could not carry.
+ * Worth its own sentence rather than only the greyed facet entry it
+ * also produces: linking rows now sort first, so on a value whose
+ * siblings run past the hundred the table holds, the cut lands on the
+ * descriptive ones by construction. That is the intended trade and it
+ * is still a cut, so the panel states it in the same breath as the
+ * order that caused it.
+ */
+$sibUnreached = 0;
+foreach ($sibFacets['siblink'] ?? array() as $sibKind) {
+    if ($sibKind['value'] === 'descriptive' && isset($sibKind['listed'])) {
+        $sibUnreached = (int)$sibKind['count'] - (int)$sibKind['listed'];
+    }
+}
 $sibFacetGroups = array(
+    array('key' => 'siblink', 'title' => __('Field kind'),
+        'icon' => 'fas fa-share-nodes'),
     array('key' => 'sibobject', 'title' => __('Object'),
         'icon' => 'misp-icon misp-icon-object misp-simple'),
     array('key' => 'sibrelation', 'title' => __('Relation'),
@@ -581,6 +585,50 @@ $headerSub = ob_get_clean();
                         . ' and its filename, an IP\'s resolved domains'
                         . ' — and usually where you pivot next.') ?>
                 </div>
+                <?php
+                /*
+                 * The order, stated. Ranked on count alone this table
+                 * opens on whichever template captured the value most
+                 * often, and for an address that is a screen of capture
+                 * bookkeeping. Saying which fields come first, and how
+                 * a row is put in one bucket or the other, is the same
+                 * bargain the dated panel strikes over its pair rule:
+                 * a rule the reader can check beats an order they have
+                 * to infer.
+                 */
+                ?>
+                <div class="small text-muted mb-2">
+                    <?= __('Fields the correlation engine links on are'
+                        . ' listed first; the rest describe the capture'
+                        . ' rather than lead out of it, and are dimmed'
+                        . ' in the Relation column. Nothing is hidden —'
+                        . ' <strong>Field kind</strong> below cuts them'
+                        . ' in one click. MISP records that flag per'
+                        . ' attribute and object templates are not'
+                        . ' consistent about it, so a field takes the'
+                        . ' kind that most of the attributes this panel'
+                        . ' read under it carry.') ?>
+                    <?php if ($sibUnreached > 0): ?>
+                        <?= sprintf(
+                            __n(
+                                'One descriptive sibling is counted'
+                                . ' below and not listed: the table'
+                                . ' carries %2$s rows and the linking'
+                                . ' ones fill them.',
+                                '%1$s descriptive siblings are counted'
+                                . ' below and not listed: the table'
+                                . ' carries %2$s rows and the linking'
+                                . ' ones fill them.',
+                                $sibUnreached
+                            ),
+                            '<strong>' . h(number_format($sibUnreached))
+                                . '</strong>',
+                            '<strong>' . h(number_format(
+                                count($siblings['rows'])
+                            )) . '</strong>'
+                        ) ?>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <?php if ($sibCapped): ?>
@@ -661,6 +709,18 @@ $headerSub = ob_get_clean();
                                 </span>
                             </button>
                             <div class="dropdown-menu vp-rel-facetmenu p-2">
+                                <?php
+                                /*
+                                 * `local`, because this list has no
+                                 * narrowing endpoint behind it. The bar
+                                 * above can hand an unanswerable tick
+                                 * back to the server; here the hundred
+                                 * carried rows are the whole of what a
+                                 * tick can ever reach, so an entry none
+                                 * of them carries is greyed instead of
+                                 * offered.
+                                 */
+                                ?>
                                 <?= $this->element(
                                     'Values/View/value_facet_group',
                                     array(
@@ -668,6 +728,7 @@ $headerSub = ob_get_clean();
                                         'title' => $group['title'],
                                         'icon' => $group['icon'],
                                         'values' => $sibFacets[$group['key']],
+                                        'local' => true,
                                     )
                                 ) ?>
                             </div>
@@ -680,7 +741,10 @@ $headerSub = ob_get_clean();
                                 'Counts are folded from all %1$s siblings,'
                                 . ' not from the page. A count larger than'
                                 . ' the table can show means the value it'
-                                . ' names is outside the %2$s carried.'
+                                . ' names is outside the %2$s carried;'
+                                . ' an entry none of them reaches is greyed,'
+                                . ' because narrowing on it could only'
+                                . ' empty the table.'
                             ),
                             '<span class="font-monospace">'
                                 . h(number_format($siblings['total']))
@@ -728,9 +792,12 @@ $headerSub = ob_get_clean();
                      * Every column sorts, clicking the heading:
                      * ascending, descending, then back to the order the
                      * model sent. Three states and not two because that
-                     * order — the objects a sibling is in, most first —
-                     * is itself an answer, and no column would bring it
-                     * back.
+                     * order — linking fields first, then the objects a
+                     * sibling is in, most first — is itself an answer,
+                     * and no column would bring it back. Least of all
+                     * Relation: the kind is a property of the field,
+                     * not of its name, and two relations spelled alike
+                     * across two templates can be flagged differently.
                      */
                     $sibCols = array(
                         array('key' => 'object', 'label' => __('Object')),
@@ -772,7 +839,7 @@ $headerSub = ob_get_clean();
                             as $sibIndex => $sibling): ?>
                             <tr class="vp-rel-stripe vp-rel-k-co"
                                 data-vp-facet="<?=
-                                    h($siblingTokens($sibling)) ?>"<?=
+                                    h(implode(' ', $sibling['tokens'])) ?>"<?=
                                 $sortAttrs(array(
                                     'vp-sort-object' => mb_strtolower(
                                         $sibling['object']
@@ -804,8 +871,19 @@ $headerSub = ob_get_clean();
                                         <?= h($sibling['object']) ?>
                                     </span>
                                 </td>
+                                <?php $sibDesc = !$sibling['linking']; ?>
                                 <td>
-                                    <span class="vp-relation">
+                                    <span class="vp-relation<?=
+                                        $sibDesc
+                                            ? ' vp-relation-desc'
+                                            : '' ?>"<?= $sibDesc
+                                        ? ' title="' . h(__('Descriptive'
+                                            . ' — the engine does not'
+                                            . ' correlate on this field,'
+                                            . ' so it names the capture'
+                                            . ' rather than a pivot'))
+                                            . '"'
+                                        : '' ?>>
                                         <?= h($sibling['relation']) ?>
                                     </span>
                                 </td>

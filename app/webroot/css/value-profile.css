@@ -723,6 +723,24 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * A field MISP does not correlate on: it describes the object it sits
+ * in rather than leading anywhere out of it. Dimmed and untinted, which
+ * is the same de-emphasis the tab uses elsewhere — the sibling table
+ * already ranks these below the linking rows, so the cell only has to
+ * keep the boundary visible once a column sort has mixed them back
+ * together.
+ */
+.vp-relation-desc {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    opacity: 0.75;
+}
+
+[data-bs-theme="dark"] .vp-relation-desc {
+    background: var(--bs-secondary-bg);
+}
+
+/*
  * The count the table cannot show. Sits in the card footer rather than
  * in the table, because it is a statement about the query, not a row.
  */

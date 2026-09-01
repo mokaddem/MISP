@@ -21,6 +21,11 @@
  * @var int    $searchAt Size past which the group gets a search box (50)
  * @var array  $active   Tokens already ticked, so a group re-rendered by
  *                       the server comes back in the state it was left
+ * @var bool   $local    True where the panel has no server-side
+ *                       narrowing to fall back on. Then an entry whose
+ *                       `listed` is zero cannot be reached at all —
+ *                       ticking it could only empty the table — so it
+ *                       is greyed rather than offered.
  */
 $key = $key ?? null;
 $values = $values ?? array();
@@ -29,6 +34,7 @@ $icon = $icon ?? null;
 $note = $note ?? null;
 $limit = $limit ?? 10;
 $searchAt = $searchAt ?? 50;
+$local = $local ?? false;
 
 $total = 0;
 $max = 0;
@@ -102,15 +108,37 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
          * ever empty the list.
          */
         $zero = $count === 0;
+        /*
+         * Counted over the whole fold, reachable only through the rows
+         * the panel carries. Where those are two different numbers and
+         * the smaller is nought, the entry is a count the reader can
+         * see and a filter that can only empty the table — so it reads
+         * as a fact and not as a control. Only `$local` panels can say
+         * this: everywhere else the tick sends the narrowing back to
+         * the server, which has the rows.
+         */
+        $unreachable = !$zero && $local && isset($facet['listed'])
+            && (int)$facet['listed'] === 0;
+        $off = $zero || $unreachable;
         ?>
         <label class="vp-facet<?= $overflow ? ' d-none' : '' ?><?=
-                   $zero ? ' opacity-50' : '' ?>"
+                   $off ? ' opacity-50' : '' ?>"
                <?= $overflow ? 'data-vp-facet-overflow' : '' ?>
                <?= $zero ? 'data-vp-facet-zero' : '' ?>
+               <?= $unreachable ? 'data-vp-facet-unreachable' : '' ?>
                <?= $zero
                    ? 'title="' . h(sprintf(
                        __('No entry in this panel is a %s'),
                        $facet['label'] ?? $value
+                   )) . '"'
+                   : '' ?>
+               <?= $unreachable
+                   ? 'title="' . h(sprintf(
+                       __('None of the rows this panel carries is a'
+                           . ' %1$s. The other %2$s are outside them,'
+                           . ' and this list cannot reach them.'),
+                       $facet['label'] ?? $value,
+                       number_format($count)
                    )) . '"'
                    : '' ?>>
             <?php
@@ -136,7 +164,7 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
                        ? 'data-vp-complete="1"' : '' ?>
                    <?= in_array((string)$value, $active, true)
                        ? 'checked' : '' ?>
-                   <?= $zero ? 'disabled' : '' ?>
+                   <?= $off ? 'disabled' : '' ?>
                    id="<?= h($groupId . '-' . $index) ?>">
             <span class="vp-facet-label">
                 <?= isset($facet['html']) ? $facet['html'] : h($label) ?>

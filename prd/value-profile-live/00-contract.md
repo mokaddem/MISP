@@ -217,6 +217,15 @@ now. When optimisation happens, the risk to weigh first is that a cache key
 must capture everything affecting what a viewer may see; missing one component
 shows one user another's view, which is the worst defect this page could carry.
 
+**Where caching has since happened, a key captures two things and not one.**
+The relations tab keeps its scan for five minutes. Besides the viewer, the
+value and the options, the key carries `ValueProfile::CACHE_SHAPE` — **bump it
+in the same commit as any change to what a cached array holds.** A payload
+outlives the code that wrote it, so without this the new templates read the old
+arrays for one TTL after every deploy, and a template that reads a key the old
+fold did not write fatals until the clock clears it. Observed for real while
+building `24b-relationships.md` B4; §6.2 there has the case.
+
 ### 14.5 Aggregation tools take no `$user`
 
 > **No tool under `app/Lib/Tools/Value*` accepts a `$user` parameter.**

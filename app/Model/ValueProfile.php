@@ -156,6 +156,23 @@ class ValueProfile extends AppModel
     const RELATION_SCAN_TTL = 300;
 
     /**
+     * The shape of what the caches above hold. **Bump it in the same
+     * commit as any change to the arrays they store.**
+     *
+     * A cached payload outlives the code that wrote it, so for one TTL
+     * after a deploy the templates are new and the arrays they read are
+     * old. A panel that reads a key the old fold did not write then
+     * fatals for five minutes on every value someone had opened —
+     * observed while building B4, which added `tokens` to the sibling
+     * rows. Versioning the key retires those payloads at the deploy
+     * rather than at the clock, and costs one cold read.
+     *
+     * `00-contract.md` §14.4 carries the rule; this is the second thing
+     * a key here must capture, after the permission scope.
+     */
+    const CACHE_SHAPE = 2;
+
+    /**
      * Nodes per notion in the rail's neighbourhood graph.
      *
      * The graph is a neighbourhood, not the table with springs on it.
@@ -2005,7 +2022,8 @@ class ValueProfile extends AppModel
         $fresh = !empty($options['fresh']);
         $keyOptions = $options;
         unset($keyOptions['fresh']);
-        $key = 'misp:value_profile:relation_digest:' . (int)$user['id']
+        $key = 'misp:value_profile:relation_digest:v'
+            . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
 
         $redis = null;
@@ -2072,7 +2090,8 @@ class ValueProfile extends AppModel
     private function relationScan(array $user, $value, array $options,
         $fresh = false
     ) {
-        $key = 'misp:value_profile:relation_scan:' . (int)$user['id']
+        $key = 'misp:value_profile:relation_scan:v'
+            . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($options));
         $redis = null;
         try {
@@ -2499,7 +2518,8 @@ class ValueProfile extends AppModel
         $fresh = !empty($options['fresh']);
         $keyOptions = $options;
         unset($keyOptions['fresh']);
-        $key = 'misp:value_profile:relation_references:' . (int)$user['id']
+        $key = 'misp:value_profile:relation_references:v'
+            . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
         $redis = null;
         try {

@@ -36,7 +36,7 @@ live instance and recorded in its own section below.
 | B1 | The references panel's object link | `value_relation_references` | XS | no | no | **done** |
 | B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | **done** |
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | **done** |
-| B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | todo |
+| B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | **done** |
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | todo |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence` | M | **yes** | no | todo |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | todo |
@@ -450,6 +450,110 @@ which costs no new UI.
 **Verify.** `8.8.8.8` page one should open on `0.0.0.0` (ip-dst) and
 the other linking fields; the descriptive count in the facet should
 equal the rows it cuts.
+
+### 6.1 Done — 2026-09-01
+
+The order, the facet and the dimming landed as specified. Two things
+were decided differently from the sketch above, both because the live
+data said so.
+
+**The vote is per field, not per row.** The sketch put the majority
+inside each `(template, relation, value)` triple. On `github.com` that
+renders `url-honeypot-detection · last-seen` **both ways in one table**
+— the field is flagged 0 on 376 attributes and 1 on 10,688, so a
+timestamp whose own attribute carries 0 was dimmed one row above a
+timestamp that was not, with nothing on screen to explain the
+difference. The panel calls the control *Field kind* and that is what
+it should mean: the field votes once, over the attributes this panel
+read under it, and every row beneath it agrees. Verified as 0
+both-ways fields on all three values checked. The vote stays local to
+what the panel read, so the same field can be classed differently on
+two different values — the caption says *the attributes this panel
+read* for that reason, and the alternative is an instance-wide census
+the panel never runs.
+
+**The order makes a dead control out of the facet, and it had to be
+fixed rather than noted.** On `0.0.0.0` the value has 795 sibling
+triples and the table carries 100; with linking rows sorting first,
+**all** 100 carried are linking, so *Descriptive 550* is a filter that
+can only ever empty the table. The bar's counts are fold-wide and its
+list has no narrowing endpoint behind it — unlike the ranked table
+above, an unanswerable tick cannot be handed to the server. So:
+
+- `siblingFacets` now takes the post-cap rows as well as the fold, and
+  marks every entry in **all five** groups with `listed`, the number of
+  carried rows it reaches. This is the mechanism `value_facet_group`
+  already documented and no caller had ever supplied.
+- `value_facet_group` gained one optional flag, `local`, for a panel
+  with no server-side narrowing. Under it an entry with a count and
+  `listed = 0` is greyed and disabled, tooltipped with both numbers,
+  the same treatment the element already gives a vocabulary zero. The
+  ranked bar does not pass it and is unchanged.
+- The caption states the cut where it bites: *"550 descriptive
+  siblings are counted below and not listed: the table carries 100
+  rows and the linking ones fill them."* Rendered only when the number
+  is above zero.
+
+This also greys the four groups' pre-existing dead entries — on
+`0.0.0.0`, `time_generated 500` and `srcloc 41` were controls that
+emptied the table before B4 existed.
+
+**Row tokens moved into the fold.** The sibling rows' `data-vp-facet`
+tokens were built in the template while the bar counted its own; the
+`listed` pass needs the two to be the same strings, and the template's
+comment already claimed one place built them. `siblingRowTokens` is now
+that place and the closure is gone.
+
+**Not a new element.** The dimming is a modifier on the existing
+`.vp-relation` chip — flat and untinted against the linking chip's
+object tint, checked in both themes — and Field kind is a fifth
+dropdown in a bar that already had four.
+
+**Verified.** Three values, each on a forced fresh scan:
+
+| Value | Siblings | Page one, before | Page one, after |
+|---|---|---|---|
+| `8.8.8.8` | 36, uncapped | `0.0.0.0` then 7 rows of `paloalto` bookkeeping | all 5 linking fields, then 3 descriptive |
+| `github.com` | 83 | mixed hashes, urls and dates | 6 hashes |
+| `0.0.0.0` | 795, cut to 100 | mixed | 100 linking `src` addresses |
+
+On `8.8.8.8` the facet reads *Linking 5 / Descriptive 31* and both are
+fully listed, so the descriptive count equals the rows it cuts exactly
+— §6's verify criterion. Driven in Chromium against the real
+`value-profile.js` with paging asserted live first (36 rows → 8 shown):
+ticking Descriptive gives 31 rows over 4 pages, all dimmed; ticking
+Linking gives 5 rows on one page, none dimmed; on `0.0.0.0` the
+Descriptive box is disabled. Both themes screenshotted, no console
+errors.
+
+### 6.2 Found while verifying: a cached fold outlives its code
+
+`forRelationCooccurrence` keeps its scan in Redis for
+`RELATION_SCAN_TTL`, five minutes, and the key captured the viewer, the
+value and the options — everything about *what may be seen*, which is
+the risk `00-contract.md` §14.4 names, and nothing about *what shape
+was stored*. So for one TTL after any change to the fold, the templates
+are new and the arrays they read are old.
+
+This was not theoretical. Adding `tokens` to the sibling rows produced
+a real 500 on `0.0.0.0` mid-session — *Undefined array key "tokens"*,
+then a `TypeError` out of `implode` — because the panel was rendering a
+payload written minutes earlier by the previous fold. It self-heals in
+five minutes, which is exactly long enough to look like an intermittent
+bug and long enough to be an outage on a deploy.
+
+Fixed at the key: `ValueProfile::CACHE_SHAPE` is now a component of all
+three profile cache keys, to be bumped in the same commit as any change
+to what they store. A deploy then retires the old payloads instead of
+waiting out the clock, at the cost of one cold read. `00-contract.md`
+§14.4 carries the rule as the second thing such a key must capture.
+
+**And a measurement trap that follows from it.** A fragment fetched
+over HTTP after a code change can be the *old* fold rendered by the new
+template, so it can report a fix that has not applied — the first run
+of this verification did exactly that, and read as a per-field vote
+that had not taken. Append `?fresh=1` to every panel fetch; the panel's
+own *Scan again* link is the same switch.
 
 ## 7. B5 — warninglist de-emphasis in co-occurrence
 

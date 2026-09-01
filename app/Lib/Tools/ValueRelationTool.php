@@ -615,6 +615,7 @@ class ValueRelationTool
         $triples = array();
         $objects = array();
         $templates = array();
+        $fields = array();
         foreach ($rows as $row) {
             $attribute = $row['Attribute'];
             if (empty($row['Object']['id'])) {
@@ -644,6 +645,29 @@ class ValueRelationTool
             $triples[$key]['objects'][$objectId] = true;
             $triples[$key]['events'][$eventId] = true;
             $triples[$key]['orgs'][(int)$row['Event']['orgc_id']] = true;
+            /*
+             * Which of the two things an object records this row is:
+             * something to pivot on, or something that describes the
+             * capture.
+             *
+             * **Tallied per field, not per row.** The flag is stored
+             * per attribute and the data is dirty at the edges —
+             * `url-honeypot-detection` carries 0 on 376 `last-seen`
+             * attributes and 1 on 10,688 — so a vote taken inside each
+             * `(template, relation, value)` triple puts two rows of the
+             * *same field* on opposite sides, and the table then dims
+             * one `last-seen` and not the next one down with nothing on
+             * screen to explain it. The panel calls this Field kind
+             * because that is what it is: a property of the field, so
+             * the field votes once and every row under it agrees.
+             */
+            $field = $template . "\0" . $relation;
+            if (!isset($fields[$field])) {
+                $fields[$field] = array('yes' => 0, 'no' => 0);
+            }
+            $fields[$field][
+                empty($attribute['disable_correlation']) ? 'yes' : 'no'
+            ]++;
             if ($ourRelation !== '') {
                 self::tally($triples[$key]['ours'], $ourRelation);
             }
@@ -696,6 +720,7 @@ class ValueRelationTool
 
         $out = array();
         foreach ($triples as $triple) {
+            $vote = $fields[$triple['object'] . "\0" . $triple['relation']];
             $events = array_keys($triple['events']);
             $held = count($triple['objects']);
             /*
@@ -722,9 +747,31 @@ class ValueRelationTool
                 'event' => $oneEvent ? $events[0] : null,
                 'orgs' => $names,
                 'org_total' => count($names),
+                // A tie goes to linking: the engine correlated on half
+                // of the field's attributes, so it is one you can
+                // actually pivot from.
+                'linking' => $vote['yes'] >= $vote['no'],
             );
         }
+        foreach ($out as $index => $row) {
+            $out[$index]['tokens'] = self::siblingRowTokens($row);
+        }
+        /*
+         * **Linking fields first, then object count as before.** Ranked
+         * on count alone, `8.8.8.8` opens on a screen of
+         * `paloalto-threat-event` bookkeeping — `type = THREAT`,
+         * `srcloc = United States`, `app = not-applicable` — which
+         * describes the telemetry that caught the address and offers
+         * nothing to click. `disable_correlation` is MISP's own record
+         * of which fields it links on, and the tab already trusts it
+         * for the graph's edge labels and the dated table's far values.
+         * Nothing is hidden by it: the descriptive rows keep their
+         * order and their page, they just stop being page one.
+         */
         usort($out, function ($a, $b) {
+            if ($a['linking'] !== $b['linking']) {
+                return $a['linking'] ? -1 : 1;
+            }
             if ($a['objects'] !== $b['objects']) {
                 return $b['objects'] - $a['objects'];
             }
@@ -751,8 +798,9 @@ class ValueRelationTool
          * bar carries the same sentence about it: a count larger than
          * the table can show names something outside the 100 carried.
          */
-        $facets = self::siblingFacets($out);
-        $out = array_slice($out, 0, $rowCap);
+        $listed = array_slice($out, 0, $rowCap);
+        $facets = self::siblingFacets($out, $listed);
+        $out = $listed;
         return array(
             'rows' => $out,
             'facets' => $facets,
@@ -1310,10 +1358,31 @@ class ValueRelationTool
      * The keys are prefixed. `value_facet_group` derives a DOM id from
      * the key, and two groups called `type` in one panel would collide.
      *
+     * `siblink` is built apart from the rest and by hand. The four
+     * above are counted against whatever turned up, so an entry missing
+     * from one of them means nothing; this one is counted against a
+     * two-word vocabulary, and *Descriptive 0* answers a question the
+     * reader arrived with rather than being an empty row. It keeps a
+     * fixed order for the same reason — ranking it would let the
+     * control that undoes the panel's default sort list its two
+     * options in whichever order the data happened to fall.
+     *
+     * **What the page carries, beside what the fold counted.** These
+     * counts are over every triple and the table holds the first
+     * hundred, so an entry can name rows that are not on the page —
+     * and unlike the ranked bar above, this list has no endpoint to go
+     * back to, so ticking such an entry can only empty a table. Field
+     * kind makes that certain rather than incidental: linking rows now
+     * sort first, so on a value whose siblings are capped the hundred
+     * carried can be linking to the last one. Each entry therefore
+     * says how many of the carried rows it reaches, and the bar greys
+     * the ones that reach none.
+     *
      * @param array $rows Aggregated triples, pre-cap
+     * @param array $listed The rows the panel will carry, post-cap
      * @return array Facet groups, ranked and capped
      */
-    private static function siblingFacets(array $rows)
+    private static function siblingFacets(array $rows, array $listed)
     {
         $facets = array(
             'sibobject' => array(),
@@ -1321,7 +1390,9 @@ class ValueRelationTool
             'sibtype' => array(),
             'siborg' => array(),
         );
+        $kinds = array('linking' => 0, 'descriptive' => 0);
         foreach ($rows as $row) {
+            $kinds[empty($row['linking']) ? 'descriptive' : 'linking']++;
             self::bump(
                 $facets['sibobject'],
                 ValueStatsTool::facetToken($row['object']),
@@ -1354,7 +1425,68 @@ class ValueRelationTool
                 self::FACET_CAP
             );
         }
+        $facets['siblink'] = array(
+            array(
+                'value' => 'linking',
+                'label' => __('Linking'),
+                'count' => $kinds['linking'],
+            ),
+            array(
+                'value' => 'descriptive',
+                'label' => __('Descriptive'),
+                'count' => $kinds['descriptive'],
+            ),
+        );
+
+        $held = array();
+        foreach ($listed as $row) {
+            foreach ($row['tokens'] as $token) {
+                $held[$token] = isset($held[$token])
+                    ? $held[$token] + 1
+                    : 1;
+            }
+        }
+        foreach ($facets as $key => $entries) {
+            foreach ($entries as $index => $entry) {
+                $token = $key . ':' . $entry['value'];
+                $facets[$key][$index]['listed'] = isset($held[$token])
+                    ? $held[$token]
+                    : 0;
+            }
+        }
         return $facets;
+    }
+
+    /**
+     * One sibling row's facet tokens.
+     *
+     * Stamped on the row and counted by the bar from the one place,
+     * which is the rule the ranked table's `tokensFor` already follows
+     * and the sibling table did not: the template built these and the
+     * fold counted them separately, so a change to either could have
+     * left a facet that matches nothing.
+     *
+     * The keys are prefixed because both bars live in one panel and
+     * `type` means a different row set in each.
+     *
+     * @param array $row One aggregated triple
+     * @return array
+     */
+    private static function siblingRowTokens(array $row)
+    {
+        $tokens = array(
+            'sibobject:' . ValueStatsTool::facetToken($row['object']),
+            'sibtype:' . ValueStatsTool::facetToken($row['type']),
+            'siblink:' . ($row['linking'] ? 'linking' : 'descriptive'),
+        );
+        if ($row['relation'] !== '') {
+            $tokens[] = 'sibrelation:'
+                . ValueStatsTool::facetToken($row['relation']);
+        }
+        foreach ($row['orgs'] as $name) {
+            $tokens[] = 'siborg:' . ValueStatsTool::facetToken($name);
+        }
+        return $tokens;
     }
 
     /**
