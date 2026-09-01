@@ -2848,7 +2848,7 @@ class ValueProfile extends AppModel
      * CIDR containment, re-derived from the same list the engine walks.
      *
      * `Correlation::getCidrList()` is the network-block set MISP itself
-     * tests against — Redis-cached, 45 entries on the verification
+     * tests against — Redis-cached, 53 entries on the verification
      * instance — so the containment answer here is the engine's own
      * rather than an approximation of it. The blocks are then fetched
      * as attributes so the rows carry an event, a reporter and a

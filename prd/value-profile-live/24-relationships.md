@@ -310,7 +310,7 @@ point. Live data adds a fourth that is none of them.
 `ip-src`, `ip-dst`, `ip-src|port`, `ip-dst|port`, which is what
 `Correlation::__buildAdvancedCorrelationConditions` keys on. Re-derived
 from `Correlation::getCidrList()` — the same Redis-backed list the engine
-itself walks, 45 entries here — so the answer is the engine's own rather
+itself walks, 53 entries here — so the answer is the engine's own rather
 than an approximation of it. The blocks are then fetched as attributes,
 so each row carries an event, a reporter and an audience the reader may
 actually see; a block nobody may see contributes no row, which is §14.6
@@ -325,7 +325,17 @@ of IPv6 is 2^120 addresses, which no integer here holds, so the count is
 formatted from a power of two; the v4 case stays exact and printable,
 which is the case the argument rests on.
 
-**A new state: *active, and it found nothing.*** `1.1.1.1` is in no block
+**Both halves of that now have live data**, seeded by
+`24-near-match-dated-seed.py` because the instance had 45 v4 blocks and
+no v6 block at all. `2001:19f0:4400:48fd:5400:ff:fe71:3202` sits in three
+of them and prints all three formattings in one table: `/68` leaves 60
+free bits and reads **1,152,921,504,606,846,976**, `/64` and `/48` cross
+the 62-bit line and read **2^64** and **2^80**. `8.8.8.8` gives the v4
+ladder — `/28` 16, `/24` 256, `/16` 65,536, `/9` 8,388,608, tightest
+first — which is the ranking argument on the screen rather than in a
+docblock.
+
+**A new state: *active, and it found nothing.*** `9.9.9.9` is in no block
 on this instance. The panel says *"No network block on this instance
 contains this address. The engine applies; it found nothing"* — which is
 neither the empty state nor *not applicable*.
@@ -3464,9 +3474,41 @@ which is §6.1's standing rule applied to a canvas:
 | `18.117.184.102` | 4 rows, 4 `passive-dns` objects | **8 `hosted-by`** |
 | `github.com` | 46 rows, 21 `url-honeypot-detection` | none |
 | `443` | 4 rows of 397 objects read | 17, three types |
-| `8.8.8.8` | none — no object records a span | 6, five types |
+| `8.8.8.8` | 3 rows, 2 `passive-dns` + 1 `domain-ip` (seeded) | 6, five types |
 | `0.0.0.0` | none of 500 read; 32,922 in all | none of 500 read |
 | `1.0.155.105` | none — its one object records none | none |
+
+**`8.8.8.8`'s three rows are seeded**, by
+`24-near-match-dated-seed.py`: the value sat in 12 objects and not one
+recorded two `datetime` attributes, so the tab's own working value showed
+the empty state while five other values proved the panel worked. The seed
+uses both templates deliberately — two `passive-dns` naming their dates
+`time_first`/`time_last` and one `domain-ip` naming them
+`first-seen`/`last-seen` — so the claim that *the column header is
+generic and the label under the date is not* is visible in one table
+rather than across two pages. `domain-ip` has no origin field and prints
+an em dash, which is the *most templates do not have one* case beside
+two that do.
+
+Seeding it turned up two MISP behaviours worth recording, both in
+`ObjectsController::add`:
+
+- **A category leak between attributes.** The pre-validation loop calls
+  `Attribute->set($attr)` per attribute, and CakePHP's `set()` *merges*
+  rather than replaces. Send no category and attribute N inherits
+  N-1's, so a `domain-ip` whose first field is a `domain`
+  ("Network activity") fails on `first-seen` with *"Options depend on the
+  selected category"* — `datetime` exists only in "Other". A
+  `passive-dns` happens to survive it, because `text` already defaults
+  to "Other".
+- **Template `disable_correlation` is not applied.** `/objects/add`
+  stores whatever the client sent, so seeded `rrtype`, `origin` and
+  `count` arrived with 0 where the instance's real `passive-dns` rows
+  carry 1. `ValueRelationTool::dated` reads exactly that column to pick
+  the far value, so the first render listed `A` and `48213` as related
+  values. The flag is the template's own record of which fields join and
+  which describe, and nothing but the writer sets it — worth knowing for
+  any data arriving over the API rather than from a feed.
 
 **§25.1 renders as written.** `draculax.myq-see.com.` gives five rows
 oldest-first — `141.255.159.82` 2017-04-11, `168.181.48.248` 04-14,
