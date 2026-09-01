@@ -33,7 +33,7 @@ live instance and recorded in its own section below.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
-| B1 | The references panel's object link | `value_relation_references` | XS | no | no | todo |
+| B1 | The references panel's object link | `value_relation_references` | XS | no | no | **done** |
 | B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | todo |
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | todo |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | todo |
@@ -123,6 +123,62 @@ below in the same cell. Chip label and icon unchanged.
 
 **How.** Mirror the near-match panel's link, docblock included, so the
 next reader of either template finds the same reason in both places.
+
+### 3.1 Done — 2026-09-01
+
+The chip's `href` is now `/events/view2/<event id>` plus the tab
+anchor its two sibling panels already use, and the reason for that
+destination sits in the cell as a docblock the way near-match's does.
+Chip label and icon are untouched. Two things came out of doing it
+that the task did not anticipate.
+
+**It removed a broken link, not merely an unthemed one.** The cell
+decided it had an object worth linking by testing `$far['object'] !==
+null`, then built the URL out of `$far['id']` — and those two fields
+do not always describe the same record. When the far end is an
+*attribute sitting inside an object*, `object` holds the **parent
+object's** name while `id` is the **attribute's** id, so the row
+rendered `/objects/view/<attribute id>`: an object URL pointing into
+the attribute id space. Event 15 has exactly one such row — object 28
+(`file`, "Kobalos for RHEL") carries a `Child` reference to attribute
+126, a sha1 inside object 30 — and its old link was
+`/objects/view/126`. Object 126 does not exist. That link was a hard
+404, not a trip to the unthemed page. Taking `$far['id']` out of the
+href ends the class rather than the instance: the href now comes from
+`$far['event']`, which names the same record whichever field the cell
+tested.
+
+**The tab anchor follows `kind`, and the title had to move with it.**
+The two sibling panels pick `#tab-objects` or `#tab-attributes` by
+what the record *is*, so this one does too — and `kind` is the field
+that knows, not the chip. A far end that is an attribute inside an
+object keeps showing the object's name, because that is what the
+reader will recognise, but the reference points at the attribute and
+that is the tab it opens. The old `title` said "Open this file
+object", which the new destination cannot honour: it opens an event
+tab and this theme's event view takes no `focus:`. So the title now
+carries the record's own id — "Attribute 126 in event 15", "file
+object 28 in event 15" — which is the near-match panel's answer to
+the same problem, in the same words. This is a change beyond "chip
+label and icon unchanged"; the label and icon are indeed unchanged,
+but a title promising to open the object had to go with the link that
+no longer does.
+
+**Left alone.** A far end that is a *bare* attribute — one in no
+object at all — still renders as an unlinked chip, as it did before.
+It is the one case where the cell has no object name to print, and the
+event id on the line below is already a link, so the reader is not
+stranded. Giving that chip a link is a change to what the panel offers
+rather than a correction to where an existing link goes, which is not
+what B1 is.
+
+**Verified** by fetching the panel live for both ends of that
+reference. `fbf0a76c…` (the sha1 in object 28) renders the outbound
+row: cube chip "file", `/events/view2/15#tab-attributes`, title
+"Attribute 126 in event 15". `479f470e…` renders the inbound
+direction plus four more object far ends, every one
+`…#tab-objects` with the object's id in the title. No `/objects/view`
+string survives in either render.
 
 ## 4. B2 — absent engines say so in one line
 

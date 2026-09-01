@@ -3781,7 +3781,8 @@ same argument.
 **`value_relation_references.ctp` still links `/objects/view`**, so its
 object chip drops the reader on the unthemed page. Same feature, same
 defect, left alone here rather than changed in a panel this pass was not
-about. §28.9.
+about. §28.9. *Fixed as B1 in `24b-relationships.md` §3.1, where it
+turned out that on one row the link was not unthemed but a 404.*
 
 For CIDR the named record is *an* occurrence of the block and not the
 only one — the engine folds to one row per block deliberately — and it is
@@ -3845,7 +3846,8 @@ copied in, run and removed.
   destinations a reader might want are now there.
 - **`value_relation_references.ctp` links `/objects/view`**, which
   redirects to the unthemed `/events/view`. One line, the same fix
-  §28.6 applied here, in a panel this pass was not about.
+  §28.6 applied here, in a panel this pass was not about. *Done as B1
+  in `24b-relationships.md` §3.1.*
 - **`filename|ssdeep` is fuzzy-compared by nothing**, here or in MISP.
   Documented above rather than fixed, because a panel that compared them
   would report matches the correlation engine denies — the failure §6
