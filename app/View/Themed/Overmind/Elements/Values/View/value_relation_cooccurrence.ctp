@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueFieldKind', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -326,10 +327,34 @@ $sibFacets = isset($siblings['facets']) ? $siblings['facets'] : array();
  */
 $sibUnreached = 0;
 foreach ($sibFacets['siblink'] ?? array() as $sibKind) {
-    if ($sibKind['value'] === 'descriptive' && isset($sibKind['listed'])) {
+    if ($sibKind['value'] === ValueFieldKind::DESCRIPTIVE
+        && isset($sibKind['listed'])
+    ) {
         $sibUnreached = (int)$sibKind['count'] - (int)$sibKind['listed'];
     }
 }
+/**
+ * A field list as the caption prints it.
+ *
+ * @param array $fields Relation names
+ * @return string
+ */
+$sibFieldList = function ($fields) {
+    $out = array();
+    foreach ($fields as $field) {
+        $out[] = '<code>' . h($field) . '</code>';
+    }
+    return implode(__(' and '), $out);
+};
+$sibExamples = isset($siblings['examples'])
+    ? $siblings['examples']
+    : array(
+        ValueFieldKind::LINKING => array(),
+        ValueFieldKind::DESCRIPTIVE => array(),
+    );
+$sibLinkEg = $sibExamples[ValueFieldKind::LINKING];
+$sibDescEg = $sibExamples[ValueFieldKind::DESCRIPTIVE];
+
 $sibFacetGroups = array(
     array('key' => 'siblink', 'title' => __('Field kind'),
         'icon' => 'fas fa-share-nodes'),
@@ -600,10 +625,34 @@ $headerSub = ob_get_clean();
                 <div class="small text-muted mb-2">
                     <?= __('Fields the correlation engine links on are'
                         . ' listed first; the rest describe the capture'
-                        . ' rather than lead out of it — a file\'s'
-                        . ' filename, a capture\'s timestamps — and are'
-                        . ' dimmed in the Relation column.'
-                        . ' Nothing is hidden —'
+                        . ' rather than lead out of it, and are dimmed'
+                        . ' in the Relation column.') ?>
+                    <?php
+                    /*
+                     * The example names two fields off this table
+                     * rather than two the author had in mind. Written
+                     * by hand it said *a file's other hashes and its
+                     * filename*, and `filename` is a field MISP does
+                     * not correlate on — so the sentence promised a
+                     * pivot the rows beneath it were dimming, on the
+                     * file objects where the flag happens to be set.
+                     * Pointing at the table cannot go stale.
+                     */
+                    ?>
+                    <?php if ($sibLinkEg && $sibDescEg): ?>
+                        <?= sprintf(
+                            __('Here %1$s link, %2$s describe.'),
+                            $sibFieldList($sibLinkEg),
+                            $sibFieldList($sibDescEg)
+                        ) ?>
+                    <?php elseif ($sibLinkEg): ?>
+                        <?= __('Every field this table carries is a'
+                            . ' linking one.') ?>
+                    <?php elseif ($sibDescEg): ?>
+                        <?= __('No field this table carries is one the'
+                            . ' engine links on.') ?>
+                    <?php endif; ?>
+                    <?= __('Nothing is hidden —'
                         . ' <strong>Field kind</strong> below cuts them'
                         . ' in one click. MISP records that flag per'
                         . ' attribute and object templates are not'
@@ -873,7 +922,8 @@ $headerSub = ob_get_clean();
                                         <?= h($sibling['object']) ?>
                                     </span>
                                 </td>
-                                <?php $sibDesc = !$sibling['linking']; ?>
+                                <?php $sibDesc = $sibling['kind']
+                                    === ValueFieldKind::DESCRIPTIVE; ?>
                                 <td>
                                     <span class="vp-relation<?=
                                         $sibDesc

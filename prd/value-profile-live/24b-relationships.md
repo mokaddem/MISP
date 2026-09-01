@@ -555,6 +555,75 @@ of this verification did exactly that, and read as a per-field vote
 that had not taken. Append `?fresh=1` to every panel fetch; the panel's
 own *Scan again* link is the same switch.
 
+### 6.3 The rule got a name, and the caption stopped guessing
+
+Two follow-ups from reading B4 back. Neither changes what the panel
+decides; both change where the decision is written down.
+
+**`ValueFieldKind`.** The linking/descriptive reading of
+`disable_correlation` had four callers in three files and no name in
+the code, spelled `empty()`, `!empty()` and `=> 0` — while
+`03-relationships.md` §24.1 had been calling it *one rule* since phase
+24. It is now one class with the four callers behind it:
+
+| Caller | Decides | Was |
+|---|---|---|
+| `Value::referenceFacesFor` | which attributes may identify a far object | `'Attribute.disable_correlation' => 0` |
+| `ValueRelationTool::siblings` | the graph's edge label | `empty(...)` |
+| `ValueRelationTool::dated` | a dated row's far value | `!empty(...)` |
+| `ValueRelationTool::siblings` | the sibling field vote | `empty(...) ? … : …` |
+
+The SQL caller is why the class exposes `linkingConditions()` beside
+`isLinking()`: one of the four applies the rule to rows it has not read
+yet. `LINKING` and `DESCRIPTIVE` are constants because the same two
+strings are the facet tokens, the fold's array keys and the row's
+`kind` — and the row now carries that string rather than a boolean
+three places had to re-spell.
+
+**The question that prompted it also settles the template one.** The
+declaration *is* already in misp-objects, per element
+(`object_template_elements.disable_correlation`). Nothing needs adding
+there, and the panel still must not read it: core copies the flag onto
+the attribute at creation and never reconciles, so 15,721 of 559,277
+attributes in template-backed objects disagree with their template
+today; 11,064 objects on this instance belong to a template that is not
+installed at all; and the attribute is the only one of the two the
+correlation engine consults. Classifying from the template would
+promise pivots MISP will not make. The class docblock carries this so
+the next reader does not re-derive it.
+
+**The caption names fields off its own table.** §6.1's caption said
+*"a file's filename, a capture's timestamps"* — hand-written examples,
+and `filename` was the wrong one twice over: MISP declines to correlate
+on it, and the flag splits 708 to 2,576 across the instance's
+filenames, so the sentence was right on one file object and wrong on
+the next. The fold now returns two field names of each kind from the
+rows the table carries, and the caption prints those:
+
+| Value | Caption reads | Table opens with |
+|---|---|---|
+| `8.8.8.8` | *Here `dst` and `domain` link, `type` and `threatid` describe.* | `dst`, `domain`, then `type`, `threatid` |
+| `github.com` | *Here `hash` and `url` link, `mime-type` and `first-seen` describe.* | three `hash` rows |
+| a file sha256 | *Here `sha1` and `md5` link, `state` and `filename` describe.* | `sha1`, `md5`, `state`, `filename` |
+| `0.0.0.0` | *Every field this table carries is a linking one.* | 100 linking `src` rows |
+
+A sentence read off the rows cannot go stale against them. The panel's
+first caption line keeps its hand-written examples — *a file's other
+hashes, an IP's resolved domains* — because that one says what the
+section contains, not how anything is classified, which is the same
+safe form the dated panel's caption uses for its date-field names.
+
+**Verified.** The four values above re-fetched **without** `?fresh=1`,
+which is the second check in one: the row shape changed again
+(`linking` → `kind`), `CACHE_SHAPE` went to 3, and every payload came
+back in the new shape rather than fataling the way §6.2's did. Facet
+counts, ordering, dimming and the greyed unreachable entries all
+unchanged from §6.1. The Chromium drive re-run on `8.8.8.8` — paging
+live, Descriptive cuts to 31 over 4 pages, Linking to 5 on one, no
+console errors — and the file-hash panel screenshotted in dark theme,
+where the caption's four named fields sit directly above the four rows
+they name.
+
 ## 7. B5 — warninglist de-emphasis in co-occurrence
 
 **Why.** The top-ranked co-occurrents of `8.8.8.8` are `1.1.1.1`,

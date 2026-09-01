@@ -1,5 +1,6 @@
 <?php
 App::uses('AppModel', 'Model');
+App::uses('ValueFieldKind', 'Tools');
 
 /**
  * The value-identity seam for the Value Profile page.
@@ -717,9 +718,9 @@ class Value extends AppModel
     ) {
         $branches = array();
         if (!empty($objectIds)) {
-            $branches[] = array(
-                'Attribute.object_id' => array_values($objectIds),
-                'Attribute.disable_correlation' => 0,
+            $branches[] = array_merge(
+                array('Attribute.object_id' => array_values($objectIds)),
+                ValueFieldKind::linkingConditions()
             );
         }
         if (!empty($attributeIds)) {

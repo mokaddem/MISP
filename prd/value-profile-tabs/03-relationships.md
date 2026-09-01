@@ -1414,7 +1414,9 @@ of its fields are there to link and which are there to describe.
                   rrtype 1 · count 1 · origin 1
                   time_first 1 · time_last 1
 
-Three things rest on it, and none is a classification of anything:
+Four things rest on it, and none is a classification of anything.
+They read it through `ValueFieldKind` since §27; before that each spelled
+the same test itself.
 
 - **The far value in a dated row.** Without it `draculax.myq-see.com.`
   renders `rrtype = A` and `count = 1` as dated relations, which the
@@ -1427,6 +1429,10 @@ Three things rest on it, and none is a classification of anything:
   example.
 - **The sibling table's order and its Field kind facet**, added later —
   §27.
+- **Which attributes may identify a far object**, in
+  `Value::referenceFacesFor` — a far object is named by what it links,
+  not by its bookkeeping columns. This one applies the rule in SQL,
+  which is why the class exposes the condition as well as the predicate.
 
 It is imperfect where the data is: `domain-ip` carries
 `disable_correlation = 0` on 41 of its `first-seen` rows and 1 on 22 of

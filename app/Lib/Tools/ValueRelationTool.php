@@ -1,5 +1,6 @@
 <?php
 App::uses('ValueStatsTool', 'Tools');
+App::uses('ValueFieldKind', 'Tools');
 
 /**
  * The Relationships tab's aggregates.
@@ -49,6 +50,20 @@ class ValueRelationTool
 
     /** What `passive-dns` calls the source of a resolution. */
     const ORIGIN_RELATION = 'origin';
+
+    /**
+     * Fields of each kind the sibling caption names as its example.
+     *
+     * Two, because the caption is a sentence and not a legend. It used
+     * to name them by hand — *"a file's other hashes and its
+     * filename"* — which was wrong for `filename` the moment the order
+     * started dimming it, and wrong unpredictably: the flag splits 708
+     * to 2,576 across the instance's filenames, so the same caption was
+     * right on one file object and wrong on the next. Named from the
+     * rows the table is holding, the sentence cannot disagree with what
+     * is underneath it. `24b-relationships.md` §6.3.
+     */
+    const EXAMPLE_FIELDS = 2;
 
     /**
      * Fold the value's neighbourhood into the three roll-ups, the six
@@ -648,26 +663,17 @@ class ValueRelationTool
             /*
              * Which of the two things an object records this row is:
              * something to pivot on, or something that describes the
-             * capture.
-             *
-             * **Tallied per field, not per row.** The flag is stored
-             * per attribute and the data is dirty at the edges —
-             * `url-honeypot-detection` carries 0 on 376 `last-seen`
-             * attributes and 1 on 10,688 — so a vote taken inside each
-             * `(template, relation, value)` triple puts two rows of the
-             * *same field* on opposite sides, and the table then dims
-             * one `last-seen` and not the next one down with nothing on
-             * screen to explain it. The panel calls this Field kind
-             * because that is what it is: a property of the field, so
-             * the field votes once and every row under it agrees.
+             * capture. Tallied per field rather than per row, and
+             * `ValueFieldKind` says why.
              */
             $field = $template . "\0" . $relation;
             if (!isset($fields[$field])) {
-                $fields[$field] = array('yes' => 0, 'no' => 0);
+                $fields[$field] = array(
+                    ValueFieldKind::LINKING => 0,
+                    ValueFieldKind::DESCRIPTIVE => 0,
+                );
             }
-            $fields[$field][
-                empty($attribute['disable_correlation']) ? 'yes' : 'no'
-            ]++;
+            $fields[$field][ValueFieldKind::of($attribute)]++;
             if ($ourRelation !== '') {
                 self::tally($triples[$key]['ours'], $ourRelation);
             }
@@ -699,7 +705,7 @@ class ValueRelationTool
                  * thing it exists to say. `disable_correlation` is
                  * MISP's own record of which is which.
                  */
-                if (empty($attribute['disable_correlation'])) {
+                if (ValueFieldKind::isLinking($attribute)) {
                     self::tally($templates[$template]['linking'],
                         $relation);
                 }
@@ -747,10 +753,10 @@ class ValueRelationTool
                 'event' => $oneEvent ? $events[0] : null,
                 'orgs' => $names,
                 'org_total' => count($names),
-                // A tie goes to linking: the engine correlated on half
-                // of the field's attributes, so it is one you can
-                // actually pivot from.
-                'linking' => $vote['yes'] >= $vote['no'],
+                'kind' => ValueFieldKind::fromTally(
+                    $vote[ValueFieldKind::LINKING],
+                    $vote[ValueFieldKind::DESCRIPTIVE]
+                ),
             );
         }
         foreach ($out as $index => $row) {
@@ -769,8 +775,8 @@ class ValueRelationTool
          * order and their page, they just stop being page one.
          */
         usort($out, function ($a, $b) {
-            if ($a['linking'] !== $b['linking']) {
-                return $a['linking'] ? -1 : 1;
+            if ($a['kind'] !== $b['kind']) {
+                return $a['kind'] === ValueFieldKind::LINKING ? -1 : 1;
             }
             if ($a['objects'] !== $b['objects']) {
                 return $b['objects'] - $a['objects'];
@@ -804,6 +810,7 @@ class ValueRelationTool
         return array(
             'rows' => $out,
             'facets' => $facets,
+            'examples' => self::siblingExamples($out),
             'templates' => self::templateRollup($templates, $context),
             'total' => $triples,
             'raw' => count($rows),
@@ -983,7 +990,7 @@ class ValueRelationTool
                 $objects[$objectId]['origin'] = $value;
                 continue;
             }
-            if (!empty($attribute['disable_correlation']) || $value === '') {
+            if (!ValueFieldKind::isLinking($attribute) || $value === '') {
                 continue;
             }
             $objects[$objectId]['values'][$value] = array(
@@ -1390,9 +1397,12 @@ class ValueRelationTool
             'sibtype' => array(),
             'siborg' => array(),
         );
-        $kinds = array('linking' => 0, 'descriptive' => 0);
+        $kinds = array(
+            ValueFieldKind::LINKING => 0,
+            ValueFieldKind::DESCRIPTIVE => 0,
+        );
         foreach ($rows as $row) {
-            $kinds[empty($row['linking']) ? 'descriptive' : 'linking']++;
+            $kinds[$row['kind']]++;
             self::bump(
                 $facets['sibobject'],
                 ValueStatsTool::facetToken($row['object']),
@@ -1427,14 +1437,14 @@ class ValueRelationTool
         }
         $facets['siblink'] = array(
             array(
-                'value' => 'linking',
+                'value' => ValueFieldKind::LINKING,
                 'label' => __('Linking'),
-                'count' => $kinds['linking'],
+                'count' => $kinds[ValueFieldKind::LINKING],
             ),
             array(
-                'value' => 'descriptive',
+                'value' => ValueFieldKind::DESCRIPTIVE,
                 'label' => __('Descriptive'),
-                'count' => $kinds['descriptive'],
+                'count' => $kinds[ValueFieldKind::DESCRIPTIVE],
             ),
         );
 
@@ -1458,6 +1468,36 @@ class ValueRelationTool
     }
 
     /**
+     * A field or two of each kind, for the caption to point at.
+     *
+     * Read from the rows the table carries rather than from the fold,
+     * because the sentence is about what the reader is looking at. A
+     * kind with no row on the page gets an empty list and the caption
+     * drops that half of the sentence rather than inventing one.
+     *
+     * @param array $rows The rows the panel will carry, post-cap
+     * @return array Two lists of relation names, keyed by kind
+     */
+    private static function siblingExamples(array $rows)
+    {
+        $seen = array(
+            ValueFieldKind::LINKING => array(),
+            ValueFieldKind::DESCRIPTIVE => array(),
+        );
+        foreach ($rows as $row) {
+            $kind = $row['kind'];
+            if ($row['relation'] === ''
+                || count($seen[$kind]) >= self::EXAMPLE_FIELDS
+                || in_array($row['relation'], $seen[$kind], true)
+            ) {
+                continue;
+            }
+            $seen[$kind][] = $row['relation'];
+        }
+        return $seen;
+    }
+
+    /**
      * One sibling row's facet tokens.
      *
      * Stamped on the row and counted by the bar from the one place,
@@ -1477,7 +1517,7 @@ class ValueRelationTool
         $tokens = array(
             'sibobject:' . ValueStatsTool::facetToken($row['object']),
             'sibtype:' . ValueStatsTool::facetToken($row['type']),
-            'siblink:' . ($row['linking'] ? 'linking' : 'descriptive'),
+            'siblink:' . $row['kind'],
         );
         if ($row['relation'] !== '') {
             $tokens[] = 'sibrelation:'

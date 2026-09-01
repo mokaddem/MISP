@@ -251,6 +251,7 @@ New:
 |---|---|
 | `ValueStatsTool` | facet counts, org and type rollups, histograms, the verdict's composition segments — the cross-cutting aggregates several tabs share |
 | `ValueDecayTool` | the decay series: §11's hourly-to-daily/weekly resampling, and the aggregation of ten per-attribute curves into one per-value score — **decided by phase 23**, `23-sightings.md` §5 |
+| `ValueFieldKind` | whether an object field links or describes: the reading of `disable_correlation` that four callers in three files had been spelling three ways — added by `24b-relationships.md` §6.3 |
 
 `ValueDecayTool` exists partly so that decision has one home. §7.9 recorded
 that `DecayingModel::getScoreOvertime()` is per attribute, that there is no
