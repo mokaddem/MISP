@@ -4065,6 +4065,80 @@ th[aria-sort="descending"] .sort-icon::before,
 .vp-rel-k-reference { --vp-rel-color: var(--vp-rel-reference); }
 
 /*
+ * The seven-notion breakdown at the foot of "What is counted".
+ *
+ * Not `.vp-reporter`, which the Sightings rail uses: that gives its
+ * label a fixed 40% of a card a quarter of the page wide — about twenty
+ * characters, right for an organisation's acronym and too narrow for a
+ * section name beside the unit it counts. Here the name and its figure
+ * take a line and the bar takes the next, so all seven names are whole.
+ */
+.vp-split-row {
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    align-items: center;
+    gap: 3px 6px;
+    margin-bottom: 7px;
+    font-size: 0.72rem;
+}
+
+.vp-split-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--vp-split-colour, var(--bs-secondary-color));
+}
+
+.vp-split-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-split-figure {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.vp-split-count {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-split-unit {
+    font-size: 0.66rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-split-track {
+    grid-column: 2 / 4;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bs-tertiary-bg, rgba(128, 128, 128, 0.18));
+    overflow: hidden;
+}
+
+.vp-split-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--vp-split-colour, var(--bs-secondary-color));
+}
+
+/* A notion with nothing draws no dot and no bar, only its zero. */
+.vp-split-none .vp-split-dot {
+    background: transparent;
+    border: 1px dashed var(--bs-border-color);
+}
+
+.vp-split-none .vp-split-count {
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+}
+
+/*
  * ----------------------------------------------------------------------
  * The Relationships tab's contents strip
  * ----------------------------------------------------------------------

@@ -3867,6 +3867,20 @@ class ValueProfile extends AppModel
         $references = isset($parts['references'])
             ? (int)$parts['references']['total']
             : 0;
+        /*
+         * Whether each of the three is a floor rather than a total. The
+         * panels themselves print `≥` on a capped join, and the rail
+         * card stating a bare number beside a panel qualifying it would
+         * be the two disagreeing about how much they saw — which is the
+         * one thing this card exists to prevent.
+         */
+        $siblingsCapped = !empty(
+            $parts['cooccurrence']['siblings']['cap']['applied']
+        );
+        $datedCapped = !empty(
+            $parts['cooccurrence']['dated']['cap']['applied']
+        );
+        $referencesCapped = !empty($parts['references']['cap']['applied']);
         $externalSources = isset($parts['external'])
             ? (int)$parts['external']['counts']['feeds']
                 + (int)$parts['external']['counts']['servers']
@@ -3881,6 +3895,9 @@ class ValueProfile extends AppModel
             'siblings' => $siblings,
             'dated' => $dated,
             'references' => $references,
+            'siblings_capped' => $siblingsCapped,
+            'dated_capped' => $datedCapped,
+            'references_capped' => $referencesCapped,
             /*
              * The viewer's own occurrence count and not
              * `over_correlating_values.occurrence`. That column is

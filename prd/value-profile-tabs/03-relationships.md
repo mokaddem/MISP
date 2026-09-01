@@ -1628,3 +1628,55 @@ Driven in a real browser against the dev instance, both themes.
 The suppressed co-occurrence branch — the card reading `—` with a *not
 read* note — is the one state not exercised live: it needs a value
 whose every event is over `size_cap`, and none on the instance is.
+
+### 25.4 "What is counted" was counting four of seven
+
+The rail card's whole claim is *this is the tab's arithmetic, stated
+rather than left to be inferred*. It listed four notions. The tab has
+seven, and has since the object-mediated sections were split into panels
+of their own — so the card was quietly short of three of the numbers
+printed beside it, and a reader taking it at its word would have read
+the sections above as the whole of the tab.
+
+**All seven, in page order, in the panels' own words.** The rail, the
+contents strip and the panel headers now name each section identically,
+so the three surfaces cannot be read as describing different things.
+Units go with them: values, relations, remote events, references,
+claims — five units over seven notions, each row naming its own, nothing
+summed.
+
+**A fourth rule, which is that three sections have none.** Every setting
+the card states governs *some* of the tab, and with seven bars beneath
+them they read as governing all of it. The two object joins read
+attributes and the reference section reads `object_references`, so
+neither the correlation limit nor the ssdeep threshold touches them —
+they survive a value the limit suppressed, which is exactly the case
+`0.0.0.0` is. Saying where nothing governs is the same disclosure as
+the three rules above it.
+
+**Floors, and the one place a floor is nonsense.** `siblings_capped`,
+`dated_capped` and `references_capped` are new on the summary, because
+a rail printing `795` beside a panel printing `≥ 795` is the card
+contradicting itself. The `≥` is dropped when the count is zero: `≥ 0`
+means *at least none*, and reads as a rendering fault. A capped zero
+prints `0` and carries the bound in its tooltip.
+
+**Two sentences at the foot were wrong at zero.** `__n`'s plural gave
+*"The 0 claims are counted apart from all of them"*, which is not
+English — a zero now gets its own sentence. And the sibling clause said
+*"795 sit in an object beside it"* on the same value whose bar read
+`≥ 795`; it now says *"At least 795 values sit…"*.
+
+**Its own row component.** `.vp-reporter`, which the Sightings rail
+shares, fixes the label at 40% of a card a quarter of the page wide —
+about twenty characters. Right for `CIRCL`, not for `Outside this
+instance` beside the unit it counts. `.vp-split-row` puts the name and
+its figure on one line and the bar on the next, so all seven names are
+whole; the Sightings panels are untouched.
+
+**Verified.** Every one of the seven rows was read out of the rendered
+page and matched against the strip card of the same name — seven of
+seven agree, on `8.8.8.8` (light) and `0.0.0.0` (dark). No label is
+clipped in either. `0.0.0.0` exercises all three of the new states at
+once: a capped non-zero (`≥ 795 siblings`), two capped zeros rendered
+plain with tooltips, and the zero-claims sentence.
