@@ -57,7 +57,12 @@ $icon = 'fas fa-cloud-arrow-down';
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-external"
      style="--vp-panel-color: var(--vp-rel-external);"
      id="vp-external-presence"
-     data-vp-list>
+     data-vp-list
+     data-vp-rel-summary="external"
+     data-vp-rel-count="<?= h(number_format($external['events'])) ?>"
+     <?php if ($roleRestricted): ?>
+         data-vp-rel-note="<?= h(__('some sources withheld')) ?>"
+     <?php endif; ?>>
 
     <?php
     ob_start();

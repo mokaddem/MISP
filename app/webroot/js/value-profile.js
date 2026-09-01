@@ -5805,6 +5805,158 @@
         }
     }
 
+    /*
+     * ------------------------------------------------------------------
+     * The Relationships tab's contents strip
+     * ------------------------------------------------------------------
+     * Seven cards over six lazily-loaded endpoints. The strip is markup
+     * only — `value_relation_summary.ctp` holds no data — so every number
+     * on it is read off the panel that owns it, as that panel lands. A
+     * panel declares itself with `data-vp-rel-summary` naming its
+     * section, `data-vp-rel-count` carrying the figure already formatted
+     * by PHP, and an optional `data-vp-rel-note` for the qualifier a bare
+     * integer would lie without: a capped join, a suppressed scan, a
+     * source this reader may not see.
+     */
+
+    /**
+     * @return {Element|null} The strip, or null off the Relationships tab
+     */
+    function relationSummaryStrip() {
+        return document.querySelector('[data-vp-relsum-strip]');
+    }
+
+    /**
+     * The lazily-loaded container a card points into. It exists from
+     * first paint — the anchor is on the div holding the spinner, not on
+     * the panel the fetch will put inside it — so a press lands
+     * somewhere sensible even before the section has arrived.
+     *
+     * @param {Element} card
+     * @return {Element|null}
+     */
+    function relationSummaryContainer(card) {
+        var href = card.getAttribute('href') || '';
+        return href.charAt(0) === '#'
+            ? document.getElementById(href.slice(1))
+            : null;
+    }
+
+    /**
+     * Copy one panel's headline number onto its card.
+     *
+     * @param {Element} strip
+     * @param {Element} panel Carries data-vp-rel-summary
+     */
+    function readRelationSummary(strip, panel) {
+        var key = panel.dataset.vpRelSummary;
+        var card = key
+            ? strip.querySelector('[data-vp-relsum="' + key + '"]')
+            : null;
+        if (!card) {
+            return;
+        }
+
+        var count = panel.dataset.vpRelCount || '';
+        var note = panel.dataset.vpRelNote || '';
+        var figure = card.querySelector('[data-vp-relsum-count]');
+        var noteEl = card.querySelector('[data-vp-relsum-note]');
+
+        if (figure) {
+            figure.textContent = count;
+        }
+        if (noteEl) {
+            noteEl.textContent = note;
+            noteEl.hidden = !note;
+        }
+        card.classList.remove('vp-relsum-pending', 'd-none');
+        // A section holding nothing is still an answer and still worth
+        // a card — it is just not the one the eye should land on first.
+        card.classList.toggle('vp-relsum-zero', count === '0');
+    }
+
+    /**
+     * Sections a loaded container did not draw have no card. The
+     * siblings table is the case: the co-occurrence endpoint renders it
+     * only for a value that sits in an object beside something else, so
+     * one of that container's two cards is often the description of a
+     * table nobody will scroll to.
+     *
+     * @param {Element} strip
+     */
+    function dropAbsentRelationSummaries(strip) {
+        strip.querySelectorAll('[data-vp-relsum]').forEach(function (card) {
+            var container = relationSummaryContainer(card);
+            if (!container || !container.dataset.loaded) {
+                return;
+            }
+            var key = card.dataset.vpRelsum;
+            if (!container.querySelector(
+                '[data-vp-rel-summary="' + key + '"]'
+            )) {
+                card.classList.add('d-none');
+            }
+        });
+    }
+
+    /**
+     * @param {Element|Document} root The panel that just landed, or the
+     *                                whole document on first run
+     */
+    function initRelationSummary(root) {
+        var strip = relationSummaryStrip();
+        if (!strip) {
+            return;
+        }
+        (root || document)
+            .querySelectorAll('[data-vp-rel-summary]')
+            .forEach(function (panel) {
+                readRelationSummary(strip, panel);
+            });
+        dropAbsentRelationSummaries(strip);
+    }
+
+    /**
+     * The press. The anchor's own jump would work, but it would also
+     * write the section id into the address bar — and the hash on this
+     * page routes *tabs*, so a reload would find no tab called
+     * `vp-rel-sec-dated` and open the Overview instead.
+     *
+     * @param {Element} card
+     */
+    function jumpToRelationSection(card) {
+        var container = relationSummaryContainer(card);
+        if (!container) {
+            return;
+        }
+        var key = card.dataset.vpRelsum;
+        var target = container.querySelector(
+            '[data-vp-rel-summary="' + key + '"]'
+        ) || container;
+
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        flashRelationSection(target);
+    }
+
+    /**
+     * Say which panel answered. Seven cards over a tab this long means
+     * a press can land on a section that looks like the four around it,
+     * and a reader who cannot tell whether the page moved will press
+     * again.
+     *
+     * @param {Element} target
+     */
+    function flashRelationSection(target) {
+        target.classList.remove('vp-relsum-landed');
+        // Restart the animation rather than letting a second press
+        // inside its duration do nothing.
+        void target.offsetWidth;
+        target.classList.add('vp-relsum-landed');
+        window.setTimeout(function () {
+            target.classList.remove('vp-relsum-landed');
+        }, 1400);
+    }
+
     function init() {
         if (!onValuePage()) {
             return;
@@ -5829,6 +5981,13 @@
             var chip = event.target.closest('.vp-type-chip');
             if (chip) {
                 toggleTypeFilter(chip);
+                return;
+            }
+
+            var summaryCard = event.target.closest('[data-vp-relsum]');
+            if (summaryCard) {
+                event.preventDefault();
+                jumpToRelationSection(summaryCard);
                 return;
             }
 
@@ -6066,6 +6225,7 @@
             initAnalyst(event.target);
             initTimeline(event.target);
             initHistory(event.target);
+            initRelationSummary(event.target);
         });
 
         refreshOccurrences();
@@ -6077,6 +6237,7 @@
         initAnalyst(document);
         initTimeline(document);
         initHistory(document);
+        initRelationSummary(document);
     }
 
     if (document.readyState === 'loading') {

@@ -71,7 +71,10 @@ foreach ($tabs as $i => $tab) {
                                     if (is_array($card)) {
 
                                         if (!empty($card['ajax'])) {
-                                            echo '<div class="ajax-tab-content" data-url="' . h($card['ajax']) . '">';
+                                            // Optional `id` gives a lazily-loaded panel an anchor
+                                            // a link can reach before its content has arrived.
+                                            // Absent for every existing caller.
+                                            echo '<div class="ajax-tab-content"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
                                             echo '<div class="text-center p-4">';
                                             echo '<div class="spinner-border"></div>';
                                             echo '</div>';
@@ -98,7 +101,7 @@ foreach ($tabs as $i => $tab) {
                                     if (is_array($card)) {
 
                                         if (!empty($card['ajax'])) {
-                                            echo '<div class="ajax-card" data-url="' . h($card['ajax']) . '">';
+                                            echo '<div class="ajax-card"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
                                             echo '<div class="text-center p-4">';
                                             echo '<div class="spinner-border"></div>';
                                             echo '</div>';

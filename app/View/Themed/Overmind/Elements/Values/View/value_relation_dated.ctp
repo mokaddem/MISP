@@ -97,7 +97,12 @@ $moment = function ($row) {
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-object"
      style="--vp-panel-color: var(--vp-rel-object);"
      id="vp-relation-dated"
-     data-vp-list>
+     data-vp-list
+     data-vp-rel-summary="dated"
+     data-vp-rel-count="<?= h(number_format($dated['total'])) ?>"
+     <?php if (!empty($dated['cap']['applied'])): ?>
+         data-vp-rel-note="<?= h(__('of the objects read')) ?>"
+     <?php endif; ?>>
 
     <?php
     ob_start();

@@ -1503,3 +1503,128 @@ the eight names something else.
   back on the canvas. Raising the bound alone changes nothing.
 - **The promote list** (§23.2), **the Timeline source lane** and **live
   expand-one-hop** (§23.9) are unchanged.
+
+---
+
+## 25. One word for direction, and a contents page over seven tables
+
+Two complaints about the built tab, both about reading it rather than
+about what it holds.
+
+### 25.1 The tab said the same thing in two vocabularies
+
+`ObjectReference` and analyst-asserted `Relationship` are the two
+notions on this tab a **person wrote**, and both of them relate this
+value to something at the other end of an arrow somebody drew. §5's
+separation puts them in sections of their own, correctly. It did not
+stop them describing the same property in two different ways:
+
+| | Object relationships | Asserted by analysts |
+|---|---|---|
+| words | *points at it* / *points away from it* | `INBOUND` / `OUTBOUND` |
+| shape | grey text, long arrow | bordered uppercase pill |
+| class | `.vp-ref-dir` | `.vp-rel-dir` |
+
+The convention underneath was already the same — inbound is the far end
+naming this value, outbound is this value's end naming something else,
+and both drew the arrow the matching way. Only the surface disagreed,
+and it disagreed twice in a page's scroll.
+
+**Resolved onto the pill and onto `inbound` / `outbound`.** The prose
+form is nine words to say what the arrow already shows, it wraps inside
+a table cell as narrow as a relationship name, and `inbound` is the word
+the section's own explanatory text, the model and `ObjectReference`
+itself already use. The sentence it replaced is not lost: it is the
+chip's tooltip, and it now says what the direction means **in that
+section's terms** — *"Somebody else's object names this value"* against
+*"Something else claims a relationship to this value"*. That is the one
+thing the two sections genuinely do not share, so it is the one thing
+that stayed per-section.
+
+One element, `value_relation_direction.ctp`, and one class. The arrow
+takes `--vp-panel-color`, so the chip is purple in the reference table
+and crimson in the claims list without either section restyling it —
+same shape, section's own colour, which is the rule the rest of the tab
+already follows.
+
+### 25.2 Seven tables, and no way to see what is in them
+
+The tab is seven tables tall — the co-occurrence endpoint draws two —
+and a reader who wants to know whether anybody **asserted** anything
+about this value has to scroll past a hundred co-occurring values to
+find out. Every section states its own headline number in its own
+header, honestly and in words, and all seven of those numbers are below
+the fold.
+
+**A contents strip, seven cards, at the top of the tab.** Each card
+carries one section's headline figure, its unit and its name, and a
+press scrolls to that section. Order is page order, so the strip reads
+as the contents it is.
+
+**It holds no data and costs nothing.** This is the constraint the
+design turns on: the six panels are lazily loaded *because* some of them
+are expensive — the co-occurrence scan reads up to 20,000 attribute rows
+— and the tab bar itself carries no count for exactly that reason
+(§`24-relationships.md` on `forTabCounts`). A strip that computed its
+own seven totals would run every one of those reads again to print seven
+integers. So the strip is markup, and each panel stamps its own figure
+on itself as it lands:
+
+```
+data-vp-rel-summary="references"   which card this is
+data-vp-rel-count="8"              the figure, formatted by PHP
+data-vp-rel-note="not read"        the qualifier a bare integer would lie without
+```
+
+`initRelationSummary` in `value-profile.js` copies them across on
+`misp:container-loaded`.
+
+**Not yet read is not nothing.** Until its panel arrives a card shows a
+pulsing placeholder rather than a zero — the distinction this whole tab
+is built on, applied to its own contents page. A section that really is
+empty keeps its card and loses its tint, so the eye lands on what is
+there.
+
+**Seven cards over six endpoints.** Two of them point into the
+co-occurrence container, and the siblings card is *dropped* when that
+panel renders no sibling table — a value sitting in no object beside
+anything else has no such section, and a card pointing at a table that
+does not exist is worse than no card. The rule is general: a card whose
+container has loaded without producing its section is removed.
+
+**The press does not touch the address bar.** The cards are anchors —
+real destinations, so middle-click works and they survive the script
+never running — but the handler takes the press over to scroll smoothly
+and leave the hash alone. The hash on this page routes *tabs*, and
+`#vp-rel-sec-dated` in the URL would send a reload to the Overview tab.
+The anchor is on the lazily-loaded **container**, not on the panel, so
+it can be reached while the fetch is still in flight; once the panel is
+there the jump prefers it. Both carry `scroll-margin-top: 76px`, because
+the navbar is fixed and would otherwise eat the panel header the press
+was aimed at.
+
+### 25.3 Verified
+
+Driven in a real browser against the dev instance, both themes.
+
+- **`8.8.8.8`** — all seven cards fill: 22 siblings, 10,024 values, 0
+  relations, 0 matches, 16 remote events, 6 references, 6 claims. Both
+  sections render both chips, identical in class, size, casing and
+  border, and each arrow takes its own section's colour
+  (`#6d3fd1` / `#8f2d56`).
+- **`213.205.40.169`** — sits in no object, the co-occurrence panel
+  draws no siblings table, and the strip drops that card and renders
+  six.
+- **The press** — a jump to Dated relations lands the panel at exactly
+  76px, clearing the navbar; the hash is unchanged; the panel flashes
+  once. A jump to the last section stops at the document bottom, which
+  is the browser's floor and not a defect.
+- **Widths** — 2 columns below 768px, 4 up to 1800px, 7 above it. No
+  card title is truncated at any of the three; 7-up was measured to
+  truncate below 1800px, which is why the tier sits there.
+- **`.vp-ref-dir` and the string "points away from it"** — zero
+  occurrences in the rendered page.
+
+The suppressed co-occurrence branch — the card reading `—` with a *not
+read* note — is the one state not exercised live: it needs a value
+whose every event is over `size_cap`, and none on the instance is.

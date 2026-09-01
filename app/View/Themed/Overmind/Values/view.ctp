@@ -168,13 +168,24 @@ echo $this->element('Values/View/value_pivot_rail', array(
 $counts = $profile['counts'];
 
 /**
+ * The optional anchor is the panel's *container*, not its card: it is
+ * put on the empty div that holds the spinner, so a link can reach the
+ * section before the fetch that fills it has come back. Only the
+ * Relationships tab asks for one, because only it has a contents strip
+ * pointing at its own sections.
+ *
  * @param string $action
+ * @param string $anchor
  * @return array A view_layout card pointing at one panel endpoint
  */
-$panel = function ($action) use ($baseurl, $valueB64) {
-    return array(
+$panel = function ($action, $anchor = null) use ($baseurl, $valueB64) {
+    $card = array(
         'ajax' => $baseurl . '/values/' . $action . '/' . h($valueB64),
     );
+    if ($anchor !== null) {
+        $card['id'] = $anchor;
+    }
+    return $card;
 };
 
 /*
@@ -328,12 +339,23 @@ $tabRegistry = array(
          * two sections a person wrote by hand.
          */
         'left' => array(
-            $panel('viewRelationCooccurrence'),
-            $panel('viewRelationDated'),
-            $panel('viewRelationNearMatch'),
-            $panel('viewRelationExternal'),
-            $panel('viewRelationReferences'),
-            $panel('viewRelationAsserted'),
+            /*
+             * A contents strip over the six endpoints, and the only
+             * thing on this tab that renders before them: seven cards
+             * — the co-occurrence endpoint draws two sections — each
+             * holding one section's headline number and jumping to it.
+             * It is markup only. The numbers arrive from the panels
+             * themselves as they land, because computing any of them
+             * here would mean running the scan the tab is lazily
+             * loaded to avoid.
+             */
+            array('element' => 'Values/View/value_relation_summary'),
+            $panel('viewRelationCooccurrence', 'vp-rel-sec-cooccurrence'),
+            $panel('viewRelationDated', 'vp-rel-sec-dated'),
+            $panel('viewRelationNearMatch', 'vp-rel-sec-near'),
+            $panel('viewRelationExternal', 'vp-rel-sec-external'),
+            $panel('viewRelationReferences', 'vp-rel-sec-references'),
+            $panel('viewRelationAsserted', 'vp-rel-sec-asserted'),
         ),
         'right' => array(
             $panel('viewRelationGraph'),

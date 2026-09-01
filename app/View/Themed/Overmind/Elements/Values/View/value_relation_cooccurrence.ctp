@@ -537,7 +537,13 @@ $headerSub = ob_get_clean();
         $sibHeaderSub = ob_get_clean();
         ?>
         <div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
-             style="--vp-panel-color: var(--vp-rel-co);">
+             style="--vp-panel-color: var(--vp-rel-co);"
+             data-vp-rel-summary="siblings"
+             data-vp-rel-count="<?= h(($sibCapped ? "\u{2265}\u{00A0}" : '')
+                 . number_format($siblings['total'])) ?>"
+             <?php if ($sibCapped): ?>
+                 data-vp-rel-note="<?= h(__('a floor — the join was capped')) ?>"
+             <?php endif; ?>>
 
         <?= $this->element('Values/View/value_panel_header', array(
             'panelTitle' => __('In the same object'),
@@ -940,7 +946,22 @@ $headerSub = ob_get_clean();
          h($valueB64) ?>"
      data-vp-narrow-cut="<?= $co['matched'] > count($valueRows) ? '1' : '' ?>"
      data-vp-narrow-active="<?= empty($active) ? '' : '1' ?>"
-     data-vp-group-active="value">
+     data-vp-group-active="value"
+     <?php
+     /*
+      * What the contents strip prints for this section. A suppressed
+      * value has no count to give — the neighbourhood was never read,
+      * which is not the same as being empty — so the card says so in
+      * words rather than printing a zero the strip would have invented.
+      */
+     ?>
+     data-vp-rel-summary="cooccurrence"
+     data-vp-rel-count="<?= $co['suppressed']
+         ? "\u{2014}"
+         : h(number_format($co['distinct_values'])) ?>"
+     <?php if ($co['suppressed']): ?>
+         data-vp-rel-note="<?= h(__('not read')) ?>"
+     <?php endif; ?>>
 
     <?php
     /*

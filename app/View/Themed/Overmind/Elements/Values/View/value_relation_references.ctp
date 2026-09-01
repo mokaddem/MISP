@@ -59,7 +59,9 @@ $profileUrl = function ($value) use ($baseurl) {
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-reference"
      style="--vp-panel-color: var(--vp-rel-reference);"
      id="vp-relation-references"
-     data-vp-list>
+     data-vp-list
+     data-vp-rel-summary="references"
+     data-vp-rel-count="<?= h(number_format($references['total'])) ?>">
 
     <?php
     ob_start();
@@ -168,14 +170,18 @@ $profileUrl = function ($value) use ($baseurl) {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <span class="vp-ref-dir">
-                                        <i class="fas <?= $inbound
-                                            ? 'fa-arrow-left-long'
-                                            : 'fa-arrow-right-long' ?>"></i>
-                                        <?= $inbound
-                                            ? h(__('points at it'))
-                                            : h(__('points away from it')) ?>
-                                    </span>
+                                    <?= $this->element(
+                                        'Values/View/value_relation_direction',
+                                        array(
+                                            'direction' => $row['direction'],
+                                            'directionTitle' => $inbound
+                                                ? __('Somebody else\'s object'
+                                                    . ' names this value')
+                                                : __('An object this value'
+                                                    . ' sits in names'
+                                                    . ' something else'),
+                                        )
+                                    ) ?>
                                     <div class="vp-fact-line-sub">
                                         <?php if ($row['near']['kind']
                                             === 'attribute'

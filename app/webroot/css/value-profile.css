@@ -4065,6 +4065,175 @@ th[aria-sort="descending"] .sort-icon::before,
 .vp-rel-k-reference { --vp-rel-color: var(--vp-rel-reference); }
 
 /*
+ * ----------------------------------------------------------------------
+ * The Relationships tab's contents strip
+ * ----------------------------------------------------------------------
+ * Seven cards over a tab seven tables tall. Two rows of three and a
+ * half at the width the left column usually has, one row of seven only
+ * where there is genuinely room for it — a card narrower than about
+ * 150px puts "Outside this instance" on three lines and the strip stops
+ * being readable at a glance, which is the only thing it is for.
+ */
+.vp-relsum {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 1rem;
+}
+
+@media (min-width: 768px) {
+    .vp-relsum {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1800px) {
+    .vp-relsum {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+}
+
+.vp-relsum-card {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-left: 3px solid var(--vp-panel-color, var(--bs-border-color));
+    border-radius: 6px;
+    background: var(--bs-body-bg);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.vp-relsum-card:hover,
+.vp-relsum-card:focus-visible {
+    border-color: var(--vp-panel-color, var(--bs-border-color));
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+    color: inherit;
+    text-decoration: none;
+}
+
+.vp-relsum-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Both glyph families take one declaration: a misp-icon is a mask
+ * painted with `background-color: currentColor`, so setting `color`
+ * tints it exactly as it tints a Font Awesome glyph.
+ */
+.vp-relsum-head > i,
+.vp-relsum-head > .misp-icon {
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    color: var(--vp-panel-color, var(--bs-secondary-color));
+}
+
+.vp-relsum-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-relsum-figure {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+}
+
+.vp-relsum-n {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}
+
+.vp-relsum-unit {
+    overflow: hidden;
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+
+.vp-relsum-note {
+    font-size: 0.64rem;
+    font-style: italic;
+    line-height: 1.2;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Before its panel has landed the card holds a placeholder and not a
+ * zero: *not read yet* and *nothing there* are different answers, and
+ * printing the second while waiting for the first is the one mistake a
+ * strip like this can make.
+ */
+.vp-relsum-pending .vp-relsum-n {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+    animation: vp-relsum-wait 1.4s ease-in-out infinite;
+}
+
+@keyframes vp-relsum-wait {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.8; }
+}
+
+/* A section holding nothing keeps its card and loses the emphasis. */
+.vp-relsum-zero {
+    border-left-color: var(--bs-border-color);
+}
+
+.vp-relsum-zero .vp-relsum-n,
+.vp-relsum-zero .vp-relsum-head > i,
+.vp-relsum-zero .vp-relsum-head > .misp-icon {
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * Where a press lands — on the container while its panel is still in
+ * flight, on the panel itself once it has arrived, and both need the
+ * margin: the navbar is fixed and 56px tall, and would otherwise eat
+ * the panel header the jump was aimed at.
+ */
+[id^="vp-rel-sec-"],
+[data-vp-rel-summary] {
+    scroll-margin-top: 76px;
+}
+
+.vp-relsum-landed {
+    animation: vp-relsum-landed 1.4s ease-out;
+}
+
+@keyframes vp-relsum-landed {
+    0%, 60% {
+        box-shadow: 0 0 0 3px var(--vp-panel-color, var(--bs-border-color));
+    }
+    100% {
+        box-shadow: 0 0 0 3px transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vp-relsum-pending .vp-relsum-n,
+    .vp-relsum-landed {
+        animation: none;
+    }
+}
+
+/*
  * The graph's fallback, and what replaced the three-region SVG sketch.
  *
  * The sketch drew one labelled region per notion and there were three.
@@ -4138,20 +4307,6 @@ th[aria-sort="descending"] .sort-icon::before,
 .vp-dated-span {
     color: var(--bs-secondary-color);
     padding: 0 4px;
-}
-
-/*
- * A reference's direction. Inbound and outbound are the whole reading
- * of the row, so the arrow is drawn rather than described — and the
- * text beside it says which, because an arrow alone is not a word.
- */
-.vp-ref-dir {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
-    white-space: nowrap;
 }
 
 .vp-ref-type {
@@ -4546,6 +4701,14 @@ th.vp-rel-num {
     color: var(--vp-rel-human);
 }
 
+/*
+ * The direction chip, worn by both sections a person wrote — the
+ * asserted claims and the typed references. One class and one pair of
+ * words for one convention; `value_relation_direction.ctp` holds the
+ * argument. The arrow takes the panel's colour so the chip belongs to
+ * whichever section it lands in, and `nowrap` because the references
+ * table cell it now sits in is as narrow as a relationship name.
+ */
 .vp-rel-dir {
     display: inline-flex;
     align-items: center;
@@ -4557,7 +4720,18 @@ th.vp-rel-num {
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+    white-space: nowrap;
     color: var(--bs-secondary-color);
+}
+
+.vp-rel-dir > i {
+    color: var(--vp-panel-color, var(--bs-secondary-color));
+}
+
+/* In a table cell the chip is a line of its own, over the sub-line
+ * saying how the reference reaches this value. */
+.vp-rel-dir + .vp-fact-line-sub {
+    margin-top: 3px;
 }
 
 .vp-rel-target {

@@ -96,7 +96,12 @@ if (empty($near['matches'])) {
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-near"
      style="--vp-panel-color: var(--vp-rel-near);"
-     data-vp-list>
+     data-vp-list
+     data-vp-rel-summary="near"
+     data-vp-rel-count="<?= h(number_format($near['matches'])) ?>"
+     <?php if (empty($near['engines'])): ?>
+         data-vp-rel-note="<?= h(__('no engine applies')) ?>"
+     <?php endif; ?>>
 
     <?php
     ob_start();

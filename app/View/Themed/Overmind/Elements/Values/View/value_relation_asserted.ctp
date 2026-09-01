@@ -163,7 +163,9 @@ if (empty($claims)) {
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-human"
      style="--vp-panel-color: var(--vp-rel-human);"
-     data-vp-list>
+     data-vp-list
+     data-vp-rel-summary="asserted"
+     data-vp-rel-count="<?= h(number_format($asserted['total'])) ?>">
 
     <?php
     ob_start();
@@ -257,19 +259,17 @@ if (empty($claims)) {
                     <div class="vp-analyst-body">
                         <div class="d-flex align-items-center gap-2
                                     flex-wrap">
-                            <span class="vp-rel-dir"
-                                  title="<?= h($outbound
-                                      ? __('This value is the source of'
-                                          . ' the claim')
-                                      : __('Something else claims a'
-                                          . ' relationship to this value')
-                                  ) ?>">
-                                <i class="fas fa-arrow-<?=
-                                    $outbound ? 'right' : 'left' ?>"></i>
-                                <?= h($outbound
-                                    ? __('outbound')
-                                    : __('inbound')) ?>
-                            </span>
+                            <?= $this->element(
+                                'Values/View/value_relation_direction',
+                                array(
+                                    'direction' => $claim['direction'],
+                                    'directionTitle' => $outbound
+                                        ? __('This value is the source of'
+                                            . ' the claim')
+                                        : __('Something else claims a'
+                                            . ' relationship to this value'),
+                                )
+                            ) ?>
                             <span class="vp-rel-target">
                                 <?php if (strpos($icon, 'misp-icon') === 0): ?>
                                     <span class="<?= h($icon) ?>"></span>
