@@ -1680,22 +1680,44 @@ class ValueProfile extends AppModel
      * what this reader may see.
      *
      * **The visibility rule is per source, not per reader**, and it is
-     * chosen so the page is never looser than a surface MISP already
-     * ships and stricter in exactly one place:
+     * chosen so the page is never looser than any surface MISP already
+     * ships:
      *
      *   lookup_visible = 1   every role — `/feeds/searchCaches` is
      *                        reachable by everyone and returns these by
      *                        name, so gating them here would hide what
      *                        the same reader gets one click away.
-     *   lookup_visible = 0   `perm_view_feed_correlations`, which is the
-     *                        gate the event view applies. The column
-     *                        defaults to 0, so on a stock instance this
-     *                        is every feed.
+     *   lookup_visible = 0   site admin. The column defaults to 0, so on
+     *                        a stock instance this is every feed.
      *   sync servers         site admin only. One notch stricter than
      *                        the event view, which admits the host org,
      *                        because `servers/previewEvent` is site
      *                        admin only and the link is the row's whole
      *                        value.
+     *
+     * **The feed rule read `perm_view_feed_correlations` until B3, and
+     * that was a disclosure.** All three surfaces MISP ships withhold a
+     * non-lookup-visible feed's *identity* from everyone but a site
+     * admin: `Feed::getCachedFeedsOrServers` conditions on
+     * `lookup_visible = 1` for `!perm_site_admin`, and `/feeds/index`
+     * and `/feeds/searchCaches` add a host-org branch that cannot fire
+     * — they compare a session `org_id` (string `'1'`) against
+     * `MISP.host_org_id` (int `1`) with `!==`, so every non-site-admin
+     * takes the limited path. `perm_view_feed_correlations` gates
+     * *whether feed correlations are shown at all*, never *which feeds
+     * may be named*, and `AppModel`'s own migration sets it to 1 for
+     * every existing role — so on any upgraded instance the old rule
+     * handed each of them the name, URL and remote events of feeds
+     * `/feeds/index` refuses to list for them. Measured on the dev
+     * instance 2026-09-01: a non-host-org Org Admin carrying the perm
+     * was handed `CIRCL OSINT Feed`, its URL and two event links for a
+     * value, while `searchCaches` returned that reader one feed and
+     * `/feeds/index` did not list it at all.
+     *
+     * The host-org branch is deliberately not reproduced here. Copying
+     * it would mean copying a comparison that does not do what it reads
+     * as doing, and fixing it belongs to those surfaces, not to a page
+     * that only reads them.
      *
      * `Feed::searchCaches` applies no role check at all, so nothing here
      * may render its output directly. It is called for the whole
@@ -1730,8 +1752,6 @@ class ValueProfile extends AppModel
     private function externalVisibility(array $user)
     {
         $isSiteAdmin = !empty($user['Role']['perm_site_admin']);
-        $mayViewCorrelations = $isSiteAdmin
-            || !empty($user['Role']['perm_view_feed_correlations']);
 
         $cachedFeeds = $this->model('Feed')->find('all', array(
             'conditions' => array('Feed.caching_enabled' => 1),
@@ -1746,7 +1766,7 @@ class ValueProfile extends AppModel
         $visibleFeedIds = array();
         $withheldFeeds = 0;
         foreach ($cachedFeeds as $feed) {
-            if ($mayViewCorrelations || !empty($feed['Feed']['lookup_visible'])) {
+            if ($isSiteAdmin || !empty($feed['Feed']['lookup_visible'])) {
                 $visibleFeedIds[(string)$feed['Feed']['id']] = true;
             } else {
                 $withheldFeeds++;

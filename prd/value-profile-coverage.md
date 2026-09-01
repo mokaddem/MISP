@@ -257,6 +257,19 @@ MISP deliberately withholds from them everywhere else.**
 > to `0` (`INSTALL/MYSQL.sql:572`), so on an instance where nobody has touched
 > the flag that exception is empty and this rule is unchanged.
 
+**The instruction above is not strong enough, found 2026-09-01.**
+`perm_view_feed_correlations` is the wrong gate for a feed's *identity*, and
+applying it is what B3 had to undo. The permission decides whether feed
+correlations appear at all; `lookup_visible` decides which feeds may be named,
+and `Feed::getCachedFeedsOrServers` restricts that to `perm_site_admin`. The
+sentence *"only the site-admin role ships with it"* below is true of a fresh
+install and false after an upgrade — `AppModel`'s migration runs
+`UPDATE roles SET perm_view_feed_correlations = 1`, so every existing role
+carries it. Read together, the two facts made the permission look like a gate
+while gating nothing. The rule that holds: **a `lookup_visible = 0` feed is
+named to site admins only.** `tabs/03-relationships.md` §20.2 and
+`live/24b-relationships.md` §5.1.
+
 `$limited` is a second, narrower gate on the same call, and it is not a
 substitute for the first. `FeedsController.php:1654` sets
 `$limited = !isSiteAdmin && org_id !== MISP.host_org_id`, and inside

@@ -650,18 +650,40 @@ Per source, not per viewer:
 | Source | Visible to |
 |---|---|
 | Feed, `lookup_visible = 1` | every role |
-| Feed, `lookup_visible = 0` | `perm_view_feed_correlations` |
+| Feed, `lookup_visible = 0` | site admin |
 | Sync server | site admin only |
 
-The rule is chosen so that **the page is never looser than a surface
-MISP already ships, and stricter in exactly one documented place.**
-Check it against both existing readers:
+> **Corrected by B3, 2026-09-01.** The middle row read
+> `perm_view_feed_correlations` from 2026-08-31 until B3, and that was a
+> disclosure — the row below this table asserted the event view hands a
+> permission holder *every cached feed*, and it does not.
+> `Feed::getCachedFeedsOrServers` conditions on `lookup_visible = 1` for
+> anyone without `perm_site_admin` (`Feed.php`, the `Feed` branch), so
+> the permission gates *whether feed correlations appear at all*, never
+> *which feeds may be named*. `AppModel`'s migration sets the permission
+> to 1 for every existing role, and `lookup_visible` defaults to 0, so
+> on any upgraded instance the old rule named every cached feed to
+> every reader. Measured and then re-measured after the fix in
+> `live/24b-relationships.md` §5.1.
+
+The rule is chosen so that **the page is never looser than any surface
+MISP already ships, and stricter in one documented place.** Check it
+against all three existing readers:
 
 | Reader | Gives | This rule gives |
 |---|---|---|
-| the event view, with `perm_view_feed_correlations` (`Feed.php:521`) | every cached feed | the same: `lookup_visible = 1` to everyone, the rest to the permission holder |
+| the event view (`attachFeedCorrelations` + `getCachedFeedsOrServers`) | `lookup_visible = 1` feeds to a permission holder, every cached feed to a site admin | the same, minus the permission — which is looser only for a reader the next two rows already serve |
 | `/feeds/searchCaches`, plain user (`$limited`) | `lookup_visible = 1` feeds, no servers | the same |
-| `/feeds/searchCaches`, site admin or host org | every feed, **and servers** | stricter for a host-org non-admin: no servers |
+| `/feeds/searchCaches` or `/feeds/index`, site admin **or host org** | every feed, **and servers** | stricter for a host-org non-admin: no withheld feeds, no servers |
+
+**The host-org half of that third row cannot fire**, which is why this
+page does not reproduce it. Both surfaces compare a session `org_id` —
+a string, `'1'` — against `(int)Configure::read('MISP.host_org_id')`
+with `!==`, so every non-site-admin takes the limited path regardless of
+org. Measured on the dev instance 2026-09-01. Copying the branch would
+mean copying a comparison that does not do what it reads as doing;
+fixing it belongs to those two surfaces, not to a page that only reads
+them.
 
 **`lookup_visible` defaults to `0`** (`INSTALL/MYSQL.sql:572`), so on a
 stock instance the first row of the first table is empty and a plain
@@ -853,9 +875,22 @@ already holds — the permission is about enriching something they can see.
 which is this page's own shape: §14.6's whole argument turns on the URL
 accepting any value a reader types.
 
-So `perm_view_feed_correlations` gates every feed the administrator has
-not published, which on a stock instance is all of them. `value_external`
-and this section apply it identically, through the one method of §20.1.
+So a feed the administrator has not published is not named here, which
+on a stock instance is all of them. `value_external` and this section
+apply that identically, through the one method of §20.1.
+
+**What this section got wrong until B3, and the lesson in it.** The
+paragraphs above are still the argument, but until 2026-09-01 they were
+implemented as `perm_view_feed_correlations` rather than site admin —
+and the difference is the whole disclosure. The permission answers *may
+this reader see feed correlations*; `lookup_visible` answers *may this
+reader be told this feed's name*. Reading the first as if it settled the
+second is what put a withheld feed's name, URL and remote events in
+front of a reader `/feeds/index` will not list it for. The check that
+would have caught it is the one §20.2's table claims to make and did not
+finish: not *which surface has a similar rule*, but *run the same reader
+through every surface and diff the output*. That is now a probe rather
+than a paragraph — `live/24b-relationships.md` §5.1.
 
 ---
 
