@@ -359,9 +359,12 @@ state almost every value is in. When it **is** one, two more:
 - **`active`.** The extension is loaded, and the score is computed here
   because MISP keeps neither the number nor which engine wrote a row —
   `Correlation::ssdeepCorrelation` computes it only to test the threshold
-  and throws it away. Verified on a real `ssdeep` value: the engine ran,
-  compared against the other `ssdeep` attributes the reader may see, and
-  reported that no pair cleared 40.
+  and throws it away. Verified twice. On the instance's own values the
+  engine ran, compared against the other `ssdeep` attributes the reader
+  may see, and reported that no pair cleared 40 — all 1,387 of them are
+  unrelated samples, so *active and found nothing* was the only state
+  reachable here. Then against a seeded family, where six pairs clear it
+  and the table renders: §28.
 - **`unavailable`.** MISP ships this engine and it applies to this value,
   and `ssdeep_fuzzy_compare()` is a PHP extension MISP does not require.
   Saying *not applicable* there would be a lie about the value; saying
@@ -506,7 +509,9 @@ what this phase does; the query count in §5.3 is the contained figure.
 ### 9.4 `fuzzy_correlate_ssdeep` is empty
 
 §6. 1,387 `ssdeep` attributes, zero index rows, and an engine that would
-have reported *no match* for *no index*.
+have reported *no match* for *no index*. Still true of everything that
+was already here; §28's seed later put 879 chunk rows in it for a dozen
+attributes of its own, which changes the count and not the finding.
 
 ### 9.5 Two relationship targets point at attributes that no longer exist
 
@@ -720,7 +725,7 @@ users**: the site admin (org 1) and a CIRCL org admin (org 9, no
 | `185.92.180.100` | 1 occurrence, 1 event, and it sits inside `185.92.180.0/24` — the only value that exercises the CIDR engine end to end |
 | `1.0.155.105` | its only event is the 369,822-attribute one — **the suppressed state** |
 | `github.com` | 21 occurrences in a single event |
-| an `ssdeep` hash | the ssdeep engine's `active` state |
+| an `ssdeep` hash | the ssdeep engine's `active` state — *found nothing*, until §28 seeded it a family |
 | `no-such-value-anywhere.example` | the unknown value: five panels, no data, no invented anything |
 
 `8.8.8.8` also carries **six seeded analyst relationships**, because the
@@ -3617,3 +3622,169 @@ run and removed.
   instance-wide `7,905 of 69,976` is true and costs two counts over the
   whole database to print, and it is not the number a reader of one
   value's page is asking about.
+
+---
+
+## 28. The ssdeep engine, given something to compare against
+
+§6 gives the near-match section three engines and four states, and §12
+verified all four — but one of them only ever verified *empty*. On a real
+`ssdeep` value the engine ran, compared against every `ssdeep` attribute
+the reader could see, and reported that no pair cleared 40. That is a
+true sentence about this instance: its 1,387 `ssdeep` attributes are
+unrelated samples, and no two of them were ever going to clear the
+threshold. It also means `nearRow`'s ssdeep branch, the `Matched hash`
+table, and the `Similarity ≥` control filtering on a *score* rather than
+on a prefix had never once rendered a row.
+
+[`24-near-match-ssdeep-seed.php`](24-near-match-ssdeep-seed.php) gives
+the engine a family. This section is what that showed — including one
+defect in this feature's own markup that only ssdeep data could expose.
+
+### 28.1 Making hashes that are similar on purpose
+
+ssdeep is a context-triggered piecewise hash and it is far less forgiving
+than *"a few percent different"* suggests. Replacing **0.2% of the lines**
+of a 24 KB blob at random takes the score from 99 to **0** — measured
+first, which is why the seed is built the way it is. Scattered edits move
+every chunk boundary after the first one and the two hashes stop sharing
+substrings at all.
+
+Contiguous divergence is what survives, so variant N is the first N% of
+the subject's bytes followed by unrelated ones. That gives a monotonic
+ladder, which is what a closeness bar needs to be worth drawing:
+
+| shared | 0.98 | 0.92 | 0.85 | 0.65 | 0.45 | 0.30 | 0.25 | 0.15 | 0.05 |
+|---|---|---|---|---|---|---|---|---|---|
+| score | 99 | 94 | 88 | 75 | 60 | 47 | 44 | 36 | 0 |
+
+Total length is held constant on purpose: `ssdeep_fuzzy_compare` returns
+0 unless the two block sizes are within one step of each other, so the
+**same** content at 2 KB instead of 24 KB scores 0 rather than 100. One
+seeded row is that case, because a reader who sees a 0 wants to know the
+difference between *compared and unlike* and *not comparable*.
+
+### 28.2 Six rows, and seven that must not appear
+
+Thirteen attributes across two events. Six clear the threshold, and the
+seven that do not are the reason there are thirteen:
+
+| score | what it is | what the panel does |
+|---|---|---|
+| 99, 88 | repacks, in the ADMIN event | rows |
+| 75, 60, 44 | the same family from CIRCL | rows |
+| 47 | attribute distribution 0, ADMIN event | a row for a site admin, **absent** for an org-9 reader |
+| — | the subject's own hash, in the second event | **excluded**: an exact match is section one's row, and `occurrencesOfType` excludes the value itself |
+| 94 | soft-deleted | **excluded** by `Attribute.deleted = 0` |
+| 36 | a real score, under the threshold of 40 | **excluded**, and it is the row that proves the threshold filters a computed number rather than a zero |
+| 0 | an unrelated sample | **excluded** |
+| 0 | the same content at a smaller block size | **excluded** — the comparison ssdeep declines to make |
+| 99 | a `filename\|ssdeep` composite | **excluded**: the engine tests `type === 'ssdeep'` exactly, which is `Correlation::ssdeepCorrelation`'s own test. The panel and MISP agree here, and a composite hash is outside both |
+
+Two reporters and two distributions are not decoration. `nearRow` carries
+the creator organisation and the effective audience of the **other**
+value, not of ours, and a column that says `ADMIN` on three rows and
+`CIRCL` on three is the only way to see that it does.
+
+### 28.3 A console shell, where the CIDR seed needed HTTP
+
+`24-near-match-dated-seed.py` had to go over the REST API because only
+`MispAttribute::afterSave` rebuilds the Redis set `misp:cidr_cache_list`,
+and §6 records the debugging session that cost. ssdeep has no such cache:
+`ssdeepEngine` compares live against a plain indexed query, and
+`forRelationNearMatch` is not held inside the Relationships scan's
+five-minute entry either — so a seeded hash is on the page on the next
+request, and a shell going through `MispAttribute::save` is enough. It
+needs no API key, which is the reason to prefer it.
+
+### 28.4 What the panel did
+
+Site admin, then the org-9 org admin, on the subject hash:
+
+- **6 matches from 1 engine · 2 engines do not apply here.** CIDR reads
+  *not applicable* and names the type, the TLD stub stays *no engine in
+  MISP*, and the ssdeep strip reads *active* — `6 pairs cleared the
+  threshold of 40`.
+- **Rows at 99, 88, 75, 60, 47, 44**, descending, each with its event
+  link, its reporter and its audience badge.
+- **Five rows for the org-9 reader.** The distribution-0 attribute drops
+  out of the candidate set, the header count follows it to 5, and nothing
+  else changes. The ACL is `fetchAttributesSimple`'s, not this panel's,
+  which is the point of routing the candidates through it.
+- **`Similarity ≥ 60` leaves four rows** and 0 restores six, in a browser
+  with `24-relationships-browser.md`'s two gates satisfied — so the
+  control filters on `closeness:NN` written from a score exactly as it
+  does on one written from a prefix. One input, two scales, and the bar
+  beside it agrees with both.
+- **Both themes**, and `GET /values/viewRelationNearMatch/<b64>` returns
+  200 over a real session: base64 of a hash carries `+`, `:` and a
+  trailing `=` through the route without help.
+
+### 28.5 A column that could not tell two rows apart — fixed
+
+The `Matched hash` cell is `.vp-rel-cell`, which clips at 18rem and puts
+the ellipsis at the end. That is right for a network block and useless
+for an ssdeep hash: the hashes in a family **share a prefix** — sharing
+one is what makes them a family — so all six rows clipped to the same
+visible string, `384:hOGadoRfv6pz0P3T0aSfL5EhWUAsf27Q…`, with no `title`
+to recover the rest from. Six rows, one apparent value, and a similarity
+column reading 99 through 44 beside it.
+
+Two lines in `value_relation_near_match.ctp`: the middle goes instead of
+the tail for anything over 40 characters, and the full value is on the
+cell's `title` either way — which is what `value_relation_external.ctp`
+already does with a long source URL two panels down. A CIDR block is
+never long enough to be shortened, so its rows are unchanged and now
+carry a title as well.
+
+### 28.6 What the seed did to MISP's own index
+
+§9.4 found `fuzzy_correlate_ssdeep` empty against 1,387 `ssdeep`
+attributes. The seed writes through `afterSave` with
+`MISP.enable_advanced_correlations` on, so MISP's own engine indexed the
+family: **879 chunk rows**, and **36 correlation rows whose two sides
+hold different values** — fuzzy pairs, written by
+`Correlation::ssdeepCorrelation`.
+
+Three things follow, and the third is §3.1's argument arriving as data:
+
+- §9.4's finding stands for everything that was already on the instance,
+  which is what made narrowing through the index the wrong choice.
+- The panel still computes its own score, because those 36 rows do not
+  carry one. MISP tested the threshold and threw the number away.
+- Those 36 rows are indistinguishable from 36 exact matches. Nothing in
+  `default_correlations` says an engine wrote them, which is exactly why
+  section two re-derives instead of reading.
+
+### 28.7 What was run
+
+- `ValueSsdeepSeed show`, before any write, to see the ladder the
+  installed extension actually produces.
+- `ValueSsdeepSeed run`, then `24-relationships-render.php` for user 1
+  and user 4 under `debug = 2` — no notice, no undefined key, no
+  exception, and a 6-row and a 5-row fragment.
+- `24-near-match-harness.mjs` in headless Chromium, light and dark, with
+  the row count moving 6 → 4 → 6 as the witness before reading anything
+  off the page, and a screenshot looked at both times.
+- Real HTTP with a logged-in session: `viewRelationNearMatch` 200 and
+  6 rows, `/values/view/<b64>` 200.
+- Read-only SQL for the index and correlation counts above.
+
+The seed's two events are left **unpublished**: this instance has 8 sync
+servers configured. `ValueSsdeepSeed wipe` removes both events and
+everything in them; nothing was installed in `app/` — both shells were
+copied in, run and removed.
+
+### 28.8 What is still open
+
+- **A matched hash links nowhere.** `nearRow` carries no encoded value,
+  so the one thing a reader wants to do with a 99% partner — open it —
+  is a copy-paste. It is a row of facts about another value with no way
+  to reach it, which section one's table does not have. Deferred rather
+  than dismissed: the fix is one field, and the question of whether a
+  near-match row *should* be a pivot is the same question §26.3's promote
+  list asks.
+- **`filename|ssdeep` is fuzzy-compared by nothing**, here or in MISP.
+  Documented above rather than fixed, because a panel that compared them
+  would report matches the correlation engine denies — the failure §6
+  spent a debugging session on, in the other direction.
