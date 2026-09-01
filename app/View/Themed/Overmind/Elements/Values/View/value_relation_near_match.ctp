@@ -75,6 +75,26 @@ $closeness = function ($row) {
     return (int)round(((int)$row['prefix'] / $width) * 100);
 };
 
+/**
+ * A matched value short enough for the column and still readable as
+ * itself.
+ *
+ * `.vp-rel-cell` clips at 18rem and puts the ellipsis at the end, which
+ * is right for a network block and useless for an ssdeep hash: the
+ * hashes in a family share a prefix — sharing one is what makes them a
+ * family — so every row clipped to the same visible string. The middle
+ * goes instead, and the whole value is on the cell's title either way.
+ *
+ * @param string $label A CIDR block, or an ssdeep hash
+ * @return string
+ */
+$shorten = function ($label) {
+    if (strlen($label) <= 40) {
+        return $label;
+    }
+    return substr($label, 0, 24) . '…' . substr($label, -12);
+};
+
 ob_start();
 ?>
     <?php if (!empty($near['matches'])): ?>
@@ -193,7 +213,7 @@ if (empty($near['matches'])) {
          * @return void
          */
         $engineTable = function ($engine, $subject, $scale, $extra)
-            use ($view, $baseurl, $closeness, $distributionBadge)
+            use ($view, $baseurl, $closeness, $shorten, $distributionBadge)
         {
             ?>
             <div class="table-responsive" data-vp-list-rows>
@@ -226,8 +246,9 @@ if (empty($near['matches'])) {
                             <tr class="vp-rel-stripe vp-rel-k-near"
                                 data-vp-num="closeness:<?= h($share) ?>">
                                 <td class="font-monospace">
-                                    <span class="vp-rel-cell"><?=
-                                        h($row['block']) ?></span>
+                                    <span class="vp-rel-cell"
+                                          title="<?= h($row['block']) ?>"><?=
+                                        h($shorten($row['block'])) ?></span>
                                 </td>
                                 <td>
                                     <span class="vp-rel-bar"
