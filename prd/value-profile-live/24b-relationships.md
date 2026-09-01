@@ -66,6 +66,47 @@ reporting matches the engine denies). None of the others need input:
 they are evidence-based, reversible, and follow patterns the tab
 already owns.
 
+### 2.1 Reviewed against the whole page — 2026-09-01
+
+Before implementation, each task was re-checked against the other
+eight tabs — their specs, their templates, and the controller's actual
+data paths — for overlaps, for elements that belong on another tab,
+and for the split/merge question one level up. Three things came out
+of it.
+
+**No split, and no merge.** At page level the question gets sharper,
+not different. The Analyst tab holds the value's own standing — notes
+and opinions — while this tab's asserted section holds *edges*;
+merging them would blend the two things the analyst-data model keeps
+distinct. The Timeline tab is already scheduled to carry dated
+relations as a source lane (`06-timeline.md` §16) — a second home over
+the same query, not a move. And the page's working idiom for
+Overview-versus-tab is settled and load-bearing: **the card counts,
+the section lists, both read one method so they cannot disagree.**
+B3 and B8 now name that idiom explicitly instead of accidentally
+conforming to it.
+
+**One stale record, found and fixed.** The Overview's external
+presence card (`viewExternal` → `ValueProfile::forExternal`) has been
+live since phase 24 built the fourth section — the controller and the
+template's docblock both say so — but §14.12's board still carried
+`—`. Corrected in `00-contract.md` and `value-profile-page.md` §1.4
+with this review; the row's `Q` was never measured and its cells say
+so.
+
+**Task by task.**
+
+| Task | Outcome |
+|---|---|
+| B1, B2, B4 | unchanged — nothing on another tab touches them |
+| B3 | revised — must agree with the live Overview card it details |
+| B5 | note added — the banner's warninglist chip is fixture-built; B5 is the page's first live warninglist read |
+| B6 | hint added — the rank lives in the model layer, because the verdict engine is its second customer |
+| B7 | note added — the Timeline's scheduled lane reads the same query and is unaffected |
+| B8 | revised — the boundary with the Overview's "Tags and galaxies" card is now a grilling item, and the fold lives in the model layer |
+| B9 | inherits B8's boundary; otherwise unchanged |
+| B10 | grilling gains the direction question — look-alikes *of* this value, or this value *as* a look-alike |
+
 ## 3. B1 — the references panel's object link
 
 **Why.** `/objects/view/<id>` redirects to the unthemed `/events/view`,
@@ -125,6 +166,14 @@ triage facts this page can state — it is the product GreyNoise built.
   The source counts come from the same context the rail's settings
   card already prints, so the two cannot disagree.
 
+**The Overview's card is live and already owns the headline.**
+`value_external` counts what this section lists — one `forExternal`
+behind both, by design (`03-relationships.md` §20.1) — and its miss
+state already reads *"Not seen outside this instance"*. B3's novelty
+sentence is that card's sentence with the denominator attached; the
+two surfaces must keep saying the same thing, and if the wording
+changes it changes in both.
+
 **How.** `Feed::searchCaches` returns event UUIDs and no dates — show
 counts, do not invent ages. The section's existing cache-age sentence
 ("read just now", the five-minute hold) already covers freshness and
@@ -182,6 +231,14 @@ it is genuinely cheap. Whichever way it lands, the panel states which.
 Dimming reuses the tab's existing de-emphasis style; the badge is the
 existing tag-chip shape, not a new element.
 
+**Adjacency.** The page banner's *Warninglist hit* chip is
+fixture-built like the rest of the frame (`value-profile-page.md`
+§1.4), so until the Overview's live phase runs, the frame's chip and
+this panel's badges come from different regimes — the §14.10
+frame-versus-panel hazard, one level up. B5 is the page's first live
+warninglist read: build the lookup so the frame conversion can reuse
+it rather than invent a second one.
+
 **Verify.** `1.1.1.1`, `google.com`, `9.9.9.9` badged on `8.8.8.8`;
 a value with no listed neighbours renders byte-identical to today.
 
@@ -220,7 +277,10 @@ the evidence-based part.
 
 **How.** The denominator is one grouped aggregate over candidate
 values — `occurrenceSummaryFor`'s shape, plural. Nothing else new: the
-pill, the sort, and the fold's rank hook all exist.
+pill, the sort, and the fold's rank hook all exist. The computation
+belongs in the model layer, beside `occurrenceSummaryFor`, not in the
+panel: the verdict engine's scope note wants exactly this kind of
+signal, and a view-side rank would have to be rebuilt for it.
 
 ## 9. B7 — dated strip: per-value lanes when rows are few
 
@@ -239,7 +299,9 @@ today. The caption states which grouping the strip is using.
 **How.** `value_span_strip.ctp` already takes lanes the caller names —
 the panel switches its grouping key on the row count and nothing in
 the strip changes. Legend, moment marks, and the overlap-window filter
-are untouched.
+are untouched. The Timeline tab's scheduled dated-relations lane
+(`06-timeline.md` §16) reads the same query but groups per source;
+this grouping switch is panel-local and leaves it unaffected.
 
 **Verify.** `8.8.8.8` draws three named lanes whose spans read the
 hand-off; `github.com` is pixel-identical to today.
@@ -272,6 +334,18 @@ that is where the headroom is (a full screen of dead space under
 "What is counted") and because "what does this mean" is a summary, not
 a ledger.
 
+**The boundary with the Overview.** The Overview's context card
+(`value_context`, fixture today) is *Tags and galaxies* — what this
+value's **own occurrences** carry, grouped by taxonomy. This card is
+the other half: what reaches the value **through its events**. On a
+heavily-tagged value the two would largely repeat each other unless
+the card marks or excludes clusters the value already carries
+directly — and the association signal is interesting precisely where
+it is *not* direct. When the Overview's live phase runs it inherits
+this boundary: its card stays direct, at most gaining a one-line count
+of named threats nearby, in the card-counts/section-lists idiom the
+external pair already uses.
+
 **Grilling decides.**
 - Which cluster families count as a *named threat*: threat-actor,
   malware, tool, ransomware, botnet — with `mitre-attack-pattern`
@@ -282,6 +356,9 @@ a ledger.
   a GalaxyCluster is already on the tab and is arguably the strongest
   named-threat evidence the page holds.
 - Local-only and freetext tags: in, out, or folded under "unnamed".
+- The `value_context` boundary: exclude clusters the value's own
+  occurrences already carry, or keep them marked `direct` beside the
+  `by association` rows — and which of the two the ranking favours.
 - Placement confirmation (rail card vs eighth strip card), and the
   card's notion colour — it spans notions, so it may need its own.
 
@@ -290,6 +367,10 @@ costs one `EventTag`+`Tag` fetch over ≤20 events plus cluster
 resolution — measure it, and hold it in the same five-minute digest
 the rail cards already share. Ranking is `COUNT(DISTINCT org)` then
 `COUNT(DISTINCT event)` per cluster/tag, folded in PHP at these sizes.
+The fold is a model-layer method (`ValueProfile` or `ValueStatsTool`),
+not view logic: the verdict engine's scope note lists neighbourhood
+context among its wanted signals, and the Overview's future count line
+is a second caller.
 
 **UI.** This is a new card element — run the **frontend-design** skill
 for it before building: rows-with-chips in the rail's card idiom, a
@@ -349,6 +430,12 @@ the one-line absent slot B2 leaves.
   combinatorially; pick a generation bound, and the block states what
   was not generated (the no-silent-caps rule).
 - Which value types run, and whether the URL host is in the first cut.
+- **The direction, and it changes the audience.** Look-alikes *of this
+  value* registered on the instance is campaign mapping; this value
+  *as a look-alike* of a prominent domain — warninglists' top-domain
+  lists are the obvious reference set — is the triage read (*"this is
+  a google.com typosquat"*). The same generator run opposite ways; the
+  first cut may take one, the grilling picks which.
 - Whether generated look-alikes are also checked against the feed
   cache (the external section's set-membership primitive) — *"2
   look-alikes sit in Threatfox"* — or whether that is a later pass.

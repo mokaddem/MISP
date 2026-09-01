@@ -503,7 +503,7 @@ document that filled it.
 | Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
-| Overview | `viewExternal` | `value_external` | — | — | — | — |
+| Overview | `viewExternal` | `value_external` | — | — | — | **24** — Q unmeasured, see below |
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
@@ -524,18 +524,24 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Twelve rows are filled; the rest are `—` because nothing else is wired. A row
+Thirteen rows are filled; the rest are `—` because nothing else is wired. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
-**One of the twelve is on a tab whose phase has not run.** `viewSightings` is
+**Two of the thirteen are on a tab whose phase has not run.** `viewSightings` is
 the Overview's sightings card, converted after phase 23 because it is made of
 that phase's `sightingContext` and because leaving it meant a card and a tab on
 one page that could disagree about the same value. It is filled against **23**,
-whose §12.1 records its numbers. The Overview's other rows stay `—`, and
-whichever phase converts them inherits one row already done rather than a tab
-half-owned — which is the note below about a tab not being indivisible, used in
-earnest.
+whose §12.1 records its numbers. `viewExternal` is the second: the external
+presence card went live with phase 24's fourth section — the card counts, the
+section lists, one `forExternal` behind both (`tabs/03-relationships.md` §20.1)
+— but this board never recorded it; the 2026-09-01 subphase-B review
+([`24b-relationships.md`](24b-relationships.md) §2.1) found the gap. Its `Q`
+was never measured — `24-relationships.md` §17.3 records timings only — so its
+cells stay visibly blank until whoever next touches `forExternal` records the
+count. The Overview's other rows stay `—`, and whichever phase converts them
+inherits two rows already done rather than a tab half-owned — which is the note
+below about a tab not being indivisible, used in earnest.
 
 `Q` on every converted row is its **ceiling**, measured, and on every one of
 them the ceiling is reached by a *small* value rather than a large one.

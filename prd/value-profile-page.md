@@ -55,14 +55,18 @@ render their own content; nothing on the page is a placeholder.
 Sightings and Relationships tabs now read the database; the other six tabs still
 read the fixture, so the two regimes sit side by side until the campaign
 finishes. **Nothing writes**, on either side. `live/00-contract.md` §14.12 is
-the panel-level record — twelve of twenty-seven endpoints have moved.
+the panel-level record — thirteen of twenty-seven endpoints have moved.
 
-One of the twelve is on a tab whose phase has not run: the **Overview's**
+Two of the thirteen are on a tab whose phase has not run: the **Overview's**
 `value_sightings` card was converted with phase 23's follow-ups, because it is
 built from that phase's own `sightingContext` and because a card and a tab on
 one page that could disagree about the same value is worse than a tab converted
-out of order. Everything else on the Overview still reads the fixture,
-`value_verdict_card` included — that one is blocked on the verdict engine.
+out of order; its `value_external` card went live with phase 24's fourth
+section — the card counts what the section lists, one `forExternal` behind
+both — and was found missing from the board by the subphase-B review
+(`live/24b-relationships.md` §2.1). Everything else on the Overview still reads
+the fixture, `value_verdict_card` included — that one is blocked on the verdict
+engine.
 
 **The page frame is the fixture's too**, and that is the same hazard one level
 up: the tab badges, the fact strip and the banner chips are built in one
