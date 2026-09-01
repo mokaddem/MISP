@@ -122,6 +122,75 @@ $bands = array(
     array(80, 100, __('Strongly agree')),
 );
 
+/**
+ * One sortable token per column, so ordering compares what the column
+ * means rather than what its cell happens to read.
+ *
+ * Cell text would not do it: the opinion is drawn as a position and
+ * not written in its own column, `9` sorts above `85` as text, and the
+ * reading is three words with an order (`disputes`, `neither`,
+ * `agrees`) that none of them expresses. Every token is a string built
+ * to sort lexicographically — the convention `value_occurrence_table`
+ * and `value_sighting_list` already use — so the script needs one
+ * comparison and no per-column knowledge.
+ *
+ * @param array $org
+ * @param int $index Position in the order the fixture sent
+ * @return string Attributes, ready to interpolate
+ */
+$pad = function ($number, $width = 4) {
+    return str_pad((string)(int)$number, $width, '0', STR_PAD_LEFT);
+};
+
+$sideRank = array('dispute' => 0, 'neither' => 1, 'agree' => 2);
+
+$rowSort = function ($org, $index) use ($sideOf, $pad, $sideRank) {
+    $score = (int)$org['score'];
+    $side = $sideOf($org['reads']);
+    $data = array(
+        'vp-sort-org' => mb_strtolower($org['org']),
+        'vp-sort-score' => $pad($score, 3),
+        /*
+         * Side first, then score inside it: a reader grouping by the
+         * reading still wants the strongest of each group at its end,
+         * and low-to-high matches the axis the lanes are drawn on.
+         */
+        'vp-sort-reading' => $sideRank[$side] . $pad($score, 3),
+        'vp-sort-notes' => $pad($org['notes']),
+        'vp-sort-activity' => empty($org['last'])
+            ? ''
+            : date('YmdHi', strtotime($org['last'])),
+        /*
+         * The row's position in the order the fixture sent — by
+         * opinion, highest first. Reordering moves the rows
+         * themselves, so the third click has to restore this rather
+         * than merely stop comparing.
+         */
+        'vp-sort-default' => $pad($index),
+    );
+    $out = '';
+    foreach ($data as $key => $value) {
+        $out .= ' data-' . $key . '="' . h($value) . '"';
+    }
+    return $out;
+};
+
+/**
+ * A sortable heading. A real button, so it is reachable and operable
+ * from the keyboard, carrying MISP's own `sortable-header`/`sort-icon`
+ * so a sortable heading here looks like one anywhere else.
+ *
+ * @param string $key Column key, matching the row's `vp-sort-<key>`
+ * @param string $label
+ * @return string
+ */
+$sortBtn = function ($key, $label) {
+    return '<button type="button" class="vp-th-sort"'
+        . ' data-vp-sort-col="' . h($key) . '">'
+        . '<span class="sortable-header">' . h($label)
+        . '<i class="sort-icon"></i></span></button>';
+};
+
 $subtitle = $aggregate === null
     ? h(__('No opinion on this value from any organisation'))
     : h($aggregate['note']);
@@ -295,6 +364,7 @@ $headerExtra = $aggregate === null ? null
             ?>
             <div class="vpa-ledger-scroll">
                 <div class="vpa-ledger"
+                     data-vp-a-ledger
                      role="group"
                      aria-label="<?= h(sprintf(
                          __('Each organisation\'s opinion on the 0 to 100'
@@ -302,9 +372,22 @@ $headerExtra = $aggregate === null ? null
                          implode(__(', '), $aria)
                      )) ?>">
 
-                    <div class="vpa-h"><?= __('Organisation') ?></div>
+                    <div class="vpa-h"><?=
+                        $sortBtn('org', __('Organisation'))
+                    ?></div>
 
+                    <?php
+                    /*
+                     * The lane column's heading sits inside the ruler,
+                     * because the ruler *is* that column's header —
+                     * and the opinion is the one column whose values
+                     * are drawn rather than written, so without a
+                     * heading of its own it would be the only column
+                     * a reader could not sort by.
+                     */
+                    ?>
                     <div class="vpa-ruler">
+                        <?= $sortBtn('score', __('Opinion')) ?>
                         <?php foreach ($bands as $b => $band):
                             $edge = '';
                             $at = ($band[0] + $band[1]) / 2;
@@ -351,11 +434,17 @@ $headerExtra = $aggregate === null ? null
                         <?php endif; ?>
                     </div>
 
-                    <div class="vpa-h"><?= __('Reads it as') ?></div>
-                    <div class="vpa-h vpa-r"><?= __('Notes') ?></div>
-                    <div class="vpa-h vpa-r"><?= __('Last activity') ?></div>
+                    <div class="vpa-h"><?=
+                        $sortBtn('reading', __('Reads it as'))
+                    ?></div>
+                    <div class="vpa-h vpa-r"><?=
+                        $sortBtn('notes', __('Notes'))
+                    ?></div>
+                    <div class="vpa-h vpa-r"><?=
+                        $sortBtn('activity', __('Last activity'))
+                    ?></div>
 
-                    <?php foreach ($orgs as $org):
+                    <?php foreach ($orgs as $index => $org):
                         $side = $sideOf($org['reads']);
                         $score = (int)$org['score'];
                         $from = min(50, $score);
@@ -364,7 +453,8 @@ $headerExtra = $aggregate === null ? null
                         $stale = $days !== null && $days >= $staleAfter;
                         ?>
                         <div class="vpa-row"
-                             data-vp-a-org="<?= h($org['org']) ?>">
+                             data-vp-a-org="<?= h($org['org']) ?>"<?=
+                             $rowSort($org, $index) ?>>
 
                             <div class="vpa-cell vpa-org">
                                 <span class="misp-icon

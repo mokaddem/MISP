@@ -739,6 +739,16 @@
      * @param {string} column Column key, or `default` for server order
      * @param {number} sign 1 ascending, -1 descending
      */
+    /*
+     * The three containers on this page that own a sortable table. The
+     * occurrence list is faceted and paginated, the sightings list is
+     * driven by the chart's brush, and the standing ledger is neither,
+     * but all three cycle their headings the same way — so every lookup
+     * that has to find a heading's own container knows all three.
+     */
+    var SORT_LIST_SELECTOR =
+        '[data-vp-list], [data-vp-sight-list], [data-vp-a-ledger]';
+
     function sortByColumn(list, filtered, column, sign) {
         var key = 'vpSort' + column.replace(
             /-([a-z])/g,
@@ -768,6 +778,33 @@
     }
 
     /**
+     * Reorder the standing panel's ledger.
+     *
+     * No facets and no pages — the panel is bounded by the number of
+     * organisations on the instance — so this is `sortByColumn` and
+     * nothing else. Its rows are `display: contents` wrappers, so
+     * moving one moves the five cells it owns and the grid re-flows
+     * them; the header cells are never moved, and `appendChild` puts
+     * every row after them.
+     *
+     * @param {Element} list A [data-vp-a-ledger]
+     */
+    function sortLedger(list) {
+        var rows = Array.prototype.slice.call(
+            list.querySelectorAll('.vpa-row')
+        );
+        if (rows.length < 2) {
+            return;
+        }
+        sortByColumn(
+            list,
+            rows,
+            list.dataset.vpSortedCol || 'default',
+            list.dataset.vpSortedDir === 'desc' ? -1 : 1
+        );
+    }
+
+    /**
      * Cycle one column heading: ascending, descending, then back to the
      * order the server sent.
      *
@@ -780,7 +817,7 @@
      * @param {Element} button A [data-vp-sort-col]
      */
     function toggleColumnSort(button) {
-        var list = button.closest('[data-vp-list], [data-vp-sight-list]');
+        var list = button.closest(SORT_LIST_SELECTOR);
         if (!list) {
             return;
         }
@@ -795,6 +832,14 @@
             delete list.dataset.vpSortedDir;
         }
         markSortedColumn(list);
+        /*
+         * The standing ledger has neither facets nor pages, so there is
+         * nothing to refresh around the reorder.
+         */
+        if (list.hasAttribute('data-vp-a-ledger')) {
+            sortLedger(list);
+            return;
+        }
         /*
          * The sightings list is not a faceted list: it pages off `load
          * the rest` rather than a page control, and its rows are chosen
@@ -827,11 +872,25 @@
         var direction = list.dataset.vpSortedDir === 'desc'
             ? 'descending'
             : 'ascending';
-        // Scoped: the sibling section's headings belong to its own list,
-        // and the ranked table clearing them would take the caret off a
-        // column the reader had just sorted.
-        ownNodes(list, '[data-vp-sort-col]').forEach(function (button) {
-            var cell = button.closest('th');
+        /*
+         * Scoped: the sibling section's headings belong to its own list,
+         * and the ranked table clearing them would take the caret off a
+         * column the reader had just sorted.
+         *
+         * Scoped against `SORT_LIST_SELECTOR` rather than through
+         * `ownNodes`, which tests `closest('[data-vp-list]')` only. The
+         * sightings list carries `data-vp-sight-list` and no
+         * `data-vp-list`, so every one of its headings failed that test
+         * and its caret never lit however the rows were ordered.
+         */
+        Array.prototype.slice.call(
+            list.querySelectorAll('[data-vp-sort-col]')
+        ).filter(function (button) {
+            return button.closest(SORT_LIST_SELECTOR) === list;
+        }).forEach(function (button) {
+            // A `th` in the two tables; in the ledger, the grid's own
+            // header cell, which has no table row to hang it on.
+            var cell = button.closest('th') || button.parentElement;
             if (!cell) {
                 return;
             }

@@ -194,8 +194,16 @@ drawn, because a composer with no target is the thing that cannot ship.
 
 ## 9. Interactions
 
-Working, client-side: sort, the three filter pills, reply expansion, and hover
-on a strip marker highlighting its table row.
+**As built, after §16.** Panel one: every ledger heading sorts, cycling
+ascending, descending, then back to the fixture's order — the shared behaviour
+`value_occurrence_table` and `value_sighting_list` already have, driven by the
+same `data-vp-sort-col` headings and `data-vp-sort-<column>` row tokens
+(§16.6). Hovering a row lights all five of its cells.
+
+Panel two: sort, the three filter pills, reply expansion.
+
+Gone with the strip: hover on a marker highlighting its table row. The ledger
+fuses the two, so the marker *is* the row.
 
 Disabled with a `title`: the composer, its `Attach to` picker, and its submit.
 
@@ -632,3 +640,59 @@ dark theme, with no PHP notices on any of the five and the thread panel
 unaffected. The 12-organisation case remains unexercised by any fixture value —
 it is the state §16.2 chose `B3` for and the one nothing on the instance can
 yet show.
+
+### 16.6 Sorting the ledger
+
+Every heading sorts, because a panel whose rows are organisations is one an
+analyst arrives at with a question about a column — *who touched this last*,
+*who wrote the notes* — and not only about the axis.
+
+**The existing convention, not a second one.** `value_occurrence_table` and
+`value_sighting_list` already sort by `data-vp-sort-col` headings over
+`data-vp-sort-<column>` row tokens, each token a string built to sort
+lexicographically so one comparison serves every column. The ledger uses the
+same, so `sortByColumn` and the asc / desc / default cycle are reused whole and
+a sortable heading here behaves like one anywhere else on the instance.
+
+Five tokens: `org` lowercased, `score` zero-padded, `notes` zero-padded,
+`activity` as `YmdHi`, and `reading` as the side's rank followed by the padded
+score — side first so the two camps group, score inside it so the strongest of
+each camp sits at that camp's end, low-to-high matching the axis the lanes are
+drawn on. `vp-sort-default` carries the fixture's order, by opinion highest
+first, because reordering moves the rows themselves and the third click has to
+restore it rather than merely stop comparing.
+
+**The opinion column needed a heading first.** Its values are drawn as
+positions, not written, so the ruler was the column's header and the column had
+no name — which would have made the score the one column a reader could not sort
+by. The ruler now carries `Opinion` as a fourth row at its top, the four other
+headings stretch to the ruler's height instead of pinning to its bottom, and all
+five labels line up along the top of the header row with one shared underline.
+The ruler's other three rows opt out of heading typography rather than inherit
+it; the void's caption is a sentence and stays sentence case.
+
+**Two shared-code changes, both additive.**
+
+- `SORT_LIST_SELECTOR` names the three containers that own a sortable table, and
+  the two lookups that have to find a heading's own container use it.
+- `markSortedColumn` sets `aria-sort` on `button.closest('th')` **or** the
+  button's parent, since the ledger's headings are grid cells with no table row
+  to hang it on, and it scopes with that selector rather than through
+  `ownNodes`.
+
+**That second change fixes a bug the sightings list already had.** `ownedBy`
+tests `closest('[data-vp-list]') === list`; the sightings list carries
+`data-vp-sight-list` and no `data-vp-list`, so every one of its headings failed
+the test, `aria-sort` was never set, and its caret never lit however the rows
+were ordered. Its sort worked and said nothing about itself. It now marks its
+column like the other two.
+
+The caret rules keyed off `th[aria-sort]`, so `.vpa-h[aria-sort]` and
+`.vpa-ruler[aria-sort]` join them.
+
+**Verified** with real clicks in Chrome: each of the five columns in both
+directions and back to default against `104.21.34.198`, `aria-sort` on exactly
+one cell at a time, ties falling back to the previous order, and no page errors.
+The occurrence table's twelve headings and the sightings list's five were
+re-checked in the same pass — the first unchanged, the second newly marking its
+column.

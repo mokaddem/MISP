@@ -3287,19 +3287,27 @@ tr.vp-occ-deleted .vp-occ-orgdot {
  * attribute is what a screen reader announces, so hanging the visual on
  * it means the two cannot disagree.
  */
-th[aria-sort] .sort-icon {
+th[aria-sort] .sort-icon,
+.vpa-h[aria-sort] .sort-icon,
+.vpa-ruler[aria-sort] .sort-icon {
     opacity: 1;
 }
 
-th[aria-sort] .sortable-header {
+th[aria-sort] .sortable-header,
+.vpa-h[aria-sort] .sortable-header,
+.vpa-ruler[aria-sort] .sortable-header {
     font-weight: 700;
 }
 
-th[aria-sort="ascending"] .sort-icon::before {
+th[aria-sort="ascending"] .sort-icon::before,
+.vpa-h[aria-sort="ascending"] .sort-icon::before,
+.vpa-ruler[aria-sort="ascending"] .sort-icon::before {
     content: "\f0de"; /* fa-sort-up */
 }
 
-th[aria-sort="descending"] .sort-icon::before {
+th[aria-sort="descending"] .sort-icon::before,
+.vpa-h[aria-sort="descending"] .sort-icon::before,
+.vpa-ruler[aria-sort="descending"] .sort-icon::before {
     content: "\f0dd"; /* fa-sort-down */
 }
 
@@ -5833,8 +5841,11 @@ th.vp-rel-num {
     display: contents;
 }
 
+/* Stretched, not bottom-pinned: the ruler is the tallest cell in the
+   header row and every heading has to share its bottom border. The
+   labels therefore line up along the top of the row, which is also
+   where the ruler's own heading sits. */
 .vpa-h {
-    align-self: end;
     padding: 0 0.5rem 0.45rem;
     border-bottom: 1px solid var(--bs-border-color);
     font-size: 0.62rem;
@@ -5854,19 +5865,43 @@ th.vp-rel-num {
     text-align: right;
 }
 
+/* The heading's content is a button, so right-alignment is a flex
+   concern rather than a text one. */
+.vpa-h {
+    display: flex;
+    align-items: flex-start;
+}
+
+.vpa-h.vpa-r {
+    justify-content: flex-end;
+}
+
 /* Three rows at fixed tops — band words, numerals, then the void's
    caption — so none of them can land on another. */
+/* Four rows at fixed tops — the column's own heading, the band
+   words, the numerals, then the void's caption — so none of them can
+   land on another. The heading is in flow at the top so it shares a
+   baseline with the four headings beside it; the rest are positioned
+   by percentage across the axis. */
 .vpa-ruler {
     position: relative;
-    height: 50px;
+    height: 66px;
+    padding: 0 0 0.45rem;
     border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
 }
 
 .vpa-ruler-band {
     position: absolute;
-    top: 0;
+    top: 18px;
     transform: translateX(-50%);
     font-size: 0.58rem;
+    font-weight: 400;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--bs-secondary-color);
@@ -5876,17 +5911,19 @@ th.vp-rel-num {
 
 .vpa-ruler-tick {
     position: absolute;
-    top: 16px;
+    top: 34px;
     transform: translateX(-50%);
     font-family: var(--bs-font-monospace);
     font-size: 0.63rem;
+    font-weight: 400;
+    letter-spacing: normal;
     font-variant-numeric: tabular-nums;
     color: var(--bs-secondary-color);
 }
 
 .vpa-ruler-void {
     position: absolute;
-    top: 33px;
+    top: 50px;
     transform: translateX(-50%);
     padding: 0 6px;
     border-radius: 3px;
@@ -5894,6 +5931,8 @@ th.vp-rel-num {
         var(--bs-body-bg));
     font-size: 0.62rem;
     font-weight: 600;
+    letter-spacing: normal;
+    text-transform: none;
     color: var(--bs-secondary-color);
     white-space: nowrap;
 }
@@ -6145,15 +6184,15 @@ th.vp-rel-num {
     }
 
     .vpa-ruler {
-        height: 36px;
+        height: 52px;
     }
 
     .vpa-ruler-tick {
-        top: 2px;
+        top: 18px;
     }
 
     .vpa-ruler-void {
-        top: 19px;
+        top: 35px;
     }
 }
 
