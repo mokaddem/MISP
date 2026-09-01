@@ -2848,7 +2848,7 @@ class ValueProfile extends AppModel
      * CIDR containment, re-derived from the same list the engine walks.
      *
      * `Correlation::getCidrList()` is the network-block set MISP itself
-     * tests against — Redis-cached, 44 entries on the verification
+     * tests against — Redis-cached, 45 entries on the verification
      * instance — so the containment answer here is the engine's own
      * rather than an approximation of it. The blocks are then fetched
      * as attributes so the rows carry an event, a reporter and a
@@ -2856,6 +2856,12 @@ class ValueProfile extends AppModel
      *
      * Two queries at most: the list (usually Redis, one query on a
      * cold cache) and one fetch for whichever blocks contained us.
+     *
+     * That Redis set is rebuilt only by
+     * `Correlation::advancedCorrelationsUpdate` on an attribute save, so
+     * a block inserted outside the save path is invisible to the engine
+     * and to this panel alike until `updateCidrList()` runs. Reporting
+     * *found nothing* there is the engine's answer, not a wrong one.
      *
      * @param array $user
      * @param string $value

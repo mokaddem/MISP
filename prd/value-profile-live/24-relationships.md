@@ -310,7 +310,7 @@ point. Live data adds a fourth that is none of them.
 `ip-src`, `ip-dst`, `ip-src|port`, `ip-dst|port`, which is what
 `Correlation::__buildAdvancedCorrelationConditions` keys on. Re-derived
 from `Correlation::getCidrList()` — the same Redis-backed list the engine
-itself walks, 44 entries here — so the answer is the engine's own rather
+itself walks, 45 entries here — so the answer is the engine's own rather
 than an approximation of it. The blocks are then fetched as attributes,
 so each row carries an event, a reporter and an audience the reader may
 actually see; a block nobody may see contributes no row, which is §14.6
@@ -325,10 +325,22 @@ of IPv6 is 2^120 addresses, which no integer here holds, so the count is
 formatted from a power of two; the v4 case stays exact and printable,
 which is the case the argument rests on.
 
-**A new state: *active, and it found nothing.*** `8.8.8.8` is in no block
+**A new state: *active, and it found nothing.*** `1.1.1.1` is in no block
 on this instance. The panel says *"No network block on this instance
 contains this address. The engine applies; it found nothing"* — which is
 neither the empty state nor *not applicable*.
+
+**The list is a cache, and it goes stale.** `getCidrList()` reads a Redis
+set that is only ever rebuilt by `Correlation::advancedCorrelationsUpdate`
+on an attribute save, so a block written outside that path — direct SQL,
+`fast_update`, `skip_correlation`, the `OnDemand` engine — is invisible to
+the correlation engine *and* to this panel until something calls
+`updateCidrList()`. It cost a debugging session: `8.8.8.0/28` sat in
+`attributes` with zero correlation rows while the cache held 44 entries,
+so `8.8.8.8` reported *active, found nothing* against a block the database
+plainly contained. Re-deriving from the engine's list is still right — it
+is what keeps the panel from naming a containment the engine denies — but
+the failure mode to recognise is a **cached** list, not a wrong one.
 
 **ssdeep.** *Not applicable* unless the value is itself an `ssdeep`
 attribute, which is the state the brief designs the block around and the
