@@ -1236,6 +1236,18 @@ $headerSub = ob_get_clean();
  * whole count is present in these rows is answerable here, and so is
  * everything when nothing was cut. `vp-narrow-cut` says which case
  * this is.
+ *
+ * **It is measured against the neighbourhood, not against the filter
+ * that produced this page.** The question the script asks it is *could
+ * some other narrowing want a row this markup does not have*, and the
+ * answer to that never depends on which rows the current one kept.
+ * Read from `matched` it did: narrowing `8.8.8.8` to the 37 values on a
+ * warninglist made `matched` equal the rows carried, cleared the flag,
+ * and told the script the page was complete — so the next tick,
+ * *No hit*, was answered from 37 rows none of which is one, and a table
+ * with 10,003 matches behind it reported that nothing matched. Any two
+ * ticks could do it where the first landed inside `row_cap`; the
+ * warninglist pair only made it certain, being complements.
  */
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
@@ -1243,7 +1255,8 @@ $headerSub = ob_get_clean();
      data-vp-list
      data-vp-narrow-url="<?= h($baseurl) ?>/values/viewRelationCooccurrence/<?=
          h($valueB64) ?>"
-     data-vp-narrow-cut="<?= $co['matched'] > count($valueRows) ? '1' : '' ?>"
+     data-vp-narrow-cut="<?= $co['distinct_values'] > count($valueRows)
+         ? '1' : '' ?>"
      data-vp-narrow-active="<?= empty($active) ? '' : '1' ?>"
      data-vp-group-active="value"
      <?php

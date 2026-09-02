@@ -1001,6 +1001,81 @@ every count raw and has since it was written, so a `number_format` here
 would be a change to every facet on every tab — out of scope for this,
 and worth its own pass if anyone minds.
 
+### 7.4 A narrowed page said it was complete — 2026-09-02
+
+Reported from the tab: tick **With a hit**, which filters correctly;
+untick it and tick **No hit**, and the table reports *"No correlation
+matches the filter you set"* over a neighbourhood with 10,003 of them.
+
+**Not the cache.** The fold was right at every step — `?f[warninglist]
+[]=_clear` returns 100 carried rows of 10,003 matched, and each row
+carries the `warninglist:_clear` token. The second request was never
+made.
+
+**`data-vp-narrow-cut` was read off the wrong number.** The attribute
+tells `narrowingIsLocal` whether this markup can answer a narrowing by
+itself, and the template computed it as
+
+    $co['matched'] > count($valueRows)
+
+— *did the filter that produced this page leave more rows than the page
+carries*. Narrowing `8.8.8.8` to `_hit` gives 37 matched and 37 carried,
+so the flag cleared, and `narrowingIsLocal` returns `true` on its first
+line when the flag is empty. The next tick was therefore answered from
+the 37 rows in hand, not one of which is a *No hit*, and the panel
+showed its empty state. `narrowRemotely` was never reached, which is why
+nothing appeared in the network log.
+
+The question the script actually asks is *could some other narrowing
+want a row this markup does not have*, and the answer to that never
+depends on which rows the current one kept. It is a property of the
+neighbourhood against the page:
+
+    $co['distinct_values'] > count($valueRows)
+
+**The flag can only gain `1`, never lose it**, because `matched` is
+always `<= distinct_values` — so nothing that used to be answered
+locally has stopped being. `8.8.8.8` unfiltered was `1` before and
+after; the `_hit` page goes `''` → `1`; a value whose whole
+neighbourhood is carried (`03634e2eab…`, three of three) stays `''` and
+still filters in the page.
+
+**Pre-existing, and older than B5.** Any two ticks could reach it where
+the first landed inside `row_cap` and the second wanted rows outside it
+— an organisation with 40 neighbours, then a type none of those 40
+carries. What the warninglist pair added was certainty: `_hit` and
+`_clear` are complements, so the second tick matches *exactly zero* of
+the first tick's rows every time. That is why it surfaced now.
+
+**It also gates the rank pills** (`value-profile.js:1299`), so on a
+filtered page whose matches all fit, *Most recent* was re-sorting the
+carried rows instead of re-ranking the fold. Same fix, same reasoning.
+The cost is one avoidable round-trip in the one case where a filtered
+set is wholly carried and the reader changes rank; the two questions —
+*is the filter's result complete* and *is the neighbourhood complete* —
+would need two attributes to tell apart, and one conservative flag is
+worth more than a saved fetch.
+
+#### Verified
+
+Reproduced first, in Chromium, against real fragments fetched from the
+instance and served back by query — `reloadAjaxTabIndex` stubbed to
+fetch and swap them, because the bug lives in the round-trip and a
+harness without one cannot show it. Before the fix the second tick made
+no request and emptied the table; after it:
+
+| Sequence | Requests | Rows | Pager |
+|---|---|---|---|
+| `_hit`, untick, `_clear` | 2 | 8 shown | of 100 |
+| `_hit`, untick, RFC 5735 (complete) | **1** | 8 shown | of 21 |
+| `_clear`, untick, `_hit` | 2 | 8 shown | of 37 |
+| RFC 5735, untick, `_clear` | 2 | 8 shown | of 100 |
+
+The second row is the one that proves the fix is not just *always ask
+the server*: RFC 5735's whole count is present in the carried rows, it
+is marked `data-vp-complete`, and the panel still answers it without a
+fetch.
+
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 
 **Why.** "Most shared" is a hub-finder: raw frequency ranks the
