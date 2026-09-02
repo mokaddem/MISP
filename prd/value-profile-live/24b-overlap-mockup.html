@@ -1,0 +1,909 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Dated strip — overlapping spans</title>
+
+<!--
+    A bench for one question: when two dated relations cover the same
+    instant, the strip's spans stack and the overlap shows up as a
+    darker patch. That is alpha compositing, not a decision — nothing
+    on the panel says darker means deeper, and the arithmetic runs out
+    fast. This page puts the current paint beside two alternatives that
+    change *only* colour, contrast and blending. Geometry is frozen:
+    same viewBox, same y, same heights, same rounded ends, same
+    moment rule, same seeded data in all three, so the only variable
+    is paint.
+
+    Standalone on purpose — served straight from disk, with a doctype,
+    because quirks mode would falsify the very thing being compared.
+    The CSS below is copied from `app/webroot/css/value-profile.css`
+    and the token values were read off the live page in both themes,
+    so this is the real strip and not an impression of it.
+
+    §9 of `24b-relationships.md`. Not part of the application.
+
+        python3 -m http.server 8899 -d prd/value-profile-live
+        http://localhost:8899/24b-overlap-mockup.html
+-->
+
+<style>
+/* ==================================================================
+ * The page's own furniture. Nothing here exists on the real tab.
+ * ================================================================== */
+
+:root {
+    --bs-body-bg: #fff;
+    --bs-body-color: #212529;
+    --bs-secondary-color: rgba(33, 37, 41, 0.75);
+    --bs-border-color: #dee2e6;
+    --bs-border-color-translucent: rgba(0, 0, 0, 0.175);
+    --bs-tertiary-bg: #f8f9fa;
+    --bs-secondary-bg: #e9ecef;
+    --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+    --bs-body-font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial,
+        sans-serif;
+    --vp-rel-object: #524948;
+}
+
+[data-bs-theme="dark"] {
+    --bs-body-bg: #212529;
+    --bs-body-color: #dee2e6;
+    --bs-secondary-color: rgba(222, 226, 230, 0.75);
+    --bs-border-color: #495057;
+    --bs-border-color-translucent: rgba(255, 255, 255, 0.15);
+    --bs-tertiary-bg: #2a2f34;
+    --bs-secondary-bg: #343a40;
+    --vp-rel-object: #c0b3b0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 28px 32px 80px;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    font-family: var(--bs-body-font-family);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+h1 {
+    font-size: 1.15rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+}
+
+h2 {
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.deck-sub {
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+    max-width: 78ch;
+    margin: 0 0 22px;
+}
+
+.deck-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 26px;
+    flex-wrap: wrap;
+}
+
+.deck-bar button {
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    cursor: pointer;
+}
+
+.deck-bar button[aria-pressed="true"] {
+    background: var(--bs-body-color);
+    color: var(--bs-body-bg);
+    border-color: var(--bs-body-color);
+}
+
+/* The readout, so the page carries its own conclusion. */
+.finding {
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    border-left: 3px solid var(--vp-rel-object);
+    border-radius: 6px;
+    padding: 12px 16px 14px;
+    margin: 0 0 30px;
+    max-width: 96ch;
+}
+
+.finding h3 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--bs-secondary-color);
+    margin: 0 0 8px;
+}
+
+.finding ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.82rem;
+}
+
+.finding li { margin-bottom: 5px; }
+
+.finding code {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.92em;
+}
+
+/* One variant: a heading, a rationale, then the three panels. */
+.variant {
+    margin: 0 0 34px;
+}
+
+.variant-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 2px;
+}
+
+.variant-tag {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.variant-why {
+    color: var(--bs-secondary-color);
+    font-size: 0.8rem;
+    max-width: 88ch;
+    margin: 0 0 12px;
+}
+
+.variant-why code {
+    font-family: var(--bs-font-monospace);
+    font-size: 0.92em;
+}
+
+/* The panel shell, trimmed to the strip and its caption. */
+.card {
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    margin: 0 0 12px;
+    overflow: hidden;
+}
+
+.panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    border-left: 3px solid var(--vp-rel-object);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.panel-head small {
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+    font-size: 0.76rem;
+}
+
+.panel-body { padding: 6px 14px 12px; }
+
+/*
+ * The depth ruler under the diagnostic panel. It needs
+ * `--vp-strip-label` of its own: the property is set on `.vp-strip`
+ * and the note, and this sits beside both rather than inside either —
+ * without it the whole `grid-template-columns` is invalid and the
+ * numbers stack into one column, which is how the first render came
+ * out.
+ */
+.depth-scale { --vp-strip-label: 11rem; }
+
+.depth-scale {
+    display: grid;
+    font-size: 0.66rem;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    margin-top: 2px;
+}
+
+.depth-scale span {
+    border-left: 1px solid var(--bs-border-color-translucent);
+    padding: 2px 0;
+}
+
+.depth-note {
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    padding-top: 3px;
+    max-width: 92ch;
+}
+
+/*
+ * The swatch ramp, and it earns its place because the strip's bar is
+ * 7 of 38 viewBox units at a rendered 26px — under five pixels tall.
+ * Judging a shade at that height is a different task from judging the
+ * paint, so the ramp draws the same stacks at a height where the eye
+ * has a chance, and the two readings can be told apart.
+ */
+.ramp {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 0;
+    margin: 10px 0 0;
+    border: 1px solid var(--bs-border-color-translucent);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.ramp-cell { border-left: 1px solid var(--bs-body-bg); }
+
+.ramp-cell:first-child { border-left: 0; }
+
+.ramp-cell b {
+    display: block;
+    text-align: center;
+    font-size: 0.64rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+    padding: 2px 0 3px;
+    background: var(--bs-body-bg);
+}
+
+.vp-ramp-svg { height: 30px; }
+
+/* ==================================================================
+ * Copied from `app/webroot/css/value-profile.css` — the lane grid, the
+ * strip's overrides of it, and the marks. Verbatim except where a
+ * comment says otherwise, so what is compared here is what ships.
+ * ================================================================== */
+
+.vp-lanes {
+    display: grid;
+    grid-template-columns: 15rem 1fr 7rem;
+    align-items: stretch;
+}
+
+.vp-lane-head {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    padding: 0 10px 5px;
+}
+
+.vp-lane-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-lane-label {
+    padding: 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.8rem;
+}
+
+.vp-lane-axis {
+    position: relative;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    border-left: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--bs-border-color);
+    padding: 7px 5px;
+    min-height: 3.3rem;
+}
+
+.vp-lane-svg {
+    display: block;
+    width: 100%;
+    height: 38px;
+    position: relative;
+    z-index: 1;
+}
+
+.vp-lane-mark { fill: var(--vp-tl-hue); }
+
+.vp-lane-span {
+    fill: var(--vp-tl-hue);
+    opacity: 0.55;
+}
+
+.vp-lane-count {
+    padding: 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-strip,
+.vp-strip-note { --vp-strip-label: 11rem; }
+
+.vp-strip { margin: 14px 0 12px; }
+
+.vp-strip .vp-lanes {
+    grid-template-columns: var(--vp-strip-label) 1fr 5rem;
+}
+
+.vp-strip-wide,
+.vp-strip-note-wide { --vp-strip-label: 16rem; }
+
+.vp-strip .vp-lane-axis {
+    min-height: 2.4rem;
+    padding: 3px 5px;
+}
+
+.vp-strip .vp-lane-label {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.vp-strip-tag { max-width: 100%; }
+
+.vp-strip-tag-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-strip .vp-strip-tag-mono {
+    font-family: var(--bs-font-monospace);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+}
+
+.vp-strip .vp-lane-svg { height: 26px; }
+
+.vp-strip-headnum { text-align: right; }
+
+.vp-strip-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 6px 0 0 var(--vp-strip-label);
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-strip-swatch {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+.vp-strip-note {
+    margin: -8px 0 12px;
+    padding: 0 0 0 var(--vp-strip-label);
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-rel-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 8px;
+    border: 1px solid color-mix(in srgb, var(--vp-rel-color) 38%,
+        transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-rel-color) 12%,
+        var(--bs-body-bg));
+    color: var(--vp-rel-color);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.vp-rel-k-object { --vp-rel-color: var(--vp-rel-object); }
+
+.vp-tl-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ==================================================================
+ * The two candidates. Paint only — no rule below touches x, y, width,
+ * height, rx, the viewBox, or which shape a short span becomes.
+ * ================================================================== */
+
+/*
+ * A — hairline edges. The fill drops to a third so a pile has room to
+ * darken, and every span gains a 1px outline of its own hue, so the
+ * *boundaries* survive the pile: two overlapping spans read as two
+ * boxes rather than as one darker box. `non-scaling-stroke` is not
+ * optional — `preserveAspectRatio="none"` stretches this viewBox by
+ * about 0.8× across and 0.7× down, so a scaled 1px stroke would be
+ * thicker on the top edge than on the sides.
+ */
+.v-a .vp-lane-span {
+    opacity: 1;
+    fill: color-mix(in srgb, var(--vp-tl-hue) 26%, transparent);
+    stroke: color-mix(in srgb, var(--vp-tl-hue) 80%, transparent);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+/*
+ * B — multiply density, and the reason it is worth a look is the
+ * arithmetic rather than the taste. Stacking with `opacity` composites
+ * source-over, which is affine: each layer moves the result a fixed
+ * fraction of the way to the hue and then stops, so depth 4 and depth
+ * 12 are the same pixel. Multiply is geometric — each layer scales the
+ * result — so the ramp keeps going and depth stays legible far longer.
+ * `screen` is its mirror for a dark ground, where the hue is the light
+ * end. `isolation` keeps the blend inside the lane instead of letting
+ * it reach the card.
+ */
+.v-b .vp-lane-svg { isolation: isolate; }
+
+.v-b .vp-lane-span {
+    opacity: 1;
+    fill: color-mix(in srgb, var(--vp-tl-hue) 22%, transparent);
+    mix-blend-mode: multiply;
+}
+
+[data-bs-theme="dark"] .v-b .vp-lane-span {
+    mix-blend-mode: screen;
+}
+
+/*
+ * A moment is fully opaque in all three, because it is not a duration
+ * and has no depth to report. Left alone so the variants are only
+ * about the spans.
+ */
+</style>
+
+<h1>Dated relations — the span strip where spans overlap</h1>
+<p class="deck-sub">
+    Three paints over identical geometry and identical data. The
+    question is whether a reader can tell <em>one relation covered this
+    instant</em> from <em>four did</em>, and today they cannot past
+    about three. Panel&nbsp;3 in each block is the ruler: it stacks a
+    known 1&nbsp;→&nbsp;6 and labels the depth underneath, so the claim
+    is checkable rather than asserted.
+</p>
+
+<div class="deck-bar">
+    <button id="theme" aria-pressed="false">Dark ground</button>
+    <span class="variant-tag">show</span>
+    <button data-case="all" aria-pressed="true">All three</button>
+    <button data-case="few" aria-pressed="false">Few (5)</button>
+    <button data-case="many" aria-pressed="false">Many (50)</button>
+    <button data-case="ruler" aria-pressed="false">Ruler</button>
+    <span class="variant-tag">geometry frozen · seeded data</span>
+</div>
+
+<div class="finding">
+    <h3>What the ruler said — read 2026-09-02, both grounds</h3>
+    <ul>
+        <li><b>Baseline dies at three.</b> Depths 4, 5, 6, 8, 10 and 14
+        are the same pixel. Source-over is affine — each layer moves
+        the result a fixed fraction of the way to the hue and then
+        there is nowhere left to go — so the paint asymptotes on the
+        hue and every deep pile looks alike. The 50-span lane is one
+        flat bar: it cannot say <em>where</em> the activity is.</li>
+        <li><b>A separates about twice as far</b> and is the clearest
+        of the three at two or three spans, because the inner span's
+        outline is visible inside the outer one. Two costs: a lone
+        span reads hollow, like a tube rather than a duration, and at
+        50 the edges are their own noise.</li>
+        <li><b>B is the only one that reports density.</b> The ramp
+        runs 1 → 14 without flattening in either ground, and on the
+        50-span lane it draws a real gradient — light where two
+        relations overlap, dark where a dozen do. Multiply is
+        geometric, so it never arrives anywhere and never runs out.</li>
+        <li><b>The trade is depth-one weight against range.</b> Any
+        paint that keeps range has to start lighter, and B's single
+        span is visibly fainter than today's. The fill percentage is
+        the dial: 22% is tuned for the ruler, and a five-row panel may
+        want more. Its far end is the mirror problem — near-black on
+        the light ground, near-white on the dark.</li>
+        <li><b>Whatever wins, the legend owes the reader a line.</b>
+        Today nothing on the panel says darker means deeper, so the
+        one fact this paint carries is undocumented. That is a
+        sentence, not a colour, and it is needed under all three.</li>
+        <li><b>Checked in Chrome only.</b> A's
+        <code>non-scaling-stroke</code> and B's
+        <code>mix-blend-mode</code> inside SVG both want a look in
+        Firefox before either ships.</li>
+    </ul>
+</div>
+
+<div id="deck"></div>
+
+<script>
+/*
+ * The strip's own geometry, transcribed from
+ * `Elements/Values/View/value_span_strip.ctp` so the mockup cannot
+ * drift from the template it is standing in for.
+ */
+var LANE_W = 1000;
+var LANE_H = 38;
+var MOMENT_W = 4;
+var TICKS = 5;
+var DAY = 86400;
+
+/* A span shorter than a moment mark is drawn as one. §26.2. */
+function xFor(at, from, seconds) {
+    var f = (at - from) / seconds;
+    f = Math.max(0, Math.min(1, f));
+    return Math.round(f * (LANE_W - MOMENT_W) * 10) / 10;
+}
+
+function iso(at) {
+    return new Date(at * 1000).toISOString().slice(0, 10);
+}
+
+function ts(s) { return Math.floor(Date.parse(s + 'T00:00:00Z') / 1000); }
+
+/*
+ * A seeded generator, because three variants compared against three
+ * different random layouts would compare nothing. Same seed, same
+ * pixels, every reload.
+ */
+function lcg(seed) {
+    var s = seed;
+    return function () {
+        s = (s * 1103515245 + 12345) % 2147483648;
+        return s / 2147483648;
+    };
+}
+
+/* ---------------------------------------------------------------
+ * The three cases.
+ * --------------------------------------------------------------- */
+
+// 1. Five dated relations over four value lanes — `8.8.8.8` and
+//    `draculax.myq-see.com.` in one shape. The `dns.google` lane is the
+//    live overlap that raised the question.
+function caseFew() {
+    return {
+        id: 'few',
+        title: 'Few — 5 relations, lanes per related value',
+        sub: 'the live 8.8.8.8 shape · one lane holds an overlapping pair',
+        wide: true,
+        head: 'Related value',
+        mono: true,
+        note: 'One lane per related value, oldest first, because the'
+            + ' table is a single page at 5 rows.',
+        lanes: [
+            {
+                label: 'google-public-dns-a.google.com',
+                entries: [[ts('2013-01-15'), ts('2018-09-30')]],
+            },
+            {
+                label: '141.255.159.82',
+                entries: [[ts('2017-04-11'), ts('2017-04-11')]],
+            },
+            {
+                label: 'dns.google',
+                entries: [
+                    [ts('2019-06-04'), ts('2026-08-20')],
+                    [ts('2024-03-11'), ts('2025-11-02')],
+                ],
+            },
+            {
+                label: '200.101.151.150',
+                entries: [[ts('2021-03-30'), ts('2021-03-30')]],
+            },
+        ],
+    };
+}
+
+// 2. Fifty relations in one template lane, deliberately overlapping —
+//    `github.com`'s shape with the dates pulled together so the pile is
+//    the point. Depth runs to about a dozen in the middle.
+function caseMany() {
+    var rnd = lcg(20260902);
+    var from = ts('2024-08-09');
+    var to = ts('2026-06-22');
+    var entries = [];
+    for (var i = 0; i < 50; i++) {
+        // Cluster starts toward the middle so depth builds where the
+        // eye is, and let a handful be moments.
+        var bias = (rnd() + rnd() + rnd()) / 3;
+        var start = from + Math.floor(bias * (to - from) * 0.86);
+        var len = Math.floor((10 + rnd() * 300) * DAY);
+        if (rnd() < 0.16) { len = 0; }
+        entries.push([start, Math.min(to, start + len)]);
+    }
+    entries.sort(function (a, b) { return a[0] - b[0]; });
+    return {
+        id: 'many',
+        title: 'Many — 50 relations, one template lane, overlapping',
+        sub: 'the github.com shape, dates drawn together so they pile up',
+        wide: false,
+        head: 'Template',
+        mono: false,
+        note: '',
+        lanes: [{ label: 'url-honeypot-detection', entries: entries }],
+    };
+}
+
+// 3. The ruler. Six spans arranged so band k carries exactly k of
+//    them, left to right, and the depth is printed underneath. This is
+//    the panel the comparison actually turns on.
+function caseRuler() {
+    var from = ts('2024-01-01');
+    var band = 120 * DAY;
+    var entries = [];
+    for (var i = 0; i < 6; i++) {
+        entries.push([from + i * band, from + 6 * band]);
+    }
+    return {
+        id: 'ruler',
+        ruler: true,
+        title: 'Ruler — one lane, a known depth of 1 to 6',
+        sub: 'band k is covered by exactly k spans · read the numbers'
+            + ' under the axis',
+        wide: false,
+        head: 'Depth test',
+        mono: false,
+        note: '',
+        lanes: [{ label: 'stacked spans', entries: entries }],
+    };
+}
+
+/* ---------------------------------------------------------------
+ * Rendering, in the template's own order and classes.
+ * --------------------------------------------------------------- */
+
+function spanExtent(lanes) {
+    var from = null;
+    var to = null;
+    lanes.forEach(function (lane) {
+        lane.entries.forEach(function (e) {
+            from = from === null ? e[0] : Math.min(from, e[0]);
+            to = to === null ? e[1] : Math.max(to, e[1]);
+        });
+    });
+    if (to <= from) { to = from + DAY; }
+    return { from: from, to: to, seconds: Math.max(1, to - from) };
+}
+
+function renderStrip(spec) {
+    var ext = spanExtent(spec.lanes);
+    var ticks = [];
+    for (var i = 0; i < TICKS; i++) {
+        ticks.push(iso(ext.from
+            + Math.round(ext.seconds * i / (TICKS - 1))));
+    }
+
+    var hasMoment = false;
+    var hasSpan = false;
+    var html = '';
+    html += '<div class="vp-strip' + (spec.wide ? ' vp-strip-wide' : '')
+        + '" role="img" aria-label="' + spec.title + '">';
+    html += '<div class="vp-lanes">';
+    html += '<div class="vp-lane-head">' + spec.head + '</div>';
+    html += '<div class="vp-lane-head"><div class="vp-lane-ticks">'
+        + ticks.map(function (t) { return '<span>' + t + '</span>'; })
+            .join('')
+        + '</div></div>';
+    html += '<div class="vp-lane-head vp-strip-headnum">spans</div>';
+
+    spec.lanes.forEach(function (lane) {
+        html += '<div class="vp-lane-label">'
+            + '<span class="vp-rel-tag vp-strip-tag'
+            + (spec.mono ? ' vp-strip-tag-mono' : '') + '" title="'
+            + lane.label + '">'
+            + (spec.mono ? '' : '<span aria-hidden="true">◧</span>')
+            + '<span class="vp-strip-tag-name">' + lane.label
+            + '</span></span></div>';
+
+        html += '<div class="vp-lane-axis">'
+            + '<svg viewBox="0 0 ' + LANE_W + ' ' + LANE_H + '"'
+            + ' preserveAspectRatio="none" class="vp-lane-svg">';
+        lane.entries.forEach(function (e) {
+            var x = xFor(e[0], ext.from, ext.seconds);
+            var end = xFor(e[1], ext.from, ext.seconds);
+            var w = end - x;
+            if (w < MOMENT_W) {
+                hasMoment = true;
+                html += '<rect class="vp-lane-mark" x="' + x + '"'
+                    + ' y="13" width="' + MOMENT_W + '" height="12"'
+                    + ' rx="1.5" style="--vp-tl-hue:'
+                    + ' var(--vp-rel-object);"></rect>';
+            } else {
+                hasSpan = true;
+                html += '<rect class="vp-lane-span" x="' + x + '"'
+                    + ' y="19" width="' + w + '" height="7" rx="3"'
+                    + ' style="--vp-tl-hue:'
+                    + ' var(--vp-rel-object);"></rect>';
+            }
+        });
+        html += '</svg></div>';
+
+        html += '<div class="vp-lane-count">' + lane.entries.length
+            + '</div>';
+    });
+    html += '</div>';
+
+    if (hasMoment) {
+        html += '<div class="vp-strip-legend">'
+            + '<span class="vp-tl-key"><svg class="vp-strip-swatch"'
+            + ' viewBox="0 0 14 14" aria-hidden="true"><rect'
+            + ' class="vp-lane-mark" x="5" y="1" width="4" height="12"'
+            + ' rx="1.5" style="--vp-tl-hue: var(--vp-rel-object);">'
+            + '</rect></svg>one instant, or too short to draw</span>';
+        if (hasSpan) {
+            html += '<span class="vp-tl-key"><svg class="vp-strip-swatch"'
+                + ' viewBox="0 0 14 14" aria-hidden="true"><rect'
+                + ' class="vp-lane-span" x="0" y="4" width="14"'
+                + ' height="6" rx="3" style="--vp-tl-hue:'
+                + ' var(--vp-rel-object);"></rect></svg>'
+                + 'a span, drawn to scale</span>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+
+    if (spec.note) {
+        html += '<div class="vp-strip-note'
+            + (spec.wide ? ' vp-strip-note-wide' : '') + '">'
+            + spec.note + '</div>';
+    }
+
+    // The ruler prints the depth it built, aligned to the axis column.
+    if (spec.ruler) {
+        html += '<div class="depth-scale" style="grid-template-columns:'
+            + ' var(--vp-strip-label) repeat(6, 1fr) 5rem;">'
+            + '<span style="border-left:0"></span>'
+            + [1, 2, 3, 4, 5, 6].map(function (d) {
+                return '<span>' + d + '</span>';
+            }).join('')
+            + '<span></span></div>'
+            + '<div class="depth-note">Spans covering each band. If two'
+            + ' neighbouring numbers sit over the same shade, the paint'
+            + ' has run out of range there.</div>';
+    }
+    return html;
+}
+
+/*
+ * The same paint at a legible height, over depths that run past where
+ * source-over gives up. 1 to 6 is the range a real lane reaches; 8, 10
+ * and 14 are there because the 50-span lane reaches them and because
+ * that is exactly where the two candidates part company — source-over
+ * converges on the hue and stops, multiply keeps scaling.
+ */
+var RAMP_DEPTHS = [1, 2, 3, 4, 5, 6, 8, 10, 14];
+
+function renderRamp() {
+    var html = '<div class="ramp">';
+    RAMP_DEPTHS.forEach(function (d) {
+        var rects = '';
+        for (var i = 0; i < d; i++) {
+            rects += '<rect class="vp-lane-span" x="0" y="0" width="100"'
+                + ' height="30" style="--vp-tl-hue:'
+                + ' var(--vp-rel-object);"></rect>';
+        }
+        html += '<div class="ramp-cell">'
+            + '<svg viewBox="0 0 100 30" preserveAspectRatio="none"'
+            + ' class="vp-lane-svg vp-ramp-svg" aria-hidden="true">'
+            + rects + '</svg><b>' + d + '</b></div>';
+    });
+    html += '</div>';
+    html += '<div class="depth-note">The same stacks at 30px, so the'
+        + ' colour can be judged apart from the 5px bar. Where two'
+        + ' neighbouring cells match, that paint cannot report the'
+        + ' difference.</div>';
+    return html;
+}
+
+var VARIANTS = [
+    {
+        cls: '',
+        tag: 'Baseline',
+        name: 'What ships today',
+        why: 'Every span is <code>fill: var(--vp-tl-hue)</code> at'
+            + ' <code>opacity: .55</code>, composited source-over.'
+            + ' Overlap is a by-product: the shade moves 55% of the way'
+            + ' to the hue on the first layer, 55% of what is left on'
+            + ' the second, and has essentially arrived by the third.'
+            + ' Nothing on the panel tells the reader that darker means'
+            + ' deeper.',
+    },
+    {
+        cls: 'v-a',
+        tag: 'Variant A',
+        name: 'Hairline edges',
+        why: 'Fill down to 26%, plus a 1px outline of the same hue at'
+            + ' 80%. Depth is read by counting boundaries rather than'
+            + ' by judging a shade, which is the one thing a shade'
+            + ' cannot do well. Cheap, obvious at 5 spans — and the'
+            + ' edges become their own noise floor at 50.',
+    },
+    {
+        cls: 'v-b',
+        tag: 'Variant B',
+        name: 'Multiply density',
+        why: 'Fill down to 22% and composited with'
+            + ' <code>mix-blend-mode: multiply</code>'
+            + ' (<code>screen</code> on the dark ground). Each layer'
+            + ' scales the result instead of nudging it toward a fixed'
+            + ' point, so the ramp does not asymptote — depth stays'
+            + ' separable well past where the baseline has flattened.'
+            + ' The cost is at the far end: a genuinely dense lane'
+            + ' keeps darkening.',
+    },
+];
+
+var CASES = [caseFew, caseMany, caseRuler];
+
+var shown = 'all';
+
+function draw() {
+    var out = '';
+    VARIANTS.forEach(function (v) {
+        out += '<section class="variant ' + v.cls + '">';
+        out += '<div class="variant-head"><span class="variant-tag">'
+            + v.tag + '</span><h2>' + v.name + '</h2></div>';
+        out += '<p class="variant-why">' + v.why + '</p>';
+        CASES.forEach(function (make) {
+            var spec = make();
+            if (shown !== 'all' && spec.id !== shown) { return; }
+            out += '<div class="card vp-rel-k-object">'
+                + '<div class="panel-head">' + spec.title
+                + ' <small>' + spec.sub + '</small></div>'
+                + '<div class="panel-body">' + renderStrip(spec)
+                + (spec.ruler ? renderRamp() : '')
+                + '</div></div>';
+        });
+        out += '</section>';
+    });
+    document.getElementById('deck').innerHTML = out;
+}
+
+document.getElementById('theme').addEventListener('click', function () {
+    var on = this.getAttribute('aria-pressed') === 'true';
+    this.setAttribute('aria-pressed', String(!on));
+    document.documentElement.setAttribute('data-bs-theme',
+        !on ? 'dark' : 'light');
+    this.textContent = !on ? 'Light ground' : 'Dark ground';
+});
+
+Array.prototype.forEach.call(
+    document.querySelectorAll('[data-case]'),
+    function (btn) {
+        btn.addEventListener('click', function () {
+            shown = this.dataset.case;
+            Array.prototype.forEach.call(
+                document.querySelectorAll('[data-case]'),
+                function (b) {
+                    b.setAttribute('aria-pressed',
+                        String(b.dataset.case === shown));
+                }
+            );
+            draw();
+        });
+    }
+);
+
+draw();
+</script>
