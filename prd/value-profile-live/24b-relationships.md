@@ -1157,16 +1157,12 @@ rest of the path was read for the same defect:
 - **The rank pills and `Reset`** go remote over a cut table and carry
   the active narrowing with them.
 
-#### Left alone
+#### The pager line, which this pass left alone and §7.7 fixed
 
-On a served-narrow page the pager's `(N in total)` is `matched`, and a
-further *local* narrowing on top of it — a complete entry, of which the
-`_clear` page offers seven across five facet groups — leaves that
-number describing neither the rows shown nor the state asked for. It is
-`$co['matched']` on purpose (§7.4, and the pager's own docblock), the
-slot is shared with panels whose total genuinely is filter-independent,
-and no number on screen contradicts another one. Noted rather than
-changed.
+Noted here first as *a further local narrowing can strand the pager's
+`(N in total)`*, which is wrong: that state cannot arise. See §7.7 for
+what the pager's number actually got wrong, and for the proof that the
+one described here does not happen.
 
 #### Verified
 
@@ -1208,6 +1204,65 @@ the untick. The occurrences,
 history, sibling and dated-relations lists were driven too — one tick
 each, rows narrowing in the page, no request — because `controlNarrows`
 sits in the collectors every faceted list on this page shares.
+
+### 7.7 The pager counted values beside a range counting events
+
+Asked directly whether the pager's total is a bug. It is, twice, and
+neither is the case §7.6 filed:
+
+**"In total" was the wrong sentence for the number.** The pager's
+`total` slot is documented as *the value's own count, which filtering
+never changes*, and every caller on the page passes exactly that —
+except this one, which passes `matched`, the count the fold's filter
+left. Narrowed to *No hit* the line therefore read `1–8 of 100 rows
+(10,003 in total)` on a value with **10,040** neighbours: the two
+numbers disagree by exactly the 37 rows the filter dropped, and the
+smaller one was wearing the label of the larger. The fold has said
+which sentence it meant since it started computing the number —
+`1–8 of 100 (9,791 match)` is in the comment beside it — and the
+shared element had no way to say it. It has one now, and unfiltered
+(where `matched` *is* the neighbourhood) nothing changed.
+
+**The number outlived its roll-up.** `Group by` switches the pane under
+the pager, and the range follows the pane while the note did not, so
+the event roll-up read `1–8 of 18 rows (10,040 in total)` — a count of
+values beside a count of events, on one line, in the same breath. The
+object pane said it too. Both are pre-existing and neither needs a
+filter: they are there on first load.
+
+The fix is the page's own switch rather than new script. The note
+declares which roll-up it counts (`totalGroup`), which renders as the
+`data-vp-group-only` the group pills already act on, so the number goes
+away with the rows it describes and comes back with them. Nothing is
+lost while it is away: each pane's heading carries its own total — 18
+events, 100 objects — which is the count that pane's range agrees with.
+
+**And the case §7.6 filed cannot arise.** It supposed a *local*
+narrowing stacked on a served one, leaving `(10,003 match)` beside a
+smaller range. For the browser to answer a narrowing itself, every
+ticked entry must be marked `data-vp-complete` — every row those
+entries name is carried — so the filter's whole result is carried, so
+`matched` equals the carried count, and the template prints no note at
+all when those two are equal. Ticking a complete entry beside the
+incomplete `_clear` therefore goes to the fold, which is what the
+instance does: it re-requested and came back `1–1 of 1 row`, no note.
+Filed as noted-not-changed, which was the right call for the wrong
+reason.
+
+#### Verified
+
+Section E of `24b-narrow-matrix-harness.js`, on the same `8.8.8.8`.
+Lines are `innerText`, so what is hidden is absent rather than merely
+marked:
+
+| Where | Before | After |
+|---|---|---|
+| Unfiltered, value pane | `1–8 of 100 rows (10040 in total)` | unchanged |
+| Narrowed to *No hit* | `1–8 of 100 rows (10003 in total)` | `1–8 of 100 rows (10003 match)` |
+| Narrowed, event pane | `1–8 of 18 rows (10040 in total)` | `1–8 of 18 rows` |
+| Narrowed, object pane | `1–8 of 100 rows (10040 in total)` | `1–8 of 100 rows` |
+| Back to the value pane | — | `1–8 of 100 rows (10003 match)` |
+| Plus a complete entry | fetch, `1–1 of 1 row` | fetch, `1–1 of 1 row` |
 
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 

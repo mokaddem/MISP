@@ -71,6 +71,51 @@ async function replaced(page, gen, ms) {
     return false;
 }
 
+/**
+ * The pager line: its range, and what it says beside it.
+ */
+async function pager(page) {
+    return page.evaluate(function (sel) {
+        var list = document.querySelector(sel);
+        var range = list.querySelector('[data-vp-page-from]');
+        var strip = range ? range.closest('span.small') : null;
+        var note = list.querySelector('[data-vp-page-total]');
+        var text = function (s) {
+            var el = list.querySelector(s);
+            return el ? el.textContent.trim() : null;
+        };
+        return {
+            of: text('[data-vp-page-of]'),
+            // What a reader sees: `innerText` leaves out what is
+            // hidden, where `textContent` would report it anyway.
+            line: strip ? strip.innerText.replace(/\s+/g, ' ').trim() : null,
+            note: note ? note.textContent.trim() : null,
+            hidden: note ? note.classList.contains('d-none') : null,
+        };
+    }, LIST);
+}
+
+/**
+ * Tick the first facet entry the fold marked complete, in any group but
+ * the warninglist one — the narrowing the browser is allowed to answer
+ * for itself on a page the fold already narrowed.
+ */
+async function tickComplete(page) {
+    return page.evaluate(function (sel) {
+        var box = Array.prototype.slice.call(
+            document.querySelector(sel)
+                .querySelectorAll('input[data-vp-complete]')
+        ).find(function (b) {
+            return b.dataset.vpFacetKey !== 'warninglist' && !b.checked;
+        });
+        if (!box) {
+            return null;
+        }
+        box.click();
+        return { key: box.dataset.vpFacetKey, value: box.value };
+    }, LIST);
+}
+
 async function facet(page, value) {
     return page.evaluate(function (sel, v) {
         var box = document.querySelector(sel)
@@ -219,6 +264,65 @@ async function facet(page, value) {
     console.log('ASSERT the narrowing survived the re-rank:',
         wentD && d.ticked.length === 1 && d.active === '1'
             && d.of === '21' ? 'PASS' : 'FAIL');
+
+    // What the pager says about a total the browser can narrow past.
+    console.log('\n== E. the pager line over a served narrowing ==');
+    await stamp(page, 'e1');
+    await page.evaluate(function (sel) {
+        document.querySelector(sel)
+            .querySelector('[data-vp-facet-clear]').click();
+    }, LIST);
+    await replaced(page, 'e1', 30000);
+    await sleep(1000);
+    console.log('unfiltered:', JSON.stringify(await pager(page)));
+
+    await stamp(page, 'e2');
+    await facet(page, '_clear');
+    await replaced(page, 'e2', 30000);
+    await sleep(1200);
+    var e1 = await pager(page);
+    console.log('narrowed to No hit:', JSON.stringify(e1));
+    console.log('ASSERT the fold\'s number says what it counts:',
+        e1.note && /match/.test(e1.note) && !e1.hidden
+            && e1.of === '100' ? 'PASS' : 'FAIL');
+
+    // The number counts values; the range counts the roll-up on
+    // screen. On the event pane those were two units on one line.
+    for (const group of ['event', 'object', 'value']) {
+        await page.evaluate(function (sel, g) {
+            document.querySelector(sel)
+                .querySelector('[data-vp-group] [data-vp-pill="' + g + '"]')
+                .click();
+        }, LIST, group);
+        await sleep(1000);
+        var e = await pager(page);
+        console.log('  roll-up ' + group.padEnd(6) + ':',
+            JSON.stringify(e));
+        console.log('  ASSERT the note is'
+            + (group === 'value' ? ' shown' : ' put away')
+            + ' with its roll-up:',
+            e.hidden === (group !== 'value') ? 'PASS' : 'FAIL');
+    }
+
+    /*
+     * And the case that cannot arise, checked rather than argued: a
+     * narrowing the browser answers itself needs every ticked entry
+     * marked complete, so every row those entries name is carried, so
+     * the fold's match count is at most the carried count — and the
+     * template prints no note when those are equal. Ticking a complete
+     * entry beside the incomplete `_clear` therefore goes to the fold,
+     * and what comes back states its own numbers.
+     */
+    await stamp(page, 'e3');
+    const done = await tickComplete(page);
+    var wentE = await replaced(page, 'e3', 30000);
+    await sleep(1200);
+    var e2 = await pager(page);
+    console.log('plus a complete facet ' + JSON.stringify(done)
+        + ' (re-requested: ' + wentE + '):', JSON.stringify(e2));
+    console.log('ASSERT no stale number survives the narrowing:',
+        wentE && (e2.note === null || !/10003/.test(e2.note))
+            ? 'PASS' : 'FAIL');
 
     await browser.close();
 }()).catch(function (e) {

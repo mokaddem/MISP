@@ -21,6 +21,24 @@
  *                    changes under a filter
  * @var array  $sizes Optional page sizes to offer; absent for a caller
  *                    that wants the fixed size it passed
+ * @var string $totalNote What to say about `total` instead of *"in
+ *                    total"*, for the one caller whose total is not the
+ *                    value's own count. The co-occurrence panel passes
+ *                    the fold's *match* count when a narrowing is
+ *                    active, which is a different sentence: *"of 100
+ *                    rows (10,003 match)"* says the filter left more
+ *                    than the page carries, where *"in total"* would
+ *                    claim the value has 10,003 neighbours when it has
+ *                    10,040. Printed under the same
+ *                    `total !== shown` condition
+ * @var string $totalGroup Which roll-up the total counts, for a caller
+ *                    whose pager pages more than one. The range beside
+ *                    it follows the roll-up on screen, so on the
+ *                    co-occurrence panel's event pane a value total
+ *                    would read *"of 18 rows (10,040 in total)"* — two
+ *                    units on one line. Named here, the group switch
+ *                    puts the number away with the rows it counts, and
+ *                    each pane heading states its own total anyway
  */
 $size = max(1, (int)($size ?? 10));
 $shown = (int)($shown ?? 0);
@@ -34,6 +52,8 @@ $noun = $noun ?? null;
 $nounOne = is_array($noun) ? $noun['one'] : null;
 $nounMany = is_array($noun) ? $noun['many'] : null;
 $sizes = $sizes ?? null;
+$totalNote = $totalNote ?? null;
+$totalGroup = $totalGroup ?? null;
 
 $pages = max(1, (int)ceil($shown / $size));
 $to = min($size, $shown);
@@ -60,8 +80,21 @@ $from = $shown > 0 ? 1 : 0;
         <?php elseif ($noun !== null): ?>
             <?= h($noun) ?>
         <?php endif; ?>
+        <?php
+        /*
+         * Its own element so a caller can say which rows it counts.
+         * `data-vp-group-only` is the page's existing switch: the group
+         * pills already put away everything belonging to a roll-up
+         * nobody is looking at, and this number is one of those things.
+         */
+        ?>
         <?php if ($total !== $shown): ?>
-            <?= h(sprintf(__('(%d in total)'), $total)) ?>
+            <span data-vp-page-total<?= $totalGroup === null
+                ? ''
+                : ' data-vp-group-only="' . h($totalGroup) . '"' ?>><?=
+                h($totalNote === null
+                    ? sprintf(__('(%d in total)'), $total)
+                    : $totalNote) ?></span>
         <?php endif; ?>
     </span>
 

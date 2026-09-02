@@ -2101,10 +2101,33 @@ $headerSub = ob_get_clean();
         </div>
 
         <div class="px-3 py-2 border-top">
+            <?php
+            /*
+             * The one pager on this page whose total is not the
+             * section's own count. `matched` is what the *filter* left
+             * before the cut, so with a narrowing active the line has
+             * to say `(10,003 match)` — *"in total"* over the same
+             * number claims the value has 10,003 neighbours when it
+             * has 10,040, and the two disagree by exactly the rows the
+             * filter dropped. Unfiltered the two are the same number,
+             * and *"in total"* is then the true sentence.
+             *
+             * Either way it counts *values*, while the range beside it
+             * counts the roll-up on screen — so it is named to the
+             * value roll-up and goes away with it. On the event pane it
+             * was reading `1–8 of 18 rows (10,040 in total)`, which is
+             * two units on one line; each pane's heading carries its
+             * own total, so nothing is lost by its absence.
+             */
+            ?>
             <?= $this->element('Values/View/value_pager', array(
                 'size' => $co['page_size'],
                 'shown' => count($valueRows),
                 'total' => $co['matched'],
+                'totalNote' => empty($active)
+                    ? null
+                    : sprintf(__('(%d match)'), $co['matched']),
+                'totalGroup' => 'value',
                 'noun' => array(
                     'one' => __('row'),
                     'many' => __('rows'),
