@@ -1768,6 +1768,17 @@ the strip stays two rows tall on every value on the instance. It is also
 the grouping the panel header already names, so the strip introduces no
 vocabulary of its own.
 
+> Amended 2026-09-02 by B7 (`24b-relationships.md` §9): a lane is a
+> template **above a page of rows**, and the related value at or below
+> one. `github.com` is unchanged and is still why the template grouping
+> exists; what the threshold buys is the case it was blind to —
+> `8.8.8.8`'s hand-off from `google-public-dns-a.google.com` to
+> `dns.google` was two bars inside one `passive-dns` lane, which is the
+> succession a resolution history exists to show and the one thing
+> template lanes cannot draw. The threshold is `page_size` rather than
+> a number of its own, so the strip names a lane exactly when the table
+> is showing every row it has.
+
 **A span too short to draw is drawn as a moment.** This one came out of
 the render. All five of `draculax.myq-see.com.`'s resolutions lasted an
 instant or thirteen minutes; over a four-year axis all five are two

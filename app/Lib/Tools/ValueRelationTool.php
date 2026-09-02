@@ -1516,6 +1516,7 @@ class ValueRelationTool
         }
         arsort($templates);
 
+        $laneGrouping = self::datedLaneGrouping($out, $context);
         $inObjects = isset($context['in_objects'])
             ? (int)$context['in_objects']
             : count($objects);
@@ -1528,7 +1529,8 @@ class ValueRelationTool
             'in_objects' => $inObjects,
             'templates' => array_keys($templates),
             'span' => self::datedSpan($out),
-            'lanes' => self::datedLanes($out),
+            'lanes' => self::datedLanes($out, $laneGrouping),
+            'lanes_by' => $laneGrouping,
             'facets' => self::datedFacets($out),
             'warninglists_checked' => $listsChecked,
             'warninglists_listed' => $listedRows,
@@ -1584,39 +1586,81 @@ class ValueRelationTool
     }
 
     /**
-     * One lane per object template, holding that template's spans.
+     * Which of the two groupings the strip's lanes use.
      *
-     * **The template and not the row is the lane**, which is what keeps
-     * the strip short: `github.com` has 46 dated relations and two
-     * templates, so 46 lanes would be a second table and two lanes are
-     * a reading. It is also the grouping the panel header already
-     * names, so the strip introduces no vocabulary of its own.
+     * **The succession is the reading, and template lanes hide it.**
+     * `8.8.8.8`'s three dated relations are
+     * `google-public-dns-a.google.com` 2013→2018 and `dns.google`
+     * 2019→2026, both `passive-dns`, plus `dns.google` again under
+     * `domain-ip`. Grouped by template, the two *different names* share
+     * the `passive-dns` lane as two anonymous bars, and *which value
+     * held when, which replaced which* is recoverable only from the
+     * table. That is the reading a resolution history exists for, and
+     * it is the founding case (`draculax.myq-see.com.`,
+     * `24-relationships.md` §25.1). Template lanes were chosen against
+     * `github.com` — 46 relations, one template, so 46 lanes would be
+     * a second table — and both are right about their own value.
+     *
+     * The threshold is therefore **the table's own page**, not a
+     * number of its own: when every row is on screen at once the strip
+     * and the table are describing the same rows, and the strip can
+     * afford to name each of them. Deriving it from `page_size` is
+     * what stops the two from drifting the next time either moves.
+     *
+     * @param array $rows Folded dated rows, after the cut
+     * @param array $context The fold's context; `page_size`
+     * @return string `value` or `template`
+     */
+    private static function datedLaneGrouping(array $rows, array $context)
+    {
+        $pageSize = isset($context['page_size'])
+            ? (int)$context['page_size']
+            : 8;
+        return count($rows) <= $pageSize ? 'value' : 'template';
+    }
+
+    /**
+     * One lane per template, or one per related value when few enough.
+     *
+     * **The lane is a grouping and not a row**, under either key.
+     * `template` is the object template, which is what keeps the strip
+     * short and is the word the panel header already uses. `value` is
+     * the far end of the relation, which is what makes a hand-off
+     * legible — and it still folds: `8.8.8.8`'s two `dns.google` rows
+     * share one lane, so its second observation reads as the same name
+     * confirmed twice rather than as a second name.
      *
      * Every entry carries the `key` its table row carries, because the
      * two have to filter together — a strip still drawing a span whose
      * row the reader has just filtered away is worse than no strip.
      *
-     * Ordered by span count, so the template that carries the history
-     * is the lane the eye lands on first.
+     * The two orderings answer different questions. Templates go by
+     * span count, so the one carrying the history is where the eye
+     * lands. Values go by when they start, so reading the lanes
+     * downwards reads the succession — which is the entire reason this
+     * grouping exists, and a count order would scramble it.
      *
      * @param array $rows Folded dated rows
-     * @return array [['object', 'count', 'entries' => [...]], …]
+     * @param string $by `value` or `template`
+     * @return array [['label', 'token', 'count', 'entries' => [...]], …]
      */
-    private static function datedLanes(array $rows)
+    private static function datedLanes(array $rows, $by)
     {
+        $field = $by === 'value' ? 'value' : 'object';
         $lanes = array();
+        $taken = array();
         foreach ($rows as $row) {
-            $object = $row['object'];
-            if (!isset($lanes[$object])) {
-                $lanes[$object] = array(
-                    'object' => $object,
-                    'token' => ValueStatsTool::facetToken($object),
+            $label = $row[$field];
+            if (!isset($lanes[$label])) {
+                $lanes[$label] = array(
+                    'label' => $label,
+                    'token' => self::datedLaneToken($label, $taken),
                     'count' => 0,
                     'entries' => array(),
                 );
             }
-            $lanes[$object]['count']++;
-            $lanes[$object]['entries'][] = array(
+            $lanes[$label]['count']++;
+            $lanes[$label]['entries'][] = array(
                 'key' => $row['key'],
                 'value' => $row['value'],
                 'relation' => $row['relation'],
@@ -1626,13 +1670,61 @@ class ValueRelationTool
             );
         }
         $lanes = array_values($lanes);
+        if ($by === 'value') {
+            /*
+             * A guard rather than a reorder: the rows arrive oldest
+             * first, so insertion order is already earliest-start
+             * order. Saying it out loud costs one sort over at most
+             * eight lanes and means the succession survives whatever
+             * the caller above does to its own ordering next.
+             */
+            usort($lanes, function ($a, $b) {
+                if ($a['entries'][0]['from'] !== $b['entries'][0]['from']) {
+                    return $a['entries'][0]['from']
+                        - $b['entries'][0]['from'];
+                }
+                return strcmp($a['label'], $b['label']);
+            });
+            return $lanes;
+        }
         usort($lanes, function ($a, $b) {
             if ($a['count'] !== $b['count']) {
                 return $b['count'] - $a['count'];
             }
-            return strcmp($a['object'], $b['object']);
+            return strcmp($a['label'], $b['label']);
         });
         return $lanes;
+    }
+
+    /**
+     * A lane's pairing key, unique within the strip.
+     *
+     * The token joins a lane's axis to the lane's count cell, and
+     * `VP.paintSpanStrips` narrows by looking one up from the other. A
+     * slug is enough for template names, which are distinct by
+     * construction, but not for values: `a.b` and `a-b` slug to the
+     * same string, and two lanes sharing a token means one of them
+     * stops counting while still looking as though it does. So the
+     * second claimant gets suffixed and the pairing stays one-to-one.
+     *
+     * @param string $label
+     * @param array $taken Tokens already issued, by reference
+     * @return string
+     */
+    private static function datedLaneToken($label, array &$taken)
+    {
+        $token = ValueStatsTool::facetToken($label);
+        if ($token === '') {
+            $token = 'lane';
+        }
+        $base = $token;
+        $nth = 2;
+        while (isset($taken[$token])) {
+            $token = $base . '-' . $nth;
+            $nth++;
+        }
+        $taken[$token] = true;
+        return $token;
     }
 
     /**

@@ -4454,6 +4454,18 @@ th[aria-sort="descending"] .sort-icon::before,
  * with the same meaning. Only what surrounds it is here.
  * ------------------------------------------------------------------ */
 
+/*
+ * The label column's width, and each number appears once because four
+ * rules have to agree about it: the lane grid, the legend's indent, the
+ * note's, and the wide variant below. The note is named here as well as
+ * the strip because it is the strip's *sibling* and not its child —
+ * `role="img"` is why — so the property does not cascade to it.
+ */
+.vp-strip,
+.vp-strip-note {
+    --vp-strip-label: 11rem;
+}
+
 .vp-strip {
     margin: 14px 0 12px;
 }
@@ -4465,7 +4477,29 @@ th[aria-sort="descending"] .sort-icon::before,
  * for — down to half the panel.
  */
 .vp-strip .vp-lanes {
-    grid-template-columns: 11rem 1fr 5rem;
+    grid-template-columns: var(--vp-strip-label) 1fr 5rem;
+}
+
+/*
+ * A strip labelling its lanes with stored values rather than with
+ * template names, which needs the room for a reason that is not
+ * comfort. 11rem elides at about 25 monospace characters, and
+ * `luxtrust-unlock.com` has two dated neighbours —
+ * `ns-1769.awsdns-29.co.uk` and the SOA record that opens with the
+ * same 23 characters — that both rendered as `ns-1769.awsdns-29.co…`.
+ * Two lanes claiming the same value read as a drawing fault, which is
+ * the reading the section refuses elsewhere by spelling out *same
+ * instant* rather than printing a timestamp twice.
+ *
+ * Affordable because this grouping only ever runs at a page of rows or
+ * fewer: the axis gives up 5rem where it is carrying at most eight
+ * spans, not 46. It is still an elision and not a guarantee — two
+ * values sharing 38 characters would collide again, and the chip's
+ * `title` is what holds the whole string either way.
+ */
+.vp-strip-wide,
+.vp-strip-note-wide {
+    --vp-strip-label: 16rem;
 }
 
 /*
@@ -4497,6 +4531,48 @@ th[aria-sort="descending"] .sort-icon::before,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/*
+ * A lane labelled with a stored value rather than with a name, and the
+ * three properties this turns off are an honesty rule and not a taste
+ * one. `.vp-rel-tag` uppercases and letter-spaces its text because a
+ * template name is a label; a value is a string MISP holds, and
+ * `dns.google` printed as DNS.GOOGLE is a value the instance never
+ * stored. Monospace for the same reason the table cell below it is
+ * monospace: `193.161.193.99|29763` is read character by character or
+ * not at all.
+ *
+ * **Two classes and not one**, for the reason `.vp-lane-span-off`
+ * gives a hundred lines up: `.vp-rel-tag` sets all three of these and
+ * sits *later* in this file, so a single class here has equal
+ * specificity and loses on order. Measured, not assumed — the first
+ * pass shipped one class and the harness read `text-transform:
+ * uppercase` straight back off the chip.
+ */
+.vp-strip .vp-strip-tag-mono {
+    font-family: var(--bs-font-monospace);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+}
+
+/*
+ * A line about the lanes, indented to the axis so it reads as part of
+ * the strip rather than as a second panel caption — the legend's own
+ * left offset, for the same reason.
+ */
+.vp-strip-note {
+    /*
+     * Pulled back over `.vp-strip`'s own bottom margin: the note is a
+     * sibling of the strip and not a child of it — that is what makes
+     * it reachable past `role="img"` — and at the full 12px it read as
+     * a caption for the controls underneath instead.
+     */
+    margin: -8px 0 12px;
+    padding: 0 0 0 var(--vp-strip-label);
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
 }
 
 .vp-strip .vp-lane-svg {
@@ -4538,7 +4614,7 @@ th[aria-sort="descending"] .sort-icon::before,
     display: flex;
     flex-wrap: wrap;
     gap: 4px 14px;
-    padding: 6px 0 0 11rem;
+    padding: 6px 0 0 var(--vp-strip-label);
     font-size: 0.7rem;
     color: var(--bs-secondary-color);
 }

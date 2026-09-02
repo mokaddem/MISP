@@ -39,7 +39,7 @@ live instance and recorded in its own section below.
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | **done** |
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence`, `value_relation_dated` | M | no | no | **done** |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence`, `siblings` | M | **yes** | no | **done** |
-| B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | todo |
+| B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | **done** |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | todo |
 | B9 | Where in the intrusion: tactic mix | B8's card | S | no | no — extends B8 | todo |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo |
@@ -1470,6 +1470,139 @@ this grouping switch is panel-local and leaves it unaffected.
 
 **Verify.** `8.8.8.8` draws three named lanes whose spans read the
 hand-off; `github.com` is pixel-identical to today.
+
+### 9.1 Done — 2026-09-02
+
+Verified on the live instance with
+`24b-lane-grouping-harness.js`, which reads the rendered lane labels,
+tokens, counts and computed styles for four witnesses and then ticks a
+facet, because the grouping change moves the key the narrowing pairs a
+lane's axis to its count cell by. The brief named two witnesses; two
+more were picked out of the database for the cases it did not think of
+— the tall end of the value grouping, and a label long enough to
+collide. Both found something.
+
+**The threshold is the table's own page, not an 8.** `page_size` is
+already 8 (`ValueProfile::RELATION_PAGE_SIZE`) and the fold already
+receives it, so `datedLaneGrouping` compares the row count against
+that rather than against a number of its own. The two now cannot
+drift: whatever a page holds is what the strip is willing to name.
+
+**`8.8.8.8` draws two lanes, not three, and the brief above was wrong
+about the data.** Its three dated relations are
+`google-public-dns-a.google.com` 2013-01-15→2018-09-30 and
+`dns.google` 2019-06-04→2026-08-20, both `passive-dns`, plus
+`dns.google` again 2024-03-11→2025-11-02 under `domain-ip` — three
+rows over **two** distinct far values. The reading the task wanted
+arrives anyway, and arrives more cleanly than the brief predicted:
+
+- *before*, the `passive-dns` lane held two bars that were two
+  different names, so the hand-off was inside a lane and therefore
+  invisible; `domain-ip` held the third.
+- *after*, `google-public-dns-a.google.com` ends 2018 in its own lane
+  and `dns.google` begins 2019 in the next one, with its `domain-ip`
+  re-observation overlapping in the same lane. Reading downwards reads
+  the succession, and the second lane's two spans read as one name
+  confirmed twice rather than as a second name.
+
+So the verify line's *three* was an assumption about `8.8.8.8`'s rows
+and the sentence it was standing in for — *whose spans read the
+hand-off* — is what actually held.
+
+**`draculax.myq-see.com.` is the case the whole section was written
+for, and it was the one this fixes.** Five `passive-dns` relations: it
+resolved to `141.255.159.82`, `168.181.48.248`, `168.181.51.45` and
+`141.255.147.117` between 11 and 25 April 2017, then to nothing for
+four years, then to `200.101.151.150` on 30 March 2021. Grouped by
+template all five were one `passive-dns` lane holding five specks —
+the dormant-then-reactivated *shape* was there and not one of the
+names was. Grouped by value it draws five named lanes: four stacked in
+April 2017, a four-year gap, then a fifth. §26.2 of
+`03-relationships.md` says the strip exists so that shape is read in a
+glance; it now carries who as well as when. Five lanes is also the
+tallest this grouping can get short of eight, and at ~215px of strip
+over a five-row table the panel is still the smallest on the tab.
+
+**The strip did change, contrary to "nothing in the strip changes".**
+It hard-coded three things a caller has to own once there are two
+groupings: the label column's heading (`Template`), the lane chip's
+icon (`fa-cube`), and the assumption that a lane label is a name. It
+now takes `stripLaneHead`, `stripLaneIcon` (`''` for none),
+`stripLaneMono` and `stripNote`, all defaulted to what it did before,
+and the lane's own label field is `label` rather than `object` — a
+lane keyed on a value carrying a key called `object` is the kind of
+drift the fold's other comments exist to prevent. One producer, one
+consumer, so the rename is total.
+
+**A value lane label is verbatim, and that needed two classes.**
+`.vp-rel-tag` uppercases and letter-spaces its text, which is right
+for a template name and prints a value MISP never stored. The first
+pass added `.vp-strip-tag-mono` as a single class; `.vp-rel-tag` sits
+*later* in the stylesheet with equal specificity and won, so the
+harness read `text-transform: uppercase` back off a chip whose rule
+said `none` — the same trap `.vp-lane-span-off` documents a hundred
+lines above it. Scoped to `.vp-strip .vp-strip-tag-mono` it reads
+`none`. The icon is dropped for value lanes because the table cell
+printing the same string gives it none either.
+
+**The label column had to widen, and that came out of the render.**
+`luxtrust-unlock.com` has six dated neighbours, two of which are
+`ns-1769.awsdns-29.co.uk` and the SOA record beginning with the same
+23 characters. At the strip's 11rem both elided to
+`ns-1769.awsdns-29.co…` — two lanes claiming to be the same value,
+which reads as a drawing fault and is the reading this section refuses
+elsewhere by printing *same instant* rather than the same timestamp
+twice. `.vp-strip-wide` takes the column to 16rem under the value
+grouping only, where the axis is carrying at most eight spans and can
+afford the 5rem; the two now read `ns-1769.awsdns-29.co.uk` and
+`ns-1769.awsdns-29.co.uk awsdns-ho…`. The four rules that have to
+agree about that width — the lane grid, the legend's indent, the
+note's, and the wide variant — read it from one custom property, named
+on the note as well as the strip because the note is the strip's
+sibling and inherits nothing from it.
+
+It is an elision and not a guarantee: two values sharing 38 characters
+would collide again, and the chip's `title` is what holds the whole
+string in either case. Widening further was not worth the axis.
+
+**The grouping is stated twice and the threshold once.** The column
+heading carries the grouping in both cases, in the table's own words —
+`Related value` against `Template` — and the accessible name of the
+strip names it too. The threshold line (*"One lane per related value,
+oldest first, because the table is a single page at 3 rows. Above 8
+rows the lanes are object templates instead."*) renders **only** under
+the value grouping: the template grouping is what this strip has
+always drawn and what the panel header already names, so a line
+explaining it would spend three lines of height on the case nobody
+asks about — and leaving it out is what keeps `github.com` byte-
+identical, which the verify line asked for.
+
+The line sits *outside* `.vp-strip` rather than beside the legend
+because the strip is `role="img"` with an accessible name, so
+assistive tech is told to ignore everything inside it; an explanation
+of why the lanes are what they are would have been read by nobody.
+
+**A lane token has to stay unique.** `VP.paintSpanStrips` finds a
+lane's count cell by the token on its axis, and template names slug
+distinctly by construction where values do not — `a.b` and `a-b` slug
+alike. `datedLaneToken` suffixes a second claimant, so two lanes can
+never share a cell and silently stop counting. Confirmed live under
+both groupings: ticking `datedtype` repaints `21/46` on `github.com`,
+`1/1` and `1/2` on `8.8.8.8`, and all six lanes on
+`luxtrust-unlock.com` — including the two whose labels elide alike.
+
+**`CACHE_SHAPE` goes to 6**, because the scan carries `dated.lanes`
+and the lane's label field was renamed under it. A payload cached by
+the old fold would hand the strip lanes with no `label` and no
+`lanes_by`; the template defaults `lanes_by` to `template` so it could
+only degrade rather than fatal, but the key retires those payloads at
+the deploy, which is the rule §14.4 carries.
+
+**`github.com` is unchanged**, checked rather than assumed: one
+`url-honeypot-detection` lane, uppercase, cube icon, 46 spans, the
+moment/span legend present, no note, and the same accessible name as
+before. Only whitespace inside the chip moved, which an inline-flex
+container ignores.
 
 ## 10. B8 — Named threats in this neighbourhood — **grilling session first, frontend-design for the card**
 

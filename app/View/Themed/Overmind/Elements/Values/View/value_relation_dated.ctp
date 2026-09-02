@@ -278,13 +278,63 @@ if ($datedListsHit > 0) {
 
         <?php else: ?>
 
+            <?php
+            /*
+             * **Which grouping the strip is using, said out loud.** The
+             * model picks it from the row count — a page or fewer and
+             * every related value gets its own lane, so the strip reads
+             * the succession `8.8.8.8`'s three resolutions otherwise
+             * only tell in the table; above a page they are templates,
+             * because `github.com`'s 46 relations in one template would
+             * be 46 lanes and a second table. §9 of
+             * `24b-relationships.md`.
+             *
+             * The column heading carries it in both cases, which is why
+             * the note below only appears for the value grouping: the
+             * template grouping is what this strip has always drawn and
+             * what the panel header names, so a line explaining it
+             * would be three lines of height spent on the case nobody
+             * asks about.
+             *
+             * `lanes_by` defaulted, not assumed. A cached fold written
+             * before this task carries no such key, and the panel's job
+             * on the five minutes after a deploy is to render what it
+             * always did rather than to fatal — the reason
+             * `CACHE_SHAPE` moved in the same commit is that it should
+             * never come to that.
+             */
+            $lanesBy = isset($dated['lanes_by'])
+                ? $dated['lanes_by']
+                : 'template';
+            $byValue = $lanesBy === 'value';
+            ?>
             <?= $this->element('Values/View/value_span_strip', array(
                 'stripId' => 'vp-dated-strip',
                 'stripSpan' => $dated['span'],
                 'stripLanes' => $dated['lanes'],
                 'stripHue' => 'var(--vp-rel-object)',
                 'stripNoun' => __('spans'),
-                'stripLabel' => __('Each dated relation as a span, in a lane per object template, over the whole period the section covers'),
+                /*
+                 * The table's own word for the same column, so the
+                 * strip introduces no vocabulary the rows below it do
+                 * not already use.
+                 */
+                'stripLaneHead' => $byValue
+                    ? __('Related value')
+                    : __('Template'),
+                'stripLaneIcon' => $byValue ? '' : 'fas fa-cube',
+                'stripLaneMono' => $byValue,
+                'stripLabel' => $byValue
+                    ? __('Each dated relation as a span, in a lane per related value, over the whole period the section covers')
+                    : __('Each dated relation as a span, in a lane per object template, over the whole period the section covers'),
+                'stripNote' => $byValue
+                    ? sprintf(
+                        __('One lane per related value, oldest first, because the table is a single page at %1$s. Above %2$d rows the lanes are object templates instead.'),
+                        __n('%d row', '%d rows', count($rows),
+                            count($rows)),
+                        (int)$dated['page_size']
+                    )
+                    : '',
             )) ?>
 
             <?php

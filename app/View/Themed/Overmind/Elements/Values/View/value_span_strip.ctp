@@ -31,19 +31,38 @@
  *                         span is legal and is padded, so one instant
  *                         still draws a mark rather than dividing by
  *                         zero
- * @var array $stripLanes  [['object'=>, 'token'=>, 'count'=>,
+ * @var array $stripLanes  [['label'=>, 'token'=>, 'count'=>,
  *                         'entries'=>[['key','value','relation','from',
  *                         'to','origin']]], …]
  * @var string $stripHue   The colour of a span, as a `var(--x)` the
  *                         stylesheet resolves
  * @var string $stripLabel Accessible name for the strip
  * @var string $stripNoun  What one lane holds, for the count column
+ * @var string $stripLaneHead What a lane *is*, over the label column.
+ *                         The caller owns it because the caller owns
+ *                         the grouping: a strip whose lanes are values
+ *                         under a column headed `Template` is a chart
+ *                         lying about its own axis
+ * @var string $stripLaneIcon The lane chip's icon, or `''` for none —
+ *                         which is what a value wants, because the
+ *                         table printing the same string beside it
+ *                         gives it no icon either
+ * @var bool $stripLaneMono Whether a lane label is a stored string
+ *                         rather than a name. Verbatim and monospace if
+ *                         so; see `.vp-strip-tag-mono`
+ * @var string $stripNote  One line under the strip, for a grouping or
+ *                         a fold the strip picked and the reader did
+ *                         not. Empty renders nothing
  */
 $stripLanes = $stripLanes ?? array();
 $stripSpan = $stripSpan ?? array('from' => 0, 'to' => 0);
 $stripHue = $stripHue ?? 'var(--vp-rel-object)';
 $stripLabel = $stripLabel ?? __('Spans over time');
 $stripNoun = $stripNoun ?? __('spans');
+$stripLaneHead = $stripLaneHead ?? __('Template');
+$stripLaneIcon = $stripLaneIcon ?? 'fas fa-cube';
+$stripLaneMono = !empty($stripLaneMono);
+$stripNote = $stripNote ?? '';
 
 if (empty($stripLanes)) {
     return;
@@ -135,14 +154,25 @@ foreach ($stripLanes as $lane) {
     }
 }
 ?>
-<div class="vp-strip" id="<?= h($stripId) ?>"
+<?php
+/*
+ * A label column wide enough for what is in it. A stored value needs
+ * more of the panel than a template name does, and for a reason the
+ * render found rather than one anybody guessed: at 11rem two of
+ * `luxtrust-unlock.com`'s neighbours both elided to
+ * `ns-1769.awsdns-29.co…`. `.vp-strip-wide` carries the numbers.
+ */
+$stripWide = $stripLaneMono;
+?>
+<div class="vp-strip<?= $stripWide ? ' vp-strip-wide' : '' ?>"
+     id="<?= h($stripId) ?>"
      data-vp-span-strip
      role="img"
      aria-label="<?= h($stripLabel) ?>">
 
     <div class="vp-lanes">
 
-        <div class="vp-lane-head"><?= h(__('Template')) ?></div>
+        <div class="vp-lane-head"><?= h($stripLaneHead) ?></div>
         <div class="vp-lane-head">
             <div class="vp-lane-ticks">
                 <?php foreach ($ticks as $tick): ?>
@@ -163,9 +193,12 @@ foreach ($stripLanes as $lane) {
                  * keeps its full text in the title.
                  */
                 ?>
-                <span class="vp-rel-tag vp-strip-tag"
-                      title="<?= h($lane['object']) ?>">
-                    <i class="fas fa-cube"></i>
+                <span class="vp-rel-tag vp-strip-tag<?=
+                          $stripLaneMono ? ' vp-strip-tag-mono' : '' ?>"
+                      title="<?= h($lane['label']) ?>">
+                    <?php if ($stripLaneIcon !== ''): ?>
+                        <i class="<?= h($stripLaneIcon) ?>"></i>
+                    <?php endif; ?>
                     <?php
                     /*
                      * The name gets its own span because `.vp-rel-tag`
@@ -176,7 +209,7 @@ foreach ($stripLanes as $lane) {
                      */
                     ?>
                     <span class="vp-strip-tag-name"><?=
-                        h($lane['object']) ?></span>
+                        h($lane['label']) ?></span>
                 </span>
             </div>
 
@@ -290,3 +323,20 @@ foreach ($stripLanes as $lane) {
     <?php endif; ?>
 
 </div>
+<?php if ($stripNote !== ''): ?>
+    <?php
+    /*
+     * Outside the strip, and that is the point of putting it here
+     * rather than one line up. `.vp-strip` is `role="img"` with an
+     * accessible name of its own, so a screen reader is told to ignore
+     * everything inside it — a note explaining why the lanes are what
+     * they are would be read by nobody if it sat with the legend.
+     *
+     * Indented to the axis rather than the panel edge, because it is a
+     * statement about the lanes and not about the section.
+     */
+    ?>
+    <div class="vp-strip-note<?=
+        $stripWide ? ' vp-strip-note-wide' : '' ?>"><?=
+        h($stripNote) ?></div>
+<?php endif; ?>

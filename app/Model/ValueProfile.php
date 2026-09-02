@@ -171,7 +171,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 5;
+    const CACHE_SHAPE = 6;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
