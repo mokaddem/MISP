@@ -3095,6 +3095,18 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
         var(--bs-secondary-bg) var(--vp-facet-share, 0%) 100%);
 }
 
+/*
+ * A partition row draws no bar. `With a hit 37` and `No hit 10,003`
+ * are not members of the enumeration beside them — they are the two
+ * halves the enumeration divides — so a bar comparing them to a list's
+ * count would be comparing two different things. Transparent rather
+ * than absent so the row keeps the grid height of the ones around it,
+ * and not an empty track, which next to filled bars reads as zero.
+ */
+.vp-facet-bar-none {
+    background: transparent;
+}
+
 .vp-facet:has(input:checked) {
     background: color-mix(in srgb, var(--primary) 10%, var(--bs-body-bg));
 }

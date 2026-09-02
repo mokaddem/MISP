@@ -69,9 +69,8 @@ class ValueRelationTool
      * The token for a neighbour no enabled list names.
      *
      * A constant rather than a spelled string because the row carries
-     * it, the panel's *Hide warninglisted* switch sends it and the fold
-     * matches on it — the same reason `ValueFieldKind`'s two kinds are
-     * constants. It is deliberately not a facet entry: see `facets()`.
+     * it, the facet's *No hit* entry sends it and the fold matches on
+     * it — the same reason `ValueFieldKind`'s two kinds are constants.
      *
      * The underscore is what makes it safe rather than merely unlikely:
      * `ValueStatsTool::facetToken` maps every character outside
@@ -82,6 +81,57 @@ class ValueRelationTool
      * passed on a command line.
      */
     const WARNINGLIST_CLEAR = '_clear';
+
+    /**
+     * The other half of that partition: a value at least one enabled
+     * list names.
+     *
+     * The pair exists because the enumeration alone cannot answer the
+     * two questions a reader actually arrives with — *show me only the
+     * noise* and *show me none of it*. Ticking every list in turn
+     * answers the first badly and the second not at all, since a value
+     * on no list carries no list's token. So the group carries both
+     * halves above the names, and `value_facet_group` is told they are
+     * a partition so their counts stay off the bars' scale.
+     */
+    const WARNINGLIST_HIT = '_hit';
+
+    /**
+     * The two partition entries, in front of the enumeration.
+     *
+     * Not ranked and not capped: they are a fixed vocabulary, the way
+     * the sibling bar's `siblink` group is, and an order that moved
+     * with the data would put *No hit* above or below *With a hit*
+     * depending on the value being looked at.
+     *
+     * @param array $entries The ranked, capped per-list entries
+     * @param int $hit Rows on at least one list
+     * @param int $clear Rows on none
+     * @return array
+     */
+    private static function warninglistFacet(array $entries, $hit, $clear)
+    {
+        if ($hit === 0) {
+            return array();
+        }
+        return array_merge(
+            array(
+                array(
+                    'value' => self::WARNINGLIST_HIT,
+                    'label' => __('With a hit'),
+                    'count' => $hit,
+                    'partition' => true,
+                ),
+                array(
+                    'value' => self::WARNINGLIST_CLEAR,
+                    'label' => __('No hit'),
+                    'count' => $clear,
+                    'partition' => true,
+                ),
+            ),
+            $entries
+        );
+    }
 
     /**
      * Fold the value's neighbourhood into the three roll-ups, the six
@@ -589,6 +639,8 @@ class ValueRelationTool
             'sharing_group' => array(),
             'warninglist' => array(),
         );
+        $hitGroups = 0;
+        $clearGroups = 0;
         foreach ($groups as $group) {
             foreach (array_keys($group['events']) as $eventId) {
                 $meta = isset($eventMeta[$eventId])
@@ -635,17 +687,21 @@ class ValueRelationTool
                 );
             }
             /*
-             * One entry per list — and **not** the complement, which
-             * the panel's switch holds instead. `WARNINGLIST_CLEAR` is
-             * a real token on the rows and a real narrowing the fold
-             * applies; what it is not is a peer of the lists in a
-             * counted group. On `8.8.8.8` it would count 10,003 against
-             * their 21 and 11, and `value_facet_group` scales its bars
-             * to the largest entry, so every list in the dropdown drew
-             * a 0% bar beside a complement drawing 100%. The two are
-             * different questions — *which noise is in here* and
-             * *remove it* — and the second one does not want a bar.
+             * The two halves of the partition are counted here and
+             * prepended below by `warninglistFacet`; the enumeration is
+             * counted per list. They are not peers: on `8.8.8.8` the
+             * halves are 37 and 10,003 against the lists' 21 and 11, so
+             * a bar scaled over all of them flattens every list to
+             * nothing. `value_facet_group` is told which is which and
+             * keeps the halves off the scale.
              */
+            if (!empty($group['warninglist_read'])) {
+                if (empty($group['warninglists'])) {
+                    $clearGroups++;
+                } else {
+                    $hitGroups++;
+                }
+            }
             foreach ($group['warninglists'] as $list) {
                 self::bump(
                     $facets['warninglist'],
@@ -691,6 +747,11 @@ class ValueRelationTool
                 self::FACET_CAP
             );
         }
+        $facets['warninglist'] = self::warninglistFacet(
+            $facets['warninglist'],
+            $hitGroups,
+            $clearGroups
+        );
         return $facets;
     }
 
@@ -1395,6 +1456,8 @@ class ValueRelationTool
         if (!empty($row['warninglist_read'])) {
             if (empty($row['warninglists'])) {
                 $tokens[] = 'datedwarninglist:' . self::WARNINGLIST_CLEAR;
+            } else {
+                $tokens[] = 'datedwarninglist:' . self::WARNINGLIST_HIT;
             }
             foreach ($row['warninglists'] as $list) {
                 $tokens[] = 'datedwarninglist:'
@@ -1431,11 +1494,16 @@ class ValueRelationTool
             'datedtype' => array(),
             'datedwarninglist' => array(),
         );
+        $hitRows = 0;
+        $clearRows = 0;
         foreach ($rows as $row) {
-            /*
-             * One entry per list; the complement is the panel's switch,
-             * for the reason `facets()` gives.
-             */
+            if (!empty($row['warninglist_read'])) {
+                if (empty($row['warninglists'])) {
+                    $clearRows++;
+                } else {
+                    $hitRows++;
+                }
+            }
             foreach ($row['warninglists'] as $list) {
                 self::bump(
                     $facets['datedwarninglist'],
@@ -1469,6 +1537,11 @@ class ValueRelationTool
                 self::FACET_CAP
             );
         }
+        $facets['datedwarninglist'] = self::warninglistFacet(
+            $facets['datedwarninglist'],
+            $hitRows,
+            $clearRows
+        );
         return $facets;
     }
 
@@ -1596,6 +1669,8 @@ class ValueRelationTool
             'siborg' => array(),
             'sibwarninglist' => array(),
         );
+        $hitRows = 0;
+        $clearRows = 0;
         $kinds = array(
             ValueFieldKind::LINKING => 0,
             ValueFieldKind::DESCRIPTIVE => 0,
@@ -1626,13 +1701,13 @@ class ValueRelationTool
                     $name
                 );
             }
-            /*
-             * One entry per list, and not the complement — the panel's
-             * switch holds that. `facets()` one section up carries the
-             * argument: a counted group scales its bars to its largest
-             * entry, and *Not on any list* would flatten every list
-             * beside it.
-             */
+            if (!empty($row['warninglist_read'])) {
+                if (empty($row['warninglists'])) {
+                    $clearRows++;
+                } else {
+                    $hitRows++;
+                }
+            }
             foreach ($row['warninglists'] as $list) {
                 self::bump(
                     $facets['sibwarninglist'],
@@ -1649,6 +1724,11 @@ class ValueRelationTool
                 self::FACET_CAP
             );
         }
+        $facets['sibwarninglist'] = self::warninglistFacet(
+            $facets['sibwarninglist'],
+            $hitRows,
+            $clearRows
+        );
         $facets['siblink'] = array(
             array(
                 'value' => ValueFieldKind::LINKING,
@@ -1736,6 +1816,8 @@ class ValueRelationTool
         if (!empty($row['warninglist_read'])) {
             if (empty($row['warninglists'])) {
                 $tokens[] = 'sibwarninglist:' . self::WARNINGLIST_CLEAR;
+            } else {
+                $tokens[] = 'sibwarninglist:' . self::WARNINGLIST_HIT;
             }
             foreach ($row['warninglists'] as $list) {
                 $tokens[] = 'sibwarninglist:'
@@ -1974,6 +2056,7 @@ class ValueRelationTool
                     $tokens[] = 'warninglist:' . self::WARNINGLIST_CLEAR;
                     break;
                 }
+                $tokens[] = 'warninglist:' . self::WARNINGLIST_HIT;
                 foreach ($group['warninglists'] as $list) {
                     $tokens[] = 'warninglist:'
                         . ValueStatsTool::facetToken($list['name']);

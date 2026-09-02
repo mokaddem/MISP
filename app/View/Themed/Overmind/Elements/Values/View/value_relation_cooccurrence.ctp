@@ -431,50 +431,34 @@ $sibListsHit = isset($siblings['warninglists_listed'])
     : 0;
 
 /*
- * The sibling table's own cut, and its own sentence.
+ * The sibling table's own sentence.
  *
- * The switch sends `sibwarninglist:_clear` — the complement token the
- * dropdown deliberately does not carry — and this bar has no narrowing
- * endpoint behind it, so unlike the ranked table's switch it filters
- * the hundred rows the panel holds rather than fetching a fresh
- * hundred. The note says which, because a cut that silently reaches
- * only part of what it counted is the one thing this section's bar
- * already promises not to be.
+ * This bar has no narrowing endpoint behind it, so its Warninglist
+ * group filters the hundred rows the panel holds rather than fetching a
+ * fresh hundred — unlike the ranked table's, which re-ranks the fold.
+ * The note says which, because a cut that silently reaches only part of
+ * what it counted is the one thing this section's bar already promises
+ * not to be.
  *
- * Both buffered and echoed against a closing tag: an `if` in the markup
+ * Buffered and echoed against a closing tag: an `if` in the markup
  * would leave its indentation behind on every value that has nothing
  * listed, and those must render byte-identically to what they did
  * before.
  */
-$sibHideSwitch = '';
 $sibWarninglistNote = '';
 if ($sibListsHit > 0) {
     ob_start();
     ?>
-                    <div class="form-check form-switch mb-0 ms-1">
-                        <input class="form-check-input" type="checkbox"
-                               role="switch" id="vp-sib-hide-listed"
-                               data-vp-facet-key="sibwarninglist"
-                               value="<?= h(
-                                   ValueRelationTool::WARNINGLIST_CLEAR
-                               ) ?>">
-                        <label class="form-check-label small text-muted"
-                               for="vp-sib-hide-listed">
-                            <?= __('Hide warninglisted') ?>
-                        </label>
-                    </div>
-    <?php
-    $sibHideSwitch = ob_get_clean();
-    ob_start();
-    ?>
  <?= sprintf(
         __n(
-            '<strong>One sibling value</strong> is on a warninglist,'
-            . ' dimmed here and cut by the switch below — which narrows'
-            . ' the rows this table carries, not the fold behind them.',
-            '<strong>%d sibling values</strong> are on a warninglist,'
-            . ' dimmed here and cut by the switch below — which narrows'
-            . ' the rows this table carries, not the fold behind them.',
+            '<strong>One sibling value</strong> is on a warninglist and'
+            . ' dimmed here. <strong>Warninglist</strong> below keeps or'
+            . ' drops it, and narrows the rows this table carries rather'
+            . ' than the fold behind them.',
+            '<strong>%d sibling values</strong> are on a warninglist and'
+            . ' dimmed here. <strong>Warninglist</strong> below keeps or'
+            . ' drops them, and narrows the rows this table carries'
+            . ' rather than the fold behind them.',
             $sibListsHit
         ),
         $sibListsHit
@@ -603,8 +587,8 @@ if ($listsHit > 0) {
                 <?= sprintf(
                     __(
                         '%1$s, checked against %2$s. Listed values are'
-                        . ' dimmed, %3$s names which lists they are on'
-                        . ' and the switch above cuts them — the'
+                        . ' dimmed; %3$s names the lists, and its first'
+                        . ' two entries keep or drop the lot — the'
                         . ' ranking does not account for them.'
                     ),
                     '<strong>' . h(sprintf(
@@ -627,50 +611,6 @@ if ($listsHit > 0) {
         </div>
     <?php
     $warninglistCap = ob_get_clean();
-}
-
-/*
- * The one tick that removes the noise, and the reason the Warninglist
- * dropdown beside it holds only the lists. It sends the same
- * `warninglist` narrowing the dropdown does — the complement token — so
- * the fold applies one rule for both and the filter summary counts this
- * as the filter it is.
- *
- * Only where something is listed, and buffered for the same reason the
- * caption above is: a switch that can only ever remove nothing is a
- * control teaching a reader the panel is broken, and an `if` in the
- * markup would leave its indentation behind on every value that has
- * one.
- */
-$hideListedSwitch = '';
-if ($listsHit > 0) {
-    ob_start();
-    ?>
-                <div class="form-check form-switch mb-0 ms-1">
-                    <input class="form-check-input" type="checkbox"
-                           role="switch" id="vp-rel-hide-listed"
-                           data-vp-facet-key="warninglist"
-                           value="<?= h(
-                               ValueRelationTool::WARNINGLIST_CLEAR
-                           ) ?>"<?= in_array(
-                               ValueRelationTool::WARNINGLIST_CLEAR,
-                               $activeFacet('warninglist'),
-                               true
-                           ) ? ' checked' : '' ?>>
-                    <label class="form-check-label small text-muted"
-                           for="vp-rel-hide-listed"
-                           title="<?= h(sprintf(
-                               __(
-                                   '%s of this neighbourhood are on a'
-                                   . ' warninglist'
-                               ),
-                               number_format($listsHit)
-                           )) ?>">
-                        <?= __('Hide warninglisted') ?>
-                    </label>
-                </div>
-    <?php
-    $hideListedSwitch = ob_get_clean();
 }
 
 ob_start();
@@ -1004,7 +944,7 @@ $headerSub = ob_get_clean();
                                 ) ?>
                             </div>
                         </div>
-                    <?php endforeach; ?><?= $sibHideSwitch ?>
+                    <?php endforeach; ?>
 
                     <span class="small text-muted ms-2 vp-min-w-0">
                         <?= sprintf(
@@ -1734,8 +1674,7 @@ $headerSub = ob_get_clean();
                            for="vp-rel-siblings-only">
                         <?= __('Object siblings only') ?>
                     </label>
-                </div><?= $hideListedSwitch ?>
-
+                </div>
 
                 <?php
                 /*

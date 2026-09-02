@@ -719,20 +719,22 @@ flag. A value is reported under **any** type it appeared as, which is
 the rule the type facet already uses — a `sha1` seen once as `md5` would
 otherwise escape the empty-file list it is on.
 
-**A dropdown and a switch, because they answer different questions.**
-The complement was in the facet group first, and it broke the group:
-`value_facet_group` scales its bars to the largest entry, so *Not on any
-list* at 10,003 drew 100% and every list beside it drew 0%. *Which noise
-is in here* and *remove it* are two questions and only the first wants a
-bar. So the `Warninglist` dropdown holds one entry per list, and a
-**Hide warninglisted** switch beside *Object siblings only* holds the
-complement token. Both send the same `f[warninglist][]` narrowing, so
-the fold applies one rule to both. Driven in Chromium with
-`reloadAjaxTabIndex` stubbed to record what the panel sends — without
-the stub `narrowRemotely` gives up silently and the panel filters the
-hundred rows it holds, which is not the behaviour under test:
+**A dropdown, and for one day a switch beside it.** The complement was
+in the facet group first and broke it: `value_facet_group` scales its
+bars to the largest entry, so *Not on any list* at 10,003 drew 100% and
+every list beside it drew 0%. The first answer was to move the
+complement out to a **Hide warninglisted** switch and leave the dropdown
+to the names. **§7.3 replaced that**: the group now carries both halves
+of the partition as entries the element knows not to put on the bars'
+scale, and the switches are gone. The narrowing is the same either way —
+one `f[warninglist][]` token, one rule in the fold.
 
-    switch on      …?f[warninglist][]=_clear
+Driven in Chromium with `reloadAjaxTabIndex` stubbed to record what the
+panel sends; without the stub `narrowRemotely` gives up silently and the
+panel filters the hundred rows it holds, which is not the behaviour
+under test:
+
+    No hit tick    …?f[warninglist][]=_clear
     RFC 5735 tick  …?f[warninglist][]=list-of-rfc-5735-cidr-blocks
 
 The token is `_clear` and the underscore is load-bearing:
@@ -848,18 +850,21 @@ warm stays **3**. The per-value work on the overlap is nearly free:
 `attachWarninglistToAttributes` keys its Redis cache on `(type, value)`,
 so every value the two reads share is a hit the second time.
 
-**One switch per table, and each says what it reaches.** Neither of
-these bars has a narrowing endpoint — the sibling section's
-`[data-vp-list]` carries no `data-vp-narrow-url` and neither does the
-dated panel's — so `narrowingIsLocal` keeps both in the page. That is a
-different promise from the ranked table's switch, which re-ranks the
-whole fold and comes back with a fresh hundred, so the sibling note says
-so in as many words: *"which narrows the rows this table carries, not
-the fold behind them."* Verified in Chromium with `reloadAjaxTabIndex`
-stubbed to catch any request: **none was made** by either.
+**Each table's cut says what it reaches.** Neither of these bars has a
+narrowing endpoint — the sibling section's `[data-vp-list]` carries no
+`data-vp-narrow-url` and neither does the dated panel's — so
+`narrowingIsLocal` keeps both in the page. That is a different promise
+from the ranked table's, which re-ranks the whole fold and comes back
+with a fresh hundred, so the sibling note says so in as many words:
+*"narrows the rows this table carries rather than the fold behind
+them."* Verified in Chromium with `reloadAjaxTabIndex` stubbed to catch
+any request: **none was made** by either.
 
-    sibling switch   36 rows → 35, the one dimmed row gone, filters 1
-    dated switch     2 rows → 0 — both are listed on `dns.google`
+    siblings, No hit    36 rows → 35, the one dimmed row gone
+    dated, With a hit   2 rows, both of them listed on `dns.google`
+
+Both were a *Hide warninglisted* switch on the day they were built;
+§7.3 folded them into their groups.
 
 The dated case is worth keeping: a switch that can empty its own table
 is fine here because the panel already owns that state, and it renders
@@ -912,6 +917,89 @@ never recorded, found while looking for the row this change should
 update. `viewRelationDated` is measured here and filled in; the other
 two are named in the board so the gap is visible rather than silent,
 and stay blank because nothing has measured them.
+
+### 7.3 The group carries the partition, and the switches go — 2026-09-02
+
+The `Warninglist` group enumerated the lists and nothing else, which
+left it unable to answer the two questions a reader actually arrives
+with. *Show me only the noise* meant ticking every list in turn; *show
+me none of it* was not in the group at all, because a value on no list
+carries no list's token — it was on a **Hide warninglisted** switch
+beside the group instead.
+
+**Both halves are now entries, above the names:**
+
+    With a hit                                 37
+    No hit                                  10,003
+    List of RFC 5735 CIDR blocks                21  ████████████
+    List of known IPv4 public DNS resolvers     11  ██████
+    BT02 domains                                 2  █
+    …
+
+`_hit` joins `_clear` as a token, stamped on a listed row beside its
+list tokens, in all three tables. The two counts partition the set —
+37 + 10,003 = 10,040 — while the list counts sum to more than 37,
+because a value on two lists is counted under both, the way the tag
+facet already counts one.
+
+**Why they were not entries to begin with, and what changed.**
+`value_facet_group` scales its bars to the largest entry, so *No hit*
+at 10,003 flattened every list beside it to a 0% bar — §7.1 moved the
+complement out to a switch for exactly that reason. The right fix was
+in the element, not in the data: an entry may now declare itself a
+`partition`, which takes it out of the bar scale **and off the bars
+altogether**. A partition entry is not a member of the enumeration
+beside it — it is one of the two halves the enumeration divides — so a
+bar comparing it to a list's count compares two different quantities.
+The bar element stays in the grid, transparent, so the row keeps the
+height of the ones around it; an empty track next to filled bars would
+read as zero rather than as *not on this scale*.
+
+**The switches had to go, and not only for tidiness.** A switch and a
+facet entry that carry the same `data-vp-facet-key` and the same value
+are two controls on one token. Tick either and the other stays visibly
+off while its narrowing is applied — the panel showing *Hide
+warninglisted: off* over a table with the listed rows hidden — and tick
+both and `narrowUrl` sends the token twice while the filter summary
+counts two filters for one narrowing. That is a contradiction the
+markup cannot resolve, so one of the two had to own the dimension. The
+group owns it: it carries the counts, and the tab's own convention is
+already one control per dimension — *Object siblings only* is a switch
+with no dropdown, every other dimension is a dropdown with no switch.
+
+#### Verified
+
+`8.8.8.8` ranked table: *With a hit 37* (18 of them carried), *No hit
+10,003* (82 carried), then seven lists whose bars read 100/52/10/5/5/5/5
+— the scale they had before the partition entries existed. Ticking
+either half goes to the fold, because neither is complete in the carried
+rows: `_hit` returns 37 rows of 37 matched, `_clear` returns 100 of
+10,003. Siblings and dated filter in the page, and were driven there:
+
+    siblings  _hit    8 visible → 1        no request made
+    siblings  _clear  8 visible, 0 dimmed  no request made
+    dated     _hit    2 visible, both      no request made
+    ranked    _hit    → ?f[warninglist][]=_hit
+
+`dns.google`'s dated group shows *No hit 0* — every relation it holds
+resolves to something listed. The element greys a zero rather than
+offering a tick that could only empty the table, which is the behaviour
+it already had for a vocabulary-counted group, and the row is worth
+keeping for what it says.
+
+**Byte-identical where nothing is listed**, re-checked on all three
+cases after the switches came out — including `5db53f33d2…`, five
+unlisted siblings, 252,517 bytes. Removing a `<?= … ?>` takes away a
+`?>` that was eating a newline, so the filter row gained a blank line
+and had to be given one back; the sibling loop needed no such fix,
+because its switch had been appended without an extra newline in the
+first place. Same class of bug as §7.1's four, in the other direction.
+
+**Not changed: the counts are unformatted.** *No hit* prints `10003`
+where the caption above it prints `10,040`. `value_facet_group` renders
+every count raw and has since it was written, so a `number_format` here
+would be a change to every facet on every tab — out of scope for this,
+and worth its own pass if anyone minds.
 
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 

@@ -1931,15 +1931,20 @@ and the marginal cost is microseconds a value — and the fold-wide read
 taken. So *Warninglist · 37* means thirty-seven of the neighbourhood,
 the way *Tag · 40* already does.
 
-**Two controls, because there are two questions.** The `Warninglist`
-dropdown holds one entry per list — that is *what kind of noise is in
-here*, and on `8.8.8.8` the answer is twenty-one RFC 5735 private
-ranges and eleven public resolvers, which is worth knowing before
-deciding anything. A **Hide warninglisted** switch beside *Object
-siblings only* is *remove it*. The complement started out as an entry
-in the dropdown and had to come out: `value_facet_group` scales its bars
-to the largest entry, and *Not on any list · 10,003* flattened every
-list beside it to a 0% bar.
+**One control, three questions.** The `Warninglist` dropdown opens on
+the two that matter — *With a hit · 37* and *No hit · 10,003* — and
+below them lists what kind of noise is in here: on `8.8.8.8`,
+twenty-one RFC 5735 private ranges and eleven public resolvers, worth
+knowing before deciding anything.
+
+The two halves and the enumeration are different quantities, and the
+group is careful not to draw them on one scale. `value_facet_group`
+scales its bars to its largest entry, so *No hit · 10,003* flattened
+every list beside it to a 0% bar the first time it was tried. An entry
+may now declare itself a **partition** — one of the two halves the
+enumeration divides rather than a member of it — which takes it out of
+the scale and off the bars entirely, so the list bars keep the
+proportions they are there to show.
 
 **Where nothing is listed, nothing appears** — no chip, no dimming, no
 switch, no facet, no sentence, and no token on any row. Not a
@@ -1993,11 +1998,20 @@ The two reads share nothing but the Redis cache underneath them, which
 is keyed on `(type, value)` and therefore makes every value they have
 in common free the second time.
 
-Each of the three tables carries its own switch, and they do not
-promise the same thing. The ranked table's re-ranks the whole fold and
-comes back with a fresh hundred; the other two have no narrowing
-endpoint behind them, so theirs filter the rows already on the page.
-The sibling note says which — *"which narrows the rows this table
-carries, not the fold behind them"* — because a control that quietly
-reaches less than the count beside it is the one thing this tab's bars
-already promise not to be.
+Each of the three tables carries its own group, and they do not
+promise the same thing. The ranked table's ticks go to the fold and come
+back with a fresh hundred re-ranked; the other two have no narrowing
+endpoint behind them, so theirs filter the rows already on the page. The
+sibling note says which — *"narrows the rows this table carries rather
+than the fold behind them"* — because a control that quietly reaches
+less than the count beside it is the one thing this tab's bars already
+promise not to be.
+
+There is no *Hide warninglisted* switch, though there was one for a
+day. A switch and a facet entry carrying the same key and value are two
+controls on one token: tick either and the other stays visibly off
+while its narrowing is applied, tick both and the filter count says two
+for one narrowing. The tab's own convention is one control per
+dimension — *Object siblings only* is a switch with no dropdown, and
+every other dimension is a dropdown with no switch — so the group took
+the dimension and the switch went.

@@ -14,6 +14,8 @@
  *                       `html` renders MISP's own component — a
  *                       distribution badge, a tag chip — in place of the
  *                       plain label, and is the caller's to escape.
+ *                       `partition` marks an entry that divides the set
+ *                       rather than naming a member of it; see below.
  * @var string $icon     Optional glyph for the heading
  * @var string $note     Optional honesty line; caller-escaped HTML so it
  *                       can emphasise the numbers it contrasts
@@ -36,12 +38,22 @@ $limit = $limit ?? 10;
 $searchAt = $searchAt ?? 50;
 $local = $local ?? false;
 
+/*
+ * `partition` marks an entry that divides the whole set rather than
+ * naming a member of it — *With a hit* and *No hit* over a group whose
+ * other entries are warninglist names. Two things follow, and both are
+ * about not comparing different quantities on one scale: it is left out
+ * of the bar's scale, and it draws no bar. Without the first, one such
+ * entry at 10,003 flattens every real entry beside it to a 0% bar.
+ */
 $total = 0;
 $max = 0;
 foreach ($values as $facet) {
     $count = (int)($facet['count'] ?? 0);
     $total += $count;
-    $max = max($max, $count);
+    if (empty($facet['partition'])) {
+        $max = max($max, $count);
+    }
 }
 
 /*
@@ -95,7 +107,16 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
             '-',
             strtolower($label)
         );
-        $share = $max > 0 ? round(($count / $max) * 100) : 0;
+        /*
+         * Zero on a partition row rather than a share of a scale it is
+         * not on. It paints nothing either way — `vp-facet-bar-none`
+         * sees to that — but `--vp-facet-share: 47633%` sitting in the
+         * markup is a number waiting to be believed by whoever next
+         * removes the class.
+         */
+        $share = !empty($facet['partition']) || $max <= 0
+            ? 0
+            : round(($count / $max) * 100);
         // The tail is folded, not dropped: `n more` reveals these in
         // place, so the group never silently under-reports itself.
         $overflow = $index >= $limit;
@@ -170,7 +191,9 @@ $groupId = 'vp-facet-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($key));
                 <?= isset($facet['html']) ? $facet['html'] : h($label) ?>
             </span>
             <span class="vp-facet-count"><?= h($count) ?></span>
-            <span class="vp-facet-bar"
+            <span class="vp-facet-bar<?= empty($facet['partition'])
+                      ? ''
+                      : ' vp-facet-bar-none' ?>"
                   style="--vp-facet-share: <?= h($share) ?>%"></span>
         </label>
     <?php endforeach; ?>
