@@ -194,8 +194,8 @@ the sentence is about this phase's subject.
 ### 4.3 What the page can no longer say, stated plainly
 
 `excludeDecayed` is a real `restSearch` filter (`RestSearchComponent.php:50`,
-applied at `MispAttribute.php:2208` and `2421`). After this phase, the Value Profile page cannot
-explain why an occurrence stopped being exported.
+applied at `MispAttribute.php:2208` and `2421`). After this phase, the Value
+Profile page cannot explain why an occurrence stopped being exported.
 
 **This is accepted, on the strength of D9**: the verdict score is to become the
 freshness gate ([`11-restsearch.md`](11-restsearch.md)), so the page explains

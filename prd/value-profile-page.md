@@ -111,7 +111,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 24 | Relationships goes live — all five panels, and the rail's graph made real | `live/24-relationships.md` | built |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
-| — | The analyst profile — what configures the verdict engine, and the enrichment defaults | [`analyst-profile/00-discovery.md`](analyst-profile/00-discovery.md) | **discovery only — no decisions.** The questions-first half of the verdict engine's grilling session; §10 there is the agenda |
+| — | The analyst profile — what configures the verdict engine, and the enrichment defaults | [`analyst-profile/01-profile.md`](analyst-profile/01-profile.md) | **designed, nothing built.** Unblocks the verdict engine. Ten phases, each in its own file; §1.4 there is the phase table and §2 the decisions. The discovery pass and the grilling agenda are `analyst-profile/00-discovery.md` |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
 
 Then the live campaign, one phase per tab. **This is the table to update as each

@@ -596,10 +596,11 @@ below is left as it was rather than shifted up, so cross-references from
 `../value-profile-verdict-engine.md` keep pointing at the right questions.
 
 **~~Q2 — What is a rule, concretely?~~ Decided 2026-09-02 — named sections,
-and `signals` is a list.** A profile is a struct with five named sections:
-`signals`, `thresholds`, `escalations`, `exclusions`, `reference`. Each
-`signals` entry emits exactly one ledger row and contributes to the sum; the
-other four do not.
+and `signals` is a list.** A profile is a struct with five *scoring* sections —
+`signals`, `thresholds`, `escalations`, `exclusions`, `reference` — plus
+`enrichment`, which was in the ask from the start and is not part of the score,
+for six in total (`01-profile.md` §3). Each `signals` entry emits exactly one
+ledger row and contributes to the sum; the other sections do not.
 
 Rejected: one flat rule list. Two reasons. An escalation does not contribute a
 number, it *replaces* the answer (*"a known-category hit → CONFLICTED, whatever
