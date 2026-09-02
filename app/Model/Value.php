@@ -42,6 +42,16 @@ class Value extends AppModel
      * the join is there and the ACL is enforced either way. What is
      * missing without this is the data, not the permission.
      */
+    /**
+     * How many values one prevalence lookup asks about at a time.
+     *
+     * The candidate set is a whole co-occurrence fold — 9,520 values on
+     * `8.8.8.8` — and an `IN` list that long is a query nobody should
+     * send. Measured flat between 1,000 and 2,000 per chunk, so the
+     * smaller one stands.
+     */
+    const PREVALENCE_CHUNK = 1000;
+
     const CONTEXT_FIELDS = array(
         'Event' => array('fields' => array(
             'Event.id',
@@ -198,6 +208,224 @@ class Value extends AppModel
                 ? null
                 : (int)$found['newest'],
         );
+    }
+
+    /**
+     * How widely each of many values is spread, for this viewer.
+     *
+     * `occurrenceSummaryFor`'s `events` count, plural — the denominator
+     * the Relationships tab's **Most specific** rank divides by. A
+     * neighbour that shares five events with the value is worth
+     * clicking if those are five of the six events it appears in
+     * anywhere, and worth ignoring if they are five of two hundred;
+     * ranking cannot tell those apart without this number.
+     *
+     * **Viewer-scoped, and that is not a detail.** §14.6 makes every
+     * count on the page the reader's own, and the printed fraction is
+     * read as *"in 8 of its 204 events"* beside a value the reader can
+     * open. A denominator over events they cannot see would both leak
+     * membership and disagree with the page they land on. The ACL join
+     * costs almost nothing here: 775 ms against 626 ms unscoped over
+     * `8.8.8.8`'s 9,520 neighbours, the worst fold on the instance.
+     *
+     * **Two `IN` passes and nothing else, which is the whole design.**
+     * Identity and storage disagree on composite attributes: a value is
+     * an identity when it is `value1` **or** `value2`
+     * (`conditionsFor`, and the reason is in this class's own
+     * docblock), while the co-occurrence fold keys its rows on
+     * `Attribute.value`, which composes to `value1|value2`. 16% of this
+     * instance's attributes are composite and 2,231 of `8.8.8.8`'s
+     * 10,040 neighbour keys carry a pipe, so neither reading can be
+     * skipped. A key's count is the union of the two: the composed
+     * value equals `A|B` exactly when `value1` is `A` and `value2` is
+     * `B`, or when `value1` is the literal `A|B` and `value2` is empty.
+     *
+     * The union is assembled from the rows rather than from the query,
+     * because matching pairs *in SQL* is what made the first attempt
+     * unusable — a thousand `(value1 = A AND value2 = B)` arms OR'd
+     * into one condition took **311 seconds** over this fold and
+     * matched far more than it was asked about. Here both passes are
+     * plain `IN` lists on the two indexed value columns, and the
+     * composed key is rebuilt in PHP from the `value1`/`value2` pair
+     * each row already carries. The first parts of the composite keys
+     * join the first pass's `IN` list so those rows come back at all.
+     *
+     * Ids come back as rows and the distinct-count is taken in PHP,
+     * because `COUNT(DISTINCT)` grouped by `value1` cannot see the
+     * `value2` matches and two grouped counts cannot be added without
+     * double-counting an id that holds both.
+     *
+     * @param array $user
+     * @param array $values Value strings, as the caller keys them
+     * @param array $options `unit` counts `event` (default) or
+     *                       `object`; otherwise as conditionsFor
+     * @return array Value string => count, absent when zero
+     */
+    public function prevalenceFor(array $user, array $values,
+        array $options = array()
+    ) {
+        $wanted = array();
+        foreach ($values as $value) {
+            if ($value !== '' && $value !== null) {
+                $wanted[(string)$value] = true;
+            }
+        }
+        if (empty($wanted)) {
+            return array();
+        }
+        $object = isset($options['unit'])
+            && $options['unit'] === 'object';
+        $idKey = $object ? 'object_id' : 'event_id';
+
+        /*
+         * The left-hand halves of the composite keys, so the first pass
+         * returns the rows a composed key is rebuilt from. A key whose
+         * pipe is part of a plain value contributes a first part that
+         * simply matches nothing.
+         */
+        $probes = $wanted;
+        foreach (array_keys($wanted) as $key) {
+            // Cast for the same reason as below: a numeric-looking key
+            // comes back from array_keys() as an int.
+            $key = (string)$key;
+            $cut = strpos($key, '|');
+            if ($cut !== false && $cut > 0) {
+                $probes[substr($key, 0, $cut)] = true;
+            }
+        }
+
+        /*
+         * **Back to strings, and this is not defensive tidying.** PHP
+         * turns an array key that looks like an integer into one, so
+         * `array_keys` hands back `443` and `1204` — real neighbours,
+         * a port and a passive-DNS record count — as ints. CakePHP
+         * binds them as integers, MariaDB then compares a varchar
+         * column against a number, converts the whole column to do it
+         * and abandons the `value1` index: a full scan of 3.2M rows
+         * joined twice. Only the chunks holding a numeric-looking
+         * value were affected, which is why 4 of 16 queries took 40
+         * seconds each while an 983-row one among them took 41 — the
+         * cost tracked the cast, not the rows. 171 seconds over
+         * `8.8.8.8`'s fold, all of it here.
+         */
+        $seen = array();
+        $this->prevalencePass($user, array_map('strval',
+            array_keys($probes)), 'value1', $idKey, $wanted, $seen,
+            $options);
+        $this->prevalencePass($user, array_map('strval',
+            array_keys($wanted)), 'value2', $idKey, $wanted, $seen,
+            $options);
+
+        $out = array();
+        foreach ($seen as $value => $ids) {
+            $out[$value] = count($ids);
+        }
+        return $out;
+    }
+
+    /**
+     * One `IN` pass, folded onto the id sets the caller is building.
+     *
+     * Chunked because the candidate set is a whole co-occurrence fold
+     * and an `IN` list of twelve thousand strings is a query nobody
+     * should send. Measured flat between 1,000 and 2,000 per chunk.
+     *
+     * `Event` and `Object` are joined because
+     * `MispAttribute::buildConditions` names their columns directly,
+     * and only their ids are selected: the ACL filters on columns it
+     * does not have to read back, and a fold this wide should not
+     * carry every event's `info` through PHP to reach a count.
+     *
+     * @param array $user
+     * @param array $probes The values to match on this column
+     * @param string $column `value1` or `value2`
+     * @param string $idKey `event_id` or `object_id`
+     * @param array $wanted The keys the caller actually asked about
+     * @param array $seen Accumulator: key => array of id => true
+     * @param array $options
+     * @return void
+     */
+    private function prevalencePass(array $user, array $probes, $column,
+        $idKey, array $wanted, array &$seen, array $options
+    ) {
+        $attributes = $this->attributes();
+        $idField = 'Attribute.' . $idKey;
+        foreach (array_chunk($probes, self::PREVALENCE_CHUNK) as $chunk) {
+            $conditions = $attributes->buildConditions($user);
+            $conditions['AND'][] = array('Attribute.' . $column => $chunk);
+            if (!empty($options['types'])) {
+                $conditions['AND'][]
+                    = array('Attribute.type' => $options['types']);
+            }
+            if ($idKey === 'object_id') {
+                $conditions['AND'][]
+                    = array('Attribute.object_id !=' => 0);
+            }
+            $rows = $attributes->find('all', array(
+                'fields' => array(
+                    'Attribute.value1',
+                    'Attribute.value2',
+                    $idField,
+                ),
+                'conditions' => $conditions,
+                'recursive' => -1,
+                'contain' => array(
+                    'Event' => array('fields' => array('Event.id')),
+                    'Object' => array('fields' => array('Object.id')),
+                ),
+                /*
+                 * **Grouped, and `order` explicitly off — it takes
+                 * both.** The grouping is not for correctness; the
+                 * accumulator below is a set keyed on the id and would
+                 * dedupe anyway. It is there to stop the rows reaching
+                 * PHP at all: one chunk of a thousand values matches
+                 * 35,884 attribute rows and collapses to 1,197 distinct
+                 * triples, and hydrating the difference is what cost
+                 * **190 seconds** over `8.8.8.8`'s fold against 0.4
+                 * seconds in the database.
+                 *
+                 * And `order` has to go with it, because
+                 * `MispAttribute` carries a default
+                 * `Attribute.event_id DESC` that CakePHP appends to
+                 * every `find()`: grouping under that sort was **401
+                 * seconds**, and dropping the group to escape the sort
+                 * was **1,431**. Neither alone is the answer. An
+                 * ordering nobody reads is not free.
+                 */
+                'group' => array(
+                    'Attribute.value1',
+                    'Attribute.value2',
+                    $idField,
+                ),
+                'order' => false,
+            ));
+            foreach ($rows as $row) {
+                $row = $row['Attribute'];
+                if (!isset($row[$idKey])) {
+                    continue;
+                }
+                $id = (int)$row[$idKey];
+                $one = (string)$row['value1'];
+                $two = isset($row['value2'])
+                    ? (string)$row['value2']
+                    : '';
+                /*
+                 * The identity this row carries on the column that
+                 * matched, and the composed key it spells. Either may
+                 * be a key the caller asked about; both, when a value
+                 * is stored plain in one place and as half of a pair in
+                 * another.
+                 */
+                $identity = $column === 'value2' ? $two : $one;
+                if ($identity !== '' && isset($wanted[$identity])) {
+                    $seen[$identity][$id] = true;
+                }
+                $composed = $two === '' ? $one : $one . '|' . $two;
+                if ($composed !== '' && isset($wanted[$composed])) {
+                    $seen[$composed][$id] = true;
+                }
+            }
+        }
     }
 
     /**

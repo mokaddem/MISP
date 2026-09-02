@@ -143,6 +143,113 @@ $sortNum = function ($n) {
 };
 
 /**
+ * Whether the spread was read for this fold at all.
+ *
+ * A scan cached before the prevalence lookup existed carries none, and
+ * for those five minutes the rank would sort by nothing and the column
+ * would print empty cells down the page. Neither renders without this.
+ */
+$spreadRead = !empty($co['spread_read']);
+
+/**
+ * How specific a neighbour is to this value, as a sentence.
+ *
+ * A ratio is what sorts the column and a fraction is what the reader
+ * needs: *"in 8 of its 204 events"* says both that the neighbour is
+ * frequent here and that it is frequent everywhere, which is the whole
+ * distinction the rank exists to draw. A bare score would say neither,
+ * and a percentage would invite comparison between two values whose
+ * denominators are nothing alike.
+ *
+ * `null` prints nothing rather than a zero — that is the difference
+ * between a spread nobody read and a value that appears nowhere else.
+ *
+ * Two units, because the two tables count different things: the ranked
+ * table's rows are events and the sibling table's are objects. The
+ * sentence names whichever the row beside it does.
+ *
+ * @param int $shared Events or objects shared with this value
+ * @param int|null $spread The neighbour's own count, same unit
+ * @param string $unit `event` or `object`
+ * @return string
+ */
+$specificRead = function ($shared, $spread, $unit = 'event') {
+    if ($spread === null) {
+        return '';
+    }
+    $spread = (int)$spread;
+    $shared = (int)$shared;
+    $object = $unit === 'object';
+    if ($spread === 1) {
+        return $object
+            ? __('in its only object')
+            : __('in its only event');
+    }
+    if ($shared >= $spread) {
+        return sprintf(
+            $object
+                ? __('in all %s of its objects')
+                : __('in all %s of its events'),
+            number_format($spread)
+        );
+    }
+    return sprintf(
+        $object
+            ? __('in %1$s of its %2$s objects')
+            : __('in %1$s of its %2$s events'),
+        number_format($shared),
+        number_format($spread)
+    );
+};
+
+/**
+ * The column's sort token, and it is the pill's key exactly.
+ *
+ * Two padded numbers concatenated — shared count, then the ratio —
+ * because the rank leads with frequency and settles ties on the
+ * fraction, and because the script compares these lexicographically. A
+ * single number could not express a two-level order, and clicking the
+ * heading has to reproduce the pill's order rather than approximate
+ * it: on a page whose whole claim is that the reader can see why a row
+ * won, a heading that sorts *nearly* like the pill is worse than one
+ * that sorts differently on purpose.
+ *
+ * An unread spread returns the empty token, which the comparator sorts
+ * last whichever way the heading is pointing — the same treatment it
+ * gives a missing date, and for the same reason: the row has no value
+ * for this column, and a zero would claim it had the lowest one.
+ *
+ * **The two tables sort this column by different keys**, because they
+ * rank by different keys, and the reason is in
+ * `ValueRelationTool::compareSpecificity` and beside the sibling sort.
+ * The ranked table leads with frequency; the sibling table divides
+ * outright, so `$squared` selects which of the two a heading click
+ * reproduces. A heading that sorted *nearly* like its own table would
+ * be worse than one that sorted differently on purpose.
+ *
+ * @param int $shared Events or objects shared with this value
+ * @param int|null $spread The neighbour's own count, same unit
+ * @param bool $squared The sibling table's key rather than the
+ *                      ranked table's
+ * @return string
+ */
+$specificSort = function ($shared, $spread, $squared = false)
+    use ($sortNum)
+{
+    if ($spread === null || (int)$spread < 1) {
+        return '';
+    }
+    $shared = (int)$shared;
+    if ($squared) {
+        return $sortNum(
+            intdiv($shared * $shared * 1000000, (int)$spread)
+        );
+    }
+    return $sortNum($shared) . ' '
+        . $sortNum(intdiv($shared * 1000000, (int)$spread));
+};
+
+/**
  * A list of organisation names, ordered by how many there are and then
  * alphabetically. How many reported a thing is the question the column
  * answers when it says `+3 more`, so it leads.
@@ -513,6 +620,15 @@ $maxObjectValues = 0;
 foreach ($objectRows as $row) {
     $maxObjectValues = max($maxObjectValues, (int)$row['values']);
 }
+/*
+ * The sibling table's own spread flag. Separate from the ranked
+ * table's because the two lookups are separate reads over separate row
+ * sets — a value can sit in an object that survived an event the
+ * co-occurrence scan skipped for being oversized, which is the same
+ * reason the sibling warninglist probe cannot reuse the other one.
+ */
+$sibSpreadRead = !empty($siblings['spread_read']);
+
 $maxSibObjects = 0;
 foreach ($siblings['rows'] as $sibling) {
     $maxSibObjects = max($maxSibObjects, (int)$sibling['objects']);
@@ -620,10 +736,21 @@ ob_start();
         'event' => __('Event'),
         'object' => __('Object'),
     )) ?>
-    <?= $pillGroup('sort', __('Rank by'), $co['rank'], array(
+    <?php
+    /*
+     * **Most specific** joins the group only where the spread was read.
+     * A pill that sorts by a number nobody fetched would reorder the
+     * table into the fold's fallback and look like a bug.
+     */
+    $rankPills = array(
         'shared' => __('Most shared'),
         'recent' => __('Most recent'),
-    )) ?>
+    );
+    if ($spreadRead) {
+        $rankPills['specific'] = __('Most specific');
+    }
+    ?>
+    <?= $pillGroup('sort', __('Rank by'), $co['rank'], $rankPills) ?>
 <?php
 $headerExtra = ob_get_clean();
 if (!$hasRows) {
@@ -1019,6 +1146,9 @@ $headerSub = ob_get_clean();
                         array('key' => 'type', 'label' => __('Type')),
                         array('key' => 'objects', 'label' => __('Objects'),
                             'class' => 'vp-rel-num'),
+                        array('key' => 'specific',
+                            'label' => __('Specific to this value'),
+                            'only' => $sibSpreadRead),
                         /*
                          * A right-aligned number immediately left of a
                          * left-aligned name reads as one field, so the
@@ -1029,6 +1159,13 @@ $headerSub = ob_get_clean();
                         array('key' => 'org',
                             'label' => __('Reported by')),
                     );
+                    $sibCols = array_values(array_filter(
+                        $sibCols,
+                        function ($col) {
+                            return !array_key_exists('only', $col)
+                                || $col['only'];
+                        }
+                    ));
                     ?>
                     <thead>
                         <tr>
@@ -1066,6 +1203,11 @@ $headerSub = ob_get_clean();
                                     ),
                                     'vp-sort-objects' => $sortNum(
                                         $sibling['objects']
+                                    ),
+                                    'vp-sort-specific' => $specificSort(
+                                        $sibling['objects'],
+                                        $sibling['spread'] ?? null,
+                                        true
                                     ),
                                     'vp-sort-events' => $sortNum(
                                         $sibling['events']
@@ -1129,6 +1271,15 @@ $headerSub = ob_get_clean();
                                         ? $sibFloor
                                         : ''
                                 ) ?></td>
+                                <?php if ($sibSpreadRead): ?>
+                                    <td class="small text-nowrap">
+                                        <?= h($specificRead(
+                                            $sibling['objects'],
+                                            $sibling['spread'] ?? null,
+                                            'object'
+                                        )) ?>
+                                    </td>
+                                <?php endif; ?>
                                 <td class="text-end pe-4 text-nowrap">
                                     <?php
                                     /*
@@ -1425,13 +1576,51 @@ $headerSub = ob_get_clean();
          * same however the rows are rolled up.
          */
         ?>
+        <?php
+        /*
+         * **The caption names the rank it is describing.** It said
+         * `ranked by shared events` unconditionally until a third rank
+         * existed, which was true while both of the others agreed about
+         * what reaches the cut. `Most specific` does not: it is the
+         * first rank whose key is not a column the reader can add up,
+         * so the sentence that explains the cut has to say which key
+         * made it.
+         */
+        $rankPhrase = __('ranked by shared events');
+        if ($co['rank'] === 'recent') {
+            $rankPhrase = __('ranked by when they last appeared together');
+        } elseif ($co['rank'] === 'specific') {
+            $rankPhrase = __(
+                'ranked by how specific each is to this value'
+            );
+        }
+        /*
+         * And where the numerator came from, because the rank divides
+         * by every event a neighbour is in while counting only the
+         * events this scan could afford to read. A neighbour in all 34
+         * of a value's events reads `31 of its 34` where three were
+         * skipped — understating it, never the reverse. Only the
+         * specific rank needs the clause; the other two never divide.
+         */
+        $rankScope = '';
+        if ($co['rank'] === 'specific' && $scanned) {
+            $rankScope = ' ' . sprintf(
+                __n(
+                    'Specificity is counted over the one event read.',
+                    'Specificity is counted over the %d events read.',
+                    $scan['events_read'],
+                    $scan['events_read']
+                )
+            );
+        }
+        ?>
         <div class="vp-rel-cap" data-vp-group-only="value">
             <i class="fas fa-filter"></i>
             <span>
                 <?php if ($co['distinct_values'] > count($valueRows)): ?>
                     <?= sprintf(
                         __(
-                            '%1$s, ranked by shared events. The facet'
+                            '%1$s, %3$s. The facet'
                             . ' counts below stay exact at %2$s: they'
                             . ' are folded from every row read, not'
                             . ' tallied from the page.'
@@ -1441,20 +1630,22 @@ $headerSub = ob_get_clean();
                             number_format(count($valueRows)),
                             number_format($co['distinct_values'])
                         )) . '</strong>',
-                        h(number_format($co['distinct_values']))
-                    ) ?>
+                        h(number_format($co['distinct_values'])),
+                        h($rankPhrase)
+                    ) ?><?= h($rankScope) ?>
                 <?php else: ?>
                     <?= sprintf(
                         __(
-                            '%1$s. Nothing here is ranked away — the'
-                            . ' cut below is on which events were read,'
-                            . ' not on which values survived.'
+                            '%1$s, %2$s. Nothing here is ranked away —'
+                            . ' the cut below is on which events were'
+                            . ' read, not on which values survived.'
                         ),
                         '<strong>' . h(sprintf(
                             __('All %d distinct values are listed'),
                             $co['distinct_values']
-                        )) . '</strong>'
-                    ) ?>
+                        )) . '</strong>',
+                        h($rankPhrase)
+                    ) ?><?= h($rankScope) ?>
                 <?php endif; ?>
             </span>
         </div><?= $warninglistCap ?>
@@ -1835,6 +2026,19 @@ $headerSub = ob_get_clean();
                                     array('key' => 'shared',
                                         'label' => __('Shared events'),
                                         'class' => 'vp-rel-num'),
+                                    /*
+                                     * Beside the count it qualifies,
+                                     * not further along: `8 shared` and
+                                     * `in 8 of its 204 events` are one
+                                     * reading, and a column between
+                                     * them makes the reader carry the
+                                     * first across the second.
+                                     */
+                                    array('key' => 'specific',
+                                        'label' => __(
+                                            'Specific to this value'
+                                        ),
+                                        'only' => $spreadRead),
                                     array('key' => 'orgs',
                                         'label' => __('Organisations')),
                                     array('key' => 'last',
@@ -1842,6 +2046,17 @@ $headerSub = ob_get_clean();
                                     array('key' => 'distribution',
                                         'label' => __('Distribution')),
                                 );
+                                ?>
+                                <?php
+                                $valCols = array_values(array_filter(
+                                    $valCols,
+                                    function ($col) {
+                                        return !array_key_exists(
+                                            'only',
+                                            $col
+                                        ) || $col['only'];
+                                    }
+                                ));
                                 ?>
                                 <?php foreach ($valCols as $col): ?>
                                     <th class="<?= h($col['class'] ?? '') ?>">
@@ -1883,6 +2098,11 @@ $headerSub = ob_get_clean();
                                         'vp-sort-shared' => $sortNum(
                                             $row['shared_events']
                                         ),
+                                        'vp-sort-specific' =>
+                                            $specificSort(
+                                                $row['shared_events'],
+                                                $row['spread'] ?? null
+                                            ),
                                         'vp-sort-orgs' => $sortOrgs(
                                             $row['orgs'],
                                             count($row['orgs'])
@@ -1917,6 +2137,14 @@ $headerSub = ob_get_clean();
                                         $row['shared_events'],
                                         $maxShared
                                     ) ?></td>
+                                    <?php if ($spreadRead): ?>
+                                        <td class="small text-nowrap">
+                                            <?= h($specificRead(
+                                                $row['shared_events'],
+                                                $row['spread'] ?? null
+                                            )) ?>
+                                        </td>
+                                    <?php endif; ?>
                                     <td class="small">
                                         <?= h(implode(', ', $row['orgs'])) ?>
                                     </td>

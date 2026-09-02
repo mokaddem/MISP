@@ -38,7 +38,7 @@ live instance and recorded in its own section below.
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | **done** |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | **done** |
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence`, `value_relation_dated` | M | no | no | **done** |
-| B6 | A "Most specific" rank | `value_relation_cooccurrence` | M | **yes** | no | todo |
+| B6 | A "Most specific" rank | `value_relation_cooccurrence`, `siblings` | M | **yes** | no | **done** |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | todo |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | todo |
 | B9 | Where in the intrusion: tactic mix | B8's card | S | no | no — extends B8 | todo |
@@ -1277,32 +1277,175 @@ sibling ranking**, which tied "which sibling matters most" to the
 verdict engine; specificity is frequency arithmetic and needs no
 verdict.
 
-**What changes.** A third `RANK BY` pill — **Most specific** — on the
-co-occurrence values table: rank key `shared events ÷ neighbour's
-total events` (lift), tie-broken by shared events. The same rank
-offered on the sibling table, where the denominator is the sibling
-value's instance-wide prevalence. The verdict-weighted version of
-sibling ranking stays deferred to the engine; this task takes only
-the evidence-based part.
+**The hub premise did not hold here, and §8.1 records what replaced
+it.** Measured against the live panel rather than against SQL, `Most
+shared` already leads with the campaign on this instance's hub values,
+because the fold keys on the composed `value1|value2` and splits a hub
+IP into its per-port rows. The rank still earns its place — it reorders
+on evidence the frequency column cannot show — but not by rescuing a
+page one that was never lost.
 
-**Grilling decides.**
-- The formula: pure lift promotes one-event flukes (1 ÷ 1 = 1.0), so a
-  floor on shared events, or `shared² ÷ total`, or lift-above-a-prior —
-  pick one and defend it.
-- The denominator's cost: a grouped COUNT over the whole 10,040-value
-  fold, or re-rank only the carried top-N with denominators fetched per
-  page. The fold owns ranking today, so re-ranking a page is a change
-  of contract the panel must state if taken.
-- Whether `over_correlating_values.occurrence` may serve as a cheap
-  hub denominator, given follow-up item 6 already flags that column as
-  unmaintained on the read path.
+**What changes.** A third `RANK BY` pill — **Most specific** — on the
+co-occurrence values table, and a column beside `Shared events` that
+every rank carries: *"in 8 of its 204 events"*, *"in all 11 of its
+events"*. The rank leads with shared events and settles their ties on
+`shared ÷ the neighbour's own event count`. The sibling table gains the
+same column, counted in objects, and orders `objects² ÷ total` inside
+each half of B4's linking/descriptive split. The verdict-weighted
+version of sibling ranking stays deferred to the engine; this task
+takes only the evidence-based part.
 
 **How.** The denominator is one grouped aggregate over candidate
-values — `occurrenceSummaryFor`'s shape, plural. Nothing else new: the
-pill, the sort, and the fold's rank hook all exist. The computation
-belongs in the model layer, beside `occurrenceSummaryFor`, not in the
-panel: the verdict engine's scope note wants exactly this kind of
-signal, and a view-side rank would have to be rebuilt for it.
+values — `occurrenceSummaryFor`'s shape, plural — and it lives in the
+model layer beside it, because the verdict engine's scope note wants
+exactly this signal and a view-side rank would have to be rebuilt for
+it. It is viewer-scoped like every other count on the page, and it
+travels inside the cached relation scan next to B5's warninglist
+verdicts, so a narrowing does not re-read it.
+
+### 8.1 Done — 2026-09-02
+
+**Two of the three grilling questions had factual answers.**
+`over_correlating_values.occurrence` cannot serve as a denominator:
+the table holds 1,627 rows and `MIN(occurrence) = MAX(occurrence) = 0`
+— the column is not merely unmaintained on the read path, it is empty,
+and it is partly keyed on CIDR blocks (`8.8.8.0/24`) rather than on
+plain values. And the cost question resolved in favour of the whole
+fold, so **the panel takes on no re-rank-a-page contract**: chunked
+`IN` lookups on the indexed value columns cost 626 ms in the database
+over `8.8.8.8`'s 9,520 neighbours, and the endpoint that carries them
+is 6.0 s cold and 0.2 s warm on that value, 2.1 s and 0.5 s on `443`.
+
+**Getting there cost three wrong diagnoses, and the last one is worth
+keeping.** The lookup first ran at 171 s against 0.6 s for the same
+work in SQL, and four of its sixteen queries took 40 s each while an
+983-row query among them took 41 — the cost tracked neither rows nor
+joins. The cause was PHP: `array_keys()` turns an array key that looks
+like an integer back into one, so real neighbours like `443` and
+`1204` — a port and a passive-DNS record count — left the fold as
+strings and reached CakePHP as ints. Bound as integers against a
+varchar column, MariaDB converted the column to compare and abandoned
+the `value1` index, full-scanning 3.2M rows joined twice, but only for
+the chunks that happened to hold a numeric-looking value.
+`array_map('strval', ...)` took the lookup from **171 s to 0.93 s**.
+Two real problems were found on the way and both fixes stand: the
+composite pass originally OR'd a thousand `(value1 = A AND value2 = B)`
+arms into one condition, and the grouping needs `order => false` beside
+it, because `MispAttribute`'s default `Attribute.event_id DESC` turns
+the group into a temporary table and a filesort. Grouping without that
+was 401 s; dropping the group to escape the sort was 1,431 s and
+hydrated 35,884 rows a chunk where 1,197 would do. Neither is the
+answer alone.
+
+Timings taken while another job was running its test suite are not
+timings; the numbers above were re-taken with the machine idle, and
+the 171 s baseline reproduced exactly.
+
+**The formula question was decided twice, and the first answer was
+wrong.** Pure lift was rejected on evidence and stayed rejected: 8,960
+of `8.8.8.8`'s 9,520 neighbours appear in no other event on the
+instance, so 94% of the table ties at 1.0, and on
+`awake-weaves.cyou` it ranks seven unremarkable `2 of its 2` addresses
+above `wrathful-jammy.cyou`, which shares 10 of its 11 events and is
+the sibling C2 domain of the same campaign. The PRD's `shared >= 2`
+floor does not rescue it — at that floor only 62 of the 9,520 qualify
+and 51 owe their place to one pair of near-duplicate events (176 and
+2016).
+
+`shared² ÷ total` was then chosen and built, on numbers taken from SQL.
+**It did not survive the live panel.** The simulation keyed neighbours
+on `value1`, which merges composite attributes: `193.161.193.99|29763`
+and its siblings folded into `193.161.193.99` and inflated its shared
+count to 8, which manufactured the hub-dominated page one the formula
+was picked to fix. The fold keys on `Attribute.value`, so the panel
+splits those rows per port and **`Most shared` already led with the
+campaign**. Worse, the scan's `RELATION_SCAN_BUDGET` compresses shared
+counts — the `.cyou` rows reach 3, not 5 — so the square had nothing to
+outrun and three `2 of its 2` rows finished above them. Shrinking by a
+prior was measured too: `shared ÷ (total + 10)` bought exactly one
+worthwhile promotion (`9.9.9.9`, 3 of its only 3 events) and paid a
+`2 of 2` row in fourth place on the hub; at `+20` and above it
+collapses into frequency-first anyway.
+
+**So frequency leads and specificity breaks its ties**, which loses
+nothing because ties are the normal case: 9,458 of those 9,520
+neighbours share exactly one event, so the tie-break orders almost the
+whole table. Verified live on both witnesses:
+
+| Value | `Most specific`, page one |
+|---|---|
+| `8.8.8.8` | `1.1.1.1` 7/12, `google.com` 5/9, `2.2.2.2` 5/13, `circl.lu` 4/8, `9.9.9.9` 3/3, `1.2.3.4` 3/8 |
+| `147.185.221.24` | the three `/api` URLs 3/8, then the three `.cyou` domains 3/11, then `103.57.130.241|54984` 2/2 |
+
+`google.com` above `2.2.2.2` at five shared each, and `9.9.9.9` above
+`1.2.3.4` at three each, are the reordering the task was for. No
+one-off reaches page one on either value.
+
+**The two tables rank by different keys, deliberately.** The sibling
+table divides outright — `objects² ÷ total` — where the ranked table
+only breaks ties, because the two face opposite hazards. The ranked
+table folds thousands of one-event neighbours and any key that lets a
+rare one overtake a frequent one fills its page one with noise. The
+sibling table's one-object noise is already in the other block: B4's
+kind split put `8.8.8.8`'s six `time_first`/`time_last` stamps, two
+passive-DNS record counts and two `origin` names below the linking
+fields, each of them a perfect 1.0 that never competes. What is left in
+the linking block is a handful of genuine pivot fields, and dividing is
+the only key that catches the placeholder holding the block's highest
+object count:
+
+```
+LINKING            google.com                      4 obj   4 of its 5
+                   google-public-dns-a.google.com  1 obj   its only
+                   dns.google (rrname)             1 obj   1 of its 2
+                   dns.google (domain)             1 obj   1 of its 2
+                   0.0.0.0                         5 obj   5 of its 32,922
+```
+
+Each table's column heading sorts by its own table's key, not by a
+shared approximation of both.
+
+**What the column says, and what it is allowed to claim.** A fraction
+in words rather than a score: a ratio cannot say both *frequent here*
+and *frequent everywhere*, and a percentage would invite comparison
+between denominators that are nothing alike. The numerator counts only
+the events the scan read while the denominator counts every event the
+neighbour is in, so the fraction understates specificity on values with
+skipped events and never the reverse — `147.185.221.24` reads `3 of its
+8` over 31 of its 34 events. The caption carries that scope
+(*"Specificity is counted over the 31 events read."*) and the caption's
+`ranked by shared events` — hard-coded while both ranks agreed about
+what reaches the cut — is now rank-aware.
+
+**Warninglists are not accounted for, exactly as `Most shared` does not
+account for them**, so B5's sentence stands unchanged and the facet's
+*No hit* entry is how a reader drops them. It only bites on one kind of
+value: on a public resolver the most specific neighbour is another
+public resolver (`9.9.9.9`, dimmed, on `8.8.8.8`). On both real
+witnesses no page-one row is listed at all — campaign infrastructure is
+not on benign lists. Excluding them was ruled out by the panel's own
+words: the caption prints *"Nothing here is ranked away"* whenever the
+whole neighbourhood fits, which is the common case.
+
+**Composite keys get their own denominator.** 16% of this instance's
+attributes carry a `value2`, and 2,231 of `8.8.8.8`'s 10,040 neighbour
+keys are the composed `value1|value2` — which is no identity at all,
+since `conditionsFor` matches `value1` **or** `value2` and finds
+nothing for it. A key's count is therefore the union of both readings:
+the composed value is `A|B` exactly when `value1` is `A` and `value2`
+is `B`, or when `value1` is the literal `A|B` and `value2` is empty.
+The union is assembled from the returned rows rather than expressed in
+SQL — two plain `IN` passes over the two indexed value columns, with
+the composed key rebuilt in PHP from the pair each row already carries,
+and the left-hand halves joining the first pass's list so those rows
+come back at all. The consequence is visible and correct:
+`193.161.193.99|29763` reads *"in its only event"* while plain
+`193.161.193.99` is in 204.
+
+**`CACHE_SHAPE` goes to 5**, because the scan now carries `prevalence`.
+A scan cached without it renders neither the pill nor the column rather
+than sorting by nothing — `spread_read`, on the same reasoning as
+B5's `warninglist_read`.
 
 ## 9. B7 — dated strip: per-value lanes when rows are few
 

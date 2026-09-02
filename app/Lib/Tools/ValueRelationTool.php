@@ -188,9 +188,18 @@ class ValueRelationTool
          * ranked near the top.
          */
         $rank = isset($narrowing['rank'])
-            && $narrowing['rank'] === 'recent'
-            ? 'recent'
+            && in_array($narrowing['rank'], array('recent', 'specific'),
+                true)
+            ? $narrowing['rank']
             : 'shared';
+        /*
+         * The denominator the `specific` rank divides by, from the
+         * caller for the same reason `warninglists` is: it is a lookup,
+         * and this class issues none.
+         */
+        $prevalence = isset($context['prevalence'])
+            ? (array)$context['prevalence']
+            : array();
         $rowCap = isset($context['row_cap']) ? $context['row_cap'] : 200;
         $pageSize = isset($context['page_size'])
             ? $context['page_size']
@@ -328,6 +337,29 @@ class ValueRelationTool
             unset($group);
         }
 
+        /*
+         * The spread, onto the groups.
+         *
+         * Clamped up to the shared count, which is arithmetic rather
+         * than caution: the numerator counts the events this scan
+         * *read* and the denominator counts every event the neighbour
+         * is in, so the two can only disagree in one direction — and a
+         * fraction reading `5 of its 3` would be nonsense on the row
+         * even where it changed no ordering.
+         */
+        $spreadRead = 0;
+        foreach ($groups as $value => &$group) {
+            if (!isset($prevalence[$value])) {
+                continue;
+            }
+            $group['spread'] = max(
+                (int)$prevalence[$value],
+                count($group['events'])
+            );
+            $spreadRead++;
+        }
+        unset($group);
+
         $facets = self::facets($groups, $eventMeta, $orgs);
         $distinct = count($groups);
 
@@ -337,6 +369,19 @@ class ValueRelationTool
             $last = $a['last'] === $b['last']
                 ? 0
                 : $b['last'] - $a['last'];
+            if ($rank === 'specific') {
+                if ($events !== 0) {
+                    return $events;
+                }
+                $specific = self::compareSpecificity($a, $b);
+                if ($specific !== 0) {
+                    return $specific;
+                }
+                if ($last !== 0) {
+                    return $last;
+                }
+                return strcmp($a['value'], $b['value']);
+            }
             $first = $rank === 'recent' ? $last : $events;
             if ($first !== 0) {
                 return $first;
@@ -405,6 +450,14 @@ class ValueRelationTool
              */
             'warninglists_checked' => $listsChecked,
             'warninglists_listed' => $listedGroups,
+            /*
+             * Whether the spread was read at all, on the same reasoning
+             * as `warninglist_read`: a scan cached before this lookup
+             * existed carries no prevalence, and for those five minutes
+             * a **Most specific** pill would sort by nothing. The panel
+             * renders neither the pill nor the column without this.
+             */
+            'spread_read' => $spreadRead > 0,
             'events' => count($eventRows),
             'page_size' => $pageSize,
             'rollups' => array(
@@ -430,6 +483,63 @@ class ValueRelationTool
      * @param string $value
      * @return array
      */
+    /**
+     * Of two equally-shared neighbours, which is the tighter pivot.
+     *
+     * **Shared events still lead and this only breaks their ties** —
+     * every ratio that lets a rarer neighbour overtake a more frequent
+     * one was measured against the live panel and every one of them put
+     * one-off noise on page one. `shared ÷ total` is the obvious
+     * reading of "appears almost nowhere except beside this one" and it
+     * is the worst of them: 94% of `8.8.8.8`'s neighbours appear in no
+     * other event on the instance, so they all tie at 1.0. Damping it
+     * to `shared² ÷ total` fails for a subtler reason — the scan reads
+     * at most `RELATION_SCAN_BUDGET` rows, which compresses the shared
+     * counts the square was supposed to outrun, so on
+     * `147.185.221.24` three `2 of its 2` rows still finished above the
+     * `.cyou` campaign's `3 of its 8`. Shrinking by a prior
+     * (`shared ÷ (total + 10)`) bought exactly one worthwhile promotion
+     * — `9.9.9.9`, 3 of its only 3 events — and paid for it with a
+     * `2 of 2` row in fourth place on the hub.
+     *
+     * Leading with frequency loses nothing, because **ties are the
+     * normal case, not the exception**: 9,458 of `8.8.8.8`'s 9,520
+     * neighbours share exactly one event, so the tie-break is what
+     * orders almost the whole table. It is visible where it matters
+     * too — `google.com` (5 of its 9) rises above `2.2.2.2` (5 of its
+     * 13), and `9.9.9.9` (3 of its 3) above `1.2.3.4` (3 of its 8).
+     *
+     * Compared by cross-multiplication rather than by dividing, so the
+     * arithmetic stays in integers and two rows whose fractions are
+     * equal cannot swap on a float's last bit.
+     *
+     * A neighbour whose spread was never read sorts after every one
+     * that was. It is not evidence of a value that appears nowhere —
+     * that is a value with a spread of 1 — and promoting an unknown
+     * would put the least-established rows first.
+     *
+     * @param array $a
+     * @param array $b
+     * @return int
+     */
+    private static function compareSpecificity(array $a, array $b)
+    {
+        $aKnown = $a['spread'] !== null;
+        $bKnown = $b['spread'] !== null;
+        if ($aKnown !== $bKnown) {
+            return $aKnown ? -1 : 1;
+        }
+        if (!$aKnown) {
+            return 0;
+        }
+        $left = count($a['events']) * (int)$b['spread'];
+        $right = count($b['events']) * (int)$a['spread'];
+        if ($left === $right) {
+            return 0;
+        }
+        return $left > $right ? -1 : 1;
+    }
+
     private static function emptyGroup($value)
     {
         return array(
@@ -446,6 +556,14 @@ class ValueRelationTool
             'occurrences' => 0,
             'warninglists' => array(),
             'warninglist_read' => false,
+            /*
+             * How many events this neighbour appears in instance-wide,
+             * as this viewer may see them. Null until the lookup says
+             * otherwise, and null is not zero: a neighbour whose spread
+             * was never read must not render as a value that appears
+             * nowhere.
+             */
+            'spread' => null,
         );
     }
 
@@ -505,6 +623,13 @@ class ValueRelationTool
                  * not have to be told apart here.
                  */
                 'warninglists' => $group['warninglists'],
+                /*
+                 * The denominator the row prints beside its shared
+                 * count. Null renders no cell rather than a zero, which
+                 * is the difference between *"we did not read this"*
+                 * and *"this value is nowhere else"*.
+                 */
+                'spread' => $group['spread'],
                 'tokens' => self::groupTokens($group, $orgs, $ourObjects),
             );
         }
@@ -798,6 +923,17 @@ class ValueRelationTool
         $listsChecked = isset($context['warninglists_checked'])
             ? (int)$context['warninglists_checked']
             : 0;
+        /*
+         * How many objects each sibling value sits in instance-wide,
+         * from the caller because this class issues no lookups. Read
+         * over the join's raw rows rather than over this fold's output:
+         * the cut to `row_cap` happens below, and a denominator that
+         * arrived afterwards could only reorder the rows that had
+         * already won.
+         */
+        $sibPrevalence = isset($context['prevalence'])
+            ? (array)$context['prevalence']
+            : array();
         $triples = array();
         $objects = array();
         $templates = array();
@@ -932,6 +1068,18 @@ class ValueRelationTool
                     ? $onLists[$triple['value']]
                     : array(),
                 'warninglist_read' => false,
+                /*
+                 * Objects, matching the `objects` count above it. The
+                 * values table divides events by events; here the row's
+                 * own number is objects, and a fraction in the other
+                 * unit would not describe the column beside it.
+                 */
+                'spread' => isset($sibPrevalence[$triple['value']])
+                    ? max(
+                        (int)$sibPrevalence[$triple['value']],
+                        $held
+                    )
+                    : null,
             );
         }
         /*
@@ -967,9 +1115,62 @@ class ValueRelationTool
          * Nothing is hidden by it: the descriptive rows keep their
          * order and their page, they just stop being page one.
          */
-        usort($out, function ($a, $b) {
+        /*
+         * **And specificity inside each of those two blocks, where the
+         * spread was read.** Object count alone opens `8.8.8.8`'s
+         * linking rows on `paloalto-threat-event · dst · 0.0.0.0` — 5
+         * of the value's objects, and 32,922 objects across the
+         * instance. It outranks `domain-ip · domain · google.com` on
+         * four because the count cannot see the difference between a
+         * value that means something here and a placeholder that means
+         * nothing anywhere. Dividing moves the three real DNS pivots to
+         * the top of the block and `0.0.0.0` to the bottom of it.
+         *
+         * **Inside the split and never across it.** The least-prevalent
+         * rows on a sibling table are bookkeeping — `8.8.8.8`'s are six
+         * `time_first`/`time_last` stamps, two passive-DNS record
+         * counts and two `origin` names, each in exactly one object and
+         * each scoring a perfect 1.0. Sorting across the split would
+         * hand them page one and undo what the linking-first order was
+         * for.
+         *
+         * **This divides outright where `compareSpecificity` only
+         * breaks ties, and the difference is deliberate.** The two
+         * tables face opposite hazards. The ranked table folds
+         * thousands of one-event neighbours — 9,458 of `8.8.8.8`'s
+         * 9,520 — so any key that lets a rare neighbour overtake a
+         * frequent one fills its page one with `2 of its 2` noise, and
+         * it was measured doing exactly that. This table has already
+         * had its one-object noise moved to the block below by the
+         * kind split, so what is left in the linking block is a handful
+         * of genuine pivot fields and dividing has nothing bad to
+         * promote — while it is the only key that catches a
+         * placeholder holding the block's highest object count.
+         */
+        $sibRank = function (array $row) {
+            if ($row['spread'] === null || (int)$row['spread'] < 1) {
+                return null;
+            }
+            return array(
+                (int)$row['objects'] * (int)$row['objects'],
+                (int)$row['spread'],
+            );
+        };
+        usort($out, function ($a, $b) use ($sibRank) {
             if ($a['kind'] !== $b['kind']) {
                 return $a['kind'] === ValueFieldKind::LINKING ? -1 : 1;
+            }
+            $aKey = $sibRank($a);
+            $bKey = $sibRank($b);
+            if (($aKey === null) !== ($bKey === null)) {
+                return $aKey === null ? 1 : -1;
+            }
+            if ($aKey !== null) {
+                $left = $aKey[0] * $bKey[1];
+                $right = $bKey[0] * $aKey[1];
+                if ($left !== $right) {
+                    return $left > $right ? -1 : 1;
+                }
             }
             if ($a['objects'] !== $b['objects']) {
                 return $b['objects'] - $a['objects'];
@@ -1008,11 +1209,18 @@ class ValueRelationTool
             /*
              * Counted over every triple, not the hundred carried, which
              * is the same bargain the rest of this section's counts
-             * strike. **The order is untouched** — linking fields still
-             * come first and object count still breaks the tie.
+             * strike. Linking fields still come first; what breaks the
+             * tie inside each block is now specificity, and object
+             * count behind it.
              */
             'warninglists_checked' => $listsChecked,
             'warninglists_listed' => $listedRows,
+            /*
+             * Whether any sibling value's spread was read, on the same
+             * reasoning as the ranked table's flag: without it the
+             * column would print a page of empty cells.
+             */
+            'spread_read' => !empty($sibPrevalence),
             'total' => $triples,
             'raw' => count($rows),
             'objects' => count($objects),

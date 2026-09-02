@@ -171,7 +171,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 4;
+    const CACHE_SHAPE = 5;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1934,6 +1934,16 @@ class ValueProfile extends AppModel
             'warninglists_checked' => isset($scan['warninglists_checked'])
                 ? $scan['warninglists_checked']
                 : 0,
+            /*
+             * Also read over the whole scan, and for a stronger reason
+             * than the facet's: this is what the **Most specific** rank
+             * divides by, and the rank decides which neighbours reach
+             * the cut. A denominator covering only the carried hundred
+             * would rank a page instead of a fold.
+             */
+            'prevalence' => isset($scan['prevalence'])
+                ? $scan['prevalence']
+                : array(),
         ));
         $co['siblings'] = $scan['siblings'];
         $co['dated'] = $scan['dated'];
@@ -2238,8 +2248,52 @@ class ValueProfile extends AppModel
             'warninglists_checked' => ValueWarninglistTool::enabledCount(
                 $warninglistModel
             ),
+            /*
+             * The **Most specific** rank's denominator, held with the
+             * rows it describes for the same reason the warninglist
+             * verdicts are: it is a lookup over the whole fold, it does
+             * not change between narrowings of that fold, and the panel
+             * already prints how old this scan is. 775 ms over
+             * `8.8.8.8`'s 9,520 neighbours and 361 ms over `443`'s 758
+             * sibling values — worth paying once a scan rather than on
+             * every re-rank of it.
+             *
+             * Two maps because the two tables count different things.
+             * The values table's rows are events, so a neighbour's
+             * spread is events; the sibling table's rows are objects
+             * and its visible count is objects, so a fraction in events
+             * would not match the column beside it.
+             */
+            'prevalence' => $valueModel->prevalenceFor(
+                $user,
+                $this->neighbourValues($rows),
+                $options
+            ),
         );
     }
+
+    /**
+     * The neighbour value strings a prevalence lookup needs, deduped.
+     *
+     * Keyed exactly as `ValueRelationTool::cooccurrence` keys its
+     * groups — on `Attribute.value` — so the map it hands back can be
+     * read straight off the row without a second interpretation of
+     * what a value is.
+     *
+     * @param array $rows Neighbour rows
+     * @return array Value strings
+     */
+    private function neighbourValues(array $rows)
+    {
+        $values = array();
+        foreach ($rows as $row) {
+            if (!empty($row['Attribute']['value'])) {
+                $values[$row['Attribute']['value']] = true;
+            }
+        }
+        return array_keys($values);
+    }
+
 
     /**
      * How many attributes each candidate event holds.
@@ -2479,6 +2533,26 @@ class ValueProfile extends AppModel
             ),
             'warninglists_checked' => ValueWarninglistTool::enabledCount(
                 $warninglistModel
+            ),
+            /*
+             * Counted in objects, and read from these raw rows rather
+             * than from the fold's output: `siblings` ranks and then
+             * cuts to `row_cap`, so a denominator arriving after the
+             * fold could only re-order the hundred rows that already
+             * won — which is the re-rank-a-page contract the tab
+             * refuses to take on.
+             *
+             * Objects rather than events because the sibling row's own
+             * count is objects. `paloalto-threat-event · dst ·
+             * 0.0.0.0` sits in 5 of `8.8.8.8`'s objects and in 32,922
+             * across the instance; that ratio is what moves it off
+             * page one, and it has to be the same unit as the number
+             * printed beside it.
+             */
+            'prevalence' => $valueModel->prevalenceFor(
+                $user,
+                $this->neighbourValues($rows),
+                array_merge($options, array('unit' => 'object'))
             ),
         );
         return array(
