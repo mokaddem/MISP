@@ -142,15 +142,38 @@ for ($i = 0; $i < $TICKS; $i++) {
  */
 $hasMoment = false;
 $hasSpan = false;
+/*
+ * And whether any two spans in one lane cover the same instant, which
+ * the stylesheet now draws as a deeper patch rather than as a
+ * by-product of stacking translucent bars. A drawn claim the reader
+ * has no key for is the thing this strip's own comments refuse
+ * elsewhere, so the legend says it — and says it only when it is true,
+ * because *darker where they overlap* under a strip with no overlap in
+ * it sends a reader hunting for one.
+ *
+ * Measured in viewBox units and through `$xFor`, not on the raw
+ * timestamps: two spans a minute apart on a four-year axis are the
+ * same pixels, so what counts as overlapping is what the eye is
+ * actually shown.
+ */
+$hasOverlap = false;
 foreach ($stripLanes as $lane) {
+    $drawn = array();
     foreach ($lane['entries'] as $entry) {
-        if ($xFor((int)$entry['to']) - $xFor((int)$entry['from'])
-            < $MOMENT_W
-        ) {
+        $x = $xFor((int)$entry['from']);
+        $end = $xFor((int)$entry['to']);
+        if ($end - $x < $MOMENT_W) {
             $hasMoment = true;
-        } else {
-            $hasSpan = true;
+            continue;
         }
+        $hasSpan = true;
+        foreach ($drawn as $seen) {
+            if ($x < $seen[1] && $seen[0] < $end) {
+                $hasOverlap = true;
+                break;
+            }
+        }
+        $drawn[] = array($x, $end);
     }
 }
 ?>
@@ -297,8 +320,9 @@ $stripWide = $stripLaneMono;
 
     </div>
 
-    <?php if ($hasMoment): ?>
+    <?php if ($hasMoment || $hasOverlap): ?>
         <div class="vp-strip-legend">
+            <?php if ($hasMoment): ?>
             <span class="vp-tl-key">
                 <svg class="vp-strip-swatch" viewBox="0 0 14 14"
                      aria-hidden="true">
@@ -308,6 +332,7 @@ $stripWide = $stripLaneMono;
                 </svg>
                 <?= h(__('one instant, or too short to draw')) ?>
             </span>
+            <?php endif; ?>
             <?php if ($hasSpan): ?>
                 <span class="vp-tl-key">
                     <svg class="vp-strip-swatch" viewBox="0 0 14 14"
@@ -317,6 +342,31 @@ $stripWide = $stripLaneMono;
                               style="--vp-tl-hue: <?= h($stripHue) ?>;"></rect>
                     </svg>
                     <?= h(__('a span, drawn to scale')) ?>
+                </span>
+            <?php endif; ?>
+            <?php if ($hasOverlap): ?>
+                <span class="vp-tl-key">
+                    <?php
+                    /*
+                     * Two spans in the swatch and not one, because the
+                     * key has to *be* the thing it names: the right
+                     * half is the same paint laid twice and comes out
+                     * deeper on its own, through the same rule the
+                     * lanes use. A swatch with a hand-picked darker
+                     * fill would be a drawing of the claim rather than
+                     * the claim.
+                     */
+                    ?>
+                    <svg class="vp-strip-swatch vp-strip-swatch-stack"
+                         viewBox="0 0 14 14" aria-hidden="true">
+                        <rect class="vp-lane-span" x="0" y="4" width="14"
+                              height="6" rx="3"
+                              style="--vp-tl-hue: <?= h($stripHue) ?>;"></rect>
+                        <rect class="vp-lane-span" x="7" y="4" width="7"
+                              height="6" rx="3"
+                              style="--vp-tl-hue: <?= h($stripHue) ?>;"></rect>
+                    </svg>
+                    <?= h(__('deeper where spans cover the same dates')) ?>
                 </span>
             <?php endif; ?>
         </div>

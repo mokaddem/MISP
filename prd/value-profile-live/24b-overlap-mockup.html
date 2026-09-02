@@ -459,17 +459,39 @@ h2 {
  * end. `isolation` keeps the blend inside the lane instead of letting
  * it reach the card.
  */
-.v-b .vp-lane-svg { isolation: isolate; }
+.v-b .vp-lane-svg,
+.v-b25 .vp-lane-svg,
+.v-b40 .vp-lane-svg,
+.v-b55 .vp-lane-svg { isolation: isolate; }
 
-.v-b .vp-lane-span {
+.v-b .vp-lane-span,
+.v-b25 .vp-lane-span,
+.v-b40 .vp-lane-span,
+.v-b55 .vp-lane-span {
     opacity: 1;
-    fill: color-mix(in srgb, var(--vp-tl-hue) 22%, transparent);
+    fill: color-mix(in srgb, var(--vp-tl-hue) var(--b-alpha),
+        transparent);
     mix-blend-mode: multiply;
 }
 
-[data-bs-theme="dark"] .v-b .vp-lane-span {
+[data-bs-theme="dark"] .v-b .vp-lane-span,
+[data-bs-theme="dark"] .v-b25 .vp-lane-span,
+[data-bs-theme="dark"] .v-b40 .vp-lane-span,
+[data-bs-theme="dark"] .v-b55 .vp-lane-span {
     mix-blend-mode: screen;
 }
+
+/*
+ * The one free parameter in B, swept. `isolation` makes the group's
+ * backdrop transparent, and multiply against a transparent backdrop is
+ * the source — so **depth one is plain source-over at this alpha in
+ * every case**, and at 55% it is pixel-identical to what ships. The
+ * sweep is therefore only asking how the *overlaps* should be spent.
+ */
+.v-b { --b-alpha: 22%; }
+.v-b25 { --b-alpha: 25%; }
+.v-b40 { --b-alpha: 40%; }
+.v-b55 { --b-alpha: 55%; }
 
 /*
  * A moment is fully opaque in all three, because it is not a duration
@@ -517,16 +539,32 @@ h2 {
         50-span lane it draws a real gradient — light where two
         relations overlap, dark where a dozen do. Multiply is
         geometric, so it never arrives anywhere and never runs out.</li>
-        <li><b>The trade is depth-one weight against range.</b> Any
-        paint that keeps range has to start lighter, and B's single
-        span is visibly fainter than today's. The fill percentage is
-        the dial: 22% is tuned for the ruler, and a five-row panel may
-        want more. Its far end is the mirror problem — near-black on
-        the light ground, near-white on the dark.</li>
-        <li><b>Whatever wins, the legend owes the reader a line.</b>
-        Today nothing on the panel says darker means deeper, so the
-        one fact this paint carries is undocumented. That is a
-        sentence, not a colour, and it is needed under all three.</li>
+        <li><b>The trade is depth-one weight against range</b>, and
+        the sweep below settles it. Because <code>isolation</code>
+        makes the group's backdrop transparent, multiply against it is
+        plain source-over — so <em>depth one is always just this alpha
+        over the card</em>, and at 55% it is pixel-identical to the
+        old paint. But 55% only stretches the readable range from
+        three to about four, which is most of the point thrown away;
+        22% runs past a dozen and leaves a lone span washed out, and a
+        lone span is the common case, since the value grouping caps a
+        lane at a page of rows and most hold one.</li>
+        <li><b>Shipped: B at 40%.</b> A lone span keeps close to its
+        old weight, depth separates to about five, and the 50-span
+        lane still locates its dense core. Scoped to
+        <code>.vp-strip</code> and not to <code>.vp-lane-span</code>
+        at large: the Timeline tab draws the same class but its lanes
+        carry several sources at once, each with its own hue, and
+        multiplying two hues invents a third that belongs to neither
+        source. Every span in this strip takes one hue from its
+        caller, so here the blend can only darken.</li>
+        <li><b>The legend owes the reader a line</b>, and now has
+        one: <em>deeper where spans cover the same dates</em>, with a
+        swatch that stacks two spans through the same rule the lanes
+        use rather than hand-picking a darker fill. It renders only
+        where an overlap is actually drawn — measured in viewBox units
+        through <code>xFor</code>, because two spans a minute apart on
+        a four-year axis are the same pixels.</li>
         <li><b>Checked in Chrome only.</b> A's
         <code>non-scaling-stroke</code> and B's
         <code>mix-blend-mode</code> inside SVG both want a look in
@@ -854,13 +892,40 @@ var VARIANTS = [
     },
 ];
 
+/*
+ * B is chosen; this is the sweep that settles its alpha. Added after
+ * the decision, which is why it sits beside the original three rather
+ * than replacing them — the baseline has to stay visible to judge the
+ * 55% claim against.
+ */
+var SWEEP = [
+    {
+        cls: 'v-b25', tag: 'B · 25%', name: 'Multiply, 25% fill',
+        why: 'The longest ramp — separable past a dozen — bought by'
+            + ' making a lone span noticeably fainter than today.',
+    },
+    {
+        cls: 'v-b40', tag: 'B · 40%', name: 'Multiply, 40% fill',
+        why: 'The middle. A lone span is a little lighter than today;'
+            + ' depth stays separable to roughly ten.',
+    },
+    {
+        cls: 'v-b55', tag: 'B · 55%', name: 'Multiply, 55% fill',
+        why: 'A lone span is <b>pixel-identical to what ships</b>,'
+            + ' because multiply against the isolated group\'s'
+            + ' transparent backdrop is plain source-over. Only'
+            + ' overlaps change — no regression on the common case, at'
+            + ' the price of reaching the dark end by about six.',
+    },
+];
+
 var CASES = [caseFew, caseMany, caseRuler];
 
 var shown = 'all';
 
 function draw() {
     var out = '';
-    VARIANTS.forEach(function (v) {
+    VARIANTS.concat(SWEEP).forEach(function (v) {
         out += '<section class="variant ' + v.cls + '">';
         out += '<div class="variant-head"><span class="variant-tag">'
             + v.tag + '</span><h2>' + v.name + '</h2></div>';

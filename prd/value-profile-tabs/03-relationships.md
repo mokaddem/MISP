@@ -1779,6 +1779,17 @@ vocabulary of its own.
 > a number of its own, so the strip names a lane exactly when the table
 > is showing every row it has.
 
+> Amended 2026-09-02 (`24b-relationships.md` §9.2): a fourth decision
+> the data forced, once per-value lanes put two spans in one lane.
+> Overlap used to be alpha compositing rather than a claim, and
+> source-over asymptotes on the hue — depths 4 through 14 were the
+> same pixel. The strip's spans now blend `multiply` (`screen` on the
+> dark ground) at 40% of the hue, which is geometric and so keeps
+> separating, and the legend names the effect wherever one is drawn.
+> Scoped to `.vp-strip`: this tab's lanes are one hue, the Timeline's
+> are one hue *per source*, and multiplying two of those invents a
+> third that names neither.
+
 **A span too short to draw is drawn as a moment.** This one came out of
 the render. All five of `draculax.myq-see.com.`'s resolutions lasted an
 instant or thirteen minutes; over a four-year axis all five are two

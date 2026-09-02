@@ -1604,6 +1604,74 @@ moment/span legend present, no note, and the same accessible name as
 before. Only whitespace inside the chip moved, which an inline-flex
 container ignores.
 
+### 9.2 The overlap paint — shipped 2026-09-02
+
+Per-value lanes put two spans in one lane for the first time, and
+`8.8.8.8`'s `dns.google` — held from 2019 by `passive-dns` and again
+from 2024 by `domain-ip` — was the first strip on the tab to draw an
+overlap. It showed up as a darker patch, which was **alpha
+compositing rather than a decision**, and the arithmetic behind it
+turned out to be worse than it looked.
+
+**Source-over cannot report depth.** Stacking `opacity: .55` is
+affine: each layer moves the shade a fixed fraction of the way to the
+hue and then there is nowhere left to go, so it asymptotes *on the
+hue*. Measured on a bench built for the question
+(`24b-overlap-mockup.html` — frozen geometry, seeded data, a ruler
+stacking a known depth of 1 to 6 and a swatch ramp out to 14, in both
+grounds): **depths 4, 5, 6, 8, 10 and 14 are the same pixel.** A
+50-span lane was one flat bar that could not say *where* the activity
+was.
+
+**Multiply is geometric** — each layer scales the result rather than
+nudging it toward a fixed point — so the ramp never arrives and never
+runs out. `screen` is the mirror on the dark ground, where the hue is
+the light end and an overlap correctly reads *brighter*.
+
+**40% of the hue, and the bench chose the number.** Because
+`isolation: isolate` fixes the group's backdrop as transparent,
+multiply against it *is* source-over — so a lone span is always just
+that alpha over the card. At 55% a lone span is therefore
+pixel-identical to the old paint, but the readable range only goes
+from three to about four, which throws away the point. At 22% the
+ramp runs past a dozen and a lone span reads washed out — and a lone
+span is the common case, because the value grouping caps a lane at a
+page of rows and most hold one. 40% keeps a lone span near its old
+weight and separates to about five.
+
+**The alpha moves from `opacity` into the `fill`.** Element opacity
+would make each rect its own group at 0.55 and multiply *that*,
+putting the effective fill back at 22% — the washed-out end of the
+sweep, arrived at by accident.
+
+**Scoped to `.vp-strip`, and this one is not caution.** The Timeline
+tab draws `.vp-lane-span` too, and its span lanes carry several
+sources at once, each with its own `--vp-tl-hue` — there the hue *is*
+the source's identity. Multiplying two hues invents a third colour
+belonging to neither source, which would be a lane lying about who
+reported what. Every span in this strip takes one `$stripHue` from
+its caller, so here the blend can only darken. The cost is a lone
+span slightly lighter here than on the Timeline; the mark still means
+the same thing, which is what §26.1 of `03-relationships.md` actually
+asks of the shared stylesheet.
+
+**The claim is now in the legend**, because a drawn claim with no key
+is what this strip's own comments refuse elsewhere: *"deeper where
+spans cover the same dates"*, with a swatch that stacks two spans
+through the same rule the lanes use rather than hand-picking a darker
+fill. It renders **only where an overlap is actually drawn**, measured
+in viewBox units through `$xFor` — two spans a minute apart on a
+four-year axis are the same pixels, so what counts as overlapping is
+what the eye is shown. Verified live: the key appears on `8.8.8.8`
+and `github.com` and is **absent on `draculax.myq-see.com.`**, whose
+five relations are all moments.
+
+**The narrowing still dims.** `.vp-lane-span-off`'s `opacity: 0.1`
+matches the new rule at equal specificity and won only by sitting
+later in the file, so it is restated at three classes — read back as
+`0.1` on 25 dimmed spans on `github.com`. Checked in Chrome only;
+`mix-blend-mode` inside SVG wants a Firefox look.
+
 ## 10. B8 — Named threats in this neighbourhood — **grilling session first, frontend-design for the card**
 
 **Why.** Nothing on the tab answers *"what campaign, actor or malware
