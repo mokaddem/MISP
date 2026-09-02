@@ -12,6 +12,18 @@ The Verdict tab's live wiring is **blocked** on it. See
 the tab phases used — questions first, decisions recorded, then a specification.
 Nothing in this file is a decision.
 
+**Started 2026-09-02.** The engine's configuration object is being designed
+first, because §2's second question — *whose* preferences weight a signal — is
+upstream of the other two. The questions-first half is
+[`analyst-profile/00-discovery.md`](analyst-profile/00-discovery.md); its §3
+carries this file's §3 forward against the fixture line by line, and its §10 is
+the grilling agenda. Three of the open entries below are restated there as
+questions and will be decided in that document, not this one: §3.7's weight-band
+contradiction is Q5, §4's *what a `known`-category hit means* is Q6, and §4's
+*which opinions count* is Q11. §4's two unexercised decay formulas and the
+opinion-colour contradiction stay here — they are engine work, not
+configuration.
+
 ---
 
 ## 1. Why the Verdict tab cannot be wired with the others
