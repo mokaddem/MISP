@@ -1961,3 +1961,43 @@ because it is asking *should this attribute have been exported*. The
 question here is *is this value known-benign infrastructure* — a
 property of the value, not of one occurrence's export flag, and a
 co-occurrence row folds many occurrences that need not agree on it.
+
+### 28.1 Three tables, and the three that were left alone
+
+Six sections and three of them list a value you can pivot to. All three
+are marked: the ranked values, **the object siblings** — where B4 had
+just put the linking fields first, so a pivot onto a public resolver is
+exactly the one worth flagging before it is taken — and **the dated
+relations**, where the far value is a resolution and a history
+resolving to `8.8.8.8` is a real resolution and still its least
+interesting row.
+
+The three that are not marked are a decision and not an omission.
+**Asserted claims and object references are authored**: somebody wrote
+that edge down on purpose, and de-emphasising a value a person chose to
+link is a different claim from de-emphasising one a frequency count
+surfaced. **Near-matches are left for later** because a CIDR near-match
+and a CIDR warninglist are the same kind of claim, and marking one with
+the other may be restating it rather than adding a signal — that wants
+deciding before it is built. The Occurrences, Timeline and History tabs
+are all the same value, so the frame's chip is where that belongs;
+repeating it down a column would say one fact many times.
+
+The two object-scoped tables need **their own warninglist read**, not
+the ranked table's. That fold probes the attributes of the events the
+scan read; these probe the attributes of the objects the value sits in,
+and an object survives an event the scan skipped for being oversized —
+which is the whole reason the sibling table renders under a suppressed
+band. So a sibling value need not appear in the other probe set at all.
+The two reads share nothing but the Redis cache underneath them, which
+is keyed on `(type, value)` and therefore makes every value they have
+in common free the second time.
+
+Each of the three tables carries its own switch, and they do not
+promise the same thing. The ranked table's re-ranks the whole fold and
+comes back with a fresh hundred; the other two have no narrowing
+endpoint behind them, so theirs filter the rows already on the page.
+The sibling note says which — *"which narrows the rows this table
+carries, not the fold behind them"* — because a control that quietly
+reaches less than the count beside it is the one thing this tab's bars
+already promise not to be.

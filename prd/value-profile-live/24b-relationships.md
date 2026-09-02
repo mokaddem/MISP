@@ -37,7 +37,7 @@ live instance and recorded in its own section below.
 | B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | **done** |
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | **done** |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | **done** |
-| B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | **done** |
+| B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence`, `value_relation_dated` | M | no | no | **done** |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence` | M | **yes** | no | todo |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | todo |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | todo |
@@ -638,6 +638,10 @@ a small badge; the badge's tooltip names the list(s). A facet or
 toggle cuts listed rows. **Ranking is unchanged** — that is B6's job —
 this task only makes benign-ness visible.
 
+Extended after the fact to the two other tables on this tab that carry
+a value a reader can pivot to — the object siblings and the dated
+relations — and deliberately not to the human-authored sections. §7.2.
+
 **How.** The Redis-backed check the event view already uses on the
 Warninglist model. Check the carried page (≤100 rows), not the 10,040
 fold — and say so: either the facet count is page-local and its label
@@ -807,6 +811,107 @@ is matched, and the lookup finds nothing. So comments surface for
 `string`, `substring`, `hostname` and `regex` lists and never for `cidr`
 ones. Core's own event-view popover has the same hole. Nothing here
 works around it — the line is simply absent where core cannot supply it.
+
+### 7.2 The other two tables that carry a far value — 2026-09-02
+
+Reading B5 back raised the obvious question: the marking applies to the
+ranked table's values and to nothing else on the tab. Three of the six
+sections list a value a reader can pivot to, and only one of them said
+anything about whether MISP already knows it to be benign.
+
+**Extended to the sibling table and the dated relations. Not to the
+rest**, and the exclusions are the interesting half:
+
+| Section | Marked? | Why |
+|---|---|---|
+| ranked values | yes | B5 |
+| object siblings | **yes** | the same reading, in the same panel — and B4 had just reordered this table to *lead with the fields you can pivot on*, so a pivot onto a public resolver is precisely the one worth marking before it is taken |
+| dated relations | **yes** | the far value is a resolution; a history resolving to `8.8.8.8` is a real resolution and still the least interesting row in it |
+| near-match | no | a CIDR near-match and a CIDR warninglist are the *same kind of claim*. Marking one with the other may be saying a thing twice rather than adding a signal, and that needs deciding before it is built |
+| asserted claims | **deliberately not** | somebody wrote those edges down on purpose. De-emphasising a value a human chose to link is a different claim from de-emphasising one a frequency count surfaced |
+| references | **deliberately not** | same argument: an object reference is authored |
+| the value's own occurrences, timeline, history | n/a | all the same value, so the frame's chip is the place for it. Per-row would repeat one fact down a column |
+
+**A second lookup, and it cannot be the first one.** The sibling and
+dated folds share `objectSections`' rows, which are the attributes of
+the *objects* this value sits in — not the attributes of the *events*
+the co-occurrence scan read. An object survives an event the scan
+skipped for being oversized, which is the whole reason the sibling table
+renders under a suppressed band, so a sibling value need not appear in
+the other probe set at all. `objectSections` therefore runs its own
+`ValueWarninglistTool::hitsFor` over its own rows and passes the map
+into the one context both folds already share.
+
+It costs one more query — `assignComments` again, and only where
+something matched. Cold `viewRelationCooccurrence` goes 18 → **19**;
+warm stays **3**. The per-value work on the overlap is nearly free:
+`attachWarninglistToAttributes` keys its Redis cache on `(type, value)`,
+so every value the two reads share is a hit the second time.
+
+**One switch per table, and each says what it reaches.** Neither of
+these bars has a narrowing endpoint — the sibling section's
+`[data-vp-list]` carries no `data-vp-narrow-url` and neither does the
+dated panel's — so `narrowingIsLocal` keeps both in the page. That is a
+different promise from the ranked table's switch, which re-ranks the
+whole fold and comes back with a fresh hundred, so the sibling note says
+so in as many words: *"which narrows the rows this table carries, not
+the fold behind them."* Verified in Chromium with `reloadAjaxTabIndex`
+stubbed to catch any request: **none was made** by either.
+
+    sibling switch   36 rows → 35, the one dimmed row gone, filters 1
+    dated switch     2 rows → 0 — both are listed on `dns.google`
+
+The dated case is worth keeping: a switch that can empty its own table
+is fine here because the panel already owns that state, and it renders
+*"No dated relation survives that narrowing. The strip above dims the
+spans it removed rather than redrawing without them."* Checked, rather
+than assumed: the empty host is shown and the row host hidden.
+
+**One mark, three tables.** The chip moved out of a closure in
+`value_relation_cooccurrence` into `value_warninglist_mark`, because
+the dated panel is a different template and one mark drawn twice is two
+things to keep in step. It is written as pure PHP with no literal text
+outside the tags and no closing `?>`, so it adds no whitespace to the
+rows it sits in, and every caller guards the call rather than relying
+on its early return — an unlisted row costs no element render.
+
+#### Verified
+
+`8.8.8.8`: 36 siblings, one listed — `0.0.0.0` on the RFC 5735 list,
+dimmed with its chip, a `Warninglist 1` dropdown in the sibling bar and
+the switch beside it. `dns.google`: both dated rows resolve to `8.8.8.8`
+and both are marked, with the facet group carrying its own note —
+*"2 of the rows below resolve to a value on a warninglist. They are
+dimmed, not removed."* Both themes driven at 1340px with the fragment's
+own JS live (36 rows in the DOM, 8 shown).
+
+**Byte-identical where nothing is listed, diffed against the B5 commit**
+so that only this change is in the comparison. Two cases, because
+*absent* and *inert* are not the same claim:
+
+| Value | Case | Result |
+|---|---|---|
+| `03634e2eab…` | no siblings, no dated rows | identical, both templates |
+| `5db53f33d2…` | **five sibling rows, none listed** | identical, 252,517 bytes |
+
+The second is the one that matters: it proves the sibling path renders
+nothing rather than merely having nothing to render. Both facet groups
+are appended to their template's group array rather than declared in it,
+for the reason §7.1 records — a render loop prints a group's
+indentation on the passes that `continue` past an empty one.
+
+**A grammar bug caught in the screenshot, not in the markup.** The
+sibling note read *"One sibling value of them are on a warninglist"* on
+the singular. The count and the verb are now in one `__n` call, the way
+the `$sibUnreached` sentence beside it already does it.
+
+**§14.12's board has no row for `viewRelationDated` at all** — nor for
+`viewRelationReferences`, nor for the Relationships tab's own
+`viewRelationExternal`. Three endpoints phase 24 built and the board
+never recorded, found while looking for the row this change should
+update. `viewRelationDated` is measured here and filled in; the other
+two are named in the board so the gap is visible rather than silent,
+and stay blank because nothing has measured them.
 
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 

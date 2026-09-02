@@ -39,6 +39,34 @@ class ValueWlCountShell extends AppShell
         // Warm: the scan comes back from Redis with the check in it.
         $this->measure('scan from redis', $user, $value, array());
         $this->lookupOnly($user, $value);
+        $this->dated($user, $value);
+    }
+
+    /**
+     * `viewRelationDated`, which §14.12's board has no row for at all.
+     * It folds the scan the co-occurrence endpoint reads, so cold means
+     * *this endpoint missed the cache first*, not *it costs this on top
+     * of the other*.
+     */
+    private function dated(array $user, $value)
+    {
+        foreach (array('fresh' => true, 'cached' => false) as $kind => $f) {
+            $db = ConnectionManager::getDataSource('default');
+            $db->fullDebug = true;
+            $before = count($db->getLog(false, false)['log']);
+            ClassRegistry::removeObject('ValueProfile');
+            $profile = ClassRegistry::init('ValueProfile');
+            $t = microtime(true);
+            $out = $profile->forRelationDated($user, $value,
+                $f ? array('fresh' => true) : array());
+            $ms = (microtime(true) - $t) * 1000;
+            $log = $db->getLog(false, false)['log'];
+            $d = $out['relationships']['dated'];
+            $this->out(sprintf(
+                'dated %-8s Q=%-3d %7.1f ms   rows %d listed %d',
+                $kind, count($log) - $before, $ms, count($d['rows']),
+                $d['warninglists_listed']));
+        }
     }
 
     /**

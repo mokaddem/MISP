@@ -495,7 +495,7 @@ account for.
 
 ### 14.12 The conversion board
 
-Twenty-seven endpoints, each rendering one element. This is the fine-grained
+Thirty endpoints, each rendering one element — twenty-seven until 2026-09-02, when three Relationships rows turned out to be missing rather than absent. This is the fine-grained
 record of the campaign: a live phase fills in its rows and nothing else claims
 to know which elements are still fixture-backed. Tab-level status lives in
 `value-profile-page.md` §1.4 — **§1.4 says whether, this table says what.**
@@ -523,9 +523,12 @@ document that filled it.
 | Sightings | `viewSightingDecay` | `value_sighting_decay` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
 | Sightings | `viewSightingReporters` | `value_sighting_reporters` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Sightings | `viewSightingAdd` | `value_sighting_add` | 1 | nothing | 2 | **23** |
-| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 18 cold, 3 warm | decorations, not the value's size | 1, four aggregates at 2 | **24**, Q by **24b** |
+| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 19 cold, 3 warm | decorations, not the value's size | 1, four aggregates at 2 | **24**, Q by **24b** |
 | Relationships | `viewRelationNearMatch` | `value_relation_near_match` | 3 | nothing | 1 | **24** |
 | Relationships | `viewRelationAsserted` | `value_relation_asserted` | 13 | **rows returned** — one fetch per claim | 1 | **24** |
+| Relationships | `viewRelationDated` | `value_relation_dated` | 14 cold, 0 warm | shares the co-occurrence scan | 1, four aggregates at 2 | **24**, row added by **24b** |
+| Relationships | `viewRelationReferences` | `value_relation_references` | — | — | — | **24**, never recorded |
+| Relationships | `viewRelationExternal` | `value_relation_external` | — | — | — | **24**, never recorded |
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
 | Relationships | `viewRelationSettings` | `value_relation_settings` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
@@ -534,7 +537,7 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Thirteen rows are filled; the rest are `—` because nothing else is wired. A row
+Fourteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
@@ -557,11 +560,31 @@ two paths**, and the row carried only the first. A cold request re-reads the
 scan; a warm one inflates it from Redis and re-folds, which is what a narrowing
 or a page turn does and therefore what the endpoint mostly does. Re-measured
 2026-09-02 by [`24b-warninglist-count.php`](24b-warninglist-count.php) while
-B5 added to it: 18 cold, 3 warm. **Exactly one of the eighteen is B5's** —
-`assignComments`, which `Warninglist::attachWarninglistToAttributes` issues
-whenever a probe matched; the check itself is Redis. Measured in isolation over
-the same 10,187 rows, twice in one process, `Q=1` both times. The other change
-from phase 24's 16 is not B5's and is not attributed here.
+B5 added to it: 19 cold, 3 warm. **Exactly two of the nineteen are B5's**, one
+per warninglist read — `assignComments`, which
+`Warninglist::attachWarninglistToAttributes` issues whenever a probe matched;
+the check itself is Redis. Measured in isolation over the same 10,187 rows,
+twice in one process, `Q=1` each time. There are two reads because the
+co-occurrence scan probes the attributes of the events it read and
+`objectSections` probes the attributes of the objects the value sits in, and an
+object survives an event the scan skipped (`24b-relationships.md` §7.2). The
+remaining change from phase 24's 16 is not B5's and is not attributed here.
+
+**Three Relationships rows were missing entirely** until 2026-09-02, found
+while looking for the row a change to `viewRelationDated` should update: phase
+24 built that endpoint, `viewRelationReferences` and the tab's own
+`viewRelationExternal`, and none of the three reached this table. The board's
+count sentence above was therefore one short of the endpoints that exist.
+`viewRelationDated` is measured and filled; the other two are listed blank, so
+the gap is visible rather than silent, and whoever next touches them fills them
+in — the same bargain `viewExternal` was under.
+
+`viewRelationDated`'s **cold `Q` of 14 is not additive**. It folds the scan
+`viewRelationCooccurrence` reads, so cold means *this endpoint missed the cache
+first*, not *it costs this on top of the other*; whichever of the two arrives
+first pays, and on a cold tab both fire at once. Warm it issues **no query at
+all**. Measured 2026-09-02 by
+[`24b-warninglist-count.php`](24b-warninglist-count.php) over `8.8.8.8`.
 
 `viewExternal`'s cells need two readings of their own. Its `Q` **ceiling of 4
 is reached by a hit and not by a large value**: two queries read the config

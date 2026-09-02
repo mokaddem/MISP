@@ -2436,6 +2436,31 @@ class ValueProfile extends AppModel
         $census = $this->objectCensus($user, $value, $options,
             count($objects));
         /*
+         * A second warninglist read, over this join's own rows.
+         *
+         * It cannot reuse the co-occurrence scan's: that one probes the
+         * attributes of the *events* the scan read, and these are the
+         * attributes of the *objects* the value sits in. An object can
+         * survive an event the scan skipped for being oversized — which
+         * is the whole reason the sibling table renders under a
+         * suppressed band — so a sibling value need not appear in the
+         * other probe set at all.
+         *
+         * What it costs is one query, `assignComments`, and only where
+         * something matched. The per-value work is nearly free on the
+         * overlap: `attachWarninglistToAttributes` keys its Redis cache
+         * on `(type, value)`, so every value both reads share is a
+         * cache hit the second time.
+         */
+        $warninglistModel = $this->model('Warninglist');
+        $probes = array();
+        foreach ($rows as $row) {
+            $probes[] = array(
+                'value' => $row['Attribute']['value'],
+                'type' => $row['Attribute']['type'],
+            );
+        }
+        /*
          * One context for both folds, because they read the same rows
          * against the same bounds and a second copy would be a second
          * place for the caps to drift apart.
@@ -2448,6 +2473,13 @@ class ValueProfile extends AppModel
             'cap' => self::SIBLING_OBJECT_CAP,
             'row_cap' => self::RELATION_ROW_CAP,
             'page_size' => self::RELATION_PAGE_SIZE,
+            'warninglists' => ValueWarninglistTool::hitsFor(
+                $warninglistModel,
+                $probes
+            ),
+            'warninglists_checked' => ValueWarninglistTool::enabledCount(
+                $warninglistModel
+            ),
         );
         return array(
             'siblings' => ValueRelationTool::siblings($rows, $context),

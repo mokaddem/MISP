@@ -724,6 +724,19 @@ class ValueRelationTool
         $ours = isset($context['relations'])
             ? $context['relations']
             : array();
+        /*
+         * Which sibling values MISP already knows to be benign, read
+         * over this join's own rows by the caller. A sibling is a value
+         * the reader may pivot to and the table now leads with the
+         * fields you *can* pivot on, so a pivot onto a public resolver
+         * is exactly the one worth marking before it is taken.
+         */
+        $onLists = isset($context['warninglists'])
+            ? (array)$context['warninglists']
+            : array();
+        $listsChecked = isset($context['warninglists_checked'])
+            ? (int)$context['warninglists_checked']
+            : 0;
         $triples = array();
         $objects = array();
         $templates = array();
@@ -854,9 +867,31 @@ class ValueRelationTool
                     $vote[ValueFieldKind::LINKING],
                     $vote[ValueFieldKind::DESCRIPTIVE]
                 ),
+                'warninglists' => isset($onLists[$triple['value']])
+                    ? $onLists[$triple['value']]
+                    : array(),
+                'warninglist_read' => false,
             );
         }
+        /*
+         * The flag, and it is what keeps this inert where there is
+         * nothing to say — the same rule the ranked table follows.
+         * Without it every row on an instance with no enabled list
+         * would still carry a `sibwarninglist:_clear` token and the bar
+         * would still count an entry: markup that changes on a value
+         * whose finding is that there is no finding.
+         */
+        $listedRows = 0;
+        foreach ($out as $row) {
+            if (!empty($row['warninglists'])) {
+                $listedRows++;
+            }
+        }
         foreach ($out as $index => $row) {
+            if ($listedRows > 0) {
+                $out[$index]['warninglist_read'] = true;
+                $row['warninglist_read'] = true;
+            }
             $out[$index]['tokens'] = self::siblingRowTokens($row);
         }
         /*
@@ -909,6 +944,14 @@ class ValueRelationTool
             'facets' => $facets,
             'examples' => self::siblingExamples($out),
             'templates' => self::templateRollup($templates, $context),
+            /*
+             * Counted over every triple, not the hundred carried, which
+             * is the same bargain the rest of this section's counts
+             * strike. **The order is untouched** — linking fields still
+             * come first and object count still breaks the tie.
+             */
+            'warninglists_checked' => $listsChecked,
+            'warninglists_listed' => $listedRows,
             'total' => $triples,
             'raw' => count($rows),
             'objects' => count($objects),
@@ -1044,6 +1087,19 @@ class ValueRelationTool
     public static function dated(array $rows, array $context)
     {
         $orgs = isset($context['orgs']) ? $context['orgs'] : array();
+        /*
+         * Read by the caller over the same object-scoped rows the
+         * sibling fold uses, and shared with it through one context.
+         * A resolution to a public resolver is a real resolution and
+         * still the least interesting row in a history, which is the
+         * same reading the ranked table gives its own neighbours.
+         */
+        $onLists = isset($context['warninglists'])
+            ? (array)$context['warninglists']
+            : array();
+        $listsChecked = isset($context['warninglists_checked'])
+            ? (int)$context['warninglists_checked']
+            : 0;
         $objects = array();
         foreach ($rows as $row) {
             $attribute = $row['Attribute'];
@@ -1123,6 +1179,10 @@ class ValueRelationTool
                     'origin' => $object['origin'],
                     'first' => $first,
                     'last' => $last,
+                    'warninglists' => isset($onLists[$far['value']])
+                        ? $onLists[$far['value']]
+                        : array(),
+                    'warninglist_read' => false,
                 );
             }
         }
@@ -1164,8 +1224,25 @@ class ValueRelationTool
          * and the string a filter matches are produced by the same
          * line, so they cannot drift.
          */
+        /*
+         * Counted over the rows the table carries rather than over
+         * every row folded, because that is what this section's facets
+         * already count — the cut happened above and `datedFacets` runs
+         * after it. The flag keeps the whole dimension out of the
+         * markup where nothing is listed.
+         */
+        $listedRows = 0;
+        foreach ($out as $row) {
+            if (!empty($row['warninglists'])) {
+                $listedRows++;
+            }
+        }
         foreach ($out as $index => $row) {
             $out[$index]['key'] = $row['object_id'] . '-' . $index;
+            if ($listedRows > 0) {
+                $out[$index]['warninglist_read'] = true;
+                $row['warninglist_read'] = true;
+            }
             $out[$index]['tokens'] = self::datedTokens($row);
         }
         arsort($templates);
@@ -1184,6 +1261,8 @@ class ValueRelationTool
             'span' => self::datedSpan($out),
             'lanes' => self::datedLanes($out),
             'facets' => self::datedFacets($out),
+            'warninglists_checked' => $listsChecked,
+            'warninglists_listed' => $listedRows,
             'cap' => array(
                 'limit' => $limit,
                 'applied' => $limit > 0 && $inObjects > $limit,
@@ -1313,6 +1392,15 @@ class ValueRelationTool
             $tokens[] = 'datedorigin:'
                 . ValueStatsTool::facetToken($row['origin']);
         }
+        if (!empty($row['warninglist_read'])) {
+            if (empty($row['warninglists'])) {
+                $tokens[] = 'datedwarninglist:' . self::WARNINGLIST_CLEAR;
+            }
+            foreach ($row['warninglists'] as $list) {
+                $tokens[] = 'datedwarninglist:'
+                    . ValueStatsTool::facetToken($list['name']);
+            }
+        }
         return $tokens;
     }
 
@@ -1341,8 +1429,21 @@ class ValueRelationTool
             'datedobject' => array(),
             'datedorigin' => array(),
             'datedtype' => array(),
+            'datedwarninglist' => array(),
         );
         foreach ($rows as $row) {
+            /*
+             * One entry per list; the complement is the panel's switch,
+             * for the reason `facets()` gives.
+             */
+            foreach ($row['warninglists'] as $list) {
+                self::bump(
+                    $facets['datedwarninglist'],
+                    ValueStatsTool::facetToken($list['name']),
+                    $list['name'],
+                    array('category' => $list['category'])
+                );
+            }
             self::bump(
                 $facets['datedobject'],
                 ValueStatsTool::facetToken($row['object']),
@@ -1493,6 +1594,7 @@ class ValueRelationTool
             'sibrelation' => array(),
             'sibtype' => array(),
             'siborg' => array(),
+            'sibwarninglist' => array(),
         );
         $kinds = array(
             ValueFieldKind::LINKING => 0,
@@ -1522,6 +1624,21 @@ class ValueRelationTool
                     $facets['siborg'],
                     ValueStatsTool::facetToken($name),
                     $name
+                );
+            }
+            /*
+             * One entry per list, and not the complement — the panel's
+             * switch holds that. `facets()` one section up carries the
+             * argument: a counted group scales its bars to its largest
+             * entry, and *Not on any list* would flatten every list
+             * beside it.
+             */
+            foreach ($row['warninglists'] as $list) {
+                self::bump(
+                    $facets['sibwarninglist'],
+                    ValueStatsTool::facetToken($list['name']),
+                    $list['name'],
+                    array('category' => $list['category'])
                 );
             }
         }
@@ -1616,6 +1733,15 @@ class ValueRelationTool
             'sibtype:' . ValueStatsTool::facetToken($row['type']),
             'siblink:' . $row['kind'],
         );
+        if (!empty($row['warninglist_read'])) {
+            if (empty($row['warninglists'])) {
+                $tokens[] = 'sibwarninglist:' . self::WARNINGLIST_CLEAR;
+            }
+            foreach ($row['warninglists'] as $list) {
+                $tokens[] = 'sibwarninglist:'
+                    . ValueStatsTool::facetToken($list['name']);
+            }
+        }
         if ($row['relation'] !== '') {
             $tokens[] = 'sibrelation:'
                 . ValueStatsTool::facetToken($row['relation']);

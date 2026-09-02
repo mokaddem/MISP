@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueRelationTool', 'Tools');
 /**
  * Section five: the object joins that carry a pair of dates.
  *
@@ -141,6 +142,55 @@ $facetGroups = array(
         'icon' => 'fas fa-shapes',
     ),
 );
+
+/*
+ * A fourth group and a switch, where anything the history resolves to
+ * is one MISP already knows to be benign. A resolution to a public
+ * resolver is a real resolution and still the least interesting row
+ * here, which is the reading the ranked table gives its own
+ * neighbours.
+ *
+ * Appended rather than declared, and the switch buffered, for the
+ * reason `value_relation_cooccurrence` gives at greater length: the
+ * loop below prints a group's indentation on every pass and an `if` in
+ * the markup leaves its own behind, while a value whose relations no
+ * enabled list names has to render byte-identically to what it did
+ * before.
+ */
+$datedListsHit = isset($dated['warninglists_listed'])
+    ? (int)$dated['warninglists_listed']
+    : 0;
+$datedHideSwitch = '';
+if ($datedListsHit > 0) {
+    $facetGroups[] = array(
+        'key' => 'datedwarninglist',
+        'title' => __('Warninglist'),
+        'icon' => 'fas fa-list-check',
+        'note' => sprintf(
+            __(
+                '%d of the rows below resolve to a value on a'
+                . ' warninglist. They are dimmed, not removed.'
+            ),
+            $datedListsHit
+        ),
+    );
+    ob_start();
+    ?>
+                <div class="form-check form-switch mb-0 mt-2">
+                    <input class="form-check-input" type="checkbox"
+                           role="switch" id="vp-dated-hide-listed"
+                           data-vp-facet-key="datedwarninglist"
+                           value="<?= h(
+                               ValueRelationTool::WARNINGLIST_CLEAR
+                           ) ?>">
+                    <label class="form-check-label small text-muted"
+                           for="vp-dated-hide-listed">
+                        <?= __('Hide warninglisted') ?>
+                    </label>
+                </div>
+    <?php
+    $datedHideSwitch = ob_get_clean();
+}
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-object"
      style="--vp-panel-color: var(--vp-rel-object);"
@@ -310,7 +360,7 @@ $facetGroups = array(
                                 ? $dated['facets'][$group['key']]
                                 : array(),
                         )) ?>
-                <?php endforeach; ?>
+                <?php endforeach; ?><?= $datedHideSwitch ?>
 
             </div>
 
@@ -359,12 +409,23 @@ $facetGroups = array(
                                     . (string)$row['origin']
                                 )) ?>">
                                 <td class="font-monospace">
-                                    <a class="vp-rel-cell fw-semibold"
+                                    <a class="vp-rel-cell fw-semibold<?=
+                                       empty($row['warninglists'])
+                                           ? ''
+                                           : ' vp-rel-listed' ?>"
                                        href="<?= h($profileUrl(
                                            $row['value'])) ?>"
                                        title="<?= h($row['value']) ?>">
                                         <?= h($row['value']) ?>
-                                    </a>
+                                    </a><?= empty($row['warninglists'])
+                                        ? ''
+                                        : $this->element(
+                                            'Values/View/'
+                                            . 'value_warninglist_mark',
+                                            array('lists' =>
+                                                $row['warninglists'])
+                                        ) ?>
+
                                     <div class="vp-fact-line-sub">
                                         <?= h($row['type']) ?>
                                     </div>

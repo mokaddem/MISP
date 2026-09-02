@@ -245,58 +245,30 @@ $tagChips = function ($tags) use ($view) {
 };
 
 /**
- * The mark on a neighbour MISP already knows to be benign.
+ * The mark on a value MISP already knows to be benign, for the two
+ * tables in this panel that carry one.
  *
- * The banner's chip at row scale — same class, same `--warninglist`
- * colour, a modifier for the padding — so the frame and the table read
- * as one statement once the Overview goes live. Icon-only, because the
- * word *"Warninglist hit"* costs a column's worth of width on every
- * listed row and the tooltip is one hover away.
+ * The markup is `value_warninglist_mark`, shared with the dated panel
+ * so one mark is not drawn three ways. What stays here is the guard:
+ * an unlisted row costs no element render, and gets **nothing at all**
+ * in its cell.
  *
- * The tooltip names the list **and the entry that matched**, which are
- * not the same thing: `10.0.5.23` is listed because `10.0.0.0/8` is,
- * and a tooltip saying only *"List of RFC 5735 CIDR blocks"* leaves a
- * reader to work out which of its entries caught this row.
+ * That second part is load-bearing. §7 asks that a value with no listed
+ * neighbours render byte-identically to what it did before B5, so the
+ * call sites default the key inline rather than in a statement of their
+ * own — a `<?php ?>` block inside a row loop leaves its indentation in
+ * the markup of every row on the tab. Defaulting is also what a
+ * fixture-driven render needs: those rows are built by
+ * `ValueProfileFixture` and have never carried a listing.
  *
- * **Nothing at all on an unlisted row**, and its caller defaults the
- * key inline rather than in a statement of its own. A `<?php ?>` block
- * inside the row loop would leave its indentation in the markup of
- * every row on the tab, and §7 asks that a value with no listed
- * neighbours render byte-identically to what it did before B5. A
- * fixture-driven render is the other reason the key is defaulted: those
- * rows are built by `ValueProfileFixture` and have never carried a
- * listing.
- *
- * @param array $lists id, name, category, matched
+ * @param array $lists id, name, category, matched, comment
  * @return string
  */
-$listedMark = function ($lists) {
-    if (empty($lists)) {
-        return '';
-    }
-    $title = array();
-    foreach ($lists as $list) {
-        $line = sprintf(
-            __('%1$s (%2$s) — matched %3$s'),
-            $list['name'],
-            $list['category'],
-            $list['matched']
-        );
-        /*
-         * Whoever curated the list often wrote down why the entry is
-         * on it, and the batch fetches that note whether or not anyone
-         * reads it — so the tooltip reads it.
-         */
-        if (!empty($list['comment'])) {
-            $line .= "\n" . $list['comment'];
-        }
-        $title[] = $line;
-    }
-    return '<span class="vp-warninglist-chip vp-warninglist-mark"'
-        . ' title="' . h(implode("\n", $title)) . '">'
-        . '<i class="fas fa-list-check"></i>'
-        . '<span class="visually-hidden">'
-        . h(__('On a warninglist')) . '</span></span>';
+$listedMark = function ($lists) use ($view) {
+    return empty($lists) ? '' : $view->element(
+        'Values/View/value_warninglist_mark',
+        array('lists' => $lists)
+    );
 };
 
 /**
@@ -441,6 +413,75 @@ $sibFacetGroups = array(
     array('key' => 'siborg', 'title' => __('Reported by'),
         'icon' => 'fas fa-building'),
 );
+
+/*
+ * Sixth, appended rather than declared, for the reason the ranked
+ * bar's own eighth group is: the render loop prints its indentation on
+ * every pass, including the ones that `continue` past an empty group,
+ * and a value whose siblings no enabled list names must come out
+ * byte-identical to what it did before.
+ */
+if (!empty($sibFacets['sibwarninglist'])) {
+    $sibFacetGroups[] = array('key' => 'sibwarninglist',
+        'title' => __('Warninglist'),
+        'icon' => 'fas fa-list-check');
+}
+$sibListsHit = isset($siblings['warninglists_listed'])
+    ? (int)$siblings['warninglists_listed']
+    : 0;
+
+/*
+ * The sibling table's own cut, and its own sentence.
+ *
+ * The switch sends `sibwarninglist:_clear` — the complement token the
+ * dropdown deliberately does not carry — and this bar has no narrowing
+ * endpoint behind it, so unlike the ranked table's switch it filters
+ * the hundred rows the panel holds rather than fetching a fresh
+ * hundred. The note says which, because a cut that silently reaches
+ * only part of what it counted is the one thing this section's bar
+ * already promises not to be.
+ *
+ * Both buffered and echoed against a closing tag: an `if` in the markup
+ * would leave its indentation behind on every value that has nothing
+ * listed, and those must render byte-identically to what they did
+ * before.
+ */
+$sibHideSwitch = '';
+$sibWarninglistNote = '';
+if ($sibListsHit > 0) {
+    ob_start();
+    ?>
+                    <div class="form-check form-switch mb-0 ms-1">
+                        <input class="form-check-input" type="checkbox"
+                               role="switch" id="vp-sib-hide-listed"
+                               data-vp-facet-key="sibwarninglist"
+                               value="<?= h(
+                                   ValueRelationTool::WARNINGLIST_CLEAR
+                               ) ?>">
+                        <label class="form-check-label small text-muted"
+                               for="vp-sib-hide-listed">
+                            <?= __('Hide warninglisted') ?>
+                        </label>
+                    </div>
+    <?php
+    $sibHideSwitch = ob_get_clean();
+    ob_start();
+    ?>
+ <?= sprintf(
+        __n(
+            '<strong>One sibling value</strong> is on a warninglist,'
+            . ' dimmed here and cut by the switch below — which narrows'
+            . ' the rows this table carries, not the fold behind them.',
+            '<strong>%d sibling values</strong> are on a warninglist,'
+            . ' dimmed here and cut by the switch below — which narrows'
+            . ' the rows this table carries, not the fold behind them.',
+            $sibListsHit
+        ),
+        $sibListsHit
+    ) ?>
+    <?php
+    $sibWarninglistNote = ob_get_clean();
+}
 
 /*
  * A distribution row carries MISP's own badge and a tag row its own
@@ -857,7 +898,7 @@ $headerSub = ob_get_clean();
                                 count($siblings['rows'])
                             )) . '</strong>'
                         ) ?>
-                    <?php endif; ?>
+                    <?php endif; ?><?= $sibWarninglistNote ?>
                 </div>
             </div>
 
@@ -963,7 +1004,7 @@ $headerSub = ob_get_clean();
                                 ) ?>
                             </div>
                         </div>
-                    <?php endforeach; ?>
+                    <?php endforeach; ?><?= $sibHideSwitch ?>
 
                     <span class="small text-muted ms-2 vp-min-w-0">
                         <?= sprintf(
@@ -1119,8 +1160,17 @@ $headerSub = ob_get_clean();
                                     </span>
                                 </td>
                                 <td class="font-monospace">
-                                    <span class="vp-rel-cell"><?=
-                                        h($sibling['value']) ?></span>
+                                    <span class="vp-rel-cell<?=
+                                        empty($sibling['warninglists'])
+                                            ? ''
+                                            : ' vp-rel-listed'
+                                    ?>"><?=
+                                        h($sibling['value']) ?></span><?=
+                                        $listedMark(
+                                            $sibling['warninglists']
+                                                ?? array()
+                                        ) ?>
+
                                 </td>
                                 <td><?= $typeBadge($sibling['type']) ?></td>
                                 <?php
