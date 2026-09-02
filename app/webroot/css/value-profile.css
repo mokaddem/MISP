@@ -4740,12 +4740,20 @@ th[aria-sort="descending"] .sort-icon::before,
 }
 
 .vp-rel-swatch {
+    /*
+     * Both numbers are named because the arrowhead below has to do
+     * arithmetic with them, and a constant it worked out once is a
+     * constant that stops being right the moment either changes.
+     */
+    --vp-swatch-stroke: 3px;
+    --vp-swatch-arrow: 4px;
     position: relative;
     display: inline-block;
     flex: 0 0 auto;
     width: 18px;
     height: 0;
-    border-top: 3px solid var(--vp-rel-color, var(--bs-secondary-color));
+    border-top: var(--vp-swatch-stroke) solid
+        var(--vp-rel-color, var(--bs-secondary-color));
 }
 
 .vp-rel-swatch-dash {
@@ -4756,10 +4764,18 @@ th[aria-sort="descending"] .sort-icon::before,
     content: "";
     position: absolute;
     right: -2px;
-    top: -4px;
+    /*
+     * Centred on the stroke, which is not what `top` is measured from.
+     * The line is a top *border*, so it sits outside the padding box —
+     * and the padding box is what an absolutely positioned child is
+     * offset against. A head pulled up by its own half-height alone
+     * therefore lands half a stroke below the line it ends, which is
+     * the sag this used to draw. It comes up by both.
+     */
+    top: calc(var(--vp-swatch-stroke) / -2 - var(--vp-swatch-arrow));
     border-left: 6px solid var(--vp-rel-color);
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
+    border-top: var(--vp-swatch-arrow) solid transparent;
+    border-bottom: var(--vp-swatch-arrow) solid transparent;
 }
 
 /*
