@@ -188,7 +188,7 @@ async function clickFacet(page, key, value) {
     console.log('\n== 1. as served ==');
     console.log(JSON.stringify(await readState(page)));
 
-    const pick = await page.evaluate(function (sel) {
+    const pick = await page.evaluate(function (sel, wanted) {
         var list = document.querySelector(sel);
         var boxes = Array.prototype.slice.call(
             list.querySelectorAll('input[data-vp-facet-key="warninglist"]')
@@ -196,7 +196,10 @@ async function clickFacet(page, key, value) {
         var named = boxes.filter(function (b) {
             return b.value !== '_hit' && b.value !== '_clear';
         });
-        var box = named.find(function (b) { return !b.dataset.vpComplete; })
+        var box = (wanted && boxes.find(function (b) {
+            return b.value === wanted;
+        }))
+            || named.find(function (b) { return !b.dataset.vpComplete; })
             || named[0] || boxes[0];
         if (!box) {
             return null;
@@ -211,7 +214,7 @@ async function clickFacet(page, key, value) {
                 : null,
             offered: boxes.map(function (b) { return b.value; }),
         };
-    }, LIST);
+    }, LIST, process.env.VP_FACET || '');
     console.log('\npicked warninglist facet:', JSON.stringify(pick));
     if (!pick) {
         console.log('FAIL: no warninglist facet offered on this value');

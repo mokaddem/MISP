@@ -1178,7 +1178,17 @@ replayed with the pre-fix `value-profile.js` served by request
 interception, which is the *before* column.
 `24b-narrow-locality-harness.js` is the first four rows and
 `24b-narrow-matrix-harness.js` the last four; both take `VP_JS=<path>`
-to swap the build under test.
+to swap the build under test. Driven for **With a hit** as well as for
+a named list (`VP_FACET=_hit`), the partition entry being the one the
+report names: 37 rows on the tick, 100 with 82 clear on the untick.
+
+**One trap the first re-test walked into.** The page pins the script as
+`/js/value-profile.js?v=203` — MISP's version, not the file's — and
+nginx sends it with an ETag but no `Cache-Control`. A browser that had
+the tab open before the change goes on running the old script under the
+same URL, and the symptom is identical to the bug. A hard reload is the
+difference; `performance.getEntriesByType('resource')` reporting
+`transferSize: 0` for that script is how to tell from inside the page.
 
 | Gesture | Before | After |
 |---|---|---|
