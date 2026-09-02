@@ -246,6 +246,37 @@
     }
 
     /**
+     * Whether a control narrows the roll-up that is on screen.
+     *
+     * The co-occurrence panel says this in words the moment the reader
+     * switches — *narrowing applies to the value roll-up* — and says it
+     * in markup by keeping its whole narrowing block inside the value
+     * pane's `[data-vp-group-only]`. It has to say it in the filter as
+     * well: an event row carries no `type:` token of its own, so a
+     * facet left ticked across the switch would not narrow the event
+     * roll-up but empty it, under a note promising it did not apply.
+     *
+     * The fold agrees — it narrows the value roll-up and rolls events
+     * and objects up over the whole neighbourhood — so this is the
+     * client saying the same thing about the same rows.
+     *
+     * A control outside any such wrapper, which is every control on
+     * every other panel, always applies.
+     *
+     * @param {Element} list
+     * @param {Element} control
+     * @return {boolean}
+     */
+    function controlNarrows(list, control) {
+        var group = list.dataset.vpGroupActive;
+        if (!group) {
+            return true;
+        }
+        var scope = control.closest('[data-vp-group-only]');
+        return !scope || scope.dataset.vpGroupOnly === group;
+    }
+
+    /**
      * Checked facets, grouped by key. A key absent from the result
      * places no constraint — an unticked group is not an empty one.
      *
@@ -255,7 +286,7 @@
     function activeFacets(list) {
         var active = {};
         ownNodes(list, 'input[data-vp-facet-key]').forEach(function (box) {
-            if (!box.checked) {
+            if (!box.checked || !controlNarrows(list, box)) {
                 return;
             }
             var key = box.dataset.vpFacetKey;
@@ -286,7 +317,9 @@
         var active = {};
         list.querySelectorAll('select[data-vp-filter-key]')
             .forEach(function (select) {
-                if (select.value === '') {
+                if (select.value === ''
+                    || !controlNarrows(list, select)
+                ) {
                     return;
                 }
                 active[select.dataset.vpFilterKey] = select.value;
@@ -305,7 +338,10 @@
      */
     function activeText(list) {
         var input = list.querySelector('[data-vp-filter-text]');
-        return input ? input.value.trim().toLowerCase() : '';
+        if (!input || !controlNarrows(list, input)) {
+            return '';
+        }
+        return input.value.trim().toLowerCase();
     }
 
     /**
@@ -322,7 +358,9 @@
         list.querySelectorAll('[data-vp-filter-min]').forEach(function (input) {
             var value = parseFloat(input.value);
             var floor = parseFloat(input.min);
-            if (isNaN(value) || (!isNaN(floor) && value <= floor)) {
+            if (isNaN(value) || (!isNaN(floor) && value <= floor)
+                || !controlNarrows(list, input)
+            ) {
                 return;
             }
             active[input.dataset.vpFilterMin] = value;
@@ -1398,6 +1436,17 @@
      * The search box and the threshold range over values the panel
      * never received, so neither can be proven complete here.
      *
+     * **A page the fold narrowed can only ever be narrowed further.**
+     * Its rows are the top of the *filter's* matches and not of the
+     * neighbourhood, so there is nothing in the markup to widen back
+     * out to: untick the warninglist that produced this page and the
+     * rows still on screen are its 21 hits, which is not what *no
+     * filter* means — and the panel would say `No filter applied` over
+     * them. A state naming at least one complete entry is still
+     * answerable, because every row carrying that token is here
+     * whichever filter fetched it; an unconstrained one has to go back
+     * to the fold.
+     *
      * @param {Element} list
      * @return {boolean}
      */
@@ -1414,9 +1463,12 @@
             return false;
         }
         var local = true;
+        var proven = 0;
         ownNodes(list, 'input[data-vp-facet-key]:checked')
             .forEach(function (box) {
-                if (!box.dataset.vpComplete) {
+                if (box.dataset.vpComplete) {
+                    proven++;
+                } else {
                     local = false;
                 }
             });
@@ -1425,10 +1477,15 @@
                 return;
             }
             var option = sel.options[sel.selectedIndex];
-            if (!option || !option.dataset.vpComplete) {
+            if (option && option.dataset.vpComplete) {
+                proven++;
+            } else {
                 local = false;
             }
         });
+        if (proven === 0 && list.dataset.vpNarrowActive) {
+            return false;
+        }
         return local;
     }
 

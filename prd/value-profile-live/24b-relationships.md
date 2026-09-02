@@ -1076,6 +1076,129 @@ the server*: RFC 5735's whole count is present in the carried rows, it
 is marked `data-vp-complete`, and the panel still answers it without a
 fetch.
 
+### 7.5 Unticking is a narrowing too — 2026-09-02
+
+Reported from the tab, against the fix above: on **In the same events**
+tick a warninglist, which filters correctly, then untick it. The panel
+says *No filter applied* and lists 21 rows, every one of them
+warninglisted, beside a facet bar counting 10,003 that are not.
+
+**§7.4 fixed which rows the next tick is answered from. The untick is a
+state of its own, and was still answered from the rows the filter
+left.** `narrowingIsLocal` read the controls and asked whether any of
+them named rows the markup might lack; with nothing ticked, nothing did,
+so it returned `true` and `refreshList` un-hid every row in hand. The
+rows in hand are the trap: on a page the fold narrowed they are the top
+of the *filter's* matches, not the top of the neighbourhood, so there is
+nothing in the markup to widen back out to. `data-vp-narrow-active`
+already marked those pages — `switchGroup` reads it for exactly this
+reason — and the locality test did not.
+
+**A page the fold narrowed can only be narrowed further.** Where that
+flag is set, a state must name at least one `data-vp-complete` entry to
+be answerable here; an unconstrained one goes back to the fold. One
+complete entry is enough because `listed` is counted against the
+neighbourhood's own `count`, so an entry that reaches every row it names
+reaches them whichever filter fetched the page — and a state
+constraining a set the markup holds whole is a subset of rows the markup
+holds. It follows that unticking the *last* control is the only gesture
+this costs a request, which is the request the reader just asked for.
+
+**The same page's `Reset` was already right** (`value-profile.js:6148`),
+which is what made the shape obvious: a reset over a served list was
+told to re-fetch because *the rows it wants back are the ones the fold
+cut*. Unticking the one box a reset would clear is the same sentence.
+
+### 7.6 The event roll-up was emptied by a filter that does not apply
+
+Found tracing the above, and reachable in two clicks: narrow the panel
+to a warninglist, then switch **Group by** to *Events*. The table went
+to zero rows and showed *"No correlation matches the filter you set"* —
+directly under the note that says **narrowing applies to the value
+roll-up**.
+
+Three true things met. `switchGroup` keeps the ticks over a fold-served
+narrowing rather than clearing them, because the rows on screen *are*
+the narrowed ones until a request says otherwise. The fold narrows the
+value roll-up only — `eventRollup` and `objectRollup` fold the whole
+neighbourhood — so an event row carries no `warninglist:` token, or any
+other facet token, of its own. And `refreshList` applied the ticked
+facet to whatever rows were showing, which for a row with no tokens is a
+test nothing passes.
+
+So the client now says what the fold and the note already said: a
+control inside a `[data-vp-group-only]` wrapper places no constraint
+while another roll-up is on screen (`controlNarrows`). The value pane
+keeps its narrowing, the event and object panes are whole, and switching
+back restores the ticks and the 21 rows. Every other faceted list on the
+page is unaffected by construction — they declare no `data-vp-group-*`
+at all, so the test is `true` on their every control.
+
+#### Reviewed and sound
+
+The report asked whether the held data reloads when it has to, so the
+rest of the path was read for the same defect:
+
+- **The Redis scan** holds raw scan rows, not a fold, so a filtered
+  request re-folds rather than re-reading, and no filtered result is
+  ever stored under a key that could serve an unfiltered one.
+- **The per-request memo** (`cooccurrenceContext`) is keyed on the
+  narrowing as well as the value, and `relationDigest` calls it with no
+  filters — so the rail cards' numbers are the neighbourhood's even on
+  a filtered request.
+- **`markListed`** measures each entry against `count`, which is folded
+  over the neighbourhood, so `data-vp-complete` means the same thing on
+  a filtered page as on an unfiltered one. That is what makes the rule
+  above sound.
+- **Re-applying a served filter locally cannot drop rows**: the fold
+  matches `tokensFor()`, which is what the row carries in
+  `data-vp-facet`, and its text and threshold tests read the same value
+  and the same shared-event count the row prints.
+- **The rank pills and `Reset`** go remote over a cut table and carry
+  the active narrowing with them.
+
+#### Left alone
+
+On a served-narrow page the pager's `(N in total)` is `matched`, and a
+further *local* narrowing on top of it — a complete entry, of which the
+`_clear` page offers seven across five facet groups — leaves that
+number describing neither the rows shown nor the state asked for. It is
+`$co['matched']` on purpose (§7.4, and the pager's own docblock), the
+slot is shared with panels whose total genuinely is filter-independent,
+and no number on screen contradicts another one. Noted rather than
+changed.
+
+#### Verified
+
+Driven in headless Chrome against the live instance, logged in, on
+`8.8.8.8` — 10,040 distinct neighbours, 100 carried, 37 warninglisted —
+narrowing on `list-of-rfc-5735-cidr-blocks`, whose 21 are 5 in the
+carried page and so cannot be answered locally. The same script was
+replayed with the pre-fix `value-profile.js` served by request
+interception, which is the *before* column.
+`24b-narrow-locality-harness.js` is the first four rows and
+`24b-narrow-matrix-harness.js` the last four; both take `VP_JS=<path>`
+to swap the build under test.
+
+| Gesture | Before | After |
+|---|---|---|
+| Tick the list | fetch, 21 rows, all hits | same |
+| Untick it | **no fetch, 21 rows, all hits, *No filter applied*** | fetch, 100 rows, 18 hits / 82 clear, *No filter applied* |
+| Group by → Events | **0 of 18 rows, filter empty state** | 8 of 18 rows, no empty state |
+| Group by → Value | 21 rows, ticked | 21 rows, ticked |
+| Tick a complete entry (11 of 11) | no fetch, of 11 | no fetch, of 11 |
+| Untick that one | no fetch, of 100 | no fetch, of 100 |
+| `Reset` over a served narrowing | fetch, of 100 | fetch, of 100 |
+| *Most recent* over a served narrowing | fetch, of 21, still ticked | fetch, of 21, still ticked |
+
+The last four rows are the regression half, run both ways rather than
+reasoned about: nothing that was answered in the page before it is
+answered by the fold now, and the one gesture that gained a request is
+the untick. The occurrences,
+history, sibling and dated-relations lists were driven too — one tick
+each, rows narrowing in the page, no request — because `controlNarrows`
+sits in the collectors every faceted list on this page shares.
+
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 
 **Why.** "Most shared" is a hub-finder: raw frequency ranks the
