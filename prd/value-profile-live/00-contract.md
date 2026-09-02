@@ -523,7 +523,7 @@ document that filled it.
 | Sightings | `viewSightingDecay` | `value_sighting_decay` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
 | Sightings | `viewSightingReporters` | `value_sighting_reporters` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Sightings | `viewSightingAdd` | `value_sighting_add` | 1 | nothing | 2 | **23** |
-| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 16 | decorations, not the value's size | 1, four aggregates at 2 | **24** |
+| Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 18 cold, 3 warm | decorations, not the value's size | 1, four aggregates at 2 | **24**, Q by **24b** |
 | Relationships | `viewRelationNearMatch` | `value_relation_near_match` | 3 | nothing | 1 | **24** |
 | Relationships | `viewRelationAsserted` | `value_relation_asserted` | 13 | **rows returned** — one fetch per claim | 1 | **24** |
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
@@ -551,6 +551,17 @@ touched `forExternal` and so filled the row**, which is what the blank was
 waiting for. The Overview's other rows stay `—`, and whichever phase converts
 them inherits two rows already done rather than a tab half-owned — which is the
 note below about a tab not being indivisible, used in earnest.
+
+`viewRelationCooccurrence`'s `Q` **is two numbers because the endpoint has
+two paths**, and the row carried only the first. A cold request re-reads the
+scan; a warm one inflates it from Redis and re-folds, which is what a narrowing
+or a page turn does and therefore what the endpoint mostly does. Re-measured
+2026-09-02 by [`24b-warninglist-count.php`](24b-warninglist-count.php) while
+B5 added to it: 18 cold, 3 warm. **Exactly one of the eighteen is B5's** —
+`assignComments`, which `Warninglist::attachWarninglistToAttributes` issues
+whenever a probe matched; the check itself is Redis. Measured in isolation over
+the same 10,187 rows, twice in one process, `Q=1` both times. The other change
+from phase 24's 16 is not B5's and is not attributed here.
 
 `viewExternal`'s cells need two readings of their own. Its `Q` **ceiling of 4
 is reached by a hit and not by a large value**: two queries read the config

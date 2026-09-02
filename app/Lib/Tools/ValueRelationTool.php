@@ -66,6 +66,24 @@ class ValueRelationTool
     const EXAMPLE_FIELDS = 2;
 
     /**
+     * The token for a neighbour no enabled list names.
+     *
+     * A constant rather than a spelled string because the row carries
+     * it, the panel's *Hide warninglisted* switch sends it and the fold
+     * matches on it — the same reason `ValueFieldKind`'s two kinds are
+     * constants. It is deliberately not a facet entry: see `facets()`.
+     *
+     * The underscore is what makes it safe rather than merely unlikely:
+     * `ValueStatsTool::facetToken` maps every character outside
+     * `[a-z0-9]` to `-`, so no list's slug can contain one however the
+     * list is named. A bare `clear` would collide with a warninglist
+     * called *Clear*, and a leading dash — the first spelling — collides
+     * with nothing but reads as an option flag everywhere a token is
+     * passed on a command line.
+     */
+    const WARNINGLIST_CLEAR = '_clear';
+
+    /**
      * Fold the value's neighbourhood into the three roll-ups, the six
      * facet groups and the numbers the panel header prints.
      *
@@ -77,7 +95,8 @@ class ValueRelationTool
      *
      * @param array $rows Neighbour rows, `Value::neighbourRowsFor`
      * @param array $context `orgs`, `events`, `sharing_groups`,
-     *                       `our_objects`, `row_cap`, `page_size`
+     *                       `our_objects`, `row_cap`, `page_size`,
+     *                       `warninglists`, `warninglists_checked`
      * @return array The `cooccurrence` shape the template reads
      */
     public static function cooccurrence(array $rows, array $context)
@@ -126,6 +145,18 @@ class ValueRelationTool
         $pageSize = isset($context['page_size'])
             ? $context['page_size']
             : 8;
+        /*
+         * Which neighbours MISP already knows to be benign, read over
+         * the whole scan by `ValueWarninglistTool` before this fold
+         * runs. Arrives as context for the same reason `orgs` does: it
+         * is a lookup, and this class issues none.
+         */
+        $onLists = isset($context['warninglists'])
+            ? (array)$context['warninglists']
+            : array();
+        $listsChecked = isset($context['warninglists_checked'])
+            ? (int)$context['warninglists_checked']
+            : 0;
 
         $groups = array();
         $objects = array();
@@ -219,6 +250,34 @@ class ValueRelationTool
             unset($group);
         }
 
+        /*
+         * The listing, onto the groups — and a flag saying the reading
+         * happened at all.
+         *
+         * The flag is what keeps this task inert where it has nothing
+         * to say. Without it every group on an instance with no enabled
+         * list, or a neighbourhood none of them reaches, would still
+         * emit a `warninglist:clear` token and still count a facet
+         * entry: markup that changes on a page where the finding is
+         * that there is no finding. With it, a value whose neighbours
+         * are all unlisted renders exactly as it did before B5.
+         */
+        $listedGroups = 0;
+        foreach ($groups as $value => &$group) {
+            if (empty($onLists[$value])) {
+                continue;
+            }
+            $group['warninglists'] = $onLists[$value];
+            $listedGroups++;
+        }
+        unset($group);
+        if ($listedGroups > 0) {
+            foreach ($groups as &$group) {
+                $group['warninglist_read'] = true;
+            }
+            unset($group);
+        }
+
         $facets = self::facets($groups, $eventMeta, $orgs);
         $distinct = count($groups);
 
@@ -288,6 +347,14 @@ class ValueRelationTool
             'matched' => count($matched),
             'filters' => $filters,
             'rank' => $rank,
+            /*
+             * Both counted over the fold, not the page, and the caption
+             * that prints them says so. **Ranking is untouched** — B5
+             * makes benign-ness visible and narrowable; which
+             * neighbours reach the cut is B6's question.
+             */
+            'warninglists_checked' => $listsChecked,
+            'warninglists_listed' => $listedGroups,
             'events' => count($eventRows),
             'page_size' => $pageSize,
             'rollups' => array(
@@ -327,6 +394,8 @@ class ValueRelationTool
             'last' => 0,
             'distributions' => array(),
             'occurrences' => 0,
+            'warninglists' => array(),
+            'warninglist_read' => false,
         );
     }
 
@@ -379,6 +448,13 @@ class ValueRelationTool
                     : self::dominant($group['objects']),
                 'tags' => array_values($group['tags']),
                 'events' => array_keys($group['events']),
+                /*
+                 * Empty on a neighbour no enabled list names, and
+                 * empty on every neighbour when no list was read — the
+                 * cell renders nothing either way, so the two cases do
+                 * not have to be told apart here.
+                 */
+                'warninglists' => $group['warninglists'],
                 'tokens' => self::groupTokens($group, $orgs, $ourObjects),
             );
         }
@@ -511,6 +587,7 @@ class ValueRelationTool
             'tag' => array(),
             'distribution' => array(),
             'sharing_group' => array(),
+            'warninglist' => array(),
         );
         foreach ($groups as $group) {
             foreach (array_keys($group['events']) as $eventId) {
@@ -555,6 +632,26 @@ class ValueRelationTool
                     ValueStatsTool::facetToken($tag['name']),
                     $tag['name'],
                     array('tag' => $tag, 'local' => 0)
+                );
+            }
+            /*
+             * One entry per list — and **not** the complement, which
+             * the panel's switch holds instead. `WARNINGLIST_CLEAR` is
+             * a real token on the rows and a real narrowing the fold
+             * applies; what it is not is a peer of the lists in a
+             * counted group. On `8.8.8.8` it would count 10,003 against
+             * their 21 and 11, and `value_facet_group` scales its bars
+             * to the largest entry, so every list in the dropdown drew
+             * a 0% bar beside a complement drawing 100%. The two are
+             * different questions — *which noise is in here* and
+             * *remove it* — and the second one does not want a bar.
+             */
+            foreach ($group['warninglists'] as $list) {
+                self::bump(
+                    $facets['warninglist'],
+                    ValueStatsTool::facetToken($list['name']),
+                    $list['name'],
+                    array('category' => $list['category'])
                 );
             }
             /*
@@ -1665,7 +1762,7 @@ class ValueRelationTool
      */
     private static $tokenKeys = array('type', 'category', 'organisation',
         'event', 'tag', 'distribution', 'sharing_group', 'object',
-        'sibling');
+        'sibling', 'warninglist');
 
     /**
      * One key's tokens for one group.
@@ -1741,6 +1838,19 @@ class ValueRelationTool
                         $tokens[] = 'sibling:yes';
                         break;
                     }
+                }
+                break;
+            case 'warninglist':
+                if (empty($group['warninglist_read'])) {
+                    break;
+                }
+                if (empty($group['warninglists'])) {
+                    $tokens[] = 'warninglist:' . self::WARNINGLIST_CLEAR;
+                    break;
+                }
+                foreach ($group['warninglists'] as $list) {
+                    $tokens[] = 'warninglist:'
+                        . ValueStatsTool::facetToken($list['name']);
                 }
                 break;
         }

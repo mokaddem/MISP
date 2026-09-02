@@ -4,6 +4,7 @@ App::uses('ValueStatsTool', 'Tools');
 App::uses('ValueDecayTool', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
+App::uses('ValueWarninglistTool', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -170,7 +171,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 3;
+    const CACHE_SHAPE = 4;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1922,6 +1923,17 @@ class ValueProfile extends AppModel
             'filters' => $filters,
             'row_cap' => self::RELATION_ROW_CAP,
             'page_size' => self::RELATION_PAGE_SIZE,
+            /*
+             * Read over the whole scan, so the facet the fold builds
+             * from it counts the neighbourhood and not the page — the
+             * same promise every other facet in that bar makes.
+             */
+            'warninglists' => isset($scan['warninglists'])
+                ? $scan['warninglists']
+                : array(),
+            'warninglists_checked' => isset($scan['warninglists_checked'])
+                ? $scan['warninglists_checked']
+                : 0,
         ));
         $co['siblings'] = $scan['siblings'];
         $co['dated'] = $scan['dated'];
@@ -2167,6 +2179,28 @@ class ValueProfile extends AppModel
         $orgs = $this->organisationNames($rows);
 
         /*
+         * Held with the rows it describes rather than recomputed per
+         * request, and that is the honest place for it: the panel
+         * already prints how old this scan is, so the listing verdicts
+         * age at the rate the panel discloses instead of at a rate it
+         * does not mention. It costs 65 ms over `8.8.8.8`'s 10,040
+         * neighbours (`ValueWarninglistTool`), which is worth paying
+         * once a scan rather than on every narrowing of it.
+         *
+         * The consequence is bounded and stated: enabling a list shows
+         * up here within `RELATION_SCAN_TTL`, or at once on the panel's
+         * own refresh, which re-reads the scan.
+         */
+        $warninglistModel = $this->model('Warninglist');
+        $probes = array();
+        foreach ($rows as $row) {
+            $probes[] = array(
+                'value' => $row['Attribute']['value'],
+                'type' => $row['Attribute']['type'],
+            );
+        }
+
+        /*
          * The sibling join runs before the fold, because the fold needs
          * the object templates this value sits in: `sibling` is one of
          * the tokens a row is matched on, and a token the fold cannot
@@ -2197,6 +2231,13 @@ class ValueProfile extends AppModel
              */
             'dated' => $sections['dated'],
             'our_objects' => $ourObjects,
+            'warninglists' => ValueWarninglistTool::hitsFor(
+                $warninglistModel,
+                $probes
+            ),
+            'warninglists_checked' => ValueWarninglistTool::enabledCount(
+                $warninglistModel
+            ),
         );
     }
 

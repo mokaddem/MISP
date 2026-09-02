@@ -1,5 +1,6 @@
 <?php
 App::uses('ValueFieldKind', 'Tools');
+App::uses('ValueRelationTool', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -244,6 +245,61 @@ $tagChips = function ($tags) use ($view) {
 };
 
 /**
+ * The mark on a neighbour MISP already knows to be benign.
+ *
+ * The banner's chip at row scale — same class, same `--warninglist`
+ * colour, a modifier for the padding — so the frame and the table read
+ * as one statement once the Overview goes live. Icon-only, because the
+ * word *"Warninglist hit"* costs a column's worth of width on every
+ * listed row and the tooltip is one hover away.
+ *
+ * The tooltip names the list **and the entry that matched**, which are
+ * not the same thing: `10.0.5.23` is listed because `10.0.0.0/8` is,
+ * and a tooltip saying only *"List of RFC 5735 CIDR blocks"* leaves a
+ * reader to work out which of its entries caught this row.
+ *
+ * **Nothing at all on an unlisted row**, and its caller defaults the
+ * key inline rather than in a statement of its own. A `<?php ?>` block
+ * inside the row loop would leave its indentation in the markup of
+ * every row on the tab, and §7 asks that a value with no listed
+ * neighbours render byte-identically to what it did before B5. A
+ * fixture-driven render is the other reason the key is defaulted: those
+ * rows are built by `ValueProfileFixture` and have never carried a
+ * listing.
+ *
+ * @param array $lists id, name, category, matched
+ * @return string
+ */
+$listedMark = function ($lists) {
+    if (empty($lists)) {
+        return '';
+    }
+    $title = array();
+    foreach ($lists as $list) {
+        $line = sprintf(
+            __('%1$s (%2$s) — matched %3$s'),
+            $list['name'],
+            $list['category'],
+            $list['matched']
+        );
+        /*
+         * Whoever curated the list often wrote down why the entry is
+         * on it, and the batch fetches that note whether or not anyone
+         * reads it — so the tooltip reads it.
+         */
+        if (!empty($list['comment'])) {
+            $line .= "\n" . $list['comment'];
+        }
+        $title[] = $line;
+    }
+    return '<span class="vp-warninglist-chip vp-warninglist-mark"'
+        . ' title="' . h(implode("\n", $title)) . '">'
+        . '<i class="fas fa-list-check"></i>'
+        . '<span class="visually-hidden">'
+        . h(__('On a warninglist')) . '</span></span>';
+};
+
+/**
  * The type, through MISP's own badge, re-flowed for a dense row by
  * `.vp-rel-type` rather than by a second rendering of the same fact.
  *
@@ -304,6 +360,24 @@ $facetGroups = array(
     array('key' => 'sharing_group', 'title' => __('Sharing group'),
         'icon' => 'misp-icon misp-icon-sharing-group misp-simple'),
 );
+
+/*
+ * Eighth, and appended rather than declared, because the bar's render
+ * loop prints its own indentation on every pass — including the ones
+ * that `continue` past an empty group. A neighbourhood no enabled list
+ * reaches must come out byte-identical to what it did before B5, so
+ * there the group is not in the array at all.
+ *
+ * A dropdown and not a second switch: a switch has no count, and the
+ * useful half of this is being told that five of these neighbours are
+ * RFC 5735 private ranges before deciding to cut them. The switch
+ * beside the filters does the cutting.
+ */
+if (!empty($facets['warninglist'])) {
+    $facetGroups[] = array('key' => 'warninglist',
+        'title' => __('Warninglist'),
+        'icon' => 'fas fa-list-check');
+}
 
 /*
  * The sibling table's own bar. Five keys and not seven: a sibling row
@@ -452,6 +526,111 @@ $pillGroup = function ($key, $label, $current, array $options) {
     }
     return $out . '</div>';
 };
+
+/*
+ * The warninglist read, in words — and only where it found something.
+ * A neighbourhood no enabled list reaches produces no dimmed rows, no
+ * facet, no switch and no sentence, which is §7's requirement that this
+ * task be inert where it has nothing to say rather than print a
+ * reassuring zero.
+ *
+ * Buffered into a string rather than written as an `if` block in the
+ * markup below, and that is the whole reason: an `if` leaves its own
+ * indentation behind on the values it skips, and the requirement is
+ * *byte*-identical. Echoed against the closing tag of the caption above
+ * it, so an empty string adds nothing at all.
+ *
+ * Three things have to be in the sentence. **What was read**: the whole
+ * fold, not the carried page, so the count agrees with the facet's and
+ * with every other count in that bar. **Against what**: a hit means
+ * nothing without how many lists were consulted, which is why the fact
+ * strip has printed *"84 lists checked"* since phase 7. **What it did
+ * not do**: a reader who sees dimmed rows at the top of a ranked table
+ * will otherwise assume the rank has already accounted for them. It has
+ * not — that is B6.
+ */
+$listsHit = isset($co['warninglists_listed'])
+    ? (int)$co['warninglists_listed']
+    : 0;
+$warninglistCap = '';
+if ($listsHit > 0) {
+    ob_start();
+    ?>
+        <div class="vp-rel-cap" data-vp-group-only="value">
+            <i class="fas fa-list-check"></i>
+            <span>
+                <?= sprintf(
+                    __(
+                        '%1$s, checked against %2$s. Listed values are'
+                        . ' dimmed, %3$s names which lists they are on'
+                        . ' and the switch above cuts them — the'
+                        . ' ranking does not account for them.'
+                    ),
+                    '<strong>' . h(sprintf(
+                        __('%1$s of %2$s are on a warninglist'),
+                        number_format($listsHit),
+                        number_format($co['distinct_values'])
+                    )) . '</strong>',
+                    h(sprintf(
+                        __n(
+                            '%d enabled list',
+                            '%d enabled lists',
+                            (int)($co['warninglists_checked'] ?? 0),
+                            (int)($co['warninglists_checked'] ?? 0)
+                        ),
+                        (int)($co['warninglists_checked'] ?? 0)
+                    )),
+                    '<em>' . h(__('the Warninglist facet')) . '</em>'
+                ) ?>
+            </span>
+        </div>
+    <?php
+    $warninglistCap = ob_get_clean();
+}
+
+/*
+ * The one tick that removes the noise, and the reason the Warninglist
+ * dropdown beside it holds only the lists. It sends the same
+ * `warninglist` narrowing the dropdown does — the complement token — so
+ * the fold applies one rule for both and the filter summary counts this
+ * as the filter it is.
+ *
+ * Only where something is listed, and buffered for the same reason the
+ * caption above is: a switch that can only ever remove nothing is a
+ * control teaching a reader the panel is broken, and an `if` in the
+ * markup would leave its indentation behind on every value that has
+ * one.
+ */
+$hideListedSwitch = '';
+if ($listsHit > 0) {
+    ob_start();
+    ?>
+                <div class="form-check form-switch mb-0 ms-1">
+                    <input class="form-check-input" type="checkbox"
+                           role="switch" id="vp-rel-hide-listed"
+                           data-vp-facet-key="warninglist"
+                           value="<?= h(
+                               ValueRelationTool::WARNINGLIST_CLEAR
+                           ) ?>"<?= in_array(
+                               ValueRelationTool::WARNINGLIST_CLEAR,
+                               $activeFacet('warninglist'),
+                               true
+                           ) ? ' checked' : '' ?>>
+                    <label class="form-check-label small text-muted"
+                           for="vp-rel-hide-listed"
+                           title="<?= h(sprintf(
+                               __(
+                                   '%s of this neighbourhood are on a'
+                                   . ' warninglist'
+                               ),
+                               number_format($listsHit)
+                           )) ?>">
+                        <?= __('Hide warninglisted') ?>
+                    </label>
+                </div>
+    <?php
+    $hideListedSwitch = ob_get_clean();
+}
 
 ob_start();
 ?>
@@ -1275,7 +1454,8 @@ $headerSub = ob_get_clean();
                     ) ?>
                 <?php endif; ?>
             </span>
-        </div>
+        </div><?= $warninglistCap ?>
+
 
         <?php if ($scanned): ?>
             <?php
@@ -1504,7 +1684,8 @@ $headerSub = ob_get_clean();
                            for="vp-rel-siblings-only">
                         <?= __('Object siblings only') ?>
                     </label>
-                </div>
+                </div><?= $hideListedSwitch ?>
+
 
                 <?php
                 /*
@@ -1717,8 +1898,17 @@ $headerSub = ob_get_clean();
                                         ),
                                     ), $valIndex) ?>>
                                     <td class="font-monospace">
-                                        <span class="vp-rel-cell"><?=
-                                            h($row['value']) ?></span>
+                                        <span class="vp-rel-cell<?=
+                                            empty($row['warninglists'])
+                                                ? ''
+                                                : ' vp-rel-listed'
+                                        ?>"><?=
+                                            h($row['value']) ?></span><?=
+                                            $listedMark(
+                                                $row['warninglists']
+                                                    ?? array()
+                                            ) ?>
+
                                     </td>
                                     <td><?= $typeBadge($row['type']) ?></td>
                                     <td><?= $weightBar(

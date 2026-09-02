@@ -1897,3 +1897,67 @@ rather than offering it; and the caption names the cut where it bites
 table carries 100 rows and the linking ones fill them."* This also
 retires four groups' pre-existing dead entries, which had been emptying
 the table since phase 18.
+
+## 28. What the neighbourhood already knows to be benign
+
+The top of `8.8.8.8`'s co-occurrence table is `1.1.1.1`, `google.com`,
+`2.2.2.2`, `circl.lu`, `9.9.9.9` — resolvers and CDNs. An analyst
+triaging reads the top of a ranked table as signal, and until now the
+fragment contained no warninglist markup at all, so the noisiest rows
+on the tab were also its most prominent ones.
+
+A listed neighbour's value now renders dimmed with a small chip, and
+the chip's tooltip names the list, the entry that matched, and the
+curator's note where the list carries one. **Ranking is unchanged** —
+which the caption says out loud, because a reader who sees dimmed rows
+at the top of a ranked table will otherwise assume the rank has already
+accounted for them. Making benign-ness visible and making it change the
+order are two tasks, and this is the first.
+
+**Dimmed, not hidden, and not struck through.** The row is still
+evidence: a resolver genuinely does sit in these events. It is merely
+the least interesting thing in the table. Only the value cell dims —
+`1.1.1.1` being on the public resolver list says nothing about the four
+organisations that reported it or the date they last did, and dimming
+those cells would claim it did.
+
+**The check covers the fold, not the page.** This was a live question
+rather than a preference: the table carries a hundred rows of a
+neighbourhood that runs to five figures, so a page-local check would
+have produced a facet whose count contradicts every other count in that
+bar. Measured first — 41.8 ms for the carried hundred against 64.5 ms
+for all 10,040, because the fixed cost of loading the lists dominates
+and the marginal cost is microseconds a value — and the fold-wide read
+taken. So *Warninglist · 37* means thirty-seven of the neighbourhood,
+the way *Tag · 40* already does.
+
+**Two controls, because there are two questions.** The `Warninglist`
+dropdown holds one entry per list — that is *what kind of noise is in
+here*, and on `8.8.8.8` the answer is twenty-one RFC 5735 private
+ranges and eleven public resolvers, which is worth knowing before
+deciding anything. A **Hide warninglisted** switch beside *Object
+siblings only* is *remove it*. The complement started out as an entry
+in the dropdown and had to come out: `value_facet_group` scales its bars
+to the largest entry, and *Not on any list · 10,003* flattened every
+list beside it to a 0% bar.
+
+**Where nothing is listed, nothing appears** — no chip, no dimming, no
+switch, no facet, no sentence, and no token on any row. Not a
+reassuring zero: a value whose neighbours no enabled list names renders
+byte-for-byte as it did before this section, which was checked by
+rendering the panel twice over one profile and diffing.
+
+The lookup is `ValueWarninglistTool`, and it is core's own check rather
+than a second one — `Warninglist::attachWarninglistToAttributes`, whose
+Redis cache is keyed on `(type, value)` alone, so an event page and this
+panel warm each other. It is deliberately the page's *only* warninglist
+read: the banner's *Warninglist hit* chip and the verdict card's band
+are still fixture-built, and when the Overview's live phase converts
+them it converts onto this.
+
+One thing the lookup does that core's caller does not: it ignores
+`to_ids`. Core gates the check on `to_ids || MISP.warning_for_all`
+because it is asking *should this attribute have been exported*. The
+question here is *is this value known-benign infrastructure* — a
+property of the value, not of one occurrence's export flag, and a
+co-occurrence row folds many occurrences that need not agree on it.

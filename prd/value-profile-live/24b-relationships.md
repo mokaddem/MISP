@@ -37,7 +37,7 @@ live instance and recorded in its own section below.
 | B2 | Absent engines say so in one line | `value_relation_near_match` | S | no | no | **done** |
 | B3 | Outside this instance: counts first, absence framed as novelty | `value_relation_external` | S | no | no | **done** |
 | B4 | Sibling table: linking fields before describing ones | `value_relation_cooccurrence` | M | no | no | **done** |
-| B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | todo |
+| B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence` | M | no | no | **done** |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence` | M | **yes** | no | todo |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | todo |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | todo |
@@ -656,6 +656,157 @@ it rather than invent a second one.
 
 **Verify.** `1.1.1.1`, `google.com`, `9.9.9.9` badged on `8.8.8.8`;
 a value with no listed neighbours renders byte-identical to today.
+
+### 7.1 Done — 2026-09-02
+
+**Fold-wide, and the measurement said so.** §7 made the choice a
+precondition: check the carried page and admit the facet is page-local,
+or measure a fold-wide check first and adopt it only if it is genuinely
+cheap. Measured on the dev instance, 8 enabled lists of 97 installed,
+one scenario per fresh process because the model's `entriesCache` and
+the shared Redis value cache both warm on first use:
+
+| Scope | n | Redis-backed batch | No cache at all |
+|---|---|---|---|
+| the carried page | 100 | 65.8 ms | 41.8 ms |
+| the whole fold | 10,040 | 85.9 ms | 64.5 ms |
+
+The fixed cost is what dominates — `getEnabled` plus building the entry
+sets is ~30 ms of it, most of that the three CIDR lists — and the
+marginal cost is **~2.3 µs a value**. Reading the whole neighbourhood
+costs 23 ms more than reading the page, so the page-local compromise
+was not taken and no label has to admit anything: the `Warninglist`
+facet counts the fold, exactly like every other entry in that bar.
+
+**One query, and it earns its place.** The check itself is Redis. The
+one SQL it costs is `assignComments`, which
+`attachWarninglistToAttributes` issues whenever anything matched —
+measured in isolation over the same 10,187 probe rows, twice in one
+process, `Q=1` both times. Rather than pay for it and throw the result
+away, the row badge's tooltip prints the entry's note where the list
+carries one. The endpoint's cold total is now 18 and its warm total 3;
+§14.12's row is updated with both.
+
+**Held with the rows it describes.** The verdicts are computed in
+`readRelationScan` and travel inside the cached scan, so a narrowing —
+which re-folds rows already in hand — does not re-check 10,040 values
+to redraw eight. The staleness that buys is bounded by
+`RELATION_SCAN_TTL` and is already disclosed: the panel prints the
+scan's age, and *Scan again* re-reads. `CACHE_SHAPE` goes to 4.
+
+**`ValueWarninglistTool`, the page's one warninglist read.** The frame's
+*Warninglist hit* chip is fixture-built and so is the verdict card's
+band, so §7's instruction was to build the lookup such that the
+Overview's live phase converts onto it rather than inventing a second
+regime. It is the model-injected shape §14.5 allows — no `$user`, and
+none would mean anything, since which lists are enabled is instance
+state identical for every viewer.
+
+Two decisions are written into it. It is **core's own check**, not a
+re-implementation: `attachWarninglistToAttributes` keys its cache on
+`md5(type:value)` alone, so an event view that has already checked
+`1.1.1.1` warms this lookup and this lookup warms the next event view.
+And **`to_ids` is deliberately not consulted**. Core gates the check on
+`to_ids || MISP.warning_for_all` because there it is asking *should this
+attribute have been exported*; here the question is *is this value known
+benign infrastructure*, which is a property of the value, and a
+co-occurrence row folds many occurrences that need not agree on the
+flag. A value is reported under **any** type it appeared as, which is
+the rule the type facet already uses — a `sha1` seen once as `md5` would
+otherwise escape the empty-file list it is on.
+
+**A dropdown and a switch, because they answer different questions.**
+The complement was in the facet group first, and it broke the group:
+`value_facet_group` scales its bars to the largest entry, so *Not on any
+list* at 10,003 drew 100% and every list beside it drew 0%. *Which noise
+is in here* and *remove it* are two questions and only the first wants a
+bar. So the `Warninglist` dropdown holds one entry per list, and a
+**Hide warninglisted** switch beside *Object siblings only* holds the
+complement token. Both send the same `f[warninglist][]` narrowing, so
+the fold applies one rule to both. Driven in Chromium with
+`reloadAjaxTabIndex` stubbed to record what the panel sends — without
+the stub `narrowRemotely` gives up silently and the panel filters the
+hundred rows it holds, which is not the behaviour under test:
+
+    switch on      …?f[warninglist][]=_clear
+    RFC 5735 tick  …?f[warninglist][]=list-of-rfc-5735-cidr-blocks
+
+The token is `_clear` and the underscore is load-bearing:
+`ValueStatsTool::facetToken` maps everything outside `[a-z0-9]` to `-`,
+so no list's slug can contain one however the list is named. A bare
+`clear` would collide with a warninglist called *Clear*. The first
+spelling, `-clear`, collided with nothing but read as an option flag
+everywhere a token reaches a command line.
+
+**Ranking is untouched**, and the caption says so in the same breath as
+the dimming, because a reader who sees dimmed rows at the top of a
+ranked table will otherwise assume the rank already accounts for them.
+It does not — that is B6.
+
+#### Verified
+
+`8.8.8.8`, live: 37 of 10,040 listed, 18 of the carried 100, and the
+three §7 named are among them — `1.1.1.1` and `9.9.9.9` badged and
+dimmed at ranks 1 and 5. **`google.com` is not badged, and that is the
+data and not a fault**: §7 predicted it before anything was measured,
+and no *enabled* list on this instance names it — the Cisco Umbrella
+top-1000 list is one of the 89 installed-but-disabled. The facet reads
+*RFC 5735 CIDR blocks 21, public DNS resolvers 11, BT02 domains 2*, and
+four singletons; ticking one fetches its rows from beyond the carried
+hundred (21 rows for RFC 5735, all of them on it), and the switch
+returns 100 unlisted rows re-ranked over the fold rather than the 82
+leftovers a client-side cut would have left. `172.17.164.8|2404` matches
+as a composite, which is `checkValue` splitting on the pipe.
+
+**Byte-identical where there is nothing to say, and it was diffed
+rather than argued.** §7 asked that a value with no listed neighbours
+render exactly as it did before B5. A grep for absent markup is not that
+claim, so the panel was rendered twice over one profile — once through
+the current template, once through `git show HEAD:`'s, both from a
+Console shell — and the bytes compared. `03634e2eab…`, three unlisted
+neighbours: **37,112 bytes, identical.**
+
+Getting there cost four fixes, all the same bug in four places. `?>`
+swallows the newline that follows it, and an `if` block in the markup
+leaves its own indentation behind on every row it skips. The first
+attempt was 67 bytes long. The caption and the switch are therefore
+built with `ob_start()` and echoed against the closing tag of what
+precedes them — the idiom `$headerExtra` already uses — the cell
+defaults its key inline rather than in a statement of its own, and the
+eighth facet group is **appended** to `$facetGroups` rather than
+declared in it, because the bar's render loop prints its indentation on
+every pass including the ones that `continue`.
+
+**Both themes**, driven in Chromium at 1320px with the fragment's own
+JS live (100 rows in the DOM, 8 shown — the witness that pagination
+actually ran). Light: the chip is `--warninglist-soft` on `--warninglist`
+and the four dimmed values in the first eight read clearly lighter than
+the four beside them. Dark: the chip takes its `color-mix` background
+and body-colour text, `.vp-rel-listed` resolves to
+`rgba(222,226,230,0.75)`. The mark is `.vp-warninglist-chip` plus a
+`.vp-warninglist-mark` size modifier rather than a second class, so the
+banner's chip and a row's mark cannot drift apart in colour — which is
+the same reason there is one lookup.
+
+Dimming lands on **the value cell only**. `1.1.1.1` being a public
+resolver says nothing about the four organisations that reported it or
+the date they last did, and dimming those cells would claim it did.
+
+**The comment line was exercised, not assumed.** No warninglist entry on
+this instance carries a comment — zero of them — so the tooltip's second
+line was unreachable against live data. One entry was given a comment,
+the fragment re-fetched, and the entry reverted to `NULL`: the tooltip
+read *"Test domain (false_positive) — matched circl.lu / CIRCL own
+domain"*.
+
+That flip also turned up an upstream quirk worth recording, since it
+bounds what the line can ever show. `assignComments` looks entries up by
+the **match** string, but a CIDR list's match is what `CidrTool`
+returned, not what the table stores: `1.1.1.1` is stored, `1.1.1.1/32`
+is matched, and the lookup finds nothing. So comments surface for
+`string`, `substring`, `hostname` and `regex` lists and never for `cidr`
+ones. Core's own event-view popover has the same hole. Nothing here
+works around it — the line is simply absent where core cannot supply it.
 
 ## 8. B6 — a "Most specific" rank — **grilling session first**
 

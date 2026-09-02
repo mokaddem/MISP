@@ -194,6 +194,20 @@
     color: var(--bs-body-color);
 }
 
+/*
+ * The same chip at table-row scale: icon only, no left margin of its
+ * own, sized to sit on the baseline of a monospace cell. A modifier
+ * rather than a second class, so the banner's chip and a co-occurrence
+ * row's mark cannot drift apart in colour — which is the whole reason
+ * B5 built one lookup instead of two.
+ */
+.vp-warninglist-mark {
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 0.62rem;
+    vertical-align: 1px;
+}
+
 /* ==================================================================
  * Fact strip
  * ================================================================== */
@@ -732,6 +746,24 @@ tr.vp-occ-deleted td {
  */
 .vp-relation-desc {
     background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    opacity: 0.75;
+}
+
+/*
+ * A neighbour MISP already knows to be benign. Dimmed, not struck
+ * through and not hidden: the row is still evidence — a resolver
+ * genuinely does sit in these events — it is merely the least
+ * interesting thing in the table, and the top of a co-occurrence
+ * ranking is exactly where it lands.
+ *
+ * The value only, not the whole row. `1.1.1.1` being on the public
+ * resolver list says nothing about the four organisations that reported
+ * it or the date they last did, and dimming those cells would claim it
+ * did. The same reading as `.vp-relation-desc` above, applied to the
+ * one cell the finding is about.
+ */
+.vp-rel-listed {
     color: var(--bs-secondary-color);
     opacity: 0.75;
 }
