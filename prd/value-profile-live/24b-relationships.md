@@ -1828,22 +1828,51 @@ both.
 instead of dropping them, which changes what the scan holds.
 
 **The design pass cut its own device.** A leading glyph per kind was
-built, rendered and removed: it encoded exactly what the chip beside
+built, rendered and removed: it encoded exactly what the text beside
 it already said, and at 0.72rem `fa-user-secret` — the most frequent
-of the four — is a blob. Dropping it let the name start at the card's
-edge, which is the point of the card. What survives is two chip
-weights carrying a real distinction, hairline for the *category* a
-cluster belongs to and filled for the *state* of how it reached the
-value, and one liberty with the tab's type scale: the cluster name is
-0.92rem where nothing else in the rail exceeds 0.82rem. A card whose
-purpose is to produce a name should not print it at caption size.
+of the four — is a blob.
 
-**Rendering found a defect the markup did not.** `Malicious` drew
+**Then the whole card was rebuilt, because the first one was a dump.**
+Eight equally-weighted rows, `1 org · 2 events` repeated down the
+card with the constant words in front of the varying figures, an
+uppercase chip per row, and no focal point in a card whose purpose is
+to produce a name. It was legible and answered nothing without being
+read end to end. Three devices replace it, one per question a reader
+arrives with:
+
+| Device | Answers | How |
+|---|---|---|
+| composition line | *what sort of thing is around this?* | `28 actors · 63 malware · 34 tools`, and only where it says something the visible rows do not — one kind with nothing folded away makes it a number to skip |
+| lead | *what is the strongest thing?* | the top-ranked row promoted out of the list into a sentence, on a tertiary ground |
+| list | the rest, ranked | name owns line one; kind left and figures right on line two |
+
+**The lead's opening words change with how the cluster arrived** —
+*Sits next to* / *Tagged on this value* / *An analyst attributes this
+to* — so the sentence stays true, and the state chip is absorbed into
+it for that row. §22.3 item 16 asked for the single highest-value
+sentence this page could produce; it is now literally a sentence.
+
+Two consequences worth having. On the 93% of values with one to three
+clusters the card is a confident statement rather than a one-row list
+that looks like a bug. And the figures are the only unmuted thing in a
+row, so a column of them scans without being read.
+
+**Set apart by tone, not hue.** The lead sits on Bootstrap's tertiary
+ground rather than taking a colour, so the tab's rationing — seven
+notion hues, each meaning one notion and nothing else — is untouched.
+The one liberty is typographic: the lead name is 1.05rem where nothing
+else in this rail exceeds 0.82rem.
+
+**Rendering found defects the markup did not.** `Malicious` drew
 `APT28 - G0007` three times with near-identical counts, because MITRE
 ships APT28 as an intrusion set in the enterprise, mobile and
 pre-attack galaxies. They are three real records with three real
 links, but the rows read as a bug — so a row whose name collides with
-another now names its galaxy, and the rest do not.
+another now names its galaxy, and the rest do not. The rebuilt row
+also had the kind stranded alone on a second line while the name
+shared line one with the figures, which cost seven rows a half-empty
+line and gave the name less width than the column had; the name now
+owns its line outright.
 
 **Verified live**, each state against a real value:
 

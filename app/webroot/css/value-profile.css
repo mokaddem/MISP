@@ -4207,42 +4207,101 @@ th[aria-sort="descending"] .sort-icon::before,
 
 /*
  * ======================================================================
- * The rail's named threats — one name per row, at 340px
+ * The rail's named threats — a lead, a composition, a list
  * ======================================================================
- * The rail is small type throughout: split rows are 0.72rem and a fact
- * line 0.82rem. **The cluster name is 0.92rem**, and that inversion is
- * the point. Two cards above and below print counts and settings; this
- * one prints a name, and a name set at caption size reads as another
- * count.
+ * The first cut was eight equally-weighted rows and answered nothing
+ * at a glance: the constant words `org` and `events` repeated down the
+ * card in front of the figures it ranks on, an uppercase chip per row,
+ * and no focal point in a card whose whole job is to produce a name.
+ * Three devices replace it, one per question a reader arrives with —
+ * *is there anything, what sort, how well corroborated* — and each is
+ * cheap enough for a 340px column.
  *
- * **No new hues, and no glyphs either.** The four kinds — actor,
- * campaign, malware, tool — are told apart by a word: the seven notion
- * hues on this tab each mean one notion and nothing else, and four
- * more would overload a separation the tab already carries in colour,
- * form, word and place. A leading glyph per kind was built and cut —
- * it encoded exactly what the chip beside it already said, and at
- * 0.72rem `fa-user-secret`, the most frequent of the four, is a blob.
- * Dropping it also lets the name start at the card's edge, which is
- * the whole thesis.
+ * **The lead is set apart by tone, not hue.** Seven notion hues on
+ * this tab each mean one notion and nothing else, so the card spends
+ * none: the lead sits on the tertiary ground Bootstrap already
+ * defines, which reads as a raised surface in both themes and costs
+ * the rationing nothing. Kinds are told apart by a word, never by
+ * colour, and a per-kind glyph was built and cut — it said exactly
+ * what the word beside it already said, and at 0.72rem
+ * `fa-user-secret` is a blob.
  *
- * What does the work instead is chip weight, and it encodes a real
- * difference:
+ * **One liberty with the scale.** Nothing else in this rail exceeds
+ * 0.82rem; the lead name is 1.05rem. §22.3 item 16 calls this the
+ * single highest-value sentence the page could produce, and a sentence
+ * set at caption size is not one.
  *
- *   hairline   a *category* the cluster belongs to — its kind
- *   filled     a *state* of how it reached this value — on the value,
- *              claimed by an analyst
- *
- * A cluster that arrived on an event wears no state chip at all, since
- * its own event count already says so. Marking the exception rather
- * than the rule keeps most rows to a name and two numbers.
- *
- * The grid is two columns — name, kind — with the meta line spanning
- * both beneath, so a long cluster value wraps against the kind chip
- * instead of pushing it off the card.
+ * **Figures carry body weight, units do not** — `.vp-threat-n` is the
+ * only thing in a row that is not muted, so a column of them scans
+ * without being read.
+ */
+.vp-threat-comp {
+    margin: 0 0 10px;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-threat-n {
+    color: var(--bs-body-color);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-threat-sep {
+    opacity: 0.5;
+}
+
+/* The lead: the strongest arrival, promoted out of the list. */
+.vp-threat-lead {
+    padding: 9px 11px;
+    border-radius: 8px;
+    background: var(--bs-tertiary-bg, rgba(128, 128, 128, 0.14));
+}
+
+.vp-threat-lead-in {
+    display: block;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--bs-secondary-color);
+}
+
+.vp-threat-lead-name {
+    display: block;
+    margin: 1px 0 3px;
+    font-size: 1.05rem;
+    font-weight: 650;
+    line-height: 1.15;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    /* Cluster values run long — `Gozi ISFB v2`, `APT28 - G0007`. */
+    overflow-wrap: anywhere;
+}
+
+.vp-threat-lead-name:hover,
+.vp-threat-lead-name:focus-visible {
+    text-decoration: underline;
+}
+
+.vp-threat-lead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 7px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The remainder. The name owns the first line outright and the
+ * metadata splits the second — kind and qualifiers left, figures
+ * right. Putting the kind on a line of its own under a name that
+ * shared its line with the figures left seven rows each carrying a
+ * half-empty line, and gave the name less width than the column had.
  */
 .vp-threat-list {
     list-style: none;
-    margin: 0;
+    margin: 8px 0 0;
     padding: 0;
 }
 
@@ -4250,22 +4309,18 @@ th[aria-sort="descending"] .sort-icon::before,
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: baseline;
-    gap: 2px 7px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--bs-border-color);
-}
-
-.vp-threat:last-child {
-    border-bottom: 0;
+    gap: 1px 8px;
+    padding: 6px 2px;
+    border-top: 1px solid var(--bs-border-color);
 }
 
 .vp-threat-name {
-    font-size: 0.92rem;
+    grid-area: 1 / 1 / 2 / 3;
+    font-size: 0.85rem;
     font-weight: 600;
     line-height: 1.2;
     color: var(--bs-body-color);
     text-decoration: none;
-    /* Cluster values run long — `Gozi ISFB v2`, `Win32/Industroyer`. */
     overflow-wrap: anywhere;
 }
 
@@ -4274,33 +4329,54 @@ th[aria-sort="descending"] .sort-icon::before,
     text-decoration: underline;
 }
 
-.vp-threat-kind {
-    padding: 1px 4px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 3px;
-    font-size: 0.58rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+.vp-threat-figs {
+    grid-area: 2 / 2 / 3 / 3;
+    text-align: right;
+    font-size: 0.7rem;
     white-space: nowrap;
     color: var(--bs-secondary-color);
 }
 
-.vp-threat-meta {
-    grid-column: 1 / 3;
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
+/*
+ * Kind, state and galaxy on one line, told apart by treatment rather
+ * than by punctuation: the kind is letterspaced micro-caps, a state is
+ * a filled chip, and the galaxy — printed only where two clusters
+ * share a name — is plain.
+ */
+.vp-threat-meta,
+.vp-threat-lead-meta {
     font-variant-numeric: tabular-nums;
+}
+
+.vp-threat-meta {
+    grid-area: 2 / 1 / 3 / 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 1px 7px;
+    font-size: 0.66rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-threat-kind {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.92em;
 }
 
 .vp-threat-mark {
     padding: 0 4px;
     border-radius: 3px;
-    background: var(--bs-tertiary-bg, rgba(128, 128, 128, 0.18));
+    background: var(--bs-secondary-bg, rgba(128, 128, 128, 0.22));
     color: var(--bs-body-color);
 }
 
+.vp-threat-galaxy {
+    opacity: 0.8;
+}
+
 .vp-threat-expand > summary {
-    padding: 6px 0 2px;
+    padding: 7px 0 1px;
     font-size: 0.7rem;
     color: var(--bs-secondary-color);
     cursor: pointer;
@@ -4318,13 +4394,20 @@ th[aria-sort="descending"] .sort-icon::before,
 .vp-threat-rest {
     max-height: 220px;
     overflow-y: auto;
-    border-top: 1px solid var(--bs-border-color);
+    margin-top: 0;
 }
 
 .vp-threat-note {
-    margin: 10px 0 0;
-    font-size: 0.66rem;
-    line-height: 1.4;
+    margin: 11px 0 0;
+    font-size: 0.64rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
+
+/* Direction, not mood: it says what was read and found nothing. */
+.vp-threat-none {
+    font-size: 0.78rem;
+    line-height: 1.5;
     color: var(--bs-secondary-color);
 }
 
