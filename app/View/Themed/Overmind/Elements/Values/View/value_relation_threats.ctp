@@ -68,8 +68,47 @@ $kindLabels = array(
 );
 $marks = array(
     'value' => __('on the value'),
-    'claim' => __('claimed by an analyst'),
 );
+
+/*
+ * What a claim was written on. The card counts a claim about the
+ * occurrence, about the event it is in, and about the object it sits
+ * in — so the hover has to say which, or *claimed by an analyst* is
+ * three words that hide the difference between a statement about this
+ * address and one about a report containing it.
+ */
+$anchorWords = array(
+    'Attribute' => __('on this value'),
+    'Event' => __('on an event it appears in'),
+    'Object' => __('on the object it sits in'),
+);
+
+/**
+ * Who asserted a cluster, how, and when — one line per claim.
+ *
+ * Lives in the `title` because the row has room for three words and
+ * the asserted section is where the whole claim, with its author and
+ * its direction, is laid out properly. This is the peek.
+ *
+ * @param array $claims As `neighbourhoodThreats` recorded them
+ * @return string
+ */
+$claimTitle = function (array $claims) use ($anchorWords) {
+    $lines = array();
+    foreach ($claims as $claim) {
+        $where = isset($anchorWords[$claim['anchor']])
+            ? $anchorWords[$claim['anchor']]
+            : '';
+        $lines[] = trim(sprintf(
+            __('%s claimed "%s" %s'),
+            $claim['org'],
+            $claim['type'],
+            $where
+        )) . ($claim['date'] === '' ? '' : ' · ' . $claim['date']);
+    }
+    $lines[] = __('Shown in full under Asserted by analysts.');
+    return implode("\n", $lines);
+};
 
 /*
  * Names that more than one cluster carries, and they are real: MITRE
@@ -109,7 +148,7 @@ foreach (array('actor', 'campaign', 'malware', 'tool') as $kind) {
  * @param bool $folded Beyond the opening cut, hidden until asked for
  */
 $row = function (array $threat, $folded) use (
-    $kindWords, $marks, $baseurl, $nameCounts
+    $kindWords, $marks, $baseurl, $nameCounts, $claimTitle
 ) {
     $kind = isset($threat['kind']) ? $threat['kind'] : '';
     $word = isset($kindWords[$kind]) ? $kindWords[$kind] : $kind;
@@ -120,7 +159,8 @@ $row = function (array $threat, $folded) use (
     $galaxy = !empty($nameCounts[$key]) && $nameCounts[$key] > 1
         ? $threat['galaxy']
         : null;
-    $extra = isset($marks[$attachment]) || $galaxy !== null;
+    $claimed = $attachment === 'claim' && !empty($threat['claims']);
+    $extra = isset($marks[$attachment]) || $claimed || $galaxy !== null;
     $figures = array();
     if (!empty($threat['orgs'])) {
         $figures[] = '<span class="vp-threat-n">'
@@ -153,6 +193,22 @@ $row = function (array $threat, $folded) use (
         </span>
         <?php if ($extra): ?>
             <span class="vp-threat-extra">
+                <?php if ($claimed): ?>
+                    <?php /*
+                     * The tab's own human-claim mark, not a chip of
+                     * this card's invention: `.vp-rel-prov-human` and
+                     * `fa-user-pen` are what every other region uses
+                     * to say *a person wrote this*, and
+                     * `--vp-rel-human` is that notion's colour. Using
+                     * it here spends nothing — it is the one hue that
+                     * means exactly this.
+                     */ ?>
+                    <span class="vp-rel-prov vp-rel-prov-human"
+                          title="<?= h($claimTitle($threat['claims'])) ?>">
+                        <i class="fas fa-user-pen" aria-hidden="true"></i>
+                        <?= h(__('claimed by an analyst')) ?>
+                    </span>
+                <?php endif; ?>
                 <?php if (isset($marks[$attachment])): ?>
                     <span class="vp-threat-mark"><?=
                         h($marks[$attachment]) ?></span>

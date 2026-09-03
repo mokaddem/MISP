@@ -1942,24 +1942,71 @@ on is not a caveat, it is an untested branch.
 `campaign` remains undrawn, Tidal Campaigns being installed but
 unused here.
 
-**Still not counted: a claim anchored on the event.** A second claim
-was authored the same day — event 4074, which contains an `8.8.8.8`
-occurrence, `linked-to` the same `APT1` cluster — and it appears
-neither on the card nor in the asserted section. That is
-`claimFrom`'s existing scope rather than anything B8 introduced: the
-section matches claims whose near end is one of the value's
-*attribute* occurrences, so an Event near end is dropped before the
-fold ever sees it.
+### 10.3 A claim can be written about the container — 2026-09-03
 
-It leaves a real asymmetry. The card counts a galaxy *tag* on an event
-the value appears in, but not a *claim* on that same event, and the
-claim is the more deliberate statement of the two. Closing it means
-widening `assertedClaims` — one more `Relationship` read over the
-value's event uuids, in both directions, under the same ACL — and
-widening it there rather than in the card only, because the page's
-idiom is that the card counts and the section lists off one method so
-the two cannot disagree. Out of B8's scope; recorded here as the
-decision it is.
+A second claim authored the same day exposed the next gap: event 4074,
+which contains an `8.8.8.8` occurrence, `linked-to` the same `APT1`
+cluster. It appeared neither on the card nor in the asserted section,
+because `assertedClaims` matched only claims whose near end is one of
+the value's *attribute* occurrences.
+
+That was too narrow, and the asymmetry gave it away: **the tab already
+counts a plain galaxy tag on an event the value appears in, and was
+dropping a claim on that same event** — ranking a label above a
+deliberate, authored, typed statement. The parent object is the same
+argument one level tighter: a claim about the `domain-ip` object an
+address sits in is a claim about the thing the address is part of.
+
+**Widened in the section, not in the card**, because the page's idiom
+is that the card counts and the section lists off one method so the
+two cannot disagree. `assertedClaims` now asks about three anchors —
+the occurrence, its event, its object — as six equality pairs in one
+`OR`, still one query. `claimFrom` matches the near end on the *pair*,
+type and uuid, so an Event uuid can never be taken for an Attribute
+one, and it returns which anchor matched.
+
+**The containers cost no query.** `occurrenceUuidsFor` already joins
+`Event` and `Object` — the ACL needs them — so their uuids come off
+the fetch that was already happening. One catch, and it is the kind
+that hides: with an explicit `fields` list, Containable selects
+exactly what is named, so `Event.uuid` and `Object.uuid` had to be
+asked for. Every earlier caller read only `Attribute.*`, so the
+omission had cost nothing until now — and it failed silently, the
+event-anchored claim simply staying absent, which is what sent the
+first fix in the wrong direction.
+
+The asserted section grew from 40.7 KB to 57.8 KB on `8.8.8.8`, which
+is the claims it had been dropping.
+
+### 10.4 The claim mark, and what it says on hover — 2026-09-03
+
+The card's `claimed by an analyst` mark is the tab's own
+`.vp-rel-prov-human` — `fa-user-pen` in `--vp-rel-human` — rather than
+a chip of this card's invention. This is the one place the rail
+*should* spend a notion hue: it is the human-claim notion marking a
+human claim, which strengthens the four-fold separation the tab
+carries (colour, form, word, place) instead of overloading it. Only
+the size is local, that chip being built for a 0.72rem panel header
+against this line's 0.64rem.
+
+Three words cannot say who claimed what, so the rest is on hover, one
+line per claim:
+
+> ADMIN claimed "linked-to" on an event it appears in · 2026-09-03
+> ADMIN claimed "related-to" on this value · 2026-09-03
+> Shown in full under Asserted by analysts.
+
+Which anchor matched is the point of that line — without it, *claimed
+by an analyst* hides the difference between a statement about this
+address and one about a report that merely contains it. The tooltip
+ends by naming the section that lays the claim out properly, with its
+author, direction and type; this is the peek, not the record.
+
+**Note for verification:** the rail cards take no `fresh` parameter —
+only the co-occurrence endpoint does — so `?fresh=1` is ignored here
+and a code change is invisible for up to `RELATION_SCAN_TTL`. The
+digest lives in redis **DB 13**, not DB 0, which is why a scan of the
+default database reports no keys to drop.
 
 ### 10.2 Follow-up: galaxies and taxonomies as neighbour context
 

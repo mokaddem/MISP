@@ -2323,7 +2323,8 @@ class ValueProfile extends AppModel
                 $clusters['by_uuid'][$uuid],
                 'claim',
                 null,
-                $claim['org_id']
+                $claim['org_id'],
+                $claim
             );
         }
 
@@ -2361,10 +2362,14 @@ class ValueProfile extends AppModel
      * @param string $attachment `event`, `value` or `claim`
      * @param int|null $eventId Event this arrival was found on
      * @param int|null $orgId Organisation to credit for it
+     * @param array|null $claim The claim, where one is what brought
+     *     the cluster in. Kept so the card's own badge can say who
+     *     asserted it, how, and when — three words on the row is the
+     *     right size for the rail, and the rest belongs on hover.
      * @return void
      */
     private function addThreat(array &$rows, array $cluster,
-        $attachment, $eventId, $orgId
+        $attachment, $eventId, $orgId, array $claim = null
     ) {
         $row = $cluster['GalaxyCluster'];
         if (!GalaxyCategory::isNamedThreat($row['type'])) {
@@ -2382,6 +2387,17 @@ class ValueProfile extends AppModel
                 'attachment' => $attachment,
                 'events' => array(),
                 'orgs' => array(),
+                'claims' => array(),
+            );
+        }
+        if ($claim !== null) {
+            $rows[$id]['claims'][] = array(
+                'type' => $claim['relationship_type'],
+                'anchor' => isset($claim['anchor'])
+                    ? $claim['anchor']
+                    : null,
+                'org' => $claim['org'],
+                'date' => $claim['date'],
             );
         }
         if (self::threatRank($attachment)
@@ -3604,22 +3620,64 @@ class ValueProfile extends AppModel
                 'order' => self::OCCURRENCE_ORDER,
             ))
         );
+        /*
+         * The three things a claim about this value can be anchored
+         * on, by uuid: the occurrence itself, the event it is in, or
+         * the object it sits in.
+         *
+         * **Attribute alone was too narrow, and the omission showed.**
+         * A claim written on an event — *event 4074 is linked-to
+         * APT1* — is a claim about a neighbourhood this value is part
+         * of, and the tab already counts a plain galaxy *tag* on that
+         * same event. Counting the tag and dropping the claim ranked a
+         * label above a deliberate, authored, typed statement. The
+         * parent object is the same argument one level tighter: a
+         * claim about the `domain-ip` object this address sits in is
+         * about the thing the address is part of.
+         *
+         * The containers cost no query — `occurrenceUuidsFor` already
+         * joins `Event` and `Object` to read them.
+         */
+        $near = array(
+            'Attribute' => $occurrences,
+            'Event' => array(),
+            'Object' => array(),
+        );
+        foreach ($occurrences as $occurrence) {
+            if (!empty($occurrence['event_uuid'])) {
+                $near['Event'][$occurrence['event_uuid']] = true;
+            }
+            if (!empty($occurrence['object_uuid'])) {
+                $near['Object'][$occurrence['object_uuid']] = true;
+            }
+        }
+
         $claims = array();
         $orgs = array();
         if (!empty($occurrences)) {
-            $uuids = array_keys($occurrences);
             $relationships = $this->model('Relationship');
             $conditions = $relationships->buildConditions($user);
-            $conditions['AND'][] = array('OR' => array(
-                array(
-                    'Relationship.object_type' => 'Attribute',
+            /*
+             * Six branches rather than two, and still one query: a
+             * claim names its ends by uuid and type, so each kind of
+             * anchor is one equality pair per direction.
+             */
+            $anchors = array();
+            foreach ($near as $kind => $set) {
+                if (empty($set)) {
+                    continue;
+                }
+                $uuids = array_keys($set);
+                $anchors[] = array(
+                    'Relationship.object_type' => $kind,
                     'Relationship.object_uuid' => $uuids,
-                ),
-                array(
-                    'Relationship.related_object_type' => 'Attribute',
+                );
+                $anchors[] = array(
+                    'Relationship.related_object_type' => $kind,
                     'Relationship.related_object_uuid' => $uuids,
-                ),
-            ));
+                );
+            }
+            $conditions['AND'][] = array('OR' => $anchors);
             /*
              * `Org` and `Orgc` are contained rather than left out, and
              * it is not decoration: `AnalystData::rearrangeOrganisation`
@@ -3635,7 +3693,7 @@ class ValueProfile extends AppModel
                 'order' => array('Relationship.modified DESC'),
             ));
             foreach ($rows as $row) {
-                $claim = $this->claimFrom($user, $row, $occurrences);
+                $claim = $this->claimFrom($user, $row, $near);
                 if ($claim === null) {
                     continue;
                 }
@@ -3670,17 +3728,26 @@ class ValueProfile extends AppModel
      * two endpoint columns is the only way to know, and it is also what
      * decides which end is the interesting one to name.
      *
+     * **Either end may be an occurrence, its event or its object.** The
+     * near end is whichever of the two the caller nominated, and it is
+     * matched on the pair — type *and* uuid — so an `Event` uuid can
+     * never be mistaken for an `Attribute` one.
+     *
      * @param array $user
      * @param array $row
-     * @param array $occurrences uuid => id, event_id, type
+     * @param array $near kind => uuid => anything, from `assertedClaims`
      * @return array|null
      */
-    private function claimFrom(array $user, array $row,
-        array $occurrences
-    ) {
+    private function claimFrom(array $user, array $row, array $near)
+    {
         $relationship = $row['Relationship'];
-        $outbound = $relationship['object_type'] === 'Attribute'
-            && isset($occurrences[$relationship['object_uuid']]);
+        $isNear = function ($kind, $uuid) use ($near) {
+            return isset($near[$kind]) && isset($near[$kind][$uuid]);
+        };
+        $outbound = $isNear(
+            $relationship['object_type'],
+            $relationship['object_uuid']
+        );
         if ($outbound) {
             $kind = $relationship['related_object_type'];
             $uuid = $relationship['related_object_uuid'];
@@ -3694,7 +3761,10 @@ class ValueProfile extends AppModel
             $target = isset($relationship['related_object'])
                 ? $relationship['related_object']
                 : array();
-        } elseif (isset($occurrences[$relationship['related_object_uuid']])) {
+        } elseif ($isNear(
+            $relationship['related_object_type'],
+            $relationship['related_object_uuid']
+        )) {
             $kind = $relationship['object_type'];
             $uuid = $relationship['object_uuid'];
             $target = $this->model('Relationship')->getRelatedElement(
@@ -3722,6 +3792,15 @@ class ValueProfile extends AppModel
                 ? __('related-to')
                 : $relationship['relationship_type'],
             'direction' => $outbound ? 'outbound' : 'inbound',
+            /*
+             * Which of this value's three anchors the claim was
+             * written on — the occurrence, its event, or its object.
+             * The near end by construction, so it is read off
+             * whichever column the direction says.
+             */
+            'anchor' => $outbound
+                ? $relationship['object_type']
+                : $relationship['related_object_type'],
             /*
              * The far end as fetched, not as rendered.
              * `resolveClaimTargets` turns it into the display shape

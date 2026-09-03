@@ -4338,6 +4338,17 @@ th[aria-sort="descending"] .sort-icon::before,
 }
 
 /*
+ * The human-claim mark is the tab's own `.vp-rel-prov-human` — same
+ * glyph, same `--vp-rel-human`, so a claim reads as a claim here and
+ * in the two panels that already say so. Only the size is local: that
+ * chip is sized for a panel header at 0.72rem and this line is
+ * 0.64rem.
+ */
+.vp-threat-extra .vp-rel-prov {
+    font-size: inherit;
+}
+
+/*
  * Rows a pill has filtered out, always; rows outside the opening cut,
  * only while the card is showing that cut. The fold is scoped to the
  * `top` view on purpose — picking *Malware 63* has to be able to reach

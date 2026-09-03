@@ -879,7 +879,21 @@ class Value extends AppModel
                 'Attribute.id',
                 'Attribute.uuid',
                 'Attribute.event_id',
+                // Zero on a plain attribute, which is how a claim
+                // about "the parent object" is told from no parent.
+                'Attribute.object_id',
                 'Attribute.type',
+                /*
+                 * Named explicitly, because `fields` and Containable
+                 * together select exactly what is listed: the `Event`
+                 * and `Object` joins are already in the query — the
+                 * ACL needs them — but their columns are not fetched
+                 * unless asked for. Every earlier caller read only
+                 * `Attribute.*`, so the omission cost nothing until a
+                 * container's uuid was wanted.
+                 */
+                'Event.uuid',
+                'Object.uuid',
             ),
             'contain' => array('Event', 'Object'),
         );
@@ -895,6 +909,27 @@ class Value extends AppModel
                 'id' => (int)$row['Attribute']['id'],
                 'event_id' => (int)$row['Attribute']['event_id'],
                 'type' => $row['Attribute']['type'],
+                /*
+                 * The containers this occurrence sits in, by uuid,
+                 * because an analyst's claim can be written about any
+                 * of the three and `relationships` names its ends by
+                 * uuid alone. Taken from the records this fetch
+                 * already contains rather than looked up again: the
+                 * `Event` and `Object` joins above are what make the
+                 * asserted section able to ask about a container
+                 * without a second query per occurrence.
+                 *
+                 * `object_uuid` is null for a plain attribute —
+                 * `object_id` is 0 there, and a claim can no more be
+                 * written about object 0 than about a missing event.
+                 */
+                'event_uuid' => isset($row['Event']['uuid'])
+                    ? $row['Event']['uuid']
+                    : null,
+                'object_uuid' => empty($row['Attribute']['object_id'])
+                    || empty($row['Object']['uuid'])
+                        ? null
+                        : $row['Object']['uuid'],
             );
         }
         return $set;
