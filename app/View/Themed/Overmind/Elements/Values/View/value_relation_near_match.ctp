@@ -676,6 +676,46 @@ if (!$offerSimilarity) {
                             $compared = isset($ssdeep['compared'])
                                 ? (int)$ssdeep['compared']
                                 : 0;
+                            /*
+                             * **"all" belongs to the unsaturated case
+                             * only.** It used to live in the plural
+                             * form, so a fetch that had hit its ceiling
+                             * said *compared against all 10 distinct
+                             * values* on one line and *some were not
+                             * compared at all* on the next. Caught by
+                             * rendering the saturated branch on purpose
+                             * — no value on the verification instance
+                             * can reach it, which is exactly why it
+                             * survived review.
+                             */
+                            /*
+                             * **Pairs that cleared, not rows that fit.**
+                             * A match with no occurrence the context
+                             * fetch could reach still cleared the
+                             * threshold, so counting rows here made the
+                             * headline disagree with the line below it —
+                             * *1 pair cleared* above *3 more hashes
+                             * cleared it*. Found by rendering the
+                             * unplaced branch on purpose; it is
+                             * invisible whenever `unplaced` is zero,
+                             * which is every value on this instance.
+                             */
+                            $matched = isset($ssdeep['matched'])
+                                ? (int)$ssdeep['matched']
+                                : count($ssdeep['rows']);
+                            $comparedPhrase = empty($ssdeep['saturated'])
+                                ? __n(
+                                    'the one other distinct value',
+                                    'all %d distinct values',
+                                    $compared,
+                                    $compared
+                                )
+                                : __n(
+                                    '%d distinct value',
+                                    '%d distinct values',
+                                    $compared,
+                                    $compared
+                                );
                             ?>
                             <?= sprintf(
                                 __(
@@ -685,29 +725,25 @@ if (!$offerSimilarity) {
                                     . ' recomputed here — MISP keeps the'
                                     . ' threshold test, not the number.'
                                 ),
-                                '<strong>' . h(__n(
-                                    '%d distinct value',
-                                    'all %d distinct values',
-                                    $compared,
-                                    $compared
-                                )) . '</strong>',
+                                '<strong>' . h($comparedPhrase) . '</strong>',
                                 '<span class="font-monospace">ssdeep</span>',
                                 '<strong>' . h(__n(
                                     '%d pair',
                                     '%d pairs',
-                                    count($ssdeep['rows']),
-                                    count($ssdeep['rows'])
+                                    $matched,
+                                    $matched
                                 )) . '</strong>',
                                 $near['threshold']
                             ) ?>
                             <?php if (!empty($ssdeep['unplaced'])): ?>
                                 <?= h(sprintf(
                                     __n(
-                                        '%d more hash cleared it but has'
-                                        . ' no occurrence to show here.',
-                                        '%d more hashes cleared it but'
-                                        . ' have no occurrence to show'
-                                        . ' here.',
+                                        '%d of them has no occurrence'
+                                        . ' this fetch could reach, so'
+                                        . ' it has no row below.',
+                                        '%d of them have no occurrence'
+                                        . ' this fetch could reach, so'
+                                        . ' they have no row below.',
                                         $ssdeep['unplaced'],
                                         $ssdeep['unplaced']
                                     ),

@@ -3036,6 +3036,10 @@ need to be.
 - `8.8.8.8` — one line, *Not applicable*, and `Similarity ≥` is still
   offered because CIDR's four rows still carry numbers.
 
+**Two of this task's sentences were never rendered until §14.4**, which
+forced them into view and found one of them wrong. The cap line was
+fine; the pair-count and *all* bugs it found next door were not.
+
 **Still open, and none of it is blocked by this task.** The reverse
 direction — *this value as a look-alike of a prominent domain* — waits
 on the warninglist question §12.1 ends on, not on cost. Feed-cache
@@ -3173,3 +3177,54 @@ A four-partner value renders four rows against *"4 pairs cleared the
 threshold"*, in **48 ms** for the whole panel. `8.8.8.8` (CIDR, four
 rows) and `caref1rst.com` (typosquat, one row) are unchanged, and
 `Similarity ≥` is still offered wherever the rows carry numbers.
+
+### 14.4 The four unreachable states, displayed once — two were wrong
+
+B10 and B11 each added sentences that **no value on this instance can
+reach**: a saturated typosquat fetch needs 200 look-alike occurrences,
+"nothing to generate" needs a dotless `domain` value and this instance
+holds zero of them, a saturated ssdeep fetch needs 10,000 hashes
+against 1,399, and an unplaced match needs one hash in twenty times
+more events than it has matches. Four cap-disclosure sentences on a
+tab whose whole discipline is that a cap states itself, none of them
+ever seen.
+
+Displayed the way §4.1 displayed *cannot run* and the way §11.1
+displayed the unplaced tactic chip: **force the state in code for one
+fetch and revert it.** One constant each — the fetch cap to 1,
+`applies()` to `false`, `SSDEEP_CANDIDATE_CAP` to 10, the context
+limit to 1 — then read the panel, then put the constant back. No
+attribute was written to host a state, because a value authored to
+demonstrate an empty state then lives in the data forever and skews
+every other panel that counts the same rows.
+
+**Two of the four were broken, and both only in the state nobody could
+see.**
+
+- **The saturated ssdeep block contradicted itself in consecutive
+  sentences.** *"Compared against **all 10** distinct values of
+  `ssdeep` you can see"* followed by *"The candidate fetch stopped at
+  10 attributes, so some of this type were not compared at all."* The
+  word `all` was baked into the plural form of the count, so it
+  survived exactly as long as the fetch never saturated. It now
+  belongs to the unsaturated branch alone.
+- **The pair count counted rows rather than matches.** With three
+  matches unplaceable the block read *"**1 pair** cleared the
+  threshold"* directly above *"**3 more hashes** cleared it"* — four
+  things cleared the threshold and the headline said one. The engine
+  had returned `matched` since it was written; the template was
+  reading `count($rows)`. Now it reads `matched`, and the second
+  sentence says *"3 of them have no occurrence this fetch could
+  reach"* rather than introducing a second, competing count.
+
+Neither is reachable on this instance, both would have shipped, and
+both would have surfaced first on whichever instance was large enough
+to hit a ceiling — which is the instance least likely to have anyone
+reading the sentence closely.
+
+**The other two were correct as written**, and are recorded here so the
+next reader knows they were looked at rather than assumed: the
+typosquat cap line renders in its slot between the class list and the
+table, and the *nothing to generate* line correctly suppresses both the
+table and the *found nothing* empty state below it, because *generated
+nothing* and *found nothing* are different sentences.
