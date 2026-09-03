@@ -41,6 +41,7 @@ live instance and recorded in its own section below.
 | B6 | A "Most specific" rank | `value_relation_cooccurrence`, `siblings` | M | **yes** | no | **done** |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | **done** |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | **done** |
+| B8.1 | Galaxies and taxonomies as neighbour context | `value_relation_cooccurrence` (new section), `value_relation_summary`, `value_relation_threats`, `value_relation_settings` | L | no | **yes — a third section with its own bar and pager** | **done** |
 | B9 | Where in the intrusion: tactic mix | B8's card | S | no | no — extends B8 | todo |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo |
 
@@ -2075,25 +2076,259 @@ and a code change is invisible for up to `RELATION_SCAN_TTL`. The
 digest lives in redis **DB 13**, not DB 0, which is why a scan of the
 default database reports no keys to drop.
 
-### 10.2 Follow-up: galaxies and taxonomies as neighbour context
+### 10.2 Galaxies and taxonomies as neighbour context — done 2026-09-03
 
-Raised while closing B8. The co-occurrence table's notion of a
-neighbour is *another attribute in the same event*. It could as well
-carry **galaxy clusters and taxonomy tags as neighbours in their own
-right** — one table of everything sharing this value's events,
-attributes and labels alike, with the same facets, ranks and pager
-over all of it.
+Raised while closing B8, and built. The co-occurrence panel's notion of
+a neighbour *was* "another attribute in the same event". It is now
+**anything sharing this value's events** — the attributes beside it, the
+galaxy clusters naming what those events are about, and the taxonomy
+tags classifying them. The named-threat card is a slice of that fold
+rather than a second read.
 
-This card would then stop being a separate read and become **a subset
-of that table with its own prioritisation**: the rows whose neighbour
-is a cluster, filtered to `named-threat` by `GalaxyCategory` and
-ranked for the rail. The card stays — a rail summary is not a ledger —
-but it would share the table's fold instead of running its own five
-queries.
+**Where this section was wrong, and the build is what showed it.** It
+asked for *"one table of everything sharing this value's events,
+attributes and labels alike, with the same facets, ranks and pager over
+all of it"*. That table was built, measured, and taken apart again. Of
+the three things it promised to share, only the pager was shareable —
+and sharing the pager turned out to be the worst part of it, because it
+is what put the first galaxy cluster on `Malicious` on **page
+fourteen**.
 
-Worth investigating before B10, because it changes what "neighbour"
-means on the tab and therefore what the co-occurrence facets are
-facets *of*. Not scoped here.
+The evidence, in the order it arrived:
+
+- **The rank cannot be shared.** `443` sits in 200 events and the
+  attribute budget affords 38, so a value neighbour reaches at most 38
+  shared events while `tlp:white`, folded over all 200, reaches 196.
+  One order over both put **100 tags and not one value** on the carried
+  page. Rescaling the label counts is the obvious repair and the wrong
+  one — it makes the column disagree with the number printed in it. The
+  counts are right; *the comparison* is not.
+- **The facets cannot be shared.** Five of the eight — `Type`,
+  `Category`, `Object`, `Tag`, `Warninglist` — are properties of a
+  correlated attribute. A cluster has none of them, so ticking one
+  emptied the table of every cluster it had just counted.
+- **The columns cannot be shared.** `Specific to this value` divides by
+  a spread a label has none of; `Distribution` is empty on a label that
+  reached this value only through its own occurrences.
+- **The weight bar cannot be shared.** One scale across kinds drew
+  every value neighbour on `443` as a stub beside `tlp:white`'s 196 — a
+  picture of the scope difference rather than of which neighbours are
+  strong.
+- **And the browser undid the repair anyway.** The kind-major order the
+  fold produced survived exactly until `value-profile.js` ran: the
+  **Rank by** pills re-sort every row by one `data-vp-num` key, so page
+  one came back as tags again — visible in a screenshot, not in the
+  fragment, because the fragment was correct. Holding the merged table
+  together needed a new `data-vp-rank-group` attribute and a change to
+  the shared sort.
+
+At which point the merged table shared a pager and a `<tbody>` and
+nothing else, and every one of those fixes existed to hold a boundary
+running down its middle. This panel had already written the rule down,
+one section below where the merged table went:
+
+> *"Narrowing applies to the value roll-up. A facet like Type is a
+> property of a correlated value; an event row is not a value, and
+> filtering one by the type of the other would be a control that means
+> nothing."*
+
+A cluster is not a value either. **So the labels get what the object
+siblings above them get**: their own card, their own rows, their own
+bar, their own pager, their own empty state — a third section in
+`value_relation_cooccurrence`, with a card of its own on the contents
+strip. What they share with the table above is the fold and the scan
+behind it, which is where sharing was worth having. The value table is
+byte-identical to what it was before this section: the template diff is
+pure addition, and `distinct_values` keeps its name and its meaning.
+
+**A kind is part of a group's identity, not a column on it.** The fold
+keys label groups on `(kind, tag name)` in an array of their own. A tag
+named `8.8.8.8` and the address `8.8.8.8` are two neighbours sharing a
+string and nothing else, and the separate array also makes it
+structural rather than merely ordered that a label cannot inherit the
+warninglist verdict or the prevalence denominator of an attribute value
+that happens to spell the same.
+
+**Three ways a label reaches a value, and the table has a column for
+it.** `value` — on one of this value's own occurrences; `neighbour` —
+on an attribute beside it in a read event; `event` — on an event it
+appears in. Tightest wins, in `ValueRelationTool::$attachments`, and
+the counts still fold every source. It is a column rather than only a
+mark on the name because it is the one dimension here a reader sorts
+by: *what was said about this value* is a different question from *what
+was said about the reports it turned up in*. The card's `threatRank` is
+that table plus `claim` on top, because a claim is not a label on an
+event and reaches the card by another road. `object` belongs between
+`value` and `neighbour` in both once `ObjectTag` exists.
+
+**Two scopes, and each section states its own.** The attribute budget
+bounds the value side. It does not bound the label side: an event's
+tags are one indexed `EventTag` read over at most `RELATION_EVENT_CAP`
+ids whatever the events' size, so scoping labels to the events the
+budget afforded would drop a cluster for a reason that has nothing to
+do with clusters. `readRelationScan` reads `eventMetadata` and
+`ownTagsFor` over every seen event, and the labels card says so —
+*"Read over all 99 events this value is in, including any the table
+above could not afford to open"*, with *"The table above read 38 of
+them"* only where the two actually differ. Separate sections is what
+made this statable: the merged table had one scan line for two scopes.
+
+That is also the property that let the card move. §10 kept
+`neighbourhoodThreats` off the scan precisely so it would answer on a
+value whose neighbourhood table is suppressed; the scan now has that
+property itself. **Verified**: `0.0.0.0-0.255.255.255`, both its events
+past the 10,000-attribute cap, renders the suppressed band with the
+labels card below it holding 1 cluster and 2 tags, its bar and its
+pager intact.
+
+**The card: six queries to one.** It was `occurrenceEventsFor`,
+`fetchSimpleEvents`, `EventTag`, `ownClusterTagsFor`,
+`fetchGalaxyClusters` and `Organisation`. All six are now the scan's,
+paid once and cached with it; what is left is the claim-target
+`fetchGalaxyClusters`, which the fold cannot answer because a claim
+names a cluster by UUID that may be tagged nowhere, and which sends
+nothing when no claim names one. `addThreat` reads a fold row rather
+than raw tags, and `GalaxyCategory::isNamedThreat` stays in the card —
+the fold carries every cluster it found, and *named threat* is the
+rail's question about them, not the fold's.
+
+**The section holds every label and the table shows a page of them.**
+Two readers want two lengths. The table renders the first `row_cap` and
+states the cut. The card wants all of them, because it filters to
+`named-threat` afterwards and a cluster reaching this value through one
+event sits nowhere near the top of a list ranked by shared events —
+capping first would have lost threats on exactly the values where the
+neighbourhood is large. On `APT43 Report.pdf` the card finds 45 named
+threats; the table's first hundred rows hold 5 of them. Holding the
+full list costs a cache entry, not markup.
+
+**What the card gained.** The `neighbour` source is new — a cluster
+tagged on an attribute *beside* this value. On `APT43 Report.pdf` that
+is 43 of its 45 named threats (QuasarRAT, SOURDOUGH and the rest), none
+of which the old card could see. `pixelproc.exe` exercises the `value`
+source: 2 threats, one marked *on the value*.
+
+**The labels bar is six groups and a local one.** `Kind`, `Family` (a
+cluster's galaxy, a tag's taxonomy namespace, empty on freetext) and
+`Attached to` are the three the value bar cannot have and the reason
+this section exists; `Event`, `Organisation` and `Distribution` are the
+dimensions both sections genuinely share. `Kind` and `Attached to` keep
+their declared order rather than a ranked one, on the warninglist
+partition's reasoning — `Attached to` reads as a scale, and a scale
+sorted by frequency is not a scale. The bar is **local**, like the
+sibling bar and unlike the value table's: there is no narrowing
+endpoint behind these rows, so `value_facet_group` greys an entry the
+carried rows do not hold rather than offering a cut that could only
+empty the table. Verified in the browser: ticking `Kind · Galaxy
+cluster` on `Malicious` leaves 56 rows and the pager reads *"1–8 of 56
+labels (288 in total)"*.
+
+**Clusters and tags stay in one table, and that boundary is different.**
+Both are counted the same way over the same scope, so their shared-event
+counts are directly comparable and one weight bar over both is honest —
+even though it is lopsided, `tlp:white` at 98 against STRONTIUM at 4.
+The boundary that mattered was scope, facets and columns, and clusters
+and tags share all three. `Kind` separates them in one click.
+
+**What a label does not carry.** No spread — `prevalenceFor` counts
+attribute rows, and a tag's instance-wide event count is a different
+query against `event_tags` and `attribute_tags` whose two halves cannot
+be summed without double-counting an event carrying the tag at both
+levels. There is no `Specific to this value` column in this section
+rather than an empty one. **Follow-up if it proves wanted**, with the
+double-count settled first; it would also give this section a *Most
+specific* rank, which it does not offer today because it would have
+nothing to divide by.
+
+No audience from the own-value source either. `ownTagsFor` aggregates
+the occurrences away, and the carrying event's level is a *ceiling* on
+its attributes' rather than a floor — claiming it would let a row read
+`All communities` over a record that is org-only, which is the mistake
+the value rows' audience *set* exists to have stopped making. The cell
+renders an em dash and the distribution sort token is empty, so the row
+sorts last whichever way the heading points.
+
+**Found while verifying: a label row read `Inherited`.** The neighbour
+source first used the attribute's *stated* distribution, on the
+argument that stated is the narrower reading. It is not a reading at
+all when the value is `5`: an audience badge saying *Inherit* on a row
+that names a tag rather than a record has nothing to inherit from. Seen
+on `tlp:white`, where every neighbour carrying it deferred to its
+event. It uses `ValueStatsTool::effectiveDistribution` now, the same
+helper the value rows use, which is why `restrictionRank` became public
+— the ordering stays decided in one place rather than re-derived beside
+the second caller.
+
+**An unresolved galaxy tag is still dropped, and the instance proves it
+matters.** `misp-galaxy:malware="Cytrox"` is on six attributes in event
+1434 and names no row in `galaxy_clusters`. It contributes nothing —
+the same rule `claimTarget` states, since the tag string would disclose
+exactly what `fetchGalaxyClusters` is withholding.
+
+**Cell shapes do the telling.** A tag is MISP's own coloured chip; a
+cluster is the rail card's pill in its galaxy's colour, linked to
+`galaxy_clusters/view`. `Family` beside it is plain text rather than a
+second badge, because two coloured things on one row compete for the
+same glance. The provenance chip says **Tagged**, not *Applied by
+hand*: a cluster reaches an event through whoever wrote it, and that is
+as often a feed or a sync as a person, which neither join table records
+either way.
+
+**Two counts on the rail, never summed.** `relationSummary` keeps
+`correlations` values-only — the rule already written beside `external`,
+that a cluster is no more a value than a remote event is, and summing
+them invents a strength out of two units. The labels are a `labels`
+count beside it, a sixth row on "What is counted", appended so a value
+with no labels renders the five it always did.
+
+**Cache shape 7 → 8.** The scan's shape changed; §6.2's rule retires
+the old payloads at the deploy rather than at the clock. The template
+also defaults the section's keys, which is belt to that brace and what
+a fixture-driven render needs — `ValueProfileFixture` predates all of
+them.
+
+**The cost, stated.** The labels card is **323 KB of `Malicious`'s
+1.83 MB fragment (18%)** and **356 KB of `443`'s 1.36 MB (26%)** — one
+extra table of at most `row_cap` rows at the ~2.9 KB a row this panel
+already pays. Notably it is *cheaper* than the merged table it replaced:
+that one carried three caps of 100 in one list and reached 2.16 MB on
+`Malicious`. Reachability is unaffected — a label past the hundredth is
+one facet tick away, the way a sibling past the hundredth already is.
+
+**Verified on the live instance**, `?fresh=1` throughout, all nine
+Relationships endpoints rendering clean on each value.
+
+| Value | Scan | Distinct values | Labels |
+|---|---|---|---|
+| `Malicious` | all 99 events | 7,021 | 189 clusters, 99 tags |
+| `443` | 38 of its 200 events | 18,977 | 8 clusters, **1,750 tags** |
+| `8.8.8.8` | 19 of 20 events | 10,040 | 25 clusters, 151 tags |
+| `0.0.0.0-0.255.255.255` | 0 of 2 — both oversized | none, suppressed | 1 cluster, 2 tags |
+| `APT43 Report.pdf` | its one event | — | 128 clusters, 5 tags |
+
+`443` is the value that makes the case for a section of its own rather
+than rows in the table above: **1,750 tags**, most of them freetext
+malware families applied to the value itself — `c2`, `RAT`,
+`CobaltStrike`, `Vidar` — against 18,977 value neighbours. Merged,
+either drowns the other whichever way the list is ordered. Split, both
+are one screen apart and each is ranked against its own kind.
+
+`443`'s value table carries its 100 domain neighbours on page one
+again, which is the regression the merged table introduced and the
+reason this section exists in the shape it does. Screenshotted through
+headless Chrome with the tab clicked and the script running — the only
+check that would have caught the pill sort. The dark pass is *not*
+claimed: this instance takes its theme from a user setting, so
+`prefers-color-scheme` emulation renders the light palette either way.
+The classes added are `--bs-secondary-bg` / `--bs-secondary-color` and
+`GalaxyColour::badgeStyle`, all three already theme-driven.
+
+**What this leaves for B9.** The tactic mix is a fold over the cluster
+rows this section already holds, rather than a second reader of
+`neighbourhoodThreats`' resolved set: the `TECHNIQUE` clusters the card
+filters out are sitting in `co['labels']['rows']` with their events and
+organisations already counted. B10 is unaffected — a near-match engine
+reads no labels.
 
 ## 11. B9 — where in the intrusion: tactic mix
 
@@ -2119,11 +2354,27 @@ separates the three sorts this group has to treat differently:
 `attack-pattern` for the ATT&CK-shaped families that carry
 `kill_chain_order` (25 galaxies do), `technique` for other frameworks'
 own technique lists, and `tactic` for the galaxies that name a phase
-directly and so need no collapsing. `neighbourhoodThreats` already
-resolves every galaxy tag on the value's events through
-`fetchGalaxyClusters` and then discards the non-threats — B9 is the
-second reader of that same resolved set, so it belongs inside that
-method rather than beside it.
+directly and so need no collapsing.
+
+**And what §10.2 left ready, which is more.** That note said
+`neighbourhoodThreats` was the place, because it was the one thing
+resolving every galaxy tag and then discarding the non-threats. It no
+longer resolves anything: the scan does, and the technique clusters
+are sitting in `co['labels']['rows']` as rows of their own with their
+events, organisations and attachment already counted. B9 is a fold over
+those rows — filter to `GalaxyCategory::TECHNIQUE`, collapse to tactic
+— and it belongs beside the named-threat filter in the card rather than
+inside a method that now only ranks. Still zero additional queries, and
+now for a stronger reason than *the fetch already ran*: there is no
+fetch here at all.
+
+**And a question it also raises.** The labels section lists every
+technique cluster on those events as a row of its own — 21 of
+`8.8.8.8`'s 26, and the reason B8 excludes them from the card. If B9
+gives them a tactic roll-up, the section should probably say so rather
+than leave a reader to notice the same clusters counted twice on one
+tab. Decide when B9 is scoped; nothing about the section forecloses
+it.
 
 On `8.8.8.8` the group has real material: 21 of its 26 event clusters
 are `mitre-attack-pattern`, which is also why B8 excludes them — folded

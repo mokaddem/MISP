@@ -139,6 +139,29 @@ $split = array(
         'capped' => false,
     ),
 );
+/*
+ * §10.2's label neighbours, in their own unit and appended rather than
+ * declared with the rest.
+ *
+ * **Its own row because it is its own unit**, which is this card's one
+ * rule: a galaxy cluster is not a value, so it cannot be added to the
+ * row above it any more than a remote event or a reference can. The
+ * co-occurrence table carries both and `relationSummary` splits them
+ * for exactly this reason.
+ *
+ * Appended so that a value whose events carry no clusters and no tags
+ * renders the five rows it always did, rather than a sixth reading
+ * zero — the same rule the warninglist facet follows one panel over.
+ */
+if (!empty($summary['labels'])) {
+    $split[] = array(
+        'label' => __('Labels on those events'),
+        'unit' => __('clusters and tags'),
+        'colour' => 'var(--vp-rel-co)',
+        'count' => $summary['labels'],
+        'capped' => false,
+    );
+}
 $maxSplit = 0;
 foreach ($split as $part) {
     $maxSplit = max($maxSplit, (int)$part['count']);

@@ -720,19 +720,36 @@ class Value extends AppModel
     }
 
     /**
-     * The galaxy clusters this value's own occurrences carry.
+     * The labels this value's own occurrences carry.
      *
-     * The tightest way a cluster reaches a value: not *an event
+     * The tightest way a label reaches a value: not *an event
      * mentioning APT29 contained this address*, but *this address, in
-     * this event, is marked APT29*. The neighbourhood card prints the
-     * difference on the row, so it has to be able to tell them apart.
+     * this event, is marked APT29*. Both the neighbourhood card and the
+     * co-occurrence fold print the difference on the row, so they have
+     * to be able to tell them apart.
+     *
+     * **Galaxy and taxonomy tags together, and `is_galaxy` decides
+     * which is which downstream.** They live in one table and one join,
+     * so asking for one of them was costing the other a second query
+     * once the co-occurrence fold started reading both — the reason
+     * §10.2 gives for one table of neighbours rather than two reads.
+     * A galaxy tag is still worthless until `fetchGalaxyClusters` says
+     * the viewer may know its cluster exists; that ruling belongs to
+     * the caller, and the flag is what lets it find the names to ask
+     * about.
      *
      * **Grouped, not fetched.** A value can occur 48,255 times, and the
-     * answer is a handful of cluster names either way — so this
-     * aggregates in SQL rather than materialising occurrences and
-     * folding them in PHP. `attribute_tags` is joined explicitly
-     * because it is a `hasMany` that would otherwise cost its own query
-     * per id, and the answer needs no attribute rows at all.
+     * answer is a handful of names either way — so this aggregates in
+     * SQL rather than materialising occurrences and folding them in
+     * PHP. `attribute_tags` is joined explicitly because it is a
+     * `hasMany` that would otherwise cost its own query per id, and the
+     * answer needs no attribute rows at all.
+     *
+     * The colour and the flag join the grouping rather than riding
+     * along outside it: they are constant per tag, but MySQL under
+     * `ONLY_FULL_GROUP_BY` recognises that only through a key it can
+     * see, and a selected column it cannot prove constant is an error
+     * rather than a guess.
      *
      * The event scope is the caller's, and it is what makes the ACL
      * argument short: those ids came from `occurrenceEventsFor`, so the
@@ -744,9 +761,10 @@ class Value extends AppModel
      * @param string $value
      * @param array $eventIds Events the caller has already resolved
      * @param array $options As conditionsFor
-     * @return array galaxy tag name => event id => occurrences
+     * @return array tag name => `tag` (id, name, colour, is_galaxy) and
+     *     `events` (event id => `occurrences`, `last`)
      */
-    public function ownClusterTagsFor(array $user, $value,
+    public function ownTagsFor(array $user, $value,
         array $eventIds, array $options = array()
     ) {
         if (empty($eventIds)) {
@@ -758,13 +776,23 @@ class Value extends AppModel
         $conditions['AND'][] = array(
             'Attribute.event_id' => array_values($eventIds),
             'Attribute.deleted' => 0,
-            'Tag.is_galaxy' => 1,
         );
         $rows = $attributes->find('all', array(
             'fields' => array(
+                'Tag.id',
                 'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
                 'Attribute.event_id',
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
+                /*
+                 * So a label row's **Last together** reads the same
+                 * clock as a value row's. Free — the group is already
+                 * over these attributes, and the alternative was the
+                 * carrying event's stamp, which is the day the report
+                 * moved rather than the day this occurrence did.
+                 */
+                'MAX(Attribute.timestamp) AS last',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -787,13 +815,33 @@ class Value extends AppModel
                     ),
                 ),
             ),
-            'group' => array('Tag.name', 'Attribute.event_id'),
+            'group' => array(
+                'Tag.id',
+                'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
+                'Attribute.event_id',
+            ),
         ));
         $found = array();
         foreach ($rows as $row) {
             $name = $row['Tag']['name'];
             $eventId = (int)$row['Attribute']['event_id'];
-            $found[$name][$eventId] = (int)$row[0]['occurrences'];
+            if (!isset($found[$name])) {
+                $found[$name] = array(
+                    'tag' => array(
+                        'id' => (int)$row['Tag']['id'],
+                        'name' => $name,
+                        'colour' => $row['Tag']['colour'],
+                        'is_galaxy' => !empty($row['Tag']['is_galaxy']),
+                    ),
+                    'events' => array(),
+                );
+            }
+            $found[$name]['events'][$eventId] = array(
+                'occurrences' => (int)$row[0]['occurrences'],
+                'last' => (int)$row[0]['last'],
+            );
         }
         return $found;
     }

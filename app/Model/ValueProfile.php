@@ -184,7 +184,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 7;
+    const CACHE_SHAPE = 8;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1986,6 +1986,21 @@ class ValueProfile extends AppModel
             'prevalence' => isset($scan['prevalence'])
                 ? $scan['prevalence']
                 : array(),
+            /*
+             * §10.2's label side. `own_tags` and the events' own tags
+             * are what a label neighbour is folded from; `clusters` is
+             * the ACL ruling on the galaxy ones, without which a tag
+             * name is not a cluster this viewer may be shown.
+             *
+             * All three are lookups, which is why they arrive as
+             * context: `ValueRelationTool` issues no queries.
+             */
+            'own_tags' => isset($scan['own_tags'])
+                ? $scan['own_tags']
+                : array(),
+            'clusters' => isset($scan['clusters'])
+                ? $scan['clusters']
+                : array('by_tag' => array(), 'by_uuid' => array()),
         ));
         $co['siblings'] = $scan['siblings'];
         $co['dated'] = $scan['dated'];
@@ -2137,13 +2152,15 @@ class ValueProfile extends AppModel
             ), $value),
             'suppressed' => !empty($context['co']['suppressed']),
             /*
-             * Not read off the scan, and deliberately: the scan skips
-             * an event too large to fold for co-occurrence, but an
-             * event's tags cost the same whatever its size. Tying the
-             * named threats to the attribute budget would drop them for
-             * an unrelated reason — so this reads every event the value
-             * is in, and answers on values whose neighbourhood table
-             * is suppressed entirely.
+             * **Read off the scan now, and the property that made that
+             * safe is the scan's, not this card's.** The scan skips an
+             * event too large to fold for co-occurrence, but an event's
+             * tags cost the same whatever its size — so `readRelationScan`
+             * reads the label side over every event the value is in.
+             * Tying the named threats to the attribute budget would
+             * drop them for an unrelated reason, and this card still
+             * answers on values whose neighbourhood table is suppressed
+             * entirely. §10.2.
              */
             /*
              * `$asserted['claims']`, not `$asserted` — that array is a
@@ -2155,8 +2172,7 @@ class ValueProfile extends AppModel
              */
             'threats' => $this->neighbourhoodThreats(
                 $user,
-                $value,
-                $options,
+                $context['co'],
                 isset($asserted['claims'])
                     ? $asserted['claims']
                     : array()
@@ -2177,7 +2193,8 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The named threats reachable through this value, folded.
+     * The named threats reachable through this value, as a slice of the
+     * co-occurrence fold.
      *
      * **A named threat is a galaxy cluster and nothing else**, and
      * `GalaxyCategory` holds both that rule and the evidence for it.
@@ -2186,135 +2203,125 @@ class ValueProfile extends AppModel
      * one malware family appears under seven spellings — and no
      * installed taxonomy names an individual threat, they classify one.
      *
-     * Six indexed queries, none per event or per occurrence:
+     * **This used to be six queries and is now one.** §10.2's change of
+     * definition is what made that possible: a galaxy cluster is a
+     * neighbour in its own right now, so the events, their metadata,
+     * their tags, the tags on this value's own occurrences and the
+     * `fetchGalaxyClusters` ruling over all of them are read once by
+     * `readRelationScan` and folded once by `ValueRelationTool`. This
+     * card reads that fold, filters it to `named-threat`, and ranks
+     * what is left for a 340px rail.
      *
-     *   1. the value's events, newest first, capped   `Value`
-     *   2. those events, for their creator org        `Event`
-     *   3. their tags, galaxy ones kept               `EventTag`
-     *   4. clusters on the value's own occurrences    `Value`
-     *   5. every cluster named above, under its ACL   `GalaxyCluster`
-     *   6. names for the organisations credited       `Organisation`
+     * The one query left is the one the fold cannot answer: a claim
+     * points at a cluster by UUID and may name one that appears on no
+     * event here, so `claimClusters` still resolves those under the
+     * viewer's ACL. It sends nothing when no claim names a cluster.
      *
-     * Six is a name lookup, not a read of anything new: the card's
-     * figures hover names the organisations behind `2 orgs`, and the
-     * fold holds their ids either way.
+     * **The scope property that had to survive.** The card answers on
+     * values whose neighbourhood table is suppressed entirely, because
+     * an event's tags cost the same whatever its size while its
+     * attributes do not. That is why `readRelationScan` reads the label
+     * side over every event the value is in rather than over the events
+     * the attribute budget afforded — the note is there too, and the
+     * two have to stay in step.
      *
-     * Query 5 is not optional and not an optimisation.
-     * `fetchGalaxyClusters` is the only thing that decides whether this
-     * viewer may know a cluster exists, so a tag whose cluster does not
-     * come back is dropped rather than printed — the reason spelled out
-     * at `claimTarget`: the tag string would disclose the cluster the
-     * instance is withholding.
+     * **What `orgs` counts, and what it cannot.** Neither `event_tags`
+     * nor `attribute_tags` records who applied a tag — there is no org
+     * and no user on either table — so this counts the *creator
+     * organisations of the events carrying the cluster*, and the card
+     * says so in words. A claim is the one source that does record an
+     * author, and contributes that org instead.
      *
-     * **What `orgs` counts, and what it cannot.** Neither
-     * `event_tags` nor `attribute_tags` records who applied a tag —
-     * there is no org and no user on either table — so this counts the
-     * *creator organisations of the events carrying the cluster*, and
-     * the card says so in words. A claim is the one source that does
-     * record an author, and contributes that org instead.
+     * **Four ways in, one word out.** A cluster can arrive on the
+     * value's own occurrence, on a neighbouring attribute, on an event
+     * the value appears in, or as the far end of an analyst's claim
+     * about it. Where more than one applies the most specific wins,
+     * which is the order in `threatRank` — and it is a decision rather
+     * than a derivation: a claim outranks a tag on the value because it
+     * carries an author and a relationship type, so it is the more
+     * informative thing to print. The first three are the fold's own
+     * `attachment`, decided in `ValueRelationTool::$attachments` so
+     * that the word on this row and the word on the table's row are
+     * the same word from the same place.
      *
-     * **Three ways in, one word out.** A cluster can arrive on the
-     * value's own occurrence, on an event the value appears in, or as
-     * the far end of an analyst's claim about it. Where more than one
-     * applies the most specific wins, which is the order in
-     * `threatRank` — and it is a decision rather than a derivation: a
-     * claim outranks a tag on the value because it carries an author
-     * and a relationship type, so it is the more informative thing to
-     * print.
-     *
-     * **A fourth way is coming.** Objects cannot be tagged yet: the
-     * join tables are `attribute_tags`, `event_tags` and
-     * `event_report_tags`, there is no `object_tags`, and
-     * `MispObject` reaches a tag only through its attributes. When
-     * `ObjectTag` lands, a cluster on the object a value sits in
-     * belongs between `value` and `event` in `threatRank` and needs a
-     * fourth word in the template — grep either name to find both.
+     * **A fifth is coming.** Objects cannot be tagged yet: the join
+     * tables are `attribute_tags`, `event_tags` and
+     * `event_report_tags`, there is no `object_tags`, and `MispObject`
+     * reaches a tag only through its attributes. When `ObjectTag`
+     * lands, a cluster on the object a value sits in belongs between
+     * `value` and `neighbour` in both rank tables — grep either name to
+     * find them.
      *
      * @param array $user
-     * @param string $value
-     * @param array $options
+     * @param array $co The co-occurrence fold, `$context['co']`
      * @param array $claims `assertedClaims()['claims']` — the list,
      *     not the section that wraps it
      * @return array rows, total, cap, events_read
      */
-    private function neighbourhoodThreats(array $user, $value,
-        array $options, array $claims
+    private function neighbourhoodThreats(array $user, array $co,
+        array $claims
     ) {
         $found = array(
             'rows' => array(),
             'total' => 0,
             'cap' => self::THREAT_ROW_CAP,
-            'events_read' => 0,
+            'events_read' => isset($co['scan']['events_seen'])
+                ? (int)$co['scan']['events_seen']
+                : 0,
             'event_cap' => self::RELATION_EVENT_CAP,
-        );
-        $events = $this->model('Value')->occurrenceEventsFor(
-            $user,
-            $value,
-            array_merge($options, array(
-                'limit' => self::RELATION_EVENT_CAP,
-            ))
-        );
-        $eventIds = array_keys($events);
-        $found['events_read'] = count($eventIds);
-        if (empty($eventIds)) {
-            return $found;
-        }
-        $meta = $this->eventMetadata($user, $eventIds);
-        $own = $this->model('Value')->ownClusterTagsFor(
-            $user,
-            $value,
-            $eventIds,
-            $options
         );
 
         /*
-         * Every tag name in play before anything is resolved, so the
-         * ACL fetch is one query for both sources rather than one per
-         * event.
+         * Event titles for the figures hover, off the fold's own event
+         * roll-up rather than a second `eventMetadata` read. Every
+         * event carrying a label produces a group, and the roll-up is
+         * built from the groups after the labels are folded in — so an
+         * event on a row here is an event with a row there.
          */
-        $names = array();
-        foreach ($meta as $eventMeta) {
-            foreach ($eventMeta['galaxy_tags'] as $name) {
-                $names[$name] = true;
+        $eventTitles = array();
+        if (isset($co['rollups']['event']['rows'])) {
+            foreach ($co['rollups']['event']['rows'] as $eventRow) {
+                $eventTitles[(int)$eventRow['event']['id']] = array(
+                    'id' => (int)$eventRow['event']['id'],
+                    'info' => $eventRow['event']['info'],
+                    'date' => $eventRow['event']['date'],
+                );
             }
         }
-        foreach (array_keys($own) as $name) {
-            $names[$name] = true;
-        }
-        $clusters = $this->claimClusters($user, $claims,
-            array_keys($names));
 
         $rows = array();
-        foreach ($meta as $eventId => $eventMeta) {
-            foreach ($eventMeta['galaxy_tags'] as $name) {
-                if (!isset($clusters['by_tag'][$name])) {
-                    continue;
-                }
-                $this->addThreat(
-                    $rows,
-                    $clusters['by_tag'][$name],
-                    'event',
-                    $eventId,
-                    $eventMeta['orgc_id']
-                );
-            }
-        }
-        foreach ($own as $name => $perEvent) {
-            if (!isset($clusters['by_tag'][$name])) {
+        /*
+         * The label section's rows, which are held uncapped for exactly
+         * this reader — the table beside them renders the first `cap`,
+         * and a cluster reaching this value through one event sits
+         * nowhere near the top of a list ranked by shared events.
+         */
+        $labels = isset($co['labels']['rows'])
+            ? $co['labels']['rows']
+            : array();
+        foreach ($labels as $label) {
+            if ($label['kind'] !== ValueRelationTool::KIND_CLUSTER
+                || empty($label['cluster'])
+            ) {
                 continue;
             }
-            foreach (array_keys($perEvent) as $eventId) {
-                $this->addThreat(
-                    $rows,
-                    $clusters['by_tag'][$name],
-                    'value',
-                    $eventId,
-                    isset($meta[$eventId]['orgc_id'])
-                        ? $meta[$eventId]['orgc_id']
-                        : null
-                );
-            }
+            $this->addThreat(
+                $rows,
+                $label['cluster'],
+                $label['attachment'],
+                $label,
+                $eventTitles
+            );
         }
+
+        /*
+         * The claims, which are not in the fold: a `Relationship` row
+         * is not a label on an event, and the asserted section is what
+         * reads them. A claim naming a cluster the fold already holds
+         * lands on that row; one naming a cluster nothing here is
+         * tagged with brings its own.
+         */
+        $clusters = $this->claimClusters($user, $claims);
         foreach ($claims as $claim) {
             if ($claim['target']['kind'] !== 'GalaxyCluster') {
                 continue;
@@ -2328,59 +2335,23 @@ class ValueProfile extends AppModel
                 $clusters['by_uuid'][$uuid],
                 'claim',
                 null,
-                $claim['org_id'],
+                $eventTitles,
                 $claim
             );
         }
 
         /*
-         * The figures on a row are `2 orgs · 3 events`, which is the
-         * right size for a 340px rail and says nothing about *which*.
-         * The names behind them are worth a hover, so they are resolved
-         * here — one `Organisation` read over every id the fold
-         * gathered, and the event titles off the metadata this method
-         * already fetched.
+         * Both sets were accumulated keyed, so a cluster reached
+         * through three sources on one event counts that event once.
+         * The counts are what the row prints and the lists are what
+         * the hover names, which is why both survive.
          */
-        $orgIds = array();
-        foreach ($rows as $row) {
-            foreach (array_keys($row['orgs']) as $orgId) {
-                $orgIds[$orgId] = true;
-            }
-        }
-        $orgNames = empty($orgIds)
-            ? array()
-            : $this->model('Organisation')->find('list', array(
-                'recursive' => -1,
-                'fields' => array('Organisation.id', 'Organisation.name'),
-                'conditions' => array(
-                    'Organisation.id' => array_keys($orgIds),
-                ),
-            ));
-
         foreach ($rows as $id => $row) {
-            $names = array();
-            foreach (array_keys($row['orgs']) as $orgId) {
-                $names[] = isset($orgNames[$orgId])
-                    ? $orgNames[$orgId]
-                    : __('Unknown organisation');
-            }
-            sort($names);
-            $events = array();
-            foreach (array_keys($row['events']) as $eventId) {
-                $events[] = array(
-                    'id' => $eventId,
-                    'info' => isset($meta[$eventId]['info'])
-                        ? $meta[$eventId]['info']
-                        : '',
-                    'date' => isset($meta[$eventId]['date'])
-                        ? $meta[$eventId]['date']
-                        : '',
-                );
-            }
-            $rows[$id]['org_names'] = $names;
-            $rows[$id]['event_list'] = $events;
-            $rows[$id]['events'] = count($row['events']);
-            $rows[$id]['orgs'] = count($row['orgs']);
+            $rows[$id]['events'] = count($row['event_list']);
+            $rows[$id]['orgs'] = count($row['org_names']);
+            $rows[$id]['event_list'] = array_values($row['event_list']);
+            $rows[$id]['org_names'] = array_values($row['org_names']);
+            sort($rows[$id]['org_names']);
         }
         $rows = array_values($rows);
         /*
@@ -2405,13 +2376,22 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * One cluster into the fold, or nothing if it names no threat.
+     * One cluster onto the card, or nothing if it names no threat.
+     *
+     * **This is where §10.2's filter is applied**, and it stays here
+     * rather than moving into the fold: the table carries every
+     * cluster it found, and *named threat* is the rail card's own
+     * question about them. A `TECHNIQUE` cluster is a perfectly good
+     * neighbour and a bad answer to *who is this*.
      *
      * @param array $rows Accumulator, keyed by cluster id
      * @param array $cluster A `fetchGalaxyClusters` row
-     * @param string $attachment `event`, `value` or `claim`
-     * @param int|null $eventId Event this arrival was found on
-     * @param int|null $orgId Organisation to credit for it
+     * @param string $attachment `event`, `neighbour`, `value` or
+     *     `claim`
+     * @param array|null $label The fold's row for this cluster, whose
+     *     events and organisations are the card's figures. Null for a
+     *     cluster a claim brought in, which the fold never saw.
+     * @param array $eventTitles Event id => id, info, date
      * @param array|null $claim The claim, where one is what brought
      *     the cluster in. Kept so the card's own badge can say who
      *     asserted it, how, and when — three words on the row is the
@@ -2419,7 +2399,7 @@ class ValueProfile extends AppModel
      * @return void
      */
     private function addThreat(array &$rows, array $cluster,
-        $attachment, $eventId, $orgId, array $claim = null
+        $attachment, $label, array $eventTitles, array $claim = null
     ) {
         $row = $cluster['GalaxyCluster'];
         if (!GalaxyCategory::isNamedThreat($row['type'])) {
@@ -2435,8 +2415,15 @@ class ValueProfile extends AppModel
                     : $row['Galaxy']['name'],
                 'kind' => GalaxyCategory::kindOf($row['type']),
                 'attachment' => $attachment,
-                'events' => array(),
-                'orgs' => array(),
+                /*
+                 * Names, not ids, and that is the second query this
+                 * card stopped issuing: the fold resolved the
+                 * organisations behind its rows already, over the same
+                 * ids and under the same `Organisation` read the value
+                 * rows needed anyway.
+                 */
+                'org_names' => array(),
+                'event_list' => array(),
                 'claims' => array(),
                 /*
                  * The same display shape the asserted section builds
@@ -2476,26 +2463,45 @@ class ValueProfile extends AppModel
         ) {
             $rows[$id]['attachment'] = $attachment;
         }
-        if ($eventId !== null) {
-            $rows[$id]['events'][(int)$eventId] = true;
+        if ($label === null) {
+            return;
         }
-        if ($orgId !== null) {
-            $rows[$id]['orgs'][(int)$orgId] = true;
+        foreach ($label['orgs'] as $name) {
+            $rows[$id]['org_names'][$name] = $name;
+        }
+        foreach ($label['events'] as $eventId) {
+            $eventId = (int)$eventId;
+            $rows[$id]['event_list'][$eventId] =
+                isset($eventTitles[$eventId])
+                    ? $eventTitles[$eventId]
+                    : array(
+                        'id' => $eventId,
+                        'info' => '',
+                        'date' => '',
+                    );
         }
     }
 
     /**
      * How specific a way of reaching the value is.
      *
-     * `object` belongs at 2 once objects can be tagged — see
-     * `neighbourhoodThreats`.
+     * The fold's own `$attachments` plus `claim` on top, because a
+     * claim is not a label on an event and reaches this card by
+     * another road — see `neighbourhoodThreats`. `object` belongs
+     * between `value` and `neighbour` once objects can be tagged, in
+     * both tables.
      *
      * @param string $attachment
      * @return int
      */
     private static function threatRank($attachment)
     {
-        $ranks = array('claim' => 3, 'value' => 2, 'event' => 1);
+        $ranks = array(
+            'claim' => 4,
+            'value' => 3,
+            'neighbour' => 2,
+            'event' => 1,
+        );
         return isset($ranks[$attachment]) ? $ranks[$attachment] : 0;
     }
 
@@ -2576,7 +2582,87 @@ class ValueProfile extends AppModel
             array_merge($options, array('tags' => true))
         );
         $this->attachTags($rows);
-        $orgs = $this->organisationNames($rows);
+
+        /*
+         * **Read over every event the value is in, not over the events
+         * the attribute budget could afford.** §10.2 makes a label a
+         * neighbour in its own right, and a label costs the same
+         * whatever the size of the event carrying it: one indexed
+         * `EventTag` read over at most `RELATION_EVENT_CAP` ids either
+         * way. Scoping it to `$picked` would drop a cluster for a
+         * reason that has nothing to do with clusters — the exact
+         * argument `relationDigest` already made for keeping the threat
+         * card off the scan, and the reason that card can now be a
+         * slice of this fold instead of a second read.
+         *
+         * So the two halves of the table have two scopes, and the panel
+         * states both rather than averaging them: values over the
+         * events that were read, labels over the events that exist.
+         */
+        $eventMeta = $this->eventMetadata($user, array_keys($events));
+        $ownTags = $valueModel->ownTagsFor(
+            $user,
+            $value,
+            array_keys($events),
+            $options
+        );
+
+        /*
+         * Which of the galaxy tags in play name a cluster this viewer
+         * may know exists. One `fetchGalaxyClusters` over every galaxy
+         * name the three sources between them mention — the value's own
+         * occurrences, the events it appears in, and the neighbouring
+         * attributes the scan read.
+         *
+         * Unresolved is dropped, not printed, for the reason spelled
+         * out at `claimTarget`: the tag string would disclose the
+         * cluster the instance is withholding.
+         */
+        $galaxyNames = array();
+        foreach ($eventMeta as $meta) {
+            foreach ($meta['galaxy_tags'] as $name) {
+                $galaxyNames[$name] = true;
+            }
+        }
+        foreach ($ownTags as $name => $entry) {
+            if ($entry['tag']['is_galaxy']) {
+                $galaxyNames[$name] = true;
+            }
+        }
+        foreach ($rows as $row) {
+            if (empty($row['AttributeTag'])) {
+                continue;
+            }
+            foreach ($row['AttributeTag'] as $attributeTag) {
+                if (empty($attributeTag['Tag'])
+                    || empty($attributeTag['Tag']['is_galaxy'])
+                ) {
+                    continue;
+                }
+                $galaxyNames[$attributeTag['Tag']['name']] = true;
+            }
+        }
+        $clusters = $this->claimClusters(
+            $user,
+            array(),
+            array_keys($galaxyNames)
+        );
+
+        /*
+         * The organisations credited on a label row are the creator
+         * organisations of the events carrying it — which reaches
+         * further than the rows' own events now that labels are read
+         * over all of them, so the ids come from both.
+         */
+        $eventOrgIds = array();
+        $eventLevels = array();
+        foreach ($eventMeta as $meta) {
+            if (!empty($meta['orgc_id'])) {
+                $eventOrgIds[(int)$meta['orgc_id']] = true;
+            }
+            $eventLevels[] = (int)$meta['distribution'];
+        }
+        $orgs = $this->organisationNames($rows, array_keys($eventOrgIds));
 
         /*
          * Held with the rows it describes rather than recomputed per
@@ -2620,8 +2706,20 @@ class ValueProfile extends AppModel
             'events_oversized' => $oversized,
             'events_unread' => $unread,
             'orgs' => $orgs,
-            'sharing_groups' => $this->sharingGroupNames($user, $rows),
-            'event_meta' => $this->eventMetadata($user, $picked),
+            'sharing_groups' => $this->sharingGroupNames(
+                $user,
+                $rows,
+                $eventLevels
+            ),
+            'event_meta' => $eventMeta,
+            /*
+             * The label side of the fold, and the reason the threat
+             * card no longer runs its own five queries: the tags on
+             * this value's own occurrences, and the clusters those and
+             * the event tags resolve to under this viewer's ACL.
+             */
+            'own_tags' => $ownTags,
+            'clusters' => $clusters,
             'siblings' => $siblings,
             /*
              * Folded here rather than in its own endpoint because it
@@ -2750,6 +2848,16 @@ class ValueProfile extends AppModel
             $meta[(int)$event['Event']['id']] = array(
                 'info' => $event['Event']['info'],
                 'date' => $event['Event']['date'],
+                /*
+                 * The event's own modification stamp, which is what a
+                 * label row's **Last together** reads. A tag carries no
+                 * date of its own on either join table, and the event
+                 * date is the day the incident is filed under rather
+                 * than the day the record last moved — so the honest
+                 * pairing with a value row's `Attribute.timestamp` is
+                 * this, the same clock and the same meaning.
+                 */
+                'timestamp' => (int)$event['Event']['timestamp'],
                 'orgc_id' => (int)$event['Event']['orgc_id'],
                 'distribution' => (int)$event['Event']['distribution'],
                 'sharing_group_id' =>
@@ -2785,6 +2893,13 @@ class ValueProfile extends AppModel
                 $meta[$eventId]['galaxy_tags'][] = $tag['Tag']['name'];
                 continue;
             }
+            /*
+             * Whether the tag left the instance. A local tag is real to
+             * this viewer and false to everybody else, and §10.2's
+             * table now gives one a row of its own — so the row has to
+             * be able to say so rather than reading as shared context.
+             */
+            $tag['Tag']['local'] = !empty($tag['EventTag']['local']);
             $meta[$eventId]['tags'][] = $tag['Tag'];
         }
         return $meta;
@@ -2801,14 +2916,21 @@ class ValueProfile extends AppModel
      * into the name beside it.
      *
      * @param array $rows
+     * @param array $extra Further ids the caller holds — the events a
+     *     label was read on reach past the events the rows came from
      * @return array org id => name
      */
-    private function organisationNames(array $rows)
+    private function organisationNames(array $rows, array $extra = array())
     {
         $ids = array();
         foreach ($rows as $row) {
             if (!empty($row['Event']['orgc_id'])) {
                 $ids[(int)$row['Event']['orgc_id']] = true;
+            }
+        }
+        foreach ($extra as $orgId) {
+            if (!empty($orgId)) {
+                $ids[(int)$orgId] = true;
             }
         }
         if (empty($ids)) {
@@ -2832,10 +2954,14 @@ class ValueProfile extends AppModel
      *
      * @param array $user
      * @param array $rows
+     * @param array $extra Further distribution levels the caller holds
+     *     — a label row's audience is its event's, and labels are read
+     *     over events no row came from
      * @return array
      */
-    private function sharingGroupNames(array $user, array $rows)
-    {
+    private function sharingGroupNames(array $user, array $rows,
+        array $extra = array()
+    ) {
         foreach ($rows as $row) {
             $levels = array(
                 (int)$row['Attribute']['distribution'],
@@ -2848,6 +2974,10 @@ class ValueProfile extends AppModel
                 return $this->model('SharingGroup')
                     ->fetchAllAuthorised($user, 'name');
             }
+        }
+        if (in_array(4, array_map('intval', $extra), true)) {
+            return $this->model('SharingGroup')
+                ->fetchAllAuthorised($user, 'name');
         }
         return array();
     }
@@ -4512,6 +4642,18 @@ class ValueProfile extends AppModel
         $cooccurrence = isset($parts['cooccurrence'])
             ? (int)$parts['cooccurrence']['distinct_values']
             : 0;
+        /*
+         * §10.2's labels, counted beside `correlations` and never into
+         * it — the same rule the `external` note below states rather
+         * than a new one. `correlations` is *values related to this
+         * one*, and a galaxy cluster is no more a value than a remote
+         * event is; summing them would invent a strength out of two
+         * units, and inflate the one number on the rail that is meant
+         * to be comparable between values.
+         */
+        $labels = isset($parts['cooccurrence']['labels']['total'])
+            ? (int)$parts['cooccurrence']['labels']['total']
+            : 0;
         $near = isset($parts['near'])
             ? (int)$parts['near']['matches']
             : 0;
@@ -4566,6 +4708,11 @@ class ValueProfile extends AppModel
         return array(
             'correlations' => $cooccurrence + $near,
             'cooccurrence' => $cooccurrence,
+            /*
+             * §10.2's label neighbours, counted apart from the values
+             * for the reason given where they are split.
+             */
+            'labels' => $labels,
             'near' => $near,
             'external' => $external,
             'external_sources' => $externalSources,

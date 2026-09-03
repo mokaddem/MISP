@@ -66,8 +66,20 @@ $kindLabels = array(
     'malware' => __('Malware'),
     'tool' => __('Tools'),
 );
+/*
+ * The two attachments worth a word on the row. `event` is the ordinary
+ * case and gets none — a mark on every row is not a mark. `neighbour`
+ * arrived with §10.2: the card reads the co-occurrence fold now, and
+ * that fold sees a cluster tagged on an attribute *beside* this value
+ * as well as on the value and on the event. It is a real third way in
+ * and the reader should be told which one they are looking at.
+ *
+ * Same words as the co-occurrence table's own `$attachMark`, because
+ * this card is a slice of that table.
+ */
 $marks = array(
     'value' => __('on the value'),
+    'neighbour' => __('on a neighbour'),
 );
 
 /*

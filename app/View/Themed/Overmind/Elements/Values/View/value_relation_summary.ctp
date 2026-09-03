@@ -56,6 +56,24 @@ $sections = array(
         'icon' => 'fas fa-link',
         'colour' => 'var(--vp-rel-co)',
     ),
+    /*
+     * §10.2. Its own card because it is its own section, and directly
+     * under the co-occurrence one because it shares that panel and that
+     * anchor — the labels are read from the same scan over the same
+     * events, and listed beneath the values they surround.
+     *
+     * `clusters and tags` rather than a word covering both: there is no
+     * such word in MISP that a reader would recognise, and *labels* is
+     * this brief's coinage rather than the product's.
+     */
+    array(
+        'key' => 'labels',
+        'anchor' => 'vp-rel-sec-cooccurrence',
+        'title' => __('Labels on those events'),
+        'unit' => __('clusters and tags'),
+        'icon' => 'misp-icon misp-icon-galaxy misp-simple',
+        'colour' => 'var(--vp-rel-co)',
+    ),
     array(
         'key' => 'dated',
         'anchor' => 'vp-rel-sec-dated',

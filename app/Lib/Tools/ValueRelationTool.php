@@ -97,6 +97,79 @@ class ValueRelationTool
     const WARNINGLIST_HIT = '_hit';
 
     /**
+     * The three sorts of neighbour the fold now carries.
+     *
+     * §10.2's change of definition: a neighbour used to be *another
+     * attribute in the same event*, and it is now *anything sharing
+     * this value's events* — the attributes beside it, the galaxy
+     * clusters naming what those events are about, and the taxonomy
+     * tags classifying them.
+     *
+     * **Two sections, not one table.** §10.2 asked for one, and
+     * building it is what established that a value neighbour and a
+     * label share only a pager: the rank counts different scopes, five
+     * of the eight facets are properties a cluster does not have, and
+     * two columns are empty on every label row. The kinds still live in
+     * one fold, because they are read from one scan and the rail card
+     * slices them; they are listed in two tables, because that is what
+     * the panel's own rule about units already said.
+     *
+     * A kind is part of a group's identity and not a column on it. A
+     * tag called `8.8.8.8` and the address `8.8.8.8` are two
+     * neighbours that share a string and nothing else, and keying the
+     * fold on the string alone would have folded them into one row
+     * whose counts belonged to neither — which is also why the labels
+     * are folded through `$labelGroups` rather than through the map the
+     * warninglist and prevalence lookups are keyed on.
+     */
+    const KIND_VALUE = 'value';
+    const KIND_CLUSTER = 'cluster';
+    const KIND_TAG = 'tag';
+
+    /**
+     * How a label reached this value, tightest first.
+     *
+     * The threat card's vocabulary, widened by one and now shared with
+     * it — the card is a slice of this fold, so the word on its row and
+     * the word on the table's row have to be the same word decided in
+     * the same place. `claim` is not here because a claim is not a
+     * label on an event: it arrives from the asserted section, and the
+     * card merges it after the fold.
+     *
+     * `object` belongs between `value` and `neighbour` once objects can
+     * be tagged — there is no `object_tags` table yet, and
+     * `ValueProfile::neighbourhoodThreats` carries the same note.
+     */
+    private static $attachments = array(
+        'value' => 3,
+        'neighbour' => 2,
+        'event' => 1,
+    );
+
+    /**
+     * @param string $attachment
+     * @return int
+     */
+    private static function attachRank($attachment)
+    {
+        return isset(self::$attachments[$attachment])
+            ? self::$attachments[$attachment]
+            : 0;
+    }
+
+    /**
+     * A group's key in the fold.
+     *
+     * @param string $kind One of the `KIND_*` constants
+     * @param string $key The value string, or the tag name
+     * @return string
+     */
+    private static function groupKey($kind, $key)
+    {
+        return $kind . "\0" . $key;
+    }
+
+    /**
      * The two partition entries, in front of the enumeration.
      *
      * Not ranked and not capped: they are a fixed vocabulary, the way
@@ -200,6 +273,21 @@ class ValueRelationTool
         $prevalence = isset($context['prevalence'])
             ? (array)$context['prevalence']
             : array();
+        /*
+         * The label side's two inputs, and both are lookups the caller
+         * owns for the reason every other lookup here is: this class
+         * issues no queries. `own_tags` is what this value's own
+         * occurrences carry; `clusters` is `fetchGalaxyClusters`'
+         * ruling on the galaxy names, and a name missing from it is a
+         * cluster this viewer may not be told exists — so it is
+         * dropped here rather than printed as a bare tag string.
+         */
+        $ownTags = isset($context['own_tags'])
+            ? (array)$context['own_tags']
+            : array();
+        $clusters = isset($context['clusters']['by_tag'])
+            ? (array)$context['clusters']['by_tag']
+            : array();
         $rowCap = isset($context['row_cap']) ? $context['row_cap'] : 200;
         $pageSize = isset($context['page_size'])
             ? $context['page_size']
@@ -227,10 +315,11 @@ class ValueRelationTool
             if ($value === '') {
                 continue;
             }
-            if (!isset($groups[$value])) {
-                $groups[$value] = self::emptyGroup($value);
+            $groupKey = self::groupKey(self::KIND_VALUE, $value);
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = self::emptyGroup($value);
             }
-            $group = &$groups[$value];
+            $group = &$groups[$groupKey];
             $group['occurrences']++;
             self::tally($group['types'], $attribute['type']);
             self::tally($group['categories'], $attribute['category']);
@@ -322,11 +411,11 @@ class ValueRelationTool
          * are all unlisted renders exactly as it did before B5.
          */
         $listedGroups = 0;
-        foreach ($groups as $value => &$group) {
-            if (empty($onLists[$value])) {
+        foreach ($groups as &$group) {
+            if (empty($onLists[$group['value']])) {
                 continue;
             }
-            $group['warninglists'] = $onLists[$value];
+            $group['warninglists'] = $onLists[$group['value']];
             $listedGroups++;
         }
         unset($group);
@@ -348,17 +437,76 @@ class ValueRelationTool
          * even where it changed no ordering.
          */
         $spreadRead = 0;
-        foreach ($groups as $value => &$group) {
-            if (!isset($prevalence[$value])) {
+        foreach ($groups as &$group) {
+            if (!isset($prevalence[$group['value']])) {
                 continue;
             }
             $group['spread'] = max(
-                (int)$prevalence[$value],
+                (int)$prevalence[$group['value']],
                 count($group['events'])
             );
             $spreadRead++;
         }
         unset($group);
+
+        /*
+         * **The labels, in a fold of their own.**
+         *
+         * §10.2 asked for one table over both, *"with the same facets,
+         * ranks and pager over all of it"*, and building it is what
+         * showed that only the last of those three is shareable. Of a
+         * value neighbour and a galaxy cluster:
+         *
+         *   - the **rank** cannot be shared. Shared events counts the
+         *     events the attribute budget afforded on one side and
+         *     every event the value is in on the other, so on `443` a
+         *     value reaches 38 and `tlp:white` reaches 196.
+         *   - the **facets** cannot be shared. Five of the eight are
+         *     properties of a correlated attribute, and a cluster has
+         *     no type, no object and no warninglist verdict.
+         *   - the **columns** cannot be shared. Two of them are empty
+         *     on every label row.
+         *
+         * Which leaves the pager, and sharing that was the worst of it:
+         * merged, the first cluster on `Malicious` was on page 14.
+         *
+         * This panel had already written the rule down, one section
+         * below where the merged table went — *"a facet like Type is a
+         * property of a correlated value; an event row is not a value,
+         * and filtering one by the type of the other would be a control
+         * that means nothing."* A cluster is not a value either. So the
+         * labels get what the object siblings above them get: their own
+         * rows, their own bar, their own pager.
+         *
+         * **After the two lookups above, and that part is unchanged.**
+         * Both are keyed on an attribute value string and a tag is free
+         * to be named `8.8.8.8`; folding labels through them would let
+         * a tag inherit a warninglist verdict belonging to an address
+         * that merely spells the same. Their own array now makes that
+         * structural rather than merely ordered.
+         */
+        $labelGroups = array();
+        self::labels($labelGroups, $rows, $eventMeta, $ownTags,
+            $clusters, $sgNames);
+        /*
+         * Ranked here rather than by the value table's pills, which
+         * this section does not carry: shared events, then the most
+         * recently touched, then the printed name. **Most specific** is
+         * absent because it has nothing to divide by — a label carries
+         * no spread, for the reason given at `emptyGroup` — and a pill
+         * that reordered nothing would be worse than one that is not
+         * offered.
+         */
+        usort($labelGroups, function ($a, $b) {
+            $events = count($b['events']) - count($a['events']);
+            if ($events !== 0) {
+                return $events;
+            }
+            if ($a['last'] !== $b['last']) {
+                return $b['last'] - $a['last'];
+            }
+            return self::compareNames($a, $b);
+        });
 
         $facets = self::facets($groups, $eventMeta, $orgs);
         $distinct = count($groups);
@@ -380,7 +528,7 @@ class ValueRelationTool
                 if ($last !== 0) {
                     return $last;
                 }
-                return strcmp($a['value'], $b['value']);
+                return self::compareNames($a, $b);
             }
             $first = $rank === 'recent' ? $last : $events;
             if ($first !== 0) {
@@ -390,7 +538,7 @@ class ValueRelationTool
             if ($second !== 0) {
                 return $second;
             }
-            return strcmp($a['value'], $b['value']);
+            return self::compareNames($a, $b);
         });
         $matched = $ranked;
         if (!empty($filters)) {
@@ -433,6 +581,14 @@ class ValueRelationTool
             'stored' => count($rows),
             'visible' => count($rows),
             'hidden' => 0,
+            /*
+             * Distinct *values*, and the name is right again. §10.2
+             * briefly widened it to every kind of neighbour, which was
+             * honest while one table held all three; with the labels in
+             * a section of their own the number this table compares its
+             * page against is a count of values, and every reader of it
+             * wants that.
+             */
             'distinct_values' => $distinct,
             /*
              * What the filter left, before the cut. The pager prints it
@@ -476,6 +632,504 @@ class ValueRelationTool
             ),
             'facets' => $facets,
             'categories' => array_keys($categories),
+            /*
+             * §10.2's own section, shaped like the object siblings'
+             * above it: its rows, its bar, its total, its cut.
+             *
+             * **`rows` is every label, uncapped, and the template
+             * renders the first `cap` of them.** Two readers want two
+             * lengths. The table wants a page's worth and states the
+             * cut. The rail's named-threat card wants all of them,
+             * because it filters to `named-threat` afterwards and a
+             * cluster reaching this value through one event sits
+             * nowhere near the top of a list ranked by shared events —
+             * capping first would have lost threats on exactly the
+             * values where the neighbourhood is large. Holding the full
+             * list costs a cache entry, not markup.
+             *
+             * **The narrowing does not reach here.** These ignore
+             * `$filters`, which narrow the value table; this bar
+             * filters the rows it carries, client-side, the way the
+             * sibling bar does — and the panel says which.
+             *
+             * Built through `valueRows` rather than a second builder,
+             * so this row and the card's row cannot drift into
+             * disagreeing about the same cluster.
+             */
+            'labels' => array(
+                'rows' => self::valueRows($labelGroups, $orgs,
+                    $ourObjects),
+                'facets' => self::labelFacets($labelGroups, $eventMeta,
+                    $orgs),
+                'total' => count($labelGroups),
+                'by_kind' => self::labelsByKind($labelGroups),
+                'cap' => $rowCap,
+                'page_size' => $pageSize,
+            ),
+        );
+    }
+
+    /**
+     * How many labels of each kind the fold found.
+     *
+     * @param array $labelGroups
+     * @return array kind => count, in the fixed order
+     */
+    private static function labelsByKind(array $labelGroups)
+    {
+        $counts = array(self::KIND_CLUSTER => 0, self::KIND_TAG => 0);
+        foreach ($labelGroups as $group) {
+            if (isset($counts[$group['kind']])) {
+                $counts[$group['kind']]++;
+            }
+        }
+        return $counts;
+    }
+
+    /**
+     * The label section's own bar.
+     *
+     * Six groups, and the three that lead are the three the value bar
+     * cannot have: `Kind` tells a cluster from a tag, `Family` names
+     * the galaxy or the taxonomy namespace it belongs to, and
+     * `Attached to` says how it reached this value. The three after
+     * them are the dimensions both sections genuinely share — the
+     * event, the organisation credited for it, and the audience.
+     *
+     * What is *not* here is the point of it being here: no `Type`, no
+     * `Object`, no `Warninglist`. Those describe a correlated
+     * attribute, and offering a reader a control that empties the table
+     * it sits under is the defect this section was split out to avoid.
+     *
+     * @param array $labelGroups
+     * @param array $eventMeta
+     * @param array $orgs
+     * @return array
+     */
+    private static function labelFacets(array $labelGroups,
+        array $eventMeta, array $orgs
+    ) {
+        $facets = array(
+            'kind' => array(),
+            'family' => array(),
+            'attachment' => array(),
+            'event' => array(),
+            'organisation' => array(),
+            'distribution' => array(),
+        );
+        foreach ($labelGroups as $group) {
+            self::bump(
+                $facets['kind'],
+                $group['kind'],
+                self::kindLabel($group['kind'])
+            );
+            if ($group['family'] !== '') {
+                self::bump(
+                    $facets['family'],
+                    ValueStatsTool::facetToken($group['family']),
+                    $group['family']
+                );
+            }
+            if ($group['attachment'] !== null) {
+                self::bump(
+                    $facets['attachment'],
+                    $group['attachment'],
+                    self::attachmentLabel($group['attachment'])
+                );
+            }
+            foreach (array_keys($group['events']) as $eventId) {
+                $meta = isset($eventMeta[$eventId])
+                    ? $eventMeta[$eventId]
+                    : array();
+                self::bump(
+                    $facets['event'],
+                    (string)$eventId,
+                    sprintf(
+                        '#%d %s',
+                        $eventId,
+                        isset($meta['info']) ? $meta['info'] : ''
+                    )
+                );
+            }
+            foreach (array_keys($group['orgs']) as $orgId) {
+                $name = self::orgName($orgs, $orgId);
+                self::bump(
+                    $facets['organisation'],
+                    ValueStatsTool::facetToken($name),
+                    $name
+                );
+            }
+            foreach ($group['distributions'] as $audience) {
+                self::bump(
+                    $facets['distribution'],
+                    (string)$audience['level'],
+                    null,
+                    array('level' => $audience['level'])
+                );
+            }
+        }
+        foreach ($facets as $key => $group) {
+            $facets[$key] = array_slice(
+                self::rank($group),
+                0,
+                self::FACET_CAP
+            );
+        }
+        /*
+         * The two fixed vocabularies keep their declared order, on the
+         * warninglist partition's reasoning: an order that moved with
+         * the data would put *Tag* above or below *Galaxy cluster*
+         * depending on which value is being looked at, and `Attached
+         * to` reads as a scale — tightest first — which a
+         * frequency sort is not.
+         */
+        $facets['kind'] = self::inFixedOrder(
+            $facets['kind'],
+            array(self::KIND_CLUSTER, self::KIND_TAG)
+        );
+        $facets['attachment'] = self::inFixedOrder(
+            $facets['attachment'],
+            array_keys(self::$attachments)
+        );
+        return $facets;
+    }
+
+    /**
+     * The label neighbours, folded into a set of their own.
+     *
+     * §10.2's three ways a label reaches a value, and the fold keeps
+     * them apart because the row prints which one it was:
+     *
+     *   `value`      on one of this value's own occurrences — *this
+     *                address, in this event, is marked APT29*
+     *   `neighbour`  on an attribute beside it in a read event
+     *   `event`      on an event it appears in
+     *
+     * Where more than one applies the tightest wins, which is
+     * `$attachments` — and the count columns still fold every source,
+     * so a cluster tagged on the value in one event and on the event in
+     * six says `7 events` and `on this value`.
+     *
+     * **Two scopes, and the panel states both.** The event and own-value
+     * sources are read over every event the value appears in; the
+     * neighbour source only reaches the events the attribute budget
+     * afforded, because it is made of the rows that budget bought. A
+     * value whose events are all too large to scan therefore still has
+     * labels here — which is the property `ValueProfile::relationDigest`
+     * needed to keep when the threat card became a slice of this fold.
+     *
+     * **A galaxy tag with no resolved cluster contributes nothing.**
+     * `fetchGalaxyClusters` is the only thing that decides whether this
+     * viewer may know a cluster exists, and the tag string names it
+     * outright — so an unresolved name is dropped rather than shown as
+     * a tag, which would disclose exactly what the ACL is withholding.
+     *
+     * @param array $groups The label fold, keyed by `groupKey` — its
+     *     own array, never the value groups
+     * @param array $rows Neighbour attribute rows
+     * @param array $eventMeta Event id => metadata, over every seen
+     *     event rather than only the read ones
+     * @param array $ownTags `Value::ownTagsFor`
+     * @param array $clusters Tag name => `fetchGalaxyClusters` row
+     * @param array $sgNames Sharing-group names, for the effective
+     *     audience of a neighbouring attribute
+     * @return void
+     */
+    private static function labels(array &$groups, array $rows,
+        array $eventMeta, array $ownTags, array $clusters,
+        array $sgNames
+    ) {
+        /*
+         * The events, and their own audience. An event tag is visible
+         * to whoever may see the event carrying it, so that is the
+         * honest audience for a row built out of event tags.
+         */
+        foreach ($eventMeta as $eventId => $meta) {
+            $audience = self::eventAudience($meta);
+            foreach ($meta['tags'] as $tag) {
+                self::label($groups, self::KIND_TAG, $tag['name'], array(
+                    'event' => (int)$eventId,
+                    'org' => isset($meta['orgc_id'])
+                        ? (int)$meta['orgc_id']
+                        : null,
+                    'last' => isset($meta['timestamp'])
+                        ? (int)$meta['timestamp']
+                        : 0,
+                    'attachment' => 'event',
+                    'audience' => $audience,
+                    'tag' => $tag,
+                ));
+            }
+            foreach ($meta['galaxy_tags'] as $name) {
+                if (!isset($clusters[$name])) {
+                    continue;
+                }
+                self::label($groups, self::KIND_CLUSTER, $name, array(
+                    'event' => (int)$eventId,
+                    'org' => isset($meta['orgc_id'])
+                        ? (int)$meta['orgc_id']
+                        : null,
+                    'last' => isset($meta['timestamp'])
+                        ? (int)$meta['timestamp']
+                        : 0,
+                    'attachment' => 'event',
+                    'audience' => $audience,
+                    'cluster' => $clusters[$name],
+                ));
+            }
+        }
+
+        /*
+         * The value's own occurrences.
+         *
+         * **No audience from this source**, and that is a refusal
+         * rather than an omission: `ownTagsFor` aggregates the
+         * occurrences away, so the only audience in reach is the
+         * carrying event's — and an event's level is a *ceiling* on its
+         * attributes', not a floor. Claiming it would let a row read
+         * `All communities` over a record that is org-only, which is
+         * the mistake the value fold's `distributions` set exists to
+         * have stopped making.
+         */
+        foreach ($ownTags as $name => $entry) {
+            $isCluster = !empty($entry['tag']['is_galaxy']);
+            if ($isCluster && !isset($clusters[$name])) {
+                continue;
+            }
+            foreach ($entry['events'] as $eventId => $seen) {
+                self::label(
+                    $groups,
+                    $isCluster ? self::KIND_CLUSTER : self::KIND_TAG,
+                    $name,
+                    array(
+                        'event' => (int)$eventId,
+                        'org' => isset($eventMeta[$eventId]['orgc_id'])
+                            ? (int)$eventMeta[$eventId]['orgc_id']
+                            : null,
+                        'last' => (int)$seen['last'],
+                        'occurrences' => (int)$seen['occurrences'],
+                        'attachment' => 'value',
+                        'audience' => null,
+                        'tag' => $entry['tag'],
+                        'cluster' => $isCluster
+                            ? $clusters[$name]
+                            : null,
+                    )
+                );
+            }
+        }
+
+        /*
+         * The neighbouring attributes' own tags. Already on the rows —
+         * the scan asks `neighbourRowsFor` for them so the value rows
+         * can draw their Tags column — so this source costs nothing
+         * beyond the fold.
+         */
+        foreach ($rows as $row) {
+            if (empty($row['AttributeTag'])) {
+                continue;
+            }
+            $attribute = $row['Attribute'];
+            /*
+             * The *effective* audience, through the same helper the
+             * value rows use — the tightest of the attribute, its
+             * object and its event. The attribute's stated level is
+             * not usable here: `5` means *inherit*, and an audience
+             * badge reading `Inherited` on a row that names a tag
+             * rather than a record has nothing to inherit from. Seen
+             * on `tlp:white`, where every neighbour carrying it
+             * deferred to its event.
+             */
+            $audience = ValueStatsTool::effectiveDistribution(
+                $row,
+                $sgNames
+            );
+            foreach ($row['AttributeTag'] as $attributeTag) {
+                if (empty($attributeTag['Tag']['name'])) {
+                    continue;
+                }
+                $tag = $attributeTag['Tag'];
+                $name = $tag['name'];
+                $isCluster = !empty($tag['is_galaxy']);
+                if ($isCluster && !isset($clusters[$name])) {
+                    continue;
+                }
+                self::label(
+                    $groups,
+                    $isCluster ? self::KIND_CLUSTER : self::KIND_TAG,
+                    $name,
+                    array(
+                        'event' => (int)$attribute['event_id'],
+                        'org' => isset($row['Event']['orgc_id'])
+                            ? (int)$row['Event']['orgc_id']
+                            : null,
+                        'last' => (int)$attribute['timestamp'],
+                        'attachment' => 'neighbour',
+                        /*
+                         * The attribute's stated level rather than its
+                         * effective one, because the effective answer
+                         * needs the object and event beside it and the
+                         * tightest of the three is what the value rows
+                         * already fold. Stated is the narrower reading
+                         * of the two wherever they differ, which is the
+                         * safe direction for a badge.
+                         */
+                        'audience' => $audience,
+                        'tag' => $tag,
+                        'cluster' => $isCluster
+                            ? $clusters[$name]
+                            : null,
+                    )
+                );
+            }
+        }
+    }
+
+    /**
+     * One label occurrence, onto its group.
+     *
+     * @param array $groups
+     * @param string $kind `KIND_CLUSTER` or `KIND_TAG`
+     * @param string $name The tag name, which is the group's identity
+     *     whichever way it arrived
+     * @param array $seen event, org, last, attachment, audience, and
+     *     the `tag` / `cluster` record to display
+     * @return void
+     */
+    private static function label(array &$groups, $kind, $name,
+        array $seen
+    ) {
+        $key = self::groupKey($kind, $name);
+        if (!isset($groups[$key])) {
+            $cluster = isset($seen['cluster']) ? $seen['cluster'] : null;
+            $record = $cluster === null
+                ? array()
+                : $cluster['GalaxyCluster'];
+            $groups[$key] = self::emptyGroup(
+                $name,
+                $kind,
+                array(
+                    /*
+                     * What the row prints in place of a value. A
+                     * cluster's own name rather than its tag string:
+                     * `APT29` is the neighbour, and
+                     * `misp-galaxy:threat-actor="APT29"` is how MISP
+                     * stores the fact.
+                     */
+                    'label' => $kind === self::KIND_CLUSTER
+                            && !empty($record['value'])
+                        ? $record['value']
+                        : $name,
+                    /*
+                     * The analogue of a value row's type column: the
+                     * galaxy for a cluster, the taxonomy namespace for
+                     * a tag. Empty on a freetext tag, which has no
+                     * namespace and should not be given a borrowed one.
+                     */
+                    'family' => $kind === self::KIND_CLUSTER
+                        ? (empty($record['Galaxy']['name'])
+                            ? (isset($record['type'])
+                                ? $record['type']
+                                : '')
+                            : $record['Galaxy']['name'])
+                        : self::namespaceOf($name),
+                    'tag' => isset($seen['tag']) ? $seen['tag'] : null,
+                    'cluster' => $cluster,
+                    'attachment' => $seen['attachment'],
+                )
+            );
+        }
+        $group = &$groups[$key];
+        $group['occurrences'] += isset($seen['occurrences'])
+            ? (int)$seen['occurrences']
+            : 1;
+        if (!empty($seen['event'])) {
+            $group['events'][(int)$seen['event']] = true;
+        }
+        if (!empty($seen['org'])) {
+            $group['orgs'][(int)$seen['org']] = true;
+        }
+        $group['last'] = max($group['last'], (int)$seen['last']);
+        if (self::attachRank($seen['attachment'])
+            > self::attachRank($group['attachment'])
+        ) {
+            $group['attachment'] = $seen['attachment'];
+        }
+        /*
+         * A cluster first seen through a source that carries no record
+         * still has to be able to name itself once one does — the
+         * own-value pass runs after the events' and can be the first to
+         * hold a tag's colour.
+         */
+        if ($group['tag'] === null && !empty($seen['tag'])) {
+            $group['tag'] = $seen['tag'];
+        }
+        if (!empty($seen['audience'])
+            && $seen['audience']['level'] !== null
+        ) {
+            $level = (int)$seen['audience']['level'];
+            $sharingGroup = (int)$seen['audience']['sharing_group_id'];
+            $audienceKey = $sharingGroup === 0
+                ? (string)$level
+                : $level . '.' . $sharingGroup;
+            if (!isset($group['distributions'][$audienceKey])) {
+                $group['distributions'][$audienceKey] = array(
+                    'level' => $level,
+                    'rank' => ValueStatsTool::restrictionRank($level),
+                    'sharing_group' => array(
+                        'id' => $sharingGroup === 0
+                            ? null
+                            : $sharingGroup,
+                        'name' =>
+                            $seen['audience']['sharing_group_name'],
+                    ),
+                );
+            }
+        }
+        unset($group);
+    }
+
+    /**
+     * A tag's taxonomy namespace, or the empty string for a freetext
+     * one.
+     *
+     * The colon is what MISP itself uses to tell a taxonomy tag from a
+     * word somebody typed, and `Taxonomy::splitTagToComponents` reads
+     * it the same way. Nothing is looked up: a namespace that names no
+     * installed taxonomy is still the namespace the tag was written
+     * with, and this column reports what the tag says rather than
+     * ruling on it.
+     *
+     * @param string $name
+     * @return string
+     */
+    private static function namespaceOf($name)
+    {
+        $cut = strpos((string)$name, ':');
+        return $cut === false || $cut === 0
+            ? ''
+            : substr((string)$name, 0, $cut);
+    }
+
+    /**
+     * An event's own audience, in the shape `label()` folds.
+     *
+     * @param array $meta One `eventMetadata` entry
+     * @return array
+     */
+    private static function eventAudience(array $meta)
+    {
+        $level = isset($meta['distribution'])
+            ? (int)$meta['distribution']
+            : null;
+        return array(
+            'level' => $level,
+            'sharing_group_id' => isset($meta['sharing_group_id'])
+                ? (int)$meta['sharing_group_id']
+                : 0,
+            'sharing_group_name' => isset($meta['sharing_group_name'])
+                ? $meta['sharing_group_name']
+                : null,
         );
     }
 
@@ -522,6 +1176,28 @@ class ValueRelationTool
      * @param array $b
      * @return int
      */
+    /**
+     * The last tie-break, and it is on the printed name.
+     *
+     * `value` would have ordered the clusters by their tag strings —
+     * every `misp-galaxy:` name sorting together under `m`, nowhere
+     * near where the reader sees them — so a table sorted "by name"
+     * would not have been in the order of the names in it. The kind
+     * comes first so the three sorts of neighbour do not interleave on
+     * a page where every row ties.
+     *
+     * @param array $a
+     * @param array $b
+     * @return int
+     */
+    private static function compareNames(array $a, array $b)
+    {
+        if ($a['kind'] !== $b['kind']) {
+            return strcmp($a['kind'], $b['kind']);
+        }
+        return strcmp($a['label'], $b['label']);
+    }
+
     private static function compareSpecificity(array $a, array $b)
     {
         $aKnown = $a['spread'] !== null;
@@ -540,10 +1216,33 @@ class ValueRelationTool
         return $left > $right ? -1 : 1;
     }
 
-    private static function emptyGroup($value)
-    {
-        return array(
+    private static function emptyGroup($value, $kind = self::KIND_VALUE,
+        array $extra = array()
+    ) {
+        return array_merge(array(
+            'kind' => $kind,
             'value' => $value,
+            /*
+             * What the row prints in its first column. The same string
+             * as `value` for a value neighbour, and a cluster's name
+             * rather than its tag string for a label — so one place
+             * reads the display name and the sort, the text filter and
+             * the facet cannot disagree about what a row is called.
+             */
+            'label' => $value,
+            /*
+             * The label row's answer to the type column, and empty on
+             * a value row, which answers with `types` instead.
+             */
+            'family' => '',
+            'tag' => null,
+            'cluster' => null,
+            /*
+             * How a label reached this value; null on a value
+             * neighbour, which reached it by sharing an event and has
+             * no second way to have done so.
+             */
+            'attachment' => null,
             'types' => array(),
             'categories' => array(),
             'events' => array(),
@@ -564,7 +1263,7 @@ class ValueRelationTool
              * nowhere.
              */
             'spread' => null,
-        );
+        ), $extra);
     }
 
     /**
@@ -594,7 +1293,21 @@ class ValueRelationTool
             }
             sort($names);
             $rows[] = array(
+                /*
+                 * Which of §10.2's three neighbours this row is, and it
+                 * decides how the first two cells are drawn rather than
+                 * merely labelling them: a value gets a monospace
+                 * string and a type badge, a cluster gets its name and
+                 * its galaxy, a tag gets its own chip and its
+                 * namespace.
+                 */
+                'kind' => $group['kind'],
                 'value' => $group['value'],
+                'label' => $group['label'],
+                'family' => $group['family'],
+                'tag' => $group['tag'],
+                'cluster' => $group['cluster'],
+                'attachment' => $group['attachment'],
                 'type' => self::dominant($group['types']),
                 'category' => self::dominant($group['categories']),
                 'shared_events' => count($group['events']),
@@ -606,9 +1319,16 @@ class ValueRelationTool
                  * The widest of the set, kept for the column sort and
                  * for a caller that wants one number. The cell reads
                  * `distributions`.
+                 *
+                 * `null` rather than the inherit level on a row with no
+                 * audience at all, which only a label can be: a cluster
+                 * reaching this value solely through its own
+                 * occurrences has no audience the fold may state, and
+                 * `5` would have printed *Inherit* over a set that is
+                 * empty for a different reason.
                  */
                 'distribution' => empty($audiences)
-                    ? 5
+                    ? ($group['kind'] === self::KIND_VALUE ? 5 : null)
                     : $audiences[0]['level'],
                 'distributions' => $audiences,
                 'object' => empty($group['objects'])
@@ -734,17 +1454,25 @@ class ValueRelationTool
     }
 
     /**
-     * The six counted groups.
+     * The counted groups.
      *
-     * **A facet counts distinct values, not rows** — `Type · domain 5`
-     * means five of the listed neighbours are domains, which is the
+     * **A facet counts distinct neighbours, not rows** — `Type · domain
+     * 5` means five of the listed neighbours are domains, which is the
      * number a reader about to tick it wants. The per-event counts
-     * therefore sum past the value total, because one neighbour can
+     * therefore sum past the neighbour total, because one neighbour can
      * share more than one event; that is the correct reading and the
      * panel already says so.
      *
      * Counted from the folded groups rather than from the rows, so a
      * value seen forty times in one event counts once.
+     *
+     * **These count value neighbours and nothing else.** Five of them
+     * are properties of a correlated attribute, which a galaxy cluster
+     * does not have — so the labels are folded, counted and narrowed in
+     * a section of their own, by `labelFacets`. §10.2 first put both in
+     * one bar; ticking `Type` then emptied the table of every cluster
+     * it had just counted, which is the control this panel already
+     * describes as *"a control that means nothing"* one section down.
      *
      * @param array $groups
      * @param array $eventMeta
@@ -878,6 +1606,62 @@ class ValueRelationTool
             $clearGroups
         );
         return $facets;
+    }
+
+    /**
+     * One facet group, in the order its vocabulary is declared in
+     * rather than the order the data happens to be.
+     *
+     * @param array $entries Ranked entries
+     * @param array $order Tokens, in the order they should read
+     * @return array
+     */
+    private static function inFixedOrder(array $entries, array $order)
+    {
+        $byToken = array();
+        foreach ($entries as $entry) {
+            $byToken[$entry['value']] = $entry;
+        }
+        $out = array();
+        foreach ($order as $token) {
+            if (isset($byToken[$token])) {
+                $out[] = $byToken[$token];
+                unset($byToken[$token]);
+            }
+        }
+        // Anything the vocabulary does not name still gets a row,
+        // rather than being silently dropped from its own control.
+        return array_merge($out, array_values($byToken));
+    }
+
+    /**
+     * @param string $kind
+     * @return string
+     */
+    private static function kindLabel($kind)
+    {
+        if ($kind === self::KIND_CLUSTER) {
+            return __('Galaxy cluster');
+        }
+        if ($kind === self::KIND_TAG) {
+            return __('Tag');
+        }
+        return __('Value');
+    }
+
+    /**
+     * @param string $attachment
+     * @return string
+     */
+    private static function attachmentLabel($attachment)
+    {
+        if ($attachment === 'value') {
+            return __('On this value');
+        }
+        if ($attachment === 'neighbour') {
+            return __('On a neighbour');
+        }
+        return __('On the event');
     }
 
     /**
@@ -2268,7 +3052,8 @@ class ValueRelationTool
      * A key absent from here is a control the fold cannot apply, so it
      * is also a control the panel must not offer.
      */
-    private static $tokenKeys = array('type', 'category', 'organisation',
+    private static $tokenKeys = array('kind', 'family', 'attachment',
+        'type', 'category', 'organisation',
         'event', 'tag', 'distribution', 'sharing_group', 'object',
         'sibling', 'warninglist');
 
@@ -2289,6 +3074,20 @@ class ValueRelationTool
     ) {
         $tokens = array();
         switch ($key) {
+            case 'kind':
+                $tokens[] = 'kind:' . $group['kind'];
+                break;
+            case 'family':
+                if ($group['family'] !== '') {
+                    $tokens[] = 'family:'
+                        . ValueStatsTool::facetToken($group['family']);
+                }
+                break;
+            case 'attachment':
+                if ($group['attachment'] !== null) {
+                    $tokens[] = 'attachment:' . $group['attachment'];
+                }
+                break;
             case 'type':
                 foreach (array_keys($group['types']) as $type) {
                     $tokens[] = 'type:'
@@ -2382,9 +3181,20 @@ class ValueRelationTool
     private static function groupMatches(array $group, array $filters,
         array $orgs, array $ourObjects
     ) {
+        /*
+         * Both names, because a label has two and a reader may arrive
+         * with either: `APT29` is what the row prints, and
+         * `misp-galaxy:threat-actor="APT29"` is what MISP stores and
+         * what a reader who copied the tag out of an event will paste.
+         * The two are the same string on a value neighbour.
+         */
         if (isset($filters['text'])
             && mb_strpos(
                 mb_strtolower($group['value']),
+                $filters['text']
+            ) === false
+            && mb_strpos(
+                mb_strtolower($group['label']),
                 $filters['text']
             ) === false
         ) {

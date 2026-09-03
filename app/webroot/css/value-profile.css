@@ -5888,6 +5888,71 @@ th.vp-rel-num {
 }
 
 /* ------------------------------------------------------------------
+ * §10.2 — the labels section's cells
+ *
+ * Its own table, beneath the value one, so the two kinds it holds have
+ * to be told apart from each other rather than from a value. The
+ * *shape* of the first cell does it: a tag is MISP's own coloured chip
+ * and a cluster is the rail card's pill in its galaxy's colour.
+ *
+ * `.vp-threat-badge`'s geometry, deliberately duplicated rather than
+ * shared: that class is the rail card's and carries its font size,
+ * which is a 340px column's. Borrowing it here would tie a table cell
+ * to a decision made about a sidebar.
+ * ------------------------------------------------------------------ */
+
+.vp-rel-cluster {
+    display: inline-block;
+    max-width: 18rem;
+    overflow: hidden;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+}
+
+.vp-rel-clusterlink {
+    text-decoration: none;
+}
+
+.vp-rel-clusterlink:hover .vp-rel-cluster,
+.vp-rel-clusterlink:focus-visible .vp-rel-cluster {
+    text-decoration: underline;
+}
+
+/*
+ * The Family cell on a label row: a galaxy or a taxonomy namespace.
+ * Plain text rather than a badge, because the badge beside it in the
+ * first cell already carries that colour — two coloured chips on one
+ * row would compete for the same glance.
+ */
+.vp-rel-family {
+    font-size: 0.74rem;
+    white-space: nowrap;
+}
+
+/*
+ * How a label reached this value. The rail card's `.vp-threat-mark`
+ * verbatim in look, because it is the same statement in the same
+ * words, and a reader moving between the card and the table should not
+ * have to notice they moved. No left margin: this is a cell of its
+ * own here, where on the card it trails a name.
+ */
+.vp-rel-attach {
+    padding: 0 4px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg, rgba(128, 128, 128, 0.22));
+    color: var(--bs-secondary-color);
+    font-size: 0.64rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------------------------
  * The neighbourhood sketch
  * ------------------------------------------------------------------
  * Nodes are neutral and carry only a type label, so notion colour is

@@ -1,6 +1,7 @@
 <?php
 App::uses('ValueFieldKind', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
+App::uses('GalaxyColour', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -616,6 +617,249 @@ $maxEventShared = 0;
 foreach ($eventRows as $row) {
     $maxEventShared = max($maxEventShared, (int)$row['shared_values']);
 }
+
+/*
+ * ----------------------------------------------------------------------
+ * §10.2 — what the labels section reads
+ * ----------------------------------------------------------------------
+ * Defaulted rather than required, because a fixture-driven render
+ * predates the key and so does any payload the fold wrote before this
+ * deploy — `CACHE_SHAPE` retires those at the deploy, and this is the
+ * belt to that brace.
+ */
+$labels = isset($co['labels']) ? $co['labels'] : array(
+    'rows' => array(),
+    'facets' => array(),
+    'total' => 0,
+    'by_kind' => array('cluster' => 0, 'tag' => 0),
+    'cap' => 0,
+    'page_size' => 8,
+);
+/*
+ * The fold holds every label because the rail's named-threat card
+ * filters them itself and a cluster reaching this value through one
+ * event ranks nowhere near the top. The table shows a page's worth and
+ * says so — the no-silent-caps rule, and the reason `cap` travels with
+ * the rows rather than being spelled here.
+ */
+$labelRows = empty($labels['cap'])
+    ? $labels['rows']
+    : array_slice($labels['rows'], 0, (int)$labels['cap']);
+$labelCapped = count($labelRows) < (int)$labels['total'];
+$labelFacets = isset($labels['facets']) ? $labels['facets'] : array();
+$labelByKind = isset($labels['by_kind'])
+    ? $labels['by_kind']
+    : array('cluster' => 0, 'tag' => 0);
+
+/*
+ * The scope sentence's two numbers. Labels are read over every event
+ * the value is in; the value table over the events its attribute budget
+ * afforded. Equal on most values, and the section only draws the
+ * distinction where it arose.
+ */
+$labelScope = $scanned
+    ? (int)$scan['events_seen']
+    : (int)$labels['total'];
+$labelScopeDiffers = $scanned
+    && $scan['events_read'] !== $scan['events_seen'];
+
+/*
+ * The header sub-line: what the section counts, in its own two units.
+ * Both named even where one is zero would read as a claim about a kind
+ * the value has none of, so each is printed only where it is there.
+ */
+$labelTally = array();
+if (!empty($labelByKind['cluster'])) {
+    $labelTally[] = sprintf(
+        __n('%s cluster', '%s clusters', $labelByKind['cluster']),
+        number_format($labelByKind['cluster'])
+    );
+}
+if (!empty($labelByKind['tag'])) {
+    $labelTally[] = sprintf(
+        __n('%s tag', '%s tags', $labelByKind['tag']),
+        number_format($labelByKind['tag'])
+    );
+}
+ob_start();
+?>
+    <span class="vp-rel-tag me-1">
+        <i class="misp-icon misp-icon-galaxy misp-simple"></i><?=
+            h(__('Labels')) ?>
+    </span>
+    <?php /*
+     * Escaped per part and joined with the raw entity: `h()` over the
+     * joined string turns the separator into the five characters that
+     * spell it.
+     */ ?>
+    <?= implode(' &middot; ', array_map('h', $labelTally)) ?>
+    &nbsp;·&nbsp;<?= h(__('shared events')) ?>&nbsp;·&nbsp;
+    <?php /*
+     * `Tagged`, not `Applied by hand`. A cluster reaches an event
+     * through whoever wrote it — and that is as often a feed or a sync
+     * from another instance as it is a person at a keyboard, which the
+     * join tables record nothing about either way. The chip beside the
+     * co-occurrence table says `Machine-derived` because an event join
+     * is; this one says what happened and not who did it.
+     */ ?>
+    <span class="vp-rel-prov"><i class="fas fa-tag"></i><?=
+        h(__('Tagged')) ?></span>
+<?php
+$labelHeaderSub = ob_get_clean();
+
+/**
+ * The six groups on the labels bar, in the order it prints them.
+ *
+ * The first three are the ones the value bar cannot have and the reason
+ * this section exists; the last three are the dimensions both sections
+ * genuinely share. There is no Type, no Object and no Warninglist,
+ * because a cluster has none of them and a control that can only empty
+ * the table under it is not a control.
+ */
+$labelFacetGroups = array(
+    array('key' => 'kind', 'title' => __('Kind'),
+        'icon' => 'fas fa-shapes'),
+    array('key' => 'family', 'title' => __('Family'),
+        'icon' => 'misp-icon misp-icon-galaxy misp-simple'),
+    array('key' => 'attachment', 'title' => __('Attached to'),
+        'icon' => 'fas fa-paperclip'),
+    array('key' => 'event', 'title' => __('Event'),
+        'icon' => 'misp-icon misp-icon-event misp-simple'),
+    array('key' => 'organisation', 'title' => __('Organisation'),
+        'icon' => 'fas fa-building'),
+    array('key' => 'distribution', 'title' => __('Distribution'),
+        'icon' => 'fas fa-globe'),
+);
+/*
+ * A distribution row carries MISP's own badge, for the reason the value
+ * bar's does: `value_facet_group` renders `html` where a caller supplies
+ * one and the bare `label` otherwise, and this facet has no label to
+ * fall back on.
+ */
+foreach ($labelFacets['distribution'] ?? array() as &$labelFacet) {
+    $labelFacet['html'] = $this->element(
+        'genericElementsBS5/Badges/distribution',
+        array(
+            'distribution' => (int)$labelFacet['level'],
+            'full' => true,
+        )
+    );
+}
+unset($labelFacet);
+
+/*
+ * One scale for this table, and it is this table's own. The bar beside
+ * a label counts events over every event the value is in, and the one
+ * above counts the events the budget read — scaling both against the
+ * larger drew every value neighbour on `443` as a stub, which is a
+ * picture of the scope difference rather than of which neighbours are
+ * strong. Strengths are only ever compared inside one roll-up here
+ * already; two tables are two roll-ups.
+ */
+$maxLabelShared = 0;
+foreach ($labelRows as $row) {
+    $maxLabelShared = max($maxLabelShared, (int)$row['shared_events']);
+}
+
+/*
+ * The words for how a label reached this value, and the digit that
+ * sorts them. Tightest first, so the column sorted ascending reads as
+ * the scale the words are.
+ */
+$attachWords = array(
+    'value' => __('on this value'),
+    'neighbour' => __('on a neighbour'),
+    'event' => __('on the event'),
+);
+$attachOrder = array('value' => '0', 'neighbour' => '1', 'event' => '2');
+
+/**
+ * @param array $row
+ * @return string
+ */
+$attachSort = function (array $row) use ($attachOrder) {
+    $at = isset($row['attachment']) ? $row['attachment'] : null;
+    return isset($attachOrder[$at]) ? $attachOrder[$at] : '9';
+};
+
+/**
+ * How a label reached this value, as its own cell.
+ *
+ * @param array $row
+ * @return string
+ */
+$attachCell = function (array $row) use ($attachWords) {
+    $at = isset($row['attachment']) ? $row['attachment'] : null;
+    if (!isset($attachWords[$at])) {
+        return '<span class="text-muted">&mdash;</span>';
+    }
+    return '<span class="vp-rel-attach">'
+        . h($attachWords[$at]) . '</span>';
+};
+
+/**
+ * The first cell: what this label is called.
+ *
+ * Two shapes, because the two kinds are not the same sort of thing. A
+ * cluster is a record with a page of its own — its name, linked, in its
+ * galaxy's colour, exactly as the rail card beside this draws it. A tag
+ * is MISP's own chip through MISP's own element, because a taxonomy
+ * tag's colour *is* its identity to a reader who has seen it on an
+ * event.
+ *
+ * @param array $row
+ * @return string
+ */
+$labelCell = function (array $row) use ($view, $baseurl) {
+    if ($row['kind'] === ValueRelationTool::KIND_CLUSTER) {
+        $cluster = isset($row['cluster']['GalaxyCluster'])
+            ? $row['cluster']['GalaxyCluster']
+            : array();
+        $url = empty($cluster['id'])
+            ? null
+            : $baseurl . '/galaxy_clusters/view/' . $cluster['id'];
+        $badge = '<span class="vp-rel-cluster"'
+            . ' style="' . GalaxyColour::badgeStyle($row['family']) . '"'
+            . ' title="' . h(sprintf(
+                __('%1$s in the %2$s galaxy'),
+                $row['label'],
+                $row['family']
+            )) . '">' . h($row['label']) . '</span>';
+        return $url === null
+            ? $badge
+            : '<a class="vp-rel-clusterlink" href="' . h($url) . '">'
+                . $badge . '</a>';
+    }
+    return empty($row['tag'])
+        ? '<span class="vp-rel-cell">' . h($row['label']) . '</span>'
+        : $view->element(
+            'genericElementsBS5/Badges/tag',
+            array(
+                'tag' => $row['tag'],
+                'local' => !empty($row['tag']['local']),
+                'hiddenClass' => '',
+                'showFavourite' => false,
+            )
+        );
+};
+
+/**
+ * The second cell: the galaxy a cluster belongs to, or the taxonomy a
+ * tag was written under. Plain text rather than a badge, because the
+ * chip beside it already carries that colour and two coloured things on
+ * one row compete for the same glance.
+ *
+ * @param array $row
+ * @return string
+ */
+$labelFamilyCell = function (array $row) {
+    if ($row['family'] === '') {
+        return '<span class="vp-rel-family text-muted">'
+            . h(__('freetext')) . '</span>';
+    }
+    return '<span class="vp-rel-family">' . h($row['family'])
+        . '</span>';
+};
 $maxObjectValues = 0;
 foreach ($objectRows as $row) {
     $maxObjectValues = max($maxObjectValues, (int)$row['values']);
@@ -2392,5 +2636,357 @@ $headerSub = ob_get_clean();
      * by subtraction.
      */
     ?>
+
+
+    <?php
+    /*
+     * ------------------------------------------------------------------
+     * §10.2 — the labels on those events
+     * ------------------------------------------------------------------
+     * A third section in this element, beside the object siblings and
+     * the co-occurrence table, and a section rather than more rows in
+     * the table above it.
+     *
+     * §10.2 asked for one table over both — *"the same facets, ranks and
+     * pager over all of it"* — and building it is what established that
+     * only the pager is shareable, and that sharing it was the worst
+     * part: merged, the first galaxy cluster on `Malicious` was on page
+     * fourteen.
+     *
+     *   the **rank** counts different scopes. A value neighbour is
+     *   counted over the events the attribute budget could read; a label
+     *   over every event the value is in, because an event's tags cost
+     *   one indexed read whatever its size. On `443` that is 38 against
+     *   196, and one order over both put a hundred tags and no values on
+     *   the page.
+     *
+     *   the **facets** do not apply. Five of the eight above describe a
+     *   correlated attribute: a cluster has no MISP type, sits in no
+     *   object and carries no warninglist verdict. Ticking one emptied
+     *   the table of every cluster it had just counted — which is the
+     *   control the note under the roll-up switch already calls *"a
+     *   control that means nothing"*.
+     *
+     *   the **columns** do not apply. `Specific to this value` divides
+     *   by a spread a label has none of.
+     *
+     * So this gets what the siblings above get: its own rows, its own
+     * bar, its own pager, its own empty state. What it shares with the
+     * table above is the fold and the scan behind it, which is where
+     * sharing was actually worth having.
+     *
+     * **The bar is local**, like the sibling bar and unlike the value
+     * table's: there is no narrowing endpoint behind these rows, so a
+     * tick reaches the rows carried and `value_facet_group` greys an
+     * entry none of them holds rather than offering a cut that could
+     * only empty the table.
+     * ------------------------------------------------------------------
+     */
+    ?>
+    <?php if (!empty($labelRows)): ?>
+
+        <div class="card shadow-sm mb-3 vp-panel vp-rel-k-co"
+             style="--vp-panel-color: var(--vp-rel-co);"
+             data-vp-rel-summary="labels"
+             data-vp-rel-count="<?= h(number_format($labels['total'])) ?>"
+             <?php if ($labelCapped): ?>
+                 data-vp-rel-note="<?= h(sprintf(
+                     __('%s listed'),
+                     number_format(count($labelRows))
+                 )) ?>"
+             <?php endif; ?>>
+
+        <?= $this->element('Values/View/value_panel_header', array(
+            'panelTitle' => __('Labels on those events'),
+            'panelIcon' => 'misp-icon misp-icon-galaxy misp-simple',
+            'panelColor' => 'var(--vp-rel-co)',
+            'panelSub' => $labelHeaderSub,
+        )) ?>
+
+        <div data-vp-list>
+
+            <div class="px-3 pt-3">
+                <div class="vp-rel-cap">
+                    <i class="fas fa-circle-info"></i>
+                    <span>
+                        <?= sprintf(
+                            __(
+                                'What the events around this value are'
+                                . ' marked as — %1$s. Read over %2$s,'
+                                . ' including any the table above could'
+                                . ' not afford to open: a label costs the'
+                                . ' same indexed read whatever the size'
+                                . ' of the event carrying it.'
+                            ),
+                            '<strong>' . h(__(
+                                'galaxy clusters and taxonomy tags'
+                            )) . '</strong>',
+                            '<strong>' . h(sprintf(
+                                __n(
+                                    'the one event this value is in',
+                                    'all %d events this value is in',
+                                    $labelScope,
+                                    $labelScope
+                                )
+                            )) . '</strong>'
+                        ) ?>
+                        <?php /*
+                         * Said only where the scopes actually differ.
+                         * On a value whose events were all read it
+                         * describes a distinction that did not arise.
+                         */ ?>
+                        <?php if ($labelScopeDiffers): ?>
+                            <?= h(sprintf(
+                                __n(
+                                    'The table above read %d of them.',
+                                    'The table above read %d of them.',
+                                    $scan['events_read'],
+                                    $scan['events_read']
+                                )
+                            )) ?>
+                        <?php endif; ?>
+                    </span>
+                </div>
+            </div>
+
+            <?php if ($labelCapped): ?>
+                <div class="vp-rel-cap">
+                    <i class="fas fa-filter"></i>
+                    <span>
+                        <?= sprintf(
+                            __(
+                                '%s, ranked by shared events. The bar'
+                                . ' below narrows the rows this table'
+                                . ' holds, not the fold behind them.'
+                            ),
+                            '<strong>' . h(sprintf(
+                                __('%1$s of %2$s are listed'),
+                                number_format(count($labelRows)),
+                                number_format($labels['total'])
+                            )) . '</strong>'
+                        ) ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+
+            <div class="p-3 border-bottom d-flex flex-wrap gap-2
+                        align-items-center">
+                <span class="vp-subhead mb-0 me-1"><?= __('Narrow by') ?></span>
+
+                <?php foreach ($labelFacetGroups as $group): ?>
+                    <?php if (empty($labelFacets[$group['key']])) {
+                        continue;
+                    } ?>
+                    <div class="dropdown">
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary
+                                       dropdown-toggle vp-rel-facet"
+                                data-bs-toggle="dropdown"
+                                data-bs-auto-close="outside"
+                                aria-expanded="false">
+                            <?= h($group['title']) ?>
+                            <span class="badge text-bg-secondary ms-1">
+                                <?= h(count($labelFacets[$group['key']])) ?>
+                            </span>
+                        </button>
+                        <div class="dropdown-menu vp-rel-facetmenu p-2">
+                            <?= $this->element(
+                                'Values/View/value_facet_group',
+                                array(
+                                    'key' => $group['key'],
+                                    'title' => $group['title'],
+                                    'icon' => $group['icon'],
+                                    'values' => $labelFacets[$group['key']],
+                                    'local' => true,
+                                )
+                            ) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+
+                <span class="small text-muted ms-auto"
+                      data-vp-facet-summary>
+                    <span class="vp-facet-summary-none">
+                        <?= __('No filter applied') ?>
+                    </span>
+                    <span class="vp-facet-summary-some">
+                        <span data-vp-facet-count-active>0</span>
+                        <span data-vp-plural="filters"
+                              data-vp-one="<?= h(__('filter')) ?>"
+                              data-vp-many="<?= h(__('filters')) ?>"><?=
+                            h(__('filters')) ?></span>
+                        &middot;
+                        <span data-vp-facet-rows><?=
+                            h(count($labelRows)) ?></span>
+                        <span data-vp-plural="rows"
+                              data-vp-one="<?= h(__('row')) ?>"
+                              data-vp-many="<?= h(__('rows')) ?>"><?=
+                            h(__('rows')) ?></span>
+                    </span>
+                </span>
+
+                <button type="button" class="btn btn-sm btn-link"
+                        data-vp-facet-clear disabled>
+                    <?= __('Reset') ?>
+                </button>
+            </div>
+
+            <div class="table-responsive" data-vp-list-rows>
+                <table class="table table-sm table-hover vp-table
+                              align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <?php
+                            /*
+                             * `Attached to` is a column and not only a
+                             * mark on the name, because it is the one
+                             * dimension here a reader sorts by: *show
+                             * me what was said about this value* is a
+                             * different question from *what was said
+                             * about the reports it turned up in*.
+                             */
+                            $labelCols = array(
+                                array('key' => 'label',
+                                    'label' => __('Label')),
+                                array('key' => 'family',
+                                    'label' => __('Family')),
+                                array('key' => 'attach',
+                                    'label' => __('Attached to')),
+                                array('key' => 'shared',
+                                    'label' => __('Shared events'),
+                                    'class' => 'vp-rel-num'),
+                                array('key' => 'orgs',
+                                    'label' => __('Organisations')),
+                                array('key' => 'last',
+                                    'label' => __('Last together')),
+                                array('key' => 'distribution',
+                                    'label' => __('Distribution')),
+                            );
+                            ?>
+                            <?php foreach ($labelCols as $col): ?>
+                                <th class="<?= h($col['class'] ?? '') ?>">
+                                    <button type="button"
+                                            class="vp-th-sort"
+                                            data-vp-sort-col="<?=
+                                                h($col['key']) ?>">
+                                        <span class="sortable-header"><?=
+                                            h($col['label'])
+                                        ?><i class="sort-icon"></i></span>
+                                    </button>
+                                </th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($labelRows
+                            as $labIndex => $row): ?>
+                            <tr class="vp-rel-stripe vp-rel-k-co"
+                                data-vp-facet="<?= h(implode(
+                                    ' ',
+                                    $row['tokens']
+                                )) ?>"
+                                data-vp-num="<?= h($numbers(
+                                    $row['shared_events'],
+                                    $row['last_together']
+                                )) ?>"<?php /*
+                                 * Both names, so the text filter finds
+                                 * a cluster by what the row prints and
+                                 * by the tag string a reader pasted out
+                                 * of an event.
+                                 */ ?>
+                                data-vp-text="<?= h(mb_strtolower(
+                                    $row['label'] === $row['value']
+                                        ? $row['value']
+                                        : $row['label'] . ' '
+                                            . $row['value']
+                                )) ?>"<?= $sortAttrs(array(
+                                    'vp-sort-label' => mb_strtolower(
+                                        $row['label']
+                                    ),
+                                    'vp-sort-family' => mb_strtolower(
+                                        $row['family']
+                                    ),
+                                    /*
+                                     * Tightest first when the column is
+                                     * sorted ascending, which is the
+                                     * order the word is a scale in —
+                                     * the digit is what makes a string
+                                     * compare agree with it.
+                                     */
+                                    'vp-sort-attach' => $attachSort($row),
+                                    'vp-sort-shared' => $sortNum(
+                                        $row['shared_events']
+                                    ),
+                                    'vp-sort-orgs' => $sortOrgs(
+                                        $row['orgs'],
+                                        count($row['orgs'])
+                                    ),
+                                    'vp-sort-last' => preg_replace(
+                                        '/\D/',
+                                        '',
+                                        (string)$row['last_together']
+                                    ),
+                                    /*
+                                     * The empty token on a row with no
+                                     * audience to state, which the
+                                     * comparator sorts last whichever
+                                     * way the heading points — `0`
+                                     * would claim the row was org-only.
+                                     */
+                                    'vp-sort-distribution' =>
+                                        $row['distribution'] === null
+                                            ? ''
+                                            : $sortNum(
+                                                $row['distribution']
+                                            ),
+                                ), $labIndex) ?>>
+                                <td><?= $labelCell($row) ?></td>
+                                <td><?= $labelFamilyCell($row) ?></td>
+                                <td><?= $attachCell($row) ?></td>
+                                <td><?= $weightBar(
+                                    $row['shared_events'],
+                                    $maxLabelShared
+                                ) ?></td>
+                                <td class="small">
+                                    <?= h(implode(', ', $row['orgs'])) ?>
+                                </td>
+                                <td class="font-monospace text-nowrap
+                                           small">
+                                    <?= h($row['last_together']) ?>
+                                </td>
+                                <td><?= $distributionBadge($row) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-3 d-none" data-vp-list-empty>
+                <div class="vp-empty vp-empty-inline">
+                    <i class="fas fa-filter"></i>
+                    <span>
+                        <?= __('No label matches the filter you set.') ?>
+                    </span>
+                </div>
+            </div>
+
+            <div class="px-3 py-2 border-top">
+                <?= $this->element('Values/View/value_pager', array(
+                    'size' => $labels['page_size'],
+                    'shown' => count($labelRows),
+                    'total' => $labels['total'],
+                    'noun' => array(
+                        'one' => __('label'),
+                        'many' => __('labels'),
+                    ),
+                )) ?>
+            </div>
+
+        </div>
+
+        </div>
+
+    <?php endif; ?>
+
 
 </div>

@@ -151,10 +151,18 @@ class ValueStatsTool
     }
 
     /**
+     * Where a level sits in `$restrictiveness`.
+     *
+     * Public because `effectiveDistribution` is not the only caller
+     * that has to order audiences any more: the co-occurrence fold
+     * builds one for a label out of its event's level, and the ordering
+     * has to stay decided in this one place rather than be re-derived
+     * beside the second caller.
+     *
      * @param int $level
      * @return int
      */
-    private static function restrictionRank($level)
+    public static function restrictionRank($level)
     {
         return isset(self::$restrictiveness[$level])
             ? self::$restrictiveness[$level]
