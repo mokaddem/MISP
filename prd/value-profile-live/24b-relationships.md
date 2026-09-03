@@ -43,7 +43,7 @@ live instance and recorded in its own section below.
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | **done** |
 | B8.1 | Galaxies and taxonomies as neighbour context | `value_relation_cooccurrence` (new section), `value_relation_summary`, `value_relation_threats`, `value_relation_settings` | L | no | **yes — a third section with its own bar and pager** | **done** |
 | B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
-| B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo |
+| B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo — both engines priced, §12.1 |
 
 ## 2. The order, and why
 
@@ -2652,6 +2652,13 @@ shape: look-alike value, permutation class as the closeness column,
 where it sits, reported by, distribution. The engine block replaces
 the one-line absent slot B2 leaves.
 
+**Two of its questions are now answered by measurement, not by the
+grilling.** §12.1 prices both engines: the cap question has no cap to
+answer, the URL host is out at 150× the engine's whole cost, and the
+combinatorial worry below is wrong — generation is linear in label
+length. The bullets are left as written so the grilling can see what
+it was handed.
+
 **Grilling decides — and the hazard goes first.**
 - **This engine reports matches MISP's correlation engine never
   claims.** That is the exact failure class the ssdeep pass documented
@@ -2681,6 +2688,192 @@ is indexed; one IN query over a few hundred candidates is the whole
 cost. The similarity threshold control the section header already has
 should not pretend to apply to this engine — permutation class is not
 a percentage, and the column should say the class, not a number.
+
+### 12.1 Both engines priced against live data — 2026-09-03
+
+**Before either engine is written, both are costed.** §12 asserts that
+generation is cheap and that the check is "one IN query over a few
+hundred candidates"; the fourth engine §4.1 collapsed to a line — the
+domain / TLD tree — has never been priced at all, and §12 proposes
+replacing that line with a block. Both were measured on the
+verification instance (3,915,429 attributes, 2,922,284 of them live,
+537,242 distinct `domain`/`hostname` values) through
+`Value::occurrencesForAny`, which is the shape the panel actually
+pays for, and at the SQL level underneath it. The probe is
+`24b-typosquat-probe.php`.
+
+**The two engines the section lists as peers differ by a factor of
+600.** The permutation engine costs a fifth of the section it would
+join. The domain tree's child direction costs seventy times the whole
+section, and costs the most on the values that have nothing to show.
+
+**The section today**, for scale:
+
+| Value | `forRelationNearMatch` | What runs |
+|---|---|---|
+| `github.com` | 38.6 ms | nothing — three idle engines |
+| `8.8.8.8` | 64.0 ms | CIDR, 4 rows |
+
+#### The permutation engine — 0.2 ms to generate, 7.3 ms to check
+
+Generation is **linear in label length, not combinatorial**, so §12's
+worry about long domains exploding does not survive contact with a
+generator. Twelve classes, each O(n) or O(n·k) over the label:
+
+| Value | Label length | Candidates | Generation |
+|---|---|---|---|
+| `foo.com` | 3 | 113 | 0.09 ms |
+| `github.com` | 6 | 186 | 0.06 ms |
+| `sharepoint-vaeit.com` | 16 | 381 | 0.14 ms |
+| `microsoft-update-service.com` | 24 | 558 | 0.37 ms |
+| 63 `a`s — the DNS label maximum | 63 | 1,131 | 0.91 ms |
+
+The ceiling is ~1,130 candidates and 0.91 ms for a label no squatter
+would register, and one `IN` query swallows that. **There is no
+numeric cap to declare**, so the no-silent-caps rule has nothing to
+bite on here —
+what bounds the set is the *class list*, and that is a sentence the
+block can print in full rather than a number it has to confess.
+
+Over 25 real domain values taken off the instance rather than chosen:
+
+- **0.2 ms** to generate, 237 candidates, mean
+- **7.3 ms** to check through `occurrencesForAny`, mean; 28.7 ms worst
+- **5 of 25 — 20% — found at least one look-alike already here**
+
+**It finds real pairs.** `caref1rst.com` → `careflrst.com`, homoglyph
+`1`/`l`: the Carefirst pair out of the APT1 reporting, sitting on this
+instance as two attributes MISP's correlation engine will never
+relate, found in 24.3 ms. `ssl-vaeit.com` → `ssl-vait.com` by
+omission. That is exactly the claim class §12 wanted.
+
+**§12's own witness is wrong, and it changes what the engine is for.**
+`github.com` returns **zero** permutation hits — while the instance
+holds `github-scanner.com`, `reset-github.com`,
+`login.portal-github.com`, `githubapp.net` and `digithub.co.uk`. Not
+one of those is a single edit from `github.com`; they are
+brand-*containing* constructions, which dnstwist reaches only with a
+dictionary. So the engine's yield is not *"registered look-alikes of
+this brand"* — it is *"near-identical pairs already in your data"*.
+Narrower than §12's brand-impersonation framing, and more honest; the
+grilling should hear it before it picks a direction, because it is the
+direction question in disguise.
+
+**One hazard, found by measuring, and it is §12's hazard in
+miniature.** Bit 5 of an ASCII letter is the case bit, so bitsquatting
+generates `Github.com`; `attributes.value1` is `utf8mb3_unicode_ci`;
+and the probe's first run duly reported **20 rows, every one of them
+`github.com` itself**. A permutation engine that does not drop
+case-only flips reports the value as its own look-alike — not merely a
+match the correlation engine denies, but a match that *is* equality,
+on the one panel whose whole purpose is to say these two values are
+not the same. Guarded in the probe. It is a required line in the
+engine, and a required sentence in the docblock.
+
+#### The domain / TLD tree — its two directions are not one engine
+
+The tree has a cheap half and an unaffordable one, and §12 treats them
+as a single absent engine.
+
+`attributes.value1` is `text` with a **255-character prefix index**, so
+a suffix match can never be answered from the index; and
+`ORDER BY Attribute.timestamp DESC LIMIT 200` — the shape every other
+fetch on this tab uses — makes MariaDB walk the `timestamp` index end
+to end when almost nothing matches. `EXPLAIN` estimates 315 rows and
+reads the table.
+
+| Direction | Shape | Cost |
+|---|---|---|
+| up — parents | `value1 IN ('circl.lu','lu')`, indexed | 10–51 ms |
+| down — children | `value1 LIKE '%.github.com'`, real fetch shape | **4,533 ms** |
+| down — children | same, no join, no `ORDER BY` | 1,130 ms |
+| down — children | same, `FORCE INDEX (value1)` | 1,820 ms |
+
+**The child direction's cost is inverted**: it is fast when it finds
+something and slow when it does not, because a match lets the index
+walk stop early.
+
+| Value | Children here | Child query |
+|---|---|---|
+| `duckdns.org` | 5,379 | 497 ms |
+| `github.com` | 0 | 4,533 ms |
+
+**Which makes the slow case the ordinary case.** Of 537,242 distinct
+`domain`/`hostname` values, **22,951 — 4.3% — are the parent of
+another value here**. Ninety-six value pages in a hundred would spend
+four and a half seconds rendering an empty list. Measured again while
+a parallel job loaded the machine, the same query took **24.6 s**,
+which is the number that matters for a shared instance.
+
+**The up direction is the opposite bargain.** `malicious.circl.lu`
+resolves its parents `circl.lu` and `lu` in 51 ms and finds 7 rows,
+and **67,959 values — 12.6% — have a parent that is itself present on
+this instance**, against the child direction's 4.3%. Three times the
+pages, at a hundredth of the cost, on the same indexed lookup every
+other panel on the tab already makes.
+
+So the domain tree is not one decision. Its parent half is affordable
+today and MISP genuinely has no engine for it; its child half is
+priced out on this instance's shape and would need a schema change — a
+reversed-label column, or a parent column written at save time — to
+become a panel rather than a scan. Neither belongs in B10's block
+without the grilling saying so; both are now numbers rather than
+opinions.
+
+#### The URL host is priced out of the first cut
+
+§12 leaves open "whether the URL host is in the first cut". It is not,
+and the number decides it rather than taste. A look-alike host inside
+a `url` value is not `value1` — it is a substring of it — so the
+indexed `IN` lookup does not apply:
+
+| Shape | Cost |
+|---|---|
+| whole domain lookup, 237 candidates, indexed | **7.3 ms** |
+| one candidate host, `value1 LIKE '%//careflrst.com%'` | 1,090 ms |
+| all 247 candidates in one `REGEXP` scan over 374,484 urls | 1,650 ms |
+
+So the first cut runs on `domain`, `hostname` and `domain|ip`, where
+the label *is* `value1` and the index applies. `url` is not refused for
+tidiness; it is 150× the cost of the rest of the engine put together.
+
+#### The reverse direction costs more than the forward one
+
+§12's direction question — this value *as* a look-alike of a prominent
+domain — needs a prominence reference set, and the obvious one is a
+warninglist. Three facts price it:
+
+- The instance **has** the reference data: *Top 1,000,000 most-used
+  sites from Tranco* is list 78, with 1,000,000 entries, and Cisco
+  Umbrella, Majestic and Alexa lists sit beside it.
+- **Every one of them is disabled.** Eight of 97 warninglists are
+  enabled here and not one is a prominence list, and
+  `Warninglist::getEnabledAndCacheWarninglist` filters on
+  `enabled => 1` — so the Redis-cached path B5 uses reaches none of
+  this data.
+- Read directly instead, `warninglist_entries` has **no index on
+  `value`** — only `id` and `warninglist_id` — over 2,503,420 rows.
+  Checking 247 candidates against list 78 costs **650 ms** — the
+  `warninglist_id` index narrows to the list, and the value check then
+  runs over its million rows.
+
+So the reverse direction is not the same generator run backwards at
+the same price — forward is an indexed 7 ms, reverse is 650 ms, ninety
+times more — but 650 ms is affordable in a lazily-loaded panel, so cost
+does not settle this one. **What settles it is that the list is off.**
+Reading list 78 anyway would mean the panel sourcing a claim from a
+warninglist the administrator has disabled, which is a policy the page
+has never taken and should not take by accident. If the grilling wants
+the reverse direction, it wants a warninglist decision first, and that
+is an instance question rather than a page one.
+
+#### What this does not decide
+
+The hazard framing (§12's first bullet), where a hit links, and
+whether look-alikes are also checked against the feed cache are
+unchanged by cost and stay for the grilling. What the measurements
+remove from that list is the cap question — there is no cap — the
+value-type question, and the URL half of the type question.
 
 ## 13. Not in this subphase
 
