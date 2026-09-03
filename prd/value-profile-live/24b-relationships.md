@@ -40,7 +40,7 @@ live instance and recorded in its own section below.
 | B5 | Warninglist de-emphasis in co-occurrence | `value_relation_cooccurrence`, `value_relation_dated` | M | no | no | **done** |
 | B6 | A "Most specific" rank | `value_relation_cooccurrence`, `siblings` | M | **yes** | no | **done** |
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | **done** |
-| B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | todo |
+| B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | **done** |
 | B9 | Where in the intrusion: tactic mix | B8's card | S | no | no — extends B8 | todo |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo |
 
@@ -1687,14 +1687,14 @@ co-occurrence fold reads the value's ≤20 events; their tags and galaxy
 clusters are one decoration query away.
 
 **What changes.** A rail card under **Neighbourhood**: the galaxy
-clusters and name-like tags reachable through this value's events,
-ranked by independent organisations, then events:
+clusters reachable through this value's events, ranked by independent
+organisations, then events:
 
-> **APT28** — galaxy · via 3 events / 2 orgs
-> **LummaC2** — tag · via 1 event / 1 org
+> **APT29** — actor · 3 orgs · 4 events
+> **Remcos** — malware · on the value · 1 org · 1 event
 
-Top 5–8 rows and an "and N more" line. Each row links to the cluster
-or a tag search. The card states its read the way every panel does:
+Top 8 rows and an expander. Each row links to the cluster. The card
+states its read the way every panel does:
 *"Read from this value's 19 events."* Placement is the rail because
 that is where the headroom is (a full screen of dead space under
 "What is counted") and because "what does this mean" is a summary, not
@@ -1712,41 +1712,178 @@ this boundary: its card stays direct, at most gaining a one-line count
 of named threats nearby, in the card-counts/section-lists idiom the
 external pair already uses.
 
-**Grilling decides.**
-- Which cluster families count as a *named threat*: threat-actor,
-  malware, tool, ransomware, botnet — with `mitre-attack-pattern`
-  explicitly excluded (that is B9's group).
-- Whether attribute-level tags on the neighbours join event-level
-  tags, or events only in the first cut.
-- Whether the asserted section's far ends contribute — a claim naming
-  a GalaxyCluster is already on the tab and is arguably the strongest
-  named-threat evidence the page holds.
-- Local-only and freetext tags: in, out, or folded under "unnamed".
-- The `value_context` boundary: exclude clusters the value's own
-  occurrences already carry, or keep them marked `direct` beside the
-  `by association` rows — and which of the two the ranking favours.
-- Placement confirmation (rail card vs eighth strip card), and the
-  card's notion colour — it spans notions, so it may need its own.
+**Grilling settled it — 2026-09-03.** Every item below was decided in
+session; §10.1 records what was built and what the decisions cost.
 
-**How.** Event ids come from the cached tab context (§18), so the card
-costs one `EventTag`+`Tag` fetch over ≤20 events plus cluster
-resolution — measure it, and hold it in the same five-minute digest
-the rail cards already share. Ranking is `COUNT(DISTINCT org)` then
-`COUNT(DISTINCT event)` per cluster/tag, folded in PHP at these sizes.
-The fold is a model-layer method (`ValueProfile` or `ValueStatsTool`),
-not view logic: the verdict engine's scope note lists neighbourhood
-context among its wanted signals, and the Overview's future count line
-is a second caller.
+- **A named threat is a galaxy cluster, and nothing else.** Freetext
+  tags are out and taxonomies contribute nothing — both measured, in
+  §10.1.
+- **The classification does not live in this page.** It is a property
+  of the *galaxy*, so it moved out to `GalaxyCategory` in
+  `app/Lib/Tools`, keyed on galaxy type, with `named-threat` split
+  into four kinds: actor, campaign, malware, tool.
+- **Events only in the first cut.** Neighbour attribute tags add 2
+  clusters on `8.8.8.8`, both attack-patterns — zero named threats for
+  a second source.
+- **Asserted far ends contribute**, as a fourth way in.
+- **Local-only galaxies are skipped**, pending the real fix: the
+  category landing on the galaxy itself.
+- **The `value_context` boundary is a word on the row, not an
+  exclusion.** One list, ranked by organisations then events, with the
+  attachment marked and *not* in the sort.
+- **Rail, middle position**, and the notion-colour question dissolved:
+  both existing rail cards are neutral.
 
-**UI.** This is a new card element — run the **frontend-design** skill
-for it before building: rows-with-chips in the rail's card idiom, a
-count treatment that does not read as a score, light/dark checked. The
-element should be reusable by B9 as a second group.
+**How.** Five indexed queries, held in the five-minute rail digest the
+other two cards already share. **Not** read off the co-occurrence
+scan, which was the plan and is wrong: the scan skips an event too
+large to fold, but an event's tags cost the same whatever its size, so
+tying the card to the attribute budget would drop named threats for an
+unrelated reason. Reading the events directly also means the card
+answers on values whose neighbourhood table is suppressed entirely.
+Ranking is `COUNT(DISTINCT org)` then `COUNT(DISTINCT event)`, folded
+in PHP. The fold is a model-layer method for the reason given: the
+verdict engine's scope note lists neighbourhood context among its
+wanted signals, and the Overview's future count line is a second
+caller.
 
-**Verify.** `8.8.8.8` shows LummaC2 (tag, via its one tagged event) —
-the row visible in the 2026-09-01 render is the witness; a value whose
-events carry no clusters or name-tags states that rather than
-rendering empty.
+**UI.** Ran the **frontend-design** skill. The brief pinned the
+direction — it has to look native to two existing rail cards, and this
+tab rations colour strictly — so the work went into row grammar
+rather than palette, and the one liberty taken is typographic.
+
+**Verify.** `8.8.8.8` shows **APT29** and **Flying Kitten**. The
+spec's original witness was wrong: it named `LummaC2`, which is a
+freetext tag, not a cluster.
+
+### 10.1 Done — 2026-09-03
+
+The card is live at `value_relation_threats`, third in the rail,
+between the graph and "What is counted".
+
+**Freetext tags are out, and the numbers are why.** 10,840 freetext
+tags exist on the instance and 173 are used on events. Ranked by event
+count the top two are the word `malware` (165 events) and ` C2` (72),
+so a card admitting them would lead with a category noun. One malware
+family carries seven spellings — `misp-galaxy:malpedia="Lumma
+Stealer"` plus freetext `LummaC2`, `Lumma`, `Lumma Stealer`,
+`LummaStealer`, `lummaC`, `ViaLumma` — so it would also double-count
+whatever it did recognise. The spec's own example row was one of them.
+
+**Taxonomies contribute nothing, checked rather than assumed.** The
+three that sound like they name threats classify instead:
+`malware_classification` by category, `ms-caro-malware` by type and
+platform, `adversary` by infrastructure status (the latter two are not
+even enabled here). The only namespaced tags on the instance that do
+name a threat — `Threat:Sofacy/APT28`, `Banker: TrickBot` — are absent
+from the `taxonomies` table: freetext with a colon in it.
+
+**The classification moved out of the page.** `GalaxyCategory`
+classifies 89 of the 130 galaxies misp-galaxy ships across seven
+categories, of which the card reads one. It is keyed on galaxy `type`
+— the string in every tag name and in `galaxy_clusters.type` — so no
+caller needs a join. Of the families actually tagged on events here,
+28 classify as `named-threat` (1,101 event-hits: actor 406, malware
+461, tool 234) and 10 as `technique`; 23 event-hits fall through
+unrecognised, every one a locally created galaxy (`stix-2.1-*`,
+`ls26-threat-actors`, `tea-matrix`), a legacy misspelling
+(`mitre-entreprise-attack-*`), or genuinely out of scope.
+
+**The spec's five-family list would have dropped most of it.** Four of
+the five exist — there is no galaxy called `malware` at all — and
+between them they reach 614 event-hits. The families the list omits
+reach another 487, `malpedia` (133 events) and `mitre-intrusion-set`
+(87) among them.
+
+**This file is the interim home and says so.** The right place is a
+`category` field on each galaxy in the misp-galaxy repository,
+ingested by `Galaxy::__load_galaxies` and editable per galaxy, so an
+administrator can classify the galaxies they created. Until then a
+galaxy absent from the table is *unrecognised* rather than judged
+harmless, and the card skips it — which is why this instance's three
+locally created threat-actor galaxies ("LS26 - Threat Actors", "CC25 -
+Threat Actors", "GSMA - TA") contribute nothing. The docblock carries
+the destination.
+
+**`orgs` counts what the schema can support, and the card says so.**
+Neither `event_tags` nor `attribute_tags` records who applied a tag —
+no org column, no user column — so the count is the *creator
+organisations of the events carrying the cluster*, stated in the
+card's footer rather than left to be read as three independent
+attributions. A claim is the one source that does record an author,
+and contributes that org instead.
+
+**Three ways in, one word out, and a fourth is coming.** A cluster
+arrives on the value's own occurrence, on one of its events, or as the
+far end of a claim; where more than one applies the most specific
+wins. Only the tighter two are marked, because an event arrival's own
+event count already says so. Objects cannot be tagged yet — there is
+no `object_tags` table and `MispObject` reaches a tag only through its
+attributes — so `ValueProfile::neighbourhoodThreats` names both
+`object_tags` and `ObjectTag` in its docblock, and `threatRank`
+records where the fourth rank belongs. A grep for either lands on
+both.
+
+**`CACHE_SHAPE` 6 → 7.** `eventMetadata` now keeps galaxy tag names
+instead of dropping them, which changes what the scan holds.
+
+**The design pass cut its own device.** A leading glyph per kind was
+built, rendered and removed: it encoded exactly what the chip beside
+it already said, and at 0.72rem `fa-user-secret` — the most frequent
+of the four — is a blob. Dropping it let the name start at the card's
+edge, which is the point of the card. What survives is two chip
+weights carrying a real distinction, hairline for the *category* a
+cluster belongs to and filled for the *state* of how it reached the
+value, and one liberty with the tab's type scale: the cluster name is
+0.92rem where nothing else in the rail exceeds 0.82rem. A card whose
+purpose is to produce a name should not print it at caption size.
+
+**Rendering found a defect the markup did not.** `Malicious` drew
+`APT28 - G0007` three times with near-identical counts, because MITRE
+ships APT28 as an intrusion set in the enterprise, mobile and
+pre-attack galaxies. They are three real records with three real
+links, but the rows read as a bug — so a row whose name collides with
+another now names its galaxy, and the rest do not.
+
+**Verified live**, each state against a real value:
+
+| Value | What it exercises | Result |
+|---|---|---|
+| `8.8.8.8` | the spec's witness | **APT29**, **Flying Kitten**, both actor, over 20 events — 2 of its 26 event clusters, 21 of the rest being attack-patterns that belong to B9 |
+| `Malicious` | the cap and the expander | 125 rows, 8 shown, "Show 117 more"; `tool`, `actor` and `malware` kinds; rows from `microsoft-activity-group` and the deprecated `mitre-mobile-attack-intrusion-set`; the sort putting 2-org rows above 1-org rows and ordering those by events |
+| `5.101.86.76` | the `on the value` chip | **Remcos** · malware · on the value, from `malpedia` on 3 of its occurrences |
+| `github.com` | the empty state | states that nothing in its 1 event names an actor, a campaign, malware or a tool |
+
+The four existing relation panels were re-fetched after the
+`CACHE_SHAPE` bump and render clean.
+
+**What is not verified, and why.** The `claimed by an analyst` path
+has no data to run on: all three cluster-naming claims on the instance
+are unusable — one is cluster-to-cluster with no value at its near
+end, one targets `country="belarus"` which is not a named threat, and
+one points at a cluster that does not resolve and is therefore
+correctly dropped. The path ships exercised by nothing. `campaign` is
+likewise undrawn, Tidal Campaigns being installed but unused here.
+
+### 10.2 Follow-up: galaxies and taxonomies as neighbour context
+
+Raised while closing B8. The co-occurrence table's notion of a
+neighbour is *another attribute in the same event*. It could as well
+carry **galaxy clusters and taxonomy tags as neighbours in their own
+right** — one table of everything sharing this value's events,
+attributes and labels alike, with the same facets, ranks and pager
+over all of it.
+
+This card would then stop being a separate read and become **a subset
+of that table with its own prioritisation**: the rows whose neighbour
+is a cluster, filtered to `named-threat` by `GalaxyCategory` and
+ranked for the rail. The card stays — a rail summary is not a ledger —
+but it would share the table's fold instead of running its own five
+queries.
+
+Worth investigating before B10, because it changes what "neighbour"
+means on the tab and therefore what the co-occurrence facets are
+facets *of*. Not scoped here.
 
 ## 11. B9 — where in the intrusion: tactic mix
 
@@ -1765,6 +1902,22 @@ established; no separate design pass, no new element.
 **How.** Zero additional queries: B8's tag fetch already returned
 these clusters; the tactic comes from the galaxy's kill-chain meta.
 Values with no attack-pattern clusters simply do not render the group.
+
+**What B8 left ready.** `GalaxyCategory::typesIn(GalaxyCategory::TECHNIQUE)`
+returns the 24 technique-naming galaxies, and the `kind` beside each
+separates the three sorts this group has to treat differently:
+`attack-pattern` for the ATT&CK-shaped families that carry
+`kill_chain_order` (25 galaxies do), `technique` for other frameworks'
+own technique lists, and `tactic` for the galaxies that name a phase
+directly and so need no collapsing. `neighbourhoodThreats` already
+resolves every galaxy tag on the value's events through
+`fetchGalaxyClusters` and then discards the non-threats — B9 is the
+second reader of that same resolved set, so it belongs inside that
+method rather than beside it.
+
+On `8.8.8.8` the group has real material: 21 of its 26 event clusters
+are `mitre-attack-pattern`, which is also why B8 excludes them — folded
+into one list they would bury the two names beside them.
 
 ## 12. B10 — a typosquat engine for near-matches — **grilling session first**
 

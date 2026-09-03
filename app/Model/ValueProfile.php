@@ -5,6 +5,7 @@ App::uses('ValueDecayTool', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
+App::uses('GalaxyCategory', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -140,6 +141,18 @@ class ValueProfile extends AppModel
     const RELATION_PAGE_SIZE = 8;
 
     /**
+     * Named threats the neighbourhood card shows before folding.
+     *
+     * Measured over every value on the development instance: of the
+     * ~93,000 that have any named threat nearby, 93% have one, two or
+     * three, and the cap binds on 1.7% of them. It binds hard when it
+     * does — one value reaches 154 distinct clusters and another 102 —
+     * so the rest are held rather than dropped, and the card expands
+     * in place instead of sending the reader anywhere.
+     */
+    const THREAT_ROW_CAP = 8;
+
+    /**
      * Seconds the Relationships scan's reads are held in Redis.
      *
      * Narrowing the co-occurrence table re-requests the panel, and each
@@ -171,7 +184,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 6;
+    const CACHE_SHAPE = 7;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1653,6 +1666,35 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The rail's third card: which named threats this value sits next
+     * to.
+     *
+     * The one thing on the tab that answers *what does this mean*
+     * rather than *what is related*. Everything else here lists edges;
+     * this names the campaigns, actors, malware and tooling reachable
+     * through the value, which is the read every peer platform leads
+     * with and the one this tab had no answer for.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forRelationThreats(array $user, $value,
+        array $options = array()
+    ) {
+        $digest = $this->relationDigest($user, $value, $options);
+        return array(
+            'value' => $value,
+            'relationships' => array(
+                'summary' => $digest['summary'],
+                'threats' => $digest['threats'],
+                'read_at' => $digest['read_at'],
+            ),
+        );
+    }
+
+    /**
      * The Overview card: how many feeds and sync servers hold this value,
      * counting only the ones this reader may be told about.
      *
@@ -2094,6 +2136,21 @@ class ValueProfile extends AppModel
                 'references' => $references,
             ), $value),
             'suppressed' => !empty($context['co']['suppressed']),
+            /*
+             * Not read off the scan, and deliberately: the scan skips
+             * an event too large to fold for co-occurrence, but an
+             * event's tags cost the same whatever its size. Tying the
+             * named threats to the attribute budget would drop them for
+             * an unrelated reason — so this reads every event the value
+             * is in, and answers on values whose neighbourhood table
+             * is suppressed entirely.
+             */
+            'threats' => $this->neighbourhoodThreats(
+                $user,
+                $value,
+                $options,
+                $asserted
+            ),
             'read_at' => isset($context['co']['scan']['read_at'])
                 ? (int)$context['co']['scan']['read_at']
                 : time(),
@@ -2107,6 +2164,241 @@ class ValueProfile extends AppModel
             );
         }
         return $digest;
+    }
+
+    /**
+     * The named threats reachable through this value, folded.
+     *
+     * **A named threat is a galaxy cluster and nothing else**, and
+     * `GalaxyCategory` holds both that rule and the evidence for it.
+     * The short version: freetext tags cannot carry the claim — the two
+     * most-used on this instance are the word `malware` and ` C2`, and
+     * one malware family appears under seven spellings — and no
+     * installed taxonomy names an individual threat, they classify one.
+     *
+     * Five indexed queries, none per event or per occurrence:
+     *
+     *   1. the value's events, newest first, capped   `Value`
+     *   2. those events, for their creator org        `Event`
+     *   3. their tags, galaxy ones kept               `EventTag`
+     *   4. clusters on the value's own occurrences    `Value`
+     *   5. every cluster named above, under its ACL   `GalaxyCluster`
+     *
+     * Query 5 is not optional and not an optimisation.
+     * `fetchGalaxyClusters` is the only thing that decides whether this
+     * viewer may know a cluster exists, so a tag whose cluster does not
+     * come back is dropped rather than printed — the reason spelled out
+     * at `claimTarget`: the tag string would disclose the cluster the
+     * instance is withholding.
+     *
+     * **What `orgs` counts, and what it cannot.** Neither
+     * `event_tags` nor `attribute_tags` records who applied a tag —
+     * there is no org and no user on either table — so this counts the
+     * *creator organisations of the events carrying the cluster*, and
+     * the card says so in words. A claim is the one source that does
+     * record an author, and contributes that org instead.
+     *
+     * **Three ways in, one word out.** A cluster can arrive on the
+     * value's own occurrence, on an event the value appears in, or as
+     * the far end of an analyst's claim about it. Where more than one
+     * applies the most specific wins, which is the order in
+     * `threatRank` — and it is a decision rather than a derivation: a
+     * claim outranks a tag on the value because it carries an author
+     * and a relationship type, so it is the more informative thing to
+     * print.
+     *
+     * **A fourth way is coming.** Objects cannot be tagged yet: the
+     * join tables are `attribute_tags`, `event_tags` and
+     * `event_report_tags`, there is no `object_tags`, and
+     * `MispObject` reaches a tag only through its attributes. When
+     * `ObjectTag` lands, a cluster on the object a value sits in
+     * belongs between `value` and `event` in `threatRank` and needs a
+     * fourth word in the template — grep either name to find both.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $claims As `assertedClaims`, already resolved
+     * @return array rows, total, cap, events_read
+     */
+    private function neighbourhoodThreats(array $user, $value,
+        array $options, array $claims
+    ) {
+        $found = array(
+            'rows' => array(),
+            'total' => 0,
+            'cap' => self::THREAT_ROW_CAP,
+            'events_read' => 0,
+            'event_cap' => self::RELATION_EVENT_CAP,
+        );
+        $events = $this->model('Value')->occurrenceEventsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::RELATION_EVENT_CAP,
+            ))
+        );
+        $eventIds = array_keys($events);
+        $found['events_read'] = count($eventIds);
+        if (empty($eventIds)) {
+            return $found;
+        }
+        $meta = $this->eventMetadata($user, $eventIds);
+        $own = $this->model('Value')->ownClusterTagsFor(
+            $user,
+            $value,
+            $eventIds,
+            $options
+        );
+
+        /*
+         * Every tag name in play before anything is resolved, so the
+         * ACL fetch is one query for both sources rather than one per
+         * event.
+         */
+        $names = array();
+        foreach ($meta as $eventMeta) {
+            foreach ($eventMeta['galaxy_tags'] as $name) {
+                $names[$name] = true;
+            }
+        }
+        foreach (array_keys($own) as $name) {
+            $names[$name] = true;
+        }
+        $clusters = $this->claimClusters($user, $claims,
+            array_keys($names));
+
+        $rows = array();
+        foreach ($meta as $eventId => $eventMeta) {
+            foreach ($eventMeta['galaxy_tags'] as $name) {
+                if (!isset($clusters['by_tag'][$name])) {
+                    continue;
+                }
+                $this->addThreat(
+                    $rows,
+                    $clusters['by_tag'][$name],
+                    'event',
+                    $eventId,
+                    $eventMeta['orgc_id']
+                );
+            }
+        }
+        foreach ($own as $name => $perEvent) {
+            if (!isset($clusters['by_tag'][$name])) {
+                continue;
+            }
+            foreach (array_keys($perEvent) as $eventId) {
+                $this->addThreat(
+                    $rows,
+                    $clusters['by_tag'][$name],
+                    'value',
+                    $eventId,
+                    isset($meta[$eventId]['orgc_id'])
+                        ? $meta[$eventId]['orgc_id']
+                        : null
+                );
+            }
+        }
+        foreach ($claims as $claim) {
+            if ($claim['target']['kind'] !== 'GalaxyCluster') {
+                continue;
+            }
+            $uuid = $claim['target']['uuid'];
+            if (!isset($clusters['by_uuid'][$uuid])) {
+                continue;
+            }
+            $this->addThreat(
+                $rows,
+                $clusters['by_uuid'][$uuid],
+                'claim',
+                null,
+                $claim['org_id']
+            );
+        }
+
+        foreach ($rows as $id => $row) {
+            $rows[$id]['events'] = count($row['events']);
+            $rows[$id]['orgs'] = count($row['orgs']);
+        }
+        $rows = array_values($rows);
+        /*
+         * Organisations, then events, then the name — and attachment
+         * is not in the sort on purpose. The word on the row already
+         * says how a cluster got there; ranking by it as well would
+         * bury a threat four organisations reported under one somebody
+         * tagged on the value once.
+         */
+        usort($rows, function ($a, $b) {
+            if ($a['orgs'] !== $b['orgs']) {
+                return $b['orgs'] - $a['orgs'];
+            }
+            if ($a['events'] !== $b['events']) {
+                return $b['events'] - $a['events'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+        $found['rows'] = $rows;
+        $found['total'] = count($rows);
+        return $found;
+    }
+
+    /**
+     * One cluster into the fold, or nothing if it names no threat.
+     *
+     * @param array $rows Accumulator, keyed by cluster id
+     * @param array $cluster A `fetchGalaxyClusters` row
+     * @param string $attachment `event`, `value` or `claim`
+     * @param int|null $eventId Event this arrival was found on
+     * @param int|null $orgId Organisation to credit for it
+     * @return void
+     */
+    private function addThreat(array &$rows, array $cluster,
+        $attachment, $eventId, $orgId
+    ) {
+        $row = $cluster['GalaxyCluster'];
+        if (!GalaxyCategory::isNamedThreat($row['type'])) {
+            return;
+        }
+        $id = (int)$row['id'];
+        if (!isset($rows[$id])) {
+            $rows[$id] = array(
+                'id' => $id,
+                'name' => $row['value'],
+                'galaxy' => empty($row['Galaxy']['name'])
+                    ? $row['type']
+                    : $row['Galaxy']['name'],
+                'kind' => GalaxyCategory::kindOf($row['type']),
+                'attachment' => $attachment,
+                'events' => array(),
+                'orgs' => array(),
+            );
+        }
+        if (self::threatRank($attachment)
+            > self::threatRank($rows[$id]['attachment'])
+        ) {
+            $rows[$id]['attachment'] = $attachment;
+        }
+        if ($eventId !== null) {
+            $rows[$id]['events'][(int)$eventId] = true;
+        }
+        if ($orgId !== null) {
+            $rows[$id]['orgs'][(int)$orgId] = true;
+        }
+    }
+
+    /**
+     * How specific a way of reaching the value is.
+     *
+     * `object` belongs at 2 once objects can be tagged — see
+     * `neighbourhoodThreats`.
+     *
+     * @param string $attachment
+     * @return int
+     */
+    private static function threatRank($attachment)
+    {
+        $ranks = array('claim' => 3, 'value' => 2, 'event' => 1);
+        return isset($ranks[$attachment]) ? $ranks[$attachment] : 0;
     }
 
     private function relationScan(array $user, $value, array $options,
@@ -2365,6 +2657,7 @@ class ValueProfile extends AppModel
                 'sharing_group_id' =>
                     (int)$event['Event']['sharing_group_id'],
                 'tags' => array(),
+                'galaxy_tags' => array(),
             );
         }
         $tags = $this->model('EventTag')->find('all', array(
@@ -2378,9 +2671,20 @@ class ValueProfile extends AppModel
         ));
         foreach ($tags as $tag) {
             $eventId = (int)$tag['EventTag']['event_id'];
-            if (!isset($meta[$eventId]) || empty($tag['Tag'])
-                || !empty($tag['Tag']['is_galaxy'])
-            ) {
+            if (!isset($meta[$eventId]) || empty($tag['Tag'])) {
+                continue;
+            }
+            /*
+             * Kept rather than dropped, for `claimEventTags`' reason
+             * one level up: the Tags column does not draw a galaxy tag,
+             * so every other reader here filters them out — but the
+             * neighbourhood card is made of them, and they are already
+             * in this result set. Only the name is kept, because a
+             * cluster still has to go through `fetchGalaxyClusters`
+             * before it may be shown at all.
+             */
+            if (!empty($tag['Tag']['is_galaxy'])) {
+                $meta[$eventId]['galaxy_tags'][] = $tag['Tag']['name'];
                 continue;
             }
             $meta[$eventId]['tags'][] = $tag['Tag'];

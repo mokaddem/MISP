@@ -4100,8 +4100,13 @@ th[aria-sort="descending"] .sort-icon::before,
      * The three notions the object re-founding added, and all three
      * hues are MISP's own for the thing they name — an object join is
      * --object, an event membership is --event, and a typed reference
-     * borrows --galaxy because it is the remaining distinct hue and
-     * nothing on this tab draws a cluster.
+     * borrows --galaxy because it is the remaining distinct hue.
+     *
+     * The rail's named-threat card does draw clusters, which used to
+     * be the reason --galaxy was free. It keeps the loan anyway: the
+     * card is in the rail, where both other cards are neutral and no
+     * notion hue is used at all, and it separates its four kinds by
+     * glyph and word rather than by colour for exactly this reason.
      */
     --vp-rel-object: #524948;  /* --object */
     --vp-rel-event: #14748d;   /* --event #1892B1, darkened */
@@ -4197,6 +4202,129 @@ th[aria-sort="descending"] .sort-icon::before,
 
 .vp-split-none .vp-split-count {
     font-weight: 400;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * ======================================================================
+ * The rail's named threats — one name per row, at 340px
+ * ======================================================================
+ * The rail is small type throughout: split rows are 0.72rem and a fact
+ * line 0.82rem. **The cluster name is 0.92rem**, and that inversion is
+ * the point. Two cards above and below print counts and settings; this
+ * one prints a name, and a name set at caption size reads as another
+ * count.
+ *
+ * **No new hues, and no glyphs either.** The four kinds — actor,
+ * campaign, malware, tool — are told apart by a word: the seven notion
+ * hues on this tab each mean one notion and nothing else, and four
+ * more would overload a separation the tab already carries in colour,
+ * form, word and place. A leading glyph per kind was built and cut —
+ * it encoded exactly what the chip beside it already said, and at
+ * 0.72rem `fa-user-secret`, the most frequent of the four, is a blob.
+ * Dropping it also lets the name start at the card's edge, which is
+ * the whole thesis.
+ *
+ * What does the work instead is chip weight, and it encodes a real
+ * difference:
+ *
+ *   hairline   a *category* the cluster belongs to — its kind
+ *   filled     a *state* of how it reached this value — on the value,
+ *              claimed by an analyst
+ *
+ * A cluster that arrived on an event wears no state chip at all, since
+ * its own event count already says so. Marking the exception rather
+ * than the rule keeps most rows to a name and two numbers.
+ *
+ * The grid is two columns — name, kind — with the meta line spanning
+ * both beneath, so a long cluster value wraps against the kind chip
+ * instead of pushing it off the card.
+ */
+.vp-threat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.vp-threat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 7px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-threat:last-child {
+    border-bottom: 0;
+}
+
+.vp-threat-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    /* Cluster values run long — `Gozi ISFB v2`, `Win32/Industroyer`. */
+    overflow-wrap: anywhere;
+}
+
+.vp-threat-name:hover,
+.vp-threat-name:focus-visible {
+    text-decoration: underline;
+}
+
+.vp-threat-kind {
+    padding: 1px 4px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 3px;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+
+.vp-threat-meta {
+    grid-column: 1 / 3;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-threat-mark {
+    padding: 0 4px;
+    border-radius: 3px;
+    background: var(--bs-tertiary-bg, rgba(128, 128, 128, 0.18));
+    color: var(--bs-body-color);
+}
+
+.vp-threat-expand > summary {
+    padding: 6px 0 2px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+}
+
+.vp-threat-expand > summary:hover {
+    color: var(--bs-body-color);
+}
+
+/*
+ * One value on the verification instance reaches 154 clusters. Opened
+ * unbounded that is a rail running far past the tables beside it, so
+ * the folded rows scroll inside the card.
+ */
+.vp-threat-rest {
+    max-height: 220px;
+    overflow-y: auto;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-threat-note {
+    margin: 10px 0 0;
+    font-size: 0.66rem;
+    line-height: 1.4;
     color: var(--bs-secondary-color);
 }
 

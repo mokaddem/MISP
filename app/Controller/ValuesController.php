@@ -438,6 +438,28 @@ class ValuesController extends AppController
     }
 
     /**
+     * The rail's third card: which named threats this value sits next
+     * to.
+     *
+     * Its own endpoint rather than a group on the graph card, for the
+     * reason the split above gives: it reads events the co-occurrence
+     * scan may have skipped as too large, so it answers on values
+     * whose neighbourhood table is suppressed entirely and must not
+     * queue behind the scan that suppressed it.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewRelationThreats($b64value = null)
+    {
+        $this->renderRelationPanel(
+            $b64value,
+            'forRelationThreats',
+            'value_relation_threats'
+        );
+    }
+
+    /**
      * One line per Relationships endpoint, as the Sightings tab's
      * five already have.
      *

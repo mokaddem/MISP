@@ -1075,6 +1075,7 @@ class ACLComponent extends Component
             'viewRelationExternal' => array('theming_enabled'),
             'viewRelationReferences' => array('theming_enabled'),
             'viewRelationGraph' => array('theming_enabled'),
+            'viewRelationThreats' => array('theming_enabled'),
             'viewRelationSettings' => array('theming_enabled'),
             'viewEnrichment' => array('theming_enabled'),
             'viewAnalystStanding' => array('theming_enabled'),

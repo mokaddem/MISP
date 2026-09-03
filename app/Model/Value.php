@@ -720,6 +720,85 @@ class Value extends AppModel
     }
 
     /**
+     * The galaxy clusters this value's own occurrences carry.
+     *
+     * The tightest way a cluster reaches a value: not *an event
+     * mentioning APT29 contained this address*, but *this address, in
+     * this event, is marked APT29*. The neighbourhood card prints the
+     * difference on the row, so it has to be able to tell them apart.
+     *
+     * **Grouped, not fetched.** A value can occur 48,255 times, and the
+     * answer is a handful of cluster names either way — so this
+     * aggregates in SQL rather than materialising occurrences and
+     * folding them in PHP. `attribute_tags` is joined explicitly
+     * because it is a `hasMany` that would otherwise cost its own query
+     * per id, and the answer needs no attribute rows at all.
+     *
+     * The event scope is the caller's, and it is what makes the ACL
+     * argument short: those ids came from `occurrenceEventsFor`, so the
+     * events are ones this viewer may read. `buildConditions($user)` is
+     * still applied, because an attribute inside a readable event can
+     * be org-only.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $eventIds Events the caller has already resolved
+     * @param array $options As conditionsFor
+     * @return array galaxy tag name => event id => occurrences
+     */
+    public function ownClusterTagsFor(array $user, $value,
+        array $eventIds, array $options = array()
+    ) {
+        if (empty($eventIds)) {
+            return array();
+        }
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array(
+            'Attribute.event_id' => array_values($eventIds),
+            'Attribute.deleted' => 0,
+            'Tag.is_galaxy' => 1,
+        );
+        $rows = $attributes->find('all', array(
+            'fields' => array(
+                'Tag.name',
+                'Attribute.event_id',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event'),
+            'joins' => array(
+                array(
+                    'table' => 'attribute_tags',
+                    'alias' => 'AttributeTag',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'AttributeTag.attribute_id = Attribute.id',
+                    ),
+                ),
+                array(
+                    'table' => 'tags',
+                    'alias' => 'Tag',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'Tag.id = AttributeTag.tag_id',
+                    ),
+                ),
+            ),
+            'group' => array('Tag.name', 'Attribute.event_id'),
+        ));
+        $found = array();
+        foreach ($rows as $row) {
+            $name = $row['Tag']['name'];
+            $eventId = (int)$row['Attribute']['event_id'];
+            $found[$name][$eventId] = (int)$row[0]['occurrences'];
+        }
+        return $found;
+    }
+
+    /**
      * The objects this value sits in, newest occurrence first.
      *
      * The sibling section's input. Grouped for the same reason as

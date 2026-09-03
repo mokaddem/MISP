@@ -357,8 +357,23 @@ $tabRegistry = array(
             $panel('viewRelationReferences', 'vp-rel-sec-references'),
             $panel('viewRelationAsserted', 'vp-rel-sec-asserted'),
         ),
+        /*
+         * Shape, then names, then bookkeeping. The graph says how many
+         * blobs the neighbourhood has and how big they are; the card
+         * under it says who is in them; the settings card is the
+         * bookkeeping and stays last.
+         *
+         * The named-threat card is the only thing on this tab that
+         * answers *what does this mean* rather than *what is related*,
+         * and it is in the rail because that is where the headroom is
+         * — the tab measured ~5,700px against a rail of ~1,700px on
+         * `8.8.8.8`. Not an eighth card on the contents strip: each of
+         * those carries one section's headline number and jumps to it,
+         * and this has no left-column section to jump to.
+         */
         'right' => array(
             $panel('viewRelationGraph'),
+            $panel('viewRelationThreats'),
             $panel('viewRelationSettings'),
         ),
     ),
