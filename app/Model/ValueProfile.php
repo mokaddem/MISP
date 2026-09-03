@@ -2388,6 +2388,27 @@ class ValueProfile extends AppModel
                 'events' => array(),
                 'orgs' => array(),
                 'claims' => array(),
+                /*
+                 * The same display shape the asserted section builds
+                 * for a claim's far end, so the card renders the very
+                 * same hover element rather than a second one that
+                 * would drift from it. Free: the GalaxyCluster branch
+                 * of `claimTarget` reads only the row already fetched,
+                 * and `claimTargetOrg` returns null rather than
+                 * insisting on an organisation lookup — so the card
+                 * omits that row instead of costing a query for it.
+                 */
+                'target' => $this->claimTarget(
+                    'GalaxyCluster',
+                    $row['uuid'],
+                    $cluster,
+                    array(
+                        'orgs' => array(),
+                        'tags' => array(),
+                        'galaxy_by_event' => array(),
+                        'clusters' => array(),
+                    )
+                ),
             );
         }
         if ($claim !== null) {

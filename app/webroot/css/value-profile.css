@@ -4270,6 +4270,31 @@ th[aria-sort="descending"] .sort-icon::before,
     padding: 4px 0;
 }
 
+/* The cluster and its info glyph share the row's first column. */
+.vp-threat-cell {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+}
+
+/*
+ * **The hover card opens left here, not right.** The asserted
+ * section's claim blocks are full-width, so beside them means to the
+ * right; this card is a 340px rail against the page's right edge, and
+ * a 21rem card opening rightward would leave the viewport. Only the
+ * side changes — the width, the pull-up and the reveal are the
+ * element's own.
+ */
+.vp-threat .vp-claim-tip {
+    left: auto;
+    right: calc(100% + 9px);
+}
+
+.vp-threat .vp-claim-more {
+    font-size: 0.72rem;
+}
+
 .vp-threat-badge {
     display: inline-block;
     padding: 2px 7px;

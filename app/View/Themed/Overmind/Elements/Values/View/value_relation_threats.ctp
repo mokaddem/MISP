@@ -83,6 +83,22 @@ $anchorWords = array(
     'Object' => __('on the object it sits in'),
 );
 
+/*
+ * The hover card's heading word, and the same map the asserted section
+ * passes, because it is the same element. Only the cluster entry is
+ * ever reached from here — a row on this card is always a cluster —
+ * but the element takes the map, not the word.
+ */
+$targetKindWords = array(
+    'Event' => __('event'),
+    'GalaxyCluster' => __('galaxy cluster'),
+    'Object' => __('object'),
+    'Attribute' => __('attribute'),
+);
+
+/* The hover card element renders itself through the view. */
+$view = $this;
+
 /**
  * Who asserted a cluster, how, and when — one line per claim.
  *
@@ -148,7 +164,8 @@ foreach (array('actor', 'campaign', 'malware', 'tool') as $kind) {
  * @param bool $folded Beyond the opening cut, hidden until asked for
  */
 $row = function (array $threat, $folded) use (
-    $kindWords, $marks, $baseurl, $nameCounts, $claimTitle
+    $kindWords, $marks, $baseurl, $nameCounts, $claimTitle, $view,
+    $targetKindWords
 ) {
     $kind = isset($threat['kind']) ? $threat['kind'] : '';
     $word = isset($kindWords[$kind]) ? $kindWords[$kind] : $kind;
@@ -173,17 +190,42 @@ $row = function (array $threat, $folded) use (
             . h(__n('event', 'events', (int)$threat['events']));
     }
     ?>
+    <?php $url = $baseurl . '/galaxy_clusters/view/' . $threat['id']; ?>
     <li class="vp-threat<?= $folded ? ' vp-threat-folded' : '' ?>"
         data-vp-threat-kind="<?= h($kind) ?>">
-        <a class="vp-threat-badge"
-           style="<?= GalaxyColour::badgeStyle($threat['galaxy']) ?>"
-           href="<?= $baseurl ?>/galaxy_clusters/view/<?=
-               h($threat['id']) ?>"
-           title="<?= h(sprintf(
-               __('%s in the %s galaxy'),
-               $threat['name'],
-               $threat['galaxy']
-           )) ?>"><?= h($threat['name']) ?></a>
+        <span class="vp-threat-cell">
+            <a class="vp-threat-badge"
+               style="<?= GalaxyColour::badgeStyle($threat['galaxy']) ?>"
+               href="<?= h($url) ?>"
+               title="<?= h(sprintf(
+                   __('%s in the %s galaxy'),
+                   $threat['name'],
+                   $threat['galaxy']
+               )) ?>"><?= h($threat['name']) ?></a>
+            <?php if (!empty($threat['target'])): ?>
+                <?php /*
+                 * The asserted section's own hover card, rendered
+                 * from the same element and the same target shape —
+                 * everything recorded about the cluster, its tag
+                 * name, its description, its audience.
+                 *
+                 * It is a CSS card on `:hover`/`:focus-within` rather
+                 * than a `title`, which is the element's own reason
+                 * and applies here twice over: this fragment arrives
+                 * through `loadAjaxContainer`, so a Bootstrap tooltip
+                 * declared in it would never bind, and a native
+                 * `title` is not reachable from the keyboard.
+                 */ ?>
+                <?= $view->element(
+                    'Values/View/value_claim_target_card',
+                    array(
+                        'target' => $threat['target'],
+                        'url' => $url,
+                        'kindWords' => $targetKindWords,
+                    )
+                ) ?>
+            <?php endif; ?>
+        </span>
         <span class="vp-threat-right">
             <span class="vp-threat-kind"><?= h($word) ?></span>
             <span class="vp-threat-figs"><?= implode(

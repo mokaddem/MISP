@@ -1996,8 +1996,36 @@ word in every region, so a synonym quietly weakens the thing the
 colour was borrowed to reinforce. `Human claim` is what the asserted
 and references panels say, so it is what this says.
 
-Two words cannot say who claimed what, so the rest is on hover, one
-line per claim:
+**The hover is the asserted section's own card, not a `title`.** It
+shipped as a native `title` first, which was the wrong mechanism twice
+over and the reviewer simply could not find it: *"I tried to check the
+hover information but can't find how to see it?"* A `title` needs a
+second's dwell on a two-word mark, and it is unreachable from the
+keyboard.
+
+`value_claim_target_card` already existed for exactly this — an
+`fa-circle-info` glyph revealing a card on `:hover`/`:focus-within`,
+CSS rather than `data-bs-toggle` because this fragment arrives through
+`loadAjaxContainer` and MISP's only tooltip initialiser runs once at
+`DOMContentLoaded`, so a Bootstrap tooltip declared here would
+silently never bind. Every row now carries that glyph, and the card
+shows what it shows in the asserted section: the kind, the tag name,
+the clipped description, the audience, the UUID.
+
+It costs no query. `claimTarget`'s `GalaxyCluster` branch reads only
+the row `fetchGalaxyClusters` already returned, and `claimTargetOrg`
+returns null rather than demanding an organisation lookup, so the card
+omits that row instead of paying for it.
+
+**One local override: it opens left.** The element positions itself at
+`left: calc(100% + 9px)` because the asserted section's claim blocks
+are full-width and the room is to their right. This card is a 340px
+rail against the page's right edge, so a 21rem card opening rightward
+leaves the viewport; only the side is flipped.
+
+The claim mark keeps a `title` of its own, because *who* asserted it
+is not a fact about the cluster and the shared card is about the
+target and nothing else — one line per claim:
 
 > ADMIN claimed "linked-to" on an event it appears in · 2026-09-03
 > ADMIN claimed "related-to" on this value · 2026-09-03
