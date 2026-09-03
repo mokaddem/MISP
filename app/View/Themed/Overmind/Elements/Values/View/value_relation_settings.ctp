@@ -9,34 +9,40 @@
  * value with nothing at all: what MISP counts is true whether or not
  * this value has anything to count.
  *
- * **A rule earns a row by bounding a number below it.** Two do: the
- * ssdeep threshold, when the value is an `ssdeep` attribute and the
- * engine therefore ran, and the feed and server caches — which sources
- * have caching switched on, which of them this reader's role may be
- * told about, and how many events are listed per source. Neither is
- * visible anywhere else on the page. **And three sections answer to
- * nothing at all**: the two object joins and the typed references read
- * attributes and `object_references` directly. A card that lists what
- * governs this tab has to say where nothing does, or the rules above
- * read as governing all of it.
+ * **A rule earns a row by bounding a number below it that nothing else
+ * on the page states.** Two do, and both are the feed cache's: how many
+ * sources have caching switched on and how many events are listed per
+ * source. Everything else was dropped over three passes.
  *
- * **The correlation engine's own settings are not among them**, which
- * cost this card two rows. The reasoning is at `$alerts` below: no
- * section on this tab reads `default_correlations`, so the correlation
- * limit and the exclusion list bound nothing here and are named only
- * when this value is on the wrong side of one.
+ * The correlation limit and the exclusion list went first: no section
+ * on this tab reads `default_correlations`, so neither bounds a number
+ * here. They are named only when this value is on the wrong side of
+ * one — see `$alerts`. The ssdeep threshold went next, for the
+ * opposite reason: it does bound the near-match count, and that panel
+ * already prints it *with* what it did — *"M pairs cleared the
+ * threshold of 40"* — so the rail's shorter telling taught less than
+ * the one two columns over.
  *
- * **A settings value is not a finding.** Each rule is one row — its
- * name and where this instance stands — and the paragraph explaining
- * the mechanism sits in a fold under them. The card printed all five
- * mechanisms as bordered boxes and measured 1,278px against a rail
- * whose other two panels are 380px and 427px: 613px of that was five
- * paragraphs restating constants, on a value where four of the five
- * reported nothing unusual. Prose is spent on the exceptions instead —
- * a value past the correlation limit, a value in
- * `correlation_exclusions`, an instance with nothing cached — because
- * those are the readings that change what the reader does. The rest is
- * a number in a row, and the mechanism is one press away.
+ * **And three sections answer to no setting at all**: the two object
+ * joins and the typed references read attributes and
+ * `object_references` directly. A card that lists what governs this
+ * tab has to say where nothing does, which is the `†` under the
+ * breakdown.
+ *
+ * **A settings value is not a finding.** The card printed five
+ * mechanisms as bordered `.vp-fact-line` boxes and measured 1,278px
+ * against a rail whose other two panels are 380px and 427px. Prose is
+ * spent on the exceptions now — a value past the correlation limit, a
+ * value in `correlation_exclusions`, an instance with nothing cached —
+ * because those are the readings that change what the reader does.
+ *
+ * **Nothing explains a mechanism here any more.** A fold held those
+ * paragraphs for one pass; every one of them turned out to be a
+ * shorter retelling of something the panel that owns the rule already
+ * says in context — the md5-membership caveat is the external panel's
+ * opening line, the threshold is the near-match caption, and the `†`
+ * note restates itself two lines below. A rail card is the wrong place
+ * to explain a section that is on the same screen.
  *
  * The breakdown at the foot is the tab's arithmetic, stated rather than
  * left to be inferred. **Eight notions and five units** — values,
@@ -152,33 +158,20 @@ if ($nothingCached) {
 }
 
 /*
- * One row per rule: its name, and where this instance stands. The
- * mechanism behind each is in the fold below, keyed by the same name.
+ * One row per rule: its name, and where this instance stands.
+ *
+ * **Only the two nothing else on the page states.** A rule already
+ * printed by the panel it governs does not need a second, shorter
+ * telling in the rail: the near-match panel says *"M pairs cleared the
+ * threshold of 40"*, which is the threshold plus what it did to this
+ * value, so an `ssdeep threshold · 40` row here was the same fact with
+ * the context removed. The cached-source count and the per-source cap
+ * are not printed anywhere else, so they stay.
  *
  * `state` is the reading a warn line above has already spelled out, so
  * the row can mark itself without repeating the sentence.
  */
 $rules = array();
-/*
- * The ssdeep threshold is a rule of this tab only when the engine it
- * governs actually ran, which `ValueProfile::engineIsActive` decides:
- * on an `ip-dst` the ssdeep engine is `not_applicable` and on an
- * instance without the PHP extension it is `unavailable`. Printing
- * `ssdeep threshold 40` beside an IP's near-matches names a number
- * that bounded nothing in the count below it.
- *
- * Absent on a digest written before the key existed — print it then,
- * which is what this card did until now.
- */
-$ssdeepApplies = !array_key_exists('ssdeep_applies', $settings)
-    || !empty($settings['ssdeep_applies']);
-if ($ssdeepApplies) {
-    $rules[] = array(
-        'label' => __('ssdeep threshold'),
-        'value' => (string)(int)$settings['ssdeep_threshold'],
-        'state' => '',
-    );
-}
 /*
  * The cached-source rules only when there is a cache. With nothing
  * cached both rows read zero and the warn line above already says so
@@ -417,82 +410,6 @@ foreach ($split as $part) {
             <?php endforeach; ?>
         </div>
 
-        <?php
-        /*
-         * The mechanisms, folded.
-         *
-         * A native `<details>` for the reason the external panel's
-         * fold gives: the panel is injected lazily and binds no JS of
-         * its own. Shut by default — a reader who wants to know what
-         * `over_correlating_values` is asks once, and the answer
-         * should not be levied on every load of the tab.
-         *
-         * The fourth rule, that three sections answer to none of
-         * these, is in here with the three that do — it is the same
-         * disclosure and belongs in the same place, and the marker on
-         * the rows below carries the pointer.
-         */
-        ?>
-        <details class="vp-fold vp-rules-fold mt-2">
-            <summary>
-                <i class="fas fa-chevron-down"></i>
-                <span><?= h(__('What these rules do')) ?></span>
-            </summary>
-            <div class="vp-fold-body">
-                <?php if ($ssdeepApplies): ?>
-                    <p>
-                        <b><?= h(__('ssdeep threshold.')) ?></b>
-                        <?= h(__('Pairs below it are never written, and'
-                            . ' the score above it is not kept either —'
-                            . ' the comparison is made to test the'
-                            . ' threshold and then thrown away, so this'
-                            . ' panel re-runs it.')) ?>
-                    </p>
-                <?php endif; ?>
-                <?php if (!$nothingCached): ?>
-                    <p>
-                        <b><?= h(__('Cached for lookup.')) ?></b>
-                        <?= h(__('A hit is set membership on an md5, so'
-                            . ' it carries no date and no near-match.')) ?>
-                        <?php if ($restricted): ?>
-                            <?= h(__('The sources you may not read are'
-                                . ' withheld from your role, on every'
-                                . ' value alike.')) ?>
-                        <?php endif; ?>
-                    </p>
-                <?php endif; ?>
-                <p>
-                    <b><?= h(__('Three sections answer to no setting'
-                        . ' at all.')) ?></b>
-                    <?= sprintf(
-                        __('In the same object, Dated relations and'
-                            . ' Object relationships read attributes and'
-                            . ' %s directly, so the only cut on them is'
-                            . ' what your role may see.'),
-                        '<span class="font-monospace">object_references'
-                            . '</span>'
-                    ) ?>
-                </p>
-                <p>
-                    <b><?= h(__('No count here is correlation'
-                        . ' output.')) ?></b>
-                    <?= sprintf(
-                        __('A %s row links two attributes holding the'
-                            . ' same value, so the engine never returns a'
-                            . ' different one. In the same events is a'
-                            . ' join over shared events, and Near-matches'
-                            . ' re-derives CIDR and ssdeep from the'
-                            . ' engine\'s own inputs. The correlation'
-                            . ' limit and the exclusion list therefore'
-                            . ' bound nothing on this tab, and are named'
-                            . ' above only when this value is on the'
-                            . ' wrong side of one.'),
-                        '<span class="font-monospace">'
-                            . 'default_correlations</span>'
-                    ) ?>
-                </p>
-            </div>
-        </details>
 
     </div>
 

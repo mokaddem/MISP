@@ -525,9 +525,6 @@ if (empty($claims)) {
                             'A relationship carries no text of its own:'
                             . ' %s has the type, the two ends, an author'
                             . ' and a distribution, and no prose column.'
-                            . ' Anything written *about* one is a Note'
-                            . ' attached to it, which this pass does not'
-                            . ' fetch.'
                         ),
                         '<span class="font-monospace">relationships</span>'
                     ) ?>

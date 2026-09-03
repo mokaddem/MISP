@@ -227,7 +227,7 @@ if ($datedListsHit > 0) {
         <div class="vp-rel-cap">
             <i class="fas fa-circle-info"></i>
             <span>
-                <?= __('A row is one object that records both a start and an end. The object names each date itself — a passive-dns object calls them time_first and time_last, a domain-ip object first-seen and last-seen — and those names are printed under the dates. An object that records a single date recorded a moment rather than a span, and is not counted here. Origin is the object\'s own word for where the observation came from, and most templates do not have one; the organisation beneath it is who reported the event.') ?>
+                <?= __('A row is one object that records both a start and an end, and names each date itself — those names are printed under the dates. An object that records a single date recorded a moment rather than a span, and is not counted here. Origin is the object\'s own word for where the observation came from, and most templates do not have one; the organisation beneath it is who reported the event.') ?>
             </span>
         </div>
 

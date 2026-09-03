@@ -2194,3 +2194,61 @@ before §29. On an `ssdeep` value the threshold row appears — verified
 against a real one on the instance. On `0.0.0.0` the warn box appears
 and the constants do not.
 
+### 29.3 A rail card is the wrong place to explain a panel on the same screen
+
+§29 folded the mechanisms instead of deleting them, on the theory that
+a reader wants them once. Reading the fold's own output back settled
+it: every paragraph in it was a shorter retelling of something the
+panel that owns the rule already says, in context, two columns away.
+
+- *"A hit is set membership on an md5, so it carries no date and no
+  near-match"* — the Outside this instance panel **opens** with it, and
+  says it better: *"It is set membership on a hash — no CIDR, no
+  substring and no near-match — so it is never a statement that two
+  values are alike."*
+- *"Three sections answer to no setting at all"* — the `†` footnote
+  restates it two lines below, in the breakdown it applies to.
+- *"No count here is correlation output…"* — §29.2's reasoning, written
+  into the UI. That belongs in this document, which now has it.
+
+So the `<details>` went, and `.vp-fold` with it. **And the ssdeep
+threshold row went with them**, which reverses §29.2's one addition:
+the near-match panel prints *"M pairs cleared the threshold of 40"* —
+the threshold **plus what it did to this value** — so the rail's
+shorter telling taught strictly less than the panel two columns over.
+`engineIsActive` and `ssdeep_applies` were removed; `CACHE_SHAPE` stays
+at 10, since the digest shape changed either way.
+
+The card is now two rules, and both are the feed cache's: the cached
+source count and the per-source event cap, neither of which is printed
+anywhere else on the page — checked by rendering the external panel and
+grepping it. **544px**, from 1,278px before §29.
+
+### 29.4 The same test, over the rest of the tab
+
+One question per prose block: *does this tell a reader how to read the
+rows, or does it justify the implementation to a reviewer?* The first
+half of most captions is the former and earns its place; several ran on
+into the latter.
+
+| Panel | Cut |
+|---|---|
+| In the same object | *"MISP records that flag per attribute and object templates are not consistent about it, so a field takes the kind that most of the attributes this panel read under it carry."* The control is the fact; how the flag is derived is not actionable. |
+| In the same events | *"A facet like Type is a property of a correlated value; an event row is not a value, and filtering one by the type of the other would be a control that means nothing."* Kept what narrowing reaches, dropped the argument for why. |
+| Labels | *"…: a label costs the same indexed read whatever the size of the event carrying it."* That the label scope is wider than the table's is the fact; the index cost that makes it affordable is not the reader's problem. |
+| Near-matches | *"— the stored correlation row does not record which engine wrote it."* Kept *"Re-derived from the same CIDR list the engine walks"*, which is a trust claim; dropped the excuse behind it. |
+| Asserted | *"Anything written about one is a Note attached to it, which this pass does not fetch."* A note to the next implementer. That a claim has no description stays. |
+| Dated relations | The two worked examples — *"a passive-dns object calls them time_first and time_last, a domain-ip object first-seen and last-seen"* — name field pairs every row already prints under its dates. |
+
+Left alone: the Object relationships caption, whose three sentences
+each explain a rule of what is listed; the near-match *"A near-match is
+not equality"* opener, which is the section's whole point; the external
+panel's *"Opening a remote event previews it from the feed or server as
+it is right now"*, which warns about a live fetch; and the sibling
+counts note, which stops a reader misreading a facet count larger than
+the table.
+
+Verified: every panel refetched, no PHP notices, all six trims present
+in the rendered output, and `0.0.0.0` still raises its warn box with
+`≥ 795 siblings` beneath it.
+

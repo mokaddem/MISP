@@ -1209,11 +1209,7 @@ $headerSub = ob_get_clean();
                     <?php endif; ?>
                     <?= __('Nothing is hidden —'
                         . ' <strong>Field kind</strong> below cuts them'
-                        . ' in one click. MISP records that flag per'
-                        . ' attribute and object templates are not'
-                        . ' consistent about it, so a field takes the'
-                        . ' kind that most of the attributes this panel'
-                        . ' read under it carry.') ?>
+                        . ' in one click.') ?>
                     <?php if ($sibUnreached > 0): ?>
                         <?= sprintf(
                             __n(
@@ -2256,11 +2252,8 @@ $headerSub = ob_get_clean();
         <div class="vp-rel-cap d-none" data-vp-group-not="value">
             <i class="fas fa-circle-info"></i>
             <span>
-                <?= __('Narrowing applies to the value roll-up. A facet'
-                    . ' like Type is a property of a correlated value;'
-                    . ' an event row is not a value, and filtering one'
-                    . ' by the type of the other would be a control that'
-                    . ' means nothing.') ?>
+                <?= __('Narrowing applies to the value roll-up,'
+                    . ' not to these event rows.') ?>
             </span>
         </div>
 
@@ -2738,9 +2731,7 @@ $headerSub = ob_get_clean();
                                 'What the events around this value are'
                                 . ' marked as — %1$s. Read over %2$s,'
                                 . ' including any the table above could'
-                                . ' not afford to open: a label costs the'
-                                . ' same indexed read whatever the size'
-                                . ' of the event carrying it.'
+                                . ' not afford to open.'
                             ),
                             '<strong>' . h(__(
                                 'galaxy clusters and taxonomy tags'

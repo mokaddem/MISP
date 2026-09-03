@@ -4196,69 +4196,6 @@ th[aria-sort="descending"] .sort-icon::before,
 }
 
 /*
- * A quiet fold for reference prose — what a setting does, as opposed to
- * what it is set to.
- *
- * A native `<details>` for `.vp-external-fold`'s reason: these panels
- * are injected lazily and bind no JS of their own. The default triangle
- * needs both `list-style` and the WebKit pseudo-element to go, and the
- * closed state is spelled out because a Bootstrap display utility
- * inside a `<details>` is `!important` and beats the UA's hiding.
- */
-.vp-fold:not([open]) > *:not(summary) {
-    display: none;
-}
-
-.vp-fold > summary {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-fold > summary::-webkit-details-marker {
-    display: none;
-}
-
-.vp-fold > summary > i {
-    font-size: 0.58rem;
-    transition: transform 0.15s ease;
-}
-
-.vp-fold[open] > summary > i {
-    transform: rotate(180deg);
-}
-
-.vp-fold > summary:focus-visible {
-    outline: 2px solid var(--bs-secondary-color);
-    outline-offset: 2px;
-    border-radius: 4px;
-}
-
-.vp-fold-body {
-    margin-top: 6px;
-    font-size: 0.72rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-fold-body > p {
-    margin-bottom: 6px;
-}
-
-.vp-fold-body > p:last-child {
-    margin-bottom: 0;
-}
-
-.vp-fold-body b {
-    color: var(--bs-body-color);
-    font-weight: 600;
-}
-
-/*
  * The seven-notion breakdown at the foot of "What is counted".
  *
  * Not `.vp-reporter`, which the Sightings rail uses: that gives its

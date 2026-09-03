@@ -552,10 +552,8 @@ if (!$offerSimilarity) {
                             count($cidr['rows']),
                             count($cidr['rows'])
                         )) ?>
-                        <?= __('Re-derived at render time from the'
-                            . ' same CIDR list the engine walks —'
-                            . ' the stored correlation row does not'
-                            . ' record which engine wrote it.') ?>
+                        <?= __('Re-derived from the same CIDR list'
+                            . ' the engine walks.') ?>
                     </div>
                 </div>
             </div>
