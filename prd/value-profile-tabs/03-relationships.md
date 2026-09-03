@@ -2050,3 +2050,78 @@ for one narrowing. The tab's own convention is one control per
 dimension — *Object siblings only* is a switch with no dropdown, and
 every other dimension is a dropdown with no switch — so the group took
 the dimension and the switch went.
+
+## 29. "What is counted" was mostly paragraphs
+
+The rail card measured **1,278px** beside a Neighbourhood panel of 380px
+and a named-threats panel of 427px — 60% of the whole rail, on a card
+whose numbers occupy 200px. It had grown a `.vp-fact-line` at a time:
+§9 gave it two, §21.6 added the cache, §25.4 added the fourth rule that
+three sections have none, and each of them is a bordered box holding a
+headline and a paragraph. Five of them came to **613px**. On `8.8.8.8`
+four of the five reported nothing unusual — a limit of 20 the value is
+nowhere near, a threshold of 40, five feeds cached, no exclusion — so
+the card spent half its height explaining mechanisms to a reader who
+had asked what the numbers were.
+
+**A settings value is not a finding.** `.vp-fact-line` is the right
+component for the warninglist hit and for a value past the correlation
+limit: a reading the analyst has to act on. A constant that reads the
+same on every value in the instance is not that. The rules are now one
+row each — name left, where this instance stands right, hairline
+separators, following `.vp-rel-strip-row` in the panel directly above —
+and five of them cost about 110px.
+
+**The prose is folded, not deleted.** A native `<details>` labelled
+*What these rules do* carries every mechanism the boxes used to print,
+keyed by the same rule names. `<details>` for `.vp-external-fold`'s
+reason: these panels are injected lazily and bind no JS of their own.
+A reader wanting to know what `over_correlating_values` is asks once;
+that answer should not be levied on every load of the tab. The fourth
+rule — that In the same object, Dated relations and Object
+relationships answer to none of these — is in the fold with the three
+that govern something, because it is the same disclosure, and a `†` on
+those three rows carries the pointer.
+
+**Prose is spent on the exceptions.** Three readings still print a full
+warn-toned box, because they are the three a reader is ever on the
+wrong side of: the value is past the correlation limit, the value is in
+`correlation_exclusions`, or nothing is cached at all. The matching
+rule row also marks itself — `20 · PAST IT`, `this value · EXCLUDED` —
+so the box and the row cannot be read as two different states. With
+nothing cached, the two cache rows are dropped rather than printed as
+zeroes the box above has already explained.
+
+**The two sentences at the foot are gone.** They restated in prose
+every figure the bars had just printed — *"10,040 values share an event
+with this one"* directly under a bar reading `In the same events ·
+10,040 values` — and the tab's own contents strip prints all eight a
+third time at the top of the left column. 189px for a fourth
+restatement. The one fact they carried that no bar did, the number of
+sources holding the value, is now the tooltip on the Outside this
+instance row; sources and events are two units, and this card's whole
+rule is that two units are never one bar. The `†` and `≥` markers get a
+two-line footnote in their place.
+
+**The heading counted wrong.** It read *"Seven notions, counted apart"*
+while rendering eight rows — §10.2's labels row is appended when the
+value's events carry clusters or tags, and the hardcoded word was never
+updated. It is now the actual row count.
+
+### 29.1 Measured and verified
+
+`8.8.8.8`, light: **1,278px → 641px**, a 50% cut, with the rail falling
+from 2,132px to 1,495px. `0.0.0.0`, dark: 813px, the difference being
+the one warn box the value earns.
+
+Every branch was rendered, the three that live config cannot reach
+through a throwaway Console shell over synthetic profiles: nothing
+cached, role-restricted sources (`5 of 6 feeds · 0 of 2 servers` with
+`SOME WITHHELD`), excluded, all three alerts at once, capped floors,
+singular plurals, and every count zero. §25.4's two rules still hold —
+a capped zero prints a plain `0` and not `≥ 0`, and the all-zero value
+skips the breakdown entirely.
+
+What did not change: the eight bars, their units, their colours, their
+order, the floors, the read-age disclosure, and the fact that this is
+the only panel on the tab that reads the correlation engine's state.

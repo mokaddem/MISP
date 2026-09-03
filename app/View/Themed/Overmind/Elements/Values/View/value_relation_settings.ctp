@@ -22,12 +22,22 @@
  * where nothing does, or the settings above read as governing all of
  * it.
  *
+ * **A settings value is not a finding.** Each rule is one row — its
+ * name and where this instance stands — and the paragraph explaining
+ * the mechanism sits in a fold under them. The card printed all five
+ * mechanisms as bordered boxes and measured 1,278px against a rail
+ * whose other two panels are 380px and 427px: 613px of that was five
+ * paragraphs restating constants, on a value where four of the five
+ * reported nothing unusual. Prose is spent on the exceptions instead —
+ * a value past the correlation limit, a value in
+ * `correlation_exclusions`, an instance with nothing cached — because
+ * those are the readings that change what the reader does. The rest is
+ * a number in a row, and the mechanism is one press away.
+ *
  * The breakdown at the foot is the tab's arithmetic, stated rather than
- * left to be inferred. **Seven notions and five units** — values,
+ * left to be inferred. **Eight notions and five units** — values,
  * relations, remote events, references, claims — so each row names its
- * own unit and nothing is summed into one strength. It listed four
- * until the object-mediated sections became panels of their own, which
- * left this card quietly short of three of the numbers the tab prints.
+ * own unit and nothing is summed into one strength.
  *
  * **This is still the only panel on the tab that reads the correlation
  * engine's state at all.** Section one is an event join, section two
@@ -60,20 +70,146 @@ $overCorrelating = isset($settings['over_correlating'])
 $suppressed = $overCorrelating;
 
 $external = $settings['external'];
+$nothingCached = empty($external['cached']['feeds'])
+    && empty($external['cached']['servers']);
+$restricted = !empty($external['restricted']['feeds'])
+    || !empty($external['restricted']['servers']);
+
+/*
+ * The three readings worth a paragraph on the face of the card.
+ *
+ * A rule row states where the instance stands; a warn line states that
+ * the reader is on the wrong side of it. Only these three are ever the
+ * wrong side — every other rule on this card is a constant that reads
+ * the same on every value — so only these three cost the space.
+ */
+$alerts = array();
+if ($suppressed) {
+    $alerts[] = array(
+        'icon' => 'fas fa-triangle-exclamation',
+        'title' => __('This value is past the correlation limit.'),
+        'body' => __(
+            'Nothing on this tab is drawn from the correlation table, so'
+            . ' the sections beside this card are unaffected — but every'
+            . ' other page in MISP that offers to show you what this'
+            . ' value relates to will come back empty.'
+        ),
+    );
+}
+if (!empty($settings['excluded'])) {
+    $alerts[] = array(
+        'icon' => 'fas fa-ban',
+        'title' => __('This value is excluded from correlation.'),
+        'body' => sprintf(
+            __('It matches an entry in %s, so nothing correlates it at'
+                . ' all.'),
+            '<span class="font-monospace">correlation_exclusions</span>'
+        ),
+    );
+}
+if ($nothingCached) {
+    $alerts[] = array(
+        'icon' => 'fas fa-cloud-arrow-down',
+        'title' => __('Nothing is cached for lookup.'),
+        'body' => __(
+            'A feed or server needs caching switched on and a completed'
+            . ' caching job before anything outside this instance can be'
+            . ' looked up, so Outside this instance is empty for every'
+            . ' value.'
+        ),
+    );
+}
+
+/*
+ * One row per rule: its name, and where this instance stands. The
+ * mechanism behind each is in the fold below, keyed by the same name.
+ *
+ * `state` is the reading a warn line above has already spelled out, so
+ * the row can mark itself without repeating the sentence.
+ */
+$rules = array(
+    array(
+        'label' => __('Correlation limit'),
+        'value' => number_format((int)$settings['correlation_limit']),
+        'state' => $suppressed ? __('past it') : '',
+    ),
+    array(
+        'label' => __('ssdeep threshold'),
+        'value' => (string)(int)$settings['ssdeep_threshold'],
+        'state' => '',
+    ),
+    array(
+        'label' => __('Correlation exclusion'),
+        'value' => $settings['excluded']
+            ? __('this value')
+            : __('no match'),
+        'state' => $settings['excluded'] ? __('excluded') : '',
+    ),
+);
+/*
+ * The cached-source rules only when there is a cache. With nothing
+ * cached both rows read zero and the warn line above already says so
+ * once; two rows restating it is the density this card was losing.
+ */
+if (!$nothingCached) {
+    /*
+     * §21.6's role disclosure, in the row rather than a sentence under
+     * it: `5 of 6 feeds` names the difference the reader is on the
+     * wrong side of, and collapses to `5 feeds` when there is none.
+     * It is a statement about the instance and their own role, not
+     * about any value — vary the value and it does not move.
+     */
+    $feedText = $external['visible']['feeds'] < $external['cached']['feeds']
+        ? sprintf(
+            __n('%1$d of %2$d feed', '%1$d of %2$d feeds',
+                $external['cached']['feeds']),
+            $external['visible']['feeds'],
+            $external['cached']['feeds']
+        )
+        : sprintf(
+            __n('%d feed', '%d feeds', $external['cached']['feeds']),
+            $external['cached']['feeds']
+        );
+    $serverText = $external['visible']['servers']
+            < $external['cached']['servers']
+        ? sprintf(
+            __n('%1$d of %2$d server', '%1$d of %2$d servers',
+                $external['cached']['servers']),
+            $external['visible']['servers'],
+            $external['cached']['servers']
+        )
+        : sprintf(
+            __n('%d server', '%d servers', $external['cached']['servers']),
+            $external['cached']['servers']
+        );
+    $rules[] = array(
+        'label' => __('Cached for lookup'),
+        'value' => sprintf(__('%1$s · %2$s'), $feedText, $serverText),
+        'state' => $restricted ? __('some withheld') : '',
+    );
+    $rules[] = array(
+        'label' => __('Listed per source'),
+        'value' => sprintf(
+            __n('%d event', '%d events', $external['event_cap']),
+            $external['event_cap']
+        ),
+        'state' => '',
+    );
+}
 
 /*
  * One entry per section on the tab, in the order they are read, each
  * carrying the unit it counts.
  *
- * **All seven of them.** It listed four until the object-mediated
- * sections were split out into panels of their own — leaving a card
- * whose whole claim is *this is the tab's arithmetic* silently missing
- * three of the seven numbers the tab prints. The section names are the
- * panels' own, so this card, the contents strip at the top of the tab
- * and the panel headers all say the same thing in the same words.
+ * **All of them.** It listed four until the object-mediated sections
+ * were split out into panels of their own — leaving a card whose whole
+ * claim is *this is the tab's arithmetic* silently missing three of
+ * the numbers the tab prints. The section names are the panels' own,
+ * so this card, the contents strip at the top of the tab and the panel
+ * headers all say the same thing in the same words.
  *
  * The units differ — values, relations, remote events, references,
- * claims — so each row names its own rather than letting seven bars in
+ * claims — so each row names its own rather than letting eight bars in
  * one group imply they are the same thing. Nothing here is summed.
  *
  * `capped` marks a count the section itself prints with a `≥`: a join
@@ -84,9 +220,11 @@ $external = $settings['external'];
  * **The `≥` is dropped on a zero.** `0.0.0.0`'s reference read is
  * capped and finds nothing, and `≥ 0` is both vacuous — *at least none*
  * — and indistinguishable from a rendering fault. A capped zero says
- * `0` and carries the bound in its tooltip instead; the row is already
- * marked as empty, and the rule above it says which sections the scan
- * bounds.
+ * `0` and carries the bound in its tooltip instead.
+ *
+ * `ungoverned` is the fourth rule — that three sections have none —
+ * carried by the rows it applies to rather than by a paragraph above
+ * them. The footnote under the list spells the marker out once.
  */
 $split = array(
     array(
@@ -95,6 +233,7 @@ $split = array(
         'colour' => 'var(--vp-rel-co)',
         'count' => $summary['siblings'],
         'capped' => !empty($summary['siblings_capped']),
+        'ungoverned' => true,
     ),
     array(
         'label' => __('In the same events'),
@@ -102,6 +241,7 @@ $split = array(
         'colour' => 'var(--vp-rel-co)',
         'count' => $summary['cooccurrence'],
         'capped' => false,
+        'ungoverned' => false,
     ),
     array(
         'label' => __('Dated relations'),
@@ -109,6 +249,7 @@ $split = array(
         'colour' => 'var(--vp-rel-object)',
         'count' => $summary['dated'],
         'capped' => !empty($summary['dated_capped']),
+        'ungoverned' => true,
     ),
     array(
         'label' => __('Near-matches'),
@@ -116,6 +257,7 @@ $split = array(
         'colour' => 'var(--vp-rel-near)',
         'count' => $summary['near'],
         'capped' => false,
+        'ungoverned' => false,
     ),
     array(
         'label' => __('Outside this instance'),
@@ -123,6 +265,19 @@ $split = array(
         'colour' => 'var(--vp-rel-external)',
         'count' => $summary['external'],
         'capped' => false,
+        'ungoverned' => false,
+        /*
+         * The one fact the deleted prose foot carried that no bar did.
+         * A tooltip rather than a row of its own: sources and events
+         * are two units, and this card's rule is that two units are
+         * never one bar.
+         */
+        'note' => sprintf(
+            __n('Held by %d source outside this instance.',
+                'Held by %d sources outside this instance.',
+                $summary['external_sources']),
+            $summary['external_sources']
+        ),
     ),
     array(
         'label' => __('Object relationships'),
@@ -130,6 +285,7 @@ $split = array(
         'colour' => 'var(--vp-rel-reference)',
         'count' => $summary['references'],
         'capped' => !empty($summary['references_capped']),
+        'ungoverned' => true,
     ),
     array(
         'label' => __('Asserted by analysts'),
@@ -137,6 +293,7 @@ $split = array(
         'colour' => 'var(--vp-rel-human)',
         'count' => $summary['asserted'],
         'capped' => false,
+        'ungoverned' => false,
     ),
 );
 /*
@@ -150,8 +307,8 @@ $split = array(
  * for exactly this reason.
  *
  * Appended so that a value whose events carry no clusters and no tags
- * renders the five rows it always did, rather than a sixth reading
- * zero — the same rule the warninglist facet follows one panel over.
+ * renders the rows it always did, rather than one more reading zero —
+ * the same rule the warninglist facet follows one panel over.
  */
 if (!empty($summary['labels'])) {
     $split[] = array(
@@ -160,11 +317,14 @@ if (!empty($summary['labels'])) {
         'colour' => 'var(--vp-rel-co)',
         'count' => $summary['labels'],
         'capped' => false,
+        'ungoverned' => false,
     );
 }
 $maxSplit = 0;
+$anyCapped = false;
 foreach ($split as $part) {
     $maxSplit = max($maxSplit, (int)$part['count']);
+    $anyCapped = $anyCapped || !empty($part['capped']);
 }
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
@@ -190,187 +350,116 @@ foreach ($split as $part) {
             ),
     )) ?>
 
-    <div class="p-3 d-flex flex-column gap-2">
+    <div class="p-3">
 
-        <div class="vp-fact-line<?= $suppressed
-            ? ' vp-fact-line-warn' : '' ?>">
-            <i class="fas fa-triangle-exclamation"></i>
-            <div>
-                <span class="fw-semibold">
-                    <?= h(sprintf(
-                        __('Correlation limit %d.'),
-                        $settings['correlation_limit']
-                    )) ?>
-                </span>
-                <div class="vp-fact-line-sub">
-                    <?= sprintf(
-                        __(
-                            'Above it MISP stores no correlations at all'
-                            . ' and records the value in %s instead.'
-                        ),
-                        '<span class="font-monospace">'
-                            . 'over_correlating_values</span>'
-                    ) ?>
-                    <?php if ($suppressed): ?>
-                        <div class="mt-1 fw-semibold">
-                            <?= h(__('This value is past it.')) ?>
-                        </div>
-                        <div class="mt-1">
-                            <?= h(__(
-                                'Nothing on this tab is drawn from the'
-                                . ' correlation table, so the sections'
-                                . ' beside this card are unaffected —'
-                                . ' but every other page in MISP that'
-                                . ' offers to show you what this value'
-                                . ' relates to will come back empty, and'
-                                . ' that is why the setting is worth'
-                                . ' stating here.'
-                            )) ?>
-                        </div>
-                    <?php endif; ?>
+        <?php foreach ($alerts as $alert): ?>
+            <div class="vp-fact-line vp-fact-line-warn mb-2">
+                <i class="<?= h($alert['icon']) ?>"></i>
+                <div>
+                    <span class="fw-semibold">
+                        <?= h($alert['title']) ?>
+                    </span>
+                    <div class="vp-fact-line-sub">
+                        <?= $alert['body'] ?>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endforeach; ?>
 
-        <div class="vp-fact-line">
-            <i class="fas fa-percent"></i>
-            <div>
-                <span class="fw-semibold">
-                    <?= h(sprintf(
-                        __('ssdeep threshold %d.'),
-                        $settings['ssdeep_threshold']
-                    )) ?>
-                </span>
-                <div class="vp-fact-line-sub">
-                    <?= __('Pairs below it are never written, and the'
-                        . ' score above it is not kept either — the'
-                        . ' comparison is made to test the threshold and'
-                        . ' then thrown away.') ?>
-                </div>
-            </div>
-        </div>
-
-        <div class="vp-fact-line<?= empty($external['cached']['feeds'])
-            && empty($external['cached']['servers'])
-            ? ' vp-fact-line-warn' : '' ?>">
-            <i class="fas fa-cloud-arrow-down"></i>
-            <div>
-                <span class="fw-semibold">
-                    <?php if (empty($external['cached']['feeds'])
-                        && empty($external['cached']['servers'])): ?>
-                        <?= h(__('Nothing is cached for lookup.')) ?>
-                    <?php else: ?>
-                        <?= h(sprintf(
-                            __('%1$s and %2$s cached.'),
-                            __n('%d feed', '%d feeds',
-                                $external['cached']['feeds'],
-                                $external['cached']['feeds']),
-                            __n('%d sync server', '%d sync servers',
-                                $external['cached']['servers'],
-                                $external['cached']['servers'])
-                        )) ?>
-                    <?php endif; ?>
-                </span>
-                <div class="vp-fact-line-sub">
-                    <?php if (empty($external['cached']['feeds'])
-                        && empty($external['cached']['servers'])): ?>
-                        <?= __('A feed or server needs caching switched on'
-                            . ' and a completed caching job before anything'
-                            . ' outside this instance can be looked up, so'
-                            . ' the fourth section is empty for every'
-                            . ' value.') ?>
-                    <?php else: ?>
-                        <?= h(sprintf(
-                            __('You may read %1$s and %2$s of them.'),
-                            __n('%d feed', '%d feeds',
-                                $external['visible']['feeds'],
-                                $external['visible']['feeds']),
-                            __n('%d server', '%d servers',
-                                $external['visible']['servers'],
-                                $external['visible']['servers'])
-                        )) ?>
-                        <?php if ($external['restricted']['feeds']
-                            || $external['restricted']['servers']): ?>
-                            <div class="mt-1">
-                                <?= h(__('The rest are withheld from your'
-                                    . ' role, on every value alike.')) ?>
-                            </div>
+        <div class="vp-rules">
+            <?php foreach ($rules as $rule): ?>
+                <div class="vp-rule-row">
+                    <span class="vp-rule-name">
+                        <?= h($rule['label']) ?>
+                    </span>
+                    <span class="vp-rule-value">
+                        <?= h($rule['value']) ?>
+                        <?php if ($rule['state'] !== ''): ?>
+                            <span class="vp-rule-state">
+                                <?= h($rule['state']) ?>
+                            </span>
                         <?php endif; ?>
-                        <div class="mt-1">
-                            <?= h(sprintf(__(
-                                'A hit is set membership on an md5, so it'
-                                . ' carries no date and no near-match, and'
-                                . ' at most %d events are listed per'
-                                . ' source.'
-                            ), $external['event_cap'])) ?>
-                        </div>
-                    <?php endif; ?>
+                    </span>
                 </div>
-            </div>
-        </div>
-
-        <div class="vp-fact-line">
-            <i class="fas fa-ban"></i>
-            <div>
-                <span class="fw-semibold">
-                    <?= h($settings['excluded']
-                        ? __('Excluded from correlation.')
-                        : __('No correlation exclusion.')) ?>
-                </span>
-                <div class="vp-fact-line-sub">
-                    <?= sprintf(
-                        $settings['excluded']
-                            ? __('This value matches an entry in %s, so'
-                                . ' nothing correlates it at all.')
-                            : __('This value matches no entry in %s.'),
-                        '<span class="font-monospace">'
-                            . 'correlation_exclusions</span>'
-                    ) ?>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
 
         <?php
         /*
-         * The fourth rule is that three sections have none.
+         * The mechanisms, folded.
          *
-         * Every setting above governs some part of this tab, and a
-         * reader who takes the card at its word would read seven bars
-         * at the foot as seven counts those settings shaped. Three of
-         * them are not: the object join reads attributes and the
-         * reference section reads `object_references`, so neither the
-         * correlation limit nor the ssdeep threshold touches them.
-         * Saying so is the same disclosure as the three rules above —
-         * what bounds a number, stated where the number is.
+         * A native `<details>` for the reason the external panel's
+         * fold gives: the panel is injected lazily and binds no JS of
+         * its own. Shut by default — a reader who wants to know what
+         * `over_correlating_values` is asks once, and the answer
+         * should not be levied on every load of the tab.
+         *
+         * The fourth rule, that three sections answer to none of
+         * these, is in here with the three that do — it is the same
+         * disclosure and belongs in the same place, and the marker on
+         * the rows below carries the pointer.
          */
         ?>
-        <div class="vp-fact-line">
-            <i class="fas fa-cube"></i>
-            <div>
-                <span class="fw-semibold">
-                    <?= h(__('Three sections answer to no setting.')) ?>
-                </span>
-                <div class="vp-fact-line-sub">
+        <details class="vp-fold vp-rules-fold mt-2">
+            <summary>
+                <i class="fas fa-chevron-down"></i>
+                <span><?= h(__('What these rules do')) ?></span>
+            </summary>
+            <div class="vp-fold-body">
+                <p>
+                    <b><?= h(__('Correlation limit.')) ?></b>
                     <?= sprintf(
-                        __(
-                            'In the same object, Dated relations and'
+                        __('Above it MISP stores no correlations at all'
+                            . ' and records the value in %s instead.'),
+                        '<span class="font-monospace">'
+                            . 'over_correlating_values</span>'
+                    ) ?>
+                </p>
+                <p>
+                    <b><?= h(__('ssdeep threshold.')) ?></b>
+                    <?= h(__('Pairs below it are never written, and the'
+                        . ' score above it is not kept either — the'
+                        . ' comparison is made to test the threshold and'
+                        . ' then thrown away.')) ?>
+                </p>
+                <p>
+                    <b><?= h(__('Correlation exclusion.')) ?></b>
+                    <?= sprintf(
+                        __('A value matching an entry in %s is not'
+                            . ' correlated at all.'),
+                        '<span class="font-monospace">'
+                            . 'correlation_exclusions</span>'
+                    ) ?>
+                </p>
+                <?php if (!$nothingCached): ?>
+                    <p>
+                        <b><?= h(__('Cached for lookup.')) ?></b>
+                        <?= h(__('A hit is set membership on an md5, so'
+                            . ' it carries no date and no near-match.')) ?>
+                        <?php if ($restricted): ?>
+                            <?= h(__('The sources you may not read are'
+                                . ' withheld from your role, on every'
+                                . ' value alike.')) ?>
+                        <?php endif; ?>
+                    </p>
+                <?php endif; ?>
+                <p>
+                    <b><?= h(__('Three sections answer to none of'
+                        . ' these.')) ?></b>
+                    <?= sprintf(
+                        __('In the same object, Dated relations and'
                             . ' Object relationships read attributes and'
                             . ' %s directly, so neither the correlation'
                             . ' limit nor the ssdeep threshold applies to'
-                            . ' them. They survive a value past the limit,'
-                            . ' and the only cut is what your role may'
-                            . ' see — the two object joins additionally'
-                            . ' bounded by how many of this value\'s'
-                            . ' objects the scan reached, which is what a'
-                            . ' %s on their counts below means.'
-                        ),
+                            . ' them. They survive a value past the'
+                            . ' limit, and the only cut is what your role'
+                            . ' may see.'),
                         '<span class="font-monospace">object_references'
-                            . '</span>',
-                        '<span class="font-monospace">&#8805;</span>'
+                            . '</span>'
                     ) ?>
-                </div>
+                </p>
             </div>
-        </div>
+        </details>
 
     </div>
 
@@ -378,7 +467,11 @@ foreach ($split as $part) {
 
         <div class="px-3 pb-3">
             <div class="vp-subhead">
-                <?= h(__('Seven notions, counted apart')) ?>
+                <?= h(sprintf(
+                    __n('%d notion, counted apart',
+                        '%d notions, counted apart', count($split)),
+                    count($split)
+                )) ?>
             </div>
 
             <?php
@@ -396,12 +489,12 @@ foreach ($split as $part) {
                 <?php
                 /*
                  * A non-zero count never draws as an empty bar. The
-                 * seven notions do not share a unit, so the scale is
-                 * a rough sense of size and nothing more — but 3
-                 * remote events beside 1,214 co-occurring values
-                 * rounds to 0% and then the bar contradicts the
-                 * number printed next to it. Anything present gets
-                 * a minimum; only a real zero is empty.
+                 * notions do not share a unit, so the scale is a rough
+                 * sense of size and nothing more — but 3 remote events
+                 * beside 1,214 co-occurring values rounds to 0% and
+                 * then the bar contradicts the number printed next to
+                 * it. Anything present gets a minimum; only a real
+                 * zero is empty.
                  */
                 $width = $part['count'] > 0
                     ? max(4, round(($part['count'] / $maxSplit) * 100))
@@ -416,13 +509,21 @@ foreach ($split as $part) {
                         : __('None in the objects the scan reached, and it'
                             . ' did not reach all of them.'))
                     : '';
+                $note = isset($part['note']) ? $part['note'] : '';
                 ?>
                 <div class="vp-split-row<?= $part['count'] > 0
                     ? '' : ' vp-split-none' ?>"
                      style="--vp-split-colour: <?= h($part['colour']) ?>;">
                     <span class="vp-split-dot"></span>
-                    <span class="vp-split-label">
-                        <?= h($part['label']) ?>
+                    <span class="vp-split-label"<?php
+                        if ($note !== ''): ?> title="<?= h($note) ?>"<?php
+                        endif; ?>>
+                        <?= h($part['label']) ?><?php
+                        if (!empty($part['ungoverned'])): ?><span
+                            class="vp-split-mark"
+                            title="<?= h(__('Answers to none of the rules'
+                                . ' above.')) ?>">&#8224;</span><?php
+                        endif; ?>
                     </span>
                     <span class="vp-split-figure"<?php
                         if ($bound !== ''): ?> title="<?= h($bound) ?>"<?php
@@ -444,97 +545,30 @@ foreach ($split as $part) {
                 </div>
             <?php endforeach; ?>
 
-            <div class="small text-muted mt-2">
-                <?= h(sprintf(
-                    __('%1$s %2$s'),
-                    __n(
-                        '%s value shares an event with this one,',
-                        '%s values share an event with this one,',
-                        $summary['cooccurrence'],
-                        number_format($summary['cooccurrence'])
-                    ),
-                    __n(
-                        'and %s is near it without being it.',
-                        'and %s are near it without being it.',
-                        $summary['near'],
-                        number_format($summary['near'])
-                    )
-                )) ?>
-                <?php
-                /*
-                 * The three object-mediated notions, in one sentence
-                 * and in their own units. A sibling is a value and
-                 * could have been added to the first sentence's count;
-                 * it is not, for the reason the whole card exists —
-                 * sharing an object and sharing an event are different
-                 * claims and are never summed into one strength.
-                 *
-                 * The sibling clause carries the floor the bar above it
-                 * carries. It said `795 sit in an object beside it` on
-                 * a value whose own row read `≥ 795`, which is the
-                 * card contradicting itself inside one panel.
-                 */
-                $siblingClause = __n(
-                    '%s value sits in an object beside it',
-                    '%s values sit in an object beside it',
-                    $summary['siblings'],
-                    number_format($summary['siblings'])
-                );
-                if (!empty($summary['siblings_capped'])
-                    && $summary['siblings'] > 0
-                ) {
-                    // Capitalised: this clause opens the sentence.
-                    $siblingClause = sprintf(
-                        __('At least %s'),
-                        $siblingClause
-                    );
-                }
-                ?>
-                <?= h(sprintf(
-                    __('%1$s, %2$s and %3$s.'),
-                    $siblingClause,
-                    __n('%s of those joins records a span',
-                        '%s of them record a span',
-                        $summary['dated'],
-                        number_format($summary['dated'])),
-                    __n('%s typed reference names it',
-                        '%s typed references name it',
-                        $summary['references'],
-                        number_format($summary['references']))
-                )) ?>
-                <?= h(sprintf(
-                    __('%1$s hold it, in %2$s.'),
-                    __n('%d source outside this instance',
-                        '%d sources outside this instance',
-                        $summary['external_sources'],
-                        $summary['external_sources']),
-                    __n('%d remote event', '%d remote events',
-                        $summary['external'], $summary['external'])
-                )) ?>
-                <?php
-                /*
-                 * A zero needs its own sentence rather than `__n`'s
-                 * plural: "The 0 claims are counted apart" is what the
-                 * plural form produces, and it is not English.
-                 */
-                ?>
-                <?php if ($summary['asserted'] === 0): ?>
-                    <?= h(__('No analyst has claimed anything about it —'
-                        . ' nothing here is summed into one strength, and'
-                        . ' none of the seven is a correlation row.')) ?>
-                <?php else: ?>
-                    <?= h(__n(
-                        'The single claim is counted apart from all of'
-                            . ' them — nothing here is summed into one'
-                            . ' strength, and none of the seven is a'
-                            . ' correlation row.',
-                        'The %d claims are counted apart from all of'
-                            . ' them — nothing here is summed into one'
-                            . ' strength, and none of the seven is a'
-                            . ' correlation row.',
-                        $summary['asserted'],
-                        $summary['asserted']
-                    )) ?>
+            <?php
+            /*
+             * The two markers the rows use, spelled out once. This is
+             * what the two paragraphs at the foot cost 189px to say
+             * less clearly — the sentences restated every figure the
+             * bars had just printed, so the card said each number
+             * three times and the tab's contents strip said it a
+             * fourth.
+             */
+            ?>
+            <div class="vp-split-footnote">
+                <span class="vp-split-mark">&#8224;</span>
+                <?= sprintf(
+                    __('Read straight from attributes and %s — none of'
+                        . ' the rules above governs it.'),
+                    '<span class="font-monospace">object_references'
+                        . '</span>'
+                ) ?>
+                <?php if ($anyCapped): ?>
+                    <?= sprintf(
+                        __('%s marks a floor: the scan did not reach'
+                            . ' every object this value sits in.'),
+                        '<span class="font-monospace">&#8805;</span>'
+                    ) ?>
                 <?php endif; ?>
             </div>
         </div>
