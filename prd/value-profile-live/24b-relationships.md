@@ -1915,13 +1915,51 @@ Both themes checked. The harness needs `data-controller="values"` on
 `body` or `init()` returns early and no listener is attached — which
 is what made the first click test silently do nothing.
 
-**What is not verified, and why.** The `claimed by an analyst` path
-has no data to run on: all three cluster-naming claims on the instance
-are unusable — one is cluster-to-cluster with no value at its near
-end, one targets `country="belarus"` which is not a named threat, and
-one points at a cluster that does not resolve and is therefore
-correctly dropped. The path ships exercised by nothing. `campaign` is
-likewise undrawn, Tidal Campaigns being installed but unused here.
+**The `claimed by an analyst` path shipped broken, and the missing
+data hid it.** All three cluster-naming claims on the instance were
+unusable at build time — one cluster-to-cluster with no value at its
+near end, one targeting `country="belarus"`, one pointing at a cluster
+that does not resolve — so the path was flagged as exercised by
+nothing. It was worse than unexercised. `assertedClaims` returns a
+*section* (`total`, `orgs`, `hidden`, `occurrences`, `capped`,
+`prose_absent`, `claims`) and the digest passed the whole array where
+the fold wanted `['claims']`, so the fold iterated the counts as
+though each were a claim. `$claim['target']` on an integer is null,
+null is not `GalaxyCluster`, and every claim was skipped in silence.
+
+Found on 2026-09-03 when a claim was authored on purpose: an
+`8.8.8.8` occurrence (attribute `669dc845`, event 4074) `related-to`
+`threat-actor="APT1"`. The asserted section listed it and the card did
+not, which is what localised the fault to the fold rather than to the
+read. Fixed at the call site, and `8.8.8.8` now draws **APT1 · actor ·
+claimed by an analyst · 1 org** — no event count, because a claim
+contributes its author's organisation and no event.
+
+The lesson is the flag's, not the bug's: *unverified* was recorded
+honestly and still read as *probably fine*. A path with no data to run
+on is not a caveat, it is an untested branch.
+
+`campaign` remains undrawn, Tidal Campaigns being installed but
+unused here.
+
+**Still not counted: a claim anchored on the event.** A second claim
+was authored the same day — event 4074, which contains an `8.8.8.8`
+occurrence, `linked-to` the same `APT1` cluster — and it appears
+neither on the card nor in the asserted section. That is
+`claimFrom`'s existing scope rather than anything B8 introduced: the
+section matches claims whose near end is one of the value's
+*attribute* occurrences, so an Event near end is dropped before the
+fold ever sees it.
+
+It leaves a real asymmetry. The card counts a galaxy *tag* on an event
+the value appears in, but not a *claim* on that same event, and the
+claim is the more deliberate statement of the two. Closing it means
+widening `assertedClaims` — one more `Relationship` read over the
+value's event uuids, in both directions, under the same ACL — and
+widening it there rather than in the card only, because the page's
+idiom is that the card counts and the section lists off one method so
+the two cannot disagree. Out of B8's scope; recorded here as the
+decision it is.
 
 ### 10.2 Follow-up: galaxies and taxonomies as neighbour context
 

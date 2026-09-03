@@ -2145,11 +2145,21 @@ class ValueProfile extends AppModel
              * is in, and answers on values whose neighbourhood table
              * is suppressed entirely.
              */
+            /*
+             * `$asserted['claims']`, not `$asserted` — that array is a
+             * section, and its other keys are counts. Passing the whole
+             * thing made the fold iterate `total` and `orgs` as though
+             * they were claims, which skips every one of them without
+             * erroring: `$claim['target']` on an integer is null, and
+             * null is not `GalaxyCluster`.
+             */
             'threats' => $this->neighbourhoodThreats(
                 $user,
                 $value,
                 $options,
-                $asserted
+                isset($asserted['claims'])
+                    ? $asserted['claims']
+                    : array()
             ),
             'read_at' => isset($context['co']['scan']['read_at'])
                 ? (int)$context['co']['scan']['read_at']
@@ -2218,7 +2228,8 @@ class ValueProfile extends AppModel
      * @param array $user
      * @param string $value
      * @param array $options
-     * @param array $claims As `assertedClaims`, already resolved
+     * @param array $claims `assertedClaims()['claims']` — the list,
+     *     not the section that wraps it
      * @return array rows, total, cap, events_read
      */
     private function neighbourhoodThreats(array $user, $value,
