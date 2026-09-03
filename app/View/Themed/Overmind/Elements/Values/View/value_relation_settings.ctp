@@ -9,18 +9,22 @@
  * value with nothing at all: what MISP counts is true whether or not
  * this value has anything to count.
  *
- * **Three kinds of rule, because the tab has three kinds of source.**
- * The co-occurrence and near-match sections answer to the correlation
- * engine's settings; the outside-this-instance section answers to the
- * feed and server caches — which sources have caching switched on,
- * which of them this reader's role may be told about, and how many
- * events are listed per source. Neither set is visible anywhere else on
- * the page. **And three sections answer to nothing at all**: the two
- * object joins and the typed references read attributes and
- * `object_references` directly, so they survive a value the correlation
- * limit suppressed. A card that lists what governs this tab has to say
- * where nothing does, or the settings above read as governing all of
- * it.
+ * **A rule earns a row by bounding a number below it.** Two do: the
+ * ssdeep threshold, when the value is an `ssdeep` attribute and the
+ * engine therefore ran, and the feed and server caches — which sources
+ * have caching switched on, which of them this reader's role may be
+ * told about, and how many events are listed per source. Neither is
+ * visible anywhere else on the page. **And three sections answer to
+ * nothing at all**: the two object joins and the typed references read
+ * attributes and `object_references` directly. A card that lists what
+ * governs this tab has to say where nothing does, or the rules above
+ * read as governing all of it.
+ *
+ * **The correlation engine's own settings are not among them**, which
+ * cost this card two rows. The reasoning is at `$alerts` below: no
+ * section on this tab reads `default_correlations`, so the correlation
+ * limit and the exclusion list bound nothing here and are named only
+ * when this value is on the wrong side of one.
  *
  * **A settings value is not a finding.** Each rule is one row — its
  * name and where this instance stands — and the paragraph explaining
@@ -39,11 +43,13 @@
  * relations, remote events, references, claims — so each row names its
  * own unit and nothing is summed into one strength.
  *
- * **This is still the only panel on the tab that reads the correlation
- * engine's state at all.** Section one is an event join, section two
- * re-derives its own matches and section four reads a cache, so what the
- * engine did or refused to do for this value is reported here or
- * nowhere. prd/value-profile-live/24-relationships.md §3.
+ * **This is still the only panel on the page that reads the correlation
+ * engine's state live.** Section one is an event join, section two
+ * re-derives its own matches and section four reads a cache; the
+ * Overview's correlation card is fixture-built. So what the engine did
+ * or refused to do for this value is reported in this card's warn lines
+ * or nowhere — which is why they survived the rows.
+ * prd/value-profile-live/24-relationships.md §3.
  *
  * Lazily loaded from ValuesController::viewRelationSettings.
  *
@@ -76,23 +82,47 @@ $restricted = !empty($external['restricted']['feeds'])
     || !empty($external['restricted']['servers']);
 
 /*
- * The three readings worth a paragraph on the face of the card.
+ * The three readings worth a paragraph on the face of the card, and —
+ * for the first two — the only reason the correlation engine is
+ * mentioned here at all.
  *
- * A rule row states where the instance stands; a warn line states that
- * the reader is on the wrong side of it. Only these three are ever the
- * wrong side — every other rule on this card is a constant that reads
- * the same on every value — so only these three cost the space.
+ * **Neither the correlation limit nor the exclusion list bounds a
+ * single number on this tab.** `default_correlations` links two
+ * attributes carrying the *same* value, so the engine never returns a
+ * different one: section one is an event join, section two re-derives
+ * CIDR and ssdeep from the engine's own inputs, and the rest read
+ * `object_references`, a feed cache or an analyst's claim.
+ * `OverCorrelatingValue` and `Correlation::isValueExcluded` are each
+ * read in exactly one place in `ValueProfile` — `relationSettings`,
+ * for this card — and nothing consults them again. The Occurrences tab
+ * is not bounded by them either; it queries `attributes` directly, so
+ * a value past the limit still lists every occurrence it has.
+ *
+ * So they are not rules of this card and no longer get a row. `Limit
+ * 20` beside a value nowhere near 20 teaches nothing, and stating it
+ * under a heading promising *the settings these sections depend on*
+ * teaches something false.
+ *
+ * They stay as exceptions because *this value is past the limit* is a
+ * real fact with real consequences elsewhere in MISP, and this card is
+ * the page's only live statement of it: the Overview's correlation
+ * card is still fixture-built, and the co-occurrence panel's version
+ * is inside its `suppressed` branch, which is a different condition —
+ * `0.0.0.0` is past the limit and renders a full neighbourhood table.
+ * Each says plainly that the sections beside it are unaffected.
  */
 $alerts = array();
 if ($suppressed) {
     $alerts[] = array(
         'icon' => 'fas fa-triangle-exclamation',
         'title' => __('This value is past the correlation limit.'),
-        'body' => __(
-            'Nothing on this tab is drawn from the correlation table, so'
-            . ' the sections beside this card are unaffected — but every'
-            . ' other page in MISP that offers to show you what this'
-            . ' value relates to will come back empty.'
+        'body' => sprintf(
+            __('MISP stored no correlations for it and recorded it in'
+                . ' %s instead. No count on this tab is affected —'
+                . ' none of them reads the correlation table — but'
+                . ' every other page in MISP that offers to show you'
+                . ' what this value relates to will come back empty.'),
+            '<span class="font-monospace">over_correlating_values</span>'
         ),
     );
 }
@@ -101,8 +131,9 @@ if (!empty($settings['excluded'])) {
         'icon' => 'fas fa-ban',
         'title' => __('This value is excluded from correlation.'),
         'body' => sprintf(
-            __('It matches an entry in %s, so nothing correlates it at'
-                . ' all.'),
+            __('It matches an entry in %s, so MISP does not correlate'
+                . ' it at all — but no count on this tab is affected,'
+                . ' because none of them reads the correlation table.'),
             '<span class="font-monospace">correlation_exclusions</span>'
         ),
     );
@@ -127,25 +158,27 @@ if ($nothingCached) {
  * `state` is the reading a warn line above has already spelled out, so
  * the row can mark itself without repeating the sentence.
  */
-$rules = array(
-    array(
-        'label' => __('Correlation limit'),
-        'value' => number_format((int)$settings['correlation_limit']),
-        'state' => $suppressed ? __('past it') : '',
-    ),
-    array(
+$rules = array();
+/*
+ * The ssdeep threshold is a rule of this tab only when the engine it
+ * governs actually ran, which `ValueProfile::engineIsActive` decides:
+ * on an `ip-dst` the ssdeep engine is `not_applicable` and on an
+ * instance without the PHP extension it is `unavailable`. Printing
+ * `ssdeep threshold 40` beside an IP's near-matches names a number
+ * that bounded nothing in the count below it.
+ *
+ * Absent on a digest written before the key existed — print it then,
+ * which is what this card did until now.
+ */
+$ssdeepApplies = !array_key_exists('ssdeep_applies', $settings)
+    || !empty($settings['ssdeep_applies']);
+if ($ssdeepApplies) {
+    $rules[] = array(
         'label' => __('ssdeep threshold'),
         'value' => (string)(int)$settings['ssdeep_threshold'],
         'state' => '',
-    ),
-    array(
-        'label' => __('Correlation exclusion'),
-        'value' => $settings['excluded']
-            ? __('this value')
-            : __('no match'),
-        'state' => $settings['excluded'] ? __('excluded') : '',
-    ),
-);
+    );
+}
 /*
  * The cached-source rules only when there is a cache. With nothing
  * cached both rows read zero and the warn line above already says so
@@ -406,31 +439,16 @@ foreach ($split as $part) {
                 <span><?= h(__('What these rules do')) ?></span>
             </summary>
             <div class="vp-fold-body">
-                <p>
-                    <b><?= h(__('Correlation limit.')) ?></b>
-                    <?= sprintf(
-                        __('Above it MISP stores no correlations at all'
-                            . ' and records the value in %s instead.'),
-                        '<span class="font-monospace">'
-                            . 'over_correlating_values</span>'
-                    ) ?>
-                </p>
-                <p>
-                    <b><?= h(__('ssdeep threshold.')) ?></b>
-                    <?= h(__('Pairs below it are never written, and the'
-                        . ' score above it is not kept either — the'
-                        . ' comparison is made to test the threshold and'
-                        . ' then thrown away.')) ?>
-                </p>
-                <p>
-                    <b><?= h(__('Correlation exclusion.')) ?></b>
-                    <?= sprintf(
-                        __('A value matching an entry in %s is not'
-                            . ' correlated at all.'),
-                        '<span class="font-monospace">'
-                            . 'correlation_exclusions</span>'
-                    ) ?>
-                </p>
+                <?php if ($ssdeepApplies): ?>
+                    <p>
+                        <b><?= h(__('ssdeep threshold.')) ?></b>
+                        <?= h(__('Pairs below it are never written, and'
+                            . ' the score above it is not kept either —'
+                            . ' the comparison is made to test the'
+                            . ' threshold and then thrown away, so this'
+                            . ' panel re-runs it.')) ?>
+                    </p>
+                <?php endif; ?>
                 <?php if (!$nothingCached): ?>
                     <p>
                         <b><?= h(__('Cached for lookup.')) ?></b>
@@ -444,18 +462,33 @@ foreach ($split as $part) {
                     </p>
                 <?php endif; ?>
                 <p>
-                    <b><?= h(__('Three sections answer to none of'
-                        . ' these.')) ?></b>
+                    <b><?= h(__('Three sections answer to no setting'
+                        . ' at all.')) ?></b>
                     <?= sprintf(
                         __('In the same object, Dated relations and'
                             . ' Object relationships read attributes and'
-                            . ' %s directly, so neither the correlation'
-                            . ' limit nor the ssdeep threshold applies to'
-                            . ' them. They survive a value past the'
-                            . ' limit, and the only cut is what your role'
-                            . ' may see.'),
+                            . ' %s directly, so the only cut on them is'
+                            . ' what your role may see.'),
                         '<span class="font-monospace">object_references'
                             . '</span>'
+                    ) ?>
+                </p>
+                <p>
+                    <b><?= h(__('No count here is correlation'
+                        . ' output.')) ?></b>
+                    <?= sprintf(
+                        __('A %s row links two attributes holding the'
+                            . ' same value, so the engine never returns a'
+                            . ' different one. In the same events is a'
+                            . ' join over shared events, and Near-matches'
+                            . ' re-derives CIDR and ssdeep from the'
+                            . ' engine\'s own inputs. The correlation'
+                            . ' limit and the exclusion list therefore'
+                            . ' bound nothing on this tab, and are named'
+                            . ' above only when this value is on the'
+                            . ' wrong side of one.'),
+                        '<span class="font-monospace">'
+                            . 'default_correlations</span>'
                     ) ?>
                 </p>
             </div>

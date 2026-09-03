@@ -212,7 +212,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 9;
+    const CACHE_SHAPE = 10;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1675,6 +1675,19 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $digest = $this->relationDigest($user, $value, $options);
+        // config, so read live rather than held with the digest
+        $settings = $this->relationSettings($user, $value);
+        /*
+         * Whether the ssdeep threshold is a rule of this tab or a
+         * number that governs nothing here. The digest decided it —
+         * see `engineIsActive`. `CACHE_SHAPE` was bumped for the key,
+         * so it is set on every digest this build writes; the card
+         * falls back to printing the threshold if it ever is not,
+         * which is the state the card was in before this.
+         */
+        if (array_key_exists('ssdeep_applies', $digest)) {
+            $settings['ssdeep_applies'] = !empty($digest['ssdeep_applies']);
+        }
         return array(
             'value' => $value,
             'relationships' => array(
@@ -1686,8 +1699,7 @@ class ValueProfile extends AppModel
                 'cooccurrence' => array(
                     'suppressed' => $digest['suppressed'],
                 ),
-                // config, so read live rather than held with the digest
-                'settings' => $this->relationSettings($user, $value),
+                'settings' => $settings,
                 'read_at' => $digest['read_at'],
             ),
         );
@@ -2218,6 +2230,16 @@ class ValueProfile extends AppModel
                 $context['co'],
                 $this->tacticChain()
             ),
+            /*
+             * Whether the ssdeep threshold bounds anything for this
+             * value, which is true only when the value is an `ssdeep`
+             * attribute and the PHP extension is present — the two
+             * states `ssdeepEngine` declines on. Carried here because
+             * `nearMatches` above has already decided it: the settings
+             * card would otherwise have to run `typesFor` again to
+             * print a threshold that governs nothing on an IP.
+             */
+            'ssdeep_applies' => $this->engineIsActive($near, 'ssdeep'),
             'read_at' => isset($context['co']['scan']['read_at'])
                 ? (int)$context['co']['scan']['read_at']
                 : time(),
@@ -4012,6 +4034,32 @@ class ValueProfile extends AppModel
      * @param array $types From `Value::typesFor`
      * @return array
      */
+    /**
+     * Whether one of the near-match engines actually ran.
+     *
+     * `not_applicable` (the value is not of the engine's type) and
+     * `unavailable` (the PHP extension is absent) both mean the
+     * engine's settings bound nothing for this value, which is the
+     * question the settings card asks before printing one.
+     *
+     * @param array $near As nearMatches
+     * @param string $id Engine id
+     * @return bool
+     */
+    private function engineIsActive(array $near, $id)
+    {
+        if (empty($near['engines'])) {
+            return false;
+        }
+        foreach ($near['engines'] as $engine) {
+            if (isset($engine['id']) && $engine['id'] === $id) {
+                return isset($engine['state'])
+                    && $engine['state'] === 'active';
+            }
+        }
+        return false;
+    }
+
     private function nearMatches(array $user, $value, array $types)
     {
         if (empty($types)) {

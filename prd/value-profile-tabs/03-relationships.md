@@ -2125,3 +2125,72 @@ skips the breakdown entirely.
 What did not change: the eight bars, their units, their colours, their
 order, the floors, the read-age disclosure, and the fact that this is
 the only panel on the tab that reads the correlation engine's state.
+
+### 29.2 A rule earns a row by bounding a number below it
+
+§29 kept five rules and made them cheap. The reviewer's question was
+better: what does `Correlation limit 20` teach a reader of *this* tab?
+
+**Nothing, and the code says so.** A `default_correlations` row links
+two attributes carrying the *same* value, so the engine never returns a
+different one — §3's headline finding, which the tab is built on. In
+the same events is an event join, Near-matches re-derives CIDR from
+`Correlation::getCidrList()` and ssdeep from the live population, and
+the remaining sections read `object_references`, a feed cache or an
+analyst's claim. Nothing on the tab reads the correlation table.
+Grepped rather than assumed: `OverCorrelatingValue` and
+`Correlation::isValueExcluded` are each constructed in exactly one
+place in `ValueProfile.php` — `relationSettings()` — whose only
+consumer is this card. Both were read to be printed.
+
+**The Occurrences tab is not bounded by them either.** It was the
+reviewer's proposed home for the setting, and the mechanism turns out
+not to match: `Value::occurrencesFor` queries `attributes` on
+`value1`/`value2` directly and never touches `default_correlations`. It
+lists the same set the engine would return for one value, by a
+different route — so a value past the limit still shows every
+occurrence it has. The limit bounds nothing anywhere on this page.
+
+So the two constants lost their rows. `Limit 20` beside a value nowhere
+near 20 teaches nothing, and printing it under a heading that promises
+*the settings these sections depend on* teaches something false.
+
+**They survive as exceptions, because this card is the page's only live
+statement of them.** That was checked before deleting anything, and two
+plausible alternative homes did not hold up:
+
+- The Overview's correlation `.vp-fact-line` — *"N correlations · Over
+  the 20 threshold"* — comes from `ValueProfileFixture::forValue` via
+  `ValuesController::viewLifecycle`. It is fixture data, not this
+  value's.
+- The co-occurrence panel does state the limit with the value's own
+  occurrence count, which would be the better place — but only inside
+  its `suppressed` branch, and `suppressed` means *the scan read no
+  event*, a different condition. Fetched both panels for `0.0.0.0`, a
+  value that **is** past the limit: neither string appears, because it
+  renders a full 10,647-value neighbourhood.
+
+So *this value is past the correlation limit* would have vanished from
+the page entirely. It keeps its warn box, reworded to lead with what it
+does not affect: *"No count on this tab is affected — none of them
+reads the correlation table — but every other page in MISP that offers
+to show you what this value relates to will come back empty."* Same for
+the exclusion list, which has no other disclosure anywhere.
+
+**The ssdeep threshold went the same way, one rule further.** It bounds
+Near-matches only when the value is an `ssdeep` attribute and the PHP
+extension is present — the two states `ssdeepEngine` declines on — so
+on an IP it was as decorative as the correlation limit. The digest
+already computes this: `relationDigest` calls `nearMatches`, whose
+engines each carry a `state`. A new `engineIsActive` helper reads
+`ssdeep`'s off it into `ssdeep_applies`, so the gate costs no query.
+`CACHE_SHAPE` 9 → 10 for the new key; the card prints the threshold if
+the key is ever absent, which is the behaviour it had before.
+
+**Result.** On `8.8.8.8` the card states two rules, both of which bound
+a number in the breakdown below them: `Cached for lookup · 5 feeds · 1
+server` and `Listed per source · 25 events`. **576px**, against 1,278px
+before §29. On an `ssdeep` value the threshold row appears — verified
+against a real one on the instance. On `0.0.0.0` the warn box appears
+and the constants do not.
+
