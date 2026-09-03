@@ -155,10 +155,10 @@ Then one block per engine, each in one of three states:
   never runs; shows what a row *would* look like (`ssdeep 92%`) and states that
   the number is recomputed per row because MISP stores the threshold test, not
   the score.
-- **Look-alike spellings — the fourth engine, and the only local one.**
-  `24b-relationships.md` §12 adds it and §12.1 prices it: a permutation set
-  generated in `DomainPermutationTool` (character omission, homoglyph, bitsquat,
-  hyphenation, ending swap and seven more), checked against `domain`,
+- **Look-alike spellings (typosquat) — the fourth engine, and the only local
+  one.** `24b-relationships.md` §12 adds it and §12.1 prices it: a permutation
+  set generated in `DomainPermutationTool` (character omission, homoglyph,
+  bitsquat, hyphenation, ending swap and seven more), checked against `domain`,
   `hostname` and `domain|ip` in one indexed lookup. It is the one engine here
   whose claim MISP's correlation table never holds, which is exactly why the
   section's *not equality* banner is load-bearing rather than decorative.

@@ -704,7 +704,7 @@ if (!$offerSimilarity) {
             <?php if ($typo['state'] !== 'active'): ?>
                 <?php $engineLine(
                     __('Not applicable'),
-                    __('Look-alike spellings'),
+                    __('Look-alike spellings (typosquat)'),
                     sprintf(
                         __('generates spellings of a name; does not run'
                             . ' on %s.'),
@@ -719,7 +719,20 @@ if (!$offerSimilarity) {
                 </span>
                 <div class="vp-min-w-0 flex-grow-1">
                     <div class="fw-semibold small vp-rel-engine-name">
-                        <?= __('Look-alike spellings') ?>
+                        <?php
+                        /*
+                         * Both names on purpose. *Look-alike
+                         * spellings* says what the engine does to a
+                         * reader who has never met the word;
+                         * *typosquat* is what an analyst calls it, and
+                         * what they would search this page for. The
+                         * other three engines are named for their
+                         * mechanism — CIDR, ssdeep — and can afford
+                         * one name each because the mechanism is the
+                         * word.
+                         */
+                        ?>
+                        <?= __('Look-alike spellings (typosquat)') ?>
                     </div>
                     <div class="small text-muted mt-1">
                         <?php if (empty($typo['candidates'])): ?>

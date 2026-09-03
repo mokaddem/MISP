@@ -2890,6 +2890,12 @@ and the rest are recorded below as decisions taken rather than
 decisions deferred, so a later reader can see which were argued and
 which were merely made.
 
+**Named twice on purpose.** The engine reads *Look-alike spellings
+(typosquat)*: the first half says what it does to a reader who has
+never met the word, the second is what an analyst calls it and what
+they would search the page for. CIDR and ssdeep can afford one name
+each because their mechanism *is* the word.
+
 **The generator is a tool and knows nothing about MISP.**
 `app/Lib/Tools/DomainPermutationTool.php` takes a name and returns
 `candidate => class`. No model, no database, no user, no `__()` — the
