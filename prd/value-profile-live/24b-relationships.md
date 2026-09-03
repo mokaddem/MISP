@@ -2017,15 +2017,47 @@ the row `fetchGalaxyClusters` already returned, and `claimTargetOrg`
 returns null rather than demanding an organisation lookup, so the card
 omits that row instead of paying for it.
 
-**One local override: it opens left.** The element positions itself at
-`left: calc(100% + 9px)` because the asserted section's claim blocks
-are full-width and the room is to their right. This card is a 340px
-rail against the page's right edge, so a 21rem card opening rightward
-leaves the viewport; only the side is flipped.
+**Two local overrides, and the second was a bug of my own making.**
+The element positions itself at `left: calc(100% + 9px)` because the
+asserted section's claim blocks are full-width and the room is to
+their right; this card is a 340px rail against the page's right edge,
+so a 21rem card opening rightward leaves the viewport, and the side is
+flipped.
 
-The claim mark keeps a `title` of its own, because *who* asserted it
-is not a fact about the cluster and the shared card is about the
-target and nothing else — one line per claim:
+Then: **the cards were clipped the moment a pill was picked.**
+Filtering makes the list scroll, and an `overflow` ancestor clips
+absolutely-positioned descendants — so a card whole in the opening
+view was cut off in every filtered one. There is no CSS way out:
+`overflow-x` cannot stay visible while `overflow-y` scrolls, and
+`overflow: clip` with a wide `overflow-clip-margin` does not scroll.
+The card has to leave the box, so in the scrolling views it is
+`position: fixed` and `placeThreatTip` gives it viewport coordinates
+on hover and on focus, clamped so a row near the bottom of a long
+filtered list still shows a whole card.
+
+**Scoped to those views deliberately.** A fixed element resolves
+`right: calc(100% + 9px)` against the *viewport*, not its wrapper, so
+applying it everywhere put the card off-screen whenever the script had
+not run — which is how it was caught, in a harness that loads the CSS
+but not the JS. The opening view, which is what most readers ever see,
+keeps working on CSS alone.
+
+**A second card, on the figures.** `2 orgs · 3 events` is the right
+size for the rail and says nothing about *which* — and which is the
+question a reader checking corroboration actually has, since one
+organisation reporting a cluster three times is not three
+organisations agreeing. Hovering the figures names them: the
+organisations, the events with their titles, and the claims where
+there are any. Built from the shared card's classes rather than its
+element, because that element is documented as being about a claim's
+target and nothing else; same look, different subject. It costs one
+`Organisation` name lookup over ids the fold already held.
+
+The claim mark's own `title` went away with it — who asserted a
+cluster now lives in that card, findable and keyboard-reachable where
+a native tooltip was neither. One line per claim, and they are emitted
+as separate elements rather than joined with `\n`, which is
+whitespace in markup and rendered two claims as one run-on sentence:
 
 > ADMIN claimed "linked-to" on an event it appears in · 2026-09-03
 > ADMIN claimed "related-to" on this value · 2026-09-03

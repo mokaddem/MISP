@@ -170,6 +170,57 @@
     }
 
     /**
+     * Put a named-threat hover card where the viewport can hold it.
+     *
+     * The card is `position: fixed` for one reason: filtering the list
+     * to a kind makes it scroll, and an `overflow` ancestor clips
+     * absolutely-positioned descendants, so the card was whole until
+     * anyone used a pill and cut off afterwards. Fixed takes it out of
+     * that box, at the price of needing coordinates — which is this.
+     *
+     * Opens to the left of its trigger, because the card lives in a
+     * 340px rail against the page's right edge. Clamped to the
+     * viewport at both ends, so a row near the bottom of a long
+     * filtered list still shows a whole card rather than one running
+     * off the fold.
+     *
+     * @param {Element} wrap A .vp-claim-tipwrap inside a .vp-threat
+     */
+    function placeThreatTip(wrap) {
+        var tip = wrap.querySelector('.vp-claim-tip');
+        if (!tip) {
+            return;
+        }
+        /*
+         * Only the scrolling views need this, and only there is the
+         * card `fixed`. In the opening view it is `absolute` against
+         * this wrapper and the stylesheet has already placed it —
+         * writing viewport coordinates onto it would move it away
+         * from the row it belongs to.
+         */
+        var card = wrap.closest('[data-vp-threats]');
+        if (!card || card.dataset.vpThreatView === 'top') {
+            tip.style.removeProperty('top');
+            tip.style.removeProperty('right');
+            return;
+        }
+        var at = wrap.getBoundingClientRect();
+        tip.style.right = (window.innerWidth - at.left + 9) + 'px';
+        /*
+         * Measured while still hidden — `visibility` keeps layout, so
+         * the height is real before the card is shown, and reading it
+         * after would be a frame late.
+         */
+        var height = tip.offsetHeight;
+        var margin = 8;
+        var top = at.top - 10;
+        if (top + height > window.innerHeight - margin) {
+            top = window.innerHeight - height - margin;
+        }
+        tip.style.top = Math.max(margin, top) + 'px';
+    }
+
+    /**
      * Bootstrap only takes the pointer away from a disabled control, so
      * its title — the whole explanation of why it is disabled — cannot be
      * read. The stylesheet gives the pointer back; this stops the
@@ -6154,6 +6205,26 @@
                 event.stopPropagation();
             }
         }, true);
+
+        /*
+         * `pointerover` and `focusin` rather than `pointerenter`, which
+         * does not bubble and so cannot be delegated. Both fire before
+         * the CSS reveal has to be right, and re-firing on a card
+         * already open is harmless.
+         */
+        var placeFromEvent = function (event) {
+            if (!event.target.closest) {
+                return;
+            }
+            var wrap = event.target.closest(
+                '.vp-threat .vp-claim-tipwrap'
+            );
+            if (wrap) {
+                placeThreatTip(wrap);
+            }
+        };
+        document.addEventListener('pointerover', placeFromEvent);
+        document.addEventListener('focusin', placeFromEvent);
 
         document.addEventListener('click', function (event) {
             if (!event.target.closest) {

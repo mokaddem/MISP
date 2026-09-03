@@ -4279,20 +4279,71 @@ th[aria-sort="descending"] .sort-icon::before,
 }
 
 /*
- * **The hover card opens left here, not right.** The asserted
+ * **They open left**, where the element opens right: the asserted
  * section's claim blocks are full-width, so beside them means to the
- * right; this card is a 340px rail against the page's right edge, and
- * a 21rem card opening rightward would leave the viewport. Only the
- * side changes — the width, the pull-up and the reveal are the
- * element's own.
+ * right, while this is a 340px rail against the page's right edge and
+ * a 21rem card opening rightward leaves the viewport.
  */
 .vp-threat .vp-claim-tip {
     left: auto;
     right: calc(100% + 9px);
 }
 
+/*
+ * **In a scrolling list the card goes `fixed`, and only there.** Once
+ * a pill is picked the list scrolls, and an `overflow` ancestor clips
+ * absolutely-positioned descendants — so the card was whole in the
+ * opening view and cut off the moment anyone filtered. `overflow-x`
+ * cannot stay visible while `overflow-y` scrolls, and `overflow: clip`
+ * with a wide `overflow-clip-margin` would not scroll at all, so
+ * leaving the box entirely is the only way out.
+ *
+ * Scoped to the scrolling views on purpose. A fixed element resolves
+ * `right: calc(100% + 9px)` against the *viewport* rather than its
+ * wrapper, so it needs `placeThreatTip` in `value-profile.js` to give
+ * it coordinates — and the opening view, which is what most readers
+ * ever see, then keeps working on CSS alone.
+ */
+[data-vp-threats]:not([data-vp-threat-view="top"])
+    .vp-threat .vp-claim-tip {
+    position: fixed;
+    top: auto;
+}
+
 .vp-threat .vp-claim-more {
     font-size: 0.72rem;
+}
+
+/* The figures are their own trigger — no glyph, the numbers are it. */
+.vp-threat-right.vp-claim-tipwrap {
+    cursor: help;
+}
+
+.vp-threat-tipevents {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/*
+ * An event title is unbounded and six of them stacked would make the
+ * card taller than the rail it hangs off, so each is one line.
+ */
+.vp-threat-tipevent {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/*
+ * Claim lines wrap, where event lines are cut: a claim's whole point is
+ * who said what, and an elided *ADMIN claimed "linked-to" on an…* has
+ * dropped the half worth reading.
+ */
+.vp-threat-tiplines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .vp-threat-badge {

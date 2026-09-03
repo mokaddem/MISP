@@ -2186,13 +2186,18 @@ class ValueProfile extends AppModel
      * one malware family appears under seven spellings — and no
      * installed taxonomy names an individual threat, they classify one.
      *
-     * Five indexed queries, none per event or per occurrence:
+     * Six indexed queries, none per event or per occurrence:
      *
      *   1. the value's events, newest first, capped   `Value`
      *   2. those events, for their creator org        `Event`
      *   3. their tags, galaxy ones kept               `EventTag`
      *   4. clusters on the value's own occurrences    `Value`
      *   5. every cluster named above, under its ACL   `GalaxyCluster`
+     *   6. names for the organisations credited       `Organisation`
+     *
+     * Six is a name lookup, not a read of anything new: the card's
+     * figures hover names the organisations behind `2 orgs`, and the
+     * fold holds their ids either way.
      *
      * Query 5 is not optional and not an optimisation.
      * `fetchGalaxyClusters` is the only thing that decides whether this
@@ -2328,7 +2333,52 @@ class ValueProfile extends AppModel
             );
         }
 
+        /*
+         * The figures on a row are `2 orgs · 3 events`, which is the
+         * right size for a 340px rail and says nothing about *which*.
+         * The names behind them are worth a hover, so they are resolved
+         * here — one `Organisation` read over every id the fold
+         * gathered, and the event titles off the metadata this method
+         * already fetched.
+         */
+        $orgIds = array();
+        foreach ($rows as $row) {
+            foreach (array_keys($row['orgs']) as $orgId) {
+                $orgIds[$orgId] = true;
+            }
+        }
+        $orgNames = empty($orgIds)
+            ? array()
+            : $this->model('Organisation')->find('list', array(
+                'recursive' => -1,
+                'fields' => array('Organisation.id', 'Organisation.name'),
+                'conditions' => array(
+                    'Organisation.id' => array_keys($orgIds),
+                ),
+            ));
+
         foreach ($rows as $id => $row) {
+            $names = array();
+            foreach (array_keys($row['orgs']) as $orgId) {
+                $names[] = isset($orgNames[$orgId])
+                    ? $orgNames[$orgId]
+                    : __('Unknown organisation');
+            }
+            sort($names);
+            $events = array();
+            foreach (array_keys($row['events']) as $eventId) {
+                $events[] = array(
+                    'id' => $eventId,
+                    'info' => isset($meta[$eventId]['info'])
+                        ? $meta[$eventId]['info']
+                        : '',
+                    'date' => isset($meta[$eventId]['date'])
+                        ? $meta[$eventId]['date']
+                        : '',
+                );
+            }
+            $rows[$id]['org_names'] = $names;
+            $rows[$id]['event_list'] = $events;
             $rows[$id]['events'] = count($row['events']);
             $rows[$id]['orgs'] = count($row['orgs']);
         }

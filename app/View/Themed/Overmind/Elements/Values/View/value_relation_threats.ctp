@@ -102,14 +102,18 @@ $view = $this;
 /**
  * Who asserted a cluster, how, and when — one line per claim.
  *
- * Lives in the `title` because the row has room for three words and
- * the asserted section is where the whole claim, with its author and
- * its direction, is laid out properly. This is the peek.
+ * The row has room for two words, so this goes in the hover beside the
+ * figures. The asserted section is where the whole claim, with its
+ * author and its direction, is laid out properly; this is the peek.
+ *
+ * Returns the lines rather than a joined string, because a `\n` inside
+ * markup is whitespace: joined, two claims render as one run-on
+ * sentence.
  *
  * @param array $claims As `neighbourhoodThreats` recorded them
- * @return string
+ * @return array
  */
-$claimTitle = function (array $claims) use ($anchorWords) {
+$claimLines = function (array $claims) use ($anchorWords) {
     $lines = array();
     foreach ($claims as $claim) {
         $where = isset($anchorWords[$claim['anchor']])
@@ -122,8 +126,7 @@ $claimTitle = function (array $claims) use ($anchorWords) {
             $where
         )) . ($claim['date'] === '' ? '' : ' · ' . $claim['date']);
     }
-    $lines[] = __('Shown in full under Asserted by analysts.');
-    return implode("\n", $lines);
+    return $lines;
 };
 
 /*
@@ -164,7 +167,7 @@ foreach (array('actor', 'campaign', 'malware', 'tool') as $kind) {
  * @param bool $folded Beyond the opening cut, hidden until asked for
  */
 $row = function (array $threat, $folded) use (
-    $kindWords, $marks, $baseurl, $nameCounts, $claimTitle, $view,
+    $kindWords, $marks, $baseurl, $nameCounts, $claimLines, $view,
     $targetKindWords
 ) {
     $kind = isset($threat['kind']) ? $threat['kind'] : '';
@@ -226,12 +229,89 @@ $row = function (array $threat, $folded) use (
                 ) ?>
             <?php endif; ?>
         </span>
-        <span class="vp-threat-right">
+        <?php /*
+         * The figures name their own sources on hover. `2 orgs · 3
+         * events` is the right size for the rail and says nothing
+         * about *which*, and which is the question a reader checking
+         * corroboration actually has — one organisation reporting a
+         * cluster three times is not three organisations agreeing.
+         *
+         * Built from the shared card's classes rather than from its
+         * element: that element is documented as being about a claim's
+         * target and nothing else, and this is about the row's
+         * evidence. Same look, different subject.
+         */ ?>
+        <span class="vp-threat-right vp-claim-tipwrap">
             <span class="vp-threat-kind"><?= h($word) ?></span>
             <span class="vp-threat-figs"><?= implode(
                 ' <span class="vp-threat-sep">·</span> ',
                 $figures
             ) ?></span>
+            <?php if (!empty($threat['org_names'])
+                || !empty($threat['event_list'])
+            ): ?>
+                <span class="vp-claim-tip" role="tooltip">
+                    <span class="vp-claim-tiphead"><?=
+                        h(__('Where this comes from')) ?></span>
+                    <?php if (!empty($threat['org_names'])): ?>
+                        <span class="vp-claim-tiprow">
+                            <b><?= h(__('Organisations')) ?></b>
+                            <span><?= h(implode(', ',
+                                $threat['org_names'])) ?></span>
+                        </span>
+                    <?php endif; ?>
+                    <?php if (!empty($threat['event_list'])): ?>
+                        <span class="vp-claim-tiprow">
+                            <b><?= h(sprintf(
+                                __('Events (%d)'),
+                                count($threat['event_list'])
+                            )) ?></b>
+                            <span class="vp-threat-tipevents">
+                                <?php foreach (array_slice(
+                                    $threat['event_list'], 0, 6
+                                ) as $event): ?>
+                                    <span class="vp-threat-tipevent">
+                                        <a class="vp-claim-link"
+                                           href="<?= $baseurl
+                                               ?>/events/view2/<?=
+                                               h($event['id']) ?>">#<?=
+                                               h($event['id']) ?></a>
+                                        <?= h($event['info'] === ''
+                                            ? $event['date']
+                                            : $event['info']) ?>
+                                    </span>
+                                <?php endforeach; ?>
+                                <?php $spare = count(
+                                    $threat['event_list']
+                                ) - 6; ?>
+                                <?php if ($spare > 0): ?>
+                                    <span class="vp-threat-tipevent">
+                                        <?= h(sprintf(
+                                            __('and %d more'),
+                                            $spare
+                                        )) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </span>
+                        </span>
+                    <?php endif; ?>
+                    <?php if (!empty($threat['claims'])): ?>
+                        <span class="vp-claim-tiprow">
+                            <b><?= h(sprintf(
+                                __('Claims (%d)'),
+                                count($threat['claims'])
+                            )) ?></b>
+                            <span class="vp-threat-tiplines">
+                                <?php foreach ($claimLines(
+                                    $threat['claims']
+                                ) as $line): ?>
+                                    <span><?= h($line) ?></span>
+                                <?php endforeach; ?>
+                            </span>
+                        </span>
+                    <?php endif; ?>
+                </span>
+            <?php endif; ?>
         </span>
         <?php if ($extra): ?>
             <span class="vp-threat-extra">
@@ -252,8 +332,13 @@ $row = function (array $threat, $folded) use (
                      * so a synonym weakens the thing the styling was
                      * borrowed to reinforce.
                      */ ?>
-                    <span class="vp-rel-prov vp-rel-prov-human"
-                          title="<?= h($claimTitle($threat['claims'])) ?>">
+                    <?php /*
+                     * No `title` on the mark any more: who claimed
+                     * what is in the figures hover beside it, which
+                     * is findable and keyboard-reachable where a
+                     * native tooltip was neither.
+                     */ ?>
+                    <span class="vp-rel-prov vp-rel-prov-human">
                         <i class="fas fa-user-pen" aria-hidden="true"></i>
                         <?= h(__('Human claim')) ?>
                     </span>
