@@ -31,9 +31,11 @@ Update this table in the same pass as the code, not in a catch-up
 sweep. A task is `done` only when its change is verified against the
 live instance and recorded in its own section below.
 
-**Every row is done as of 2026-09-03.** B10 was the last, and the only
-one whose grilling gate was lifted rather than held — §12.2 says by
-whom and records the decisions it would have taken.
+**Every row is done as of 2026-09-03.** B10 closed the eleven the
+subphase planned, and was the only one whose grilling gate was lifted
+rather than held — §12.2 says by whom and records the decisions it
+would have taken. B11 came afterwards, out of §13 rather than out of
+the plan, and §14 has it.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -48,6 +50,7 @@ whom and records the decisions it would have taken.
 | B8.1 | Galaxies and taxonomies as neighbour context | `value_relation_cooccurrence` (new section), `value_relation_summary`, `value_relation_threats`, `value_relation_settings` | L | no | **yes — a third section with its own bar and pager** | **done** |
 | B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match`, new `DomainPermutationTool` | L | lifted | no | **done** |
+| B11 | The ssdeep candidate cap | `value_relation_near_match`, `Value::valuesOfType` | M | no | no | **done** — §14 |
 
 ## 2. The order, and why
 
@@ -3058,9 +3061,9 @@ actually do.
   follow-up item 5.
 - **A matched hash opening its own value page** — §28.9; the
   promote-list question.
-- **The ssdeep candidate cap** — §4.2, found while measuring B2 and
-  unowned. Listed here so it is not mistaken for done; it wants a task
-  of its own, because it is a wrong answer rather than a small one.
+- ~~**The ssdeep candidate cap**~~ — **done, 2026-09-03**, as B11 in
+  §14. It was a wrong answer rather than a small one, and it was
+  hiding real matches on a third of this instance's ssdeep values.
 - ~~**`event.target.closest` unguarded in about a dozen handlers**~~ —
   **done, 2026-09-03**, and the diagnosis in §11.1 was wrong: the throw
   was in `mispOvermind.js`'s capture-phase `mouseenter` listener, not in
@@ -3075,3 +3078,98 @@ actually do.
   the Enrichment tab's job. Importing them here would be the moment
   "What is counted" stops being cheap to keep true. Rejected, not
   deferred.
+
+## 14. B11 — the ssdeep candidate cap — **done, 2026-09-03**
+
+Subphase B closed at B10; this is the task §13 said the cap wanted,
+taken on its own rather than folded into one of the eleven.
+
+**Why.** §4.2 found `ssdeepEngine` fetching `RELATION_ROW_CAP`
+candidates — 100, newest first — and comparing against those, while
+the panel said it had compared *every* `ssdeep` attribute the viewer
+can see. Every cap on this tab states itself in the panel; this one
+did not, and it is the one place where the cap changes the **verdict**
+rather than the listing. It is also why the seeded ssdeep family had
+never once shown a row.
+
+### 14.1 What the cap was hiding, measured
+
+The probe is `24c-ssdeep-cap-probe.php`. Every distinct visible
+`ssdeep` value compared against every other, once:
+
+| | |
+|---|---|
+| distinct visible `ssdeep` values | 1,260 |
+| comparisons | 793,170 |
+| **time to run all of them** | **398 ms** |
+| pairs over the threshold of 40 | 1,612 |
+| **values with at least one partner** | **432 — 34.3%** |
+| most partners on one value | 45 |
+
+**§4.2's 45 reproduces exactly**, which is worth saying because a
+twelve-value sample found at most one partner each and would have
+talked this task out of existence. A third of this instance's ssdeep
+population has a real partner over the threshold, and the panel was
+showing none of it.
+
+**The cost argument the cap was presumably built on does not hold.**
+Comparing is the cheap half by two orders of magnitude:
+
+| Work | Cost |
+|---|---|
+| `ssdeep_fuzzy_compare` against all 1,399 | **0.5 ms** |
+| fetching those candidates decorated, as the engine did | 34.6 ms |
+| fetching them as values only | **15.8 ms** |
+
+`ssdeep_fuzzy_compare` short-circuits on mismatched block sizes, which
+is most pairs, so the comparison is nearly free and the *fetch* was
+the only thing the cap ever bounded.
+
+### 14.2 What changed
+
+**Compare first, decorate second.** `Value::occurrencesOfType` is
+gone — it had exactly one caller — and `Value::valuesOfType` replaces
+it: the distinct values of a type, two fields, unordered, ACL intact.
+The engine compares the whole visible population against those, then
+fetches context with `occurrencesForAny` for the survivors alone.
+De-duplicating in the model also means a hash held in thirty events is
+compared once instead of thirty times.
+
+**A ceiling that is not a working limit.** `SSDEEP_CANDIDATE_CAP` is
+10,000 and exists so an instance with a hundred thousand hashes
+fetches a bounded set. Nothing binds here — 1,399 attributes, 1,260
+distinct values — and **when it does bind the panel says so**, which
+is the half that was missing. `RELATION_ROW_CAP` was the wrong
+constant as much as the wrong size: a row cap bounds what is shown.
+
+**Two more silent caps found while building this one, both closed.**
+
+- **Rows were per occurrence while the sentence counted pairs.** A
+  pair is two values, so a matched hash held in three events claimed
+  three pairs. The engine now folds to one row per matched hash — the
+  same fold `cidrEngine` performs per block, for the same reason — so
+  the count above the table and the rows in it cannot disagree.
+- **The context fetch could evict a match it had already accepted.**
+  `occurrencesForAny` orders by timestamp and defaults to 200 rows, so
+  a hash in three hundred events could fill the window alone and push
+  another matched hash out of the table entirely — dropping a row the
+  engine had decided to show. The limit is now sized to the match set,
+  and anything that still fails to place is counted and reported
+  rather than missing.
+
+**The sentence, finally true.** It now reads *"Compared against **all
+1259 distinct values** of `ssdeep` you can see, **1 pair** cleared the
+threshold of 40"*, with both numbers read off the engine, plus a line
+when the ceiling binds and a line when a match cannot be placed.
+
+### 14.3 Verify
+
+`3072:4vPHoYTlo34n…` — one of the two values the twelve-value sweep
+showed as `cap100 = 0, full = 1` — **now shows its row**: a partner at
+**46%** in event #813, reported by CIRCL. Under the old cap that same
+value reported *0 pairs* and claimed to have compared everything.
+
+A four-partner value renders four rows against *"4 pairs cleared the
+threshold"*, in **48 ms** for the whole panel. `8.8.8.8` (CIDR, four
+rows) and `caref1rst.com` (typosquat, one row) are unchanged, and
+`Similarity ≥` is still offered wherever the rows carry numbers.

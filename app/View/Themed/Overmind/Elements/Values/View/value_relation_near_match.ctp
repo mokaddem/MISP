@@ -661,15 +661,36 @@ if (!$offerSimilarity) {
                                     . 'ssdeep_fuzzy_compare()</span>'
                             ) ?>
                         <?php else: ?>
+                            <?php
+                            /*
+                             * **What it compared, counted.** This
+                             * sentence used to say *every other ssdeep
+                             * attribute you can see* while the engine
+                             * compared the hundred most recent —
+                             * §4.2's finding, and the reason B11
+                             * exists. Both halves are now read off the
+                             * engine: how many distinct values it
+                             * actually compared, and whether its
+                             * candidate fetch hit its ceiling.
+                             */
+                            $compared = isset($ssdeep['compared'])
+                                ? (int)$ssdeep['compared']
+                                : 0;
+                            ?>
                             <?= sprintf(
                                 __(
-                                    'Compared against every other %1$s'
-                                    . ' attribute you can see, %2$s'
-                                    . ' cleared the threshold of %3$d.'
-                                    . ' The score is recomputed here —'
-                                    . ' MISP keeps the threshold test,'
-                                    . ' not the number.'
+                                    'Compared against %1$s of %2$s you'
+                                    . ' can see, %3$s cleared the'
+                                    . ' threshold of %4$d. The score is'
+                                    . ' recomputed here — MISP keeps the'
+                                    . ' threshold test, not the number.'
                                 ),
+                                '<strong>' . h(__n(
+                                    '%d distinct value',
+                                    'all %d distinct values',
+                                    $compared,
+                                    $compared
+                                )) . '</strong>',
                                 '<span class="font-monospace">ssdeep</span>',
                                 '<strong>' . h(__n(
                                     '%d pair',
@@ -679,6 +700,29 @@ if (!$offerSimilarity) {
                                 )) . '</strong>',
                                 $near['threshold']
                             ) ?>
+                            <?php if (!empty($ssdeep['unplaced'])): ?>
+                                <?= h(sprintf(
+                                    __n(
+                                        '%d more hash cleared it but has'
+                                        . ' no occurrence to show here.',
+                                        '%d more hashes cleared it but'
+                                        . ' have no occurrence to show'
+                                        . ' here.',
+                                        $ssdeep['unplaced'],
+                                        $ssdeep['unplaced']
+                                    ),
+                                    $ssdeep['unplaced']
+                                )) ?>
+                            <?php endif; ?>
+                            <?php if (!empty($ssdeep['saturated'])): ?>
+                                <?= h(sprintf(
+                                    __('The candidate fetch stopped at'
+                                        . ' %d attributes, so some of'
+                                        . ' this type were not compared'
+                                        . ' at all.'),
+                                    $ssdeep['cap']
+                                )) ?>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>

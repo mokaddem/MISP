@@ -139,6 +139,21 @@ class ValueProfile extends AppModel
     const RELATION_ROW_CAP = 100;
 
     /**
+     * Candidate rows the ssdeep engine fetches before de-duplicating.
+     *
+     * A ceiling rather than a working limit. This instance holds 1,399
+     * `ssdeep` attributes and 1,260 distinct values, so nothing here
+     * binds and the engine compares the whole visible population; the
+     * number exists so an instance with a hundred thousand hashes
+     * fetches a bounded set rather than all of them. **When it does
+     * bind the panel says so** — which is the half §4.2 found missing,
+     * and the reason the old `RELATION_ROW_CAP` was the wrong constant
+     * as well as the wrong size: a row cap bounds what is shown, and
+     * this bounds what is compared, so it changes the verdict.
+     */
+    const SSDEEP_CANDIDATE_CAP = 10000;
+
+    /**
      * Occurrences the typosquat engine fetches for its candidate set.
      *
      * A *fetch* cap, not a compare cap — the distinction §4.2 found
@@ -4267,28 +4282,84 @@ class ValueProfile extends AppModel
             );
         }
         $threshold = $this->ssdeepThreshold();
-        $candidates = $this->model('Value')->occurrencesOfType(
+        /*
+         * **Compare first, decorate second.** The engine used to fetch
+         * a hundred decorated rows and compare against those, so the
+         * candidate set was chosen by `timestamp DESC` before a single
+         * comparison had happened — a value whose partner was reported
+         * last year was told, in the panel's own words, that it had
+         * been compared against every `ssdeep` attribute and matched
+         * none of them. Comparing is the cheap half: 793,170
+         * comparisons across this whole instance take 398 ms, while
+         * fetching the same rows decorated takes 34.6 ms for 1,399 of
+         * them. So the whole population is compared, and only the
+         * survivors are fetched with the context a row needs.
+         */
+        $candidates = $this->model('Value')->valuesOfType(
             $user,
             'ssdeep',
             $value,
-            self::RELATION_ROW_CAP
+            self::SSDEEP_CANDIDATE_CAP
         );
-        $rows = array();
-        foreach ($this->decorate($user, $candidates) as $candidate) {
-            $score = @ssdeep_fuzzy_compare(
-                $value,
-                $candidate['Attribute']['value']
-            );
+        $scores = array();
+        foreach ($candidates['values'] as $candidate) {
+            $score = @ssdeep_fuzzy_compare($value, $candidate);
             if ($score === false || $score < $threshold) {
                 continue;
             }
-            $rows[] = $this->nearRow(
-                $candidate,
-                $candidate['Attribute']['value'],
-                $score,
-                null,
-                100
+            $scores[$candidate] = (int)$score;
+        }
+        $rows = array();
+        if (!empty($scores)) {
+            /*
+             * Sized to the match set, not left on the default 200.
+             * This fetch exists to put an event, a reporter and an
+             * audience beside each matched hash, and it orders by
+             * timestamp — so a hash held in three hundred events could
+             * fill the window on its own and push another matched hash
+             * out of it entirely. That would drop a row the engine had
+             * already decided to show, which is the failure this task
+             * is about. Twenty occurrences per match is generous
+             * against a measured worst case of 45 matches; whatever
+             * still fails to place is counted and reported below
+             * rather than quietly missing.
+             */
+            $matches = $this->model('Value')->occurrencesForAny(
+                $user,
+                array_map('strval', array_keys($scores)),
+                array(
+                    'types' => array('ssdeep'),
+                    'limit' => min(
+                        self::SSDEEP_CANDIDATE_CAP,
+                        max(200, count($scores) * 20)
+                    ),
+                )
             );
+            /*
+             * **One row per matched hash, not per occurrence of it.**
+             * A pair is two values, so a hash held in three events is
+             * one pair and not three — and the block above the table
+             * counts pairs. Folding here is what makes that sentence
+             * true, and it is the same fold `cidrEngine` performs for
+             * the same reason: what the row names is the match, and
+             * the event beside it is *an* occurrence of the far end
+             * rather than the only one.
+             */
+            $seen = array();
+            foreach ($this->decorate($user, $matches) as $match) {
+                $matched = $match['Attribute']['value'];
+                if (!isset($scores[$matched]) || isset($seen[$matched])) {
+                    continue;
+                }
+                $seen[$matched] = true;
+                $rows[] = $this->nearRow(
+                    $match,
+                    $matched,
+                    $scores[$matched],
+                    null,
+                    100
+                );
+            }
         }
         usort($rows, function ($a, $b) {
             return $b['prefix'] - $a['prefix'];
@@ -4297,6 +4368,11 @@ class ValueProfile extends AppModel
             'id' => 'ssdeep',
             'state' => 'active',
             'rows' => $rows,
+            'compared' => count($candidates['values']),
+            'matched' => count($scores),
+            'unplaced' => count($scores) - count($rows),
+            'saturated' => $candidates['saturated'],
+            'cap' => self::SSDEEP_CANDIDATE_CAP,
         );
     }
 

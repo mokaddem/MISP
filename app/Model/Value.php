@@ -1207,7 +1207,8 @@ class Value extends AppModel
     }
 
     /**
-     * Every occurrence of a given type except this value's own.
+     * The distinct values of a type, except this value's own, for an
+     * engine that wants to compare rather than to display.
      *
      * The ssdeep engine's candidate set. MISP's own path narrows it
      * first through `fuzzy_correlate_ssdeep`, an index built at save
@@ -1215,45 +1216,61 @@ class Value extends AppModel
      * against 1,387 `ssdeep` attributes, so narrowing through it would
      * return nothing and report it as *no match* rather than as *no
      * index*. Comparing against the type directly is what
-     * `ssdeep_fuzzy_compare` is for, is bounded by `limit`, and cannot
-     * silently inherit an empty index.
+     * `ssdeep_fuzzy_compare` is for and cannot silently inherit an
+     * empty index.
+     *
+     * **Values, not occurrences, and that is what makes the whole
+     * population affordable.** The engine used to take this set as
+     * fully-decorated rows and compare against the hundred most recent
+     * of them; a comparison needs the string and nothing else.
+     * Dropping eight fields to two roughly halves the fetch — 34.6 ms
+     * to 15.8 ms over this instance's 1,399 `ssdeep` attributes — and
+     * de-duplicating here means a hash held in thirty events is
+     * compared once instead of thirty times. The survivors are
+     * re-fetched with their context by `occurrencesForAny`, and there
+     * are never many: §14 measured 1,612 pairs over the threshold
+     * across the entire instance, and 45 partners on its busiest
+     * value.
+     *
+     * `contain` is deliberately not passed, so `fetchAttributesSimple`
+     * keeps its own default `['Event', 'Object']` join — the ACL's
+     * conditions are written against `Event`, and dropping that join
+     * to save a few milliseconds would drop the predicate with it.
+     * These rows must not be read for anything but the value, which is
+     * the trap `occurrencesForAny` documents above.
      *
      * @param array $user
      * @param string $type
      * @param string $value The value to exclude
-     * @param int $limit
-     * @return array fetchAttributesSimple rows
+     * @param int $limit Rows fetched, before de-duplication
+     * @return array {values: string[], fetched: int, saturated: bool}
      */
-    public function occurrencesOfType(array $user, $type, $value, $limit)
+    public function valuesOfType(array $user, $type, $value, $limit)
     {
-        return $this->attributes()->fetchAttributesSimple($user, array(
+        $rows = $this->attributes()->fetchAttributesSimple($user, array(
             'conditions' => array(
                 'Attribute.type' => $type,
                 'Attribute.deleted' => 0,
                 'NOT' => $this->conditionsFor($value),
             ),
-            'fields' => array(
-                'Attribute.id',
-                'Attribute.event_id',
-                'Attribute.object_id',
-                'Attribute.type',
-                'Attribute.value',
-                'Attribute.timestamp',
-                'Attribute.distribution',
-                'Attribute.sharing_group_id',
-            ),
+            'fields' => array('Attribute.id', 'Attribute.value'),
             /*
-             * Named fields rather than a bare `contain`. With an
-             * explicit `fields` list on the attribute, Containable
-             * selects nothing of its own from a `belongsTo` unless it
-             * is told what to take — so a bare contain joins the two
-             * tables, satisfies `buildConditions`, and hands back rows
-             * with no `Event.distribution` on them at all. The ACL is
-             * right and every reader of the row is wrong.
+             * Unordered on purpose. The old set was `timestamp DESC`
+             * because it was about to be truncated to a hundred rows;
+             * ordering a set you intend to keep whole is a sort nobody
+             * reads, and on this table it is a filesort.
              */
-            'contain' => self::CONTEXT_FIELDS,
-            'order' => array('Attribute.timestamp DESC'),
+            'order' => false,
             'limit' => (int)$limit,
         ));
+        $values = array();
+        foreach ($rows as $row) {
+            $values[$row['Attribute']['value']] = true;
+        }
+        return array(
+            'values' => array_keys($values),
+            'fetched' => count($rows),
+            'saturated' => count($rows) >= (int)$limit,
+        );
     }
 }
