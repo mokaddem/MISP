@@ -1210,14 +1210,17 @@ class Value extends AppModel
      * The distinct values of a type, except this value's own, for an
      * engine that wants to compare rather than to display.
      *
-     * The ssdeep engine's candidate set. MISP's own path narrows it
-     * first through `fuzzy_correlate_ssdeep`, an index built at save
-     * time — which holds **zero rows** on the verification instance
-     * against 1,387 `ssdeep` attributes, so narrowing through it would
-     * return nothing and report it as *no match* rather than as *no
-     * index*. Comparing against the type directly is what
-     * `ssdeep_fuzzy_compare` is for and cannot silently inherit an
-     * empty index.
+     * The ssdeep engine's candidate set, and it is **not** MISP's.
+     * `Correlation::ssdeepCorrelation` narrows through
+     * `fuzzy_correlate_ssdeep`, a chunk index that
+     * `query_ssdeep_chunks` populates as a side effect of being
+     * queried — so it only ever holds attributes saved *since* the
+     * extension started working. Measured here: **952 chunk rows
+     * covering 13 of 1,399 `ssdeep` attributes**, the 13 being the
+     * seeded ones. Narrowing through it would miss the other 1,386 and
+     * report *no match* where it means *no index*. Comparing against
+     * the type directly is what `ssdeep_fuzzy_compare` is for and
+     * cannot inherit an index nobody backfilled.
      *
      * **Values, not occurrences, and that is what makes the whole
      * population affordable.** The engine used to take this set as
