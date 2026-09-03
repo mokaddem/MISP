@@ -4482,6 +4482,109 @@ th[aria-sort="descending"] .sort-icon::before,
     color: var(--bs-secondary-color);
 }
 
+/* ----------------------------------------------------------------------
+ * The same card's second group: where in the intrusion
+ * ----------------------------------------------------------------------
+ * The neighbourhood's attack-pattern clusters folded to their tactics,
+ * in kill-chain order. It reads as a strip rather than as a list on
+ * purpose — the order *is* the finding, and a column of rows invites a
+ * reader to compare figures down it while a strip is read left to
+ * right, which is the direction a kill chain runs.
+ *
+ * **Colourless, and that is the whole treatment.** The rows above wear
+ * their galaxy's hue because MISP tints a cluster that way everywhere;
+ * a tactic has no galaxy of its own and nothing to inherit, so tinting
+ * these would mean inventing a scale — and a coloured strip under
+ * coloured badges would put two competing systems in one 340px card.
+ * The figures do the work, in the grammar the rows already set:
+ * `.vp-tactic-n` unmuted, everything around it not.
+ */
+.vp-tactics {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-tactic-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/*
+ * `position: relative` is what the hover card is placed against, the
+ * same job `.vp-threat-cell` does for a row's.
+ */
+.vp-tactic {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg, rgba(128, 128, 128, 0.22));
+    font-size: 0.68rem;
+    line-height: 1.35;
+    cursor: help;
+}
+
+.vp-tactic-name {
+    color: var(--bs-body-color);
+}
+
+.vp-tactic-n {
+    color: var(--bs-body-color);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A tactic the pooled kill chain cannot place sits after the ones it
+ * can, and says so rather than passing as part of the order: the strip
+ * claims a sequence, and a chip in it that is not in that sequence
+ * would be the strip overstating what it knows. Dashed, because the
+ * distinction is *unplaced*, not *lesser* — the tactic is as real as
+ * its neighbours and only its position is missing.
+ */
+.vp-tactic-unplaced {
+    background: none;
+    border: 1px dashed var(--bs-border-color);
+    padding: 1px 6px;
+}
+
+/*
+ * Opens left like the rows' card, and for the same reason: a 21rem
+ * card opening rightward from a rail against the page's right edge
+ * leaves the viewport. It never needs `placeThreatTip` — this group
+ * sits outside the list that scrolls, so it is never inside an
+ * `overflow` ancestor and stays `absolute` in every view.
+ */
+.vp-tactic .vp-claim-tip {
+    left: auto;
+    right: calc(100% + 9px);
+}
+
+.vp-tactic-note {
+    margin: 8px 0 0;
+    font-size: 0.64rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The hover's closing line, and not one of `.vp-claim-tiprow`'s
+ * labelled rows: that label column is a fixed 5.9rem so four sections
+ * of the claim card line up as one table, which leaves a lone
+ * `Seen on` sitting a centimetre from its own figures.
+ */
+.vp-tactic-tipfoot {
+    display: block;
+    color: var(--bs-secondary-color);
+}
+
 /*
  * ----------------------------------------------------------------------
  * The Relationships tab's contents strip

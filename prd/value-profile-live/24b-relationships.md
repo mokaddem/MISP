@@ -42,7 +42,7 @@ live instance and recorded in its own section below.
 | B7 | Dated strip: per-value lanes when rows are few | `value_span_strip` caller | S | no | no | **done** |
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | **done** |
 | B8.1 | Galaxies and taxonomies as neighbour context | `value_relation_cooccurrence` (new section), `value_relation_summary`, `value_relation_threats`, `value_relation_settings` | L | no | **yes — a third section with its own bar and pager** | **done** |
-| B9 | Where in the intrusion: tactic mix | B8's card | S | no | no — extends B8 | todo |
+| B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo |
 
 ## 2. The order, and why
@@ -2374,11 +2374,264 @@ technique cluster on those events as a row of its own — 21 of
 gives them a tactic roll-up, the section should probably say so rather
 than leave a reader to notice the same clusters counted twice on one
 tab. Decide when B9 is scoped; nothing about the section forecloses
-it.
+it. **Answered in §11.1** — the caption says it, over the whole fold
+rather than the page.
 
 On `8.8.8.8` the group has real material: 21 of its 26 event clusters
 are `mitre-attack-pattern`, which is also why B8 excludes them — folded
 into one list they would bury the two names beside them.
+
+
+### 11.1 Done — 2026-09-03
+
+The group is live at the foot of `value_relation_threats`, under a
+`.vp-subhead` reading **Where in the intrusion** and a rule separating
+it from the named-threat list.
+
+**It is a strip, and the order is the finding.** Every other list on
+this tab ranks by corroboration, and a tactic mix sorted that way
+would still say which tactics dominate while losing the one thing that
+makes it a chain: that a value ringed by discovery and defence evasion
+sits somewhere different from one ringed by exfiltration and impact.
+So the chips run the kill chain left to right and carry a count each,
+in the grammar the rows above set — `.vp-tactic-n` unmuted, everything
+round it not.
+
+**Colourless on purpose.** The rows wear their galaxy's hue because
+MISP tints a cluster that way everywhere; a tactic has no galaxy of its
+own and nothing to inherit, so tinting these would mean inventing a
+scale, and a coloured strip under coloured badges puts two competing
+systems in one 340px card.
+
+**The tactic was not on the cluster row, and that is the plan's one
+wrong assumption.** §11 was scoped on *zero additional queries*
+because B8's fetch had already returned these clusters. It had — but
+`fetchGalaxyClusters` contains `Galaxy` and nothing else unless asked
+for everything, and a technique's tactic lives in `galaxy_elements`
+under `key = 'kill_chain'`. So B9 reads it: one indexed query over the
+`attack-pattern` clusters in play, in `readRelationScan` rather than in
+the digest, so the card's fold stays query-free and the answer ages at
+the rate the panel already discloses. The plan's reasoning is left
+above rather than corrected in place, on §16.1's rule.
+
+**A `kill_chain` element is `<tab>:<tactic>`, and the tab is a
+platform.** `attack-Windows:defense-evasion`. One technique carries up
+to 40 of them — the same handful of tactics repeated once per
+operating system it applies to — so reading the last segment and
+de-duplicating per cluster is what collapses them back to tactics.
+The deprecated MITRE galaxies write three segments
+(`mitre-attack:enterprise-attack:defense-evasion`); last-segment is
+the rule either way, which is also what merges `Malicious`'s two
+attack-pattern galaxies into one set of tactics instead of two.
+
+#### The ordering problem, and why one galaxy could not solve it
+
+`mitre-attack-pattern`'s `kill_chain_order` is a map of **platform**
+tabs, one ordered list per operating system. Every platform tab starts
+at `initial-access`, and **no tab holds both `reconnaissance` and
+`initial-access`** — `attack-PRE` holds the first two alone. So that
+galaxy, read by itself, cannot say which of them comes first, and it
+matters: `attack-PRE` reaches **36 events on this instance**, and a
+strip putting reconnaissance after impact reads as a bug to anyone who
+knows ATT&CK.
+
+MISP's own matrix has the same gap and lands the same way round: the
+`getMatrix` FIXME merges the tabs in JSON order, which puts
+reconnaissance and resource development last. Copying it was the first
+instinct — consistency with MISP's own view is the argument B8 used for
+cluster badge colours — but a wart is not an idiom, and the fix turned
+out to be in the shipped data rather than in a list hardcoded here.
+
+**Two galaxies ship the whole chain as one list.**
+`cmtmf-attack-pattern` states ATT&CK's fourteen tactics in order and
+`mitre-atlas-attack-pattern` states them with its two ML stages
+inserted. Pooling the `kill_chain_order` of every `attack-pattern`-kind
+galaxy supplies exactly the relation the platform tabs omit, so the
+order stays derived from misp-galaxy instead of from a tactic list
+written into this page — which is the whole reason `GalaxyCategory`
+exists.
+
+`tacticChain` merges them under three rules, all in its docblock:
+
+- **A single-list galaxy is read before a multi-tab one**, longest
+  first. One list is an unambiguous statement about a whole chain;
+  many tabs state an order per platform and nothing between the
+  platforms. Read the other way round the platform tabs place
+  `initial-access` first and the complete chain then contradicts them.
+- **The merge inserts and never moves**, so where two frameworks
+  genuinely disagree the first read wins, deterministically, rather
+  than the merge having to detect a cycle and pick a loser anyway.
+- **A new tactic lands as late as its list allows** — immediately
+  before the next tactic that list names and the chain has already
+  placed. Both readings satisfy the list; the late one puts a tactic
+  beside the ones it belongs with. MoTIF's `defence-evasion` is the
+  case that showed it: its list says only *after persistence, before
+  credential access*, and inserting early left the British spelling
+  two places ahead of ATT&CK's `defense-evasion` instead of next to
+  it, which reads as a sort fault rather than as two frameworks
+  spelling one tactic differently. Both orderings were rendered; the
+  second is the one that stopped looking broken.
+
+The chain that comes out is 43 tactics and its head is exactly
+ATT&CK's:
+
+```
+reconnaissance · resource-development · initial-access ·
+ml-model-access · execution · persistence · privilege-escalation ·
+defense-evasion · defence-evasion · credential-access · discovery ·
+lateral-movement · collection · command-and-control ·
+ml-attack-staging · exfiltration · impact · network-effects ·
+remote-service-effects · <attck4fraud's 7> · <pre-attack's 17>
+```
+
+`defence-evasion` sits beside its twin rather than merged with it. The
+token is lower-cased and dashed, which merges ATT&CK's
+`defense-evasion` with ATRM's `Initial Access` and MoTIF's
+`Initial-Access`; a *spelling* difference between two frameworks is
+not the same thing, and papering over it would need a dictionary this
+page has no business holding.
+
+#### Three things the group has to keep saying
+
+All three are in the note under the strip, and each was written because
+the strip's shape can mislead without it.
+
+- **A technique filed under two tactics counts in both.** ATT&CK
+  genuinely files several that way — *Registry Run Keys / Startup
+  Folder* is persistence and privilege escalation — and picking one
+  would be this page inventing a fact. So the chips total more than
+  the techniques folded, and the note states the technique total
+  beside them. `1.1.1.1` is the value that makes it obvious: **5
+  chips from 2 placed techniques**, one technique spanning four
+  tactics.
+- **A technique whose galaxy ships no kill chain is in none of them**,
+  and is counted rather than dropped. Seven such clusters are tagged
+  on events here — two attack patterns and five ICS techniques, whose
+  galaxy ships no `kill_chain_order` and whose clusters carry no
+  `kill_chain` element at all.
+- **A value's techniques can span two galaxies**, and laid out as one
+  ordered run the strip would pass two chains off as one running past
+  `Impact`, which neither claims. So the note says how many galaxies
+  are represented and each chip's hover names its own. `Twitter` is
+  the witness: ATT&CK's run, then `attck4fraud`'s **Initiation** and
+  **Target compromise**, then the deprecated PRE-ATT&CK **Launch** —
+  each framework's own order kept, ATT&CK's first.
+
+#### The empty state had to be restructured
+
+The card branched on the named-threat rows around *everything*, so a
+value with no named threat rendered one negative sentence and stopped
+— which would now hide behaviour the card knows about. `1.1.1.1` and
+`103.76.128.34` are both in that state. The branch is now scoped to
+the list, the tactic group renders beside either outcome, and the
+negative sentence has a shorter form for the case where something
+*was* found: *"No actor, campaign, malware or tool is named in this
+value's 12 events"* rather than the longer *"Nothing in this value's
+12 events names…"*, because the group underneath is about to say what
+was.
+
+**The event-cap note moved out of that branch too.** It applies to
+both groups and to the empty state's own count, and inside the
+named-threat branch it was a note a value with no named threats never
+got to see, over a sentence already quoting the capped number.
+
+#### The labels section now points at it
+
+§11 left this open — *the section should probably say so rather than
+leave a reader to notice the same clusters counted twice on one tab* —
+and it is answered in the caption rather than deferred. Attack
+patterns are usually most of that section: **21 of `8.8.8.8`'s 26
+event clusters**, listed there as rows of their own and folded here
+into tactics. Without a word between them that is two findings about
+one neighbourhood. The caption now closes with *"21 are attack
+patterns, which the rail's Where in the intrusion strip folds into
+tactics — one set read two ways, not two findings."*
+
+Counted over the whole label fold rather than over the page, because
+the card is too — *the attack patterns among them* must not silently
+mean *among the hundred listed* — and the two numbers agree on screen,
+which is the card-counts/section-lists idiom the tab already runs on.
+
+#### The card's title stayed
+
+Considered and left alone. A card headed *Named threats in this
+neighbourhood* now holds a group that is not about named threats, and
+widening the title would strand the subtitle B8's design pass put
+there to define the term. The group's own heading names the second
+read, the contents strip indexes sections rather than rail cards, so
+nothing is looking for *where in the intrusion* in a title and failing
+to find it.
+
+#### The cost, stated
+
+| | |
+|---|---|
+| `tacticChain` | **1.3–5.8 ms** — one read of `galaxies`, 130 rows, yielding 43 tactics |
+| `clusterTactics` | **2.5–3.9 ms** — one indexed read of `galaxy_elements` over the clusters in play (20 of `8.8.8.8`'s 24, 49 of `Malicious`'s 189) |
+| the fold | no queries — it reads `co['labels']['rows']` |
+
+`tacticChain` is instance-wide and identical for every value and every
+reader, yet recomputed per digest. At single-digit milliseconds inside
+a method already caching its whole result, a cache of its own would be
+machinery for nothing; noted here so it is a decision rather than an
+oversight.
+
+Markup: the group is **2.0–29.8 KB**, about 2 KB a chip against the
+~2.9 KB a row the list above already pays, most of it the hover. On
+`8.8.8.8` that is 61% of a 26.1 KB fragment, which is a statement
+about the numerator — three named threats make for a small fragment —
+rather than about the group.
+
+**`CACHE_SHAPE` 8 → 9.** The scan's cluster records carry `tactics`
+now, so §6.2's rule retires the old payloads at the deploy. The
+template also defaults every key it reads, which is belt to that
+brace.
+
+#### Verified live
+
+`8.8.8.8`, `Malicious`, `443`, `0.0.0.0-0.255.255.255`, `APT43
+Report.pdf`, `Twitter`, `Informative`, `1.1.1.1`, `103.76.128.34`,
+`5.101.86.76` and `github.com`. All nine Relationships endpoints
+re-fetched on six of them after the cache bump — **54 renders, no PHP
+notice or fatal in any of them.**
+
+| Value | Tactics | What it exercises |
+|---|---|---|
+| `8.8.8.8` | 8 over 21 techniques, 3 multi-tactic | the spec's witness; ringed by **defense evasion 7** and **discovery 5** |
+| `Malicious` | 11 over 49 | the full chain, `initial-access` through `impact`, over two attack-pattern galaxies |
+| `APT43 Report.pdf` | 12 over 83, 15 multi-tactic | **`attack-PRE`** — `Resource development` renders first, the case the pooled chain exists for |
+| `Twitter` | 9 over 13 | three galaxies' chains end to end, in each one's own order |
+| `1.1.1.1` | 5 over 3 (2 placed, 1 unplaced) | no named threats + tactics: the restructured empty state, and the multi-tactic overcount made visible |
+| `103.76.128.34` | 9 over 17 (14 placed, 3 unplaced) | the ICS techniques that name no tactic, and `Reconnaissance` leading |
+| `0.0.0.0-0.255.255.255` | 1 | the value whose co-occurrence table is suppressed entirely — the group still answers, which is the scope property B8 kept |
+| `443` | 1 | the single-chip strip |
+| `github.com`, `5.101.86.76` | none | both groups empty, and threats-without-tactics |
+
+Screenshotted through headless Chrome with the tab clicked and the
+script running, both themes, and the chip hover driven with a real
+pointer — 336px wide, opening left, clamped on screen. Chips measure
+19px each, so none wraps. The dark pass is genuine here: the chip
+takes `--bs-secondary-bg` and `--bs-border-color`, both theme-driven,
+and nothing in the group carries a colour of its own.
+
+**The unplaced chip was displayed once rather than assumed.** No value
+on this instance can produce one — every tactic token that appears is
+placed by the pooled chain — so `discovery` was dropped from the chain
+for one render, `8.8.8.8` captured with a dashed `Discovery 5` sorting
+last, and the drop reverted. It is dashed rather than dimmed because
+the distinction is *unplaced*, not *lesser*: the tactic is as real as
+its neighbours and only its position is missing.
+
+#### Found while verifying, and not B9's
+
+`value-profile.js` throws `e.target.closest is not a function` twice
+on every load of this page, on values with no tactic group as much as
+with one. Two handlers guard the call — `placeFromEvent` and the main
+`click` listener both open with `if (!event.target.closest) return;` —
+and about a dozen others across the Sightings, Enrichment, Analyst,
+Timeline and History handlers do not. Pre-existing, the file is
+untouched by this task, and it wants a pass of its own; listed in §13
+so it is not mistaken for done.
 
 ## 12. B10 — a typosquat engine for near-matches — **grilling session first**
 
@@ -2450,6 +2703,13 @@ actually do.
 - **The ssdeep candidate cap** — §4.2, found while measuring B2 and
   unowned. Listed here so it is not mistaken for done; it wants a task
   of its own, because it is a wrong answer rather than a small one.
+- **`event.target.closest` unguarded in about a dozen handlers** —
+  §11.1, found while verifying B9 and unowned. It throws twice on every
+  load of this page; `placeFromEvent` and the main `click` listener
+  guard the call and the Sightings, Enrichment, Analyst, Timeline and
+  History handlers do not. Pre-existing and nothing to do with this
+  subphase, which is exactly why it needs listing rather than
+  mentioning.
 - **The Timeline source lane** — the Timeline tab's phase;
   `url-honeypot-detection` joined `passive-dns` as a candidate.
 - **WHOIS history, JARM/favicon/cert pivots, contacted

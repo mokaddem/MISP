@@ -94,6 +94,13 @@ class GalaxyCategory
     const TOOL = 'tool';
 
     /**
+     * The `TECHNIQUE` kind whose clusters carry a `kill_chain` element,
+     * which is what a tactic roll-up reads. Named because two callers
+     * ask for it now — `isAttackPattern` and the tactic chain.
+     */
+    const ATTACK_PATTERN = 'attack-pattern';
+
+    /**
      * Galaxy `type` => array(category, kind).
      *
      * Keyed on `type` because that is the string inside every tag name
@@ -172,21 +179,21 @@ class GalaxyCategory
         // roll-up reads; `technique` is every other framework's own
         // technique list; `tactic` names a phase directly.
         'mitre-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'mitre-enterprise-attack-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'mitre-mobile-attack-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'mitre-pre-attack-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'mitre-atlas-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'mitre-ics-techniques' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'cmtmf-attack-pattern' =>
-            array(self::TECHNIQUE, 'attack-pattern'),
-        'financial-fraud' => array(self::TECHNIQUE, 'attack-pattern'),
-        'gsma-motif' => array(self::TECHNIQUE, 'attack-pattern'),
+            array(self::TECHNIQUE, self::ATTACK_PATTERN),
+        'financial-fraud' => array(self::TECHNIQUE, self::ATTACK_PATTERN),
+        'gsma-motif' => array(self::TECHNIQUE, self::ATTACK_PATTERN),
         'amitt-misinformation-pattern' =>
             array(self::TECHNIQUE, 'technique'),
         'disarm-techniques' => array(self::TECHNIQUE, 'technique'),
@@ -305,6 +312,46 @@ class GalaxyCategory
     {
         $found = self::of($galaxyType);
         return $found === null ? null : $found['kind'];
+    }
+
+    /**
+     * Whether this galaxy's clusters are ATT&CK-shaped techniques —
+     * the ones that carry a `kill_chain` element naming their tactic,
+     * and so the ones a tactic roll-up can place.
+     *
+     * The other two `TECHNIQUE` kinds are excluded and each for its own
+     * reason. A `tactic` galaxy's clusters *are* tactics, so collapsing
+     * them would have a tactic counting itself; a `technique` galaxy is
+     * another framework's technique list, whose tactic vocabulary is
+     * its own and does not belong on one strip with ATT&CK's.
+     *
+     * @param string $galaxyType
+     * @return bool
+     */
+    public static function isAttackPattern($galaxyType)
+    {
+        $found = self::of($galaxyType);
+        return $found !== null
+            && $found['category'] === self::TECHNIQUE
+            && $found['kind'] === self::ATTACK_PATTERN;
+    }
+
+    /**
+     * Every galaxy type of one kind, for a caller that has to ask in
+     * SQL rather than over rows already read.
+     *
+     * @param string $kind The second half of a `$table` pair
+     * @return array Galaxy types
+     */
+    public static function typesOfKind($kind)
+    {
+        $types = array();
+        foreach (self::$table as $type => $pair) {
+            if ($pair[1] === $kind) {
+                $types[] = $type;
+            }
+        }
+        return $types;
     }
 
     /**

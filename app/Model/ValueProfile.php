@@ -184,7 +184,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 8;
+    const CACHE_SHAPE = 9;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -1689,6 +1689,7 @@ class ValueProfile extends AppModel
             'relationships' => array(
                 'summary' => $digest['summary'],
                 'threats' => $digest['threats'],
+                'tactics' => $digest['tactics'],
                 'read_at' => $digest['read_at'],
             ),
         );
@@ -2177,6 +2178,18 @@ class ValueProfile extends AppModel
                     ? $asserted['claims']
                     : array()
             ),
+            /*
+             * The same card's second group, and a second reader of the
+             * same label rows rather than a second read of anything:
+             * the `attack-pattern` clusters the card above filters out
+             * are the ones this folds. The chain it orders them on is
+             * the one lookup, over a 130-row table, held here with the
+             * rest of the digest.
+             */
+            'tactics' => $this->neighbourhoodTactics(
+                $context['co'],
+                $this->tacticChain()
+            ),
             'read_at' => isset($context['co']['scan']['read_at'])
                 ? (int)$context['co']['scan']['read_at']
                 : time(),
@@ -2505,6 +2518,435 @@ class ValueProfile extends AppModel
         return isset($ranks[$attachment]) ? $ranks[$attachment] : 0;
     }
 
+    /**
+     * Where in the intrusion this value's neighbourhood sits: the
+     * technique clusters around it, collapsed to their tactics.
+     *
+     * A second group on the named-threat card, answering *what stage*
+     * where that one answers *who* — which is why it is a group and not
+     * more rows in the same list. It is a fold over the labels the
+     * co-occurrence scan already holds: the `attack-pattern` clusters
+     * that card filters out are sitting in `$co['labels']['rows']` with
+     * their events and organisations counted, so this issues no query
+     * and reads nothing the tab has not already read.
+     *
+     * **A technique counts in every tactic it belongs to**, because
+     * ATT&CK genuinely files several that way — *Registry Run Keys /
+     * Startup Folder* is persistence and privilege escalation both, and
+     * picking one of the two would be this page inventing a fact. The
+     * consequence is that the counts sum to more than the techniques
+     * they were folded from, so the group states the technique total
+     * beside them rather than leaving a reader to add the chips up and
+     * get a bigger number than the neighbourhood holds.
+     *
+     * **A technique with no `kill_chain` element cannot be placed**, and
+     * is counted rather than dropped: 7 of the clusters tagged on events
+     * here are in that state — 2 attack patterns and 5 ICS techniques
+     * whose galaxy ships no kill chain at all. The group says how many
+     * it could not place, on the same rule every cap on this tab
+     * follows.
+     *
+     * @param array $co The co-occurrence fold, `$context['co']`
+     * @param array $chain Tactic token => position, `tacticChain()`
+     * @return array rows, total, techniques, placed, unplaced, multi
+     */
+    private function neighbourhoodTactics(array $co, array $chain)
+    {
+        $found = array(
+            'rows' => array(),
+            'total' => 0,
+            'techniques' => 0,
+            'placed' => 0,
+            'unplaced' => 0,
+            'multi' => 0,
+        );
+        $labels = isset($co['labels']['rows'])
+            ? $co['labels']['rows']
+            : array();
+
+        $byTactic = array();
+        foreach ($labels as $label) {
+            if ($label['kind'] !== ValueRelationTool::KIND_CLUSTER
+                || empty($label['cluster'])
+            ) {
+                continue;
+            }
+            $record = $label['cluster']['GalaxyCluster'];
+            if (!GalaxyCategory::isAttackPattern($record['type'])) {
+                continue;
+            }
+            $found['techniques']++;
+            $tactics = empty($record['tactics'])
+                ? array()
+                : $record['tactics'];
+            if (empty($tactics)) {
+                $found['unplaced']++;
+                continue;
+            }
+            $found['placed']++;
+            if (count($tactics) > 1) {
+                $found['multi']++;
+            }
+            foreach ($tactics as $token) {
+                if (!isset($byTactic[$token])) {
+                    $byTactic[$token] = array(
+                        'tactic' => $token,
+                        'name' => self::tacticName($token),
+                        'techniques' => array(),
+                        'events' => array(),
+                        'orgs' => array(),
+                        'galaxies' => array(),
+                    );
+                }
+                /*
+                 * Whose kill chain this tactic is on, and the chip's
+                 * hover is where it has to be said. The strip is one
+                 * ordered run of chips, so a value whose techniques
+                 * span two frameworks — `attck4fraud`'s tactics after
+                 * ATT&CK's, which is what the fraud events here
+                 * produce — reads as a single chain running past
+                 * `Impact`, and no framework claims that. Naming the
+                 * galaxy is the same answer the rows above give for a
+                 * cluster's family, from the same field.
+                 */
+                $galaxy = empty($record['Galaxy']['name'])
+                    ? $record['type']
+                    : $record['Galaxy']['name'];
+                $byTactic[$token]['galaxies'][$galaxy] = $galaxy;
+                /*
+                 * The cluster's own name, which is what the fold prints
+                 * in place of a value — `Masquerading - T1036` rather
+                 * than the tag string storing it.
+                 */
+                $byTactic[$token]['techniques'][$label['label']] =
+                    $label['label'];
+                foreach ($label['events'] as $eventId) {
+                    $byTactic[$token]['events'][(int)$eventId] = true;
+                }
+                foreach ($label['orgs'] as $name) {
+                    $byTactic[$token]['orgs'][$name] = $name;
+                }
+            }
+        }
+
+        $rows = array();
+        $frameworks = array();
+        foreach ($byTactic as $token => $tactic) {
+            $names = array_values($tactic['techniques']);
+            sort($names);
+            $galaxies = array_values($tactic['galaxies']);
+            sort($galaxies);
+            foreach ($galaxies as $galaxy) {
+                $frameworks[$galaxy] = $galaxy;
+            }
+            $rows[] = array(
+                'tactic' => $token,
+                'name' => $tactic['name'],
+                'techniques' => count($names),
+                'technique_names' => $names,
+                'events' => count($tactic['events']),
+                'orgs' => count($tactic['orgs']),
+                'galaxies' => $galaxies,
+                /*
+                 * A tactic the chain cannot place still gets a chip —
+                 * it is a real reading of a real cluster — and sorts
+                 * after the ones it can, rather than at a position the
+                 * data never stated.
+                 */
+                'position' => isset($chain[$token])
+                    ? $chain[$token]
+                    : null,
+            );
+        }
+        usort($rows, function ($a, $b) {
+            if (($a['position'] === null) !== ($b['position'] === null)) {
+                return $a['position'] === null ? 1 : -1;
+            }
+            if ($a['position'] !== null
+                && $a['position'] !== $b['position']
+            ) {
+                return $a['position'] - $b['position'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+        $found['rows'] = $rows;
+        $found['total'] = count($rows);
+        /*
+         * How many kill chains the strip is showing at once. One is the
+         * ordinary case and needs no words; more than one is the case
+         * where the strip's single ordered run stops being a single
+         * chain, and the group says so.
+         */
+        $found['frameworks'] = count($frameworks);
+        return $found;
+    }
+
+    /**
+     * A tactic token as a reader should see it.
+     *
+     * The token is whatever the galaxy wrote after the last colon of a
+     * `kill_chain` element, normalised — so `defense-evasion` and
+     * `Defense Evasion` are one tactic rather than two chips saying the
+     * same thing. Sentence case rather than ATT&CK's own Title Case:
+     * the chips sit under a card whose rows are proper names, and
+     * title-casing a phrase competes with them for the same glance.
+     *
+     * @param string $token
+     * @return string
+     */
+    private static function tacticName($token)
+    {
+        $words = str_replace('-', ' ', $token);
+        return mb_strtoupper(mb_substr($words, 0, 1)) . mb_substr($words, 1);
+    }
+
+    /**
+     * One tactic token, as the two callers have to agree on it.
+     *
+     * A `kill_chain` element is `<tab>:<tactic>` — `attack-Windows:
+     * defense-evasion` — and occasionally `<galaxy>:<tab>:<tactic>`,
+     * which the deprecated MITRE galaxies write. The tactic is the last
+     * segment either way, and the tab in front of it is the *platform*
+     * rather than a second dimension: one technique carries up to 40 of
+     * these elements, the same handful of tactics repeated once per
+     * operating system it applies to. Reading the last segment and
+     * de-duplicating is what collapses that back to the tactics.
+     *
+     * Lower-cased and dashed, which merges the three spellings the
+     * shipped galaxies use for one tactic — ATT&CK's `defense-evasion`,
+     * ATRM's `Initial Access`, MoTIF's `Initial-Access`. It does not
+     * merge `defence-evasion` with `defense-evasion`: that is a real
+     * spelling difference between two frameworks and papering over it
+     * would need a dictionary this page has no business holding.
+     *
+     * @param string $value A `kill_chain` element's value
+     * @return string
+     */
+    private static function tacticToken($value)
+    {
+        $parts = explode(':', (string)$value);
+        $tactic = trim(array_pop($parts));
+        return str_replace(' ', '-', mb_strtolower($tactic));
+    }
+
+    /**
+     * Which tactics each of these clusters names, keyed by cluster id.
+     *
+     * One indexed read over `galaxy_elements`, and it is the query B9
+     * was scoped believing it would not need: the tactic is not on the
+     * cluster row. `fetchGalaxyClusters` contains `Galaxy` and nothing
+     * else unless asked for everything, so the `kill_chain` elements —
+     * 5,964 rows of the table's 304,132 — have to be read. Scoped to
+     * the `attack-pattern` clusters actually in play, which is tens of
+     * ids against an index on `galaxy_cluster_id`.
+     *
+     * It runs in the scan rather than in the digest so that the card's
+     * fold stays query-free and the answer ages at the rate the panel
+     * already discloses.
+     *
+     * @param array $clusters `claimClusters`' by_uuid / by_tag maps
+     * @return array Cluster id => tactic tokens, in first-seen order
+     */
+    private function clusterTactics(array $clusters)
+    {
+        $ids = array();
+        foreach (array('by_tag', 'by_uuid') as $side) {
+            if (empty($clusters[$side])) {
+                continue;
+            }
+            foreach ($clusters[$side] as $row) {
+                $record = $row['GalaxyCluster'];
+                if (GalaxyCategory::isAttackPattern($record['type'])) {
+                    $ids[(int)$record['id']] = true;
+                }
+            }
+        }
+        if (empty($ids)) {
+            return array();
+        }
+        $elements = $this->model('GalaxyElement')->find('all', array(
+            'recursive' => -1,
+            'fields' => array(
+                'GalaxyElement.galaxy_cluster_id',
+                'GalaxyElement.value',
+            ),
+            'conditions' => array(
+                'GalaxyElement.key' => 'kill_chain',
+                'GalaxyElement.galaxy_cluster_id' => array_keys($ids),
+            ),
+        ));
+        $tactics = array();
+        foreach ($elements as $element) {
+            $id = (int)$element['GalaxyElement']['galaxy_cluster_id'];
+            $token = self::tacticToken($element['GalaxyElement']['value']);
+            if ($token === '') {
+                continue;
+            }
+            if (!isset($tactics[$id])) {
+                $tactics[$id] = array();
+            }
+            $tactics[$id][$token] = $token;
+        }
+        foreach ($tactics as $id => $tokens) {
+            $tactics[$id] = array_values($tokens);
+        }
+        return $tactics;
+    }
+
+    /**
+     * The kill chain these tactics sit on, as token => position.
+     *
+     * **Ordered by the galaxies' own `kill_chain_order`, pooled across
+     * the ATT&CK-shaped families rather than read off one of them**, and
+     * pooling is what makes the order come out right. `mitre-attack-
+     * pattern`'s order is a map of *platform* tabs — one list per
+     * operating system — and no tab holds both `reconnaissance` and
+     * `initial-access`, so that galaxy alone cannot say which of them
+     * comes first. It matters: `attack-PRE`'s two tactics reach 36
+     * events on the verification instance, and a strip putting
+     * reconnaissance after impact reads as a bug. Two galaxies ship the
+     * whole chain as a single list — `cmtmf-attack-pattern` states
+     * ATT&CK's fourteen tactics in order and `mitre-atlas-attack-
+     * pattern` states them with its two ML stages inserted — and
+     * reading those alongside the platform tabs supplies exactly the
+     * relation the tabs omit. So the answer stays derived from shipped
+     * data instead of from a tactic list hardcoded here, which is the
+     * whole reason `GalaxyCategory` exists.
+     *
+     * **A single-list galaxy is read before a multi-tab one**, longest
+     * list first, because one list is an unambiguous statement about
+     * the whole chain while many tabs state an order per platform and
+     * nothing between the platforms. Read the other way round, the
+     * platform tabs place `initial-access` first and the complete chain
+     * then contradicts them.
+     *
+     * **The merge inserts and never moves.** Each list walks the chain
+     * built so far, and a tactic it names that is already placed only
+     * advances the insertion point — so where two frameworks genuinely
+     * disagree the first one read wins, deterministically, rather than
+     * the merge having to detect a cycle and pick a loser anyway. A
+     * list sharing no tactic with the chain is a separate framework's
+     * kill chain — `attck4fraud`'s seven, the deprecated `pre-attack`'s
+     * seventeen — and follows the chain rather than being interleaved
+     * into it.
+     *
+     * **A new tactic lands as late as its list allows**, immediately
+     * before the next tactic that list names and the chain has already
+     * placed, rather than immediately after the previous one. Both
+     * satisfy the list; the late reading puts a tactic beside the ones
+     * it belongs with. MoTIF's `defence-evasion` is the case that shows
+     * it: its list says only *after persistence, before credential
+     * access*, and inserting early left the British spelling sitting
+     * two places ahead of ATT&CK's `defense-evasion` instead of next
+     * to it, which reads as a sort fault rather than as two frameworks
+     * spelling one tactic differently.
+     *
+     * @return array Tactic token => position
+     */
+    private function tacticChain()
+    {
+        $rows = $this->model('Galaxy')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Galaxy.type', 'Galaxy.kill_chain_order'),
+            'conditions' => array(
+                'Galaxy.type' => GalaxyCategory::typesOfKind(
+                    GalaxyCategory::ATTACK_PATTERN
+                ),
+            ),
+        ));
+
+        /*
+         * `Galaxy::afterFind` decodes the column, and leaves null both
+         * where it is empty and where it holds the literal `null` a
+         * hand-made galaxy can carry.
+         */
+        $orders = array();
+        foreach ($rows as $row) {
+            $order = $row['Galaxy']['kill_chain_order'];
+            if (empty($order) || !is_array($order)) {
+                continue;
+            }
+            $tokens = 0;
+            foreach ($order as $columns) {
+                $tokens += count($columns);
+            }
+            $orders[] = array(
+                'type' => $row['Galaxy']['type'],
+                'tabs' => count($order),
+                'tokens' => $tokens,
+                'order' => $order,
+            );
+        }
+        usort($orders, function ($a, $b) {
+            if ($a['tabs'] !== $b['tabs']) {
+                return $a['tabs'] - $b['tabs'];
+            }
+            if ($a['tokens'] !== $b['tokens']) {
+                return $b['tokens'] - $a['tokens'];
+            }
+            return strcmp($a['type'], $b['type']);
+        });
+
+        $chain = array();
+        foreach ($orders as $galaxy) {
+            foreach ($galaxy['order'] as $columns) {
+                $sequence = array();
+                foreach ($columns as $column) {
+                    $token = self::tacticToken($column);
+                    if ($token !== '') {
+                        $sequence[$token] = $token;
+                    }
+                }
+                self::mergeTactics($chain, array_values($sequence));
+            }
+        }
+        return array_flip($chain);
+    }
+
+    /**
+     * One kill chain merged into the chain built so far.
+     *
+     * See `tacticChain` for why it inserts and never moves. A sequence
+     * with nothing in common with the chain is appended whole, because
+     * a framework whose tactics relate to none of the placed ones has
+     * stated no position among them.
+     *
+     * @param array $chain Ordered tokens, modified in place
+     * @param array $sequence One tab's tactics, in its own order
+     * @return void
+     */
+    private static function mergeTactics(array &$chain, array $sequence)
+    {
+        if (empty($sequence)) {
+            return;
+        }
+        if (empty(array_intersect($sequence, $chain))) {
+            foreach ($sequence as $token) {
+                $chain[] = $token;
+            }
+            return;
+        }
+        $at = -1;
+        $pending = array();
+        foreach ($sequence as $token) {
+            $found = array_search($token, $chain, true);
+            if ($found === false) {
+                $pending[] = $token;
+                continue;
+            }
+            if (!empty($pending)) {
+                $insert = max($at + 1, $found);
+                array_splice($chain, $insert, 0, $pending);
+                $found += count($pending);
+                $pending = array();
+            }
+            $at = max($at, $found);
+        }
+        if (!empty($pending)) {
+            array_splice($chain, $at + 1, 0, $pending);
+        }
+    }
+
     private function relationScan(array $user, $value, array $options,
         $fresh = false
     ) {
@@ -2647,6 +3089,25 @@ class ValueProfile extends AppModel
             array(),
             array_keys($galaxyNames)
         );
+
+        /*
+         * Which tactic each technique cluster names, written onto the
+         * cluster record so the fold carries it into the label rows and
+         * the tactic group needs no second lookup — the same decoration
+         * `Galaxy::getMatrix` does with `external_id`, and for the same
+         * reason: the element is what the caller wants and the row is
+         * where it has to arrive.
+         */
+        $clusterTactics = $this->clusterTactics($clusters);
+        foreach (array('by_tag', 'by_uuid') as $side) {
+            foreach ($clusters[$side] as $key => $row) {
+                $id = (int)$row['GalaxyCluster']['id'];
+                $clusters[$side][$key]['GalaxyCluster']['tactics'] =
+                    isset($clusterTactics[$id])
+                        ? $clusterTactics[$id]
+                        : array();
+            }
+        }
 
         /*
          * The organisations credited on a label row are the creator

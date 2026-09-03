@@ -32,6 +32,22 @@
  * the per-row kind label goes away while it is picked because the
  * pill already says it.
  *
+ * **A second group under them: where in the intrusion.** The same
+ * events' attack-pattern clusters, folded to their tactics and laid
+ * out in kill-chain order — what stage, where the list above says who.
+ * It is a group on this card rather than a card of its own because the
+ * two are folded from the same events and the tab does not grow, and a
+ * strip rather than a list because the *order* is the finding: the
+ * chips are not ranked by count, they run the chain.
+ *
+ * Three things it has to keep saying, all in the note under it. A
+ * technique filed under two tactics counts in both, so the chips total
+ * more than the techniques folded. A technique whose galaxy ships no
+ * kill chain is in none of them and is counted separately. And a value
+ * whose techniques span two galaxies gets two chains laid end to end,
+ * which the single run of chips would otherwise pass off as one — so
+ * the note says how many, and each chip's hover names its own.
+ *
  * Lazily loaded from ValuesController::viewRelationThreats.
  *
  * @var array $valueProfile
@@ -46,6 +62,25 @@ $threats = $relations['threats'];
 $rows = isset($threats['rows']) ? $threats['rows'] : array();
 $total = isset($threats['total']) ? (int)$threats['total'] : 0;
 $cap = isset($threats['cap']) ? (int)$threats['cap'] : 8;
+
+/*
+ * The card's second group, which answers *what stage* where the list
+ * above answers *who* — the same events' attack-pattern clusters folded
+ * to their tactics and laid out in kill-chain order. Defaulted rather
+ * than assumed: a scan cached before this group existed carries no
+ * `tactics` key, and §6.2's rule retires those payloads at the deploy
+ * while the template has to survive the one read that beats it.
+ */
+$tactics = isset($relations['tactics']) ? $relations['tactics'] : array();
+$tacticRows = isset($tactics['rows']) ? $tactics['rows'] : array();
+$techniques = isset($tactics['techniques'])
+    ? (int)$tactics['techniques']
+    : 0;
+$unplaced = isset($tactics['unplaced']) ? (int)$tactics['unplaced'] : 0;
+$multi = isset($tactics['multi']) ? (int)$tactics['multi'] : 0;
+$frameworks = isset($tactics['frameworks'])
+    ? (int)$tactics['frameworks']
+    : 0;
 $eventsRead = isset($threats['events_read'])
     ? (int)$threats['events_read']
     : 0;
@@ -405,6 +440,24 @@ $row = function (array $threat, $folded) use (
                         'This value is in no event you may read, so'
                         . ' there is no neighbourhood to name.'
                     )) ?>
+                <?php elseif (!empty($tacticRows)): ?>
+                    <?php /*
+                     * The neighbourhood names no threat but does name
+                     * behaviour, so the card is not empty and the long
+                     * form below would be the wrong length: the group
+                     * under it is about to say what *was* found, and
+                     * this only has to say what was not.
+                     */ ?>
+                    <?= h(sprintf(
+                        __n(
+                            'No actor, campaign, malware or tool is'
+                            . ' named in this value\'s %d event.',
+                            'No actor, campaign, malware or tool is'
+                            . ' named in this value\'s %d events.',
+                            $eventsRead
+                        ),
+                        $eventsRead
+                    )) ?>
                 <?php else: ?>
                     <?= h(sprintf(
                         __n(
@@ -455,18 +508,225 @@ $row = function (array $threat, $folded) use (
                     )) ?>
                 </button>
             <?php endif; ?>
+        <?php endif; ?>
 
-            <?php if ($eventCap > 0 && $eventsRead >= $eventCap): ?>
-                <p class="vp-threat-note">
+        <?php if (!empty($tacticRows)): ?>
+            <?php /*
+             * **Where in the intrusion**, and it is a group rather than
+             * more rows above because it answers a different question:
+             * what stage, not who. The two share the card because they
+             * are folded from the same events, and the tab's own rule
+             * is that a new element lands inside an existing panel.
+             *
+             * Chips in kill-chain order, not ranked by count — the
+             * order is the reading. Every other list on this tab ranks
+             * by corroboration, and a tactic mix sorted that way would
+             * still say which tactics dominate while losing the one
+             * thing that makes it a *chain*: that a value ringed by
+             * discovery and defence evasion sits somewhere different
+             * from one ringed by exfiltration and impact.
+             */ ?>
+            <div class="vp-tactics">
+                <div class="vp-subhead">
+                    <?= h(__('Where in the intrusion')) ?>
+                </div>
+                <ul class="vp-tactic-list">
+                    <?php foreach ($tacticRows as $tactic): ?>
+                        <li class="vp-tactic vp-claim-tipwrap<?=
+                            $tactic['position'] === null
+                                ? ' vp-tactic-unplaced'
+                                : '' ?>">
+                            <span class="vp-tactic-name"><?=
+                                h($tactic['name']) ?></span>
+                            <span class="vp-tactic-n"><?=
+                                (int)$tactic['techniques'] ?></span>
+                            <?php /*
+                             * The card's own hover, same classes as the
+                             * figures above it: a chip has room for a
+                             * name and a number, and *which techniques*
+                             * is the question the number raises.
+                             *
+                             * No `placeThreatTip` call for these, and
+                             * none needed — that function exists for
+                             * the rows inside the scrolling list, whose
+                             * card has to go `fixed` to escape an
+                             * `overflow` ancestor. This group sits
+                             * outside that box in every view, so the
+                             * stylesheet places it.
+                             */ ?>
+                            <span class="vp-claim-tip" role="tooltip">
+                                <span class="vp-claim-tiphead"><?=
+                                    h(sprintf(
+                                        __n(
+                                            '%d technique in this'
+                                                . ' tactic',
+                                            '%d techniques in this'
+                                                . ' tactic',
+                                            (int)$tactic['techniques']
+                                        ),
+                                        (int)$tactic['techniques']
+                                    )) ?></span>
+                                <span class="vp-claim-tiprow">
+                                    <span class="vp-threat-tipevents">
+                                        <?php foreach (array_slice(
+                                            $tactic['technique_names'],
+                                            0,
+                                            6
+                                        ) as $name): ?>
+                                            <span
+                                                class="vp-threat-tipevent"
+                                            ><?= h($name) ?></span>
+                                        <?php endforeach; ?>
+                                        <?php $spare = count(
+                                            $tactic['technique_names']
+                                        ) - 6; ?>
+                                        <?php if ($spare > 0): ?>
+                                            <span
+                                                class="vp-threat-tipevent"
+                                            ><?= h(sprintf(
+                                                __('and %d more'),
+                                                $spare
+                                            )) ?></span>
+                                        <?php endif; ?>
+                                    </span>
+                                </span>
+                                <?php /*
+                                 * A plain line rather than one of the
+                                 * card's labelled rows: that label
+                                 * column is a fixed 5.9rem so the
+                                 * claim card's four sections line up
+                                 * as one table, and a single `Seen on`
+                                 * against it is a label stranded from
+                                 * its own figures.
+                                 */ ?>
+                                <?php if (!empty($tactic['galaxies'])): ?>
+                                    <?php /*
+                                     * Whose kill chain this tactic is
+                                     * on. The strip is one ordered run
+                                     * of chips, so a value carrying
+                                     * two frameworks' techniques would
+                                     * otherwise read as one chain
+                                     * running past `Impact` — which
+                                     * none of them claims.
+                                     */ ?>
+                                    <span class="vp-tactic-tipfoot"><?=
+                                        h(sprintf(
+                                            __('From the %s galaxy'),
+                                            implode(
+                                                ', ',
+                                                $tactic['galaxies']
+                                            )
+                                        )) ?></span>
+                                <?php endif; ?>
+                                <span class="vp-tactic-tipfoot"><?=
+                                    h(sprintf(
+                                        __('Seen on %s · %s'),
+                                        sprintf(
+                                            __n(
+                                                '%d event',
+                                                '%d events',
+                                                (int)$tactic['events']
+                                            ),
+                                            (int)$tactic['events']
+                                        ),
+                                        sprintf(
+                                            __n(
+                                                '%d organisation',
+                                                '%d organisations',
+                                                (int)$tactic['orgs']
+                                            ),
+                                            (int)$tactic['orgs']
+                                        )
+                                    )) ?></span>
+                                <?php if ($tactic['position'] === null): ?>
+                                    <span class="vp-tactic-tipfoot"><?=
+                                        h(__(
+                                            'Its galaxy states no kill'
+                                            . ' chain, so this tactic'
+                                            . ' has no place in the'
+                                            . ' order.'
+                                        )) ?></span>
+                                <?php endif; ?>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php /*
+                 * What the chips are counted from, and the two ways
+                 * that count is not a partition of it. Both have to be
+                 * said: a reader adding the chips up gets a number
+                 * larger than the techniques folded, and a technique
+                 * whose galaxy ships no kill chain is in none of them.
+                 */ ?>
+                <p class="vp-tactic-note">
                     <?= h(sprintf(
-                        __(
-                            'This value is in more than %d events, and'
-                            . ' these are the most recent.'
+                        __n(
+                            'Folded from %d technique on these events.',
+                            'Folded from %d techniques on these events.',
+                            $techniques
                         ),
-                        $eventCap
+                        $techniques
                     )) ?>
+                    <?php if ($multi > 0): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%d of them sits in more than one'
+                                . ' tactic and counts in each.',
+                                '%d of them sit in more than one'
+                                . ' tactic and count in each.',
+                                $multi
+                            ),
+                            $multi
+                        )) ?>
+                    <?php endif; ?>
+                    <?php if ($unplaced > 0): ?>
+                        <?= h(sprintf(
+                            __n(
+                                '%d names no tactic and is in none of'
+                                . ' these counts.',
+                                '%d name no tactic and are in none of'
+                                . ' these counts.',
+                                $unplaced
+                            ),
+                            $unplaced
+                        )) ?>
+                    <?php endif; ?>
+                    <?php if ($frameworks > 1): ?>
+                        <?php /*
+                         * The one thing the strip's shape can mislead
+                         * about: laid out as a single run it looks like
+                         * one chain, and two galaxies' tactics in a
+                         * row are two. Each chip's hover names its own.
+                         */ ?>
+                        <?= h(sprintf(
+                            __(
+                                'They come from %d galaxies, each'
+                                . ' ordered by its own kill chain —'
+                                . ' hover a tactic for which.'
+                            ),
+                            $frameworks
+                        )) ?>
+                    <?php endif; ?>
                 </p>
-            <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php /*
+         * The event cap applies to both groups and to the empty state's
+         * own count, so it sits outside them. Inside the named-threat
+         * branch it was a note a value with no named threats never got
+         * to see, over a sentence already quoting the capped number.
+         */ ?>
+        <?php if ($eventCap > 0 && $eventsRead >= $eventCap): ?>
+            <p class="vp-threat-note">
+                <?= h(sprintf(
+                    __(
+                        'This value is in more than %d events, and'
+                        . ' these are the most recent.'
+                    ),
+                    $eventCap
+                )) ?>
+            </p>
         <?php endif; ?>
     </div>
 </div>
