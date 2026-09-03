@@ -2637,6 +2637,48 @@ Timeline and History handlers do not. Pre-existing, the file is
 untouched by this task, and it wants a pass of its own; listed in §13
 so it is not mistaken for done.
 
+##### Fixed — 2026-09-03, and the finding above named the wrong file
+
+Reproduced under Playwright with console and `pageerror` capture before
+anything was edited, which is the only reason the fix landed anywhere
+useful: **the throw is not in `value-profile.js` at all.** The string
+`e.target.closest` does not appear in that file, and its dozen
+unguarded `event.target.closest` calls are all reached through the main
+`click` listener that already guards — they were never able to throw.
+The stack points at `mispOvermind.js:2489`, a **capture-phase
+`mouseenter` listener on `document`** in the sighting-cell popover
+block. `mouseenter` fires on the document itself when the pointer
+enters the window, `document` is not an Element, and it has no
+`closest`. Guarding a dozen handlers in `value-profile.js` would have
+changed nothing and reported the bug fixed.
+
+The guard is the idiom that file already uses eleven lines earlier
+(`e.target.closest && e.target.closest(...)`, line 318), applied to the
+`mouseenter` handler and to the `click` handler beside it. Verified:
+all eight tabs load with an empty console.
+
+##### And a second error, not previously recorded
+
+The same capture turned up `Failed to execute 'appendChild' on 'Node':
+Unexpected token ':'` on the Sightings, Timeline, Analyst and History
+tabs. `loadAjaxContainer` re-creates a lazily-loaded panel's `<script>`
+tags — `innerHTML` will not execute them — but copied only `src` or
+`textContent` and **dropped `type`**, so each panel's
+`<script type="application/json">` data island was handed to the
+browser as JavaScript and failed to parse. Which tabs threw is the
+proof: Sightings, Timeline and History are exactly the three panels
+carrying an island, and Occurrences, Relationships and Enrichment,
+which carry none, were silent.
+
+It was noise rather than breakage — each of those panels holds exactly
+one `<script>`, so the exception aborting the `forEach` had nothing
+left to run, and the original island stays in the container where
+`value-profile.js` reads it. The fix copies every attribute across, so
+`type` survives and the browser skips a non-JavaScript block by itself,
+and `defer`, `async` and any CSP `nonce` survive with it. Verified: the
+three panels still parse their island (8, 5 and 3 keys) and still
+render.
+
 ## 12. B10 — a typosquat engine for near-matches — **grilling session first**
 
 **Why.** The absent third engine is currently sketched as a domain/TLD
@@ -3019,13 +3061,13 @@ actually do.
 - **The ssdeep candidate cap** — §4.2, found while measuring B2 and
   unowned. Listed here so it is not mistaken for done; it wants a task
   of its own, because it is a wrong answer rather than a small one.
-- **`event.target.closest` unguarded in about a dozen handlers** —
-  §11.1, found while verifying B9 and unowned. It throws twice on every
-  load of this page; `placeFromEvent` and the main `click` listener
-  guard the call and the Sightings, Enrichment, Analyst, Timeline and
-  History handlers do not. Pre-existing and nothing to do with this
-  subphase, which is exactly why it needs listing rather than
-  mentioning.
+- ~~**`event.target.closest` unguarded in about a dozen handlers**~~ —
+  **done, 2026-09-03**, and the diagnosis in §11.1 was wrong: the throw
+  was in `mispOvermind.js`'s capture-phase `mouseenter` listener, not in
+  `value-profile.js`, whose unguarded calls sit behind a guard and never
+  fire. Fixed there, along with a second error the same capture found —
+  `loadAjaxContainer` dropping a re-created script's `type` and running
+  JSON data islands as JavaScript. §11.1 records both.
 - **The Timeline source lane** — the Timeline tab's phase;
   `url-honeypot-detection` joined `passive-dns` as a candidate.
 - **WHOIS history, JARM/favicon/cert pivots, contacted

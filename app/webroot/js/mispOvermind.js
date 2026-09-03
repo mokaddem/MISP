@@ -2486,6 +2486,15 @@ function initSharingGroupForm(container) {
 (function () {
     /* Lazy popover */
     document.addEventListener('mouseenter', function (e) {
+        /*
+         * `mouseenter` fires on the document itself when the pointer
+         * enters the window, and `document` is not an Element — it has
+         * no `closest`. Registered in the capture phase on `document`,
+         * this handler therefore ran against a non-Element target and
+         * threw `e.target.closest is not a function` on every page
+         * load, twice, before a reader had touched anything.
+         */
+        if (!e.target.closest) return;
         var el = e.target.closest('.sighting-counts');
         if (!el || el._popoverReady) return;
         el._popoverReady = true;
@@ -2497,6 +2506,7 @@ function initSharingGroupForm(container) {
     }, true);
 
     document.addEventListener('click', async function (e) {
+        if (!e.target.closest) return;
         var btn = e.target.closest('.add-sighting-btn');
         if (!btn) return;
         e.preventDefault();
@@ -3515,9 +3525,22 @@ function loadAjaxContainer(container) {
             // innerHTML does not execute <script>, so re-create each one.
             container.querySelectorAll('script').forEach(function (oldScript) {
                 const newScript = document.createElement('script');
-                if (oldScript.src) {
-                    newScript.src = oldScript.src;
-                } else {
+                /*
+                 * **Every attribute, not just `src`.** `type` above all:
+                 * a panel's `<script type="application/json">` data
+                 * island — the Sightings chart, the Timeline and the
+                 * History diff all ship one — was re-created without it,
+                 * so the browser took a block of JSON for JavaScript and
+                 * threw `Unexpected token ':'` out of the appendChild
+                 * below. Carrying the attributes across also keeps
+                 * `defer`, `async` and any CSP `nonce` intact, and lets
+                 * the browser skip a non-JavaScript type by itself
+                 * rather than this loop having to know the list.
+                 */
+                for (const attr of oldScript.attributes) {
+                    newScript.setAttribute(attr.name, attr.value);
+                }
+                if (!oldScript.src) {
                     newScript.textContent = oldScript.textContent;
                 }
                 document.head.appendChild(newScript);
