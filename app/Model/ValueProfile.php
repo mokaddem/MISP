@@ -413,20 +413,50 @@ class ValueProfile extends AppModel
      * Overview's phase converts the frame, since the fact strip's
      * `%d sightings` line needs exactly the same number.
      *
-     * **Relationships gets no number either, and for a sharper reason.**
-     * The fixture's badge was the *correlation* total, and nothing on
-     * the live tab computes one: co-occurrence there is an event join
+     * **Relationships gets a number that names its own unit.** The
+     * fixture's badge was the *correlation* total, and nothing on the
+     * live tab computes one: co-occurrence there is an event join
      * rather than correlation output (`24-relationships.md` §3), so the
-     * old number is not merely stale, it counts something the tab no
-     * longer claims. The join's own total is available — it is
-     * `distinct_values` — but only by running the panel's whole scan,
-     * up to 20,000 attribute rows and about a second on the heaviest
-     * value on the instance, on every page load. Same conclusion as
-     * sightings by the same route: no number beats a wrong one.
+     * old number was not merely stale, it counted something the tab no
+     * longer claims. The join's own total — `distinct_values` — is
+     * still refused here for the sightings reason: it needs the panel's
+     * whole scan, up to 20,000 attribute rows and about a second on the
+     * heaviest value on the instance, on every page load.
      *
-     * **Revisit if the scan ever becomes a shared per-request context**
-     * — `24-relationships.md` §15.1 item 1 — since the badge would then
-     * cost nothing beyond a tab visit that was going to happen anyway.
+     * What is affordable is the notion the tab was re-founded on
+     * (`24-relationships.md` §26). **How many objects this value sits
+     * in** is one indexed aggregate — 0.3 ms on `8.8.8.8`, 84 ms on
+     * `0.0.0.0` — and it is the same number the sibling panel's census
+     * and the graph's object layer already print, because
+     * `Value::objectCountFor` carries the conditions of the call that
+     * fetches those rows.
+     *
+     * **It rides the badge pill, not the parenthesised count**, and the
+     * distinction is the whole of why this one can be told. `(15)` on a
+     * tab called Relationships reads as *fifteen relationships*, which
+     * is the claim that got the correlation badge removed; the pill
+     * takes a label, so the unit travels with the number. The tab bar
+     * inherits the contents strip's rule that seven notions have seven
+     * units and none of them is a total.
+     *
+     * **Zero shows nothing at all**, which is what keeps this honest
+     * rather than merely cheap. A value can sit in no object and still
+     * have an analyst claim, a near-match or a remote hit — near-matches
+     * alone cannot be priced at page-load cost — so a badge reading
+     * *0 objects* would answer *is this tab worth opening* wrongly, in
+     * the one direction that costs a reader something. An absent pill
+     * therefore keeps the meaning it has today, *no number can be told
+     * truly*, and adding a probe can only turn silence into a true
+     * badge, never into a false one.
+     *
+     * **The warm-digest peek was the other candidate, and is refused.**
+     * `relationDigest` is held in Redis per user and value, so a `GET`
+     * here would hand over the exact join total for free once the tab
+     * had been opened — `24-relationships.md` §15.1 item 1 built that
+     * context. But a badge that appears only after the visit it exists
+     * to inform has missed its one job, and an intermittent number
+     * conflates *not read yet* with *nothing there*, which is the
+     * conflation the contents strip's placeholder was built to prevent.
      *
      * @param array $user
      * @param string $value
@@ -435,8 +465,11 @@ class ValueProfile extends AppModel
      */
     public function forTabCounts(array $user, $value, array $counts)
     {
-        $counts['occurrences'] = $this->model('Value')
+        $valueModel = $this->model('Value');
+        $counts['occurrences'] = $valueModel
             ->occurrenceCountFor($user, $value);
+        $counts['relationship_objects'] = $valueModel
+            ->objectCountFor($user, $value);
         unset($counts['sightings'], $counts['relationships']);
         return $counts;
     }

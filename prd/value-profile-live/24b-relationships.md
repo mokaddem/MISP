@@ -35,7 +35,9 @@ live instance and recorded in its own section below.
 subphase planned, and was the only one whose grilling gate was lifted
 rather than held — §12.2 says by whom and records the decisions it
 would have taken. B11 came afterwards, out of §13 rather than out of
-the plan, and §14 has it.
+the plan, and §14 has it. B12 came out of `24-relationships.md` §14.12,
+which had named its own condition for reopening; §15 has it, and
+answers no to the move that condition implied.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -51,6 +53,7 @@ the plan, and §14 has it.
 | B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match`, new `DomainPermutationTool` | L | lifted | no | **done** |
 | B11 | The ssdeep candidate cap | `value_relation_near_match`, `Value::valuesOfType` | M | no | no | **done** — §14 |
+| B12 | The Relationships tab badge | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
 
 ## 2. The order, and why
 
@@ -3228,3 +3231,140 @@ typosquat cap line renders in its slot between the class list and the
 table, and the *nothing to generate* line correctly suppresses both the
 table and the *found nothing* empty state below it, because *generated
 nothing* and *found nothing* are different sentences.
+
+---
+
+## 15. B12 — the Relationships tab badge — **done, 2026-09-03**
+
+`24-relationships.md` §14.12 took the badge off this tab rather than
+correcting it: the fixture's number was the *correlation* total, which
+is not something the live tab computes at all. It named one condition
+for putting a number back — *"revisit if the scan ever becomes a shared
+per-request context"* — and §15.1 item 1 then built that context. So
+the obvious move was available: `relationDigest` is held in Redis per
+user and value, and a `GET` on page load would hand over the exact join
+total for nothing.
+
+**That move is wrong, and the reason is worth writing down.** The
+digest is only warm *after* the tab has been opened. A badge that
+appears once the reader has already visited has missed the only job a
+badge has, and a number that comes and goes conflates *not read yet*
+with *nothing there* — the conflation the contents strip's placeholder
+exists to prevent (§10 of `03-relationships.md`). The condition §14.12
+named was met and the answer it implied is still no.
+
+### 15.1 What is affordable, measured
+
+Measured on the verification instance, quiet, with `SET profiling = 1`:
+
+| Query | `8.8.8.8` | `0.0.0.0` |
+|---|---|---|
+| occurrence count — **already paid on page load** | 0.50 ms | 76 ms |
+| the same, plus `COUNT(DISTINCT object_id)` and `event_id` | 0.46 ms | 87 ms |
+| `COUNT(DISTINCT object_id)` as its own aggregate | 0.32 ms | 84 ms |
+| existence probe — `… AND object_id > 0 LIMIT 1` | 0.19 ms | 0.23 ms |
+| the co-occurrence scan §14.12 refused | — | ~1 s |
+
+**Extra aggregates over a query already being run are free**, which is
+the finding. `forTabCounts` runs `occurrenceCountFor` on every page
+load; a second aggregate with the same conditions is the same index
+scan. `0.0.0.0` is the instance's outlier at 32,922 objects and it is
+still an order of magnitude under the scan.
+
+### 15.2 Objects, because that is what the tab was re-founded on
+
+Rejected: the co-occurrence total; a sum across notions; a bare `(N)`.
+
+`24-relationships.md` §26 re-founded this tab on the object, and **how
+many objects this value sits in** is the one notion that is both
+cheap and already printed elsewhere — it is `in_objects`, which the
+sibling caption calls *"the N objects this value sits in"* and which
+the graph's object layer carries.
+
+`Value::objectCountFor` holds the same three conditions as
+`occurrenceObjectIdsFor`, in the same order, so the badge and the
+panel's census cannot state different numbers. The agreement is held by
+the conditions rather than by one shared call, deliberately: the census
+gets its total free from rows it has already fetched whenever the value
+sits under `SIBLING_OBJECT_CAP` objects, and calling this aggregate
+there would be a query for a number already in hand.
+
+### 15.3 A pill, not the parenthesised count
+
+`view_layout.ctp` renders `count` as a bare `(15)`. On a tab called
+Relationships that reads as *fifteen relationships* — which is exactly
+the claim that got the correlation badge removed. The `badge` key takes
+a **label**, so the unit travels with the number: `15 objects`. It has
+been in the layout since the Verdict tab needed it and had one caller.
+
+This is the contents strip's rule arriving on the tab bar: seven notions,
+seven units, and none of them a total.
+
+### 15.4 Zero renders nothing, which is what makes it honest
+
+A value can sit in no object and still carry an analyst claim, a
+near-match or a remote hit — and near-matches cannot be priced at
+page-load cost at all. So a pill reading *0 objects* would answer *is
+this tab worth opening* wrongly, in the one direction that costs a
+reader something.
+
+Null at zero instead. An absent pill keeps the meaning it already has
+on Sightings and Timeline — *no number can be told truly* — and never
+means *nothing here*. **The property this buys is monotonicity:**
+adding a probe can turn silence into a true badge and can never produce
+a false one, so a later phase can put external presence or asserted
+claims behind the same pill without revisiting this argument.
+
+### 15.5 Verified
+
+Four states, on live data, badge against `in_objects`:
+
+| Value | badge | `in_objects` | `objects` | renders |
+|---|---|---|---|---|
+| `8.8.8.8` | 15 | 15 | 14 | `15 objects` |
+| `0.0.0.0` | 32,922 | 32,922 | 500 (at cap) | `32,922 objects` |
+| `101.200.156.217` | 1 | 1 | 1 | `1 object` |
+| `193.227.248.241` | 0 | 0 | 0 | no pill |
+
+**Both census branches agree**, which is the check that mattered:
+`8.8.8.8` sits under `SIBLING_OBJECT_CAP` so the census returns the
+rows it fetched, and `0.0.0.0` is at the cap so it runs the grouped
+query — 15 and 32,922 respectively, both matching the badge.
+
+**`objects` is not `in_objects`, and the panel header prints the
+former.** `8.8.8.8` reads *"36 siblings in 14 objects"* against a badge
+of 15: 14 is what the fold aggregated over, 15 is what the value sits
+in. They are different numbers on purpose and the badge matches the one
+it claims to.
+
+**The ACL is the same one `occurrenceCountFor` applies**, and the
+instance has a case that proves it rather than asserts it. On `0.0.0.0`
+a site admin counts 33,110 occurrences and `user@admin.test` counts
+33,109 — attribute 6694, in event 194, distribution 0, org 9. That
+attribute has `object_id = 0`, so the object count correctly stays
+32,922 for both readers.
+
+### 15.6 Found on the way, not fixed here
+
+**`Value::ownTagsFor` throws for every non-site-admin.** Its find
+carries `'contain' => array('Event')` while `buildConditions($user)`
+names `Object.distribution` directly for an unprivileged reader, so
+`viewRelationCooccurrence` dies with `Unknown column
+'Object.distribution' in 'WHERE'`. This is the gotcha
+`occurrenceCountFor` documents in the comment three methods above it —
+*"both have to be joined for the ACL to be expressible at all"* — and
+the fix is adding `'Object'` to that contain.
+
+It predates this task and is left alone: it is a defect in section
+one's label read, with its own verification to do, and folding it into
+a badge change would hide it. Recorded here so it is not rediscovered
+from scratch.
+
+### 15.7 What is still open
+
+- **The other notions behind the same pill.** §15.4 makes this safe to
+  extend; what it needs is a page-load price for asserted claims and
+  external presence, and a label that survives naming more than one
+  thing.
+- **Sightings still has no badge**, and its condition is unchanged —
+  `Sighting` growing a counting method that applies the policy in SQL.

@@ -212,6 +212,31 @@ $verdictBadge = array(
  */
 $hasVerdictAside = $verdict['disposition'] !== 'UNKNOWN';
 
+/*
+ * The Relationships pill: one notion, named, and only when it is there.
+ *
+ * A pill rather than the parenthesised count because `(15)` on this tab
+ * would read as fifteen *relationships* — the claim that got the
+ * fixture's correlation badge removed in phase 24. The label carries
+ * the unit, so the number says what it counts, and it counts the notion
+ * the tab is founded on rather than a total across seven of them.
+ *
+ * Null at zero: a value in no object can still hold a claim, a
+ * near-match or a remote hit, so *0 objects* would answer *is this
+ * worth opening* wrongly. No pill means what it means on Sightings and
+ * Timeline — no number can be told truly — and never *nothing here*.
+ * `ValueProfile::forTabCounts` has the cost and the rest of the case.
+ */
+$relationshipObjects = (int)($counts['relationship_objects'] ?? 0);
+$relationshipBadge = $relationshipObjects === 0 ? null : array(
+    'label' => sprintf(
+        __n('%s object', '%s objects', $relationshipObjects),
+        number_format($relationshipObjects)
+    ),
+    'color' => 'var(--vp-rel-object)',
+    'dot' => true,
+);
+
 $tabRegistry = array(
     array(
         'id' => 'general',
@@ -305,18 +330,23 @@ $tabRegistry = array(
         'title' => __('Relationships'),
         'icon' => 'fas fa-link',
         /*
-         * No count, for the Sightings tab's reason. This one read the
-         * fixture's correlation total until phase 24, which is a number
-         * nothing on the live tab computes: co-occurrence here is an
-         * event join, not correlation output (`24-relationships.md`
-         * §3), and getting the join's own total means running the
-         * panel's whole scan — up to 20,000 attribute rows and a
-         * second on the heaviest value — on every page load, for a tab
-         * most readers never open.
+         * A pill naming objects, not the parenthesised count. This tab
+         * read the fixture's correlation total until phase 24, which is
+         * a number nothing on the live tab computes: co-occurrence here
+         * is an event join, not correlation output
+         * (`24-relationships.md` §3). That join's own total is still
+         * refused — it means running the panel's whole scan, up to
+         * 20,000 attribute rows and a second on the heaviest value, on
+         * every page load for a tab most readers never open.
          *
-         * `ValueProfile::forTabCounts` holds the reasoning and the
-         * condition for putting a number back.
-         *
+         * What the pill carries instead is the notion §26 re-founded
+         * the tab on, off one indexed aggregate, and it is the same
+         * number the sibling panel and the graph's object layer print.
+         * `$relationshipBadge` above and `ValueProfile::forTabCounts`
+         * hold the case, the cost and why zero shows nothing.
+         */
+        'badge' => $relationshipBadge,
+        /*
          * Six panels rather than one, top to bottom in the order the
          * six notions should be read: what shares an event and an
          * object, when an object says that join held, what is merely

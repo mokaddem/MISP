@@ -160,6 +160,50 @@ class Value extends AppModel
     }
 
     /**
+     * How many objects this value sits in, for this viewer.
+     *
+     * The uncapped count of exactly what `occurrenceObjectIdsFor`
+     * returns — the same three conditions, in the same order — so the
+     * Relationships tab badge and the sibling panel's own census cannot
+     * state different numbers for one value. That is the property
+     * `ValueProfile::forTabCounts` exists to protect, and here it is
+     * held by the conditions rather than by one shared call: the census
+     * gets its total free from the rows it already fetched whenever the
+     * value sits under `SIBLING_OBJECT_CAP` objects, and paying for
+     * this aggregate there would be a query for a number already in
+     * hand.
+     *
+     * One indexed aggregate over the `value1` prefix index: 0.3 ms on
+     * `8.8.8.8` (15 objects) and 84 ms on `0.0.0.0`, the instance's
+     * 32,922-object outlier. `ValueProfile::forTabCounts` has why the
+     * badge is worth that where the co-occurrence total is not.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return int
+     */
+    public function objectCountFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.object_id >' => 0);
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(DISTINCT Attribute.object_id) AS objects',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            // As occurrenceCountFor: buildConditions() names Event.* and
+            // Object.* directly, so both have to be joined.
+            'contain' => array('Event', 'Object'),
+        ));
+        return empty($row[0]['objects']) ? 0 : (int)$row[0]['objects'];
+    }
+
+    /**
      * Four numbers about the whole occurrence set, in one aggregate.
      *
      * Tier 2 (§14.4), and the written reason is a measurement. The

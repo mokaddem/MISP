@@ -904,6 +904,15 @@ Measured rather than eyeballed, in **both themes**:
   *correlations* — something the live tab no longer claims at all. The
   key is unset in `forTabCounts` and the `count` line is off the tab
   entry.
+
+  > **`24b-relationships.md` §15 puts a number back, and it is not the
+  > one this bullet was looking for.** The correlation total stays
+  > refused and so does the co-occurrence join's — but *how many
+  > objects this value sits in* is one indexed aggregate, and it rides
+  > the layout's `badge` pill so the unit travels with it. The
+  > condition §14.12 named for reopening this was a shared per-request
+  > context, which §15.1 item 1 built; §15 explains why peeking at that
+  > warm digest is still the wrong answer.
 - **One number about relationships is still the fixture's, and it is on
   another tab.** `value_lifecycle` on the Overview prints
   `%s correlations` from `$valueProfile['correlations']`. That is now the
