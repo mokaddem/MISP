@@ -116,6 +116,60 @@
     }
 
     /**
+     * Which named threats the rail's card shows.
+     *
+     * Three views, and the card opens on the first: `top` is the eight
+     * it is capped at, `all` is every one of them, and a kind is every
+     * cluster of that kind. Picking a kind is the whole point of the
+     * counts being pills rather than a sentence — *63 malware* that
+     * cannot be looked at is a fact with nowhere to go.
+     *
+     * Everything is already in the fragment, so this hides rather than
+     * fetches: the fold costs one class and the card's own stylesheet
+     * caps the list's height once it is no longer showing the opening
+     * cut, because filtering to 63 rows would otherwise run the rail
+     * past the tables beside it.
+     *
+     * @param {Element} card A [data-vp-threats]
+     * @param {string} view `top`, `all`, or a kind
+     */
+    function filterThreats(card, view) {
+        if (!card) {
+            return;
+        }
+        card.dataset.vpThreatView = view;
+        card.classList.toggle(
+            'vp-threats-filtered',
+            view !== 'top' && view !== 'all'
+        );
+        card.querySelectorAll('[data-vp-threat-filter]')
+            .forEach(function (pill) {
+                // `all` is the expanded form of `All`, so the pill the
+                // reader pressed to get there stays the lit one.
+                var on = pill.dataset.vpThreatFilter === view
+                    || (view === 'all'
+                        && pill.dataset.vpThreatFilter === 'top');
+                pill.classList.toggle('active', on);
+                pill.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        card.querySelectorAll('.vp-threat').forEach(function (row) {
+            var show;
+            if (view === 'top') {
+                show = !row.classList.contains('vp-threat-folded');
+            } else if (view === 'all') {
+                show = true;
+            } else {
+                show = row.dataset.vpThreatKind === view;
+            }
+            row.classList.toggle('vp-threat-off', !show);
+        });
+        var more = card.querySelector('[data-vp-threat-expand]');
+        if (more) {
+            more.classList.toggle('d-none', view !== 'top');
+        }
+    }
+
+    /**
      * Bootstrap only takes the pointer away from a disabled control, so
      * its title — the whole explanation of why it is disabled — cannot be
      * read. The stylesheet gives the pointer back; this stops the
@@ -6108,6 +6162,27 @@
             var chip = event.target.closest('.vp-type-chip');
             if (chip) {
                 toggleTypeFilter(chip);
+                return;
+            }
+
+            var threatPill = event.target.closest(
+                '[data-vp-threat-filter]'
+            );
+            if (threatPill) {
+                filterThreats(
+                    threatPill.closest('[data-vp-threats]'),
+                    threatPill.dataset.vpThreatFilter
+                );
+                return;
+            }
+            var threatMore = event.target.closest(
+                '[data-vp-threat-expand]'
+            );
+            if (threatMore) {
+                filterThreats(
+                    threatMore.closest('[data-vp-threats]'),
+                    'all'
+                );
                 return;
             }
 

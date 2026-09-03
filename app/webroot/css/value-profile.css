@@ -4207,38 +4207,102 @@ th[aria-sort="descending"] .sort-icon::before,
 
 /*
  * ======================================================================
- * The rail's named threats — a lead, a composition, a list
+ * The rail's named threats — counts that filter, clusters that look
+ * like clusters
  * ======================================================================
- * The first cut was eight equally-weighted rows and answered nothing
- * at a glance: the constant words `org` and `events` repeated down the
- * card in front of the figures it ranks on, an uppercase chip per row,
- * and no focal point in a card whose whole job is to produce a name.
- * Three devices replace it, one per question a reader arrives with —
- * *is there anything, what sort, how well corroborated* — and each is
- * cheap enough for a 340px column.
+ * Two earlier cuts are worth recording, because both were wrong in the
+ * same direction — they described the neighbourhood instead of letting
+ * a reader work it.
  *
- * **The lead is set apart by tone, not hue.** Seven notion hues on
- * this tab each mean one notion and nothing else, so the card spends
- * none: the lead sits on the tertiary ground Bootstrap already
- * defines, which reads as a raised surface in both themes and costs
- * the rationing nothing. Kinds are told apart by a word, never by
- * colour, and a per-kind glyph was built and cut — it said exactly
- * what the word beside it already said, and at 0.72rem
- * `fa-user-secret` is a blob.
+ * The first was eight equally-weighted rows with `1 org · 2 events`
+ * repeated down the column, the constant words in front of the figures
+ * the card ranks on. The second added a lead sentence and a static
+ * composition line: the line said the neighbourhood held 63 malware
+ * and then offered no way to see them, and the lead promoted one row
+ * for a reason no reader could infer from looking at it.
  *
- * **One liberty with the scale.** Nothing else in this rail exceeds
- * 0.82rem; the lead name is 1.05rem. §22.3 item 16 calls this the
- * single highest-value sentence the page could produce, and a sentence
- * set at caption size is not one.
+ * What is here instead: **the counts are the control.** Picking a kind
+ * shows every cluster of it rather than the eight the card opens with,
+ * and the per-row kind label is hidden while a kind is picked, because
+ * the pill already says it. `.vp-pill` is the tab's own control, so
+ * the active state borrows `--primary` — a UI accent, not one of the
+ * seven notion hues, which stay unspent.
  *
- * **Figures carry body weight, units do not** — `.vp-threat-n` is the
- * only thing in a row that is not muted, so a column of them scans
- * without being read.
+ * **Clusters wear MISP's cluster badge**, tinted per galaxy by
+ * `GalaxyColour` exactly as every other galaxy view tints them, so a
+ * Threat Actor cluster is the same colour here as on the event page.
+ * A galaxy hue is not a notion hue, so nothing is overloaded; dark
+ * mode is `--galaxy-alpha`'s job and `mainOvermind.css` already does
+ * it.
+ *
+ * **Figures carry body weight and their units do not** — `.vp-threat-n`
+ * is the only unmuted thing on the right of a row, so a column of them
+ * scans without being read.
  */
-.vp-threat-comp {
-    margin: 0 0 10px;
-    font-size: 0.72rem;
+.vp-threat-filters {
+    margin-bottom: 10px;
+}
+
+.vp-pill-n {
+    margin-left: 3px;
+    opacity: 0.72;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-threat-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/*
+ * The badge owns the left and the figures the right, on one line
+ * wherever the name allows. The occasional qualifier — a state, or the
+ * galaxy where two clusters share a name — takes a second line, which
+ * most rows never draw.
+ */
+.vp-threat {
+    display: grid;
+    grid-template-columns: minmax(0, auto) auto;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 2px 8px;
+    padding: 4px 0;
+}
+
+.vp-threat-badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.vp-threat-badge:hover,
+.vp-threat-badge:focus-visible {
+    text-decoration: underline;
+}
+
+.vp-threat-right {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 0.7rem;
     color: var(--bs-secondary-color);
+}
+
+.vp-threat-kind {
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.6rem;
+}
+
+/* Picking a kind makes the per-row label a word that never varies. */
+.vp-threats-filtered .vp-threat-kind {
+    display: none;
 }
 
 .vp-threat-n {
@@ -4251,117 +4315,15 @@ th[aria-sort="descending"] .sort-icon::before,
     opacity: 0.5;
 }
 
-/* The lead: the strongest arrival, promoted out of the list. */
-.vp-threat-lead {
-    padding: 9px 11px;
-    border-radius: 8px;
-    background: var(--bs-tertiary-bg, rgba(128, 128, 128, 0.14));
-}
-
-.vp-threat-lead-in {
-    display: block;
-    font-size: 0.58rem;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: var(--bs-secondary-color);
-}
-
-.vp-threat-lead-name {
-    display: block;
-    margin: 1px 0 3px;
-    font-size: 1.05rem;
-    font-weight: 650;
-    line-height: 1.15;
-    color: var(--bs-body-color);
-    text-decoration: none;
-    /* Cluster values run long — `Gozi ISFB v2`, `APT28 - G0007`. */
-    overflow-wrap: anywhere;
-}
-
-.vp-threat-lead-name:hover,
-.vp-threat-lead-name:focus-visible {
-    text-decoration: underline;
-}
-
-.vp-threat-lead-meta {
+.vp-threat-extra {
+    grid-column: 1 / 3;
     display: flex;
     flex-wrap: wrap;
     align-items: baseline;
-    gap: 0 7px;
-    font-size: 0.7rem;
+    gap: 1px 6px;
+    padding-left: 2px;
+    font-size: 0.64rem;
     color: var(--bs-secondary-color);
-}
-
-/*
- * The remainder. The name owns the first line outright and the
- * metadata splits the second — kind and qualifiers left, figures
- * right. Putting the kind on a line of its own under a name that
- * shared its line with the figures left seven rows each carrying a
- * half-empty line, and gave the name less width than the column had.
- */
-.vp-threat-list {
-    list-style: none;
-    margin: 8px 0 0;
-    padding: 0;
-}
-
-.vp-threat {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 1px 8px;
-    padding: 6px 2px;
-    border-top: 1px solid var(--bs-border-color);
-}
-
-.vp-threat-name {
-    grid-area: 1 / 1 / 2 / 3;
-    font-size: 0.85rem;
-    font-weight: 600;
-    line-height: 1.2;
-    color: var(--bs-body-color);
-    text-decoration: none;
-    overflow-wrap: anywhere;
-}
-
-.vp-threat-name:hover,
-.vp-threat-name:focus-visible {
-    text-decoration: underline;
-}
-
-.vp-threat-figs {
-    grid-area: 2 / 2 / 3 / 3;
-    text-align: right;
-    font-size: 0.7rem;
-    white-space: nowrap;
-    color: var(--bs-secondary-color);
-}
-
-/*
- * Kind, state and galaxy on one line, told apart by treatment rather
- * than by punctuation: the kind is letterspaced micro-caps, a state is
- * a filled chip, and the galaxy — printed only where two clusters
- * share a name — is plain.
- */
-.vp-threat-meta,
-.vp-threat-lead-meta {
-    font-variant-numeric: tabular-nums;
-}
-
-.vp-threat-meta {
-    grid-area: 2 / 1 / 3 / 2;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 1px 7px;
-    font-size: 0.66rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-threat-kind {
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-size: 0.92em;
 }
 
 .vp-threat-mark {
@@ -4375,30 +4337,52 @@ th[aria-sort="descending"] .sort-icon::before,
     opacity: 0.8;
 }
 
-.vp-threat-expand > summary {
-    padding: 7px 0 1px;
+/*
+ * Rows a pill has filtered out, always; rows outside the opening cut,
+ * only while the card is showing that cut. The fold is scoped to the
+ * `top` view on purpose — picking *Malware 63* has to be able to reach
+ * all 63, and an unscoped fold left it showing the two that happened
+ * to fall inside the first eight.
+ */
+.vp-threat-off {
+    display: none;
+}
+
+[data-vp-threats][data-vp-threat-view="top"] .vp-threat-folded {
+    display: none;
+}
+
+/*
+ * Filtering to a kind can reveal 63 rows, and expanding can reveal
+ * 117. Either would run the rail far past the tables beside it, so the
+ * list scrolls inside the card once it is not showing the opening cut.
+ */
+[data-vp-threats]:not([data-vp-threat-view="top"]) .vp-threat-list {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.vp-threat-more {
+    margin-top: 6px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
     font-size: 0.7rem;
     color: var(--bs-secondary-color);
     cursor: pointer;
 }
 
-.vp-threat-expand > summary:hover {
+.vp-threat-more::before {
+    content: '\25b8\00a0';
+}
+
+.vp-threat-more:hover {
     color: var(--bs-body-color);
 }
 
-/*
- * One value on the verification instance reaches 154 clusters. Opened
- * unbounded that is a rail running far past the tables beside it, so
- * the folded rows scroll inside the card.
- */
-.vp-threat-rest {
-    max-height: 220px;
-    overflow-y: auto;
-    margin-top: 0;
-}
-
 .vp-threat-note {
-    margin: 11px 0 0;
+    margin: 10px 0 0;
     font-size: 0.64rem;
     line-height: 1.45;
     color: var(--bs-secondary-color);

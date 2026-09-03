@@ -1832,47 +1832,68 @@ built, rendered and removed: it encoded exactly what the text beside
 it already said, and at 0.72rem `fa-user-secret` — the most frequent
 of the four — is a blob.
 
-**Then the whole card was rebuilt, because the first one was a dump.**
-Eight equally-weighted rows, `1 org · 2 events` repeated down the
-card with the constant words in front of the varying figures, an
-uppercase chip per row, and no focal point in a card whose purpose is
-to produce a name. It was legible and answered nothing without being
-read end to end. Three devices replace it, one per question a reader
-arrives with:
+**Then the card was rebuilt twice**, and both earlier cuts were wrong
+in the same direction: they *described* the neighbourhood instead of
+letting a reader work it.
 
-| Device | Answers | How |
+The first was eight equally-weighted rows with `1 org · 2 events`
+repeated down the column, the constant words in front of the figures
+the card ranks on, and no focal point in a card whose purpose is to
+produce a name. The second added a lead sentence and a static
+composition line — and both failed review for the same reason: the
+line said the neighbourhood held 63 malware and then offered no way to
+see them, and the lead promoted one row for a reason no reader could
+infer from looking at it. *"I'm not sure what the sits next to is
+meant to show."*
+
+What shipped:
+
+| Element | Answers | How |
 |---|---|---|
-| composition line | *what sort of thing is around this?* | `28 actors · 63 malware · 34 tools`, and only where it says something the visible rows do not — one kind with nothing folded away makes it a number to skip |
-| lead | *what is the strongest thing?* | the top-ranked row promoted out of the list into a sentence, on a tertiary ground |
-| list | the rest, ranked | name owns line one; kind left and figures right on line two |
+| subtitle | *what is a named threat?* | names the four kinds — the term is defined where it is used, instead of assumed |
+| count pills | *what sort, and show me* | `All 125` `Actors 28` `Malware 63` `Tools 34`; picking one shows **every** cluster of that kind, not the eight the card opens with |
+| cluster badges | *which ones* | MISP's own cluster badge, tinted per galaxy by `GalaxyColour` |
+| figures | *how well corroborated* | numbers at body weight, units muted |
 
-**The lead's opening words change with how the cluster arrived** —
-*Sits next to* / *Tagged on this value* / *An analyst attributes this
-to* — so the sentence stays true, and the state chip is absorbed into
-it for that row. §22.3 item 16 asked for the single highest-value
-sentence this page could produce; it is now literally a sentence.
+**The counts had to become a control.** As a sentence they were a fact
+with nowhere to go. As pills they answer the same question and act on
+it, and the per-row kind label hides itself while a kind is picked
+because the pill already says it. `.vp-pill` is the tab's own control,
+so the active state borrows `--primary` — a UI accent, not one of the
+seven notion hues, which stay unspent.
 
-Two consequences worth having. On the 93% of values with one to three
-clusters the card is a confident statement rather than a one-row list
-that looks like a bug. And the figures are the only unmuted thing in a
-row, so a column of them scans without being read.
+**Clusters look like clusters.** `GalaxyColour` derives a hue from the
+galaxy's name and every galaxy view in MISP tints its clusters with
+it, so a Threat Actor cluster is the same colour here as on the event
+page. A galaxy hue is not a notion hue, so the notion grammar is
+untouched, and dark mode needs nothing: `mainOvermind.css` lifts
+`--galaxy-alpha` from 0.12 to 0.92 so the badge's own text colour
+still reads. Reaching for a monochrome treatment to protect the notion
+palette was over-caution — consistency with the rest of MISP was the
+stronger claim, and it costs the palette nothing.
 
-**Set apart by tone, not hue.** The lead sits on Bootstrap's tertiary
-ground rather than taking a colour, so the tab's rationing — seven
-notion hues, each meaning one notion and nothing else — is untouched.
-The one liberty is typographic: the lead name is 1.05rem where nothing
-else in this rail exceeds 0.82rem.
+**Removed:** the lead, the static composition line, and the footer
+stating what `orgs` counts. The footer's other half — that the card
+reads galaxy clusters — moved into the subtitle, where it doubles as
+the definition.
 
 **Rendering found defects the markup did not.** `Malicious` drew
 `APT28 - G0007` three times with near-identical counts, because MITRE
 ships APT28 as an intrusion set in the enterprise, mobile and
 pre-attack galaxies. They are three real records with three real
 links, but the rows read as a bug — so a row whose name collides with
-another now names its galaxy, and the rest do not. The rebuilt row
-also had the kind stranded alone on a second line while the name
-shared line one with the figures, which cost seven rows a half-empty
-line and gave the name less width than the column had; the name now
-owns its line outright.
+another now names its galaxy, and the rest do not. It earns its place
+on the filtered view too: `Malicious` holds two different `ARS VBS
+Loader` clusters, one from Malpedia and one from RAT, and `Azorult`
+beside `AZORult`.
+
+Two more that only rendering could show. An intermediate row layout
+stranded the kind alone on a second line while the name shared line
+one with the figures, costing seven rows a half-empty line. And the
+fold was scoped wrongly: `.vp-threat-folded` hid every row past the
+opening eight *unconditionally*, so picking **Malware 63** showed the
+two that happened to fall inside the first eight. The fold is now
+scoped to the `top` view, which is the whole point of the pills.
 
 **Verified live**, each state against a real value:
 
@@ -1885,6 +1906,14 @@ owns its line outright.
 
 The four existing relation panels were re-fetched after the
 `CACHE_SHAPE` bump and render clean.
+
+The pills were verified by driving a real click rather than by reading
+the markup: with `Malware 63` picked, 62 of `Malicious`'s 125 rows
+carry `vp-threat-off`, the card carries `vp-threats-filtered`, the
+per-row kind label is gone, and the list scrolls inside its 260px cap.
+Both themes checked. The harness needs `data-controller="values"` on
+`body` or `init()` returns early and no listener is attached — which
+is what made the first click test silently do nothing.
 
 **What is not verified, and why.** The `claimed by an analyst` path
 has no data to run on: all three cluster-naming claims on the instance
