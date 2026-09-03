@@ -73,9 +73,9 @@ $marks = array(
 /*
  * What a claim was written on. The card counts a claim about the
  * occurrence, about the event it is in, and about the object it sits
- * in — so the hover has to say which, or *claimed by an analyst* is
- * three words that hide the difference between a statement about this
- * address and one about a report containing it.
+ * in — so the hover has to say which, or *Human claim* is two words
+ * that hide the difference between a statement about this address and
+ * one about a report containing it.
  */
 $anchorWords = array(
     'Attribute' => __('on this value'),
@@ -195,18 +195,25 @@ $row = function (array $threat, $folded) use (
             <span class="vp-threat-extra">
                 <?php if ($claimed): ?>
                     <?php /*
-                     * The tab's own human-claim mark, not a chip of
-                     * this card's invention: `.vp-rel-prov-human` and
-                     * `fa-user-pen` are what every other region uses
-                     * to say *a person wrote this*, and
-                     * `--vp-rel-human` is that notion's colour. Using
-                     * it here spends nothing — it is the one hue that
-                     * means exactly this.
+                     * The tab's own human-claim mark, **word
+                     * included**: `.vp-rel-prov-human`, `fa-user-pen`
+                     * and the words *Human claim* are what the
+                     * asserted and references panels already use to
+                     * say *a person wrote this*, and `--vp-rel-human`
+                     * is that notion's colour.
+                     *
+                     * This card first said *claimed by an analyst*,
+                     * which is the same notion under a second name.
+                     * The separation rule this tab carries four times
+                     * over — colour, form, **word**, place — only
+                     * works if the word is the same word everywhere,
+                     * so a synonym weakens the thing the styling was
+                     * borrowed to reinforce.
                      */ ?>
                     <span class="vp-rel-prov vp-rel-prov-human"
                           title="<?= h($claimTitle($threat['claims'])) ?>">
                         <i class="fas fa-user-pen" aria-hidden="true"></i>
-                        <?= h(__('claimed by an analyst')) ?>
+                        <?= h(__('Human claim')) ?>
                     </span>
                 <?php endif; ?>
                 <?php if (isset($marks[$attachment])): ?>

@@ -1915,8 +1915,7 @@ Both themes checked. The harness needs `data-controller="values"` on
 `body` or `init()` returns early and no listener is attached — which
 is what made the first click test silently do nothing.
 
-**The `claimed by an analyst` path shipped broken, and the missing
-data hid it.** All three cluster-naming claims on the instance were
+**The human-claim path shipped broken, and the missing data hid it.** All three cluster-naming claims on the instance were
 unusable at build time — one cluster-to-cluster with no value at its
 near end, one targeting `country="belarus"`, one pointing at a cluster
 that does not resolve — so the path was flagged as exercised by
@@ -1932,8 +1931,8 @@ Found on 2026-09-03 when a claim was authored on purpose: an
 `threat-actor="APT1"`. The asserted section listed it and the card did
 not, which is what localised the fault to the fold rather than to the
 read. Fixed at the call site, and `8.8.8.8` now draws **APT1 · actor ·
-claimed by an analyst · 1 org** — no event count, because a claim
-contributes its author's organisation and no event.
+Human claim · 1 org** — no event count, because a claim contributes
+its author's organisation and no event.
 
 The lesson is the flag's, not the bug's: *unverified* was recorded
 honestly and still read as *probably fine*. A path with no data to run
@@ -1980,16 +1979,24 @@ is the claims it had been dropping.
 
 ### 10.4 The claim mark, and what it says on hover — 2026-09-03
 
-The card's `claimed by an analyst` mark is the tab's own
-`.vp-rel-prov-human` — `fa-user-pen` in `--vp-rel-human` — rather than
-a chip of this card's invention. This is the one place the rail
+The card's mark is the tab's own `.vp-rel-prov-human` —
+`fa-user-pen` in `--vp-rel-human`, reading **Human claim** — rather
+than a chip of this card's invention. This is the one place the rail
 *should* spend a notion hue: it is the human-claim notion marking a
 human claim, which strengthens the four-fold separation the tab
 carries (colour, form, word, place) instead of overloading it. Only
 the size is local, that chip being built for a 0.72rem panel header
 against this line's 0.64rem.
 
-Three words cannot say who claimed what, so the rest is on hover, one
+**The word had to move with the styling, and at first it did not.**
+The mark shipped saying *claimed by an analyst* — the same notion
+under a second name, in a card that had just borrowed the styling of
+the first. The separation rule works *because* the word is the same
+word in every region, so a synonym quietly weakens the thing the
+colour was borrowed to reinforce. `Human claim` is what the asserted
+and references panels say, so it is what this says.
+
+Two words cannot say who claimed what, so the rest is on hover, one
 line per claim:
 
 > ADMIN claimed "linked-to" on an event it appears in · 2026-09-03
