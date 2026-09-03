@@ -14,7 +14,7 @@ that grows.**
 `R1`'s structure is the base because it encodes what is actually true here: the
 three notions of "related" have different cardinalities, different failure modes
 and different empty states. Co-occurrence is always truncated and must say so.
-Near-matches are few but carry three engine states, one of which does not exist
+Near-matches are few but carry four engine states, one of which does not exist
 in MISP. Asserted claims are written one at a time by people, are never ranked
 and never truncated. Three sections that each own their own rules cannot later
 collapse into one blended list — which is the failure this tab dies of.
@@ -27,7 +27,7 @@ section that grows:
 | Section | Narrowing | Cut |
 |---|---|---|
 | Co-occurrence | full `R3` filter row + `Narrow by` facets with counts | paginates |
-| Near-matches | none — bounded by the engines, three rows | none |
+| Near-matches | none — bounded by the engines, a handful of rows | none |
 | Asserted | relationship-type filter only | none; ACL is the only cut |
 
 Deliberately **not** taken from `R3`: its segmented control. `R1` shows all
@@ -155,11 +155,21 @@ Then one block per engine, each in one of three states:
   never runs; shows what a row *would* look like (`ssdeep 92%`) and states that
   the number is recomputed per row because MISP stores the threshold test, not
   the score.
-- **No engine in MISP — domain / TLD tree.** `.vp-panel-stub` with its badge.
-  Nothing in MISP computes a parent-domain, registrable-domain or public-suffix
-  relation: no list, no table, no code path. It is drawn so the gap in the brief
-  is visible rather than quietly dropped — which is different from empty and
-  different from not-applicable, and all three appear in this one section.
+- **Look-alike spellings — the fourth engine, and the only local one.**
+  `24b-relationships.md` §12 adds it and §12.1 prices it: a permutation set
+  generated in `DomainPermutationTool` (character omission, homoglyph, bitsquat,
+  hyphenation, ending swap and seven more), checked against `domain`,
+  `hostname` and `domain|ip` in one indexed lookup. It is the one engine here
+  whose claim MISP's correlation table never holds, which is exactly why the
+  section's *not equality* banner is load-bearing rather than decorative.
+- **No engine in MISP — domain / TLD tree.** One line, since B2. Nothing in MISP
+  computes a parent-domain, registrable-domain or public-suffix relation: no
+  list, no table, no code path. It is drawn so the gap in the brief is visible
+  rather than quietly dropped — which is different from empty and different from
+  not-applicable, and all four states appear in this one section. B10 kept it
+  rather than taking its slot: §12.1 measured the child half of a tree at
+  4,533 ms against the permutation engine's 7.3 ms, so the gap is now a priced
+  gap rather than an unexamined one.
 
 ## 8. Section three — asserted by analysts
 
@@ -265,7 +275,10 @@ Disabled with a `title`: `Tag the selection`, `Add selection to a collection`,
 
 - **Domain/TLD-tree relations do not exist in MISP.** No public-suffix list, no
   tree, no code path. The design renders the absence; nothing can render the
-  data.
+  data. Priced on live data in `24b-relationships.md` §12.1: the parent
+  direction would cost 10–51 ms and serve 12.6% of domain values, the child
+  direction 4,533 ms and serve 4.3% — slowest exactly where it finds nothing.
+  The first is affordable and unbuilt; the second wants a schema change.
 - **Correlations carry no provenance.** The table stores `value`, two event ids,
   two attribute ids, org and distribution — that is all. Exact matches, CIDR
   containment and ssdeep rows are written into it together by
@@ -1184,7 +1197,7 @@ Each switchable, each with its own stroke, shape and row in the key.
 |---|---|---|
 | **Object siblings** | shares an object with this value | 14–42 |
 | **Events** | this value appears in this event | 1–35 |
-| **Near-match** | CIDR containment, ssdeep proximity | a handful |
+| **Near-match** | CIDR containment, ssdeep proximity, look-alike spellings | a handful |
 | **Asserted** | an analyst wrote this claim | a handful |
 | **Object references** | MISP's own typed relation between two objects | 4–17 |
 

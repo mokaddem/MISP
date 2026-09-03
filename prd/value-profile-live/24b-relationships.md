@@ -31,6 +31,10 @@ Update this table in the same pass as the code, not in a catch-up
 sweep. A task is `done` only when its change is verified against the
 live instance and recorded in its own section below.
 
+**Every row is done as of 2026-09-03.** B10 was the last, and the only
+one whose grilling gate was lifted rather than held — §12.2 says by
+whom and records the decisions it would have taken.
+
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
 | B1 | The references panel's object link | `value_relation_references` | XS | no | no | **done** |
@@ -43,7 +47,7 @@ live instance and recorded in its own section below.
 | B8 | Named threats in this neighbourhood | new rail card | L | **yes** | **yes — frontend-design** | **done** |
 | B8.1 | Galaxies and taxonomies as neighbour context | `value_relation_cooccurrence` (new section), `value_relation_summary`, `value_relation_threats`, `value_relation_settings` | L | no | **yes — a third section with its own bar and pager** | **done** |
 | B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
-| B10 | A typosquat engine for near-matches | `value_relation_near_match` | L | **yes** | no | todo — both engines priced, §12.1 |
+| B10 | A typosquat engine for near-matches | `value_relation_near_match`, new `DomainPermutationTool` | L | lifted | no | **done** |
 
 ## 2. The order, and why
 
@@ -2874,6 +2878,119 @@ whether look-alikes are also checked against the feed cache are
 unchanged by cost and stay for the grilling. What the measurements
 remove from that list is the cap question — there is no cap — the
 value-type question, and the URL half of the type question.
+
+### 12.2 Built — 2026-09-03
+
+**Built without the grilling session, on instruction.** §12 marked B10
+*grilling first* and the gate was lifted directly: *"You can build the
+twist engine, but make it a standalone tool."* §12.1 had already
+answered three of the six questions with measurement — there is no cap,
+the type list is `domain`/`hostname`/`domain|ip`, and `url` is out —
+and the rest are recorded below as decisions taken rather than
+decisions deferred, so a later reader can see which were argued and
+which were merely made.
+
+**The generator is a tool and knows nothing about MISP.**
+`app/Lib/Tools/DomainPermutationTool.php` takes a name and returns
+`candidate => class`. No model, no database, no user, no `__()` — the
+class keys are vocabulary and the wording lives in the view, which is
+what keeps the file testable on its own and free of a translator.
+Twelve classes: omission, repetition, transposition, keyboard
+replacement and insertion, vowel swap, homoglyph, bitsquat,
+hyphenation, subdomain, addition, ending swap. The model layer does
+the half the tool must not: one indexed `occurrencesForAny` over the
+candidate keys, viewer-scoped like every other count on the page.
+
+**Three guards, and two of them exist because the measurement found
+them.**
+
+- **Case-only bit flips are dropped.** Bit 5 of an ASCII letter is the
+  case bit and `attributes.value1` is `utf8mb3_unicode_ci`, so
+  bitsquatting `github.com` generates `Github.com`, which the database
+  matches. The first probe run reported 20 rows and every one of them
+  was `github.com` itself — a "near match" that is literally equality,
+  in the panel whose banner says a row here never means the two values
+  are the same. §12.1 has the finding; the guard is in `generate()`
+  with the reasoning beside it.
+- **Illegal names are dropped.** A label cannot be empty, start or end
+  with a hyphen, or exceed 63 characters, and the whole name cannot
+  exceed 253. `omission` and `subdomain` both produce empty labels and
+  `repetition` overflows a long one. A string no registrar would sell
+  is a string no attribute can hold, so keeping it would only widen the
+  `IN` list — which is why the 63-character worst case fell from 1,131
+  candidates to 722 once the filter went in.
+- **Numeric-looking keys are cast back to strings** before the query,
+  per §8.1. `4.com` is a hostname and this generator emits its
+  neighbours.
+
+**`Similarity ≥` no longer applies, and that was nearly silent.**
+`rowMatchesMinimums` in `value-profile.js` drops a row carrying no
+number under a key the reader has cut on — deliberately, and right —
+so a typosquat row, whose closeness is a *class* and not a percentage,
+would have vanished the moment the control moved off zero. The control
+now renders only when every row on screen carries a number. §4.1
+predicted the shape of this problem ("a second place for the
+`Similarity ≥` control to stop agreeing with the bar") one task early;
+the fix keeps one table and gives it an optional way to word a
+closeness instead of drawing it.
+
+**The engine is the fourth, not the tree's replacement.** §12 planned
+to put the block in the domain/TLD line's slot. §12.1 priced that line
+and found it names two engines rather than one — a parent lookup at
+10–51 ms serving 12.6% of domain values, a child lookup at 4,533 ms
+serving 4.3% and slowest exactly where it finds nothing — so the gap it
+draws is real, unbuilt, and now priced. Generating spellings does not
+make a parent-domain relation exist. Four engines, fixed order, and
+§4.1's decision to keep positions stable rather than sort by state
+holds at four.
+
+**One thing the section already got wrong, made visible by a fourth
+engine.** The header counted every non-active engine as *"n engines do
+not apply here"* — folding *declines this type*, *cannot load* and
+*does not exist* into the one phrase the body spends four states
+separating. With three engines it read `2`, with four it reads `3`, and
+neither was true. It now says **"n engines are not running here"**,
+which is true of all three idle states and claims nothing about which.
+
+**What it costs the section.** Measured at 820px, section height, with
+the block's own contribution and the line it would otherwise be:
+
+| Value | Engine state | Section before | After | Added |
+|---|---|---|---|---|
+| `caref1rst.com` | active, 1 row | 276px | 556px | 280px |
+| `github.com` | active, 0 rows | 276px | 499px | 223px |
+| `8.8.8.8` | not applicable | 581px | 621px | 40px |
+
+The whole cost falls on domain values; everything else pays one line,
+which is what B2 built the line for. On `github.com` the section is
+still smaller than the 525px B2 found it at, and the height it spends
+now is an engine reporting a result rather than two paragraphs
+explaining that nothing ran.
+
+**What it costs in time.** `forRelationNearMatch` end to end:
+`caref1rst.com` 20.0 ms, `github.com` 42.3 ms, `8.8.8.8` 33.4 ms —
+the same band the section occupied before the engine existed (38.6 ms
+and 64.0 ms in §12.1's table). The panel is not cached and does not
+need to be.
+
+**Verify.** Fetched live for three values and read in both themes.
+
+- `caref1rst.com` — **247 candidate spellings**, one hit:
+  `careflrst.com`, *Look-alike character*, in event #1607, reported by
+  CUDESO. The Carefirst pair out of the APT1 reporting, which
+  `default_correlations` will never relate.
+- `github.com` — 186 candidates, no hit, and the empty state says the
+  engine applies and found nothing. The description drops its *"every
+  row below"* clause when there are no rows below it.
+- `8.8.8.8` — one line, *Not applicable*, and `Similarity ≥` is still
+  offered because CIDR's four rows still carry numbers.
+
+**Still open, and none of it is blocked by this task.** The reverse
+direction — *this value as a look-alike of a prominent domain* — waits
+on the warninglist question §12.1 ends on, not on cost. Feed-cache
+membership for generated look-alikes stays a later pass. Where a hit
+links follows the section's existing answer (the record, then the
+event), so the promote-list question is untouched here.
 
 ## 13. Not in this subphase
 

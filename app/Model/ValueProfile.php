@@ -6,6 +6,7 @@ App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
+App::uses('DomainPermutationTool', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -136,6 +137,18 @@ class ValueProfile extends AppModel
      * without a request.
      */
     const RELATION_ROW_CAP = 100;
+
+    /**
+     * Occurrences the typosquat engine fetches for its candidate set.
+     *
+     * A *fetch* cap, not a compare cap — the distinction §4.2 found
+     * the ssdeep engine getting wrong. Every candidate is always
+     * checked, because the check is one `IN` over the whole set; this
+     * bounds how many occurrences of the hits come back, and the panel
+     * reports it when it binds rather than quietly showing fewer
+     * look-alikes than exist.
+     */
+    const TYPOSQUAT_FETCH_CAP = 200;
 
     /** Rows per page in the co-occurrence and sibling lists. */
     const RELATION_PAGE_SIZE = 8;
@@ -4002,9 +4015,25 @@ class ValueProfile extends AppModel
         foreach ($types as $type) {
             $names[$type['type']] = true;
         }
+        /*
+         * Fixed order, whatever each engine's state is. §4.1 weighed
+         * reordering by state — with ssdeep active, CIDR's idle line
+         * sits above the block that ran — and kept the stable position
+         * of each engine, which is worth more now that there are four.
+         *
+         * The typosquat engine does **not** replace the absent tree
+         * line, which is what §12 planned. §12.1 priced the tree and
+         * found it is two engines rather than one: a parent lookup at
+         * 10–51 ms that MISP genuinely has no code path for, and a
+         * child lookup at 4,533 ms that only a schema change makes
+         * affordable. A permutation engine does not make a
+         * parent-domain relation exist, so dropping the line would
+         * quietly close a gap this section draws on purpose.
+         */
         $engines = array(
             $this->cidrEngine($user, $value, $names),
             $this->ssdeepEngine($user, $value, $names),
+            $this->typosquatEngine($user, $value, $names),
             array('id' => 'tld', 'state' => 'absent', 'rows' => array()),
         );
         $matches = 0;
@@ -4129,14 +4158,36 @@ class ValueProfile extends AppModel
     private function nearRow(array $row, $label, $closeness, $addresses,
         $width
     ) {
-        $object = empty($row['Object']['id'])
-            ? null
-            : (int)$row['Object']['id'];
         return array(
             'block' => $label,
             'prefix' => (int)$closeness,
             'addresses' => $addresses,
             'width' => $width,
+        ) + $this->matchContext($row);
+    }
+
+    /**
+     * Where a matched occurrence sits, who reported it and who may see
+     * it — the half of a near-match row that has nothing to do with
+     * how the match was made.
+     *
+     * Split out because the typosquat engine's closeness is a
+     * *permutation class* and not a number: it cannot fill `prefix`,
+     * `addresses` or `width`, and filling them with zeroes to reuse
+     * `nearRow` would hand the template a row whose bar renders 0% and
+     * whose `Similarity` filter silently drops it. Two row shapes over
+     * one context, rather than one row shape carrying three fields
+     * that mean nothing on a third of its rows.
+     *
+     * @param array $row
+     * @return array
+     */
+    private function matchContext(array $row)
+    {
+        $object = empty($row['Object']['id'])
+            ? null
+            : (int)$row['Object']['id'];
+        return array(
             'event' => (int)$row['Attribute']['event_id'],
             'attribute' => (int)$row['Attribute']['id'],
             'object' => $object,
@@ -4246,6 +4297,129 @@ class ValueProfile extends AppModel
             'id' => 'ssdeep',
             'state' => 'active',
             'rows' => $rows,
+        );
+    }
+
+    /**
+     * Spellings of this domain that somebody could mistake for it, and
+     * which of them already exist on this instance.
+     *
+     * The fourth engine, and the only one that makes a claim MISP's
+     * correlation engine never makes. That is deliberate and it is the
+     * section's own contract rather than a stretch of it: a near-match
+     * is *not equality*, every row names the engine that produced it,
+     * and the panel says so above the rows. `careflrst.com` and
+     * `caref1rst.com` are two unrelated attributes as far as
+     * `default_correlations` is concerned, and one is a homoglyph of
+     * the other; the section exists to say the second thing.
+     *
+     * **Generation is `DomainPermutationTool`'s and the check is
+     * ours** — the split the tool's docblock argues for. Generation is
+     * pure string work over the label, 0.2 ms for a typical name; the
+     * check is one indexed `IN` over `value1`/`value2`, 7.3 ms mean
+     * over 25 real values, which is a fifth of what this section
+     * already costs. `24b-relationships.md` §12.1 measured both, and
+     * measured the alternatives that are not here: matching inside
+     * `url` values is a substring scan at 1,090 ms a candidate, so
+     * `url` is not in the type list below.
+     *
+     * **The fetch is capped and the panel says so.** `occurrencesForAny`
+     * orders by `Attribute.timestamp DESC`, so a saturated fetch means
+     * *the most recent* occurrences, and a look-alike seen only in
+     * older events would be missing without a word — which is §4.2's
+     * finding about the ssdeep candidate cap, and the reason this one
+     * is reported rather than merely bounded.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $types Type name => true
+     * @return array
+     */
+    private function typosquatEngine(array $user, $value, array $types)
+    {
+        $domainTypes = array('domain', 'hostname', 'domain|ip');
+        if (empty(array_intersect($domainTypes, array_keys($types)))) {
+            return array(
+                'id' => 'typosquat',
+                'state' => 'not_applicable',
+                'rows' => array(),
+                'candidates' => 0,
+            );
+        }
+        $candidates = DomainPermutationTool::candidates($value);
+        if (empty($candidates)) {
+            /*
+             * The type says domain and the value cannot carry a
+             * spelling — no dot, or already at the length limit. The
+             * engine applies and generated nothing, which is a
+             * different sentence from *found nothing* and the panel
+             * draws it as one.
+             */
+            return array(
+                'id' => 'typosquat',
+                'state' => 'active',
+                'rows' => array(),
+                'candidates' => 0,
+                'classes' => DomainPermutationTool::CLASSES,
+                'saturated' => false,
+                'cap' => self::TYPOSQUAT_FETCH_CAP,
+            );
+        }
+        /*
+         * `array_map('strval', ...)` for the reason §8.1 records: an
+         * array key that looks like an integer comes back from
+         * `array_keys()` as one, reaches the database bound as an
+         * integer, and makes MariaDB convert the column and abandon
+         * the `value1` index. A domain rarely looks numeric, `123.com`
+         * does not — but `4.com` is a hostname somebody registered and
+         * this generator emits its neighbours.
+         */
+        $rows = $this->model('Value')->occurrencesForAny(
+            $user,
+            array_map('strval', array_keys($candidates)),
+            array(
+                'types' => $domainTypes,
+                'limit' => self::TYPOSQUAT_FETCH_CAP,
+            )
+        );
+        $saturated = count($rows) >= self::TYPOSQUAT_FETCH_CAP;
+        $order = array_flip(DomainPermutationTool::CLASSES);
+        $out = array();
+        $seen = array();
+        foreach ($this->decorate($user, $rows) as $row) {
+            /*
+             * `domain|ip` stores the domain in `value1` and the address
+             * in `value2`, and the row's `value` is the composite. The
+             * look-alike is the domain half.
+             */
+            $matched = $row['Attribute']['value'];
+            if (strpos($matched, '|') !== false) {
+                $matched = explode('|', $matched)[0];
+            }
+            $matched = strtolower($matched);
+            if (!isset($candidates[$matched]) || isset($seen[$matched])) {
+                continue;
+            }
+            $seen[$matched] = true;
+            $out[] = array(
+                'block' => $matched,
+                'class' => $candidates[$matched],
+            ) + $this->matchContext($row);
+        }
+        usort($out, function ($a, $b) use ($order) {
+            $byClass = $order[$a['class']] - $order[$b['class']];
+            return $byClass !== 0
+                ? $byClass
+                : strcmp($a['block'], $b['block']);
+        });
+        return array(
+            'id' => 'typosquat',
+            'state' => 'active',
+            'rows' => $out,
+            'candidates' => count($candidates),
+            'classes' => DomainPermutationTool::CLASSES,
+            'saturated' => $saturated,
+            'cap' => self::TYPOSQUAT_FETCH_CAP,
         );
     }
 

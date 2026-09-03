@@ -57,6 +57,63 @@ foreach ($near['engines'] as $engine) {
 }
 
 /**
+ * A permutation class, in words a reader has not had to learn.
+ *
+ * The model carries the class as a key and stops there, because the
+ * generator behind it is a MISP-free tool with no translator; the
+ * wording is a view decision and lives where `__()` can find it.
+ *
+ * @param string $class
+ * @return string
+ */
+$permutationLabel = function ($class) {
+    $labels = array(
+        'omission' => __('Character dropped'),
+        'repetition' => __('Character doubled'),
+        'transposition' => __('Neighbours swapped'),
+        'replacement' => __('Adjacent key'),
+        'insertion' => __('Adjacent key inserted'),
+        'vowel_swap' => __('Vowel exchanged'),
+        'homoglyph' => __('Look-alike character'),
+        'bitsquat' => __('One bit flipped'),
+        'hyphenation' => __('Hyphen inserted'),
+        'subdomain' => __('Dot inserted'),
+        'addition' => __('Character appended'),
+        'tld_swap' => __('Different ending'),
+    );
+    return isset($labels[$class]) ? $labels[$class] : $class;
+};
+
+/*
+ * **Whether `Similarity >=` is offered at all**, and it is not a
+ * cosmetic question. `rowMatchesMinimums` in `value-profile.js` drops
+ * a row that carries no number under a key the reader has cut on —
+ * deliberately, because *"I do not know"* is not evidence — so a
+ * typosquat row, whose closeness is a permutation class and not a
+ * percentage, would vanish the moment the control moved off zero. A
+ * control that deletes rows it cannot rank is worse than no control,
+ * so it appears only when every row on screen carries a number.
+ *
+ * In practice the two never coexist: the numeric engines want an
+ * address or a hash and this one wants a name. The check is written
+ * against the general case anyway, because the cost of being wrong
+ * here is silent.
+ */
+$scaledRows = 0;
+$unscaledRows = 0;
+foreach ($near['engines'] as $engine) {
+    if (empty($engine['rows'])) {
+        continue;
+    }
+    if ($engine['id'] === 'typosquat') {
+        $unscaledRows += count($engine['rows']);
+    } else {
+        $scaledRows += count($engine['rows']);
+    }
+}
+$offerSimilarity = $scaledRows > 0 && $unscaledRows === 0;
+
+/**
  * @param array $row
  * @return string
  */
@@ -106,7 +163,7 @@ $shorten = function ($label) {
 
 ob_start();
 ?>
-    <?php if (!empty($near['matches'])): ?>
+    <?php if ($offerSimilarity): ?>
         <label class="small text-muted" for="vp-rel-similarity">
             <?= __('Similarity') ?> &ge;
         </label>
@@ -119,7 +176,7 @@ ob_start();
     <?php endif; ?>
 <?php
 $headerExtra = ob_get_clean();
-if (empty($near['matches'])) {
+if (!$offerSimilarity) {
     $headerExtra = null;
 }
 ?>
@@ -149,9 +206,19 @@ if (empty($near['matches'])) {
                     $near['engines_active'])
             )) ?>
             &nbsp;·&nbsp;
+            <?php
+            /*
+             * *Not running* rather than *does not apply*: the idle
+             * count is the sum of three different states — an engine
+             * that declines this type, one MISP ships but cannot load,
+             * and one that does not exist at all — and only the first
+             * of them "does not apply". The body draws the distinction
+             * per engine; the header must not undo it in a summary.
+             */
+            ?>
             <?= h(__n(
-                '%d engine does not apply here',
-                '%d engines do not apply here',
+                '%d engine is not running here',
+                '%d engines are not running here',
                 $near['engines_idle'],
                 $near['engines_idle']
             )) ?>
@@ -219,9 +286,16 @@ if (empty($near['matches'])) {
          * @param string $subject Heading for the matched value
          * @param string $scale Heading for the closeness column
          * @param string|null $extra Heading for the grounding column
+         * @param callable|null $named When the engine's closeness is a
+         *                     name rather than a number, the function
+         *                     that words it. The bar and the row's
+         *                     `data-vp-num` both go — see
+         *                     `$offerSimilarity`.
          * @return void
          */
-        $engineTable = function ($engine, $subject, $scale, $extra)
+        $engineTable = function ($engine, $subject, $scale, $extra,
+            $named = null
+        )
             use ($view, $baseurl, $closeness, $shorten, $distributionBadge)
         {
             ?>
@@ -250,16 +324,37 @@ if (empty($near['matches'])) {
                              * sense that half the bits are fixed;
                              * 65,536 addresses is what that means.
                              */
-                            $share = $closeness($row);
+                            $share = $named === null
+                                ? $closeness($row)
+                                : null;
                             ?>
                             <tr class="vp-rel-stripe vp-rel-k-near"
-                                data-vp-num="closeness:<?= h($share) ?>">
+                                <?php if ($share !== null): ?>
+                                    data-vp-num="closeness:<?= h($share) ?>"
+                                <?php endif; ?>>
                                 <td class="font-monospace">
                                     <span class="vp-rel-cell"
                                           title="<?= h($row['block']) ?>"><?=
                                         h($shorten($row['block'])) ?></span>
                                 </td>
                                 <td>
+                                    <?php if ($named !== null): ?>
+                                        <?php
+                                        /*
+                                         * A class, not a percentage. §12
+                                         * of `24b-relationships.md` is
+                                         * explicit that a bar here would
+                                         * be inventing a number: a
+                                         * dropped character is not "80%
+                                         * similar" to anything, and the
+                                         * reader who sorts on it would be
+                                         * sorting on a fiction.
+                                         */
+                                        ?>
+                                        <span class="vp-rel-tag">
+                                            <?= h($named($row)) ?>
+                                        </span>
+                                    <?php else: ?>
                                     <span class="vp-rel-bar"
                                           style="--vp-seg-color:
                                                  var(--vp-rel-near);">
@@ -274,6 +369,7 @@ if (empty($near['matches'])) {
                                                 : h('/' . $row['prefix']) ?>
                                         </span>
                                     </span>
+                                    <?php endif; ?>
                                 </td>
                                 <?php if ($extra !== null): ?>
                                     <td class="font-monospace small
@@ -391,12 +487,13 @@ if (empty($near['matches'])) {
          * the four it reports on the instance rather than on the value,
          * and alone among them it is something a reader can act on.
          *
-         * **This line is the slot a real engine's block replaces.**
-         * B10 puts a typosquat engine where the domain/TLD line now
-         * sits (`24b-relationships.md` §12); at this end that is one
-         * `$engineLine()` call giving way to a `vp-rel-engine` block
-         * and an `$engineTable()`, which is why the line is a call and
-         * not eleven lines of inline markup.
+         * **This line is the slot a real engine's block replaces**,
+         * and B10 proved the shape works by not using it: the
+         * typosquat engine came in as a fourth engine above rather
+         * than in the tree's place, and adding it was one
+         * `$engineLine()`-shaped block plus an `$engineTable()` call.
+         * That is why these are calls and not eleven lines of inline
+         * markup apiece.
          *
          * @param string $state Label for the state column
          * @param string $name The engine's name
@@ -601,6 +698,157 @@ if (empty($near['matches'])) {
 
         <?php endif; ?>
 
+        <?php if (isset($engines['typosquat'])): ?>
+
+            <?php $typo = $engines['typosquat']; ?>
+            <?php if ($typo['state'] !== 'active'): ?>
+                <?php $engineLine(
+                    __('Not applicable'),
+                    __('Look-alike spellings'),
+                    sprintf(
+                        __('generates spellings of a name; does not run'
+                            . ' on %s.'),
+                        '<span class="font-monospace">'
+                            . h($primaryType) . '</span>'
+                    )
+                ) ?>
+            <?php else: ?>
+            <div class="vp-rel-engine vp-rel-engine-on">
+                <span class="vp-rel-engine-state">
+                    <?= __('Active') ?>
+                </span>
+                <div class="vp-min-w-0 flex-grow-1">
+                    <div class="fw-semibold small vp-rel-engine-name">
+                        <?= __('Look-alike spellings') ?>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <?php if (empty($typo['candidates'])): ?>
+                            <?php
+                            /*
+                             * The engine applies and generated nothing,
+                             * which is a third sentence again: not
+                             * *does not run here* and not *found
+                             * nothing*. A name with no dot, or one
+                             * already at the length DNS allows, has no
+                             * legal neighbour to generate.
+                             */
+                            ?>
+                            <?= __('This name has no spelling to'
+                                . ' generate — every variation of it'
+                                . ' would be longer than DNS allows, or'
+                                . ' would not be a name at all.') ?>
+                        <?php else: ?>
+                            <?= sprintf(
+                                __('%1$s of this name were checked'
+                                    . ' against every %2$s attribute you'
+                                    . ' can see.'),
+                                '<strong>' . h(__n(
+                                    '%d candidate spelling',
+                                    '%d candidate spellings',
+                                    $typo['candidates'],
+                                    $typo['candidates']
+                                )) . '</strong>',
+                                '<span class="font-monospace">domain</span>,'
+                                    . ' <span class="font-monospace">'
+                                    . 'hostname</span> '
+                                    . h(__('and'))
+                                    . ' <span class="font-monospace">'
+                                    . 'domain|ip</span>'
+                            ) ?>
+                            <?php if (!empty($typo['rows'])): ?>
+                                <?php
+                                /*
+                                 * Only where there are rows to say it
+                                 * about. The count of what was found
+                                 * belongs to the found state, and the
+                                 * empty state below carries its own
+                                 * sentence — saying *0 are already
+                                 * here* and then *every row below is
+                                 * derived* above an empty table names
+                                 * rows that are not there.
+                                 */
+                                ?>
+                                <?= sprintf(
+                                    __('%s already on this instance.'),
+                                    '<strong>' . h(__n(
+                                        '%d is',
+                                        '%d are',
+                                        count($typo['rows']),
+                                        count($typo['rows'])
+                                    )) . '</strong>'
+                                ) ?>
+                                <?= __('Nothing in MISP correlates a'
+                                    . ' value with a different spelling'
+                                    . ' of it, so every row below is'
+                                    . ' derived here and exists nowhere'
+                                    . ' in the database.') ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (!empty($typo['candidates'])): ?>
+                        <div class="small text-muted mt-1">
+                            <?php
+                            /*
+                             * What bounds a run, named in full. There is
+                             * no numeric cap to confess here — generation
+                             * is linear in the name's length, so the set
+                             * is whatever these classes produce — but the
+                             * classes *are* the bound, and a reader who
+                             * cannot see them cannot tell a spelling the
+                             * engine rejected from one it never tried.
+                             */
+                            $classNames = array();
+                            foreach ($typo['classes'] as $class) {
+                                $classNames[] = $permutationLabel($class);
+                            }
+                            ?>
+                            <?= h(sprintf(
+                                __('Generated by: %s. Nothing else was'
+                                    . ' tried.'),
+                                implode(', ', $classNames)
+                            )) ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($typo['saturated'])): ?>
+                        <div class="small text-muted mt-1">
+                            <?= h(sprintf(
+                                __('The fetch stopped at the %d most'
+                                    . ' recent occurrences, so a'
+                                    . ' look-alike seen only in older'
+                                    . ' events is not listed.'),
+                                $typo['cap']
+                            )) ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php if (!empty($typo['rows'])): ?>
+                <?php $engineTable(
+                    $typo,
+                    __('Look-alike value'),
+                    __('How it differs'),
+                    null,
+                    function ($row) use ($permutationLabel) {
+                        return $permutationLabel($row['class']);
+                    }
+                ) ?>
+            <?php elseif (!empty($typo['candidates'])): ?>
+                <div class="px-3 pb-3">
+                    <div class="vp-empty vp-empty-inline">
+                        <i class="fas fa-code-compare"></i>
+                        <span>
+                            <?= __('Not one of those spellings is on'
+                                . ' this instance. The engine applies;'
+                                . ' it found nothing.') ?>
+                        </span>
+                    </div>
+                </div>
+            <?php endif; ?>
+            <?php endif; ?>
+
+        <?php endif; ?>
+
         <?php if (isset($engines['tld'])): ?>
 
             <?php
@@ -625,7 +873,16 @@ if (empty($near['matches'])) {
              * not exist — which is why the state column says so in its
              * own words rather than reusing the label.
              *
-             * B10 replaces this call with a block; see `$engineLine`.
+             * **B10 did not replace this call**, which is what
+             * `24b-relationships.md` §12 planned. §12.1 priced the
+             * tree and found it is two engines wearing one name: a
+             * parent-domain lookup at 10–51 ms that MISP genuinely has
+             * no code path for, and a child lookup at 4,533 ms — worst
+             * when it finds nothing, which is 96 domain values in 100 —
+             * that only a schema change makes affordable. Generating
+             * spellings does not make a parent-domain relation exist,
+             * so the typosquat engine sits above this line instead of
+             * on top of it, and the gap stays drawn.
              */
             $engineLine(
                 __('No engine'),
