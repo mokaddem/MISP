@@ -1754,3 +1754,34 @@ value carries now. attribute_tags has no created column, so nothing
 dates them — when each was attached is in the Tag changes lane."* Same
 facts, one sentence shorter, and the first four words say what the row
 is. The cluster row and the audit-off hatch took the same pass.
+
+### 22.6 The feed lane comes out
+
+> *If you cannot say anything about the feed appearance, remove the
+> lane. It's useless.*
+
+Correct, and the lane's own text said as much: the feed cache is a Redis
+set with **one timestamp for the whole feed**, rewritten on every
+refresh, so there is no date for *this value in that feed* at all — not
+an imprecise one, none. A full-size row was spending the tab's most
+expensive space on that.
+
+This is a partial reversal of §8.2's rule, and the test it fails is
+worth writing down, because the Tags lane passes it. The rule buys
+visibility for an absence **a reader could mistake for a quiet period**.
+Tags are that: a value with no tag marks on the axis looks like a value
+nobody tagged, so the lane says otherwise. Feeds are not: there is no
+period to be quiet in, and which feeds hold the value is answered in
+full — names included — by the External sources panel on the
+Relationships tab.
+
+What stays is the one-line chip on the off-axis strip, *Feed appearances
+3 — as of 2026-09-04 04:59*, with the cache's own explanation in its
+`title`. That keeps the panel's *N named but undatable* subtitle
+checkable against something, which removing the row as well would
+break.
+
+The lane grid is seven rows again, one of them hatched, and the two
+lines that counted them are corrected: the card header now reads *a lane
+per dated source, and one for the tags MISP never dates*, and the footer
+*one holds what MISP never dates*.

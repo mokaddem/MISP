@@ -507,17 +507,18 @@ if ($window !== null) {
  * ------------------------------------------------------------------
  * The lanes
  * ------------------------------------------------------------------
- * Eight, one per source the tab's own note promises, whether or not
- * MISP records it. Two will never carry a mark and keep a full-size
+ * Seven. One of them will never carry a mark and keeps a full-size
  * hatched lane anyway — a reader who scans the lanes must not be able
  * to miss what is missing, which is the reason this design was chosen
  * over the cheaper one that put the same facts in a rail.
  *
- * That is the whole intent of the Tags lane, and §22.2's dated Tag
- * changes lane does not replace it: this one is the set the value
- * carries *now*, undatable on any instance, and with
- * `MISP.log_new_audit` off — MISP's default — it is the only row on the
- * tab that says the value is tagged at all.
+ * That one is Tags, and §22.2's dated Tag changes lane does not
+ * replace it: this one is the set the value carries *now*, undatable on
+ * any instance, and with `MISP.log_new_audit` off — MISP's default —
+ * it is the only row on the tab that says the value is tagged at all.
+ *
+ * A lane earns that treatment only where the absence could be read as
+ * a quiet period. §22.6 took the feed lane out on exactly that test.
  */
 /*
  * Matched on the stable key and never on the translated `kind`. Both
@@ -639,19 +640,21 @@ $lanes = array(
             . ' would store no date for it.'
         ),
     ),
-    array(
-        'key' => 'feeds',
-        'label' => __('Feed appearances'),
-        'sub' => __('one date per feed, moves on refresh'),
-        'draw' => 'undated',
-        'row' => isset($undatedBy['feeds'])
-            ? $undatedBy['feeds']
-            : null,
-        'absent' => __(
-            'No feed on this instance carries this value — and if one'
-            . ' did, its only date would be the last fetch.'
-        ),
-    ),
+    /*
+     * **No feed lane.** It had a full-size row and nothing to put in
+     * it: the feed cache holds one timestamp for the whole feed,
+     * rewritten on every refresh, so there is no date for *this value
+     * in that feed* to be right or wrong about — and unlike the tag
+     * set, which is a fact the reader wants from this tab, which feeds
+     * hold the value is answered in full by the External sources panel
+     * on the Relationships tab, names included.
+     *
+     * §8.2's rule bought visibility for an absence that a reader might
+     * otherwise mistake for a quiet period. Feeds are not that: there
+     * is no period to be quiet in. The one-line chip on the off-axis
+     * strip above keeps the fact on the tab, which is all it was
+     * worth.
+     */
 );
 
 /**
@@ -1250,9 +1253,8 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                 ) ?>
                                 ·
                             </span>
-                            <?= __('every source the tab promises gets a'
-                                . ' lane, whether or not MISP records'
-                                . ' it') ?>
+                            <?= __('a lane per dated source, and one for'
+                                . ' the tags MISP never dates') ?>
                         </div>
                     </div>
                     <?php
@@ -1600,7 +1602,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
 
                 <div class="vp-tl-why pt-2">
                     <?= h(__('Five lanes can carry marks · one is'
-                        . ' truncated and says where · two hold what'
+                        . ' truncated and says where · one holds what'
                         . ' MISP never dates')) ?>
                 </div>
             </section>
