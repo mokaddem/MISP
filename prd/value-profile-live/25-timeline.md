@@ -44,15 +44,17 @@ to `done` only when §14's verification has run against it.
 | T20 | `TIMELINE_ROW_CAP` 300 → 1,000 | §19.5, §20.3 | **done** |
 | T21 | The band's tooltip fires; a mark's says what the server wrote | §20.1, §20.2 | **done** |
 | T22 | The spine's key filters the chart and the chronology | §21 | **done** |
+| T23 | Tag and cluster attachments leave the Edits lane for one of their own | §22.1, §22.2 | **done** |
+| T24 | The tab says when the instance first held the value | §22.3 | **done** |
 
-**Where the phase stands.** Twenty of twenty-two rows are done and the tab reads
-the database: the endpoint is wired, five dated lanes and the off-axis strip
+**Where the phase stands.** Twenty-two of twenty-four rows are done and the tab reads
+the database: the endpoint is wired, six dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log; §17 to §21 are what the first
-reader of the built tab asked for over five rounds, and T15 to T22 are that.
+than a lane that lies. §16 is the build log; §17 to §22 are what the first
+reader of the built tab asked for over six rounds, and T15 to T24 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -628,6 +630,10 @@ inheriting the defect into a fifth surface.
 Nine lanes where the fixture-era tab had seven. `Q` is left blank; §14.9
 row 2 is filled by measurement, not by estimate, and a blank here is a row
 §14 will not let the board claim.
+
+> **§22.2 adds a tenth**, Tag changes, which this plan does not have
+> because the fixture filed a tag attachment as an edit too — so nothing
+> here knew there was a lane missing.
 
 | Lane | Live source | Fetcher / accessor | Tier | The risk |
 |---|---|---|---|---|
@@ -1583,3 +1589,146 @@ both empty states after each gesture.
 | 12 | **Filtered, capped, empty** | `193.161.193.99` soloed on `Published` over a window whose rows the cap dropped: the capped sentence with the filtered count, not *nothing dated falls in this window* |
 | 13 | **No dead ends** | `193.161.193.99` renders lane buttons only for Publications and Edits; `8.8.8.8` loses only its Seen spans button; a value with nothing dated has no `data-vp-tl` at all and no key |
 | 14 | Both themes, console | reads in light and dark; no page error, no console error across every gesture above |
+
+---
+
+## 22. Two questions from the reader, and what the data said
+
+> *In the edit lane, I see entries such as "added tag xxx", wouldn't that
+> entry qualify for the "tags" lane? Maybe we could also give more
+> visibility to "first time seen on this instance"?*
+
+Both were right, and the first one is bigger than it looks.
+
+### 22.1 The Edits lane was mostly not edits
+
+`audit_logs` on this instance, by action:
+
+| action | rows |
+|---|---|
+| `tag` | 5,132,220 |
+| `add` | 4,200,523 |
+| `soft_delete` | 122,795 |
+| **`edit`** | **28,862** |
+| `galaxy` | 8,182 |
+| everything else | < 1,000 each |
+
+**Tagging is the most common audit action by two orders of magnitude
+over editing.** A tag attachment is an `audit_logs` row whose `model` is
+`Attribute`, `Object` or `Event` and whose `action` is one of `tag`,
+`tag_local`, `remove_tag`, `remove_local_tag` — with the tag's name in
+`model_title`, which is the one case where that column holds something
+other than the model the row names. The audit reader was picking them all
+up and filing them under `source => 'edit'`.
+
+What that did to the panel, measured on two values:
+
+| | Edits lane before | after |
+|---|---|---|
+| `8.8.8.8` | 369 edits | 197 edits · 126 tags · 46 clusters |
+| `94.98.224.81` | 5,861 edits | 1,474 edits · 4,387 tags |
+
+Three quarters of the busiest value's *edit* history was tag
+attachments — and the tab was drawing them three rows above a Tags lane
+whose own text read *"a tag can be dated only by an audit_logs row"*.
+Both statements were true. The rows were in the wrong lane.
+
+### 22.2 One lane out, one lane in, and no new query
+
+`AuditActionMeta::group()` is the new home of the judgement — the shared
+action vocabulary, so the History tab can read the same one — and it
+answers `tag`, `cluster` or `edit`. Everything not listed is `edit`:
+whatever the action did, its subject was the record itself.
+
+The split costs **nothing**. `auditCountsFor` already grouped by day
+*and* action, because the lane's own breakdown needed it, so keying the
+day map by group instead of flattening it to a per-day total is a
+different fold over the same rows. `timelineAuditLanes` then slices one
+read and one aggregate into two lanes: each takes its share of the
+newest cap-many rows the query returned, and each states counts from the
+uncapped aggregate underneath. Per-group `first`/`last` come out of the
+same fold, which is what lets each lane band the span its own capped
+rows could not reach (§19).
+
+`tag` and `cluster` share the new lane because they share one mechanism
+— a cluster attachment is a tag underneath — and stay two sources
+because the spine stacks them separately and §21's key filters on them.
+The colours are MISP's own `--tag` and `--galaxy`, so a tag mark here is
+the colour a tag is everywhere else in the product.
+
+**What the undated Tags row keeps saying.** The tag *set* a value
+carries now still has no date of its own — `attribute_tags` has no
+`created` column on any instance — so it stays on the off-axis strip and
+in its own structurally-empty lane, with its reason rewritten to point
+at where the dated half went. Two facts, two places, and neither claims
+the other's ground.
+
+**And one string this found.** The Edits lane's sub-label read *latest
+per occurrence* in both of its shapes. That is the fallback's
+description — one point from `attributes.timestamp` — and over the audit
+branch, where the lane draws one mark per logged change, it was simply
+false. It now says which shape it is in.
+
+### 22.3 *First time seen on this instance* is two different answers
+
+MISP stores **no creation date for an attribute.** `timestamp` is the
+last modification; `first_seen` is an analyst's claim about when the
+threat was seen in the world, which this tab already draws in a lane of
+its own; an event's `date` is the intel's date, not the record's. So the
+tab cannot print one number and call it the arrival — but it can print
+what the rows support, and say which of two things that is:
+
+| Evidence | Sentence |
+|---|---|
+| An `add` row in the audit log, no later than every other trace | **On this instance since 2026-09-01** — *the oldest creation the audit log holds for these records.* |
+| An occurrence's last-modified stamp, older than anything dated | **On this instance by 2022-06-28** — *from an occurrence's last-modified stamp; MISP records no creation date for an attribute, so it may be older.* |
+| Only the oldest dated entry | **On this instance by 2026-05-09** — *the oldest dated thing here.* |
+
+One sentence in two prepositions — *since* is a date, *by* is a bound —
+with the clause after it naming the row, so the distinction never rests
+on the preposition alone. And never the words *first seen*: that phrase
+belongs to the seen-span lane, which is about the world rather than
+about this instance.
+
+The `add` row is usable only where it is no later than every other trace
+of the value. The audit log on this instance begins **2024-11-11**, and
+a record created before that leaves the oldest `add` row describing some
+*later* arrival — so `8.8.8.8`, whose oldest occurrence stamp is
+2022-06-28, gets the bound and not the audit date. That is the common
+case here and the reason the bound exists at all.
+
+It sits under the axis whose left edge it qualifies, because that edge
+answers a different question: **`8.8.8.8`'s chart starts in November
+2024 and the value has been on this instance since at least June
+2022.** Nothing on the tab said so before.
+
+### 22.4 Verified
+
+Both branches of `MISP.log_new_audit`, and the off one **without
+touching the instance**: `setSetting` does not reach PHP-FPM behind
+opcache, and flipping it for real on a shared box is not worth it, so
+the setting was written in-process from a throwaway Console shell that
+rendered the element the way `renderPanel` does (`render-ctp-via-console-shell`,
+deleted before the commit).
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l`, `node --check`, 80 columns over the diff | clean |
+| 2 | **The split is exact** | `8.8.8.8` 369 → 197 + 126 + 46; total dated still 447, and `94.98.224.81` 5,861 → 1,474 + 4,387 |
+| 3 | **Rows read as what they are** | *Tagged “stone:source="OSINT"” — event 4182* under a Tag chip; *Galaxy attached “Exploit Public-Facing Application - T1190”* under a Galaxy cluster chip; the Edits lane left with *Edited — event 3753* and *Added — object 72001* |
+| 4 | **The spine stacks them apart** | `94.98.224.81`'s 3,000-tall December bar is 2,400 tag and 600 edit where it was one grey block |
+| 5 | **Each lane bands its own span** | `94.98.224.81`: Publications, Edits and Tag changes all carry the §19 hatch, each over its own uncovered span, with *4,866 with no mark* in the header |
+| 6 | **§21's key and lane filter pick it up with no change** | 9 keys; pressing the Tag changes lane leaves Tag + Galaxy cluster visible with y axis 100 → 35 and the note *Showing Tag changes*; pressing the Galaxy cluster key alone → 20, note *Showing Galaxy cluster*, and no lane pressed, because the filter is one of that lane's two sources |
+| 7 | **Audit log off, model** | `audit_recorded: false`, no `tag` or `cluster` source at all, edit lane back to 26 occurrence stamps, 104 dated of the 447 |
+| 8 | **Audit log off, rendered** | 7 keys not 9; 4 lane buttons not 5, because the Tag changes lane is dead and §21.3's rule drops its button; the hatch renders inside `data-vp-tl-axis="tagging"` — *a tag is dated only by an audit_logs row, and MISP.log_new_audit is off* — and the Edits sub is back to *latest per occurrence* |
+| 9 | **The two branches agree about arrival** | both say `8.8.8.8` was here by 2022-06-28, reached two different ways: an occurrence stamp with the log on, the oldest dated record with it off |
+| 10 | **All three first-here sentences** | *since* on `dns.google` (created 2026-09-01, after the log began), *by* from a stamp on `8.8.8.8` and `193.161.193.99` (2021-03-31, against an axis starting 2025-11), *by* from a record on `143.14.244.37` |
+| 11 | Both themes, console | reads in light and dark; no page error, no console error |
+
+**One thing this cost, and it is worth writing down.** The first attempt
+at the audit-off branch ran `cake Admin setSetting` through `docker exec`
+as root, which rewrote `app/Config/config.php` root-owned. The web
+server could then no longer read its own config and every request
+redirected to `/users/login` — the instance was down until the
+ownership was put back. `cake` inside the container runs as
+`-u www-data`, always.

@@ -6377,12 +6377,15 @@ class ValueProfile extends AppModel
         $asked = isset($options['window']) && is_array($options['window'])
             ? $options['window']
             : null;
+        $audit = $this->timelineAuditLanes($context, $asked);
+        $spans = $this->timelineSpanEntries($context);
         $lanes = array(
             $this->timelineSightingEntries($user, $value, $options, $asked),
             $this->timelinePublicationEntries($context, $asked),
             $this->timelineAnalystEntries($user, $value, $context, $asked),
-            $this->timelineEditEntries($context, $asked),
-            $this->timelineSpanEntries($context),
+            $audit[0],
+            $audit[1],
+            $spans,
         );
         $entries = array();
         foreach ($lanes as $lane) {
@@ -6437,6 +6440,20 @@ class ValueProfile extends AppModel
                     'to' => $counts['last'],
                 ),
                 /*
+                 * The axis's left edge answers *when the record of this
+                 * value starts*, which is not the same question as
+                 * *when did this instance first hold it* — and the
+                 * second is the one a reader asks first. Nothing on
+                 * this tab named it before.
+                 */
+                'first_here' => $this->timelineFirstHere(
+                    $context,
+                    $counts,
+                    isset($audit[0]['first_add'])
+                        ? $audit[0]['first_add']
+                        : null
+                ),
+                /*
                  * The setting, read live. Every fixture value hard-codes
                  * this false with the note that it defaults so, which is
                  * true of a default instance and false of any instance
@@ -6448,7 +6465,9 @@ class ValueProfile extends AppModel
                     'MISP.log_new_audit'
                 ),
                 'counts' => $counts,
-                'spans' => $lanes[4]['spans'],
+                // From the lane itself and not from its index in the
+                // list, which a sixth lane has already moved once.
+                'spans' => $spans['spans'],
             ),
         );
     }
@@ -6818,11 +6837,203 @@ class ValueProfile extends AppModel
             'recorded' => true,
             // Authoritative: the rows above are capped and these are
             // not, so `timelineCounts` bins the spine from here.
-            'by_day' => self::asSourceMap($counts['by_day'], 'edit'),
+            'by_day' => $counts['by_day'],
             'by_action' => $counts['by_action'],
             'first' => $counts['first'],
             'last' => $counts['last'],
+            /*
+             * For `timelineAuditLanes`, which is this method's only
+             * caller and slices these three groups into two lanes. It
+             * takes the key back off before the lane ships.
+             */
+            'audit_counts' => $counts,
         );
+    }
+
+    /**
+     * The audit log's rows as **two** lanes: what changed the record,
+     * and what was tagged onto it.
+     *
+     * One read and one aggregate, sliced. Attaching a tag is not an
+     * edit — it is the one audit action whose subject is something
+     * other than the model it names — and on this instance it is also
+     * the most common row in the table by two orders of magnitude, so
+     * an *Edits* lane carrying them reported a tagged value's history
+     * as almost entirely edits while the *Tags* lane beside it said
+     * that a tag can be dated only by an `audit_logs` row. Both
+     * statements were true and the panel was drawing them in the wrong
+     * places.
+     *
+     * The `tag` and `cluster` sources share one lane because they share
+     * one mechanism — a cluster attachment is a tag underneath — and
+     * stay two sources because the spine stacks them separately and the
+     * key filters on them.
+     *
+     * With `MISP.log_new_audit` off there is nothing dated to slice:
+     * the edit lane falls back to `attributes.timestamp` and the
+     * tagging lane is empty and says why, which is the same shape the
+     * edit lane's own hatch takes.
+     *
+     * @param array $context From `timelineContext`
+     * @param array|null $window
+     * @return array Two lane payloads, edits first
+     */
+    private function timelineAuditLanes(array $context,
+        array $window = null
+    ) {
+        $edits = $this->timelineEditEntries($context, $window);
+        $recorded = !empty($edits['recorded']);
+        /*
+         * Sliced out of the edit lane's own rows rather than read
+         * again. `timelineEditEntries` returns the newest cap-many of
+         * the window and both lanes take their share of exactly that,
+         * so the two cannot describe row sets the reader never asked
+         * for — and the counts each lane states come from the aggregate
+         * underneath, which is not capped at all.
+         */
+        $kept = array();
+        $tagged = array();
+        foreach ($edits['entries'] as $entry) {
+            if ($entry['source'] === 'edit') {
+                $kept[] = $entry;
+            } else {
+                $tagged[] = $entry;
+            }
+        }
+        $edits['entries'] = $kept;
+
+        $byDay = array();
+        $total = 0;
+        $first = null;
+        $last = null;
+        if ($recorded) {
+            $counts = $edits['audit_counts'];
+            foreach ($counts['by_day'] as $day => $byGroup) {
+                foreach ($byGroup as $group => $n) {
+                    if ($group === 'edit') {
+                        continue;
+                    }
+                    if (!isset($byDay[$day])) {
+                        $byDay[$day] = array();
+                    }
+                    $byDay[$day][$group] = $n;
+                    $total += $n;
+                }
+            }
+            foreach (array('tag', 'cluster') as $group) {
+                if (isset($counts['first_by_group'][$group])
+                    && ($first === null
+                        || $counts['first_by_group'][$group] < $first)
+                ) {
+                    $first = $counts['first_by_group'][$group];
+                }
+                if (isset($counts['last_by_group'][$group])
+                    && ($last === null
+                        || $counts['last_by_group'][$group] > $last)
+                ) {
+                    $last = $counts['last_by_group'][$group];
+                }
+            }
+            /*
+             * And the edit lane keeps only its own share of the three,
+             * so its count, its range and its band all describe edits.
+             */
+            $editDays = array();
+            foreach ($counts['by_day'] as $day => $byGroup) {
+                if (isset($byGroup['edit'])) {
+                    $editDays[$day] = array('edit' => $byGroup['edit']);
+                }
+            }
+            $edits['by_day'] = $editDays;
+            $edits['total'] = isset($counts['by_group']['edit'])
+                ? $counts['by_group']['edit']
+                : 0;
+            $edits['first'] = isset($counts['first_by_group']['edit'])
+                ? $counts['first_by_group']['edit']
+                : null;
+            $edits['last'] = isset($counts['last_by_group']['edit'])
+                ? $counts['last_by_group']['edit']
+                : null;
+            /*
+             * For `timelineFirstHere`, which is the one question asked
+             * of a single action rather than of a group.
+             */
+            $edits['first_add'] = isset($counts['first_by_action']['add'])
+                ? $counts['first_by_action']['add']
+                : null;
+        }
+        unset($edits['audit_counts']);
+
+        return array(
+            $edits,
+            array(
+                'entries' => $tagged,
+                'total' => $total,
+                'sources' => array('tag', 'cluster'),
+                'recorded' => $recorded,
+                'by_day' => $byDay,
+                'first' => $first,
+                'last' => $last,
+            ),
+        );
+    }
+
+    /**
+     * When this value was first recorded on this instance — and
+     * whether that is a date or only a bound.
+     *
+     * **MISP stores no creation date for an attribute.** `timestamp` is
+     * the last modification, `first_seen` is an analyst's claim about
+     * when the threat was seen in the wild — a different fact, which
+     * this tab already draws in a lane of its own — and an event's
+     * `date` is the intel's date rather than the record's. So the
+     * honest answer comes in two shapes and says which it is:
+     *
+     * - An `add` row in `audit_logs` over these occurrences, objects or
+     *   events dates the creation exactly. It is usable only where it
+     *   is no later than every other trace of the value: the audit log
+     *   has a start, and a record created before it began leaves the
+     *   oldest `add` row describing some *later* arrival.
+     * - Otherwise the oldest trace of any kind is a bound — the value
+     *   was here by then. That is every dated entry the tab found, and
+     *   every occurrence's last-modified stamp, which is the older of
+     *   the two on a record nobody has touched since.
+     *
+     * Either way the wording on the panel stops at what the row it
+     * came from can support, which is why this returns the evidence
+     * rather than a sentence.
+     *
+     * @param array $context From `timelineContext`
+     * @param array $counts From `timelineCounts`
+     * @param string|null $firstAdd The oldest `add` row, if any
+     * @return array|null `at`, `exact`, `from`
+     */
+    private function timelineFirstHere(array $context, array $counts,
+        $firstAdd
+    ) {
+        $bound = isset($counts['first']) ? $counts['first'] : null;
+        $from = $bound === null ? null : 'record';
+        foreach ($context['occurrences'] as $occurrence) {
+            if (empty($occurrence['timestamp'])) {
+                continue;
+            }
+            $at = gmdate('Y-m-d H:i:s', (int)$occurrence['timestamp']);
+            if ($bound === null || $at < $bound) {
+                $bound = $at;
+                $from = 'timestamp';
+            }
+        }
+        if ($bound === null) {
+            return null;
+        }
+        if ($firstAdd !== null && $firstAdd <= $bound) {
+            return array(
+                'at' => $firstAdd,
+                'exact' => true,
+                'from' => 'audit',
+            );
+        }
+        return array('at' => $bound, 'exact' => false, 'from' => $from);
     }
 
     /**
@@ -6876,7 +7087,13 @@ class ValueProfile extends AppModel
         }
         return array(
             'at' => $row['created'],
-            'source' => 'edit',
+            /*
+             * The action decides the lane, not the reader of this
+             * array: a tag attachment is dated evidence about a tag,
+             * and `AuditActionMeta::group` is where that judgement
+             * lives so the History tab can read the same one.
+             */
+            'source' => AuditActionMeta::group($row['action']),
             'precision' => 'exact',
             'title' => $title,
             'note' => sprintf(__('audit_logs · %s'), $actor),
@@ -7604,15 +7821,18 @@ class ValueProfile extends AppModel
         if (!empty($tags)) {
             $out[] = $this->undatedRow('tags', __('Tags'), $tags, __(
                 'attribute_tags and event_tags carry no created or'
-                . ' modified column, on any instance. A tag can be dated'
-                . ' only by an audit_logs row.'
+                . ' modified column, on any instance — so this is the'
+                . ' set the value carries now, with no date of its own.'
+                . ' When a tag was attached or taken off is in the Tag'
+                . ' changes lane, from audit_logs.'
             ));
         }
         if (!empty($clusters)) {
             $out[] = $this->undatedRow('clusters', __('Galaxy clusters'),
                 $clusters, __(
                     'Cluster attachments are tags underneath, and'
-                    . ' inherit the same missing column.'
+                    . ' inherit the same missing column. Their changes'
+                    . ' are on the axis in the Tag changes lane.'
                 ));
         }
 
@@ -7918,8 +8138,19 @@ class ValueProfile extends AppModel
      * Also grouped by action, because the edit lane's own breakdown
      * reads it and a stack segment is a source.
      *
+     * **And the day map is keyed by `AuditActionMeta::group`**, which
+     * costs nothing here — the grouping was already by day *and*
+     * action, so the split is a different fold over the same rows —
+     * and is what lets three lanes come out of one aggregate. A flat
+     * per-day total cannot be divided afterwards.
+     *
+     * `first_by_action` is per action rather than per group, because
+     * the one question asked of it is about `add` alone: when this
+     * value's oldest surviving record was created here.
+     *
      * @param array $scope As `auditRowsFor`
-     * @return array `total`, `by_day` (`Y-m-d` => n), `by_action`,
+     * @return array `total`, `by_day` (`Y-m-d` => group => n),
+     *               `by_action`, `by_group`, `first_by_action`,
      *               `first`, `last`
      */
     private function auditCountsFor(array $scope)
@@ -7928,6 +8159,10 @@ class ValueProfile extends AppModel
             'total' => 0,
             'by_day' => array(),
             'by_action' => array(),
+            'by_group' => array(),
+            'first_by_action' => array(),
+            'first_by_group' => array(),
+            'last_by_group' => array(),
             'first' => null,
             'last' => null,
         );
@@ -7949,18 +8184,51 @@ class ValueProfile extends AppModel
             foreach ($rows as $row) {
                 $day = $row[0]['day'];
                 $action = $row['AuditLog']['action'];
+                $group = AuditActionMeta::group($action);
                 $n = (int)$row[0]['n'];
                 $counts['total'] += $n;
                 if (!isset($counts['by_day'][$day])) {
-                    $counts['by_day'][$day] = 0;
+                    $counts['by_day'][$day] = array();
                 }
-                $counts['by_day'][$day] += $n;
-                // Flat here, and keyed by source where the lane hands
-                // it up: this aggregate knows only one source.
+                $counts['by_day'][$day][$group] = (
+                    isset($counts['by_day'][$day][$group])
+                        ? $counts['by_day'][$day][$group]
+                        : 0
+                ) + $n;
                 if (!isset($counts['by_action'][$action])) {
                     $counts['by_action'][$action] = 0;
                 }
                 $counts['by_action'][$action] += $n;
+                if (!isset($counts['by_group'][$group])) {
+                    $counts['by_group'][$group] = 0;
+                }
+                $counts['by_group'][$group] += $n;
+                if (!isset($counts['first_by_action'][$action])
+                    || $row[0]['first_c']
+                        < $counts['first_by_action'][$action]
+                ) {
+                    $counts['first_by_action'][$action]
+                        = $row[0]['first_c'];
+                }
+                /*
+                 * Each group's own range, because each is now a lane
+                 * and a lane's range is what bands the span its capped
+                 * rows could not reach (§19). The global pair below
+                 * stays, since the range the spine covers is the union.
+                 */
+                if (!isset($counts['first_by_group'][$group])
+                    || $row[0]['first_c']
+                        < $counts['first_by_group'][$group]
+                ) {
+                    $counts['first_by_group'][$group]
+                        = $row[0]['first_c'];
+                }
+                if (!isset($counts['last_by_group'][$group])
+                    || $row[0]['last_c']
+                        > $counts['last_by_group'][$group]
+                ) {
+                    $counts['last_by_group'][$group] = $row[0]['last_c'];
+                }
                 if ($counts['first'] === null
                     || $row[0]['first_c'] < $counts['first']
                 ) {

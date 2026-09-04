@@ -114,6 +114,26 @@ $sourceMeta = array(
         'icon' => 'fas fa-pencil',
         'token' => 'var(--vp-tl-edit)',
     ),
+    /*
+     * Attaching a tag is the one audit action whose subject is not the
+     * record it names, and on this instance it is also the most common
+     * row in `audit_logs` by two orders of magnitude — so it is its own
+     * source rather than an edit. The two colours are MISP's own
+     * `--tag` and `--galaxy`, which is what a tag is drawn in
+     * everywhere else in the product.
+     */
+    'tag' => array(
+        'label' => __('Tag'),
+        'plural' => __('tag changes'),
+        'icon' => 'fas fa-tag',
+        'token' => 'var(--vp-tl-tag)',
+    ),
+    'cluster' => array(
+        'label' => __('Galaxy cluster'),
+        'plural' => __('cluster changes'),
+        'icon' => 'fas fa-atom',
+        'token' => 'var(--vp-tl-cluster)',
+    ),
     'seen' => array(
         'label' => __('First seen'),
         'plural' => __('first-seen dates'),
@@ -165,6 +185,15 @@ $entries = $timeline === null ? array() : $timeline['entries'];
 $undated = $timeline === null ? array() : $timeline['undated'];
 $window = $timeline === null ? null : $timeline['window'];
 $auditRecorded = $timeline !== null && $timeline['audit_recorded'];
+/*
+ * When the instance first held this value, or the bound the records
+ * support — `ValueProfile::timelineFirstHere` decides which and this
+ * only picks the sentence. Null on a value with no trace at all, which
+ * is the panel that has no axis either.
+ */
+$firstHere = $timeline === null || empty($timeline['first_here'])
+    ? null
+    : $timeline['first_here'];
 
 /*
  * ------------------------------------------------------------------
@@ -521,7 +550,16 @@ $lanes = array(
     array(
         'key' => 'edits',
         'label' => __('Edits'),
-        'sub' => __('latest per occurrence'),
+        /*
+         * Which of the lane's two shapes it is in. `latest per
+         * occurrence` is the fallback's description — one point from
+         * `attributes.timestamp` — and it was printed over the audit
+         * branch too, where the lane draws one mark per logged change
+         * and the phrase is simply false.
+         */
+        'sub' => $auditRecorded
+            ? __('every logged change')
+            : __('latest per occurrence'),
         'sources' => array('edit'),
         'draw' => 'marks',
         /*
@@ -532,6 +570,31 @@ $lanes = array(
         'hatch' => $auditRecorded ? null : __(
             'Nothing before each occurrence\'s latest edit is recorded'
             . ' — MISP.log_new_audit is off.'
+        ),
+    ),
+    /*
+     * The lane the Edits lane used to carry. `audit_logs` is the only
+     * place a tag on this value is dated, and its tag rows were being
+     * filed as edits — so a tagged value read as a value that had been
+     * edited hundreds of times, three feet below a Tags lane saying
+     * that only an audit row could date a tag.
+     *
+     * Attach *and* detach, and the mark says which: a tag that was
+     * taken off is as much a dated fact about this value as one that
+     * was put on.
+     */
+    array(
+        'key' => 'tagging',
+        'label' => __('Tag changes'),
+        'sub' => $auditRecorded
+            ? __('attach & detach, exact')
+            : __('nothing recorded'),
+        'sources' => array('tag', 'cluster'),
+        'draw' => 'marks',
+        'hatch' => $auditRecorded ? null : __(
+            'A tag is dated only by an audit_logs row, and'
+            . ' MISP.log_new_audit is off — so none of this value\'s'
+            . ' tags can be placed on this axis at all.'
         ),
     ),
     array(
@@ -1016,6 +1079,56 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                     </div>
                 <?php endif; ?>
 
+                <?php if ($firstHere !== null): ?>
+                    <?php
+                    /*
+                     * The question a reader asks before any of the
+                     * others, and the tab answered it nowhere: the
+                     * axis's left edge is where the *record* starts,
+                     * which is a different fact and one this panel is
+                     * in a position to be precise about.
+                     *
+                     * One sentence in two prepositions, and they are the
+                     * whole point: *since* is a date the audit log
+                     * holds, *by* is a bound the records support. The
+                     * clause after it says which row it came from, so
+                     * the distinction is never left to the preposition
+                     * alone.
+                     *
+                     * Never the words *first seen*. That phrase is
+                     * taken, by the lane three rows down that draws
+                     * what an analyst claimed about the world rather
+                     * than anything about this instance.
+                     */
+                    $firstDay = substr($firstHere['at'], 0, 10);
+                    if ($firstHere['exact']) {
+                        $firstWhy = __('The oldest creation the audit'
+                            . ' log holds for these records.');
+                    } elseif ($firstHere['from'] === 'timestamp') {
+                        $firstWhy = __('From an occurrence\'s'
+                            . ' last-modified stamp — MISP records no'
+                            . ' creation date for an attribute, so it'
+                            . ' may be older.');
+                    } else {
+                        $firstWhy = __('The oldest dated thing here.'
+                            . ' MISP records no creation date for an'
+                            . ' attribute, so it may be older.');
+                    }
+                    ?>
+                    <div class="vp-tl-firsthere">
+                        <i class="fas fa-flag"></i>
+                        <span>
+                            <b><?= h(sprintf(
+                                $firstHere['exact']
+                                    ? __('On this instance since %s')
+                                    : __('On this instance by %s'),
+                                $firstDay
+                            )) ?></b>
+                            <span class="vp-tl-why"><?= h($firstWhy) ?></span>
+                        </span>
+                    </div>
+                <?php endif; ?>
+
                 <?php
                 /*
                  * The off-axis strip. Not conditional on the brush, and
@@ -1481,9 +1594,9 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                 </div>
 
                 <div class="vp-tl-why pt-2">
-                    <?= h(__('Four lanes can carry marks · one is'
-                        . ' truncated and says where · two are'
-                        . ' structurally empty and always will be')) ?>
+                    <?= h(__('Five lanes can carry marks · one is'
+                        . ' truncated and says where · two carry what'
+                        . ' MISP stores no date for at all')) ?>
                 </div>
             </section>
 

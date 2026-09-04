@@ -8009,6 +8009,12 @@ th.vp-rel-num {
     --vp-tl-opinion: var(--vp-conflict);
     --vp-tl-edit: var(--object);
     --vp-tl-seen: var(--attribute);
+    /*
+     * MISP's own two, so a tag mark on this axis is the colour a tag is
+     * everywhere else in the product and a cluster mark is a cluster's.
+     */
+    --vp-tl-tag: var(--tag);
+    --vp-tl-cluster: var(--galaxy);
 }
 
 /*
@@ -8144,6 +8150,34 @@ th.vp-rel-num {
     border-top: 1px dashed var(--bs-border-color);
     background: var(--bs-tertiary-bg);
     border-radius: 6px;
+}
+
+/*
+ * When the instance first held the value. It sits under the axis whose
+ * left edge it qualifies, and it is a statement rather than a strip of
+ * chips — so it takes the axis's own accent on one edge and nothing
+ * else, where the off-axis strip above takes a whole tinted box.
+ */
+.vp-tl-firsthere {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 0.78rem;
+    margin-top: 10px;
+    padding: 5px 10px;
+    border-left: 3px solid var(--vp-tl-seen);
+    background: color-mix(in srgb, var(--vp-tl-seen) 7%,
+        var(--bs-body-bg));
+    border-radius: 0 6px 6px 0;
+}
+
+.vp-tl-firsthere > i {
+    color: var(--vp-tl-seen);
+    font-size: 0.72rem;
+}
+
+.vp-tl-firsthere .vp-tl-why {
+    display: inline;
 }
 
 .vp-tl-undated-chip {
@@ -8421,6 +8455,8 @@ th.vp-rel-num {
 .vp-tl-src-publications { --vp-tl-hue: var(--vp-tl-publication); }
 .vp-tl-src-analyst { --vp-tl-hue: var(--vp-tl-note); }
 .vp-tl-src-edits { --vp-tl-hue: var(--vp-tl-edit); }
+/* Its two sources are one mechanism; the chip takes the tag's. */
+.vp-tl-src-tagging { --vp-tl-hue: var(--vp-tl-tag); }
 
 /* The entry keys. */
 .vp-tl-src-sighting { --vp-tl-hue: var(--vp-tl-sighting); }
@@ -8432,6 +8468,8 @@ th.vp-rel-num {
 .vp-tl-src-note { --vp-tl-hue: var(--vp-tl-note); }
 .vp-tl-src-opinion { --vp-tl-hue: var(--vp-tl-opinion); }
 .vp-tl-src-edit { --vp-tl-hue: var(--vp-tl-edit); }
+.vp-tl-src-tag { --vp-tl-hue: var(--vp-tl-tag); }
+.vp-tl-src-cluster { --vp-tl-hue: var(--vp-tl-cluster); }
 .vp-tl-src-seen { --vp-tl-hue: var(--vp-tl-seen); }
 
 /*
