@@ -576,13 +576,21 @@ class ValuesController extends AppController
      * requests resolve independently, so a spine that arrived first
      * would be a brush wired to nothing.
      *
+     * **Live since phase 25**, and it stays one endpoint: the argument
+     * above is about the brush and nothing about reading the database
+     * touches it.
+     *
      * @param string $b64value
      * @return void
      */
     public function viewTimeline($b64value = null)
     {
+        $this->loadModel('ValueProfile');
         $this->renderPanel(
-            $this->profileFor($b64value),
+            $this->ValueProfile->forTimeline(
+                $this->Auth->user(),
+                $this->decodeValue($b64value)
+            ),
             'value_timeline'
         );
     }

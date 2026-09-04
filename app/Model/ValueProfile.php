@@ -7,6 +7,7 @@ App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
 App::uses('DomainPermutationTool', 'Tools');
+App::uses('AuditActionMeta', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -352,9 +353,9 @@ class ValueProfile extends AppModel
      *
      * It is a cap on the *chronology* and on nothing else. The spine's
      * bars and the lanes' counts come from a grouped aggregate over the
-     * whole scoped set (§6 of `25-timeline.md`), so a value whose
-     * entries run past this reads *showing 300 of 162,539* rather than
-     * a chart of the last fortnight labelled as a year.
+     * whole scoped set, so a value whose entries run past this reads
+     * *showing 300 of 174,299* rather than a chart of the last
+     * fortnight labelled as a year.
      */
     const TIMELINE_ROW_CAP = 300;
 
@@ -386,28 +387,62 @@ class ValueProfile extends AppModel
     /**
      * Bars the seen-span lane draws before it states a remainder.
      *
-     * D3: the lane merges nothing, so a value with 24 spans draws 24
-     * bars and one with 179,878 would draw a solid block. The bound is
-     * the lane's height rather than the query's cost — the spans are
-     * already on the occurrence rows — and 25 is what fits a 38px lane
-     * at a width a reader can still pick one bar out of.
+     * The lane merges nothing, so a value with 24 spans draws 24 bars
+     * and one with 179,878 would draw a solid block. The bound is the
+     * lane's height rather than the query's cost — the spans are already
+     * on the occurrence rows — and 25 is what fits a 38px lane at a
+     * width a reader can still pick one bar out of.
      *
-     * A cap is not a permission, so the lane says so for every reader
-     * (§14.6, and the wording phase 22 settled for the siblings
-     * section).
+     * A cap is not a permission, so the lane says so for every reader,
+     * in the wording phase 22 settled for the siblings section.
      */
     const TIMELINE_SPAN_CAP = 25;
 
     /**
      * Chips one undated kind lists before it states a remainder.
      *
-     * `193.161.193.99` carries 670 attribute-tag rows and `8.8.8.8`'s
-     * events 69 event-tag rows over 48 distinct tags (§11), against the
-     * fixture's handful. The strip is a strip and not a tag index; what
-     * it cannot hold is on the Occurrences tab, which is what the
-     * count beside the chips is for.
+     * `443` resolves to 3,858 distinct tags and `193.161.193.99` to 77,
+     * against the fixture's handful. The strip is a strip and not a tag
+     * index; what it cannot hold is on the Occurrences tab, which is
+     * what the count beside the chips is for.
      */
     const TIMELINE_CHIP_CAP = 12;
+
+    /**
+     * Occurrence UUIDs the analyst union looks notes and opinions up
+     * against.
+     *
+     * `CLAIM_OCCURRENCE_CAP`'s argument, on a second consumer of the
+     * same shape: notes and opinions are written one at a time by
+     * people — 75 and 43 on the whole instance — so the list itself is
+     * never truncated and it is the *lookup* that is bounded. The
+     * value's events are not capped alongside it, because there are
+     * always fewer of them than occurrences and they are where the
+     * analyst data measured on a real instance actually is.
+     *
+     * A value with more occurrences than this can carry a note on one
+     * the lookup did not reach. `443` is that value at 48,255, and it
+     * is also a value nobody has written a note about.
+     */
+    const TIMELINE_ANALYST_CAP = 300;
+
+    /**
+     * Days the brush's default window covers.
+     *
+     * The fixture pinned a window per value — a fixed date to its own
+     * notion of today, 24 days against a twelve-month spine. So a recent
+     * slice of a wider chart, which is what makes the brush worth
+     * having, and choosing it from the data is what going live adds.
+     *
+     * 30 rather than 24 because a month is the unit the spine bins in
+     * and a reader reads back; and the window is clamped to the value's
+     * range rather than to the calendar, so it is never empty and never
+     * degenerate. Taking the *calendar month* of the newest entry was
+     * the first rule tried and it gives `143.14.244.37` — whose newest
+     * entry is 1 July — a one-day window with its 32 spans off the left
+     * edge.
+     */
+    const TIMELINE_WINDOW_DAYS = 30;
 
     /**
      * Actions whose `model_title` is the thing acted on rather than the
@@ -6233,12 +6268,1210 @@ class ValueProfile extends AppModel
      */
 
     /**
+     * The Timeline tab: one axis, everything MISP can date onto it, and
+     * a strip for what it cannot.
+     *
+     * One endpoint and one method, and the argument is the brush — a
+     * single control driving two regions that must both exist when it
+     * fires. Going live changes nothing about that.
+     *
+     * **The tab's one-array invariant lives here.** The spine's bars,
+     * the lanes' counts and the chronology's list were three aggregates
+     * over one array derived in the template, so the panel could not
+     * state two numbers that disagree. `443` breaks that: 172,426 audit
+     * rows before a single sighting is added. So the array is capped at
+     * `TIMELINE_ROW_CAP` and the counts come from aggregates over the
+     * whole scoped set beside it — two grains of one query rather than
+     * two queries, and the panel states both numbers.
+     *
+     * The rejected alternative was to cap the entry set and let the
+     * template keep deriving: a spine drawn from 300 of 172,426 rows is
+     * a chart of the last fortnight labelled as a year.
+     *
+     * Every lane's rows come from MISP's own ACL'd fetchers; only the
+     * audit counts use an aggregate of their own, over an id set
+     * `Value` has already scoped. The context issues one
+     * `fetchSimpleEvents` for every event the value sits in, never one
+     * call per event.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options Reserved; `types` reaches `Value`
+     * @return array
+     */
+    public function forTimeline(array $user, $value,
+        array $options = array()
+    ) {
+        $this->forget($value);
+        $context = $this->timelineContext($user, $value, $options);
+        $lanes = array(
+            $this->timelineSightingEntries($user, $value, $options),
+            $this->timelinePublicationEntries($context),
+            $this->timelineAnalystEntries($user, $value, $context),
+            $this->timelineEditEntries($context),
+            $this->timelineSpanEntries($context),
+        );
+        $entries = array();
+        foreach ($lanes as $lane) {
+            foreach ($lane['entries'] as $entry) {
+                $entries[] = $entry;
+            }
+        }
+        /*
+         * Ascending, because that is what the panel's three readings
+         * expect: the spine bins forward, the lane axis runs left to
+         * right, and the chronology reverses it once for itself.
+         */
+        usort($entries, function ($a, $b) {
+            return strcmp($a['at'], $b['at']);
+        });
+
+        /*
+         * **Counted before the cap, shipped after it**, and the order
+         * is the whole point. The counts describe every dated thing the
+         * viewer may see; the array describes what the fragment can
+         * carry. Doing it the other way round draws a chart of the last
+         * fortnight and labels it a year, and it is not a hypothetical:
+         * `443` sits in 1,844 events, so its publication lane alone
+         * offered 1,847 uncapped entries.
+         */
+        $counts = $this->timelineCounts($lanes, $entries);
+        $entries = $this->timelineCap($entries);
+        return array(
+            'value' => $value,
+            'timeline' => array(
+                'entries' => $entries,
+                'undated' => $this->timelineUndated($user, $value, $context,
+                    $options),
+                'window' => $this->timelineWindow($counts),
+                'range' => array(
+                    'from' => $counts['first'],
+                    'to' => $counts['last'],
+                ),
+                /*
+                 * The setting, read live. Every fixture value hard-codes
+                 * this false with the note that it defaults so, which is
+                 * true of a default instance and false of any instance
+                 * that has turned it on — so the branch the fixture has
+                 * never rendered is the one a logging instance shows,
+                 * and both have to ship.
+                 */
+                'audit_recorded' => (bool)Configure::read(
+                    'MISP.log_new_audit'
+                ),
+                'counts' => $counts,
+                'spans' => $lanes[4]['spans'],
+            ),
+        );
+    }
+
+    /**
+     * What every lane needs, fetched once.
+     *
+     * Three reads and no more: the occurrence id set, the object id set,
+     * and **one** `fetchSimpleEvents` over every event the value sits
+     * in. That last one carries five jobs — the publications lane's two
+     * columns, the creator organisation every row is attributed to, the
+     * event titles the rows name, the event UUIDs the analyst union
+     * needs, and the ACL'd event id list the audit reader scopes by —
+     * which is why it is one call and not five.
+     *
+     * The occurrence set is uncapped, and that is deliberate: it is what
+     * the audit aggregate and the span count are *of*, so capping it
+     * would make both numbers describe a sample while the panel labelled
+     * them a total. It costs 1,067 ms on `443` to a site admin and
+     * 152 ms to an org admin, and it is the largest number on this
+     * endpoint.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array `occurrences`, `objects`, `events`, `scope`
+     */
+    private function timelineContext(array $user, $value, array $options)
+    {
+        $valueModel = $this->model('Value');
+        $occurrences = $valueModel->occurrenceIdsFor($user, $value, $options);
+        $objects = $valueModel->occurrenceObjectIdsFor($user, $value,
+            $options);
+
+        $eventIds = array();
+        foreach ($occurrences as $occurrence) {
+            $eventIds[(int)$occurrence['event_id']] = true;
+        }
+        $events = array();
+        if (!empty($eventIds)) {
+            $rows = $this->model('Event')->fetchSimpleEvents(
+                $user,
+                array('conditions' => array(
+                    'Event.id' => array_keys($eventIds),
+                )),
+                true
+            );
+            foreach ($rows as $row) {
+                $event = $row['Event'];
+                $events[(int)$event['id']] = array(
+                    'id' => (int)$event['id'],
+                    'uuid' => $event['uuid'],
+                    'info' => $event['info'],
+                    'org' => isset($row['Orgc']['name'])
+                        ? $row['Orgc']['name']
+                        : __('Unknown organisation'),
+                    'published' => !empty($event['published']),
+                    'first_publication' => (int)$event['first_publication'],
+                    'publish_timestamp' => (int)$event['publish_timestamp'],
+                );
+            }
+        }
+
+        /*
+         * The event id list is the one `fetchSimpleEvents` returned and
+         * not the one the occurrences named. `Event::createEventConditions`
+         * is the same predicate `MispAttribute::buildConditions` embeds,
+         * so it can never be stricter and the difference can never be
+         * non-empty — taking the narrower of the two anyway is what
+         * makes that a checkable claim rather than an assumption.
+         */
+        return array(
+            'occurrences' => $occurrences,
+            'objects' => $objects,
+            'events' => $events,
+            'scope' => array(
+                'attributes' => array_map('intval',
+                    array_keys($occurrences)),
+                'objects' => array_map('intval', array_keys($objects)),
+                'events' => array_keys($events),
+            ),
+        );
+    }
+
+    /**
+     * The sightings lane, from phase 23's context and no second read.
+     *
+     * `ValueStatsTool::sightingList` is the same call the Sightings
+     * table makes, over the same `sightingContext`, so a sighting on
+     * this axis and the row for it one tab over cannot disagree — which
+     * is the property that made the fixture build this lane from the
+     * Sightings rows rather than from its own copy of the dates.
+     *
+     * The count is the viewer's, as every count on this page is, and
+     * this tab must not restate it as the instance's.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function timelineSightingEntries(array $user, $value,
+        array $options
+    ) {
+        $context = $this->sightingContext($user, $value, $options);
+        $rows = ValueStatsTool::sightingList(
+            $context['sightings'],
+            $context['sighted']
+        );
+        /*
+         * 0, 1, 2 as integers and not as constants, because MISP has
+         * none: `Sighting` names its policies and not its types, and
+         * `ValueStatsTool` reads `$row['Sighting']['type'] === 1`
+         * directly in three places. A private vocabulary here would be
+         * a second spelling of a number the tool beside it spells
+         * plainly.
+         */
+        $sources = array(
+            0 => 'sighting',
+            1 => 'false_positive',
+            2 => 'expiration',
+        );
+        $notes = array(
+            1 => __(
+                'Type 1. Moves no decay score: MISP resets the clock on'
+                . ' type-0 sightings only.'
+            ),
+            2 => __(
+                'Type 2. An organisation retiring the value, not'
+                . ' contradicting it.'
+            ),
+        );
+        $entries = array();
+        $total = count($rows);
+        $n = 0;
+        foreach ($rows as $row) {
+            $n++;
+            $type = (int)$row['type'];
+            $title = $row['org'];
+            if ($row['source'] !== null) {
+                $title = sprintf(
+                    __('%1$s — source %2$s'),
+                    $row['org'],
+                    $row['source']
+                );
+            }
+            $entries[] = array(
+                'at' => $row['date'] . ':00',
+                'source' => isset($sources[$type])
+                    ? $sources[$type]
+                    : 'sighting',
+                'precision' => 'exact',
+                'title' => $title,
+                'note' => isset($notes[$type])
+                    ? $notes[$type]
+                    : sprintf(__('Sighting %1$s of %2$s'), $n, $total),
+                'org' => $row['org'],
+                'ref' => array(
+                    'attribute' => $row['against']['attribute'],
+                    'event' => $row['against']['event'],
+                ),
+                'span_to' => null,
+            );
+        }
+        return array(
+            'entries' => $entries,
+            'total' => $total,
+            'sources' => array('sighting', 'false_positive', 'expiration'),
+        );
+    }
+
+    /**
+     * Two points per event, and never a history.
+     *
+     * `events.first_publication` and `events.publish_timestamp` are the
+     * only two publications MISP keeps; an event published five times
+     * still has exactly these, so *two per event* is a ceiling MISP sets
+     * and not a promise this lane makes. Whether `ACTION_PUBLISH` audit
+     * rows should fill in the rest is open — the reader below already
+     * has those rows in hand, which is what makes it a live question
+     * rather than an academic one.
+     *
+     * **Epoch zero is excluded rather than plotted in 1970**, and it is
+     * common: 4,235 of the instance's 4,287 events carry a publish
+     * timestamp and only 2,858 a first publication. Three events carry a
+     * first publication with no current one, which is why each column is
+     * tested on its own rather than one gating the other.
+     *
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function timelinePublicationEntries(array $context)
+    {
+        $entries = array();
+        foreach ($context['events'] as $event) {
+            $first = $event['first_publication'];
+            $last = $event['publish_timestamp'];
+            $points = array();
+            if ($first > 0) {
+                $points['first'] = $first;
+            }
+            if ($last > 0) {
+                $points['last'] = $last;
+            }
+            if (empty($points)) {
+                continue;
+            }
+            $title = sprintf(
+                __('event %1$s — %2$s'),
+                $event['id'],
+                $event['info']
+            );
+            $once = count($points) === 1
+                || $points['first'] === $points['last'];
+            foreach ($points as $which => $stamp) {
+                if ($once && $which === 'last'
+                    && isset($points['first'])
+                ) {
+                    continue;
+                }
+                $entries[] = array(
+                    'at' => gmdate('Y-m-d H:i:s', $stamp),
+                    'source' => 'publication',
+                    'precision' => 'first_last',
+                    'title' => $title,
+                    'note' => $this->publicationNote($which, $points,
+                        $once),
+                    'org' => $event['org'],
+                    'ref' => array(
+                        'attribute' => null,
+                        'event' => $event['id'],
+                    ),
+                    'span_to' => null,
+                );
+            }
+        }
+        return array(
+            'entries' => $entries,
+            'total' => count($entries),
+            'sources' => array('publication'),
+        );
+    }
+
+    /**
+     * What one publication point can honestly say about the other.
+     *
+     * @param string $which `first` or `last`
+     * @param array $points Whichever of the two are non-zero
+     * @param bool $once
+     * @return string
+     */
+    private function publicationNote($which, array $points, $once)
+    {
+        if ($once) {
+            return __('Its only publication.');
+        }
+        if ($which === 'first') {
+            return sprintf(
+                __(
+                    'Its first publication. The latest is %s, and'
+                    . ' nothing between the two is recorded.'
+                ),
+                gmdate('Y-m-d', $points['last'])
+            );
+        }
+        if (!isset($points['first'])) {
+            /*
+             * The row the fixture could not have: a publish timestamp
+             * with no first publication. 1,429 of the events on the
+             * verification instance are in this state, which is what an
+             * event published before MISP grew the column looks like.
+             */
+            return __(
+                'Its latest publication. MISP records no first'
+                . ' publication for this event.'
+            );
+        }
+        return sprintf(
+            __(
+                'Its latest publication. The first was %s, and nothing'
+                . ' between the two is recorded.'
+            ),
+            gmdate('Y-m-d', $points['first'])
+        );
+    }
+
+    /**
+     * The edit lane, and which of its two shapes it takes.
+     *
+     * With `MISP.log_new_audit` on, one row per logged change over the
+     * value's own occurrences, objects and events — the branch no
+     * fixture value has ever rendered. With it off, one point per
+     * occurrence from `attributes.timestamp`, which says *when* an
+     * occurrence last changed and never *what* or *how many times*: the
+     * title names the occurrence and stops, because an edit row claiming
+     * a field and a value would be inventing the record this tab exists
+     * to be honest about.
+     *
+     * **Both branches ship and both are verified.** The hatched one is
+     * what a default MISP shows, so it is the more common state in the
+     * world and the less common one on the instance this was measured
+     * against — which is exactly how it would come to ship untested.
+     *
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function timelineEditEntries(array $context)
+    {
+        if (!Configure::read('MISP.log_new_audit')) {
+            $entries = array();
+            foreach ($context['occurrences'] as $id => $occurrence) {
+                $event = isset($context['events'][$occurrence['event_id']])
+                    ? $context['events'][$occurrence['event_id']]
+                    : null;
+                $entries[] = array(
+                    'at' => gmdate('Y-m-d H:i:s', $occurrence['timestamp']),
+                    'source' => 'edit',
+                    'precision' => 'latest',
+                    'title' => sprintf(
+                        __('attribute %1$s in event %2$s — last modified'),
+                        $id,
+                        $occurrence['event_id']
+                    ),
+                    'note' => __(
+                        'attributes.timestamp. What changed, and every'
+                        . ' earlier edit, is not recorded.'
+                    ),
+                    'org' => $event === null ? null : $event['org'],
+                    'ref' => array(
+                        'attribute' => (int)$id,
+                        'event' => (int)$occurrence['event_id'],
+                    ),
+                    'span_to' => null,
+                );
+            }
+            return array(
+                'entries' => $entries,
+                'total' => count($entries),
+                'sources' => array('edit'),
+                'recorded' => false,
+            );
+        }
+
+        $counts = $this->auditCountsFor($context['scope']);
+        $rows = $this->auditRowsFor(
+            $context['scope'],
+            array('limit' => self::TIMELINE_ROW_CAP)
+        );
+        $entries = array();
+        foreach ($rows as $row) {
+            $entries[] = $this->timelineEditEntry($row, $context);
+        }
+        return array(
+            'entries' => $entries,
+            'total' => $counts['total'],
+            'sources' => array('edit'),
+            'recorded' => true,
+            // Authoritative: the rows above are capped and these are
+            // not, so `timelineCounts` bins the spine from here.
+            'by_month' => $counts['by_month'],
+            'by_action' => $counts['by_action'],
+            'first' => $counts['first'],
+            'last' => $counts['last'],
+        );
+    }
+
+    /**
+     * One audit row as a chronology entry.
+     *
+     * The row names the occurrence and the action, **never the title**.
+     * `model_title` prefers the new value, so an occurrence
+     * edited *into* this value carries rows describing what it was
+     * before; those are that occurrence's rows and they are shown, and
+     * reading the title as the row's subject would report the wrong
+     * value for every one of them. A tag or cluster action is the
+     * exception the vocabulary already draws — there the title is the
+     * tag, not the attribute — and `AUDIT_SUBJECT` is that list.
+     *
+     * @param array $row From `auditRowsFor`
+     * @param array $context
+     * @return array
+     */
+    private function timelineEditEntry(array $row, array $context)
+    {
+        $meta = AuditActionMeta::forAction($row['action']);
+        $eventId = $row['event_id'];
+        $event = ($eventId !== null && isset($context['events'][$eventId]))
+            ? $context['events'][$eventId]
+            : null;
+        $target = $row['model'] === 'Event'
+            ? sprintf(__('event %s'), $row['model_id'])
+            : sprintf(
+                __('%1$s %2$s'),
+                strtolower($row['model']),
+                $row['model_id']
+            );
+        $title = sprintf(
+            __('%1$s — %2$s'),
+            $meta['label'],
+            $target
+        );
+        if ($row['subject'] !== null && $row['subject'] !== '') {
+            $title = sprintf(
+                __('%1$s “%2$s” — %3$s'),
+                $meta['label'],
+                $row['subject'],
+                $target
+            );
+        }
+        $actor = $row['actor'];
+        if ($actor === null || $actor === '') {
+            $actor = $row['org'] === null
+                ? __('an unnamed account')
+                : sprintf(__('%s (unnamed)'), $row['org']);
+        }
+        return array(
+            'at' => $row['created'],
+            'source' => 'edit',
+            'precision' => 'exact',
+            'title' => $title,
+            'note' => sprintf(__('audit_logs · %s'), $actor),
+            'org' => $row['org'] === null
+                ? ($event === null ? null : $event['org'])
+                : $row['org'],
+            'ref' => array(
+                'attribute' => $row['attribute_id'],
+                'event' => $eventId,
+            ),
+            'span_to' => null,
+        );
+    }
+
+    /**
+     * The seen-span lane: one row per occurrence carrying a
+     * `first_seen`, no merging, capped, remainder stated.
+     *
+     * Merging needs an aggregation rule nobody has agreed on, and this
+     * lane invents none: each span stays its own row labelled with the
+     * occurrence it came from, and the bound is a cap on how many are
+     * drawn rather than a rule for combining them. A cap is not a
+     * permission, so the lane says so for every reader.
+     *
+     * **Instants are instants.** 68,083 of the instance's dated
+     * occurrences have `first_seen == last_seen`, against 109,320 real
+     * spans and 2,475 open-ended ones. A zero-width bar says nothing, so
+     * those draw as marks, in this lane, beside the spans.
+     *
+     * `first_seen` and `last_seen` are `bigint(20)` microsecond epochs
+     * in the database and ISO-8601 by the time `fetchAttributesSimple`
+     * hands them back. The conversion is from what the fetcher returns
+     * and never from the column, because the fetcher is the seam.
+     *
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function timelineSpanEntries(array $context)
+    {
+        $dated = array();
+        $total = 0;
+        foreach ($context['occurrences'] as $id => $occurrence) {
+            $total++;
+            if (empty($occurrence['first_seen'])) {
+                continue;
+            }
+            $dated[(int)$id] = $occurrence;
+        }
+        uasort($dated, function ($a, $b) {
+            return strcmp((string)$a['first_seen'], (string)$b['first_seen']);
+        });
+        $with = count($dated);
+        $shown = array_slice($dated, 0, self::TIMELINE_SPAN_CAP, true);
+
+        /*
+         * Over every dated occurrence and not only the drawn ones, for
+         * the reason the edit lane's map exists: this lane caps its bars
+         * at `TIMELINE_SPAN_CAP`, so binning the spine from what it drew
+         * would hide the months the other spans are in.
+         * `143.14.244.37` is 32 spans drawn 25 at a time.
+         */
+        $byMonth = array();
+        $first = null;
+        $last = null;
+        foreach ($dated as $occurrence) {
+            $at = self::plainStamp($occurrence['first_seen']);
+            if ($at === null) {
+                continue;
+            }
+            $month = substr($at, 0, 7);
+            $byMonth[$month] = (isset($byMonth[$month])
+                ? $byMonth[$month]
+                : 0) + 1;
+            if ($first === null || $at < $first) {
+                $first = $at;
+            }
+            if ($last === null || $at > $last) {
+                $last = $at;
+            }
+        }
+        ksort($byMonth);
+
+        $entries = array();
+        foreach ($shown as $id => $occurrence) {
+            $from = self::plainStamp($occurrence['first_seen']);
+            if ($from === null) {
+                continue;
+            }
+            $to = empty($occurrence['last_seen'])
+                ? null
+                : self::plainStamp($occurrence['last_seen']);
+            if ($to === $from) {
+                $to = null;
+                $note = __(
+                    'One instant, not a span. A claim about the value,'
+                    . ' not a change to the record.'
+                );
+            } elseif ($to === null) {
+                $note = __(
+                    'The span is open — no last_seen. A claim about the'
+                    . ' value, not a change to the record.'
+                );
+            } else {
+                $note = sprintf(
+                    __(
+                        'Closes %s. A claim about the value, not a'
+                        . ' change to the record.'
+                    ),
+                    substr($to, 0, 10)
+                );
+            }
+            $event = isset($context['events'][$occurrence['event_id']])
+                ? $context['events'][$occurrence['event_id']]
+                : null;
+            $entries[] = array(
+                'at' => $from,
+                'source' => 'seen',
+                'precision' => 'exact',
+                'title' => sprintf(__('attribute %1$s — first seen'), $id),
+                'note' => $note,
+                'org' => $event === null ? null : $event['org'],
+                'ref' => array(
+                    'attribute' => (int)$id,
+                    'event' => (int)$occurrence['event_id'],
+                ),
+                'span_to' => $to,
+            );
+        }
+        return array(
+            'entries' => $entries,
+            'total' => $with,
+            'sources' => array('seen'),
+            'by_month' => $byMonth,
+            'first' => $first,
+            'last' => $last,
+            'spans' => array(
+                // What the lane's sub-label states, and the three are
+                // three different answers: how many occurrences the
+                // viewer can see, how many of those are dated, and how
+                // many of those this lane drew.
+                'occurrences' => $total,
+                'with' => $with,
+                'shown' => count($entries),
+                'cap' => self::TIMELINE_SPAN_CAP,
+            ),
+        );
+    }
+
+    /**
+     * `2026-06-30T07:14:08+00:00` or `2026-06-30 07:14:08` to the one
+     * shape every entry on this axis shares.
+     *
+     * The chronology sorts and bins on plain strings, and what reaches
+     * here depends on the fetcher rather than on the column: MISP stores
+     * `first_seen` as a microsecond epoch and `fetchAttributesSimple`
+     * hands back ISO-8601.
+     *
+     * @param string|null $stamp
+     * @return string|null
+     */
+    private static function plainStamp($stamp)
+    {
+        if ($stamp === null || $stamp === '') {
+            return null;
+        }
+        $time = strtotime((string)$stamp);
+        return $time === false
+            ? null
+            : gmdate('Y-m-d H:i:s', $time);
+    }
+
+    /**
+     * What the panel states beside every number it cannot derive from
+     * the rows it was sent.
+     *
+     * The invariant, kept: the spine's bars and the lanes' totals come
+     * from here, the chronology comes from `entries`, and the panel says
+     * both numbers where they differ. Every lane whose rows are all
+     * present contributes its counts *from those rows*, so it cannot
+     * disagree with itself by construction; only the edit lane, which is
+     * the one that can run to 172,426, carries a total from an aggregate
+     * instead.
+     *
+     * @param array $lanes Per-lane results, in `forTimeline`'s order
+     * @param array $entries The merged, capped, ascending array
+     * @return array
+     */
+    private function timelineCounts(array $lanes, array $entries)
+    {
+        /*
+         * A lane that could not materialise its rows hands over its own
+         * grouped month map instead, and that map is authoritative for
+         * its sources: the edit lane ships 300 rows and 172,426 of them
+         * happened, so tallying its *rows* into the spine would draw
+         * eleven months of history as one afternoon. Every other lane
+         * has all its rows here, so tallying them is exact by
+         * construction — which is what keeps the two kinds of lane from
+         * needing two kinds of trust.
+         */
+        $authoritative = array();
+        foreach ($lanes as $lane) {
+            if (!isset($lane['by_month'])) {
+                continue;
+            }
+            foreach ($lane['sources'] as $source) {
+                $authoritative[$source] = true;
+            }
+        }
+
+        $bySource = array();
+        $byMonth = array();
+        foreach ($entries as $entry) {
+            $source = $entry['source'];
+            if (isset($authoritative[$source])) {
+                continue;
+            }
+            $month = substr($entry['at'], 0, 7);
+            if (!isset($bySource[$source])) {
+                $bySource[$source] = 0;
+            }
+            $bySource[$source]++;
+            if (!isset($byMonth[$month])) {
+                $byMonth[$month] = array();
+            }
+            if (!isset($byMonth[$month][$source])) {
+                $byMonth[$month][$source] = 0;
+            }
+            $byMonth[$month][$source]++;
+        }
+        foreach ($lanes as $lane) {
+            if (!isset($lane['by_month'])) {
+                continue;
+            }
+            // One source per grouped lane today; the loop is here so a
+            // second one cannot silently overwrite the first.
+            $source = $lane['sources'][0];
+            /*
+             * A source the value has none of is left out rather than
+             * carried as a zero. The spine draws one stack segment per
+             * source present, and a segment for a source nobody ever
+             * filed is a legend entry teaching the reader a colour they
+             * will never meet again.
+             */
+            if ($lane['total'] > 0) {
+                $bySource[$source] = $lane['total'];
+            }
+            foreach ($lane['by_month'] as $month => $n) {
+                if (!isset($byMonth[$month])) {
+                    $byMonth[$month] = array();
+                }
+                $byMonth[$month][$source] = (isset($byMonth[$month][$source])
+                    ? $byMonth[$month][$source]
+                    : 0) + $n;
+            }
+        }
+        ksort($byMonth);
+
+        $total = 0;
+        foreach ($lanes as $lane) {
+            $total += $lane['total'];
+        }
+        $first = null;
+        $last = null;
+        foreach ($entries as $entry) {
+            if ($first === null || $entry['at'] < $first) {
+                $first = $entry['at'];
+            }
+            if ($last === null || $entry['at'] > $last) {
+                $last = $entry['at'];
+            }
+        }
+        /*
+         * A grouped lane also knows a range its capped rows cannot show:
+         * the edit aggregate carries the first and last logged change
+         * over the whole scoped set, which on `443` is eleven months
+         * where the 300 rows drawn are one afternoon.
+         */
+        foreach ($lanes as $lane) {
+            if (empty($lane['first']) && empty($lane['last'])) {
+                continue;
+            }
+            if (!empty($lane['first'])
+                && ($first === null || $lane['first'] < $first)
+            ) {
+                $first = $lane['first'];
+            }
+            if (!empty($lane['last'])
+                && ($last === null || $lane['last'] > $last)
+            ) {
+                $last = $lane['last'];
+            }
+        }
+        $shown = min(count($entries), self::TIMELINE_ROW_CAP);
+        return array(
+            'total' => $total,
+            'shown' => $shown,
+            'by_source' => $bySource,
+            'by_month' => $byMonth,
+            'first' => $first,
+            'last' => $last,
+            'capped' => $total > $shown,
+            'cap' => self::TIMELINE_ROW_CAP,
+        );
+    }
+
+    /**
+     * The newest `TIMELINE_ROW_CAP` entries, back in ascending order.
+     *
+     * The cap is on the whole merged array and not on any one lane,
+     * because the fragment's weight is the sum: the audit reader caps
+     * itself at the same number, and `443` still offered 2,173 entries
+     * once 1,844 events had each contributed a publication.
+     *
+     * Newest rather than a slice from anywhere else, for the reason
+     * phase 22 gave the occurrence table: a value's newest activity is
+     * what a reader opening this tab came for, and it is also what makes
+     * the panel's *showing 300 of 174,299* true rather than merely
+     * arithmetic.
+     *
+     * @param array $entries Ascending
+     * @return array Ascending, at most `TIMELINE_ROW_CAP` long
+     */
+    private function timelineCap(array $entries)
+    {
+        if (count($entries) <= self::TIMELINE_ROW_CAP) {
+            return $entries;
+        }
+        return array_slice($entries, -self::TIMELINE_ROW_CAP);
+    }
+
+    /**
+     * The brush's default window.
+     *
+     * `TIMELINE_WINDOW_DAYS` ending at the value's newest dated entry,
+     * clamped to its oldest — so it is a recent slice of a wider spine
+     * on a value with years of history, and the whole of a value with
+     * less than a month of it. Ending at the newest entry rather than at
+     * today, because a value whose last activity was in 2020 should open
+     * on its activity and not on an empty present.
+     *
+     * A value with nothing dated at all gets the last
+     * `TIMELINE_WINDOW_DAYS` up to today, and the panel then renders as
+     * the panel where nothing is dated — a state it has to draw anyway.
+     *
+     * @param array $counts From `timelineCounts`
+     * @return array `from`, `to`
+     */
+    private function timelineWindow(array $counts)
+    {
+        $utc = new DateTimeZone('UTC');
+        $end = $counts['last'] === null
+            ? gmdate('Y-m-d')
+            : substr($counts['last'], 0, 10);
+        $from = (new DateTimeImmutable($end . ' 00:00:00', $utc))
+            ->modify('-' . (self::TIMELINE_WINDOW_DAYS - 1) . ' days')
+            ->format('Y-m-d');
+        if ($counts['first'] !== null) {
+            $earliest = substr($counts['first'], 0, 10);
+            if ($earliest > $from) {
+                $from = $earliest;
+            }
+        }
+        return array('from' => $from, 'to' => $end);
+    }
+
+    /**
+     * Notes and opinions, over the value's occurrences **and its
+     * events**, with every row naming its target.
+     *
+     * There is a union at all because a value is not a valid
+     * analyst-data target: notes hang off an `object_uuid` and an
+     * `object_type`, so nothing addresses a value and this tab has to
+     * assemble what addresses the things the value is *in*.
+     *
+     * **Both halves, because either alone is wrong.** The instance holds
+     * 75 notes and 43 opinions; 9 notes and 3 opinions are on attributes
+     * and none of those is on a candidate value's occurrence, while
+     * `8.8.8.8`'s events carry 2 notes, `1.1.1.1`'s 4 and `2.2.2.2`'s 1.
+     * Take only the occurrence-level ones and this lane is empty on
+     * every value worth verifying; take both and most of what it draws
+     * is about an event rather than about the value. So both, and
+     * **every row names its target** — *note on event 3753* is a
+     * different claim from *note on attribute 481920*, the tab's whole
+     * charter is provenance, and a union that flattened the two would
+     * promote an event's narrative into a statement about the value.
+     *
+     * `fetchForUuids` contains `Org`, `Orgc` and `SharingGroup`, which
+     * is what keeps `AnalystData::rearrangeOrganisation` from
+     * re-querying per row — phase 24 recorded that failure mode, and it
+     * is every row silently reporting *Unknown organisation*.
+     *
+     * One anomaly, carried and not fixed: one `notes` row holds
+     * `object_type = 'Event1556'`, a type that is not a type —
+     * presumably an id concatenated onto the model name by whatever
+     * wrote it. The union therefore keys on the UUID it resolved and
+     * never on `object_type`, so a bad type cannot mislabel a row; it
+     * can only fail to match, which is what it does.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function timelineAnalystEntries(array $user, $value,
+        array $context
+    ) {
+        $targets = array();
+        foreach ($context['events'] as $event) {
+            if (empty($event['uuid'])) {
+                continue;
+            }
+            $targets[$event['uuid']] = array(
+                'kind' => 'event',
+                'id' => $event['id'],
+                'label' => sprintf(__('event %s'), $event['id']),
+            );
+        }
+        $occurrences = $this->model('Value')->occurrenceUuidsFor(
+            $user,
+            $value,
+            array(
+                'limit' => self::TIMELINE_ANALYST_CAP,
+                'order' => self::OCCURRENCE_ORDER,
+            )
+        );
+        foreach ($occurrences as $uuid => $occurrence) {
+            $targets[$uuid] = array(
+                'kind' => 'attribute',
+                'id' => (int)$occurrence['id'],
+                'label' => sprintf(
+                    __('attribute %s'),
+                    $occurrence['id']
+                ),
+            );
+        }
+        if (empty($targets)) {
+            return array(
+                'entries' => array(),
+                'total' => 0,
+                'sources' => array('note', 'opinion'),
+            );
+        }
+
+        $uuids = array_keys($targets);
+        $entries = array();
+        foreach (array('Note', 'Opinion') as $type) {
+            $found = $this->model($type)->fetchForUuids($uuids, $user);
+            foreach ($found as $uuid => $byType) {
+                if (!isset($byType[$type]) || !isset($targets[$uuid])) {
+                    continue;
+                }
+                foreach ($byType[$type] as $row) {
+                    $entries[] = $this->timelineAnalystEntry(
+                        $type,
+                        $row,
+                        $targets[$uuid]
+                    );
+                }
+            }
+        }
+        return array(
+            'entries' => $entries,
+            'total' => count($entries),
+            'sources' => array('note', 'opinion'),
+        );
+    }
+
+    /**
+     * One note or opinion as a chronology entry.
+     *
+     * @param string $type `Note` or `Opinion`
+     * @param array $row One `fetchForUuids` record
+     * @param array $target `kind`, `id`, `label`
+     * @return array
+     */
+    private function timelineAnalystEntry($type, array $row, array $target)
+    {
+        $org = isset($row['Orgc']['name'])
+            ? $row['Orgc']['name']
+            : (isset($row['Org']['name'])
+                ? $row['Org']['name']
+                : __('Unknown organisation'));
+        if ($type === 'Note') {
+            $title = sprintf(
+                __('%1$s — “%2$s”'),
+                $org,
+                $row['note']
+            );
+            $note = sprintf(
+                /*
+                 * The target, in the note rather than in the title,
+                 * because the title is the claim and this is what the
+                 * claim is about — and a reader scanning the lane needs
+                 * to be able to tell the two apart at a glance.
+                 */
+                __('analyst note on %s'),
+                $target['label']
+            );
+        } else {
+            $title = sprintf(
+                __('%1$s — %2$s / 100, “%3$s”'),
+                $org,
+                $row['opinion'],
+                $row['comment']
+            );
+            $note = sprintf(
+                __('analyst opinion on %s'),
+                $target['label']
+            );
+        }
+        return array(
+            'at' => $row['created'],
+            'source' => $type === 'Note' ? 'note' : 'opinion',
+            'precision' => 'exact',
+            'title' => $title,
+            'note' => $note,
+            'org' => $org,
+            'ref' => array(
+                'attribute' => $target['kind'] === 'attribute'
+                    ? $target['id']
+                    : null,
+                'event' => $target['kind'] === 'event'
+                    ? $target['id']
+                    : null,
+            ),
+            'span_to' => null,
+        );
+    }
+
+    /**
+     * What the tab promises and MISP cannot place on any axis.
+     *
+     * Three kinds, and they are not the same kind of missing. Tags and
+     * galaxy clusters have no date column in any schema MISP ships, so
+     * no setting and no upgrade would date them. Feed appearances have
+     * exactly one timestamp per feed, rewritten on every refresh
+     * (`Feed.php:1573`), which dates the *fetch* rather than the value —
+     * a real timestamp answering a different question, which is why it
+     * is carried as `as_of` and never as `at`.
+     *
+     * **Every row carries a stable `key` beside its translated
+     * `kind`.** The fixture supplied `kind` through the same `__()` call
+     * the template matched on, so the two agreed in English and in any
+     * locale translating both strings identically, and stopped agreeing
+     * otherwise — the lane rendering its *absent* text while the strip
+     * below it listed the chips. The key is the half of that fix which
+     * lives here; the template matching on it is the other.
+     *
+     * **The tags are the value's own**, from `attribute_tags` through
+     * `Value::ownTagsFor`. An event tag is the event's claim and not the
+     * value's, and the strip says *nothing has tagged this value* — so
+     * folding `8.8.8.8`'s 69 event-tag rows in would make that sentence
+     * false about a value nothing has tagged.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $context
+     * @param array $options
+     * @return array
+     */
+    private function timelineUndated(array $user, $value, array $context,
+        array $options
+    ) {
+        $tags = array();
+        $clusters = array();
+        $found = $this->model('Value')->ownTagsFor(
+            $user,
+            $value,
+            $context['scope']['events'],
+            $options
+        );
+        foreach ($found as $name => $entry) {
+            $chip = array(
+                'label' => $name,
+                'colour' => $entry['tag']['colour'],
+            );
+            if ($entry['tag']['is_galaxy']) {
+                $clusters[] = $chip;
+            } else {
+                $tags[] = $chip;
+            }
+        }
+
+        $out = array();
+        if (!empty($tags)) {
+            $out[] = $this->undatedRow('tags', __('Tags'), $tags, __(
+                'attribute_tags and event_tags carry no created or'
+                . ' modified column, on any instance. A tag can be dated'
+                . ' only by an audit_logs row.'
+            ));
+        }
+        if (!empty($clusters)) {
+            $out[] = $this->undatedRow('clusters', __('Galaxy clusters'),
+                $clusters, __(
+                    'Cluster attachments are tags underneath, and'
+                    . ' inherit the same missing column.'
+                ));
+        }
+
+        $external = $this->externalPresence($user, $value);
+        $feeds = array();
+        $feedIds = array();
+        foreach ($external['sources'] as $source) {
+            $feeds[] = array('label' => $source['name'], 'colour' => null);
+            if ($source['scope'] === 'feed') {
+                $feedIds[] = $source['id'];
+            }
+        }
+        if (!empty($feeds)) {
+            $row = $this->undatedRow('feeds', __('Feed appearances'),
+                $feeds, __(
+                    'The feed cache is a Redis set of hashes with one'
+                    . ' timestamp for the whole feed, rewritten on every'
+                    . ' refresh. It dates the fetch, not the value.'
+                ));
+            $row['as_of'] = $this->feedCacheAsOf($feedIds);
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * One off-axis row, with its chips bounded and the bound stated.
+     *
+     * `193.161.193.99` carries 670 attribute-tag rows against the
+     * fixture's handful, so the strip needs a bound the fixture never
+     * needed. `count` is the whole number and `chips` is what is drawn:
+     * a cap is not a permission, so the difference is something the
+     * strip says out loud rather than something it hides.
+     *
+     * @param string $key Stable, and what the template matches on —
+     *                    never the translated `kind`
+     * @param string $kind Translated, displayed
+     * @param array $chips
+     * @param string $reason
+     * @return array
+     */
+    private function undatedRow($key, $kind, array $chips, $reason)
+    {
+        return array(
+            'key' => $key,
+            'kind' => $kind,
+            'count' => count($chips),
+            'reason' => $reason,
+            'chips' => array_slice($chips, 0, self::TIMELINE_CHIP_CAP),
+            'as_of' => null,
+        );
+    }
+
+    /**
+     * The newest cache timestamp across the feeds holding this value.
+     *
+     * The newest and not each feed's own, because the row is one row:
+     * what it can say honestly is *no fetch is newer than this*, and a
+     * per-feed date would be a column the strip has no room for and no
+     * question for.
+     *
+     * `Feed::attachFeedCacheTimestamps` rather than a Redis call of its
+     * own — one pipeline, and the key stays spelled in the model that
+     * writes it.
+     *
+     * @param array $feedIds
+     * @return string|null `Y-m-d H:i:s`
+     */
+    private function feedCacheAsOf(array $feedIds)
+    {
+        if (empty($feedIds)) {
+            return null;
+        }
+        $stubs = array();
+        foreach ($feedIds as $id) {
+            $stubs[] = array('Feed' => array('id' => $id));
+        }
+        $newest = null;
+        $stamped = $this->model('Feed')->attachFeedCacheTimestamps($stubs);
+        foreach ($stamped as $stub) {
+            $stamp = (int)$stub['Feed']['cache_timestamp'];
+            if ($stamp > 0 && ($newest === null || $stamp > $newest)) {
+                $newest = $stamp;
+            }
+        }
+        return $newest === null
+            ? null
+            : gmdate('Y-m-d H:i:s', $newest);
+    }
+
+    /**
      * The value's audit history: the rows about the objects this viewer
      * may already see, scoped by id.
      *
-     * **The reader `25-timeline.md` §5 decided, and the one
-     * `07-history.md` inherits.** Neither of the two ACL models MISP
-     * ships is adopted whole. `AuditLogsController::__applyAuditAcl`
+     * **Neither of the two ACL models MISP ships is adopted whole**,
+     * and the History tab inherits this reader rather than negotiating
+     * a second one. `AuditLogsController::__applyAuditAcl`
      * (`:356`) restricts a non-admin to their own `user_id`, which is
      * not a scoping of the value's history but a different subject —
      * *my* actions, filtered to this value — and on the verification
@@ -6292,8 +7525,8 @@ class ValueProfile extends AppModel
      * wrong — `model_title` prefers the new value — and a scan, since
      * it is an unindexed `text` column.
      *
-     * Tier 1 for the rows and tier 2 for the counts under §14.4, and
-     * both take the id set from `Value`, so permissions were settled
+     * The rows come from a plain read and the counts from an aggregate,
+     * and both take the id set from `Value`, so permissions were settled
      * before `audit_logs` was touched.
      *
      * @param array $scope `attributes`, `objects`, `events`: id lists
@@ -6346,8 +7579,8 @@ class ValueProfile extends AppModel
         /*
          * `change` is a brotli blob that `AuditLog::afterFind` decodes
          * per row, so it is opt-in: the Timeline's chronology names the
-         * occurrence and the action and never the diff (§5.4), and
-         * making it pay 300 decompressions for a column it does not
+         * occurrence and the action and never the diff, and making it
+         * pay 300 decompressions for a column it does not
          * render is the kind of cost that hides inside a shared reader.
          * The History tab, whose rows *are* the diff, asks for it.
          */
@@ -6409,11 +7642,11 @@ class ValueProfile extends AppModel
     /**
      * The same three scopes, grouped rather than read.
      *
-     * Tier 2 under §14.4 with the reason it asks for: the answer is a
-     * group, the id set was ACL'd before the aggregate ran, and
+     * An aggregate rather than a read, and the reasons are that the
+     * answer is a group, the id set was ACL'd before it ran, and
      * materialising `443`'s 162,539 rows to count them in PHP is the
-     * wrong shape — it is also the §7.9 trap, where a tally over the
-     * fetched page stops being honest the moment the list paginates.
+     * wrong shape — a tally over the fetched page also stops being
+     * honest the moment the list paginates.
      *
      * Grouped by month and action rather than by month alone, because
      * the edit lane's own totals and the spine's stack both read this
@@ -6485,16 +7718,16 @@ class ValueProfile extends AppModel
      * `audit_logs`*: an empty `IN` set rendered into a condition would
      * read the whole table.
      *
-     * **Both columns are `model_id`, including the event scope**, and
-     * §5.3's pseudocode says `event_id` there. `event_id` is indexed
-     * and looks like the better name, and it is the worse one: MISP
-     * writes it on *every* model's rows — an `Attribute` row carries
-     * the event it belongs to — so `event_id IN (…)` matches the whole
-     * audit history of those events and filters `model` from each row
-     * afterwards. That is the 816,041 rows §5.2 costed the per-event
-     * model at, arrived at by a different route: 14,330 ms on `443`'s
-     * 1,844 events, against **129 ms** for `model_id` over the same
-     * ids. It is sound because `event_id` and `model_id` are the same
+     * **Both columns are `model_id`, including the event scope**, where
+     * `event_id` is the obvious name and the wrong one. `event_id` is
+     * indexed and `model` is not, so it looks like the column to use;
+     * but MISP writes it on *every* model's rows — an `Attribute` row
+     * carries the event it belongs to — so `event_id IN (…)` matches the
+     * whole audit history of those events and filters `model` from each
+     * row afterwards. On `443`'s 1,844 events that is 816,041 rows read
+     * to return 9,493: **14,330 ms**, against **129 ms** for `model_id`
+     * over the same ids. It is sound because `event_id` and `model_id`
+     * are the same
      * number on every `model = 'Event'` row — verified over all 28,048
      * of them, none null — and the two forms return the identical
      * 9,493 rows.
@@ -6537,10 +7770,10 @@ class ValueProfile extends AppModel
     /**
      * One `audit_logs` row in the shape both tabs read.
      *
-     * The shape is `07-history.md`'s, which the fixture's `auditRow()`
-     * already writes and its panel already renders — so History goes
+     * The shape is the History tab's, which the fixture's `auditRow()`
+     * already writes and its panel already renders — so that tab goes
      * live against a reader it inherits rather than one it negotiates
-     * with, which is the bargain `25-timeline.md` §2 takes.
+     * with.
      *
      * @param array $row From `AuditLog::find`
      * @return array

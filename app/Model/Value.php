@@ -597,6 +597,10 @@ class Value extends AppModel
                 'Attribute.event_id',
                 'Attribute.type',
                 'Attribute.timestamp',
+                // Both ends of the span, because the Timeline's seen
+                // lane is the one consumer that needs the low end and
+                // it needs it for the same rows this already reads.
+                'Attribute.first_seen',
                 'Attribute.last_seen',
                 'Attribute.deleted',
             ),
@@ -651,6 +655,10 @@ class Value extends AppModel
                 'Attribute.event_id',
                 'Attribute.type',
                 'Attribute.timestamp',
+                // Both ends of the span, because the Timeline's seen
+                // lane is the one consumer that needs the low end and
+                // it needs it for the same rows this already reads.
+                'Attribute.first_seen',
                 'Attribute.last_seen',
                 'Attribute.deleted',
             ),
@@ -669,7 +677,7 @@ class Value extends AppModel
     }
 
     /**
-     * The six-column shape both id-set accessors return, keyed by
+     * The shape both id-set accessors return, keyed by
      * attribute id.
      *
      * @param array $rows
@@ -683,6 +691,7 @@ class Value extends AppModel
                 'event_id' => (int)$row['Attribute']['event_id'],
                 'type' => $row['Attribute']['type'],
                 'timestamp' => (int)$row['Attribute']['timestamp'],
+                'first_seen' => $row['Attribute']['first_seen'] ?? null,
                 'last_seen' => $row['Attribute']['last_seen'] ?? null,
                 'deleted' => !empty($row['Attribute']['deleted']),
             );
@@ -1039,8 +1048,11 @@ class Value extends AppModel
      * the asserted section's lookup is a UUID set and not the integer
      * set every other panel on this page uses. Keeping the two
      * accessors apart rather than adding `uuid` to `occurrenceIdsFor`
-     * keeps that panel's cost visible: this is the only caller that
-     * needs it, and it caps its own set.
+     * keeps those panels' cost visible: both callers cap their own set,
+     * and every other panel on the page reads the integer accessor and
+     * pays nothing for a column it has no use for. The Timeline's
+     * analyst lane is the second caller — same shape, same reason, and
+     * its cap is `ValueProfile::TIMELINE_ANALYST_CAP`.
      *
      * @param array $user
      * @param string $value
