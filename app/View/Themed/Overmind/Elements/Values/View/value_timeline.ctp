@@ -225,9 +225,14 @@ foreach ($entries as $entry) {
 $bins = array();
 $before = 0;
 $earliest = null;
-if ($window !== null && $counts['first'] !== null) {
-    $rangeFrom = substr($counts['first'], 0, 10);
-    $rangeTo = substr($counts['last'], 0, 10);
+$spineUnit = ValueProfileBuckets::MONTH;
+$rangeFrom = $counts['first'] === null
+    ? null
+    : substr($counts['first'], 0, 10);
+$rangeTo = $counts['last'] === null
+    ? null
+    : substr($counts['last'], 0, 10);
+if ($window !== null && $rangeFrom !== null) {
     $rangeDays = 1 + (int)(new DateTimeImmutable($rangeFrom, $utc))
         ->diff(new DateTimeImmutable($rangeTo, $utc))
         ->days;
@@ -341,17 +346,56 @@ $xFor = function ($at) use ($t0, $span, $utc, $LANE_W, $MARK_W) {
 };
 
 /*
+ * The month names the ruler and the spine's axis both read. Formatted
+ * once here and shipped, because the ruler is redrawn client-side for
+ * every brush and a second formatter in JavaScript would be a second
+ * vocabulary — `toLocaleString` follows the browser's locale, `M`
+ * follows PHP's, and the two disagree the moment they differ.
+ */
+$months = array();
+for ($m = 1; $m <= 12; $m++) {
+    $months[] = (new DateTimeImmutable(sprintf('2001-%02d-01', $m), $utc))
+        ->format('M');
+}
+
+/**
+ * One ruler label: the day, plus whatever the tick before it has not
+ * already said.
+ *
+ * @param DateTimeImmutable $at
+ * @param DateTimeImmutable|null $prev The tick to its left, if any
+ * @return string
+ */
+$rulerLabel = function ($at, $prev) use ($months) {
+    $day = $at->format('j');
+    if ($prev !== null && $prev->format('Y-m') === $at->format('Y-m')) {
+        return $day;
+    }
+    $label = $day . ' ' . $months[(int)$at->format('n') - 1];
+    if ($prev === null || $prev->format('Y') !== $at->format('Y')) {
+        $label .= ' ' . $at->format('Y');
+    }
+    return $label;
+};
+
+/*
  * Five ticks across the window. Enough for a reader to place a mark
  * without turning the lane header into a ruler.
+ *
+ * Each one names its month where the month changed and its year where
+ * the year did, which the first four never did before: the window is
+ * the reader's to set and a brush over the whole spine is years wide,
+ * so a ruler of bare day numbers put four of its five ticks in the
+ * first tick's month and never named a year at all.
  */
 $ticks = array();
 if ($window !== null) {
+    $prev = null;
     for ($i = 0; $i < 5; $i++) {
         $at = $t0 + (int)round(($span * $i) / 4);
         $tick = (new DateTimeImmutable('@' . $at))->setTimezone($utc);
-        $ticks[] = $i === 0
-            ? $tick->format('j M')
-            : $tick->format('j');
+        $ticks[] = $rulerLabel($tick, $prev);
+        $prev = $tick;
     }
 }
 
@@ -580,6 +624,8 @@ if ($window !== null) {
             'height' => $LANE_H,
             'mark' => $MARK_W,
         ),
+        // For the ruler over the lanes, which moves with the brush.
+        'months' => $months,
         'labels' => array(
             'entries' => __('entries'),
             'axis' => __('Dated entries per month, stacked by source'),
@@ -705,10 +751,24 @@ $subtitle = $timeline === null
                 </div>
 
                 <div class="vp-tl-spine" data-vp-tl-spine>
+                    <?php
+                    /*
+                     * Named from the grain and the range, not from the
+                     * twelve months the fixture drew: the spine now
+                     * covers the value's whole history at whichever of
+                     * three grains the range asks for, so the fixture's
+                     * wording was false for every value but one.
+                     */
+                    ?>
                     <canvas id="vp-tl-spine" role="img"
-                            aria-label="<?= h(__(
-                                'Dated entries per month over the last'
-                                . ' twelve months, stacked by source'
+                            aria-label="<?= h(sprintf(
+                                __('Dated entries %1$s from %2$s to'
+                                    . ' %3$s, stacked by source'),
+                                isset($grainWord[$spineUnit])
+                                    ? $grainWord[$spineUnit]
+                                    : __('by month'),
+                                $rangeFrom === null ? '-' : $rangeFrom,
+                                $rangeTo === null ? '-' : $rangeTo
                             )) ?>"></canvas>
                     <?php
                     /*
@@ -1345,6 +1405,55 @@ $subtitle = $timeline === null
                 <div class="vp-empty vp-tl-blank" data-vp-tl-blank hidden>
                     <i class="fas fa-clock"></i>
                     <span><?= __('Nothing dated falls in this window.') ?>
+                    </span>
+                </div>
+
+                <?php
+                /*
+                 * The other reason this list can be empty, and the one
+                 * it used to deny: the window *does* hold entries and
+                 * none of them are rows the fragment carries.
+                 *
+                 * A reader who brushes the first active bar of a value
+                 * with years of history hits it every time — the spine
+                 * is binned from the aggregate and covers the whole
+                 * range, while the rows are the newest cap-many. Saying
+                 * *nothing dated falls in this window* there is not a
+                 * softer answer than this one, it is the opposite of
+                 * what the number beside the window label says, so a
+                 * reader can only conclude the panel is broken.
+                 *
+                 * Two caps can put a day in the aggregate with no row
+                 * to show for it, and the sentence names whichever
+                 * applies: `TIMELINE_ROW_CAP` over the merged
+                 * chronology, whose numbers are worth printing, and
+                 * `TIMELINE_SPAN_CAP` inside the seen lane, which bites
+                 * on values whose chronology fits whole.
+                 */
+                ?>
+                <div class="vp-empty vp-tl-blank"
+                     data-vp-tl-blank-capped hidden>
+                    <i class="fas fa-clock"></i>
+                    <span>
+                        <?= sprintf(
+                            __('%s dated entries fall in this window,'
+                                . ' and none of them are among the'
+                                . ' rows this list carries.'),
+                            '<b data-vp-tl-blank-n>0</b>'
+                        ) ?>
+                        <?php if ($counts['capped']): ?>
+                            <?= h(sprintf(
+                                __('It holds the newest %1$s of %2$s —'
+                                    . ' brush a more recent period to'
+                                    . ' read them.'),
+                                number_format($counts['shown']),
+                                number_format($counts['total'])
+                            )) ?>
+                        <?php else: ?>
+                            <?= h(__('A lane caps the rows it draws;'
+                                . ' the counts above are over all of'
+                                . ' them.')) ?>
+                        <?php endif; ?>
                     </span>
                 </div>
 

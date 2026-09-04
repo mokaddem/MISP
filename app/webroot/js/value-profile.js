@@ -4839,6 +4839,57 @@
     }
 
     /**
+     * The five-tick ruler over the lanes, for whatever window is
+     * current.
+     *
+     * The template renders it for the window the panel arrives with,
+     * and nothing redrew it after that — so a reader who brushed had
+     * the marks re-placed against the new window under a ruler still
+     * labelling the old one. The lane marks are already rendered twice
+     * for the same reason (server-side once, here on every window), so
+     * this is that pair completed rather than a new one.
+     *
+     * The rule is `$rulerLabel`'s in `value_timeline.ctp` — the day,
+     * plus the month where it changed and the year where that did — and
+     * the month names come from the payload rather than from
+     * `toLocaleString`, so the first paint and every one after it read
+     * one vocabulary.
+     *
+     * @param {Element} panel
+     */
+    function tlRuler(panel) {
+        var host = panel.querySelector('[data-vp-tl-ticks]');
+        if (!host) {
+            return;
+        }
+        var window_ = tlWindow();
+        var from = tlStamp(window_.from + ' 00:00:00');
+        var span = Math.max(
+            1,
+            tlStamp(window_.to + ' 23:59:59') - from
+        );
+        var months = tl.data.months || [];
+        var html = '';
+        var prev = null;
+        for (var i = 0; i < 5; i++) {
+            var at = new Date(from + Math.round((span * i) / 4));
+            var year = at.getUTCFullYear();
+            var month = at.getUTCMonth();
+            var label = String(at.getUTCDate());
+            if (prev === null || prev.year !== year
+                || prev.month !== month) {
+                label += ' ' + (months[month] || '');
+                if (prev === null || prev.year !== year) {
+                    label += ' ' + year;
+                }
+            }
+            html += '<span>' + tlEscape(label) + '</span>';
+            prev = { year: year, month: month };
+        }
+        host.innerHTML = html;
+    }
+
+    /**
      * How many entries a collapsed run stands for.
      *
      * @param {Element} list
@@ -4941,11 +4992,8 @@
          * precision tally beside it stays a tally over those rows,
          * because it is a statement about the list and sums to it.
          */
-        setText(
-            panel,
-            '[data-vp-tl-window-count]',
-            tlWindowCounts(window_).total
-        );
+        var windowTotal = tlWindowCounts(window_).total;
+        setText(panel, '[data-vp-tl-window-count]', windowTotal);
         var label = panel.querySelector('[data-vp-tl-window-label]');
         if (label) {
             label.textContent = window_.from + ' → ' + window_.to;
@@ -4957,13 +5005,34 @@
             setText(foot, '[data-vp-tl-more-n]', matched - covered);
         }
 
-        // Only a brush or a filter can empty this list. A value with
-        // nothing dated has its own empty state from the template, and
-        // "none in this window" over it would be a different claim.
+        /*
+         * Only a brush or a filter can empty this list. A value with
+         * nothing dated has its own empty state from the template, and
+         * "none in this window" over it would be a different claim.
+         *
+         * Which of the two empties it is matters. A window the
+         * aggregate says holds entries is empty because the rows are
+         * capped and these are older than the cap reaches, not because
+         * the value was quiet — and the plain sentence there flatly
+         * contradicts the count beside the window label, which is the
+         * one reading that makes the panel look broken. Every value
+         * with years of history hits it on its first active bar.
+         *
+         * A source filter is the reader's own doing and keeps the plain
+         * sentence, so only an unfiltered list can reach the capped
+         * one.
+         */
+        var hasRows = !!list.querySelector('[data-vp-tl-at]');
+        var outOfReach = matched === 0 && hasRows
+            && sources === null && windowTotal > 0;
         var blank = list.querySelector('[data-vp-tl-blank]');
         if (blank) {
-            blank.hidden = matched > 0
-                || !list.querySelector('[data-vp-tl-at]');
+            blank.hidden = matched > 0 || !hasRows || outOfReach;
+        }
+        var capped = list.querySelector('[data-vp-tl-blank-capped]');
+        if (capped) {
+            capped.hidden = !outOfReach;
+            setText(capped, '[data-vp-tl-blank-n]', windowTotal);
         }
 
         var note = list.querySelector('[data-vp-tl-filter-note]');
@@ -4980,20 +5049,66 @@
             return;
         }
         tlPaintBrush(panel);
+        tlRuler(panel);
         tlDrawLanes(panel, tlEntries(panel));
         tlRefreshList(panel);
     }
 
     /**
-     * The spine. Stacked bars, one segment per source, over twelve
-     * months — and the colours are the tokens the lanes read, so a
-     * segment and the lane beneath it are the same colour by
+     * The year each bar belongs to, keyed by the bars that start one.
+     *
+     * A bar's own label is `Nov` or `4 Jan` — the month, because the
+     * grain is a month for anything over 400 days and the spine covers
+     * the value's whole range. So a month name repeats every twelve
+     * bars, and on a value with two years of history a reader brushing
+     * a `Nov` has no way to tell the panel which one they meant.
+     *
+     * Only the bars that open a year carry it, and the first bar always
+     * does. A year printed under every bar is the axis's own label
+     * repeated twenty-three times.
+     *
+     * @return {Object} Bin index => `YYYY`
+     */
+    function tlYearStarts() {
+        var starts = {};
+        var last = null;
+        tl.data.bins.forEach(function (bin, index) {
+            var year = String(bin.to).slice(0, 4);
+            if (year !== last) {
+                starts[index] = year;
+            }
+            last = year;
+        });
+        return starts;
+    }
+
+    /**
+     * The spine. Stacked bars, one segment per source, over the value's
+     * whole dated range — and the colours are the tokens the lanes
+     * read, so a segment and the lane beneath it are the same colour by
      * construction rather than by being kept in step.
      *
      * @param {Element} canvas
      * @return {Chart}
      */
     function buildTimelineSpine(canvas) {
+        /*
+         * The year boundaries are the axis's anchor ticks. `autoSkip`
+         * thins the rest to whatever fits and keeps every major, which
+         * is the only way a year survives a wide range: it runs *after*
+         * the label callback, and Chart.js 4.1.1's `afterAutoSkip`
+         * scale hook is an empty stub rather than a dispatch, so a year
+         * written on a bar that is then skipped cannot be moved to a
+         * bar that was not.
+         *
+         * The newest bar is a major too, and it carries no year: past
+         * the last major, `autoSkip` labels only one average major
+         * spacing further and then stops, which dropped the two most
+         * recent months of `8.8.8.8` — the end of the axis is the one
+         * place a reader is most sure of and least willing to count
+         * back from.
+         */
+        var yearStarts = tlYearStarts();
         var config = window.VP.chart.resolve({
             type: 'bar',
             data: {
@@ -5019,9 +5134,29 @@
                     x: {
                         stacked: true,
                         grid: { display: false },
+                        afterBuildTicks: function (scale) {
+                            var last = tl.data.bins.length - 1;
+                            scale.ticks.forEach(function (tick) {
+                                tick.major = tick.value === last
+                                    || Object.prototype.hasOwnProperty
+                                        .call(yearStarts, tick.value);
+                            });
+                        },
                         ticks: {
                             color: 'var(--bs-secondary-color)',
                             font: { size: 10 },
+                            major: { enabled: true },
+                            callback: function (value) {
+                                var bin = tl.data.bins[value];
+                                if (!bin) {
+                                    return '';
+                                }
+                                // An array is two lines: the month
+                                // over the year it opens.
+                                return yearStarts[value] === undefined
+                                    ? bin.label
+                                    : [bin.label, yearStarts[value]];
+                            },
                         },
                     },
                     y: {

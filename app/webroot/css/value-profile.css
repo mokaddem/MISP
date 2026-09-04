@@ -8442,6 +8442,15 @@ th.vp-rel-num {
     margin-top: 12px;
 }
 
+/*
+ * The capped variant carries two sentences where the plain one carries
+ * half of one, and centred over the panel's full width it reads as a
+ * paragraph nobody meant to put there. A measure, not a layout.
+ */
+.vp-tl-blank > span {
+    max-width: 52ch;
+}
+
 /* ==================================================================
  * The History tab
  * ------------------------------------------------------------------

@@ -36,14 +36,17 @@ to `done` only when §14's verification has run against it.
 | T12 | The spine's grain taken from the range, not pinned | §9, §16.2 | **done** |
 | T13 | Remove the ACL band §14.6 forbids and §14.6's table missed | §12 | **done** |
 | T14 | The board rows: §14.12 `viewTimeline`, and this document's numbers | §14.12, §16.5 | **done** |
+| T15 | The axis names its years; the ruler follows the brush and names them too | §17.1, §17.2 | **done** |
+| T16 | The chronology stops denying entries the counts state | §17.3 | **done** |
 
-**Where the phase stands.** Twelve of fourteen rows are done and the tab reads
+**Where the phase stands.** Fourteen of sixteen rows are done and the tab reads
 the database: the endpoint is wired, five dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log.
+than a lane that lies. §16 is the build log; §17 is what the first reader of
+the built tab found, and T15 and T16 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -752,6 +755,17 @@ Whether the publications lane should draw them beside the two columns —
 and how it would say that one lane holds two kinds of evidence — is a
 question this phase names and does not answer.
 
+**A window the chronology can go back for** (added by §17.3). The rows
+are the newest `TIMELINE_ROW_CAP`, so a brush past what the fragment
+carries has nothing to list and the panel now says so in a sentence
+rather than denying the entries exist. The fix is a window parameter on
+`viewTimeline`, as the History tab takes its period in the path (§11):
+the brush re-fetches where it reaches past the rows it holds. It stays
+deferred because it is a model, controller and cache-key change and the
+reader's actual complaint was that the panel contradicted itself, which
+the sentence settles. The cost of deferring: the first two thirds of a
+busy value's axis stay a chart with no chronology under it.
+
 **`T2` standalone and `T1`**, unchanged from `06-timeline.md` §12.
 
 ---
@@ -944,3 +958,164 @@ predicted did not exist among the candidates and was right about:
 own occurrences. §14.9's row 7 should gain them when the analyst lane is
 next touched — every candidate value's analyst data is on events, so the
 occurrence half of D4's union is currently verified only by construction.
+
+## 17. Two objections from the first reader, and what they found
+
+The tab went in front of a reader on `8.8.8.8`. Two things came back, one
+asked as a request and one as a question, and the question turned out to
+be the more serious of the two.
+
+### 17.1 The axis names a month and never a year
+
+`8.8.8.8` spans 2024-11-11 to 2026-09-03 — 662 days, so §16.2's rule
+picks the month grain and draws 23 bars. Their labels came from
+`ValueProfileBuckets::describe`, which formats a month bucket as `M`. So
+the axis read `Nov Dec Jan Feb … Nov Dec Jan …`: two `Nov`s, two `Dec`s,
+and no way for a reader to say which one they had brushed.
+
+The label is not the place to fix it. `describe()` is read by three
+charts — the Sightings navigator, this spine and the History months —
+and a bucket's own name is the same string in all three; widening it to
+`Nov 2024` would pay for the year on every bar of every chart to answer
+a question only a multi-year one asks.
+
+So the year is a **second line, on the bars that open a year**, written
+in the spine's tick callback rather than in the bucket. The first bar
+always opens one, so the axis names its own start; between then and the
+next January it says nothing, which is the point. It works at every
+grain the spine offers, because a week grain crosses a year as readily
+as a month one: `45.155.205.233` is 39 weekly bars and reads
+`2 Dec/2025 … 6 Jan/2026 …`.
+
+**The mechanism is `autoSkip`, and it decided the design.** Chart.js
+drops ticks that will not fit — 39 weekly bars in a 760 px panel come
+down to 13 — and it does so *after* the label callback has run. A year
+written on a bar that is then skipped is a year the axis loses, and
+there is no second pass to move it: `Scale.afterAutoSkip` exists in
+Chart.js 4.1.1 as an empty stub, not as a dispatch to
+`options.afterAutoSkip`, so the hook that would let a caller relabel the
+survivors is not wired. What *is* available is `afterBuildTicks`, which
+dispatches, and `autoSkip`'s own rule that **every major tick survives**.
+So the year boundaries are marked major, and the thinning happens around
+them. At 760 px `45.155.205.233` keeps both of its year ticks and loses
+26 of its 37 month ticks, which is the right trade in that order.
+
+The newest bar is marked major too, and it carries no year. Past its
+last major, `autoSkip` labels one average major spacing further and then
+stops — which on `8.8.8.8` silently dropped `Aug` and `Sep 2026`, the
+two bars a reader is most certain about and least willing to count back
+to. One extra major, no extra label.
+
+### 17.2 The ruler over the lanes was labelling a window that had moved
+
+Found while fixing the axis, and worse than it. The five-tick ruler in
+the lane header is server-rendered from `$window`, and **nothing redrew
+it after a brush**. So a reader who brushed `8.8.8.8` back to
+2024-11-01 had the marks re-placed against the new window under a ruler
+still reading `5 Aug 2026 · 12 · 19 · 27 · 3 Sep`.
+
+Its labels were also `j M` for the first tick and a bare `j` for the
+other four, which is a ruler that only works if a window fits inside one
+month. The default window is 30 days and often does not — `5 Aug · 12 ·
+19 · 27 · 3` puts the last tick in the first tick's month — and a
+brushed window is whatever the reader dragged, which on this value is up
+to two years.
+
+Both halves are fixed at once: each tick names its month where the month
+changed and its year where the year did, and the whole ruler is
+recomputed on every window change. `2.2.2.2` brushed over its full range
+reads `1 Oct 2024 · 23 Mar 2025 · 13 Sep · 6 Mar 2026 · 26 Aug`.
+
+The rule is now written twice, in `$rulerLabel` and in `tlRuler`, and
+that is the same duplication the lane marks already carry — rendered by
+the template for the window the fragment arrives with and by the script
+for every window after it. The month *names* are not duplicated: they
+travel in the payload, because `toLocaleString` follows the browser's
+locale and `format('M')` follows PHP's, and a ruler that renamed
+November on first brush would be a worse bug than the one being fixed.
+
+### 17.3 The chronology denied entries the panel had just counted
+
+The question was: *I brushed the first month that shows activity and
+nothing is displayed in the sources and the chronology. Why?*
+
+Because the panel was telling the reader two contradictory things and
+one of them was a sentence it had no business saying. Brushing
+`8.8.8.8`'s first active bar gives a window of 14 entries — the window
+label says `14 entries`, the lane grid says `2 Sighting` and `12 Edit`,
+and every one of those numbers is right. The chronology under them said
+**Nothing dated falls in this window.**
+
+That is §16.1's split working exactly as designed and then lying about
+itself. The counts are aggregates over every dated thing the viewer may
+see; the rows are the newest `TIMELINE_ROW_CAP` of them. On `8.8.8.8`
+that is 300 of 447, and the newest 300 begin at 2025-11-16 — so the
+first eleven bars of a 23-bar axis are chart-only by construction. The
+lanes admit this already: §16.1 states that the marks are a sample of
+the count and a lane may show fewer marks than it counts. The chronology
+did not, and *nothing dated falls in this window* is not a softer way of
+saying *these are past the cap* — it is the opposite of the number
+beside it, so the only reading left to the reader is that the panel is
+broken. Which is how it was read.
+
+So the chronology gets a second empty state, for the window that holds
+entries none of whose rows the fragment carries:
+
+> **14** dated entries fall in this window, and none of them are among
+> the rows this list carries. It holds the newest 300 of 447 — brush a
+> more recent period to read them.
+
+Two caps can produce it and the sentence names whichever applies.
+`TIMELINE_ROW_CAP` over the merged chronology is the common one and its
+numbers are worth printing. `TIMELINE_SPAN_CAP` is the other: the seen
+lane draws 25 spans of however many it counted, and it takes the
+*oldest* 25, so a value whose chronology fits whole can still have a day
+in the aggregate with no row against it. That branch says *a lane caps
+the rows it draws* and prints no numbers, because the ones it would
+print are the wrong pair.
+
+The plain sentence stays for the window that really is empty, and for
+any window a source filter emptied — that is the reader's own doing and
+they have the filter note beside it.
+
+**What this does not fix, and what would.** The rows for an old window
+are not on the client at all, so no amount of wording puts them on
+screen. The fix would be a window parameter on `viewTimeline`, the way
+the History tab takes its period in the path (§11) — the brush would
+re-fetch when it reaches past what the fragment carries. That is a
+model-and-controller change with a cache key on it, and it is deferred
+here rather than smuggled into a wording fix. §15 gains the row.
+
+### 17.4 One string §16 left false
+
+The spine's canvas carried `aria-label="Dated entries per month over the
+last twelve months, stacked by source"`. The twelve months were the
+fixture's window; §16.2 replaced it with the value's whole range at one
+of three grains, and the label was not touched. It was therefore wrong
+for every value but one, and wrong in the one way an `aria-label` cannot
+be recovered from — the reader it serves has no chart to check it
+against. It now names the grain and the two dates: *Dated entries by
+month from 2024-11-11 to 2026-09-03, stacked by source*.
+
+### 17.5 Verified
+
+Against the live instance, logged in, in a real browser — not the
+harness, because three of these four are `autoSkip`, layout and brush
+behaviour and a harness would confirm all of them wrongly.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l` + `parallel-lint` on the element, `node --check` on the JS | clean |
+| 2 | Year ticks, month grain | `8.8.8.8`, 23 bars: `Nov/2024`, `Jan/2025`, `Jan/2026`; all 23 labelled at 1600 px. `2.2.2.2`, 23 bars: `Oct/2024`, `Jan/2025`, `Jan/2026` |
+| 3 | Year ticks, week grain | `45.155.205.233`, 39 bars: `2 Dec/2025`, `6 Jan/2026` |
+| 4 | **`autoSkip`** | `45.155.205.233` at 760 px: 39 bars → 13 ticks, **both** year ticks and the newest bar survive. `2.2.2.2` at 760 px: all 23 kept, rotated 50°, both lines rotate together |
+| 5 | The ruler follows the brush | `8.8.8.8` brushed to its first active bar: `1 Nov 2024 · 16 · 1 Dec · 16 · 31`, against `5 Aug 2026 · 12 · 19 · 27 · 3 Sep` before. `2.2.2.2` over its full range: `1 Oct 2024 · 23 Mar 2025 · 13 Sep · 6 Mar 2026 · 26 Aug` |
+| 6 | The out-of-reach empty state | `8.8.8.8` brushed to 2024-11-01…12-31: window count 14, lanes 2 + 12, 0 rows, and the capped sentence with `14`, `300`, `447` in it. The plain sentence stays hidden |
+| 7 | It does **not** fire where it must not | `2.2.2.2` (201 of 201, uncapped) and `45.155.205.233` (17 of 17): neither empty state shows at the default window or over the full range |
+| 8 | Dark theme | the second tick line reads in both, on the same `--bs-secondary-color` as the first; no new token |
+| 9 | Console | no page error and no console error on any of the six loads |
+
+The one thing not covered: the no-JavaScript render of the ruler is the
+template's, which is what §16.5 row 7 already exercises — but a brushed
+window has no no-JS equivalent, so the recomputed labels are verified
+with a script running and only that way.
