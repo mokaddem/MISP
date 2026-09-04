@@ -687,7 +687,7 @@ its decisions and deferrals live; this is only the map.
 | 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
 | 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | built |
-| 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | built — B1–B15 done, its §1 is the task board |
+| 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | built — B1–B16 done, its §1 is the task board |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,

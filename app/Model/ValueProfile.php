@@ -5751,7 +5751,10 @@ class ValueProfile extends AppModel
                 'type' => 'event',
                 'sub' => trim($row['event']['date'] . ' · ' . $row['org'],
                     ' ·'),
-                'href' => '/events/view/' . $eventId,
+                // The themed event view, like every other event
+                // link on this tab. An event node is the event, so it
+                // takes no tab anchor.
+                'href' => '/events/view2/' . $eventId,
             ));
             $feed['edges'][] = self::graphEdge('value', $id, 'event',
                 sprintf(__n('%s value here', '%s values here',
@@ -5943,8 +5946,17 @@ class ValueProfile extends AppModel
                 'sub' => $far['object'] === null
                     ? __('attribute')
                     : $far['object'],
+                /*
+                 * An object far end opens the themed event's Objects
+                 * tab and not `/objects/view`, which redirects to the
+                 * unthemed `/events/view` and loses which record it
+                 * was asked about. Same rule, and same reason, as the
+                 * table over this feed — `24b-relationships.md` §3
+                 * and §17.2.
+                 */
                 'href' => $far['kind'] === 'object'
-                    ? '/objects/view/' . (int)$far['id']
+                    ? '/events/view2/' . (int)$far['event']
+                        . '#tab-objects'
                     : '/values/view/' . self::b64($far['label']),
             ));
             $outbound = $row['direction'] === 'outbound';

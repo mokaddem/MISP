@@ -44,6 +44,9 @@ came after it, out of a coming app-wide gesture rather than out of this
 tab: §17 sends a value in a table to the record that stores it. B15 came
 out of a report rather than out of the plan, and is the only row here
 whose subject is cost: §18 prices the tab's cold load and bounds it.
+B16 closes the one thing §17.4 left named — and found the graph feed
+had a second, larger caller of the unthemed event page that nobody had
+flagged. §19.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -63,6 +66,7 @@ whose subject is cost: §18 prices the tab's cold load and bounds it.
 | B13 | The text pass: mockup controls out, captions to one line, the rest onto the glyph | all twelve Relationships templates, `value-profile.css` | M | no | **yes — the caption glyph becomes a `title` carrier** | **done** — §16 |
 | B14 | A value in a table opens where it is stored, not its own page | `value_relation_dated`, `value_relation_references` | XS | no | no | **done** — §17 |
 | B15 | The tab's cold load, priced and bounded | `ValueProfile`, `Value`, `ValueRelationTool`, `value_relation_settings`, `value_relation_cooccurrence`, `value-profile.js` | L | no | no | **done** — §18 |
+| B16 | The graph feed lands where the tab lands, and the peek drops its tooltip | `ValueProfile::relationGraph`, `value_relation_graph` | XS | no | no | **done** — §19 |
 
 ## 2. The order, and why
 
@@ -3747,7 +3751,10 @@ nodes, and `/objects/view/<id>` for a reference far end. A node in a
 graph is a different gesture from a cell in a table and this pass did
 not open it — but the `/objects/view/` one is the destination B1 took
 out of the table for landing on the unthemed page, so it is worth its
-own look before the graph is called done.
+own look before the graph is called done. *Done as B16 in §19, which
+found the event layer pointing at the unthemed page too — six times the
+links, and reported by nobody. The `/values/view/` ones stayed: a node
+whose subject is a string is not the cell this pass was about.*
 
 ### 17.5 Verified
 
@@ -3960,3 +3967,112 @@ Verified in the browser on `8.8.8.8`, `0.0.0.0` and `1.1.1.0/24`: every
 breakdown count matches the strip, bars scale, the floor marker and its
 footnote appear on `0.0.0.0`, absent sections drop, no JS errors.
 `value-profile.js` changed, so a re-test needs Ctrl+Shift+R.
+
+---
+
+## 19. B16 — the graph feed lands where the tab lands, and the peek stops explaining itself — **done, 2026-09-04**
+
+Two reports against the rail's neighbourhood graph, and §17.4 had
+already named the first one: *"the `/objects/view/` one is the
+destination B1 took out of the table for landing on the unthemed page,
+so it is worth its own look before the graph is called done."*
+
+### 19.1 The feed was the last caller of the unthemed event page
+
+B1 fixed the references table, §17 fixed the two value cells, and §19.2
+of `24-relationships.md` settled the rule for the whole tab: the themed
+`/events/view2/`, with the record's identity on the `title`, because
+the flat views redirect to `/events/view` — the unthemed page — and
+lose which record they were asked about on the way.
+
+The graph feed never got that pass. It builds its own hrefs in
+`ValueProfile::relationGraph` rather than in a template, so a grep over
+the twelve templates — which is what §17 ran, before and after — could
+not see it. Grepping the model found **two** callers, not the one
+§17.4 predicted:
+
+| Layer | Node | Was | Now |
+| --- | --- | --- | --- |
+| two — the events | an event this value appears in | `/events/view/<id>` | `/events/view2/<id>` |
+| five — object references | an object at the far end | `/objects/view/<id>` | `/events/view2/<event>#tab-objects` |
+
+The second is the one §17.4 flagged. **The first was not flagged by
+anybody**, and it is eighteen of the twenty-one links this feed draws
+for `8.8.8.8` — six times the traffic of the reported one. Every one of
+the tab's six linking templates uses `view2`; the event layer was the
+only thing left on this tab pointing at the unthemed page, and it was
+the majority of the graph's links.
+
+An event node takes no tab anchor: the node *is* the event, so there is
+no record inside it to land on. That is the whole difference between
+the two rows above, and it is why the reference row needs
+`$far['event']` where the event row already had its id.
+
+**The three `/values/view/` hrefs stayed.** Layers one and three draw
+*values* — co-occurrence siblings and near-match partners — and a value
+node's own page is the right destination for it. §17's argument was
+about a cell whose row is a record; it does not reach a node whose
+subject is a string. 43 of them, untouched.
+
+### 19.2 The peek drew a tooltip over the answer it already gave
+
+`navigation` on the rail was already off, and §16's comment records why
+it had to be *said*: pivotick 1.6.0 defaults the flag to `true`, so
+leaving it unconfigured opens the element rather than closing it.
+
+`tooltip` is the same trap and was still in it.
+`UIManager.ts:246` gates the element on `!!o.tooltip?.enabled`,
+`DEFAULT_UI_OPTIONS.tooltip.enabled` is `true`, and line 385 merges the
+two with a deep `merge({}, DEFAULT_UI_OPTIONS, options)` — so this
+panel naming `nodeHeaderMap` and `edgeHeaderMap` without naming
+`enabled` inherited the default and mounted a tooltip on both surfaces.
+
+On the rail that tooltip is redundant twice over. The peek draws three
+to eight nodes **with their labels** — that is the whole reason §26.3
+of `24-relationships.md` rolls each layer into one counted node — and
+every one of those counts is printed again in the composition strip
+directly beneath the canvas. A hover card in a 340px column covers a
+third of the canvas to repeat what it covers.
+
+The overlay keeps it, and for a reason the rail does not share: that
+surface sets `textTruncate` and truncates its labels on purpose, so
+the tooltip is the only place the full one is readable. `enabled:
+!rail`, one line, the same shape as `navigation` two lines above it.
+
+### 19.3 Verified
+
+Against the instance the worktree serves, 2026-09-04. The Value Profile
+cache had to be dropped from redis db 13 between renders — the graph
+feed is cached under `misp:value_profile:relation_*` and the first
+fetch after an edit will happily serve the version before it.
+
+**The feed**, `viewRelationGraph` for `8.8.8.8`, parsed out of the
+rendered JSON:
+
+| href | count |
+| --- | --- |
+| `/events/view2/<id>` | 18 |
+| `/events/view2/<id>#tab-objects` | 3 |
+| `/values/view/<b64>` | 43 |
+| `/objects/view/<id>` | **0** |
+| `/events/view/<id>` (unthemed) | **0** |
+
+**The tooltip**, driven in a real browser by
+[`24d-graph-tooltip-harness.mjs`](24d-graph-tooltip-harness.mjs).
+Counting `.pvt-tooltip` in the host is not the witness — pivotick
+builds the element on demand and mounts it outside the host, so a count
+taken without hovering reads `0` whatever the flag says. The harness
+hovers each canvas and then counts document-wide:
+
+| surface | `enabled: true` (baseline) | `enabled: !rail` (now) |
+| --- | --- | --- |
+| rail, after hover | **1** | **0** |
+| overlay, after hover | 1 | **1** |
+
+The baseline column is the same harness run against the flag forced on,
+which is what makes the rail's `0` a change rather than a measurement
+of nothing. Both graphs still draw, and no page errors in either run.
+
+The `pvt-graphnavigation` element in the rail is an empty layout slot —
+0 children, 0 buttons — so §16's `navigation` gate is still holding;
+the slot exists whether or not the toolbar mounts into it.

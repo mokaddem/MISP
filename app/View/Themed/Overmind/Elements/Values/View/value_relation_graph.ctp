@@ -545,7 +545,28 @@ foreach ($layers as $layer) {
                          * reason for opening it is to move around.
                          */
                         navigation: { enabled: !rail },
+                        /*
+                         * **Off on the rail, for the same reason and
+                         * by the same trap as `navigation` above.**
+                         * `DEFAULT_UI_OPTIONS.tooltip.enabled` is
+                         * `true` and the options are deep-merged, so
+                         * naming the header maps without naming the
+                         * flag inherits it — silence opens the
+                         * element rather than closing it.
+                         *
+                         * A 340px peek draws three to eight nodes
+                         * whose labels are already on the canvas, and
+                         * every one of them is counted again in the
+                         * composition strip directly beneath. The
+                         * tooltip there covers a third of the canvas
+                         * to repeat what it covers. The overlay keeps
+                         * it: that surface truncates its labels on
+                         * purpose (`textTruncate` above), so the
+                         * tooltip is the only place the full one is
+                         * readable.
+                         */
                         tooltip: {
+                            enabled: !rail,
                             nodeHeaderMap: {
                                 title: function (node) {
                                     var d = node.getData();
