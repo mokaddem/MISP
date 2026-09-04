@@ -41,7 +41,9 @@ answers no to the move that condition implied. B13 closes the subphase
 by taking back the surface the other twelve spent: §16 is the text
 pass, and it is the only task here that adds nothing to the page. B14
 came after it, out of a coming app-wide gesture rather than out of this
-tab: §17 sends a value in a table to the record that stores it.
+tab: §17 sends a value in a table to the record that stores it. B15 came
+out of a report rather than out of the plan, and is the only row here
+whose subject is cost: §18 prices the tab's cold load and bounds it.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -60,6 +62,7 @@ tab: §17 sends a value in a table to the record that stores it.
 | B12 | The Relationships tab badge, and the `ownTagsFor` ACL join it uncovered | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor`, `Value::ownTagsFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
 | B13 | The text pass: mockup controls out, captions to one line, the rest onto the glyph | all twelve Relationships templates, `value-profile.css` | M | no | **yes — the caption glyph becomes a `title` carrier** | **done** — §16 |
 | B14 | A value in a table opens where it is stored, not its own page | `value_relation_dated`, `value_relation_references` | XS | no | no | **done** — §17 |
+| B15 | The tab's cold load, priced and bounded | `ValueProfile`, `Value`, `ValueRelationTool`, `value_relation_settings`, `value_relation_cooccurrence`, `value-profile.js` | L | no | no | **done** — §18 |
 
 ## 2. The order, and why
 
