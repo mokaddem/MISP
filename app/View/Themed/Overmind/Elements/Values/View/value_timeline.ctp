@@ -155,8 +155,9 @@ $precisionMeta = array(
  * translatable and there is no second sentence to keep in step.
  */
 $cutTitle = __(
-    '%1$s of this lane\'s entries here are older than the %2$s rows'
-    . ' this fetch carries. Brush this span to list them.'
+    'Not fetched. %1$s of this lane\'s entries in this span are older'
+    . ' than the newest %2$s rows this fetch carries, so nothing here'
+    . ' is drawn. Brush this span to fetch it.'
 );
 
 $utc = new DateTimeZone('UTC');
@@ -1082,7 +1083,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                         . ' hatched span to fetch'
                                         . ' them'),
                                     '<b data-vp-tl-cut-n>'
-                                        . (int)$cutTotal
+                                        . h(number_format($cutTotal))
                                         . '</b>'
                                 ) ?>
                                 ·
@@ -1133,7 +1134,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                          * chronology happens to be carrying. On a value
                          * whose chronology is capped these differ, and
                          * the row tally is the one that is wrong: `443`
-                         * ships 300 rows inside three days, so tallying
+                         * ships 1,000 rows inside three days, so tallying
                          * them would report a window of 11 entries as
                          * 300 and every quiet lane as busy.
                          */
@@ -1298,8 +1299,10 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                              h($lane['key']) ?>"
                                          title="<?= h(sprintf(
                                              $cutTitle,
-                                             (int)$cut,
-                                             count($windowed)
+                                             number_format($cut),
+                                             number_format(
+                                                 count($windowed)
+                                             )
                                          )) ?>"></div>
                                 <?php endif; ?>
                                 <?php foreach ($mine as $entry): ?>
@@ -1438,9 +1441,9 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                  * Which set the cap bit into is named,
                                  * because a fragment fetched for a
                                  * window holds the newest of *it*:
-                                 * *the newest 300 of 447* over a
-                                 * chronology that is 14 rows of one
-                                 * November would be arithmetic about
+                                 * *the newest 1,000 of 2,256* over a
+                                 * chronology that is 24 rows of one
+                                 * February would be arithmetic about
                                  * the wrong pair of numbers.
                                  */
                                 ?>
@@ -1559,6 +1562,23 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                      h($prec['bucket']) ?>"
                                  data-vp-tl-ref="<?=
                                      h($entry['ref']['attribute']) ?>"
+                                 <?php
+                                 /*
+                                  * The mark's tooltip, carried on the
+                                  * row rather than read back out of it.
+                                  * The script rebuilds every mark on
+                                  * every window and was taking this
+                                  * from the row's `textContent`, which
+                                  * is the source label, the title, the
+                                  * precision chip and the template's
+                                  * own indentation — so one paint after
+                                  * arriving, a clean tooltip became a
+                                  * dump of the row. Same string, one
+                                  * source.
+                                  */
+                                 ?>
+                                 data-vp-tl-title="<?=
+                                     h($entry['title']) ?>"
                                  <?php if ($collapse): ?>
                                      data-vp-tl-in-run="<?=
                                          h($group['day'] . ':'

@@ -41,18 +41,17 @@ to `done` only when §14's verification has run against it.
 | T17 | The brush's mask stops where the plot area does, at any axis height | §18.1 | **done** |
 | T18 | `forTimeline` takes a window; the brush fetches one on release | §18.2, §18.3 | **done** |
 | T19 | Each lane bands the span it counts and has no row to draw | §19 | **done** |
-| T20 | `TIMELINE_ROW_CAP` 300 → 1,000 | §19.5 | todo — held for review of T19 |
+| T20 | `TIMELINE_ROW_CAP` 300 → 1,000 | §19.5, §20.3 | **done** |
+| T21 | The band's tooltip fires; a mark's says what the server wrote | §20.1, §20.2 | **done** |
 
-**Where the phase stands.** Seventeen of twenty rows are done and the tab reads
+**Where the phase stands.** Nineteen of twenty-one rows are done and the tab reads
 the database: the endpoint is wired, five dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies — and T20, which is a constant waiting on a look at the
-thing that made it safe to raise. §16 is the build log; §17 to §19 are what the
-first reader of the built tab found over three rounds, and T15 to T20 are
-that.
+than a lane that lies. §16 is the build log; §17 to §20 are what the first
+reader of the built tab found over four rounds, and T15 to T21 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -1348,6 +1347,116 @@ mark's left edge are within one pixel, which is the mark's own inset.
 The cap itself. `TIMELINE_ROW_CAP` is 300, and with §18's fetch and this
 band the number is no longer load-bearing for honesty — it only decides
 how often a reader has to brush. Raising it to 1,000 is the obvious
-follow-up and is **held pending review of this band**, because a wider
+follow-up and was **held pending review of this band**, because a wider
 cap makes the band rarer and the right time to look at it is while it is
-still easy to reach.
+still easy to reach. Reviewed and raised in §20.3, which also records
+what the band looks like once it is rare.
+
+## 20. The band gets a tooltip, and the cap goes to 1,000
+
+§19's band shipped with a `title` on it. It never fired.
+
+### 20.1 An inline `<svg>` hit-tests as one box
+
+`elementFromPoint` over the band returned `svg`, everywhere across it.
+The lane's `.vp-lane-svg` is an inline SVG at `z-index: 1` covering the
+whole axis, and it answers for every pixel of that box — including the
+four fifths of it that are empty — so nothing underneath it can be
+hovered. The band's tooltip was unreachable from the moment it was
+written.
+
+The axis now passes the pointer through its empty space
+(`pointer-events: none` on the SVG, `auto` on its children, scoped by
+`[data-vp-tl-axis]` so `.vp-strip` on the Sightings tab is untouched).
+The marks keep their own hit area, which they must: a mark's `<title>`
+is the only place it says what it is. Verified both ways — the band is
+the hit target across its width and carries its `title`, the marks
+still resolve to `rect.vp-lane-mark` with their own `<title>`, and an
+empty lane with no band falls through to the axis and offers nothing.
+
+`.vp-lane-fill` gets the same treatment for the one lane that can wear
+both hatches — with the audit log off, the edit lane explains its own
+grey hatch and can still be banded over a busy window — with its text
+keeping pointer events so it stays selectable.
+
+### 20.2 And the marks' own tooltips were a dump of the row
+
+Found while checking the above, and older than any of this. `tlEntries`
+read each mark's tooltip out of the row's `.vp-tl-main` text, which
+holds the source label, the title, the precision chip **and the
+template's indentation**. So the server rendered `abuse.ch` and one
+paint later the same mark said `Sighting\n            abuse.ch\n
+exact`. The row now carries `data-vp-tl-title`, which is the same string
+the server puts in the mark, and the script reads that: one source, and
+the two renderers cannot drift.
+
+### 20.3 `TIMELINE_ROW_CAP` 300 → 1,000
+
+The constant was `OCCURRENCE_CAP`'s number for `OCCURRENCE_CAP`'s
+reason — a pager that renders one button per page inline and collapses
+past twenty. **The chronology has no pager**; it shows a windowful and
+reveals the rest in place. What actually bounded it was that brushing
+past the newest 300 gave an empty list, and §18 fixed that by letting
+the brush ask for a window. With the fetch and §19's band in place the
+cap stopped deciding whether the panel is *honest* and went back to
+deciding only how often a reader has to brush — so it buys the wider
+one.
+
+**Measured, on a quiet box, before and after:**
+
+| | 300 | 1,000 |
+|---|---|---|
+| `8.8.8.8` fragment / rows | 578 KB / 323 | 836 KB / 482 |
+| `193.161.193.99` fragment / rows | 571 KB / 323 | 1,796 KB / 1,092 |
+| `193.161.193.99` windowed | 739 KB | 2,395 KB |
+| `443` fragment / rows | 557 KB / 310 | 1,739 KB / 1,022 |
+| `viewTimeline` on `193.161.193.99` | 156 ms | 224 ms |
+| `viewTimeline` on `443` | 3,696 ms | 3,766 ms |
+
+**1.8 MB decoded is 79 KB over the wire.** Nginx serves the fragment
+gzipped and the chronology is the most repetitive markup on the page, so
+it compresses about 23:1. The endpoint costs ~70 ms more on a busy value
+and nothing measurable on `443`, whose 3.7 seconds are
+`Value::occurrenceIdsFor` and were never the rows.
+
+**What it cost the browser, and what was done about it.** 1,092 rows is
+9,502 nodes in the panel, and a brush re-scopes all of them on every
+pointer move. Ten frames of a drag measured 278 ms — 28 ms a frame,
+over a 60 Hz budget. Two things were being redone per frame that never
+change while a fragment is on screen: `tlEntries` rebuilt the whole
+entry array out of the DOM, and `tlRefreshList` re-queried both row
+sets. Both are now built once per fragment and dropped in
+`initTimeline`, and the visibility writes are guarded against setting
+`hidden` to what it already is. Ten frames: **278 ms → 204 ms → 178 ms**.
+What remains is the lanes' mark rendering, which scales with how much of
+the window is brushed rather than with the cap.
+
+**What changed on the instance's values.** `8.8.8.8` is 447 entries and
+is no longer capped at all: no cap notice, no band, and brushing its
+first active bar now lists the rows with **no round trip** — the case
+that opened §17 is simply gone. `143.14.244.37` still reports a cap, and
+that is the seen lane's own 25-of-32, which this constant does not
+govern. `193.161.193.99` and `443` still need everything §18 and §19
+built: 1,000 of 2,256 and 1,000 of 174,299.
+
+**One thing the wider cap makes visible.** The band's width is time, not
+volume, and on `193.161.193.99` the two come apart hard — 1,256 of its
+entries land in the first two days of a 280-day range, so the span the
+cap leaves out is 0.9% of the axis. The band was 25% wide at 300 and is
+a 9-pixel tick at 1,000, with the same 1,256 behind it. It keeps a 3px
+floor so it cannot round away, and the count stays in the sentence
+above, which is the part that is discoverable; the band says *where*.
+
+### 20.4 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `parallel-lint`, `node --check`, 80 columns over the diff | clean |
+| 2 | **The band's tooltip** | hit target across its whole width, `title` present; mid, left and near-edge all resolve to `div.vp-lane-cut` |
+| 3 | **The marks keep theirs** | three probes resolve to `rect.vp-lane-mark` with `<title>` `ADMIN`, `CIRCL`, `abuse.ch` — the organisation, as the server wrote it |
+| 4 | **An empty lane claims nothing** | a point in the analyst lane resolves to `div.vp-lane-axis`, no title |
+| 5 | **§14's six values at the new cap** | 6/6 hold every invariant. `8.8.8.8` 447 of 447, `443` 1,000 of 174,299 |
+| 6 | **`8.8.8.8` needs no fetch now** | brushed to November 2024: 5 rows on screen, `Reset window` offered, and **no request** on the wire |
+| 7 | **The band at 1,000** | `193.161.193.99` over its range: bands on Publications and Edits, 111 and 1,145, note *1,256*, `--vp-cut` 0.0086, band right edge and first mark both at 9px |
+| 8 | **Digits group the same both ways** | the raw fragment and the repainted panel both read *1,256* and *the newest 1,000*; `tlCount` matches `number_format`'s defaults rather than the browser's locale |
+| 9 | Both themes, console | reads in light and dark; no page error, no console error |

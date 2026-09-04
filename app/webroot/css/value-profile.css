@@ -8283,12 +8283,59 @@ th.vp-rel-num {
     bottom: 7px;
     left: 5px;
     width: calc((100% - 10px) * var(--vp-cut, 0));
+    /*
+     * The band's width is time, not volume, and the two come apart on a
+     * value whose history opens with a burst: `193.161.193.99` files
+     * 1,256 of its entries in the first two days of a 280-day range, so
+     * the span the cap leaves out is under one percent of the axis. A
+     * floor keeps that a visible tick rather than a rounding error —
+     * the count is in the sentence above, and this only has to be
+     * findable.
+     */
+    min-width: 3px;
     border-right: 2px solid color-mix(in srgb,
         var(--bs-warning) 55%, transparent);
     border-radius: 3px 0 0 3px;
     background-image: repeating-linear-gradient(45deg,
         color-mix(in srgb, var(--bs-warning) 26%, transparent) 0 5px,
         transparent 5px 10px);
+}
+
+/*
+ * The axis lets the pointer through its empty space, so the band
+ * beneath it can carry the tooltip that explains it.
+ *
+ * Without this the band's `title` never fires: an inline `<svg>` is a
+ * replaced element and hit-tests as one box, so it answers for every
+ * pixel of the lane including the four fifths of it that are empty.
+ * The marks take theirs back, or they lose their own `<title>` — which
+ * is the only place a mark says what it is.
+ *
+ * Scoped by the data attribute rather than by `.vp-lane-svg`, which
+ * the Sightings tab's `.vp-strip` also uses and which has no band
+ * under it to reach.
+ */
+[data-vp-tl-axis] > .vp-lane-svg {
+    pointer-events: none;
+}
+
+[data-vp-tl-axis] > .vp-lane-svg > * {
+    pointer-events: auto;
+}
+
+/*
+ * And the same for the grey hatch, on the one lane that can wear both:
+ * with the audit log off, the edit lane explains its own hatch and can
+ * still be banded over a busy window. Its words keep their pointer
+ * events so they stay selectable; the hatch behind them does not need
+ * any.
+ */
+[data-vp-tl-axis] > .vp-lane-fill {
+    pointer-events: none;
+}
+
+[data-vp-tl-axis] > .vp-lane-fill > .vp-lane-fill-text {
+    pointer-events: auto;
 }
 
 /*

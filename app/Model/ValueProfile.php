@@ -346,18 +346,31 @@ class ValueProfile extends AppModel
     /**
      * Chronology rows one Timeline request renders.
      *
-     * `OCCURRENCE_CAP`'s sibling, at the same number and for the same
-     * reason phase 22 recorded: the page control renders one button per
-     * page inline and collapses past about twenty, so a list that wants
-     * a pager wants this bound rather than a taller fragment.
-     *
      * It is a cap on the *chronology* and on nothing else. The spine's
      * bars and the lanes' counts come from a grouped aggregate over the
      * whole scoped set, so a value whose entries run past this reads
-     * *showing 300 of 174,299* rather than a chart of the last
+     * *showing 1,000 of 174,299* rather than a chart of the last
      * fortnight labelled as a year.
+     *
+     * **It started at `OCCURRENCE_CAP`'s 300 and is no longer bound to
+     * it.** That number is the occurrence table's pager talking — one
+     * button per page, inline, collapsing past about twenty — and this
+     * list has no pager: it shows a windowful and reveals the rest in
+     * place. What bounded this one instead was that a reader who
+     * brushed past the newest 300 got an empty chronology, and phase
+     * 25's §18 fixed that properly by letting the brush ask for a
+     * window. With the fetch in place the cap stopped deciding whether
+     * the panel is honest and went back to deciding only how often a
+     * reader has to brush, so it buys the wider one.
+     *
+     * The bound that remains is weight, and it is measured: a
+     * chronology row is about 1.8 KB of markup, so this is roughly
+     * 1.8 MB of HTML on a value that fills it — against 550 KB at 300.
+     * Nginx serves the fragment gzipped, which is where most of that
+     * goes. Raising it again is that measurement's question and no
+     * longer the pager's.
      */
-    const TIMELINE_ROW_CAP = 300;
+    const TIMELINE_ROW_CAP = 1000;
 
     /**
      * Ids per *statement* when the audit reader scopes by `model_id`.
@@ -6285,8 +6298,8 @@ class ValueProfile extends AppModel
      * two queries, and the panel states both numbers.
      *
      * The rejected alternative was to cap the entry set and let the
-     * template keep deriving: a spine drawn from 300 of 172,426 rows is
-     * a chart of the last fortnight labelled as a year.
+     * template keep deriving: a spine drawn from 1,000 of 172,426 rows
+     * is a chart of the last fortnight labelled as a year.
      *
      * Every lane's rows come from MISP's own ACL'd fetchers; only the
      * audit counts use an aggregate of their own, over an id set
@@ -6295,14 +6308,18 @@ class ValueProfile extends AppModel
      * call per event.
      *
      * **`window` is what makes the cap survivable.** Without it the
-     * fragment is the newest 300 entries and a reader who brushes the
-     * spine past them has a chart with no chronology under it —
-     * `8.8.8.8`'s newest 300 begin at 2025-11-16, so eleven of its 23
-     * bars were unreadable. With it the panel can be asked again for a
-     * window, and the same cap then means the newest 300 *of that
-     * window*. The counts stay whole either way, so the answer is a
-     * different list under the same chart rather than a different
-     * chart.
+     * fragment is the newest `TIMELINE_ROW_CAP` entries and a reader
+     * who brushes the spine past them has a chart with no chronology
+     * under it. Measured at the 300 this shipped with: `8.8.8.8`'s
+     * newest 300 began at 2025-11-16, so eleven of its 23 bars were
+     * unreadable — and that finding is what raised the cap afterwards,
+     * which is why the value no longer shows it. With the window the
+     * panel can be asked again, and the same cap then means the newest
+     * cap-many *of that window*: `193.161.193.99` still needs it at
+     * 1,000, being 2,256 entries of which 1,256 land in the first two
+     * days of a 280-day range. The counts stay whole either way, so
+     * the answer is a different list under the same chart rather than
+     * a different chart.
      *
      * @param array $user
      * @param string $value
@@ -6338,11 +6355,11 @@ class ValueProfile extends AppModel
          *
          * It reaches the lanes rather than being applied to their
          * output, because every one of them caps its rows: the cap is
-         * *the newest cap-many*, so the newest 300 of a busy value are
-         * a fortnight and the window a reader brushed two years back
-         * would come back empty however the panel filtered afterwards.
-         * Filtered on the way in, the same cap means the newest 300 of
-         * what the reader is looking at.
+         * *the newest cap-many*, so the newest 1,000 of a busy value
+         * are a fortnight and the window a reader brushed two years
+         * back would come back empty however the panel filtered
+         * afterwards. Filtered on the way in, the same cap means the
+         * newest 1,000 of what the reader is looking at.
          *
          * The **counts are never windowed**, and that is what keeps the
          * spine the whole value's: the day map, the per-source totals
@@ -6784,8 +6801,8 @@ class ValueProfile extends AppModel
                  * The one lane whose cap is applied by the database
                  * rather than in PHP, so its window has to reach the
                  * query. Without it a windowed fetch would read the
-                 * newest 300 rows of the whole scoped set and then find
-                 * none of them in the window it was asked for.
+                 * newest 1,000 rows of the whole scoped set and then
+                 * find none of them in the window it was asked for.
                  */
                 'window' => $window,
             )
@@ -7058,7 +7075,7 @@ class ValueProfile extends AppModel
          * up a day map over all of its rows, so the spine and the lane
          * grid are counted before any cap was applied and `$entries` is
          * only ever the list. The edit lane is why the rule has to be
-         * absolute rather than case-by-case: it ships 300 rows and
+         * absolute rather than case-by-case: it ships 1,000 rows and
          * 172,426 of them happened, so tallying its rows would draw
          * eleven months of history as one afternoon — and a lane that
          * *happens* to fit today is a lane that stops fitting on a
@@ -7107,7 +7124,7 @@ class ValueProfile extends AppModel
          * A grouped lane also knows a range its capped rows cannot show:
          * the edit aggregate carries the first and last logged change
          * over the whole scoped set, which on `443` is eleven months
-         * where the 300 rows drawn are one afternoon.
+         * where the 1,000 rows drawn are one afternoon.
          */
         foreach ($lanes as $lane) {
             if (empty($lane['first']) && empty($lane['last'])) {
@@ -7318,7 +7335,7 @@ class ValueProfile extends AppModel
      * Newest rather than a slice from anywhere else, for the reason
      * phase 22 gave the occurrence table: a value's newest activity is
      * what a reader opening this tab came for, and it is also what makes
-     * the panel's *showing 300 of 174,299* true rather than merely
+     * the panel's *showing 1,000 of 174,299* true rather than merely
      * arithmetic.
      *
      * @param array $entries Ascending
@@ -7801,8 +7818,9 @@ class ValueProfile extends AppModel
          * `change` is a brotli blob that `AuditLog::afterFind` decodes
          * per row, so it is opt-in: the Timeline's chronology names the
          * occurrence and the action and never the diff, and making it
-         * pay 300 decompressions for a column it does not
-         * render is the kind of cost that hides inside a shared reader.
+         * pay 1,000 decompressions for a column it does not
+         * render is the kind of cost that hides inside a shared
+         * reader.
          * The History tab, whose rows *are* the diff, asks for it.
          */
         $fields = array(
