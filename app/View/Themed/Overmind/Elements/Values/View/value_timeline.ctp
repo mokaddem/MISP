@@ -194,6 +194,20 @@ $auditRecorded = $timeline !== null && $timeline['audit_recorded'];
 $firstHere = $timeline === null || empty($timeline['first_here'])
     ? null
     : $timeline['first_here'];
+/*
+ * The tag set with each tag's first attach. Oldest first, and the ones
+ * the audit log cannot place carry a null `at` — they are counted in
+ * the lane's own sentence and listed on the off-axis strip.
+ */
+$tagState = $timeline === null || empty($timeline['tags'])
+    ? array()
+    : $timeline['tags'];
+$tagsDated = array();
+foreach ($tagState as $tag) {
+    if ($tag['at'] !== null) {
+        $tagsDated[] = $tag;
+    }
+}
 
 /*
  * ------------------------------------------------------------------
@@ -507,31 +521,22 @@ if ($window !== null) {
  * ------------------------------------------------------------------
  * The lanes
  * ------------------------------------------------------------------
- * Seven. One of them will never carry a mark and keeps a full-size
- * hatched lane anyway — a reader who scans the lanes must not be able
- * to miss what is missing, which is the reason this design was chosen
- * over the cheaper one that put the same facts in a rail.
+ * Seven, and every one of them can now put something on the axis.
  *
- * That one is Tags, and §22.2's dated Tag changes lane does not
- * replace it: this one is the set the value carries *now*, undatable on
- * any instance, and with `MISP.log_new_audit` off — MISP's default —
- * it is the only row on the tab that says the value is tagged at all.
+ * §8.2's rule — a full-size hatched lane for a source MISP cannot date,
+ * so a reader scanning the lanes cannot miss what is missing — no
+ * longer has a lane to apply to, and that is progress rather than a
+ * regression: §22.6 removed the feed lane because there was no date to
+ * be had, and §22.7 dated the tag set from the audit log. What is left
+ * unplaceable is a *subset* of the tag set, and the lane that holds
+ * those tags states its own gap — *4 of 7 datable* — which is the
+ * visibility the rule was buying, said by the row that has the facts.
  *
- * A lane earns that treatment only where the absence could be read as
- * a quiet period. §22.6 took the feed lane out on exactly that test.
+ * The two tag lanes are not a duplication. Tags is the set the value
+ * carries now, one mark at each tag's first attach; Tag changes is
+ * every attach and detach, including tags since removed. State and
+ * activity.
  */
-/*
- * Matched on the stable key and never on the translated `kind`. Both
- * used to come from the same `__()` call, so they agreed in English and
- * in any locale that translated the two strings identically — and
- * stopped agreeing otherwise, the lane rendering its *absent* text
- * while the strip below it listed the chips.
- */
-$undatedBy = array();
-foreach ($undated as $row) {
-    $undatedBy[$row['key']] = $row;
-}
-
 $lanes = array(
     array(
         'key' => 'sightings',
@@ -630,15 +635,23 @@ $lanes = array(
     array(
         'key' => 'tags',
         'label' => __('Tags'),
-        'sub' => __('what it carries now, undated'),
-        'draw' => 'undated',
-        'row' => isset($undatedBy['tags'])
-            ? $undatedBy['tags']
-            : null,
-        'absent' => __(
-            'Nothing has tagged this value — and if something had, MISP'
-            . ' would store no date for it.'
-        ),
+        /*
+         * Three numbers where the cap or the log's reach bites, and the
+         * middle one is the point: how many tags the value carries, how
+         * many of those the audit log can place, and — where they
+         * differ — that the rest are on the strip.
+         */
+        'sub' => count($tagsDated) < count($tagState)
+            ? sprintf(
+                __('first attached · %1$s of %2$s datable'),
+                count($tagsDated),
+                count($tagState)
+            )
+            : __('first attached, one mark per tag'),
+        'draw' => 'tagfirst',
+        'tags' => $tagState,
+        'dated' => $tagsDated,
+        'absent' => __('Nothing has tagged this value.'),
     ),
     /*
      * **No feed lane.** It had a full-size row and nothing to put in
@@ -820,6 +833,19 @@ if ($window !== null) {
         ),
         // For the ruler over the lanes, which moves with the brush.
         'months' => $months,
+        /*
+         * The Tags lane's marks, which are the tag set rather than the
+         * entry set — the script redraws them for every window from
+         * here. Datable ones only: a tag with no first attach has no
+         * position to be redrawn at, and it is named on the strip.
+         */
+        'tags' => array_map(function ($tag) {
+            return array(
+                'name' => $tag['name'],
+                'colour' => $tag['colour'],
+                'at' => $tag['at'],
+            );
+        }, $tagsDated),
         'labels' => array(
             'entries' => __('entries'),
             'cut' => $cutTitle,
@@ -832,6 +858,9 @@ if ($window !== null) {
              */
             'showing' => __('Showing'),
             'hiding' => __('Hiding'),
+            // A tag mark's tooltip, substituted rather than composed
+            // so the words stay translatable in one place.
+            'tag_first' => __('%1$s — first attached %2$s'),
         ),
     );
 }
@@ -1165,6 +1194,8 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                             __('as of %s'),
                                             substr($row['as_of'], 0, 16)
                                         )) ?>
+                                    <?php elseif (!empty($row['suffix'])): ?>
+                                        — <?= h($row['suffix']) ?>
                                     <?php else: ?>
                                         — <?= __('no date column') ?>
                                     <?php endif; ?>
@@ -1253,8 +1284,8 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                 ) ?>
                                 ·
                             </span>
-                            <?= __('a lane per dated source, and one for'
-                                . ' the tags MISP never dates') ?>
+                            <?= __('a lane per dated source, and the tag'
+                                . ' set at each tag\'s first attach') ?>
                         </div>
                     </div>
                     <?php
@@ -1287,7 +1318,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
 
                     <?php foreach ($lanes as $lane): ?>
                         <?php
-                        $undatedLane = $lane['draw'] === 'undated';
+                        $tagLane = $lane['draw'] === 'tagfirst';
                         $sources = isset($lane['sources'])
                             ? $lane['sources']
                             : array();
@@ -1343,11 +1374,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                         ?>
 
                         <div class="vp-lane-label">
-                            <?php if ($undatedLane): ?>
-                                <span class="vp-tl-src vp-tl-src-none">
-                                    <?= h($lane['label']) ?>
-                                </span>
-                            <?php elseif ($laneDead): ?>
+                            <?php if ($laneDead): ?>
                                 <span class="vp-tl-src vp-tl-src-<?=
                                         h($lane['key']) ?>"
                                       title="<?= h(sprintf(
@@ -1382,69 +1409,99 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                             </div>
                         </div>
 
-                        <?php if ($undatedLane): ?>
+                        <?php if ($tagLane): ?>
                             <?php
                             /*
-                             * A hatch, never a colour. This is not a
-                             * severity — it is a hole in the record,
-                             * and the two must not look alike. Clicking
-                             * it does nothing and its title says why:
-                             * there is nothing to narrow to.
+                             * One mark per tag, at the first time it
+                             * was attached — the fact a reader wants
+                             * out of a tag set, and one the raw stream
+                             * cannot give: a tag is re-attached on
+                             * every re-import.
+                             *
+                             * The mark takes the tag's **own** colour,
+                             * not a source token. There is one source
+                             * here and eight marks, and what
+                             * distinguishes them is which tag they are.
+                             *
+                             * The readable half is the chip row below,
+                             * and it is deliberately not on the axis:
+                             * first attaches cluster at the beginning
+                             * of a value's history while the window
+                             * defaults to the last month, so a lane
+                             * that said this only in marks would say
+                             * nothing at all until the reader brushed
+                             * back two years.
                              */
-                            $row = $lane['row'];
+                            $tagWindowed = array();
+                            foreach ($lane['dated'] as $tag) {
+                                $day = substr($tag['at'], 0, 10);
+                                if ($day >= $window['from']
+                                    && $day <= $window['to']
+                                ) {
+                                    $tagWindowed[] = $tag;
+                                }
+                            }
                             ?>
-                            <div class="vp-lane-axis vp-lane-undated"
-                                 title="<?= h($row === null
-                                     ? $lane['absent']
-                                     : $row['reason']) ?>">
-                                <div class="vp-lane-undated-body">
-                                    <span class="vp-lane-undated-text">
-                                        <?= h($row === null
-                                            ? $lane['absent']
-                                            : $row['reason']) ?>
-                                    </span>
-                                    <?php if ($row !== null): ?>
-                                        <?php foreach (
-                                            array_slice($row['chips'], 0, 2)
-                                            as $chip
-                                        ): ?>
-                                            <?php if ($chip['colour']): ?>
-                                                <?= $this->element(
-                                                    'genericElementsBS5/'
-                                                        . 'Badges/tag',
-                                                    array(
-                                                        'tag' => array(
-                                                            'name' =>
-                                                                $chip['label'],
-                                                            'colour' =>
-                                                                $chip['colour'],
-                                                        ),
-                                                        'local' => false,
-                                                        'hiddenClass' => '',
-                                                    )
-                                                ) ?>
-                                            <?php else: ?>
-                                                <span class="badge
-                                                             bg-secondary">
-                                                    <?= h($chip['label']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                        <?php if (count($row['chips']) > 2): ?>
-                                            <span class="badge bg-secondary">
-                                                +<?= h(
-                                                    count($row['chips']) - 2
-                                                ) ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </div>
+                            <div class="vp-lane-axis"
+                                 data-vp-tl-axis="<?= h($lane['key']) ?>"
+                                 data-vp-tl-draw="tagfirst">
+                                <?php if (empty($lane['tags'])): ?>
+                                    <?php
+                                    /*
+                                     * Nothing has tagged it, which is a
+                                     * fact rather than an empty lane —
+                                     * and there is no *of 0 tags* to
+                                     * count against.
+                                     */
+                                    ?>
+                                    <div class="vp-lane-fill">
+                                        <span class="vp-lane-fill-text">
+                                            <?= h($lane['absent']) ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                                <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
+                                         (int)$LANE_H ?>"
+                                     preserveAspectRatio="none"
+                                     class="vp-lane-svg"
+                                     data-vp-tl-marks>
+                                    <?php foreach ($tagWindowed as $tag): ?>
+                                        <rect class="vp-lane-mark"
+                                              x="<?= h($xFor($tag['at'])) ?>"
+                                              y="12"
+                                              width="<?= (int)$MARK_W ?>"
+                                              height="13" rx="1.5"
+                                              style="--vp-tl-hue: <?=
+                                                  h($tag['colour']
+                                                      ? $tag['colour']
+                                                      : 'var(--vp-tl-tag)')
+                                                  ?>;">
+                                            <title><?= h(sprintf(
+                                                __('%1$s — first attached'
+                                                    . ' %2$s'),
+                                                $tag['name'],
+                                                substr($tag['at'], 0, 10)
+                                            )) ?></title>
+                                        </rect>
+                                    <?php endforeach; ?>
+                                </svg>
                             </div>
-                            <div class="vp-lane-count">
-                                <?= h($row === null ? 0 : $row['count']) ?>
-                                <div class="vp-tl-why">
-                                    <?= __('undated') ?>
-                                </div>
+                            <div class="vp-lane-count"
+                                 data-vp-tl-count="<?= h($lane['key']) ?>">
+                                <span data-vp-tl-count-n><?=
+                                    count($tagWindowed) ?></span>
+                                <div class="vp-tl-why"
+                                     data-vp-tl-count-why><?= empty(
+                                    $lane['tags']
+                                ) ? '' : h(sprintf(
+                                    __('of %s'),
+                                    __n(
+                                        '%s tag',
+                                        '%s tags',
+                                        count($lane['tags']),
+                                        count($lane['tags'])
+                                    )
+                                )) ?></div>
                             </div>
 
                         <?php else: ?>
@@ -1597,13 +1654,110 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                     h(implode(', ', $parts)) ?></div>
                             </div>
                         <?php endif; ?>
+
+                        <?php if ($tagLane && !empty($lane['dated'])): ?>
+                            <?php
+                            /*
+                             * The tags themselves, in the order they
+                             * arrived, each with the day it did. A full
+                             * grid row rather than something inside the
+                             * axis cell: a tag name is
+                             * `misp:threat-level="medium-risk"` and a
+                             * dozen of them need the card's width, not
+                             * a lane's fifteen-rem label column.
+                             *
+                             * Window-independent, unlike the marks
+                             * above it. This is the sentence the lane
+                             * exists to say and it has to be true on
+                             * arrival.
+                             */
+                            $shown = array_slice($lane['dated'], 0, 12);
+                            $rest = count($lane['dated']) - count($shown);
+                            $unplaceable = count($lane['tags'])
+                                - count($lane['dated']);
+                            /*
+                             * Grouped by day, because a value is
+                             * usually tagged in bursts:
+                             * `193.161.193.99` took 77 tags on one
+                             * afternoon, so a date per chip printed
+                             * *26 Nov 2025* twelve times and buried
+                             * the one thing it was there to say.
+                             */
+                            $byDay = array();
+                            foreach ($shown as $tag) {
+                                $day = substr($tag['at'], 0, 10);
+                                if (!isset($byDay[$day])) {
+                                    $byDay[$day] = array();
+                                }
+                                $byDay[$day][] = $tag;
+                            }
+                            ?>
+                            <div class="vp-lane-tagchips">
+                                <span class="vp-lane-tagchips-head">
+                                    <?= __('First attached') ?>
+                                </span>
+                                <?php foreach ($byDay as $day => $group): ?>
+                                    <span class="vp-tagfirst">
+                                        <span class="vp-tagfirst-at"><?=
+                                            h((new DateTimeImmutable(
+                                                $day,
+                                                $utc
+                                            ))->format('j M Y')) ?></span>
+                                        <?php foreach ($group as $tag): ?>
+                                            <?= $this->element(
+                                                'genericElementsBS5/'
+                                                    . 'Badges/tag',
+                                                array(
+                                                    'tag' => array(
+                                                        'name' =>
+                                                            $tag['name'],
+                                                        'colour' =>
+                                                            $tag['colour'],
+                                                    ),
+                                                    'local' => false,
+                                                    'hiddenClass' => '',
+                                                )
+                                            ) ?>
+                                        <?php endforeach; ?>
+                                    </span>
+                                <?php endforeach; ?>
+                                <?php if ($rest > 0): ?>
+                                    <span class="vp-tl-why"><?= h(sprintf(
+                                        __n(
+                                            '+%s more, newer',
+                                            '+%s more, newer',
+                                            $rest,
+                                            $rest
+                                        ),
+                                        $rest
+                                    )) ?></span>
+                                <?php endif; ?>
+                                <?php if ($unplaceable > 0): ?>
+                                    <span class="vp-tl-why">·
+                                        <?= h(sprintf(
+                                            __n(
+                                                '%s the audit log cannot'
+                                                    . ' place, named on the'
+                                                    . ' strip above',
+                                                '%s the audit log cannot'
+                                                    . ' place, named on the'
+                                                    . ' strip above',
+                                                $unplaceable,
+                                                $unplaceable
+                                            ),
+                                            $unplaceable
+                                        )) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
 
                 <div class="vp-tl-why pt-2">
-                    <?= h(__('Five lanes can carry marks · one is'
-                        . ' truncated and says where · one holds what'
-                        . ' MISP never dates')) ?>
+                    <?= h(__('Six lanes can carry marks · one is'
+                        . ' truncated and says where · what nothing'
+                        . ' dates is named on the strip above')) ?>
                 </div>
             </section>
 

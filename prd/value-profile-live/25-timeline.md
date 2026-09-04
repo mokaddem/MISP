@@ -46,15 +46,16 @@ to `done` only when §14's verification has run against it.
 | T22 | The spine's key filters the chart and the chronology | §21 | **done** |
 | T23 | Tag and cluster attachments leave the Edits lane for one of their own | §22.1, §22.2 | **done** |
 | T24 | The tab says when the instance first held the value | §22.3 | **done** |
+| T25 | The tag set is placed at each tag's first attach | §22.7 | **done** |
 
-**Where the phase stands.** Twenty-two of twenty-four rows are done and the tab reads
+**Where the phase stands.** Twenty-three of twenty-five rows are done and the tab reads
 the database: the endpoint is wired, six dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
 than a lane that lies. §16 is the build log; §17 to §22 are what the first
-reader of the built tab asked for over six rounds, and T15 to T24 are that.
+reader of the built tab asked for over six rounds, and T15 to T25 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -1782,6 +1783,108 @@ checkable against something, which removing the row as well would
 break.
 
 The lane grid is seven rows again, one of them hatched, and the two
-lines that counted them are corrected: the card header now reads *a lane
-per dated source, and one for the tags MISP never dates*, and the footer
-*one holds what MISP never dates*.
+lines that counted them are corrected.
+
+> **§22.7 dated that hatched row too**, so the counts moved again: six
+> lanes carry marks, and the header and footer name the tag set rather
+> than a kind MISP cannot date.
+
+### 22.7 The tag set goes on the axis
+
+> *Why not place the tags from the "tags" lane where they first appear.
+> I think first tag occurence is good enough since there's no deletion.
+> A nicely formated tag label with a clear indication where it first
+> appear would be cool. Only one occurence per tag.*
+
+Right on every count, and it makes the Tags lane the seventh lane that
+can put something on the axis rather than the one that cannot.
+
+**One mark per tag, at its first attach.** A tag is re-attached on every
+re-import — `dark-web:structure="test"` five times on one attribute
+inside half an hour — so the raw stream says how often something
+re-tagged the value, and the first attach says when the value *became*
+that thing. `ValueProfile::timelineTagState` joins the set the value
+carries now (`Value::ownTagsFor`, already read for the strip) to
+`MIN(created)` over the tag and galaxy actions on its own occurrences
+and objects, matched on `model_title` — the only handle an audit row
+gives — and **never on the event rows**: an event tag of the same name
+is the event's claim, and dating this value's own tag from it would
+report someone else's action as this value's.
+
+**Two corrections to the premise, both visible on the panel.**
+
+*Removals do exist* — 174 `remove_tag` and 129 `remove_local_tag` rows
+here. They do not need modelling, and the reason is the one the request
+gives from the other side: the lane draws the set the value carries
+**now**, so a tag that was taken off is simply not in it, and one that
+was removed and re-added keeps its first attach, which is still when
+this value first became that thing. Detachments stay in Tag changes,
+where a stream belongs.
+
+*The audit log has a horizon.* It begins 2024-11-11 on this instance, so
+a tag attached before that — or by an import that did not log — has no
+row and no date. Those are kept with a null date rather than dropped:
+the lane's sub-label reads **first attached · 6 of 8 datable** and the
+rest are named on the off-axis strip. Dropping them would have made the
+lane claim the value was untagged until its oldest datable tag.
+
+**The readable half is not on the axis, and that is the design.** First
+attaches cluster at the *start* of a value's history while the window
+defaults to the last month: on `8.8.8.8` all seven land between April
+and December 2025, so a lane that said this only in marks would say
+nothing at all until the reader brushed back two years. So the lane is
+a pair — marks on the axis for the window, and a full grid row under it
+that is window-independent:
+
+```
+FIRST ATTACHED  17 Apr 2025 [PAP:RED] │ 20 Apr 2025 [tlp:white] │
+                26 Nov 2025 [asyncrat] [c2] [historicalandnew]
+                [mightcontainvariantsofasyncrat] │ 2 Dec 2025 [Gh0stRAT]
+```
+
+Real MISP tag badges, oldest first, **grouped by day** — `193.161.193.99`
+took 77 tags on one afternoon, so a date per chip printed *26 Nov 2025*
+twelve times and buried the one thing it was there to say. Twelve chips
+then `+65 more, newer`, which is `TIMELINE_CHIP_CAP`'s existing rule.
+
+**A mark wears the tag's own colour**, which is what makes eight marks
+in one lane distinguishable — and a tag's colour is whatever an analyst
+picked: nine tags on this instance are `#ffffff` and fourteen are
+`#000000`, each of which is the lane's own ground in one of the two
+themes. The marks take a non-scaling hairline so they stay marks
+whatever they are filled with.
+
+**What this retired.** The undated Tags lane, and with it the last
+`draw => 'undated'` lane — §22.6 removed the feed one and this dates the
+tag one, so the branch, its `$undatedBy` map and the
+`.vp-lane-undated*`/`.vp-tl-src-none` rules are gone rather than left
+unreachable. §8.2's rule loses its lane and keeps its purpose: what is
+unplaceable is now a *subset* of a lane's own subject, and the lane that
+holds those tags states its own gap — which is the visibility the rule
+was buying, said by the row that has the facts. The strip's chips stop
+reading *no date column*, which was true of a tag only while nothing
+dated one; they now read **no audit row**.
+
+**What it costs.** One grouped read, on the same `model_id` index the
+audit aggregate uses and bounded by the tag names the value carries:
+**9–11 ms** on `193.161.193.99`, the worst case on this instance at 77
+distinct tags over 670 attachments. Nothing at all on `443`, which
+carries no own tags — the method returns before querying, and
+`ownTagsFor` was already being called for the strip, so there is one of
+those and not two.
+
+### 22.8 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l`, `node --check`, 80 columns over the diff | clean |
+| 2 | **All datable, few** | `8.8.8.8`: four date groups, seven badges, `0 of 7 tags` in the default window |
+| 3 | **All datable, many** | `193.161.193.99`: one group, twelve badges, `+65 more, newer`, `of 77 tags` |
+| 4 | **Partly datable** | `1.162.239.42`: sub-label *first attached · 6 of 8 datable*, strip *Galaxy clusters 2 — no audit row*, subtitle *18 dated · 2 named but undatable* |
+| 5 | **No tags at all** | `143.14.244.37`: *Nothing has tagged this value.* on the hatch, and no *of 0 tags* against it |
+| 6 | **Both renderers agree** | server, asked for 2025-11-01→12-31: 5 marks, `5 of 7 tags`; the same window brushed in the browser: 5 marks, same titles, `5 of 7 tags` |
+| 7 | **One mark per tag, not per attachment** | 5 marks for 5 tags where the raw stream holds 172 tag and cluster rows |
+| 8 | **A tag's own colour** | four distinct fills read off the marks, matching the badges; `tlp:white` (`#ffffff`) visible against the light lane and `#000000` against the dark one, on the hairline |
+| 9 | **The chip row ignores the window** | 7 chips at the default window with 0 marks, and still 7 after brushing to Nov 2025 |
+| 10 | **Cost** | new read 9–11 ms on the 77-tag value, none on `443`; endpoint 58 ms warm on `8.8.8.8`, 139 ms on `193.161.193.99` |
+| 11 | Both themes, console | reads in light and dark; no page error, no console error |

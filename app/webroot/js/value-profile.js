@@ -4713,6 +4713,57 @@
     }
 
     /**
+     * The Tags lane: one mark per tag, at the first time it was
+     * attached, in the tag's own colour.
+     *
+     * The chip row under the lane is **not** touched. It is the
+     * window-independent half of this lane on purpose — first attaches
+     * cluster at the start of a value's history and the window
+     * defaults to the last month, so the marks are often all outside
+     * it and the sentence has to survive that.
+     *
+     * @param {Element} axis
+     * @param {Object} window_ `from` and `to`
+     * @param {function(string): number} xFor
+     */
+    function tlDrawTagLane(axis, window_, xFor) {
+        var tags = tl.data.tags || [];
+        var geometry = tl.data.lane;
+        var labels = tl.data.labels || {};
+        var svg = axis.querySelector('[data-vp-tl-marks]');
+        var mine = tags.filter(function (tag) {
+            if (!tag.at) {
+                return false;
+            }
+            var day = tag.at.slice(0, 10);
+            return day >= window_.from && day <= window_.to;
+        });
+        if (svg) {
+            var marks = '';
+            mine.forEach(function (tag) {
+                var hue = tag.colour || 'var(--vp-tl-tag)';
+                var title = (labels.tag_first || '%1$s — %2$s')
+                    .replace('%1$s', tag.name)
+                    .replace('%2$s', tag.at.slice(0, 10));
+                marks += '<rect class="vp-lane-mark" x="' + xFor(tag.at)
+                    + '" y="12" width="' + geometry.mark
+                    + '" height="13" rx="1.5" style="--vp-tl-hue: '
+                    + tlEscape(hue) + ';"><title>' + tlEscape(title)
+                    + '</title></rect>';
+            });
+            svg.innerHTML = marks;
+        }
+        // How many of the set the window holds, over how many there
+        // are — the second number is the tag set and never moves.
+        var count = axis.parentNode.querySelector(
+            '[data-vp-tl-count="' + axis.dataset.vpTlAxis + '"]'
+        );
+        if (count) {
+            setText(count, '[data-vp-tl-count-n]', mine.length);
+        }
+    }
+
+    /**
      * Redraw every lane's marks for the current window, and recount it.
      *
      * A lane that MISP cannot date has no axis element at all, so it is
@@ -4764,6 +4815,19 @@
         var cutTotal = 0;
 
         panel.querySelectorAll('[data-vp-tl-axis]').forEach(function (axis) {
+            /*
+             * The Tags lane draws the tag set rather than the entry
+             * set: one mark per tag at its first attach, in the tag's
+             * own colour. Its rows are not chronology entries — the
+             * same audit row counted twice would put the panel's
+             * totals out — so it is placed here and returns before
+             * everything below, none of which is about it: it has no
+             * source in the day map, and no cap to band.
+             */
+            if (axis.dataset.vpTlDraw === 'tagfirst') {
+                tlDrawTagLane(axis, window_, xFor);
+                return;
+            }
             var sources = (axis.dataset.vpTlSources || '').split(',');
             var spans = axis.dataset.vpTlDraw === 'spans';
             var hatched = !!axis.querySelector('.vp-lane-fill');

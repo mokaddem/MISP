@@ -6379,6 +6379,8 @@ class ValueProfile extends AppModel
             : null;
         $audit = $this->timelineAuditLanes($context, $asked);
         $spans = $this->timelineSpanEntries($context);
+        $tagState = $this->timelineTagState($user, $value, $context,
+            $options);
         $lanes = array(
             $this->timelineSightingEntries($user, $value, $options, $asked),
             $this->timelinePublicationEntries($context, $asked),
@@ -6432,8 +6434,14 @@ class ValueProfile extends AppModel
             'value' => $value,
             'timeline' => array(
                 'entries' => $entries,
+                /*
+                 * The tag set, dated. Read before `timelineUndated`,
+                 * which now lists only the tags this could not place —
+                 * one `ownTagsFor` between them, not two.
+                 */
+                'tags' => $tagState,
                 'undated' => $this->timelineUndated($user, $value, $context,
-                    $options),
+                    $options, $tagState),
                 'window' => $window,
                 'range' => array(
                     'from' => $counts['first'],
@@ -6976,6 +6984,141 @@ class ValueProfile extends AppModel
                 'last' => $last,
             ),
         );
+    }
+
+    /**
+     * The tags the value carries now, each placed at the first time it
+     * was attached.
+     *
+     * **One mark per tag, not per attachment.** A tag is attached again
+     * on every re-import — `dark-web:structure="test"` five times on
+     * one attribute inside half an hour — so the raw stream says how
+     * often something re-tagged the value and not when the value
+     * became that thing. The first attach is the fact a reader wants:
+     * *this has been `c2` since November 2025*.
+     *
+     * **Removals are not modelled, deliberately.** The set is what the
+     * value carries *now*, so a tag that was taken off is simply not
+     * here; one that was removed and re-added keeps its first attach,
+     * which is when this value first became that thing. The detach
+     * rows are in the Tag changes lane, where a stream belongs.
+     *
+     * Matched on the tag's **name**, because `model_title` is the only
+     * handle an audit row gives — and scoped to the occurrence and
+     * object rows, never the event ones: an event tag of the same name
+     * is the event's claim, and dating this value's own tag from it
+     * would be reporting someone else's action as this value's.
+     *
+     * A tag with no row is kept with `at => null`. It is a tag the log
+     * cannot place — attached before the log began, or by an import
+     * that did not log — and dropping it would make the lane claim the
+     * value was untagged until its oldest datable tag.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $context From `timelineContext`
+     * @param array $options
+     * @return array Oldest first, undatable last: `name`, `colour`,
+     *               `galaxy`, `at`
+     */
+    private function timelineTagState(array $user, $value,
+        array $context, array $options
+    ) {
+        $found = $this->model('Value')->ownTagsFor(
+            $user,
+            $value,
+            $context['scope']['events'],
+            $options
+        );
+        if (empty($found)) {
+            return array();
+        }
+        $first = $this->tagFirstAttachFor(
+            $context['scope'],
+            array_keys($found)
+        );
+        $out = array();
+        foreach ($found as $name => $entry) {
+            $out[] = array(
+                'name' => $name,
+                'colour' => $entry['tag']['colour'],
+                'galaxy' => !empty($entry['tag']['is_galaxy']),
+                'at' => isset($first[$name]) ? $first[$name] : null,
+            );
+        }
+        /*
+         * Oldest first, which is the order the lane's chips read in:
+         * how the value came to be characterised, in the order it
+         * happened. The ones with no date go last rather than first —
+         * they are older than every date here, but saying so is the
+         * strip's job and leading with them would bury the story.
+         */
+        usort($out, function ($a, $b) {
+            if (($a['at'] === null) !== ($b['at'] === null)) {
+                return $a['at'] === null ? 1 : -1;
+            }
+            if ($a['at'] === $b['at']) {
+                return strcasecmp($a['name'], $b['name']);
+            }
+            return strcmp($a['at'], $b['at']);
+        });
+        return $out;
+    }
+
+    /**
+     * The first `tag`/`galaxy` attach per tag name, over the value's
+     * own occurrences and objects.
+     *
+     * One grouped statement per model scope, on the same `model_id`
+     * index the rest of the audit reader uses, bounded by the names the
+     * value actually carries — so the result is at most one row per
+     * tag rather than one per attachment. `193.161.193.99` is the worst
+     * case on this instance at 77 distinct tags over 670 attachments.
+     *
+     * @param array $scope `attributes`, `objects`: id lists
+     * @param array $names Tag names to look for
+     * @return array name => `Y-m-d H:i:s`
+     */
+    private function tagFirstAttachFor(array $scope, array $names)
+    {
+        if (empty($names)) {
+            return array();
+        }
+        $out = array();
+        $audit = $this->model('AuditLog');
+        foreach (array('Attribute', 'Object') as $model) {
+            $key = $model === 'Attribute' ? 'attributes' : 'objects';
+            $ids = isset($scope[$key]) ? $scope[$key] : array();
+            if (empty($ids)) {
+                continue;
+            }
+            foreach (array_chunk($ids, self::AUDIT_ID_CHUNK) as $chunk) {
+                $rows = $audit->find('all', array(
+                    'conditions' => array(
+                        'AuditLog.model' => $model,
+                        'AuditLog.model_id' => $chunk,
+                        'AuditLog.action' => array(
+                            'tag', 'tag_local', 'galaxy', 'galaxy_local',
+                        ),
+                        'AuditLog.model_title' => $names,
+                    ),
+                    'fields' => array(
+                        'AuditLog.model_title',
+                        'MIN(AuditLog.created) AS first_c',
+                    ),
+                    'group' => array('AuditLog.model_title'),
+                    'recursive' => -1,
+                ));
+                foreach ($rows as $row) {
+                    $name = $row['AuditLog']['model_title'];
+                    $at = $row[0]['first_c'];
+                    if (!isset($out[$name]) || $at < $out[$name]) {
+                        $out[$name] = $at;
+                    }
+                }
+            }
+        }
+        return $out;
     }
 
     /**
@@ -7795,22 +7938,26 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function timelineUndated(array $user, $value, array $context,
-        array $options
+        array $options, array $tagState = array()
     ) {
         $tags = array();
         $clusters = array();
-        $found = $this->model('Value')->ownTagsFor(
-            $user,
-            $value,
-            $context['scope']['events'],
-            $options
-        );
-        foreach ($found as $name => $entry) {
+        /*
+         * Only the ones the audit log cannot place. A tag with a first
+         * attach is on the axis now (§22.7) and listing it here as
+         * *never on this axis* would be the panel contradicting itself
+         * — and would keep the *named but undatable* count describing
+         * rows that are drawn three lines further down.
+         */
+        foreach ($tagState as $tag) {
+            if ($tag['at'] !== null) {
+                continue;
+            }
             $chip = array(
-                'label' => $name,
-                'colour' => $entry['tag']['colour'],
+                'label' => $tag['name'],
+                'colour' => $tag['colour'],
             );
-            if ($entry['tag']['is_galaxy']) {
+            if ($tag['galaxy']) {
                 $clusters[] = $chip;
             } else {
                 $tags[] = $chip;
@@ -7820,19 +7967,18 @@ class ValueProfile extends AppModel
         $out = array();
         if (!empty($tags)) {
             $out[] = $this->undatedRow('tags', __('Tags'), $tags, __(
-                'The tags this value carries now. attribute_tags has no'
-                . ' created column, so nothing dates them — when each'
-                . ' was attached is in the Tag changes lane.'
-            ));
+                'Tags the audit log cannot place: nothing dates a tag'
+                . ' but an audit row, and these were attached before'
+                . ' the log began or by a path that did not log.'
+            ), __('no audit row'));
         }
         if (!empty($clusters)) {
             $out[] = $this->undatedRow('clusters', __('Galaxy clusters'),
                 $clusters, __(
-                    'The clusters it carries now. A cluster attachment'
-                    . ' is a tag underneath, so nothing dates these'
-                    . ' either — their changes are in the Tag changes'
-                    . ' lane.'
-                ));
+                    'Clusters the audit log cannot place. A cluster'
+                    . ' attachment is a tag underneath and inherits the'
+                    . ' same gap.'
+                ), __('no audit row'));
         }
 
         $external = $this->externalPresence($user, $value);
@@ -7873,8 +8019,9 @@ class ValueProfile extends AppModel
      * @param string $reason
      * @return array
      */
-    private function undatedRow($key, $kind, array $chips, $reason)
-    {
+    private function undatedRow($key, $kind, array $chips, $reason,
+        $suffix = null
+    ) {
         return array(
             'key' => $key,
             'kind' => $kind,
@@ -7882,6 +8029,14 @@ class ValueProfile extends AppModel
             'reason' => $reason,
             'chips' => array_slice($chips, 0, self::TIMELINE_CHIP_CAP),
             'as_of' => null,
+            /*
+             * The three words after the count on the strip. It used to
+             * be *no date column* for everything, which stopped being
+             * true of a tag the moment §22.7 dated the tag set from the
+             * audit log: these are the ones with no row, not a kind
+             * MISP cannot date.
+             */
+            'suffix' => $suffix,
         );
     }
 

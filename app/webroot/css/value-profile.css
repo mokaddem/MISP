@@ -8252,6 +8252,54 @@ th.vp-rel-num {
 }
 
 /*
+ * The tag set, in the order it arrived. A full grid row under the Tags
+ * lane, because a dozen tag names need the card's width — and it reads
+ * as that lane's own detail rather than as a ninth lane, so it takes
+ * the lane's borders and none of its own.
+ */
+.vp-lane-tagchips {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 6px 10px 8px;
+    border-left: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--bs-border-color);
+    font-size: 0.72rem;
+}
+
+.vp-lane-tagchips-head {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * One day and the tags it brought, as one wrapping unit — the date
+ * leads, because it is the label for the group and repeating it per
+ * chip is what this grouping exists to stop.
+ */
+.vp-tagfirst {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 4px;
+}
+
+.vp-tagfirst + .vp-tagfirst {
+    border-left: 1px solid var(--bs-border-color-translucent);
+    padding-left: 10px;
+}
+
+.vp-tagfirst-at {
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/*
  * The marks take their colour through a custom property rather than a
  * `fill` attribute: a presentation attribute does not resolve
  * `var()`, and the whole palette here is custom properties so a lane
@@ -8259,6 +8307,21 @@ th.vp-rel-num {
  */
 .vp-lane-mark {
     fill: var(--vp-tl-hue);
+}
+
+/*
+ * The Tags lane's marks wear the tag's own colour, and a tag's colour is
+ * whatever an analyst picked: nine tags on this instance are `#ffffff`
+ * and fourteen are `#000000`, each of which is the lane's own ground in
+ * one of the two themes. A hairline keeps the mark a mark whatever it is
+ * filled with — non-scaling, because the axis is stretched with
+ * `preserveAspectRatio="none"` and a plain stroke width would stretch
+ * with it.
+ */
+[data-vp-tl-draw="tagfirst"] .vp-lane-mark {
+    stroke: var(--bs-border-color);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
 }
 
 .vp-lane-span {
@@ -8285,25 +8348,11 @@ th.vp-rel-num {
  * severity, it is a hole in the record, and the two must not be able
  * to be mistaken for each other.
  */
-.vp-lane-undated,
 .vp-lane-fill {
     background-image: repeating-linear-gradient(135deg,
         var(--bs-secondary-bg) 0 6px, transparent 6px 12px);
 }
 
-.vp-lane-undated {
-    border-top-color: var(--bs-border-color);
-}
-
-.vp-lane-undated-body {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    height: 100%;
-    min-height: 38px;
-}
-
-.vp-lane-undated-text,
 .vp-lane-fill-text {
     font-size: 0.74rem;
     color: var(--bs-secondary-color);
@@ -8457,6 +8506,8 @@ th.vp-rel-num {
 .vp-tl-src-edits { --vp-tl-hue: var(--vp-tl-edit); }
 /* Its two sources are one mechanism; the chip takes the tag's. */
 .vp-tl-src-tagging { --vp-tl-hue: var(--vp-tl-tag); }
+/* The tag set's own lane, which draws first attaches. */
+.vp-tl-src-tags { --vp-tl-hue: var(--vp-tl-tag); }
 
 /* The entry keys. */
 .vp-tl-src-sighting { --vp-tl-hue: var(--vp-tl-sighting); }
@@ -8471,24 +8522,6 @@ th.vp-rel-num {
 .vp-tl-src-tag { --vp-tl-hue: var(--vp-tl-tag); }
 .vp-tl-src-cluster { --vp-tl-hue: var(--vp-tl-cluster); }
 .vp-tl-src-seen { --vp-tl-hue: var(--vp-tl-seen); }
-
-/*
- * A source MISP cannot date gets an outline and no fill. It is a lane
- * heading that has to look like an absence rather than a category.
- */
-.vp-tl-src-none {
-    display: inline-block;
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: 3px;
-    white-space: nowrap;
-    background: transparent;
-    color: var(--bs-secondary-color);
-    border: 1px dashed var(--bs-border-color);
-}
 
 .vp-tl-src-btn {
     padding: 0;
