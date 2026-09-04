@@ -1888,3 +1888,127 @@ those and not two.
 | 9 | **The chip row ignores the window** | 7 chips at the default window with 0 marks, and still 7 after brushing to Nov 2025 |
 | 10 | **Cost** | new read 9–11 ms on the 77-tag value, none on `443`; endpoint 58 ms warm on `8.8.8.8`, 139 ms on `193.161.193.99` |
 | 11 | Both themes, console | reads in light and dark; no page error, no console error |
+
+## 23. Four encodings for the lane axis, benched
+
+> *"For the timeline 'source in this window', I find all the square hard
+> to read and I feel like the visualisation could be improved. You can
+> keep the current lane design, but could you prototype 3 other type of
+> visualisation for each lane? Tags is fine, though when some were added
+> at the same time, only one entry is visible."*
+
+`prd/value-profile-live/25b-lane-designs.html` — a standalone bench, not
+part of the application. Served from disk:
+
+```
+python3 -m http.server 8899 -d prd/value-profile-live
+http://localhost:8899/25b-lane-designs.html
+```
+
+### 23.1 What a square cannot say
+
+The lane draws one 5×13 rect per fetched row at that row's moment. Three
+things follow, and all three are visible on this instance:
+
+| | |
+|---|---|
+| **No magnitude** | `8.8.8.8`: a lone Sightings mark is one sighting; the mark beside it, at the right-hand end, is twelve. Nothing distinguishes them. Only the count column has the number, and it has one number for the whole window. |
+| **No mix** | Tag changes is `126 Tag, 46 Galaxy cluster`. The lane is almost uniformly orange, because a cluster mark is one square among many and lands under a tag mark as often as not. |
+| **Collision is silent** | Marks at one x are one square. `8.8.8.8` draws **7 tags as 4 marks**; the Edits lane has 42 rows on one x and 197 rows on 66 distinct positions. |
+
+At the dense end it is worse than lossy, it is misleading:
+`193.161.193.99` holds 204 publications, 952 edits and 1,100 tag changes
+in the window, and the three lanes draw **the same eighteen squares**.
+A reader comparing those lanes reads three equal rows.
+
+### 23.2 The three proposals
+
+Only the axis cell changes. The label, the sub-label, the ruler, the
+count column, the cut band and the tag chip row are the shipping ones in
+all four, and every design places a moment at the same fraction of the
+window the shipping scale uses — so a column in A, a cell in B and a
+stem in C land on the pixel a square lands on today.
+
+**A · density profile.** Calendar bins, magnitude as bar height on the
+lane's own linear scale, sources stacked inside the bin with a surface
+gap, the peak bin direct-labelled and nothing else. Reads shape and
+volume at a glance. Loses the exact moment to the bin, and loses the
+tail wherever one bin dominates — on `193.161.193.99` a 203-row week
+flattens a 4-row week to a hairline.
+
+**B · aligned heat strip.** Cells that cannot overlap, on boundaries
+every lane shares, tinted on a five-step square-root ramp of the lane's
+own hue, with the count printed in any cell over one. The only design
+that answers *what else was this value doing that month* by reading one
+column downwards, and the only one that stays fully legible at 1,100
+entries — the tail `4, 9, 10, 11, 3` that A flattens is read out here as
+figures. Multi-source cells are split into **equal** stripes, not
+proportional ones: at ~28px a cell, one false positive against eighteen
+sightings is a sub-pixel sliver, so the stripe carries identity and the
+numeral carries quantity.
+
+**C · coincidence stems.** No binning: every row keeps its exact moment,
+and rows sharing a moment become one stem whose height is how many. One
+pip per row while a pip is at least 2px, so small pile-ups are countable
+and large ones degrade to a segmented bar. This is the smallest change
+from what ships and the only proposal that keeps the exact day. A busy
+lane reads as a comb.
+
+### 23.3 The Tags lane, which was the specific complaint
+
+All three fix it, differently, and none of them touches the chip row:
+
+- **A** — a column whose height is how many tags were first attached
+  then. `193.161.193.99` peaks at **41 in one week**, which the shipping
+  lane draws as one square.
+- **B** — up to six stripes in the tags' own colours inside the cell,
+  countable; past six a tint and a figure, because a numeral over six
+  saturated hairlines is unreadable on all of them.
+- **C** — a tower of pips, one per tag, each in its own colour. On
+  `8.8.8.8` the four tags of 26 Nov 2025 are four pips.
+
+### 23.4 Separable from the choice
+
+Three changes are orthogonal to which encoding wins and are worth taking
+with whichever does:
+
+1. **Month rules** behind every lane (toggleable on the bench). No
+   design needs them; all four read better with them.
+2. **Packed spans** — the Seen lane puts overlapping spans on their own
+   rows, so a row means an overlap. Today they are drawn on one line and
+   overlap composites into a darker patch, which is the alpha-arithmetic
+   problem §24b of `24b-relationships.md` raised for the strip.
+3. **The dead space.** A lane box is 90px tall because the count column
+   needs three lines for `47 Sighting, 4 False positive, 2 Expiration`;
+   the shipping marks occupy the top 38px and the rest is empty. The
+   three proposals centre their track in the box.
+
+### 23.5 The bench's data is real
+
+`25b-lane-designs.data.js` was read off the running instance on
+2026-09-04. Three values fetched at
+`/values/viewTimeline/<b64>/<from>/<to>`; every mark's x, colour and
+tooltip taken out of the rendered DOM and its moment inverted from x
+through the shipping scale; the colour tokens read with
+`getComputedStyle` in both themes. Nothing is seeded.
+
+| Value | Window | Why it is on the bench |
+|---|---|---|
+| `8.8.8.8` | 2024-11-01 → 2026-09-04 | All nine sources, 447 entries, nothing capped, and the 7-tags-as-4-marks case |
+| `mughalmotifs.com` | 2024-01-01 → 2026-09-04 | The only lane that draws intervals: 52 of 52 occurrences carry a span, 25 drawn |
+| `193.161.193.99` | 2025-11-01 → 2026-09-04 | 2,256 entries against a 1,000-row fetch, 1,256 behind the cut band, 77 tags |
+
+### 23.6 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Renders, no console or page error | clean on 3 values × 2 themes |
+| 2 | No horizontal page overflow | none, at 1500px |
+| 3 | No mark escapes its lane box | 0 of 461 / 156 / 1,154 marks, all designs |
+| 4 | The cut band survives all four | 12 bands on `193.161.193.99` (3 mark lanes × 4 designs) |
+| 5 | Spans survive all four | 75 bars on `mughalmotifs.com` (25 × 3 proposals) |
+| 6 | The chip row is untouched | present in all four designs, every value |
+| 7 | Marks lanes only for the cut band | the Seen lane takes none — its cap cuts the newest, so a band from the window's start would be backwards |
+| 8 | Heat numerals legible in both themes | ink chosen from the mixed tint's measured luminance, not from the mix step: `--vp-tl-edit` at full strength is near-black in light and a light grey in dark |
+| 9 | The palette, checked rather than eyeballed | the ten source tokens pass CVD separation (worst adjacent ΔE 16.6 deutan) but fail the lightness band on `--vp-tl-edit` and `--vp-tl-seen` — which is why every proposal carries magnitude on position or size, and B carries a scale legend and a table view |
+| 10 | A colour-carried number has a twin | B ships the per-bin table view; the matrix's glyphs are shape, not hue |

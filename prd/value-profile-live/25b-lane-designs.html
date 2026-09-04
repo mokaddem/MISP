@@ -1,0 +1,1744 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sources in this window — four lane encodings</title>
+
+<!--
+    A bench for one complaint: the lanes under *Sources in this window*
+    are a field of identical little squares, and a square says only
+    *something happened near here*. It cannot say how much, it cannot
+    say which of a lane's two sources, and two events at the same
+    moment are one square — which is why the Tags lane draws seven tags
+    as four marks.
+
+    Four encodings of the same seven lanes, on the same axis, from the
+    same rows. Only the axis cell changes: the label column, the
+    sub-labels, the right-hand counts, the cut band and the tag chip
+    row are the shipping ones in all four, so the only variable is how
+    a lane draws its own window.
+
+    THE DATA IS REAL. `25b-lane-designs.data.js` was read off the
+    running instance on 2026-09-04 — three values, each fetched at
+    `/values/viewTimeline/<b64>/<from>/<to>`, every mark's x, colour
+    and tooltip taken out of the rendered DOM and its moment inverted
+    from x through the shipping scale. The colour tokens were read with
+    `getComputedStyle` in both themes. Nothing here is seeded.
+
+    Standalone on purpose — served from disk, with a doctype, because
+    quirks mode would falsify the geometry being compared. The CSS
+    below is copied from `app/webroot/css/value-profile.css`.
+
+    §25 of `25-timeline.md`. Not part of the application.
+
+        python3 -m http.server 8899 -d prd/value-profile-live
+        http://localhost:8899/25b-lane-designs.html
+-->
+
+<style>
+/* ==================================================================
+ * Tokens, read off the live page in both themes.
+ * ================================================================== */
+
+:root {
+    --bs-body-bg: #fff;
+    --bs-body-color: #212529;
+    --bs-secondary-color: rgba(33, 37, 41, 0.75);
+    --bs-border-color: #dee2e6;
+    --bs-border-color-translucent: rgba(0, 0, 0, 0.175);
+    --bs-tertiary-bg: #f8f9fa;
+    --bs-secondary-bg: #e9ecef;
+    --bs-emphasis-color: #000;
+    --bs-warning: #ffc107;
+
+    --vp-tl-sighting: #890096;
+    --vp-tl-false_positive: #a51c30;
+    --vp-tl-expiration: #d97706;
+    --vp-tl-publication: #1892B1;
+    --vp-tl-note: #8F2D56;
+    --vp-tl-opinion: #f39a1f;
+    --vp-tl-edit: #524948;
+    --vp-tl-tag: #DB6A47;
+    --vp-tl-cluster: #8B5CF6;
+    --vp-tl-seen: #97CC04;
+}
+
+[data-bs-theme="dark"] {
+    --bs-body-bg: #212529;
+    --bs-body-color: #dee2e6;
+    --bs-secondary-color: rgba(222, 226, 230, 0.75);
+    --bs-border-color: #495057;
+    --bs-border-color-translucent: rgba(255, 255, 255, 0.15);
+    --bs-tertiary-bg: #2a2f34;
+    --bs-secondary-bg: #343a40;
+    --bs-emphasis-color: #fff;
+
+    --vp-tl-sighting: #c05fcc;
+    --vp-tl-false_positive: #cf4a63;
+    --vp-tl-expiration: #c98322;
+    --vp-tl-note: #c26189;
+    --vp-tl-edit: #a2938f;
+}
+
+/* ==================================================================
+ * The page's own furniture. Nothing here exists on the real tab.
+ * ================================================================== */
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 26px 30px 90px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.bench-h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+}
+
+.bench-lede {
+    max-width: 66ch;
+    color: var(--bs-secondary-color);
+    margin: 0 0 18px;
+    font-size: 0.9rem;
+}
+
+.bench-lede b { color: var(--bs-body-color); }
+
+.bench-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 18px;
+    padding: 10px 12px;
+    margin-bottom: 26px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 6px;
+    background: var(--bs-tertiary-bg);
+    font-size: 0.8rem;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.bench-controls fieldset {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.bench-controls legend {
+    float: left;
+    padding: 0 8px 0 0;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+}
+
+.bench-seg {
+    display: inline-flex;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.bench-seg button {
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    border: 0;
+    border-left: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    cursor: pointer;
+}
+
+.bench-seg button:first-child { border-left: 0; }
+
+.bench-seg button[aria-pressed="true"] {
+    background: var(--vp-tl-publication);
+    color: #fff;
+}
+
+.bench-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.bench-note {
+    max-width: 78ch;
+    font-size: 0.84rem;
+    color: var(--bs-secondary-color);
+    margin: 0 0 14px;
+}
+
+.bench-note b { color: var(--bs-body-color); font-weight: 600; }
+
+.bench-note code {
+    font-size: 0.9em;
+    background: var(--bs-secondary-bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+.bench-design {
+    margin-bottom: 34px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.bench-design:last-of-type { border-bottom: 0; }
+
+.bench-kicker {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 3px;
+}
+
+.bench-tag {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.bench-design h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.bench-verdict {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 26px;
+    margin: 12px 0 0;
+    font-size: 0.82rem;
+}
+
+.bench-verdict div { flex: 1 1 24ch; }
+
+.bench-verdict dt {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 2px;
+}
+
+.bench-verdict dd { margin: 0; }
+
+.bench-scale {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.bench-scale i {
+    display: inline-block;
+    width: 15px;
+    height: 11px;
+    border-radius: 2px;
+    border: 1px solid var(--bs-border-color-translucent);
+    font-style: normal;
+}
+
+details.bench-table {
+    margin-top: 14px;
+    font-size: 0.78rem;
+}
+
+details.bench-table summary {
+    cursor: pointer;
+    color: var(--bs-secondary-color);
+}
+
+details.bench-table table {
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+details.bench-table th,
+details.bench-table td {
+    border: 1px solid var(--bs-border-color-translucent);
+    padding: 2px 7px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+details.bench-table th:first-child,
+details.bench-table td:first-child { text-align: left; }
+
+details.bench-table thead th {
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+.bench-tip {
+    position: fixed;
+    z-index: 60;
+    max-width: 34ch;
+    padding: 5px 8px;
+    border-radius: 4px;
+    background: var(--bs-emphasis-color);
+    color: var(--bs-body-bg);
+    font-size: 0.74rem;
+    line-height: 1.35;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 90ms;
+}
+
+.bench-tip[data-on] { opacity: 1; }
+
+.bench-tip b { display: block; font-weight: 600; }
+
+.bench-tip span {
+    display: block;
+    opacity: 0.8;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+ * The shipping lane grid. Copied from `value-profile.css`.
+ * ================================================================== */
+
+.vp-lanes {
+    display: grid;
+    grid-template-columns: 15rem 1fr 7rem;
+    align-items: stretch;
+}
+
+.vp-lane-head {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+    padding: 0 10px 5px;
+}
+
+.vp-lane-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+}
+
+.vp-lane-label {
+    padding: 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.8rem;
+}
+
+.vp-lane-axis {
+    position: relative;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    border-left: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--bs-border-color);
+    padding: 7px 5px;
+    min-height: 3.3rem;
+}
+
+.vp-lane-svg {
+    display: block;
+    width: 100%;
+    height: 38px;
+    position: relative;
+    z-index: 1;
+}
+
+.vp-lane-mark { fill: var(--vp-tl-hue); }
+
+[data-vp-tl-draw="tagfirst"] .vp-lane-mark {
+    stroke: var(--bs-border-color);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.vp-lane-span { fill: var(--vp-tl-hue); opacity: 0.55; }
+
+.vp-lane-count {
+    padding: 9px 10px;
+    border-top: 1px solid var(--bs-border-color-translucent);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--bs-secondary-color);
+}
+
+.vp-lane-fill {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    background-image: repeating-linear-gradient(135deg,
+        var(--bs-secondary-bg) 0 6px, transparent 6px 12px);
+}
+
+.vp-lane-fill-text {
+    font-size: 0.74rem;
+    color: var(--bs-secondary-color);
+    margin-right: auto;
+    padding-left: 4px;
+}
+
+.vp-lane-cut {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--vp-cut) * 100%);
+    background-image: repeating-linear-gradient(45deg,
+        color-mix(in srgb, var(--bs-warning) 26%, transparent) 0 5px,
+        transparent 5px 10px);
+    border-right: 1px dashed
+        color-mix(in srgb, var(--bs-warning) 60%, transparent);
+}
+
+.vp-lane-tagchips {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 6px 10px 8px;
+    border-left: 1px solid var(--bs-border-color);
+    border-right: 1px solid var(--bs-border-color);
+    font-size: 0.72rem;
+}
+
+.vp-lane-tagchips-head {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-secondary-color);
+}
+
+.vp-tagfirst {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 4px;
+}
+
+.vp-tagfirst + .vp-tagfirst {
+    border-left: 1px solid var(--bs-border-color-translucent);
+    padding-left: 10px;
+}
+
+.vp-tagfirst-at {
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.vp-tag-chip {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    border: 1px solid var(--bs-border-color-translucent);
+    white-space: nowrap;
+}
+
+.vp-tl-src {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    color: var(--vp-tl-hue);
+    background: color-mix(in srgb, var(--vp-tl-hue) 14%,
+        var(--bs-body-bg));
+}
+
+.vp-tl-src-sightings { --vp-tl-hue: var(--vp-tl-sighting); }
+.vp-tl-src-publications { --vp-tl-hue: var(--vp-tl-publication); }
+.vp-tl-src-analyst { --vp-tl-hue: var(--vp-tl-note); }
+.vp-tl-src-edits { --vp-tl-hue: var(--vp-tl-edit); }
+.vp-tl-src-tagging { --vp-tl-hue: var(--vp-tl-tag); }
+.vp-tl-src-tags { --vp-tl-hue: var(--vp-tl-tag); }
+.vp-tl-src-seen { --vp-tl-hue: var(--vp-tl-seen); }
+
+.vp-tl-why {
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--bs-secondary-color);
+}
+
+/* ==================================================================
+ * The four axis cells. Everything below this line is the proposal.
+ * ==================================================================
+ * All four sit in the same `.vp-lane-axis` box and place things on the
+ * same scale: a moment's left edge is its fraction of the window, so a
+ * column in A, a cell in B and a stem in C land on the same pixel a
+ * square lands on today.
+ * ================================================================== */
+
+/* The month rule, shared by all four and separately switchable, so a
+ * reader can tell how much of a design's legibility is the encoding
+ * and how much is just having something to measure against. */
+.vp-track {
+    position: relative;
+    width: 100%;
+    z-index: 1;
+}
+
+.bench-grid .vp-track { background: var(--vp-rules); }
+
+/* The three proposals centre their track in the lane box; the shipping
+ * SVG keeps its own top-aligned geometry so the baseline stays exactly
+ * what it is today. */
+.vp-lane-axis:has(> .vp-track) {
+    display: flex;
+    align-items: center;
+}
+
+/* ---- A · density profile ---------------------------------------- */
+
+/* 46px of bar under an 11px band the peak figure lives in, so the one
+ * direct label on the lane can never sit on top of the bar it names. */
+.vp-track-density { height: 57px; }
+
+.vp-dbin {
+    position: absolute;
+    bottom: 0;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2px;
+}
+
+.vp-dbin i {
+    display: block;
+    background: var(--vp-tl-hue);
+    border-radius: 2px 2px 0 0;
+    font-style: normal;
+}
+
+.vp-dbin:first-child i { border-radius: 2px; }
+
+/* The lane's own peak, direct-labelled — the one number that makes the
+ * height readable as a quantity rather than as a texture. Selective on
+ * purpose: a figure on every bin is the anti-pattern. */
+.vp-peak {
+    position: absolute;
+    top: -1px;
+    font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+    transform: translateX(-50%);
+    z-index: 3;
+}
+
+.vp-peak-r { transform: translateX(-100%); }
+.vp-peak-l { transform: none; }
+
+/* ---- B · heat strip --------------------------------------------- */
+
+.vp-track-heat { height: 30px; }
+
+.vp-hcell {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.vp-hcell b {
+    flex: 1 1 auto;
+    display: block;
+    background: var(--vp-tl-hue);
+}
+
+.vp-hcell b + b { margin-left: 1px; }
+
+.vp-hnum {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    color: var(--vp-num);
+}
+
+/* The empty ground, so a quiet week reads as measured rather than as
+ * missing chrome. */
+.vp-hempty {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px;
+    background: var(--bs-secondary-bg);
+    opacity: 0.4;
+}
+
+/* ---- C · stems --------------------------------------------------- */
+
+.vp-track-stem { height: 46px; }
+
+.vp-stem {
+    position: absolute;
+    bottom: 0;
+    width: 5px;
+    margin-left: -2px;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.vp-stem u {
+    display: block;
+    width: 100%;
+    background: var(--vp-tl-hue);
+    border-radius: 1px;
+    text-decoration: none;
+}
+
+.vp-stem u + u { margin-bottom: 1px; }
+
+.vp-stem-base {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--bs-border-color-translucent);
+}
+
+/* A tag's own colour can be `#ffffff` or `#000000` — nine and fourteen
+ * of them on this instance — so anything wearing one keeps a hairline. */
+.vp-own-hue {
+    box-shadow: inset 0 0 0 1px var(--bs-border-color);
+}
+
+/* ---- spans, in all three ---------------------------------------- */
+
+.vp-sbar {
+    position: absolute;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--vp-tl-hue);
+    opacity: 0.55;
+}
+</style>
+
+<script src="25b-lane-designs.data.js"></script>
+
+<h1 class="bench-h1">Sources in this window — four lane encodings</h1>
+
+<p class="bench-lede">
+    A square says <i>something happened near here</i>. It cannot say how
+    much, it cannot say which of a lane's two sources, and two events at
+    one moment are one square. On <b>8.8.8.8</b> the Tags lane draws
+    <b>seven tags as four marks</b>; on <b>193.161.193.99</b> three
+    lanes holding 204, 952 and 1,100 entries draw the <b>same eighteen
+    squares</b>. Below: the shipping lane, then three encodings that
+    change only the axis cell. Same rows, same scale, same label,
+    sub-label, count column, cut band and chip row — read off the
+    running instance on 2026-09-04.
+</p>
+
+<div class="bench-controls">
+    <fieldset>
+        <legend>Value</legend>
+        <span class="bench-seg" data-ctl="dataset"></span>
+    </fieldset>
+    <fieldset>
+        <legend>Theme</legend>
+        <span class="bench-seg" data-ctl="theme">
+            <button type="button" data-v="light">Light</button>
+            <button type="button" data-v="dark">Dark</button>
+        </span>
+    </fieldset>
+    <label class="bench-check">
+        <input type="checkbox" data-ctl="grid" checked>
+        Month rules
+    </label>
+    <span class="vp-tl-why" data-ctl="blurb"></span>
+</div>
+
+<div data-designs></div>
+
+<div class="bench-tip" data-tip-box></div>
+
+<script>
+(function () {
+    'use strict';
+
+    var D = window.VP_TL;
+    var LANE_W = D.laneW, MARK_W = D.markW;
+    var SRC = D.sources, ORDER = D.srcOrder;
+    var MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    var state = { ds: D.datasets[0], theme: 'light', grid: true };
+
+    /* ------------------------------------------------------------ *
+     * Scale
+     * ------------------------------------------------------------ *
+     * The shipping one. A mark's left edge is its fraction of the
+     * window times `LANE_W - MARK_W`, so every design here converts
+     * back through the same constant and lands where a square lands.
+     * ------------------------------------------------------------ */
+
+    function bounds(win) {
+        return {
+            t0: Date.parse(win.from + 'T00:00:00Z'),
+            t1: Date.parse(win.to + 'T23:59:59Z')
+        };
+    }
+
+    function pct(x) { return 100 * x / (LANE_W - MARK_W); }
+
+    function fracOf(ts, b) {
+        return Math.max(0, Math.min(1, (ts - b.t0) / (b.t1 - b.t0)));
+    }
+
+    /* Calendar bins, coarsened until they fit the cell budget. Day,
+     * week or month and nothing in between: a bin a reader cannot name
+     * is a bin they cannot check against the chronology. */
+    function binsFor(win, budget) {
+        var b = bounds(win);
+        var days = Math.round((b.t1 - b.t0) / 864e5);
+        var grain = 'day';
+        if (days > budget) { grain = 'week'; }
+        if (Math.ceil(days / 7) > budget) { grain = 'month'; }
+
+        var out = [];
+        var cur = new Date(b.t0);
+        if (grain === 'week') {
+            cur.setUTCDate(cur.getUTCDate() - ((cur.getUTCDay() + 6) % 7));
+        }
+        if (grain === 'month') { cur.setUTCDate(1); }
+
+        while (cur.getTime() <= b.t1) {
+            var next = new Date(cur.getTime());
+            if (grain === 'day') { next.setUTCDate(next.getUTCDate() + 1); }
+            if (grain === 'week') { next.setUTCDate(next.getUTCDate() + 7); }
+            if (grain === 'month') { next.setUTCMonth(next.getUTCMonth() + 1); }
+            out.push({
+                from: iso(cur), to: iso(new Date(next.getTime() - 864e5)),
+                x0: fracOf(Math.max(cur.getTime(), b.t0), b),
+                x1: fracOf(Math.min(next.getTime(), b.t1), b),
+                label: labelOf(cur, grain),
+                n: 0, by: {}
+            });
+            cur = next;
+        }
+        out.grain = grain;
+        return out;
+    }
+
+    function iso(d) { return d.toISOString().slice(0, 10); }
+
+    function labelOf(d, grain) {
+        if (grain === 'month') {
+            return MONTH[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+        }
+        return d.getUTCDate() + ' ' + MONTH[d.getUTCMonth()] + ' '
+            + d.getUTCFullYear();
+    }
+
+    /* The month rules, as one background gradient rather than as N
+     * elements: seven lanes times thirty months is two hundred divs
+     * that carry no data. */
+    function rulesFor(win) {
+        var b = bounds(win);
+        var stops = [];
+        var cur = new Date(b.t0);
+        cur.setUTCDate(1);
+        cur.setUTCMonth(cur.getUTCMonth() + 1);
+        while (cur.getTime() < b.t1) {
+            var f = (100 * fracOf(cur.getTime(), b)).toFixed(3);
+            stops.push('linear-gradient(var(--bs-border-color-translucent),'
+                + 'var(--bs-border-color-translucent)) ' + f + '% 0 / 1px'
+                + ' 100% no-repeat');
+            cur.setUTCMonth(cur.getUTCMonth() + 1);
+        }
+        return stops.join(',');
+    }
+
+    /* ------------------------------------------------------------ *
+     * Reading a lane
+     * ------------------------------------------------------------ */
+
+    function entriesOf(ds, lane) {
+        return lane.e.map(function (r) {
+            return {
+                x: r[0],
+                src: r[1] < 0 ? null : ORDER[r[1]],
+                title: ds.pool[r[2]],
+                at: ds.days[r[3]]
+            };
+        });
+    }
+
+    function spansOf(ds, lane) {
+        return lane.sp.map(function (r) {
+            return {
+                x: r[0], w: r[1], title: ds.pool[r[2]],
+                at: ds.days[r[3]], to: ds.days[r[4]]
+            };
+        });
+    }
+
+    /* A lane's rows dropped into calendar bins, kept split by source so
+     * a two-source lane can show its mix rather than its total. */
+    function fill(bins, rows) {
+        var i = 0, max = 0;
+        var byDate = bins.slice().sort(function (a, c) {
+            return a.from < c.from ? -1 : 1;
+        });
+        rows.forEach(function (r) {
+            for (i = 0; i < byDate.length; i++) {
+                if (r.at >= byDate[i].from && r.at <= byDate[i].to) {
+                    byDate[i].n++;
+                    var k = r.src || '_';
+                    byDate[i].by[k] = (byDate[i].by[k] || 0) + 1;
+                    if (!byDate[i].rows) { byDate[i].rows = []; }
+                    byDate[i].rows.push(r);
+                    break;
+                }
+            }
+        });
+        bins.forEach(function (bn) { max = Math.max(max, bn.n); });
+        return max;
+    }
+
+    /* Rows that share a moment, which is the fact a square cannot
+     * state. Grouped on the shipping x, so the grouping is exactly the
+     * overlap the reader is looking at. */
+    function clump(rows) {
+        var by = {}, out = [], max = 0;
+        rows.forEach(function (r) {
+            var k = r.x.toFixed(1);
+            if (!by[k]) {
+                by[k] = { x: r.x, rows: [], at: r.at };
+                out.push(by[k]);
+            }
+            by[k].rows.push(r);
+            max = Math.max(max, by[k].rows.length);
+        });
+        return { groups: out, max: max };
+    }
+
+    function hueOf(src) { return 'var(--vp-tl-' + src + ')'; }
+
+    /* ------------------------------------------------------------ *
+     * Resolving a tint, rather than guessing at it
+     * ------------------------------------------------------------ *
+     * The heat cell prints a figure on a mixed colour, and whether
+     * that figure needs dark or light ink is not something to infer
+     * from the mix percentage: `--vp-tl-edit` at full strength is a
+     * light grey in dark mode and a near-black in light mode, so the
+     * same step wants opposite ink in the two themes. The mix is done
+     * here, off the tokens read from the live page, and the ink is
+     * chosen from the result's luminance.
+     * ------------------------------------------------------------ */
+
+    function hex(name) {
+        var v = D.tokens[state.theme]['--vp-tl-' + name]
+            || D.tokens[state.theme][name] || '#888888';
+        return v.charAt(0) === '#' ? v : '#888888';
+    }
+
+    function rgb(h) {
+        var s = h.length === 4
+            ? h[1] + h[1] + h[2] + h[2] + h[3] + h[3] : h.slice(1);
+        return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16),
+                parseInt(s.slice(4, 6), 16)];
+    }
+
+    function mix(fg, bg, p) {
+        var a = rgb(fg), b = rgb(bg), o = '#';
+        for (var i = 0; i < 3; i++) {
+            var v = Math.round(a[i] * p / 100 + b[i] * (100 - p) / 100);
+            o += ('0' + v.toString(16)).slice(-2);
+        }
+        return o;
+    }
+
+    function lum(h) {
+        var c = rgb(h).map(function (v) {
+            v /= 255;
+            return v <= 0.03928 ? v / 12.92
+                : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    }
+
+    function inkOn(h) { return lum(h) > 0.42 ? '#111' : '#fff'; }
+
+    function bodyBg() {
+        return D.tokens[state.theme]['--bs-body-bg'] === '#fff'
+            ? '#ffffff' : D.tokens[state.theme]['--bs-body-bg'];
+    }
+
+    /* Spans into rows, lowest row that is free. All three proposals do
+     * this and the shipping lane does not: today every span is drawn on
+     * one line, so two that overlap composite into a darker patch and
+     * the reader is left to infer depth from alpha (§24b). A row here
+     * means an actual overlap, and nothing else does. */
+    function packSpans(spans) {
+        var rows = [];
+        return spans.slice().sort(function (a, b) { return a.x - b.x; })
+            .map(function (s) {
+                for (var i = 0; i < rows.length; i++) {
+                    if (s.x >= rows[i]) {
+                        rows[i] = s.x + Math.max(MARK_W, s.w);
+                        s.row = i;
+                        return s;
+                    }
+                }
+                rows.push(s.x + Math.max(MARK_W, s.w));
+                s.row = rows.length - 1;
+                return s;
+            });
+    }
+
+    /* ------------------------------------------------------------ *
+     * The four axis cells
+     * ------------------------------------------------------------ */
+
+    function el(tag, cls, css) {
+        var n = document.createElement(tag);
+        if (cls) { n.className = cls; }
+        if (css) { n.setAttribute('style', css); }
+        return n;
+    }
+
+    function tip(node, head, sub) {
+        node.dataset.tipHead = head;
+        if (sub) { node.dataset.tipSub = sub; }
+    }
+
+    /* ---- 0 · what ships: one square per row --------------------- */
+
+    function drawNow(ds, lane, box) {
+        var svg = svgEl(38);
+        entriesOf(ds, lane).forEach(function (r) {
+            var hue = r.src ? hueOf(r.src) : null;
+            svg.appendChild(rect(r.x, 12, MARK_W, 13, hue, r.title
+                + ' — ' + r.at));
+        });
+        if (lane.draw === 'tagfirst') {
+            lane.tags.forEach(function (t) {
+                var n = rect(t.x, 12, MARK_W, 13,
+                    t.colour || 'var(--vp-tl-tag)',
+                    t.name + ' — first attached ' + t.at);
+                n.setAttribute('stroke', 'var(--bs-border-color)');
+                n.setAttribute('stroke-width', '1');
+                n.setAttribute('vector-effect', 'non-scaling-stroke');
+                svg.appendChild(n);
+            });
+        }
+        spansOf(ds, lane).forEach(function (s) {
+            var n = rect(s.x, 19, Math.max(MARK_W, s.w), 7,
+                'var(--vp-tl-seen)', s.title + ' — ' + s.at + ' → ' + s.to);
+            n.setAttribute('class', 'vp-lane-span');
+            n.setAttribute('rx', '3');
+            svg.appendChild(n);
+        });
+        box.appendChild(svg);
+    }
+
+    function svgEl(h) {
+        var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        s.setAttribute('viewBox', '0 0 ' + LANE_W + ' ' + h);
+        s.setAttribute('preserveAspectRatio', 'none');
+        s.setAttribute('class', 'vp-lane-svg');
+        s.style.height = h + 'px';
+        return s;
+    }
+
+    function rect(x, y, w, h, hue, title) {
+        var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.setAttribute('class', 'vp-lane-mark');
+        r.setAttribute('x', x);
+        r.setAttribute('y', y);
+        r.setAttribute('width', w);
+        r.setAttribute('height', h);
+        r.setAttribute('rx', '1.5');
+        if (hue) { r.setAttribute('style', '--vp-tl-hue: ' + hue + ';'); }
+        var t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        t.textContent = title;
+        r.appendChild(t);
+        return r;
+    }
+
+    /* ---- A · density profile ------------------------------------ *
+     * Magnitude as height, on the lane's own linear scale, in calendar
+     * bins every lane shares. Sources stack inside a bin, so a lane
+     * that holds two of them shows the mix it is counting in the right
+     * margin. The peak is direct-labelled and nothing else is.
+     * ------------------------------------------------------------ */
+
+    function drawDensity(ds, lane, box, ctx) {
+        var track = el('div', 'vp-track vp-track-density');
+        track.style.setProperty('--vp-rules', ctx.rules);
+        var H = 46;
+
+        if (lane.draw === 'spans') {
+            packSpans(spansOf(ds, lane)).forEach(function (s) {
+                var n = el('div', 'vp-sbar', 'left:' + pct(s.x) + '%;width:'
+                    + Math.max(0.35, pct(s.w)) + '%;bottom:'
+                    + (4 + (s.row % 5) * 10) + 'px;'
+                    + '--vp-tl-hue:var(--vp-tl-seen);');
+                tip(n, s.title, s.at + ' → ' + s.to);
+                track.appendChild(n);
+            });
+            box.appendChild(track);
+            return;
+        }
+
+        var rows = lane.draw === 'tagfirst'
+            ? lane.tags.map(function (t) {
+                return { x: t.x, at: t.at, src: null, title: t.name,
+                         colour: t.colour };
+            })
+            : entriesOf(ds, lane);
+
+        var bins = binsFor(ds.window, ctx.budgetA);
+        var max = fill(bins, rows);
+        var peakBin = null;
+
+        bins.forEach(function (bn) {
+            if (!bn.n) { return; }
+            if (!peakBin || bn.n > peakBin.n) { peakBin = bn; }
+            var h = Math.max(3, Math.round(H * bn.n / max));
+            /* A 1px surface gap, so two busy bins side by side read as
+             * two columns rather than as one mass — which is what the
+             * shipping squares do wrong at the dense end. */
+            var col = el('div', 'vp-dbin', 'left:' + (100 * bn.x0)
+                + '%;width:calc(' + Math.max(0.4, 100 * (bn.x1 - bn.x0))
+                + '% - 1px);height:' + h + 'px;');
+
+            var keys = lane.draw === 'tagfirst'
+                ? ['_'] : ORDER.filter(function (k) { return bn.by[k]; });
+            var gaps = 2 * Math.max(0, keys.length - 1);
+            keys.forEach(function (k) {
+                var seg = el('i');
+                seg.style.height = Math.max(2,
+                    (h - gaps) * bn.by[k] / bn.n) + 'px';
+                seg.style.setProperty('--vp-tl-hue',
+                    k === '_' ? 'var(--vp-tl-tag)' : hueOf(k));
+                col.appendChild(seg);
+            });
+            tip(col, bn.label + (bins.grain === 'day' ? '' : ' →'),
+                bn.n + ' ' + mixOf(bn, lane));
+            track.appendChild(col);
+        });
+
+        /* Labelled only where a peak is a fact worth stating. On a lane
+         * whose busiest bin holds two rows the figure is noise. */
+        if (peakBin && max >= 3) {
+            var mid = 100 * (peakBin.x0 + peakBin.x1) / 2;
+            var p = el('div', 'vp-peak' + (mid > 88 ? ' vp-peak-r'
+                : (mid < 5 ? ' vp-peak-l' : '')),
+                'left:' + mid + '%;');
+            p.textContent = 'peak ' + peakBin.n;
+            track.appendChild(p);
+        }
+        box.appendChild(track);
+    }
+
+    function mixOf(bn, lane) {
+        if (lane.draw === 'tagfirst') {
+            return bn.n === 1 ? 'tag first attached' : 'tags first attached';
+        }
+        var parts = ORDER.filter(function (k) { return bn.by[k]; })
+            .map(function (k) { return bn.by[k] + ' ' + SRC[k]; });
+        return parts.join(', ');
+    }
+
+    /* ---- B · heat strip ----------------------------------------- *
+     * Magnitude as tint, in cells that cannot overlap, on boundaries
+     * every lane shares — so a column read downwards answers *what
+     * else happened that month*, which no other encoding here does at
+     * a glance. Colour alone is not allowed to carry a number, so a
+     * cell over the threshold prints it and the table view holds all
+     * of them.
+     * ------------------------------------------------------------ */
+
+    function drawHeat(ds, lane, box, ctx) {
+        var track = el('div', 'vp-track vp-track-heat');
+        track.style.setProperty('--vp-rules', ctx.rules);
+
+        if (lane.draw === 'spans') {
+            packSpans(spansOf(ds, lane)).forEach(function (s) {
+                var n = el('div', 'vp-sbar', 'left:' + pct(s.x) + '%;width:'
+                    + Math.max(0.35, pct(s.w)) + '%;top:'
+                    + (3 + (s.row % 3) * 9) + 'px;'
+                    + '--vp-tl-hue:var(--vp-tl-seen);');
+                tip(n, s.title, s.at + ' → ' + s.to);
+                track.appendChild(n);
+            });
+            box.appendChild(track);
+            return;
+        }
+
+        var rows = lane.draw === 'tagfirst'
+            ? lane.tags.map(function (t) {
+                return { x: t.x, at: t.at, src: null, title: t.name,
+                         colour: t.colour };
+            })
+            : entriesOf(ds, lane);
+
+        var bins = binsFor(ds.window, ctx.budgetB);
+        var max = fill(bins, rows);
+
+        bins.forEach(function (bn) {
+            var left = 'left:' + (100 * bn.x0) + '%;width:calc('
+                + Math.max(0.4, 100 * (bn.x1 - bn.x0)) + '% - 2px);'
+                + 'margin-left:1px;';
+            if (!bn.n) {
+                track.appendChild(el('div', 'vp-hempty', left));
+                return;
+            }
+            var cell = el('div', 'vp-hcell', left);
+
+            /* The tag lane's stripes are the tags themselves. Every
+             * other lane's are its sources, in the vocabulary's order —
+             * one mechanic, two subjects. */
+            /* Equal stripes, not proportional ones. A cell is about
+             * 28px wide, so one false positive against eighteen
+             * sightings is a sub-pixel sliver — the stripe says *this
+             * source is in here*, and the numeral and the count column
+             * say how many. A proportion nobody can measure is worse
+             * than no proportion. */
+            var stripes;
+            if (lane.draw !== 'tagfirst') {
+                stripes = ORDER.filter(function (k) { return bn.by[k]; })
+                    .map(function (k) { return { src: k }; });
+            } else if (bn.n <= 6) {
+                stripes = bn.rows.map(function (r) {
+                    return { own: r.colour || null, src: 'tag' };
+                });
+            } else {
+                /* Past six, a stripe is a hairline and a figure over
+                 * six saturated hairlines is unreadable on all of
+                 * them. 41 tags in one week — which this instance
+                 * has — is a tint and a number; the chip row below
+                 * still holds the names. */
+                stripes = [{ src: 'tag' }];
+            }
+
+            var step = ramp(bn.n, max);
+            var lums = [];
+            stripes.forEach(function (s) {
+                var b = el('b', s.own ? 'vp-own-hue' : '');
+                var paint = s.own || mix(hex(s.src), bodyBg(), step);
+                b.style.background = paint;
+                lums.push(lum(paint));
+                cell.appendChild(b);
+            });
+
+            /* No numeral on the tag lane while its stripes are still
+             * countable — they *are* the tags. Ink from the mean
+             * luminance of what the figure actually sits on, because
+             * the same mix step is near-black in one theme and a light
+             * grey in the other. */
+            if (bn.n > 1 && (lane.draw !== 'tagfirst' || bn.n > 6)) {
+                var mean = lums.reduce(function (a, b2) { return a + b2; }, 0)
+                    / lums.length;
+                var num = el('div', 'vp-hnum');
+                num.textContent = bn.n;
+                num.style.setProperty('--vp-num',
+                    mean > 0.42 ? '#111' : '#fff');
+                cell.appendChild(num);
+            }
+            tip(cell, bn.label + (bins.grain === 'day' ? '' : ' →'),
+                bn.n + ' ' + mixOf(bn, lane));
+            track.appendChild(cell);
+        });
+        box.appendChild(track);
+    }
+
+    /* Five steps of one hue, light to dark. Five and not nine: past
+     * about seven classes adjacent tints stop being separable, and the
+     * numeral is doing the fine reading anyway. */
+    function ramp(n, max) {
+        var q = max <= 1 ? 1 : Math.sqrt(n / max);
+        return [22, 40, 58, 78, 100][Math.min(4, Math.floor(q * 4.999))];
+    }
+
+    /* ---- C · stems ---------------------------------------------- *
+     * The exact moment kept — no bin — and the collision made the
+     * subject. Rows sharing a moment become one stem whose height is
+     * how many, square-rooted so 109-at-once and 1-at-once fit the
+     * same lane, and segmented so a small stem is countable pips and a
+     * large one is a bar with its mix.
+     * ------------------------------------------------------------ */
+
+    function drawStems(ds, lane, box, ctx) {
+        var track = el('div', 'vp-track vp-track-stem');
+        track.style.setProperty('--vp-rules', ctx.rules);
+        track.appendChild(el('div', 'vp-stem-base'));
+        var H = 42;
+
+        if (lane.draw === 'spans') {
+            packSpans(spansOf(ds, lane)).forEach(function (s) {
+                var n = el('div', 'vp-sbar', 'left:' + pct(s.x) + '%;width:'
+                    + Math.max(0.35, pct(s.w)) + '%;bottom:'
+                    + (3 + (s.row % 5) * 9) + 'px;'
+                    + '--vp-tl-hue:var(--vp-tl-seen);');
+                tip(n, s.title, s.at + ' → ' + s.to);
+                track.appendChild(n);
+            });
+            box.appendChild(track);
+            return;
+        }
+
+        var rows = lane.draw === 'tagfirst'
+            ? lane.tags.map(function (t) {
+                return { x: t.x, at: t.at, src: null, title: t.name,
+                         colour: t.colour };
+            })
+            : entriesOf(ds, lane);
+
+        var c = clump(rows);
+
+        /* Literal while literal fits. A lane whose worst pile-up is two
+         * rows draws one pip per row at a fixed 5px, so a stem's height
+         * means the same thing there as in the lane above it; only a
+         * lane that cannot fit its worst pile-up falls back to the
+         * square root, and its "Costs" line says so. */
+        var UNIT = 5, GAP = 1;
+        var literal = c.max * (UNIT + GAP) <= H;
+
+        c.groups.forEach(function (g) {
+            var n = g.rows.length;
+            var h = literal
+                ? n * UNIT + (n - 1) * GAP
+                : Math.max(4, Math.round(H * Math.sqrt(n / c.max)));
+            var stem = el('div', 'vp-stem', 'left:' + pct(g.x)
+                + '%;height:' + h + 'px;');
+
+            /* Countable while counting is possible: one unit per row
+             * with a hairline between, until a unit would be thinner
+             * than the hairline — then the stem is its sources, solid. */
+            var unit = (h - (n - 1)) / n;
+            if (unit >= 2) {
+                g.rows.forEach(function (r) {
+                    var u = el('u', r.colour ? 'vp-own-hue' : '');
+                    u.style.height = unit + 'px';
+                    u.style.background = r.colour
+                        || 'var(--vp-tl-' + r.src + ')';
+                    stem.appendChild(u);
+                });
+            } else {
+                var by = {};
+                g.rows.forEach(function (r) {
+                    var k = r.src || '_';
+                    by[k] = (by[k] || 0) + 1;
+                });
+                var keys = ORDER.filter(function (k) { return by[k]; });
+                if (!keys.length) { keys = ['_']; }
+                keys.forEach(function (k) {
+                    var u = el('u');
+                    u.style.height = (h * by[k] / n) + 'px';
+                    u.style.background = k === '_'
+                        ? 'var(--vp-tl-tag)' : hueOf(k);
+                    stem.appendChild(u);
+                });
+            }
+            tip(stem, g.at + ' · ' + n
+                + (n === 1 ? ' entry' : ' at this moment'),
+                g.rows.slice(0, 5).map(function (r) {
+                    return r.title;
+                }).join(' · ') + (n > 5 ? ' · +' + (n - 5) + ' more' : ''));
+            track.appendChild(stem);
+        });
+        box.appendChild(track);
+    }
+
+    /* ------------------------------------------------------------ *
+     * The grid the four share
+     * ------------------------------------------------------------ */
+
+    var DESIGNS = [
+        {
+            key: 'now', tag: 'Ships today',
+            name: 'Instant marks',
+            draw: drawNow,
+            reads: 'That something happened, and roughly when.',
+            hides: 'How much. Which source, in a two-source lane. '
+                + 'Anything that shares a moment with something else.',
+            cost: '—'
+        },
+        {
+            key: 'density', tag: 'A',
+            name: 'Density profile',
+            draw: drawDensity,
+            reads: 'How much, as height, on the lane\'s own scale — and '
+                + 'the source mix, stacked inside each bin. Quiet spans '
+                + 'are visibly quiet.',
+            hides: 'The exact moment: a row is somewhere inside its bin. '
+                + 'And the tail, where one bin is much the biggest — on '
+                + '193.161.193.99 a 203-row week flattens a 4-row week '
+                + 'to a hairline, which B still reads out.',
+            cost: 'A bin grain to choose, and a per-lane scale — so '
+                + 'heights compare within a lane, never across two.'
+        },
+        {
+            key: 'heat', tag: 'B',
+            name: 'Aligned heat strip',
+            draw: drawHeat,
+            reads: 'Coincidence. Every lane\'s cells share boundaries, so '
+                + 'one column read downwards says what else the value '
+                + 'was doing that month. Cells cannot overlap at any '
+                + 'density.',
+            hides: 'The exact moment, and fine differences between two '
+                + 'mid tints — which is why a cell over one prints its '
+                + 'number.',
+            cost: 'Colour is carrying a quantity, so it needs the scale '
+                + 'below and the table view; two of the ten source '
+                + 'tokens already sit outside the lightness band.'
+        },
+        {
+            key: 'stem', tag: 'C',
+            name: 'Coincidence stems',
+            draw: drawStems,
+            reads: 'The exact moment, kept — and how many rows share it, '
+                + 'as stem height. Four tags attached together are four '
+                + 'countable pips, not one square.',
+            hides: 'Totals over a span: a reader adds stems by eye.',
+            cost: 'Square-rooted height, because one moment on this '
+                + 'instance holds 109 rows and another holds one. A '
+                + 'busy lane reads as a comb.'
+        }
+    ];
+
+    function laneGrid(ds, design) {
+        var g = el('div', 'vp-lanes');
+        var ctx = {
+            rules: rulesFor(ds.window),
+            budgetA: 120,
+            budgetB: 46
+        };
+
+        g.appendChild(txt('div', 'vp-lane-head', 'Source'));
+        var ticks = el('div', 'vp-lane-head vp-lane-ticks');
+        tickLabels(ds.window).forEach(function (t) {
+            ticks.appendChild(txt('span', '', t));
+        });
+        g.appendChild(ticks);
+        g.appendChild(txt('div', 'vp-lane-head', 'In window'));
+
+        ds.lanes.forEach(function (lane) {
+            var lab = el('div', 'vp-lane-label');
+            var pill = txt('span', 'vp-tl-src vp-tl-src-' + lane.key,
+                lane.label);
+            lab.appendChild(pill);
+            lab.appendChild(txt('div', 'vp-tl-why', lane.sub));
+            g.appendChild(lab);
+
+            var ax = el('div', 'vp-lane-axis');
+            ax.setAttribute('data-vp-tl-draw', lane.draw);
+
+            /* The band for what this fetch did not carry, in every
+             * design: on 193.161.193.99 it is 1,256 of 2,256 entries,
+             * and a lane that quietly drew nothing there would be
+             * telling all four of these encodings the same lie. */
+            /* Mark lanes only, as it ships: the seen lane's cap cuts
+             * its *newest* spans, so a band anchored to the window's
+             * start would be exactly backwards there, and its
+             * sub-label states all three of its numbers instead. */
+            var cut = lane.count - lane.drawn;
+            if (lane.draw === 'marks' && cut > 0 && ds.boundary != null) {
+                var band = el('div', 'vp-lane-cut',
+                    '--vp-cut:' + ds.boundary + ';');
+                tip(band, 'Not fetched', cut.toLocaleString()
+                    + ' of this lane\'s entries in this span are older '
+                    + 'than the newest rows this fetch carries.');
+                ax.appendChild(band);
+            }
+
+            design.draw(ds, lane, ax, ctx);
+            g.appendChild(ax);
+
+            var cnt = el('div', 'vp-lane-count');
+            cnt.appendChild(txt('span', '', lane.count.toLocaleString()));
+            cnt.appendChild(txt('div', 'vp-tl-why',
+                lane.draw === 'tagfirst'
+                    ? (lane.tagTotal ? 'of ' + lane.tagTotal + ' tags' : '')
+                    : lane.parts));
+            g.appendChild(cnt);
+
+            if (lane.draw === 'tagfirst' && lane.tags.length) {
+                g.appendChild(chipRow(lane));
+            }
+        });
+        return g;
+    }
+
+    /* The shipping chip row, unchanged in all four: the tags grouped by
+     * the day they arrived. It is the readable half of that lane and
+     * none of these designs replaces it. */
+    function chipRow(lane) {
+        var row = el('div', 'vp-lane-tagchips');
+        row.appendChild(txt('span', 'vp-lane-tagchips-head',
+            'First attached'));
+        var shown = lane.tags.slice(0, 12);
+        var byDay = [], seen = {};
+        shown.forEach(function (t) {
+            if (!seen[t.at]) { seen[t.at] = { at: t.at, tags: [] };
+                byDay.push(seen[t.at]); }
+            seen[t.at].tags.push(t);
+        });
+        byDay.forEach(function (d) {
+            var grp = el('span', 'vp-tagfirst');
+            grp.appendChild(txt('span', 'vp-tagfirst-at', pretty(d.at)));
+            d.tags.forEach(function (t) {
+                var c = txt('span', 'vp-tag-chip', t.name);
+                c.style.background = t.colour || 'var(--bs-secondary-bg)';
+                c.style.color = readable(t.colour);
+                grp.appendChild(c);
+            });
+            row.appendChild(grp);
+        });
+        if (lane.tags.length > shown.length) {
+            row.appendChild(txt('span', 'vp-tl-why',
+                '+' + (lane.tags.length - shown.length) + ' more, newer'));
+        }
+        return row;
+    }
+
+    function readable(hex) {
+        if (!hex || hex.charAt(0) !== '#') { return 'inherit'; }
+        var h = hex.length === 4
+            ? hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3]
+            : hex.slice(1);
+        var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16),
+            b = parseInt(h.slice(4, 6), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000' : '#fff';
+    }
+
+    function pretty(at) {
+        var d = new Date(at + 'T00:00:00Z');
+        return d.getUTCDate() + ' ' + MONTH[d.getUTCMonth()] + ' '
+            + d.getUTCFullYear();
+    }
+
+    function tickLabels(win) {
+        var b = bounds(win), out = [];
+        for (var i = 0; i <= 4; i++) {
+            out.push(pretty(iso(new Date(b.t0 + (b.t1 - b.t0) * i / 4))));
+        }
+        return out;
+    }
+
+    function txt(tag, cls, s) {
+        var n = el(tag, cls);
+        n.textContent = s;
+        return n;
+    }
+
+    /* ------------------------------------------------------------ *
+     * The table view — the twin every colour-carried number needs
+     * ------------------------------------------------------------ */
+
+    function tableView(ds) {
+        var d = el('details', 'bench-table');
+        d.appendChild(txt('summary', '',
+            'Table view — every lane\'s count per bin'));
+        var bins = binsFor(ds.window, 46);
+        var t = el('table');
+        var thead = el('thead'), hr = el('tr');
+        hr.appendChild(txt('th', '', 'Lane'));
+        bins.forEach(function (bn) {
+            hr.appendChild(txt('th', '', bn.label.replace(/ 20/, ' ’')));
+        });
+        thead.appendChild(hr);
+        t.appendChild(thead);
+
+        var tb = el('tbody');
+        ds.lanes.forEach(function (lane) {
+            if (lane.draw === 'spans') { return; }
+            var rows = lane.draw === 'tagfirst'
+                ? lane.tags.map(function (x) { return { at: x.at }; })
+                : entriesOf(ds, lane);
+            var b2 = binsFor(ds.window, 46);
+            fill(b2, rows);
+            var tr = el('tr');
+            tr.appendChild(txt('td', '', lane.label));
+            b2.forEach(function (bn) {
+                tr.appendChild(txt('td', '', bn.n || '·'));
+            });
+            tb.appendChild(tr);
+        });
+        t.appendChild(tb);
+        var wrap = el('div', '', 'overflow-x:auto;');
+        wrap.appendChild(t);
+        d.appendChild(wrap);
+        return d;
+    }
+
+    /* ------------------------------------------------------------ *
+     * Render
+     * ------------------------------------------------------------ */
+
+    function render() {
+        var host = document.querySelector('[data-designs]');
+        host.textContent = '';
+        var ds = state.ds;
+
+        /* Where the fetched rows stop, as a fraction of the window —
+         * the same boundary the shipping band uses. */
+        var oldest = null;
+        ds.lanes.forEach(function (l) {
+            l.e.forEach(function (r) {
+                if (oldest === null || r[0] < oldest) { oldest = r[0]; }
+            });
+        });
+        ds.boundary = oldest === null ? null
+            : (oldest / (LANE_W - MARK_W)).toFixed(4);
+
+        DESIGNS.forEach(function (design) {
+            var sec = el('section', 'bench-design'
+                + (state.grid ? ' bench-grid' : ''));
+
+            var kick = el('div', 'bench-kicker');
+            kick.appendChild(txt('span', 'bench-tag', design.tag));
+            kick.appendChild(txt('h2', '', design.name));
+            sec.appendChild(kick);
+
+            var head = el('p', 'bench-note');
+            head.innerHTML = '<b>' + ds.value + '</b> · '
+                + ds.window.from + ' → ' + ds.window.to + ' · '
+                + ds.total.toLocaleString() + ' entries'
+                + (ds.total > ds.drawn
+                    ? ', <b>' + (ds.total - ds.drawn).toLocaleString()
+                      + '</b> of them beyond this fetch'
+                    : '');
+            sec.appendChild(head);
+
+            sec.appendChild(laneGrid(ds, design));
+
+            if (design.key === 'heat') { sec.appendChild(heatLegend()); }
+
+            var dl = el('dl', 'bench-verdict');
+            [['Reads', design.reads], ['Loses', design.hides],
+             ['Costs', design.cost]].forEach(function (p) {
+                var wrap2 = el('div');
+                wrap2.appendChild(txt('dt', '', p[0]));
+                wrap2.appendChild(txt('dd', '', p[1]));
+                dl.appendChild(wrap2);
+            });
+            sec.appendChild(dl);
+
+            if (design.key === 'heat') { sec.appendChild(tableView(ds)); }
+            host.appendChild(sec);
+        });
+        host.appendChild(closing());
+    }
+
+    /* What each one is actually for. Four questions a reader brings to
+     * this panel, and which encoding answers each without a second
+     * look. */
+    var MATRIX = [
+        ['When was this value active, and when was it quiet?',
+         'partly', 'yes', 'yes', 'yes'],
+        ['How much — is this lane busy or is that one square all there is?',
+         'no', 'yes', 'yes', 'partly'],
+        ['Which of a two-source lane\'s sources?',
+         'no', 'yes', 'yes', 'yes'],
+        ['Did these two lanes happen at the same time?',
+         'partly', 'partly', 'yes', 'partly'],
+        ['Exactly when — the day, not the week?',
+         'yes', 'no', 'no', 'yes'],
+        ['Four tags attached in one minute — are they four?',
+         'no', 'yes', 'yes', 'yes'],
+        ['Does it survive 1,100 entries in one lane?',
+         'no', 'partly', 'yes', 'partly']
+    ];
+
+    function closing() {
+        var s = el('section', 'bench-design');
+        var k = el('div', 'bench-kicker');
+        k.appendChild(txt('span', 'bench-tag', 'Pick'));
+        k.appendChild(txt('h2', '', 'What each one answers'));
+        s.appendChild(k);
+
+        var p = el('p', 'bench-note');
+        p.innerHTML = 'Read down a column. <b>B</b> is the only one that '
+            + 'answers every question at every density, and the only one '
+            + 'whose weakness — the exact day — the chronology underneath '
+            + 'already covers. <b>A</b> is the prettiest read of shape '
+            + 'and the worst at a long tail. <b>C</b> keeps the moment, '
+            + 'which is the one thing the panel currently gets right, and '
+            + 'is the smallest change from what ships. All three fix the '
+            + 'Tags lane.';
+        s.appendChild(p);
+
+        var t = el('table');
+        var hr = el('tr');
+        ['A reader asks', 'Ships today', 'A · density', 'B · heat',
+         'C · stems'].forEach(function (h) {
+            hr.appendChild(txt('th', '', h));
+        });
+        var th = el('thead'); th.appendChild(hr); t.appendChild(th);
+        var tb = el('tbody');
+        MATRIX.forEach(function (row) {
+            var tr = el('tr');
+            row.forEach(function (c, i) {
+                var td = txt('td', '', i === 0 ? c
+                    : (c === 'yes' ? '●' : (c === 'partly' ? '◐' : '○')));
+                /* Shape and nothing else. The two obvious hues for a
+                 * yes and a maybe here are `--vp-tl-seen` and
+                 * `--vp-tl-expiration`, and both fall under 3:1
+                 * against the surface — unreadable at 1rem, and
+                 * colour-alone besides. */
+                if (i > 0) {
+                    td.style.textAlign = 'center';
+                    td.style.fontSize = '1rem';
+                    td.style.color = 'var(--bs-body-color)';
+                    td.title = c;
+                }
+                tr.appendChild(td);
+            });
+            tb.appendChild(tr);
+        });
+        t.appendChild(tb);
+        var d = el('details', 'bench-table');
+        d.open = true;
+        d.appendChild(txt('summary', '', 'The matrix'));
+        d.appendChild(t);
+        d.appendChild(txt('div', 'vp-tl-why',
+            '● answers it at a glance · ◐ partly, or only on light data '
+            + '· ○ no'));
+        s.appendChild(d);
+
+        var note = el('p', 'bench-note');
+        note.style.marginTop = '14px';
+        note.innerHTML = 'Three things are separable from the choice and '
+            + 'worth taking whichever wins: the <b>month rules</b> '
+            + '(toggle above) — no design here needs them and all four '
+            + 'read better with them; <b>packed spans</b>, so the Seen '
+            + 'lane puts overlapping spans on their own rows instead of '
+            + 'compositing them into a darker patch; and the '
+            + '<b>dead space</b> — a lane is 90px tall because the count '
+            + 'column needs three lines, and the shipping marks sit in '
+            + 'the top 38px of it.';
+        s.appendChild(note);
+        return s;
+    }
+
+    function heatLegend() {
+        var w = el('div', 'bench-scale', 'margin-top:8px;');
+        w.appendChild(txt('span', '', 'Fewer'));
+        [22, 40, 58, 78, 100].forEach(function (s) {
+            var i = el('i');
+            i.style.background = 'color-mix(in srgb, var(--vp-tl-edit) '
+                + s + '%, var(--bs-body-bg))';
+            w.appendChild(i);
+        });
+        w.appendChild(txt('span', '', 'More · square-root steps, per lane '
+            + '· a cell over one prints its count'));
+        return w;
+    }
+
+    /* ------------------------------------------------------------ *
+     * Controls & the shared tooltip
+     * ------------------------------------------------------------ */
+
+    var seg = document.querySelector('[data-ctl="dataset"]');
+    D.datasets.forEach(function (ds, i) {
+        var b = txt('button', '', ds.value);
+        b.type = 'button';
+        b.dataset.v = ds.key;
+        b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+        seg.appendChild(b);
+    });
+
+    function press(sel, v) {
+        document.querySelectorAll(sel + ' button').forEach(function (b) {
+            b.setAttribute('aria-pressed',
+                b.dataset.v === v ? 'true' : 'false');
+        });
+    }
+    press('[data-ctl="theme"]', 'light');
+
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('.bench-seg button');
+        if (!b) { return; }
+        var ctl = b.parentNode.dataset.ctl;
+        if (ctl === 'dataset') {
+            state.ds = D.datasets.filter(function (d) {
+                return d.key === b.dataset.v;
+            })[0];
+            press('[data-ctl="dataset"]', b.dataset.v);
+            blurb();
+            render();
+        }
+        if (ctl === 'theme') {
+            state.theme = b.dataset.v;
+            document.documentElement.setAttribute('data-bs-theme', state.theme);
+            press('[data-ctl="theme"]', b.dataset.v);
+            /* B mixes its tints in script, so the theme is not a CSS
+             * swap for it — the cells have to be repainted. */
+            render();
+        }
+    });
+
+    document.querySelector('[data-ctl="grid"]').addEventListener('change',
+        function (e) { state.grid = e.target.checked; render(); });
+
+    function blurb() {
+        document.querySelector('[data-ctl="blurb"]').textContent =
+            state.ds.blurb;
+    }
+
+    var box = document.querySelector('[data-tip-box]');
+    document.addEventListener('mouseover', function (e) {
+        var n = e.target.closest('[data-tip-head]');
+        if (!n) { box.removeAttribute('data-on'); return; }
+        box.textContent = '';
+        var h = el('b'); h.textContent = n.dataset.tipHead;
+        box.appendChild(h);
+        if (n.dataset.tipSub) {
+            var s = el('span'); s.textContent = n.dataset.tipSub;
+            box.appendChild(s);
+        }
+        box.setAttribute('data-on', '');
+    });
+    document.addEventListener('mousemove', function (e) {
+        if (!box.hasAttribute('data-on')) { return; }
+        var x = Math.min(e.clientX + 14, window.innerWidth - 300);
+        box.style.left = x + 'px';
+        box.style.top = (e.clientY + 18) + 'px';
+    });
+
+    document.documentElement.setAttribute('data-bs-theme', 'light');
+    blurb();
+    render();
+}());
+</script>
