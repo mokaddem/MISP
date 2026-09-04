@@ -2,7 +2,6 @@
 App::uses('ValueFieldKind', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
 App::uses('GalaxyColour', 'Tools');
-App::uses('GalaxyCategory', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine
  * stored about this value.
@@ -651,29 +650,6 @@ $labelFacets = isset($labels['facets']) ? $labels['facets'] : array();
 $labelByKind = isset($labels['by_kind'])
     ? $labels['by_kind']
     : array('cluster' => 0, 'tag' => 0);
-
-/*
- * How many of these are attack patterns, which is the set the rail's
- * tactic strip folds. Counted over the whole fold rather than over the
- * page, because the card is too — a reader told *the attack patterns
- * among them* should not have that silently mean *among the hundred
- * listed*.
- *
- * The caption says it because the same clusters are otherwise two
- * findings on one tab: 21 of `8.8.8.8`'s 26 event clusters are attack
- * patterns, and they are rows here and a tactic roll-up there.
- */
-$labelTechniques = 0;
-foreach ($labels['rows'] as $labelRow) {
-    if ($labelRow['kind'] === ValueRelationTool::KIND_CLUSTER
-        && !empty($labelRow['cluster'])
-        && GalaxyCategory::isAttackPattern(
-            $labelRow['cluster']['GalaxyCluster']['type']
-        )
-    ) {
-        $labelTechniques++;
-    }
-}
 
 /*
  * The scope sentence's two numbers. Labels are read over every event
@@ -2722,34 +2698,6 @@ $headerSub = ob_get_clean();
                                 $scan['events_read']
                             )
                         )) ?>
-                    <?php endif; ?>
-                    <?php /*
-                     * Where the rail folds the same clusters, say
-                     * so. Attack patterns are usually most of this
-                     * section — 21 of `8.8.8.8`'s 26 — and they are
-                     * rows here and a tactic roll-up on the
-                     * named-threat card, which without a word
-                     * between them reads as two findings about the
-                     * neighbourhood rather than one set read twice.
-                     */ ?>
-                    <?php if ($labelTechniques > 0): ?>
-                        <?= sprintf(
-                            __(
-                                '%s, which the rail\'s'
-                                . ' %s strip folds into tactics —'
-                                . ' one set read two ways, not two'
-                                . ' findings.'
-                            ),
-                            '<strong>' . h(sprintf(
-                                __n(
-                                    '%d is an attack pattern',
-                                    '%d are attack patterns',
-                                    $labelTechniques,
-                                    $labelTechniques
-                                )
-                            )) . '</strong>',
-                            h(__('Where in the intrusion'))
-                        ) ?>
                     <?php endif; ?>
                 </span>
             </div>

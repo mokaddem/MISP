@@ -3585,3 +3585,44 @@ all 200, no PHP notices, `<div>` balanced. Caption geometry unchanged
 at `dL 0, dR 0` for all ten. *Labels in this neighbourhood* is four
 characters longer than any other strip card title and still sets on one
 line at 1500 px — checked in the browser, not assumed.
+
+### 16.9 The attack-pattern cross-reference, removed
+
+The Labels caption ended with a sentence B9 put there:
+
+> **21 are attack patterns**, which the rail's *Where in the intrusion*
+> strip folds into tactics — one set read two ways, not two findings.
+
+Its argument (§11, and the comment above `$labelTechniques`) was that
+the same clusters are rows here and a tactic roll-up on the rail, and
+that without a word between them a reader takes them for two findings.
+Checked against the built page, that word is doing nothing three
+separate things already do:
+
+1. **The count is a facet, one line below.** *Family* opens on
+   `Attack Pattern 21` — its first entry, and clickable, which the
+   sentence is not.
+2. **The rail card names its own source.** It prints *"Folded from 21
+   techniques on these events."* Two panels showing the same 21 over
+   the same events is the correspondence; prose asserting it adds
+   nothing a reader who has seen both numbers does not have.
+3. **It points at a card that may not be on screen.** A forward
+   reference to the rail, from the widest panel on the tab, is the
+   weakest place to make the argument.
+
+Removed, along with the `$labelTechniques` fold it existed for and the
+`GalaxyCategory` import that fold was the only user of. The caption is
+now one line — *"Galaxy clusters and taxonomy tags across all 20 events
+this value is in. The table above read 19 of them."*
+
+**What stays:** *"The table above read 19 of them."* It is not
+derivable from this table — it reports that the panel above read a
+smaller event set than this one did, which is a scope difference
+between two panels and the reason the two counts differ. It also only
+renders where the scopes actually differ.
+
+This is the same test §16.1 set, applied to the one sentence that pass
+left alone: a caption earns its words by telling a reader how to read
+the rows, and this one was arguing a point the numbers had already
+made. Verified: 45 fragments over the five §12.1 values, all 200, no
+PHP notices, `<div>` balanced, `GalaxyCategory` no longer referenced.
