@@ -343,6 +343,95 @@ class ValueProfile extends AppModel
     const EXTERNAL_EVENT_CAP = 25;
 
     /**
+     * Chronology rows one Timeline request renders.
+     *
+     * `OCCURRENCE_CAP`'s sibling, at the same number and for the same
+     * reason phase 22 recorded: the page control renders one button per
+     * page inline and collapses past about twenty, so a list that wants
+     * a pager wants this bound rather than a taller fragment.
+     *
+     * It is a cap on the *chronology* and on nothing else. The spine's
+     * bars and the lanes' counts come from a grouped aggregate over the
+     * whole scoped set (§6 of `25-timeline.md`), so a value whose
+     * entries run past this reads *showing 300 of 162,539* rather than
+     * a chart of the last fortnight labelled as a year.
+     */
+    const TIMELINE_ROW_CAP = 300;
+
+    /**
+     * Ids per *statement* when the audit reader scopes by `model_id`.
+     *
+     * Per statement, and never OR-ed into one — which is the whole
+     * point of the number and was measured the hard way. `audit_logs`
+     * carries two indexes, `model_id` and `event_id`, and none on
+     * `model`. A single scope with a flat `IN` list plans well:
+     * MariaDB materialises the list and does a `ref` join on
+     * `model_id`, one row per lookup. **Three scopes OR-ed into one
+     * `WHERE` plan as `type = ALL`, `key = NULL`, over 8,558,097
+     * rows** — an `OR` across two different columns makes the
+     * optimizer abandon both indexes and scan the table. On `443` that
+     * was 54,501 ms for the aggregate against 1,420 ms for the same
+     * three scopes read as three statements.
+     *
+     * So chunking here bounds statement *size* and nothing else, and a
+     * chunk is its own query whose grouped result is merged in PHP.
+     * 25,000 rather than something larger because `443` — 48,255
+     * occurrences, the heaviest value on the instance — then takes two
+     * chunks, so the merge path is the path the phase's own worst case
+     * runs rather than a branch nothing reaches until an instance
+     * bigger than this one meets it.
+     */
+    const AUDIT_ID_CHUNK = 25000;
+
+    /**
+     * Bars the seen-span lane draws before it states a remainder.
+     *
+     * D3: the lane merges nothing, so a value with 24 spans draws 24
+     * bars and one with 179,878 would draw a solid block. The bound is
+     * the lane's height rather than the query's cost — the spans are
+     * already on the occurrence rows — and 25 is what fits a 38px lane
+     * at a width a reader can still pick one bar out of.
+     *
+     * A cap is not a permission, so the lane says so for every reader
+     * (§14.6, and the wording phase 22 settled for the siblings
+     * section).
+     */
+    const TIMELINE_SPAN_CAP = 25;
+
+    /**
+     * Chips one undated kind lists before it states a remainder.
+     *
+     * `193.161.193.99` carries 670 attribute-tag rows and `8.8.8.8`'s
+     * events 69 event-tag rows over 48 distinct tags (§11), against the
+     * fixture's handful. The strip is a strip and not a tag index; what
+     * it cannot hold is on the Occurrences tab, which is what the
+     * count beside the chips is for.
+     */
+    const TIMELINE_CHIP_CAP = 12;
+
+    /**
+     * Actions whose `model_title` is the thing acted on rather than the
+     * thing acted upon.
+     *
+     * A tag or cluster action writes the tag's name into `model_title`
+     * while `model`/`model_id` still name the attribute — see
+     * `AuditLog::generateUserFriendlyTitle` (`:116`) — so for these the
+     * title is a subject the row should say out loud, and for an `edit`
+     * it is the occurrence's own name and saying it twice is how the
+     * two come to disagree.
+     */
+    const AUDIT_SUBJECT = array(
+        'tag',
+        'tag_local',
+        'remove_tag',
+        'remove_local_tag',
+        'galaxy',
+        'galaxy_local',
+        'remove_galaxy',
+        'remove_local_galaxy',
+    );
+
+    /**
      * @var array Lazily loaded models, by alias
      */
     private $models = array();
@@ -6142,6 +6231,369 @@ class ValueProfile extends AppModel
     /**
      * @return int
      */
+
+    /**
+     * The value's audit history: the rows about the objects this viewer
+     * may already see, scoped by id.
+     *
+     * **The reader `25-timeline.md` §5 decided, and the one
+     * `07-history.md` inherits.** Neither of the two ACL models MISP
+     * ships is adopted whole. `AuditLogsController::__applyAuditAcl`
+     * (`:356`) restricts a non-admin to their own `user_id`, which is
+     * not a scoping of the value's history but a different subject —
+     * *my* actions, filtered to this value — and on the verification
+     * instance every one of `8.8.8.8`'s 54 rows carries `org_id` ADMIN,
+     * so under it every other reader gets an empty tab and no way to
+     * tell that from a quiet value. `__createEventIndexConditions`
+     * (`:488`) is the right subject and the wrong cost: it runs a full
+     * `fetchEvent()` per event to enumerate the ids the viewer may see,
+     * and then reads the events' whole audit history — 204
+     * `fetchEvent()` calls over 816,041 rows on `193.161.193.99`, of
+     * which 1,007 are about the value.
+     *
+     * So: three model scopes over id sets `Value` has already run
+     * `buildConditions($user)` over.
+     *
+     * ```
+     * model = 'Attribute' AND model_id IN $scope['attributes']
+     * model = 'Object'    AND model_id IN $scope['objects']
+     * model = 'Event'     AND model_id IN $scope['events']
+     * ```
+     *
+     * **One statement per scope, merged in PHP, and both the split and
+     * the third line's column are measured rather than tidy** —
+     * `auditScopeQueries` has why each is 10× to 100× the whole cost of
+     * this reader on `443`.
+     *
+     * **Why this is safe and not merely cheap.** For any viewer and any
+     * event this returns a *subset* of what
+     * `__createEventIndexConditions` would hand them on that event's
+     * own audit index: that model grants every `model = 'Event'` row
+     * plus the rows for the attributes, objects, proposals and
+     * references the viewer may see, and this asks for the same thing
+     * narrowed to the occurrences of one value. The page discloses
+     * nothing MISP does not already disclose on a page that ships. It
+     * costs no `fetchEvent()` because the narrowing that model pays
+     * `fetchEvent()` to compute is the narrowing `Value`'s accessors
+     * have already done. The claim is a subset claim, which is why it
+     * is falsifiable: a viewer class for whom this returns *more* than
+     * that model would grant on the same event reopens the decision.
+     *
+     * **What it drops, and the tab says so.** Sibling rows — an edit to
+     * another attribute in an event this value sits in is not this
+     * value's history. `ShadowAttribute` and `ObjectReference` rows,
+     * which that model includes for an event: proposals reach the
+     * Timeline as their own dated lane and need no audit row, and
+     * object references do not reach it. And nothing is scoped by
+     * `model_title`: an occurrence edited *into* this value carries
+     * rows describing what it was before, they are that occurrence's
+     * rows and they are shown, and the row names the occurrence and the
+     * action rather than the title. Scoping by title would be both
+     * wrong — `model_title` prefers the new value — and a scan, since
+     * it is an unindexed `text` column.
+     *
+     * Tier 1 for the rows and tier 2 for the counts under §14.4, and
+     * both take the id set from `Value`, so permissions were settled
+     * before `audit_logs` was touched.
+     *
+     * @param array $scope `attributes`, `objects`, `events`: id lists
+     * @param array $options `limit` (rows; null for no cap), `change`
+     *                       to pay for the diff blobs, `order`
+     * @return array History-shaped rows, newest first
+     */
+    private function auditRowsFor(array $scope, array $options = array())
+    {
+        $cap = array_key_exists('limit', $options)
+            ? $options['limit']
+            : null;
+        $rows = array();
+        foreach ($this->auditScopeQueries($scope) as $query) {
+            foreach ($this->auditRead($query, $cap, $options) as $row) {
+                $rows[] = $row;
+            }
+        }
+        /*
+         * Each scope was read newest-first under the same cap, so the
+         * global newest `$cap` rows are a subset of the union of the
+         * per-scope newest `$cap` — which is what makes merging in PHP
+         * here exact rather than approximate. The merged set is at most
+         * three chunks' worth of caps, so this sorts hundreds of rows
+         * and never the 172,426 the aggregate counted.
+         */
+        usort($rows, function ($a, $b) {
+            if ($a['created'] === $b['created']) {
+                return $b['id'] - $a['id'];
+            }
+            return strcmp($b['created'], $a['created']);
+        });
+        if ($cap !== null && count($rows) > $cap) {
+            $rows = array_slice($rows, 0, (int)$cap);
+        }
+        return $rows;
+    }
+
+    /**
+     * One scope's worth of rows.
+     *
+     * @param array $query From `auditScopeQueries`
+     * @param int|null $cap
+     * @param array $options As `auditRowsFor`
+     * @return array
+     */
+    private function auditRead(array $query, $cap, array $options)
+    {
+        $audit = $this->model('AuditLog');
+        /*
+         * `change` is a brotli blob that `AuditLog::afterFind` decodes
+         * per row, so it is opt-in: the Timeline's chronology names the
+         * occurrence and the action and never the diff (§5.4), and
+         * making it pay 300 decompressions for a column it does not
+         * render is the kind of cost that hides inside a shared reader.
+         * The History tab, whose rows *are* the diff, asks for it.
+         */
+        $fields = array(
+            'AuditLog.id',
+            'AuditLog.created',
+            'AuditLog.action',
+            'AuditLog.model',
+            'AuditLog.model_id',
+            'AuditLog.model_title',
+            'AuditLog.event_id',
+            'AuditLog.org_id',
+            'AuditLog.user_id',
+            'AuditLog.request_type',
+        );
+        if (!empty($options['change'])) {
+            $fields[] = 'AuditLog.change';
+        }
+        $params = array(
+            'conditions' => $query['conditions'],
+            'fields' => $fields,
+            'contain' => array(
+                // Both, and for the reason phase 24 recorded against
+                // `AnalystData::rearrangeOrganisation`: a reader that
+                // re-queries per row for the name reports every row as
+                // an unknown organisation the moment the association
+                // is absent.
+                'Organisation' => array('fields' => array(
+                    'Organisation.id',
+                    'Organisation.name',
+                )),
+                'User' => array('fields' => array(
+                    'User.id',
+                    'User.email',
+                )),
+            ),
+            /*
+             * `id DESC` and not `created DESC`. Neither column is
+             * indexed on `audit_logs`, so both sort; `id` is the
+             * primary key, it is monotonic in `created` because the
+             * table is append-only, and ordering by it lets a tie
+             * inside one second come out in the order it happened.
+             */
+            'order' => isset($options['order'])
+                ? $options['order']
+                : array('AuditLog.id' => 'DESC'),
+            'recursive' => -1,
+        );
+        if ($cap !== null) {
+            $params['limit'] = (int)$cap;
+        }
+        $rows = array();
+        foreach ($audit->find('all', $params) as $row) {
+            $rows[] = $this->auditRow($row);
+        }
+        return $rows;
+    }
+
+    /**
+     * The same three scopes, grouped rather than read.
+     *
+     * Tier 2 under §14.4 with the reason it asks for: the answer is a
+     * group, the id set was ACL'd before the aggregate ran, and
+     * materialising `443`'s 162,539 rows to count them in PHP is the
+     * wrong shape — it is also the §7.9 trap, where a tally over the
+     * fetched page stops being honest the moment the list paginates.
+     *
+     * Grouped by month and action rather than by month alone, because
+     * the edit lane's own totals and the spine's stack both read this
+     * and a stack segment is a source. The month key is `Y-m` from
+     * `created`, which is a `datetime` and needs no conversion.
+     *
+     * @param array $scope As `auditRowsFor`
+     * @return array `total`, `by_month` (`Y-m` => n), `by_action`,
+     *               `first`, `last`
+     */
+    private function auditCountsFor(array $scope)
+    {
+        $counts = array(
+            'total' => 0,
+            'by_month' => array(),
+            'by_action' => array(),
+            'first' => null,
+            'last' => null,
+        );
+        $audit = $this->model('AuditLog');
+        foreach ($this->auditScopeQueries($scope) as $query) {
+            $rows = $audit->find('all', array(
+                'conditions' => $query['conditions'],
+                'fields' => array(
+                    'DATE_FORMAT(AuditLog.created, \'%Y-%m\') AS month',
+                    'AuditLog.action',
+                    'COUNT(*) AS n',
+                    'MIN(AuditLog.created) AS first_c',
+                    'MAX(AuditLog.created) AS last_c',
+                ),
+                'group' => array('month', 'AuditLog.action'),
+                'order' => array('month' => 'ASC'),
+                'recursive' => -1,
+            ));
+            foreach ($rows as $row) {
+                $month = $row[0]['month'];
+                $action = $row['AuditLog']['action'];
+                $n = (int)$row[0]['n'];
+                $counts['total'] += $n;
+                if (!isset($counts['by_month'][$month])) {
+                    $counts['by_month'][$month] = 0;
+                }
+                $counts['by_month'][$month] += $n;
+                if (!isset($counts['by_action'][$action])) {
+                    $counts['by_action'][$action] = 0;
+                }
+                $counts['by_action'][$action] += $n;
+                if ($counts['first'] === null
+                    || $row[0]['first_c'] < $counts['first']
+                ) {
+                    $counts['first'] = $row[0]['first_c'];
+                }
+                if ($counts['last'] === null
+                    || $row[0]['last_c'] > $counts['last']
+                ) {
+                    $counts['last'] = $row[0]['last_c'];
+                }
+            }
+        }
+        ksort($counts['by_month']);
+        return $counts;
+    }
+
+    /**
+     * The three model scopes, one query each — never OR-ed.
+     *
+     * An empty list yields no query at all, which is the difference
+     * between *this value has no history* and *every row in
+     * `audit_logs`*: an empty `IN` set rendered into a condition would
+     * read the whole table.
+     *
+     * **Both columns are `model_id`, including the event scope**, and
+     * §5.3's pseudocode says `event_id` there. `event_id` is indexed
+     * and looks like the better name, and it is the worse one: MISP
+     * writes it on *every* model's rows — an `Attribute` row carries
+     * the event it belongs to — so `event_id IN (…)` matches the whole
+     * audit history of those events and filters `model` from each row
+     * afterwards. That is the 816,041 rows §5.2 costed the per-event
+     * model at, arrived at by a different route: 14,330 ms on `443`'s
+     * 1,844 events, against **129 ms** for `model_id` over the same
+     * ids. It is sound because `event_id` and `model_id` are the same
+     * number on every `model = 'Event'` row — verified over all 28,048
+     * of them, none null — and the two forms return the identical
+     * 9,493 rows.
+     *
+     * @param array $scope `attributes`, `objects`, `events`: id lists
+     * @return array One entry per statement: `model`, `conditions`
+     */
+    private function auditScopeQueries(array $scope)
+    {
+        $byModel = array(
+            'Attribute' => isset($scope['attributes'])
+                ? $scope['attributes']
+                : array(),
+            'Object' => isset($scope['objects'])
+                ? $scope['objects']
+                : array(),
+            'Event' => isset($scope['events'])
+                ? $scope['events']
+                : array(),
+        );
+        $queries = array();
+        foreach ($byModel as $model => $ids) {
+            $ids = array_values(array_unique(array_map('intval', $ids)));
+            if (empty($ids)) {
+                continue;
+            }
+            foreach (array_chunk($ids, self::AUDIT_ID_CHUNK) as $chunk) {
+                $queries[] = array(
+                    'model' => $model,
+                    'conditions' => array(
+                        'AuditLog.model' => $model,
+                        'AuditLog.model_id' => $chunk,
+                    ),
+                );
+            }
+        }
+        return $queries;
+    }
+
+    /**
+     * One `audit_logs` row in the shape both tabs read.
+     *
+     * The shape is `07-history.md`'s, which the fixture's `auditRow()`
+     * already writes and its panel already renders — so History goes
+     * live against a reader it inherits rather than one it negotiates
+     * with, which is the bargain `25-timeline.md` §2 takes.
+     *
+     * @param array $row From `AuditLog::find`
+     * @return array
+     */
+    private function auditRow(array $row)
+    {
+        $log = $row['AuditLog'];
+        $org = isset($row['Organisation']['name'])
+            ? $row['Organisation']['name']
+            : null;
+        $actor = isset($row['User']['email'])
+            ? $row['User']['email']
+            : null;
+        return array(
+            /*
+             * Carried, and not only for completeness: the three-scope
+             * merge breaks a same-second tie on it, and it is the only
+             * stable identity an audit row has.
+             */
+            'id' => (int)$log['id'],
+            'created' => $log['created'],
+            'action' => $log['action'],
+            'model' => $log['model'],
+            'model_id' => (int)$log['model_id'],
+            'model_title' => $log['model_title'],
+            /*
+             * Null where the row's user is gone, and the caller says
+             * *<org> (unnamed)* rather than *unknown*: which
+             * organisation acted is the part that survived a deleted
+             * account, and it is also all a non-site-admin gets from
+             * `__applyAuditAcl` for anyone outside their own org.
+             */
+            'actor' => $actor,
+            'org' => $org,
+            'request_type' => (int)$log['request_type'],
+            'change' => array_key_exists('change', $log)
+                ? $log['change']
+                : null,
+            'renamed' => false,
+            'subject' => in_array($log['action'], self::AUDIT_SUBJECT, true)
+                ? $log['model_title']
+                : null,
+            'note' => null,
+            'event_id' => $log['event_id'] === null
+                ? null
+                : (int)$log['event_id'],
+            'event_info' => null,
+            'attribute_id' => $log['model'] === 'Attribute'
+                ? (int)$log['model_id']
+                : null,
+        );
+    }
+
     private function ssdeepThreshold()
     {
         $threshold = Configure::read(

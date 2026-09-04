@@ -23,7 +23,7 @@ to `done` only when §14's verification has run against it.
 | # | Task | Section | Status |
 |---|---|---|---|
 | T1 | `ValueProfile::forTimeline` — the facade method, per-panel | §4 | todo |
-| T2 | The audit reader on the decided ACL model, three model scopes | §5 | todo |
+| T2 | The audit reader on the decided ACL model, three model scopes | §5, §5.5 | **done** |
 | T3 | The counts/rows split: one grouped aggregate, one capped read | §6 | todo |
 | T4 | Sightings lane from phase 23's context, no second read | §11 | todo |
 | T5 | Publications from one `fetchSimpleEvents`, epoch-0 excluded | §11 | todo |
@@ -203,6 +203,11 @@ campaign has used so far — 54 rows on `8.8.8.8`, 407 on
 
 On `443` it is **162,539**.
 
+That is the *attribute* scope. The reader §5 decided has three, and its
+three-scope total on `443` is **172,426** — 162,539 attribute rows,
+9,493 event rows and 394 object rows. §5.5 has the measurement; the
+figure to quote when costing this tab is the larger one.
+
 The reason is the seam, not the log. §14.3 fixes identity as the value and
 not the pair, so `Value::conditionsFor` matches `value1` *or* `value2`,
 and `443` is 395 occurrences as a value and **47,860 as the port half of a
@@ -287,8 +292,22 @@ may already see, scoped by id, in three model scopes:**
 ```
 model = 'Attribute' AND model_id IN Value::occurrenceIdsFor($user, $value)
 model = 'Object'    AND model_id IN Value::occurrenceObjectIdsFor($user, …)
-model = 'Event'     AND event_id IN (the ACL'd event ids)
+model = 'Event'     AND model_id IN (the ACL'd event ids)
 ```
+
+**The third line reads `model_id` and not `event_id`, and that is a
+correction to this section rather than a detail of it.** `event_id` is
+one of `audit_logs`' two indexes and `model` is not indexed at all, so
+it looks like the column to name. MISP writes `event_id` on *every*
+model's rows — an `Attribute` row carries the event it belongs to — so
+`event_id IN (…)` matches the whole audit history of those events and
+filters `model = 'Event'` from each row afterwards. On `443`'s 1,844
+events that is the 816,041 rows §5.2 costed the per-event model at,
+reached by a different route, and it measured **14,330 ms** against
+**129 ms** for `model_id` over the same ids. The substitution is sound
+because the two columns hold the same number on every `model = 'Event'`
+row — verified over all 28,048 of them, none null — and the two forms
+return the identical 9,493 rows. §5.5 has the rest.
 
 Every id set is produced by an accessor that has already applied
 `buildConditions($user)`, so permissions are settled before the audit
@@ -329,6 +348,80 @@ Three things, and the third is the one a reader could misread:
   occurrence and the action, never the title, and §11's row contract says
   so. Scoping by title instead would be both wrong and a scan —
   `model_title` is an unindexed `text` column.
+
+### 5.5 What the reader cost, and the two things that made it
+
+T2's verification, on a quiet box (load 1.9 on 12 cores — the earlier
+figures in this section's first draft were taken at load 31 and are not
+quoted). `25-audit-reader-probe.php` is the harness: it runs the reader
+rather than re-writing its SQL by hand, reads as a chosen user so
+§8.2's *read as a site admin and all three models look identical* trap
+is something the probe can fail, and checks D2's invariant on every
+value.
+
+**The first shape was 40× too slow, and the cap was not why.**
+
+| | aggregate | capped read |
+|---|---|---|
+| `443`, three scopes OR-ed into one `WHERE` | 54,501 ms | 13,025 ms |
+| `443`, one statement per scope, `model_id` throughout | **497 ms** | **459 ms** |
+
+Every count is identical across the two — 172,426 on `443`, 369 on
+`8.8.8.8`, 2,052 on `193.161.193.99` — so this is a query-plan fix and
+not a change to what the tab says. Two independent causes, and both
+were things the first draft did on purpose:
+
+1. **The `OR` across scopes.** `EXPLAIN` on the OR-ed form is
+   `type = ALL`, `key = NULL`, `rows = 8,558,097` — a full scan of the
+   table. An `OR` whose branches name two different columns makes the
+   optimizer abandon both indexes. A single scope with a flat `IN` list
+   plans as a materialised subquery joined `ref` on `model_id`, one row
+   per lookup. So the three scopes are three statements merged in PHP.
+2. **`event_id` on the event scope**, per §5.3's correction above.
+
+**Chunking was the first cause, not a mitigation for it.** The first
+draft chunked the id lists at 1,000 to keep `IN` lists short, which is
+what built the 52-branch `OR` that scanned. A flat 48,255-id `IN` is
+*faster* than the chunked form by two orders of magnitude, so
+`AUDIT_ID_CHUNK` now bounds statement size only, a chunk is its own
+statement, and it sits at 25,000 — where `443` takes two chunks, so the
+merge path is the path the phase's heaviest value runs rather than a
+branch nothing reaches.
+
+**The merge is exact, not approximate.** Each scope is read newest-first
+under the same cap, so the global newest *n* is a subset of the union of
+the per-scope newest *n*. The merged set is at most three chunks' worth
+of caps — hundreds of rows — and never the 172,426 the aggregate
+counted, which is the §7.9 trap this reader has to stay out of.
+
+**§5.2's first row, demonstrated.** That row was arithmetic: *all 54 of
+`8.8.8.8`'s audit rows carry `org_id` ADMIN, so under the per-user model
+every other reader gets an empty tab.* Read as `orgadmin@circl.lu` —
+CIRCL, no `perm_site_admin` — the decided reader gives:
+
+| Value | site admin | CIRCL org admin |
+|---|---|---|
+| `8.8.8.8` | 26 occ / 20 events / 369 rows | 14 occ / 12 events / **226 rows** |
+| `443` | 48,255 occ / 1,844 events / 172,426 rows | 829 occ / 45 events / **1,926 rows** |
+| `193.161.193.99` | 337 occ / 204 events / 2,052 rows | 3 occ / 3 events / **42 rows** |
+| `2.2.2.2` | 13 occ / 13 events / 164 rows | 10 occ / 10 events / **144 rows** |
+| `45.155.205.233` | 2 occ / 1 event / 13 rows | 0 occ / **0 rows** |
+
+Every one of those *newest* rows is authored by `admin@admin.test`, so
+the per-user model would have handed this reader **nothing** on all five
+— which is the difference D1 was taken for, now measured rather than
+predicted. The ACL bites in the right place and by the right amount: the
+CIRCL reader's row count tracks their occurrence and event counts, and
+the reader issues no statement at all where the scope is empty, so
+`45.155.205.233` is a zero rather than a whole-table read.
+
+**And the pathological value is a site-admin pathology.** `443` is
+48,255 occurrences to the admin and 829 to CIRCL. The scope build —
+`Value::occurrenceIdsFor`, which is `Value`'s cost and not this
+reader's — is 1,067 ms of the admin's `443` and 152 ms of CIRCL's, and
+is now the largest single number on the endpoint.
+
+---
 
 ---
 
