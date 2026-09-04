@@ -4693,6 +4693,247 @@
     }
 
     /**
+     * @param {Date} d
+     * @return {string} `Y-m-d`
+     */
+    function tlIso(d) {
+        return d.toISOString().slice(0, 10);
+    }
+
+    /**
+     * The lane's calendar bins for a window, with a day-to-bin map.
+     *
+     * Mirrors `ValueProfileBuckets::series()` and `::locate()` — whole
+     * days, fixed weeks laid forwards from the window's start, or
+     * calendar months clipped at both ends — and takes its grain from
+     * the rule the server shipped rather than from a second copy of
+     * the thresholds. The two renderers have to agree bin for bin: the
+     * server draws the fragment and this redraws it on every frame of
+     * a brush, so a lane that rebinned on its own would be a lane that
+     * jumped when the reader let go of the handle.
+     *
+     * @param {{from: string, to: string}} window_
+     * @return {{bins: Array, at: Object}}
+     */
+    function tlLaneBins(window_) {
+        var months = tl.data.months || [];
+        var rule = (tl.data.lane && tl.data.lane.rule) || [];
+        var from = window_.from;
+        var to = window_.to;
+        var last = tlStamp(to + ' 00:00:00');
+        var days = 1 + Math.round(
+            (last - tlStamp(from + ' 00:00:00')) / 864e5
+        );
+        var unit = 'week';
+        rule.some(function (step) {
+            if (step.days === null || days <= step.days) {
+                unit = step.unit;
+                return true;
+            }
+            return false;
+        });
+
+        var bins = [];
+        var cursor;
+        if (unit === 'month') {
+            cursor = new Date(tlStamp(from.slice(0, 7) + '-01 00:00:00'));
+            var stopMonth = to.slice(0, 7);
+            while (tlIso(cursor).slice(0, 7) <= stopMonth) {
+                var eom = tlIso(new Date(Date.UTC(
+                    cursor.getUTCFullYear(),
+                    cursor.getUTCMonth() + 1,
+                    0
+                )));
+                bins.push({
+                    from: tlIso(cursor),
+                    to: eom < to ? eom : to
+                });
+                cursor = new Date(Date.UTC(
+                    cursor.getUTCFullYear(),
+                    cursor.getUTCMonth() + 1,
+                    1
+                ));
+            }
+        } else {
+            var step = unit === 'week' ? 7 : 1;
+            cursor = new Date(tlStamp(from + ' 00:00:00'));
+            while (cursor.getTime() <= last) {
+                var end = cursor.getTime() + (step - 1) * 864e5;
+                bins.push({
+                    from: tlIso(cursor),
+                    to: tlIso(new Date(end > last ? last : end))
+                });
+                cursor = new Date(
+                    tlStamp(bins[bins.length - 1].to + ' 00:00:00') + 864e5
+                );
+            }
+        }
+
+        /*
+         * The name, out of the twelve the server shipped and by the
+         * same one rule it uses — a name per unit would put the two
+         * renderers a word apart on every month bin.
+         */
+        var at = {};
+        bins.forEach(function (bin, index) {
+            var a = new Date(tlStamp(bin.from + ' 00:00:00'));
+            var b = new Date(tlStamp(bin.to + ' 00:00:00'));
+            bin.title = bin.from === bin.to
+                ? a.getUTCDate() + ' ' + (months[a.getUTCMonth()] || '')
+                    + ' ' + a.getUTCFullYear()
+                : a.getUTCDate() + ' ' + (months[a.getUTCMonth()] || '')
+                    + ' – ' + b.getUTCDate() + ' '
+                    + (months[b.getUTCMonth()] || '') + ' '
+                    + b.getUTCFullYear();
+            var day = new Date(a.getTime());
+            while (tlIso(day) <= bin.to) {
+                at[tlIso(day)] = index;
+                day = new Date(day.getTime() + 864e5);
+            }
+        });
+        return { bins: bins, at: at };
+    }
+
+    /**
+     * A lane's binned rows as columns, in the axis's viewBox units.
+     *
+     * The mirror of the template's `$columnsFor`, and the same three
+     * decisions: the scale is the lane's own tallest bin, a segment
+     * gap is a hairline only while a segment is tall enough to have
+     * one, and a bar is never shorter than two units so a bin holding
+     * one row is still a bin holding one row.
+     *
+     * @param {Array} bins From `tlLaneBins`
+     * @param {Object} byBin index => `n`, `parts` (`hue`, `n`), `title`
+     * @param {boolean} own Whether the hues are analyst-chosen
+     * @param {boolean} ground Whether the lane behind is hatched
+     * @return {{svg: string, peak: ?Object}}
+     */
+    function tlColumns(bins, byBin, own, ground) {
+        var lane = tl.data.lane || {};
+        var width = lane.width || 740;
+        var base = lane.base === undefined ? 37 : lane.base;
+        var tallest = lane.bar || 25;
+        var gapX = lane.gap === undefined ? 1 : lane.gap;
+        var window_ = tlWindow();
+        var t0 = tlStamp(window_.from + ' 00:00:00');
+        var span = Math.max(1, tlStamp(window_.to + ' 23:59:59') - t0);
+
+        function edge(at) {
+            return (Math.max(0, Math.min(1, (tlStamp(at) - t0) / span))
+                * width);
+        }
+
+        var max = 0;
+        Object.keys(byBin).forEach(function (i) {
+            max = Math.max(max, byBin[i].n);
+        });
+        if (!max) {
+            return { svg: '', peak: null };
+        }
+
+        var svg = '';
+        var peak = null;
+        Object.keys(byBin).forEach(function (key) {
+            var i = Number(key);
+            var bin = byBin[key];
+            if (!bins[i]) {
+                return;
+            }
+            var x = Math.round(edge(bins[i].from + ' 00:00:00') * 100) / 100;
+            var w = Math.round(Math.max(
+                1,
+                edge(bins[i].to + ' 23:59:59') - x - gapX
+            ) * 100) / 100;
+            var h = Math.max(2, Math.round(tallest * bin.n / max * 10) / 10);
+            if (peak === null || bin.n > peak.n) {
+                peak = { n: bin.n, at: x + w / 2, title: bin.title };
+            }
+            if (ground) {
+                svg += '<rect class="vp-lane-ground" x="' + (x - 1)
+                    + '" y="' + (Math.round((base - h - 1) * 100) / 100)
+                    + '" width="' + (w + 2) + '" height="' + (h + 2)
+                    + '" rx="2"></rect>';
+            }
+            if (own) {
+                svg += '<rect class="vp-lane-bar-own" x="' + x + '" y="'
+                    + (Math.round((base - h) * 100) / 100) + '" width="'
+                    + w + '" height="' + h + '" rx="1.5"></rect>';
+            }
+            /*
+             * Segments off shared boundaries, not off independently
+             * rounded heights — see the template's `$columnsFor`. A
+             * tag column can hold 41 segments in 25 units, and a
+             * sub-pixel crack between each pair turns it into a
+             * barcode.
+             */
+            var gapY = bin.parts.length > 1 && h >= 6 ? 1 : 0;
+            var inner = h - gapY * (bin.parts.length - 1);
+            var bottom = base;
+            var acc = 0;
+            bin.parts.forEach(function (part, k) {
+                acc += part.n;
+                var top = base - inner * acc / bin.n - gapY * k;
+                var y0 = Math.round(top * 100) / 100;
+                var ph = Math.max(
+                    0.5,
+                    Math.round((Math.round(bottom * 100) / 100 - y0) * 100)
+                        / 100
+                );
+                svg += '<rect class="vp-lane-bar'
+                    + (own && ph >= 3 ? ' vp-lane-bar-edge' : '')
+                    + '" x="' + x + '" y="' + y0
+                    + '" width="' + w + '" height="' + ph
+                    + '" style="--vp-tl-hue: ' + tlEscape(part.hue)
+                    + ';"><title>' + tlEscape(bin.title)
+                    + '</title></rect>';
+                bottom = top - gapY;
+            });
+        });
+        return { svg: svg, peak: peak };
+    }
+
+    /**
+     * Put the lane's one direct label where its tallest column is, or
+     * take it away.
+     *
+     * Below three it is not printed: a lane whose busiest bin holds two
+     * rows is telling the reader nothing the bars have not.
+     *
+     * @param {Element} axis
+     * @param {?Object} peak
+     */
+    function tlPeak(axis, peak) {
+        var old = axis.querySelector('.vp-lane-peak');
+        if (old) {
+            old.remove();
+        }
+        if (peak === null || peak.n < 3) {
+            return;
+        }
+        var width = (tl.data.lane && tl.data.lane.width) || 740;
+        var at = 100 * peak.at / width;
+        var tag = document.createElement('span');
+        tag.className = 'vp-lane-peak'
+            + (at > 86 ? ' vp-lane-peak-r' : (at < 6 ? ' vp-lane-peak-l'
+                : ''));
+        tag.style.left = (Math.round(at * 100) / 100) + '%';
+        tag.title = peak.title;
+        tag.textContent = tlPeakLabel(peak.n);
+        var plot = axis.querySelector('.vp-lane-plot') || axis;
+        plot.insertBefore(tag, plot.firstChild);
+    }
+
+    /**
+     * @param {number} n
+     * @return {string}
+     */
+    function tlPeakLabel(n) {
+        var template = (tl.data.labels && tl.data.labels.peak) || 'peak %s';
+        return template.replace('%s', tlCount(n));
+    }
+
+    /**
      * Paint the brush over the bins the window covers, and show the
      * reset control only once the reader has moved it.
      *
@@ -4726,9 +4967,8 @@
      * @param {Object} window_ `from` and `to`
      * @param {function(string): number} xFor
      */
-    function tlDrawTagLane(axis, window_, xFor) {
+    function tlDrawTagLane(axis, window_, bins) {
         var tags = tl.data.tags || [];
-        var geometry = tl.data.lane;
         var labels = tl.data.labels || {};
         var svg = axis.querySelector('[data-vp-tl-marks]');
         var mine = tags.filter(function (tag) {
@@ -4739,19 +4979,42 @@
             return day >= window_.from && day <= window_.to;
         });
         if (svg) {
-            var marks = '';
+            /*
+             * A segment per tag, **in that tag's own colour** — which
+             * is the whole reason this lane is drawn rather than
+             * counted. A source lane's segments answer *which source*;
+             * these answer *which tag*, and the chip row under the
+             * lane spells the names out.
+             */
+            var byBin = {};
             mine.forEach(function (tag) {
-                var hue = tag.colour || 'var(--vp-tl-tag)';
-                var title = (labels.tag_first || '%1$s — %2$s')
-                    .replace('%1$s', tag.name)
-                    .replace('%2$s', tag.at.slice(0, 10));
-                marks += '<rect class="vp-lane-mark" x="' + xFor(tag.at)
-                    + '" y="12" width="' + geometry.mark
-                    + '" height="13" rx="1.5" style="--vp-tl-hue: '
-                    + tlEscape(hue) + ';"><title>' + tlEscape(title)
-                    + '</title></rect>';
+                var i = bins.at[tag.at.slice(0, 10)];
+                if (i === undefined) {
+                    return;
+                }
+                if (!byBin[i]) {
+                    byBin[i] = { n: 0, parts: [], names: [] };
+                }
+                byBin[i].n++;
+                byBin[i].parts.push({
+                    hue: tag.colour || 'var(--vp-tl-tag)',
+                    n: 1
+                });
+                byBin[i].names.push(tag.name);
             });
-            svg.innerHTML = marks;
+            Object.keys(byBin).forEach(function (i) {
+                var rest = byBin[i].n - Math.min(6, byBin[i].n);
+                byBin[i].title = (labels.tag_first || '%1$s — %2$s')
+                    .replace('%1$s', byBin[i].names.slice(0, 6).join(', ')
+                        + (rest > 0
+                            ? (labels.tag_more || ' +%s more')
+                                .replace('%s', rest)
+                            : ''))
+                    .replace('%2$s', bins.bins[i].title);
+            });
+            var drawn = tlColumns(bins.bins, byBin, true, false);
+            svg.innerHTML = drawn.svg;
+            tlPeak(axis, drawn.peak);
         }
         // How many of the set the window holds, over how many there
         // are — the second number is the tag set and never moves.
@@ -4792,6 +5055,10 @@
         }
 
         var windowCounts = tlWindowCounts(window_);
+        // One binning for the whole grid: every lane's columns share
+        // boundaries, which is what lets a reader compare two lanes by
+        // looking straight down.
+        var laneBins = tlLaneBins(window_);
 
         /*
          * Where the rows stop, and how many rows there are to stop.
@@ -4825,7 +5092,7 @@
              * source in the day map, and no cap to band.
              */
             if (axis.dataset.vpTlDraw === 'tagfirst') {
-                tlDrawTagLane(axis, window_, xFor);
+                tlDrawTagLane(axis, window_, laneBins);
                 return;
             }
             var sources = (axis.dataset.vpTlSources || '').split(',');
@@ -4838,36 +5105,83 @@
                     && entry.day <= window_.to;
             });
 
-            if (svg) {
+            if (svg && spans) {
+                /*
+                 * The seen lane keeps its rects. It draws intervals,
+                 * not instants, and a first-seen span binned into a
+                 * column would be a bar saying *something lasted a
+                 * while somewhere in here*.
+                 */
                 var marks = '';
                 mine.forEach(function (entry) {
                     var x = xFor(entry.at);
-                    var hue = 'var(--vp-tl-' + entry.source + ')';
-                    var title = '<title>' + tlEscape(entry.title)
-                        + '</title>';
-                    if (spans) {
-                        var end = xFor(entry.spanTo || entry.at);
-                        var width = Math.max(geometry.mark, end - x);
-                        marks += '<rect class="vp-lane-span" x="' + x
-                            + '" y="19" width="' + width
-                            + '" height="7" rx="3" style="--vp-tl-hue: '
-                            + hue + ';">' + title + '</rect>';
-                        return;
-                    }
-                    if (hatched) {
-                        // A mark on a hatch needs a ground, or the one
-                        // recorded edit disappears into the reason there
-                        // are no others.
-                        marks += '<rect class="vp-lane-ground" x="'
-                            + (x - 3) + '" y="9" width="11" height="19"'
-                            + ' rx="2"></rect>';
-                    }
-                    marks += '<rect class="vp-lane-mark" x="' + x
-                        + '" y="12" width="' + geometry.mark
-                        + '" height="13" rx="1.5" style="--vp-tl-hue: '
-                        + hue + ';">' + title + '</rect>';
+                    var end = xFor(entry.spanTo || entry.at);
+                    marks += '<rect class="vp-lane-span" x="' + x
+                        + '" y="19" width="'
+                        + Math.max(geometry.mark, end - x)
+                        + '" height="7" rx="3" style="--vp-tl-hue: '
+                        + 'var(--vp-tl-' + entry.source + ');"><title>'
+                        + tlEscape(entry.title) + '</title></rect>';
                 });
                 svg.innerHTML = marks;
+                tlPeak(axis, null);
+            } else if (svg) {
+                var byBin = {};
+                mine.forEach(function (entry) {
+                    var i = laneBins.at[entry.day];
+                    if (i === undefined) {
+                        return;
+                    }
+                    if (!byBin[i]) {
+                        byBin[i] = { n: 0, by: {} };
+                    }
+                    byBin[i].n++;
+                    byBin[i].by[entry.source] =
+                        (byBin[i].by[entry.source] || 0) + 1;
+                });
+                /*
+                 * Segments in the vocabulary's order and not in arrival
+                 * order, so a source sits in the same place in every
+                 * column of the lane — otherwise a stack that happened
+                 * to start with a cluster reads as a different lane
+                 * from the one beside it.
+                 */
+                Object.keys(byBin).forEach(function (i) {
+                    var parts = [];
+                    var words = [];
+                    var order = tlSources();
+                    Object.keys(byBin[i].by).forEach(function (source) {
+                        // The key is built from the counts, so a source
+                        // with rows always has a dataset — but a
+                        // segment silently dropped here would be a
+                        // column shorter than its own tooltip.
+                        if (order.indexOf(source) === -1) {
+                            order.push(source);
+                        }
+                    });
+                    order.forEach(function (source) {
+                        if (!byBin[i].by[source]) {
+                            return;
+                        }
+                        parts.push({
+                            hue: 'var(--vp-tl-' + source + ')',
+                            n: byBin[i].by[source]
+                        });
+                        words.push(byBin[i].by[source] + ' '
+                            + tlLabel(source));
+                    });
+                    byBin[i].parts = parts;
+                    byBin[i].title = laneBins.bins[i].title + ' — '
+                        + words.join(', ');
+                });
+                var drawn = tlColumns(
+                    laneBins.bins,
+                    byBin,
+                    false,
+                    hatched
+                );
+                svg.innerHTML = drawn.svg;
+                tlPeak(axis, drawn.peak);
             }
 
             // The span labels are HTML over the axis, never SVG text:
@@ -4883,7 +5197,7 @@
                     tag.style.left =
                         (100 * xFor(entry.at)) / geometry.width + '%';
                     tag.textContent = entry.ref;
-                    axis.insertBefore(tag, svg);
+                    svg.parentNode.insertBefore(tag, svg);
                 });
             }
 
@@ -4933,7 +5247,7 @@
                 band.title = cutTemplate
                     .replace('%1$s', tlCount(cut))
                     .replace('%2$s', tlCount(inWindow.length));
-                axis.insertBefore(band, svg);
+                axis.insertBefore(band, axis.firstChild);
             }
 
             var key = axis.dataset.vpTlAxis;

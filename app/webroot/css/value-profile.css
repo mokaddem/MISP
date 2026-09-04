@@ -8234,6 +8234,29 @@ th.vp-rel-num {
      * carry a sentence needs the room.
      */
     min-height: 3.3rem;
+    /*
+     * Centred, because a lane box is as tall as the tallest of the
+     * three cells in its grid row and the count column runs to three
+     * lines — `47 Sighting, 4 False positive, 2 Expiration` — so the
+     * box is 90px and the plot is 38. Top-aligned that put the
+     * columns' baseline halfway up the lane with nothing under it,
+     * which reads as a chart that has come loose. It did not show
+     * while the lane drew a band of marks with no baseline to
+     * misplace.
+     */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/*
+ * The plot: the axis's own box, so everything placed over the columns
+ * is placed against the columns rather than against a lane box whose
+ * height belongs to the count column beside it.
+ */
+.vp-lane-plot {
+    position: relative;
+    width: 100%;
 }
 
 /*
@@ -8309,20 +8332,79 @@ th.vp-rel-num {
     fill: var(--vp-tl-hue);
 }
 
+/* ------------------------------------------------------------------
+ * The lane's columns
+ * ------------------------------------------------------------------
+ * One per calendar bin, height on the lane's own scale, stacked by
+ * source — or, on the Tags lane, by tag. A segment carries its colour
+ * through `--vp-tl-hue` for the same reason a mark did: a presentation
+ * `fill` attribute does not resolve a custom property, and the palette
+ * here is entirely custom properties so a lane segment and the stack
+ * segment above it cannot drift apart.
+ * ------------------------------------------------------------------ */
+
+.vp-lane-bar {
+    fill: var(--vp-tl-hue);
+}
+
 /*
- * The Tags lane's marks wear the tag's own colour, and a tag's colour is
- * whatever an analyst picked: nine tags on this instance are `#ffffff`
- * and fourteen are `#000000`, each of which is the lane's own ground in
- * one of the two themes. A hairline keeps the mark a mark whatever it is
- * filled with — non-scaling, because the axis is stretched with
+ * A tag's colour is whatever an analyst picked: nine tags on this
+ * instance are `#ffffff` and fourteen are `#000000`, each of which is
+ * the lane's own ground in one of the two themes. The column takes an
+ * outline so a white segment at the top of a stack is still a segment,
+ * and each segment takes a hairline of its own once it is tall enough
+ * to have an edge — below that the hairline is most of the segment.
+ *
+ * Non-scaling, because the axis is stretched with
  * `preserveAspectRatio="none"` and a plain stroke width would stretch
  * with it.
  */
-[data-vp-tl-draw="tagfirst"] .vp-lane-mark {
+.vp-lane-bar-own {
+    fill: none;
     stroke: var(--bs-border-color);
     stroke-width: 1;
     vector-effect: non-scaling-stroke;
 }
+
+.vp-lane-bar-edge {
+    stroke: var(--bs-border-color-translucent);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+/*
+ * The one direct label a lane carries: what its tallest column holds.
+ * Without it a height is a texture — a reader can see that this bin is
+ * twice that one and has no idea whether either is three rows or three
+ * hundred. HTML over the axis and never SVG text, for the reason
+ * `.vp-lane-tag` is.
+ *
+ * It sits in the 12 units the bars leave above them, so it cannot land
+ * on the column it names.
+ */
+.vp-lane-peak {
+    position: absolute;
+    top: 1px;
+    z-index: 2;
+    font-size: 0.62rem;
+    /*
+     * The bars stop 13 units short of the plot's top and this label
+     * has to fit in what is left, so it is sized by its glyphs and not
+     * by the body's line box — inherited, 0.62rem leads to a 15px box
+     * and the label sat 5px into the column it names.
+     */
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translateX(-50%);
+}
+
+/* Clamped at the ends, where a centred label would hang out of the
+ * lane and be clipped by the axis border. */
+.vp-lane-peak-r { transform: translateX(-100%); }
+.vp-lane-peak-l { transform: none; }
 
 .vp-lane-span {
     fill: var(--vp-tl-hue);

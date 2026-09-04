@@ -2012,3 +2012,133 @@ through the shipping scale; the colour tokens read with
 | 8 | Heat numerals legible in both themes | ink chosen from the mixed tint's measured luminance, not from the mix step: `--vp-tl-edit` at full strength is near-black in light and a light grey in dark |
 | 9 | The palette, checked rather than eyeballed | the ten source tokens pass CVD separation (worst adjacent ΔE 16.6 deutan) but fail the lightness band on `--vp-tl-edit` and `--vp-tl-seen` — which is why every proposal carries magnitude on position or size, and B carries a scale legend and a table view |
 | 10 | A colour-carried number has a twin | B ships the per-bin table view; the matrix's glyphs are shape, not hue |
+
+## 24. The lanes become density profiles
+
+§23's bench put three encodings beside the shipping one and the answer
+came back **A, the density profile — with the Tags lane's segments in
+each tag's own colour**. This is that, in the tab.
+
+### 24.1 What a lane draws now
+
+One column per calendar bin, its height that bin's share of the lane's
+own tallest bin, segmented by source — or, on the Tags lane, by tag.
+The bins are `ValueProfileBuckets`, the helper the spine already uses,
+over the window rather than over the value's whole range, at a grain
+this axis chooses for itself:
+
+```php
+$laneRule = array(
+    array('days' => 120, 'unit' => ValueProfileBuckets::DAY),
+    array('days' => 730, 'unit' => ValueProfileBuckets::WEEK),
+    array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+);
+```
+
+740 viewBox units wide, so past about 120 columns a column is thinner
+than the gap beside it. The default 30-day window gets days;
+`8.8.8.8`'s two years get weeks; `mughalmotifs.com`'s 978 days get
+months.
+
+**Every lane bins identically**, which is the point of binning at all: a
+reader comparing two lanes reads straight down a column boundary.
+
+### 24.2 The Tags lane wears the tags' colours
+
+A segment per tag first attached in that bin, in the colour an analyst
+gave that tag, oldest at the bottom — the fact that lane exists to
+carry, and the one the chip row underneath spells out in names. A
+source lane's segments answer *which source*; these answer *which tag*.
+
+Two consequences of a colour nobody on this side chose:
+
+- **An outline on the column**, because nine tags on this instance are
+  `#ffffff` and fourteen are `#000000`, each of which is the lane's own
+  ground in one of the two themes. Without it a white tag at the top of
+  a stack is a shorter column. Each segment takes a hairline of its own
+  once it is 3 units tall; below that the hairline is most of the
+  segment.
+- **Shared boundaries, not independent heights.** `193.161.193.99` puts
+  41 tags in one week — 41 segments in 25 units. Rounding each height
+  on its own left a sub-pixel crack between every pair and the column
+  read as a barcode. Each rect now takes its edges from the same two
+  rounded numbers its neighbours use, so they tile exactly.
+
+### 24.3 What is unchanged, and why
+
+| | |
+|---|---|
+| **The seen lane** | Still spans. It draws intervals, not instants, and a first-seen span binned into a column would be a bar saying *something lasted a while somewhere in here*. |
+| **The cut band** | Unchanged, and still mark-lanes-only. A column drawn from rows the fetch did not carry would be a lie the band is there to prevent. |
+| **The chip row** | Untouched. It is the window-independent half of the Tags lane. |
+| **The count column** | Unchanged — still the aggregate, still allowed to exceed what the lane drew. |
+| **The key filter** | Never scoped the lanes and still does not. |
+
+### 24.4 The peak, and nothing else, is labelled
+
+A height with no number is a texture: a reader can see that this bin is
+twice that one and cannot tell whether either is three rows or three
+hundred. So each lane direct-labels its tallest column — *peak 203* —
+and labels nothing else, because a figure on every column is the thing
+nobody reads. Below three it is not printed at all; a lane whose
+busiest bin holds two rows is saying nothing the bars have not.
+
+It is HTML over the plot and never SVG text, for the reason
+`.vp-lane-tag` is: `preserveAspectRatio="none"` smears a word along
+with the box. The bars stop 13 units short of the plot's top so it has
+somewhere to sit — and it wears `line-height: 1`, because the
+inherited line box put a 0.62rem label 5px into the column it named.
+
+### 24.5 `.vp-lane-plot`, and the baseline that was floating
+
+A lane box is as tall as the tallest of the three cells in its grid
+row, and the count column runs to three lines —
+`47 Sighting, 4 False positive, 2 Expiration` — so the box is 90px and
+the plot is 38. Top-aligned, that put the columns' baseline halfway up
+the lane with nothing underneath it, which reads as a chart that has
+come loose. It never showed while the lane drew a band of marks with no
+baseline to misplace.
+
+So the axis centres its content, and the plot is a box of its own —
+everything placed over the columns is now placed against the columns
+rather than against a lane box whose height belongs to the cell beside
+it. The peak label and the seen lane's span labels both moved into it.
+
+### 24.6 One vocabulary, two renderers
+
+The server draws the fragment and the script redraws it on every frame
+of a brush. The two have to agree bin for bin and rect for rect, or the
+lane jumps when the reader lets go of the handle. So the grain rule,
+the column geometry and the bin's name are decided once in PHP and
+shipped — `lane.rule`, `lane.base`, `lane.bar`, `lane.gap`, and the
+twelve month names `months` already carried:
+
+- `tlLaneBins()` mirrors `ValueProfileBuckets::series()` and
+  `::locate()`, and takes its thresholds from `lane.rule`.
+- `tlColumns()` mirrors `$columnsFor` — the same scale, the same
+  hairline condition, the same shared-boundary tiling.
+- The bin's title is built from `months` by one rule for all three
+  grains, in both. `ValueProfileBuckets::describe()` writes
+  *November 2025* for a month bin and the script has only the
+  abbreviations, so reusing its title would have put the two renderers
+  a word apart on every month bin.
+
+### 24.7 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l`, `node --check`, 80 columns over the diff | clean (the four over-80 lines in `value-profile.css` are pre-existing, line 15650+) |
+| 2 | **The two renderers agree** | rect-for-rect identical — class, x, y, width, height, style — on every lane, plus the same peak label and position: `8.8.8.8` 2024-11-01→2026-09-04 (week grain, 119 rects), `193.161.193.99` 2025-11-01→2026-09-04 (week, 127), `mughalmotifs.com` 2024-01-01→2026-09-04 (month, 36), and the default 30-day window (day, 8) |
+| 3 | **The brush rebins** | dragged over the spine on `8.8.8.8`: window 2026-08-05→2026-09-03 becomes 2025-04-01→2026-01-31, lanes redraw, peaks update *9 → 66*, tag colours survive, no console error |
+| 4 | **Four values, both themes** | `8.8.8.8`, `mughalmotifs.com`, `193.161.193.99`, `443` (3,860 tags, 48,255 occurrences): 7 lanes and 7 plots each, no page or console error |
+| 5 | **Nothing escapes its plot** | 0 bars or peak labels outside the plot box, 0 non-positive heights, 0 rects crossing the baseline, over all eight renders |
+| 6 | **The peak clears its column** | 0px overlap on every labelled lane in every render; it was 4.9px before `line-height: 1` |
+| 7 | **41 tags in 25 units** | tiles with no crack, and the outline keeps `tlp:white` a band |
+| 8 | **The cut band survives** | `193.161.193.99` bands publications, edits and tag changes, and the header still reads *1,256 with no column* |
+| 9 | **The seen lane is untouched** | 25 span rects on `mughalmotifs.com` at full window, server and client identical |
+
+**Not exercised:** the hatched Edits lane's ground rect, which needs
+`MISP.log_new_audit` off. That is an instance-wide setting and flipping
+it on this stack risks the `config.php` ownership fault, so the branch
+is written to match the mark version it replaces and is stated here as
+untested rather than demonstrated.

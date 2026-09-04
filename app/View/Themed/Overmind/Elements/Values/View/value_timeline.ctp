@@ -464,6 +464,206 @@ $xFor = function ($at) use ($fractionFor, $LANE_W, $MARK_W) {
 };
 
 /*
+ * ------------------------------------------------------------------
+ * The lane's columns
+ * ------------------------------------------------------------------
+ * A lane used to draw one 5×13 rect per row at that row's moment, and
+ * a rect like that says only *something happened near here*. It cannot
+ * say how much — the count column has one number for the whole window
+ * — it cannot say which of a two-source lane's sources, and two rows
+ * at one moment are one rect. On `193.161.193.99` that drew 204
+ * publications, 952 edits and 1,100 tag changes as the same eighteen
+ * squares, three rows apart, and a reader comparing those lanes read
+ * three equal rows.
+ *
+ * So a lane is a density profile: one column per calendar bin, height
+ * on the lane's own scale, sources stacked inside the column. What was
+ * lost is the exact moment — a row is now somewhere inside its bin —
+ * and the chronology under the panel is where an exact moment was
+ * always read.
+ *
+ * The bins are `ValueProfileBuckets`, the same helper the spine uses,
+ * at a grain chosen for this axis rather than for the spine's: 740
+ * viewBox units wide, so past about 120 columns a column is thinner
+ * than the gap beside it.
+ */
+$laneRule = array(
+    array('days' => 120, 'unit' => ValueProfileBuckets::DAY),
+    array('days' => 730, 'unit' => ValueProfileBuckets::WEEK),
+    array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+);
+$laneBins = array();
+$laneAt = array();
+if ($window !== null) {
+    $laneDays = 1 + (int)(new DateTimeImmutable($window['from'], $utc))
+        ->diff(new DateTimeImmutable($window['to'], $utc))
+        ->days;
+    $laneBins = ValueProfileBuckets::series(
+        $window['from'],
+        $window['to'],
+        ValueProfileBuckets::unitForSpan($laneDays, $laneRule)
+    );
+    $laneAt = ValueProfileBuckets::locate($laneBins);
+}
+
+/*
+ * The column geometry, in the axis's own viewBox units — which are
+ * pixels vertically, because the SVG is 38 units tall and 38px high,
+ * and stretch horizontally with the panel, which is what makes a bin
+ * keep its share of the width at any width.
+ *
+ * The bars stop at 25 so the 12 units above them stay clear for the
+ * one direct label this lane carries. That label is HTML over the
+ * axis and not SVG text, for the reason `.vp-lane-tag` is:
+ * `preserveAspectRatio="none"` would smear a word along with the box.
+ */
+$BAR_BASE = $LANE_H - 1;
+$BAR_MAX = 25;
+$BIN_GAP = 1;
+
+/**
+ * Where a bin sits on the axis, and how wide it is.
+ *
+ * The full width and not `LANE_W - MARK_W`: that inset exists so a
+ * *point* drawn at the window's end still fits inside the box, and a
+ * bin is a span that already ends there.
+ *
+ * @param array $bin From `ValueProfileBuckets::series()`
+ * @return array x and width, in viewBox units
+ */
+$binBox = function (array $bin) use ($fractionFor, $LANE_W, $BIN_GAP) {
+    $x = $fractionFor($bin['from'] . ' 00:00:00') * $LANE_W;
+    $to = $fractionFor($bin['to'] . ' 23:59:59') * $LANE_W;
+    return array(
+        round($x, 2),
+        round(max(1.0, $to - $x - $BIN_GAP), 2)
+    );
+};
+
+/**
+ * A lane's binned rows as columns.
+ *
+ * Both subjects this lane grid has go through here, and the only
+ * difference between them is what a segment *is*: a source, in the
+ * vocabulary's order, or a single tag in the colour an analyst gave
+ * it. Same geometry, same scale, one code path — a second one would
+ * be a second set of rounding rules.
+ *
+ * @param array $byBin bin index => `n`, `parts` (`hue`, `n`), `title`
+ * @param bool $own Whether the hues are analyst-chosen rather than
+ *                  this panel's own tokens
+ * @return array `svg` and `peak`
+ */
+$columnsFor = function (array $byBin, $own, $ground = false) use (
+    $laneBins, $binBox, $BAR_BASE, $BAR_MAX
+) {
+    $max = 0;
+    foreach ($byBin as $bin) {
+        $max = max($max, $bin['n']);
+    }
+    if ($max === 0) {
+        return array('svg' => '', 'peak' => null);
+    }
+    $svg = '';
+    $peak = null;
+    foreach ($byBin as $i => $bin) {
+        if (!isset($laneBins[$i])) {
+            continue;
+        }
+        list($x, $w) = $binBox($laneBins[$i]);
+        $h = max(2.0, round($BAR_MAX * $bin['n'] / $max, 1));
+        if ($peak === null || $bin['n'] > $peak['n']) {
+            $peak = array(
+                'n' => $bin['n'],
+                'at' => $x + $w / 2,
+                'title' => $bin['title'],
+            );
+        }
+        /*
+         * A column on a hatched lane needs a ground, for the reason a
+         * mark did: the one recorded edit against an unrecorded
+         * background is that lane's whole point, and a bar the colour
+         * of the hatch behind it loses it (§8.2).
+         */
+        if ($ground) {
+            $svg .= '<rect class="vp-lane-ground" x="' . ($x - 1)
+                . '" y="' . round($BAR_BASE - $h - 1, 2) . '" width="'
+                . ($w + 2) . '" height="' . round($h + 2, 2)
+                . '" rx="2"></rect>';
+        }
+        /*
+         * And a column wearing a colour an analyst chose needs an
+         * outline: nine tags on this instance are `#ffffff` and
+         * fourteen are `#000000`, each of which is the lane's own
+         * ground in one of the two themes, so without it a white tag
+         * at the top of a stack is a shorter column.
+         */
+        if ($own) {
+            $svg .= '<rect class="vp-lane-bar-own" x="' . $x
+                . '" y="' . round($BAR_BASE - $h, 2) . '" width="' . $w
+                . '" height="' . $h . '" rx="1.5"></rect>';
+        }
+        /*
+         * A hairline between segments while a segment is tall enough
+         * to have one. Below that it is most of the segment, and a
+         * column of hairlines is a column of nothing.
+         */
+        /*
+         * Segments off shared boundaries, not off independently
+         * rounded heights. A tag column can hold 41 segments in 25
+         * units — `193.161.193.99` does — and rounding each one on its
+         * own leaves a sub-pixel crack between every pair, which at
+         * that count turns the column into a barcode. Taking each
+         * rect's edges from the same two rounded numbers its
+         * neighbours use makes them tile exactly.
+         */
+        $gap = count($bin['parts']) > 1 && $h >= 6 ? 1 : 0;
+        $inner = $h - $gap * (count($bin['parts']) - 1);
+        $bottom = $BAR_BASE;
+        $acc = 0;
+        foreach ($bin['parts'] as $k => $part) {
+            $acc += $part['n'];
+            $top = $BAR_BASE - $inner * $acc / $bin['n'] - $gap * $k;
+            $y0 = round($top, 2);
+            $ph = max(0.5, round($bottom, 2) - $y0);
+            $svg .= '<rect class="vp-lane-bar'
+                . ($own && $ph >= 3 ? ' vp-lane-bar-edge' : '')
+                . '" x="' . $x . '" y="' . $y0
+                . '" width="' . $w . '" height="' . round($ph, 2)
+                . '" style="--vp-tl-hue: ' . h($part['hue']) . ';">'
+                . '<title>' . h($bin['title']) . '</title></rect>';
+            $bottom = $top - $gap;
+        }
+    }
+    return array('svg' => $svg, 'peak' => $peak);
+};
+
+/**
+ * The peak label, as HTML over the axis.
+ *
+ * One direct label and not a figure on every column: a number beside
+ * every bar is the thing nobody reads. It is what turns a height into
+ * a quantity, so it is only worth printing where the height is a
+ * quantity worth having — a lane whose busiest bin holds two rows is
+ * telling the reader nothing they cannot see.
+ *
+ * @param array|null $peak
+ * @return string
+ */
+$peakTag = function ($peak) use ($LANE_W) {
+    if ($peak === null || $peak['n'] < 3) {
+        return '';
+    }
+    $at = 100 * $peak['at'] / $LANE_W;
+    $side = $at > 86 ? ' vp-lane-peak-r' : ($at < 6
+        ? ' vp-lane-peak-l' : '');
+    return '<span class="vp-lane-peak' . $side . '" style="left: '
+        . round($at, 2) . '%;" title="' . h($peak['title']) . '">'
+        . h(sprintf(__('peak %s'), number_format($peak['n'])))
+        . '</span>';
+};
+
+/*
  * The month names the ruler and the spine's axis both read. Formatted
  * once here and shipped, because the ruler is redrawn client-side for
  * every brush and a second formatter in JavaScript would be a second
@@ -474,6 +674,32 @@ $months = array();
 for ($m = 1; $m <= 12; $m++) {
     $months[] = (new DateTimeImmutable(sprintf('2001-%02d-01', $m), $utc))
         ->format('M');
+}
+
+/**
+ * What a lane column's bin is called, out of the same twelve names.
+ *
+ * One rule for all three grains rather than a name per unit —
+ * `ValueProfileBuckets::describe()` writes *November 2025* for a month
+ * and the script has only the abbreviations, so reusing its title
+ * would put the two renderers a word apart on every month bin.
+ *
+ * @param array $bin `from` and `to`, `Y-m-d`
+ * @return string
+ */
+$binTitle = function (array $bin) use ($months, $utc) {
+    $a = new DateTimeImmutable($bin['from'] . ' 00:00:00', $utc);
+    $b = new DateTimeImmutable($bin['to'] . ' 00:00:00', $utc);
+    if ($bin['from'] === $bin['to']) {
+        return $a->format('j') . ' '
+            . $months[(int)$a->format('n') - 1] . ' ' . $a->format('Y');
+    }
+    return $a->format('j') . ' ' . $months[(int)$a->format('n') - 1]
+        . ' – ' . $b->format('j') . ' '
+        . $months[(int)$b->format('n') - 1] . ' ' . $b->format('Y');
+};
+foreach ($laneBins as $i => $bin) {
+    $laneBins[$i]['title'] = $binTitle($bin);
 }
 
 /**
@@ -647,7 +873,7 @@ $lanes = array(
                 count($tagsDated),
                 count($tagState)
             )
-            : __('first attached, one mark per tag'),
+            : __('first attached, in the tag\'s own colour'),
         'draw' => 'tagfirst',
         'tags' => $tagState,
         'dated' => $tagsDated,
@@ -830,6 +1056,18 @@ if ($window !== null) {
             'width' => $LANE_W,
             'height' => $LANE_H,
             'mark' => $MARK_W,
+            /*
+             * The column geometry and the grain rule, shipped rather
+             * than restated in the script. The brush rebins client-side
+             * and a second copy of these thresholds would be a second
+             * vocabulary — the same reason `months` is formatted here:
+             * two renderers of one lane have to round identically or
+             * the lane moves when the reader lets go of the brush.
+             */
+            'base' => $BAR_BASE,
+            'bar' => $BAR_MAX,
+            'gap' => $BIN_GAP,
+            'rule' => $laneRule,
         ),
         // For the ruler over the lanes, which moves with the brush.
         'months' => $months,
@@ -858,9 +1096,13 @@ if ($window !== null) {
              */
             'showing' => __('Showing'),
             'hiding' => __('Hiding'),
-            // A tag mark's tooltip, substituted rather than composed
+            // A tag column's tooltip, substituted rather than composed
             // so the words stay translatable in one place.
             'tag_first' => __('%1$s — first attached %2$s'),
+            'tag_more' => __(' +%s more'),
+            // The lane's one direct label: what its tallest column
+            // holds.
+            'peak' => __('peak %s'),
         ),
     );
 }
@@ -1275,7 +1517,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                   <?= $cutTotal > 0 ? '' : 'hidden' ?>>
                                 <span class="vp-lane-cut-key"></span>
                                 <?= sprintf(
-                                    __('%s with no mark — brush the'
+                                    __('%s in no column — brush the'
                                         . ' hatched span to fetch'
                                         . ' them'),
                                     '<b data-vp-tl-cut-n>'
@@ -1460,31 +1702,64 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                         </span>
                                     </div>
                                 <?php endif; ?>
-                                <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
-                                         (int)$LANE_H ?>"
-                                     preserveAspectRatio="none"
-                                     class="vp-lane-svg"
-                                     data-vp-tl-marks>
-                                    <?php foreach ($tagWindowed as $tag): ?>
-                                        <rect class="vp-lane-mark"
-                                              x="<?= h($xFor($tag['at'])) ?>"
-                                              y="12"
-                                              width="<?= (int)$MARK_W ?>"
-                                              height="13" rx="1.5"
-                                              style="--vp-tl-hue: <?=
-                                                  h($tag['colour']
-                                                      ? $tag['colour']
-                                                      : 'var(--vp-tl-tag)')
-                                                  ?>;">
-                                            <title><?= h(sprintf(
-                                                __('%1$s — first attached'
-                                                    . ' %2$s'),
-                                                $tag['name'],
-                                                substr($tag['at'], 0, 10)
-                                            )) ?></title>
-                                        </rect>
-                                    <?php endforeach; ?>
-                                </svg>
+                                <?php
+                                /*
+                                 * One column per bin, and a segment per
+                                 * tag **in that tag's own colour** —
+                                 * which is the whole reason this lane
+                                 * is worth drawing rather than counting.
+                                 * A source lane's segments answer *which
+                                 * source*; this one's answer *which
+                                 * tag*, and the chip row below spells
+                                 * the names.
+                                 */
+                                $tagByBin = array();
+                                foreach ($tagWindowed as $tag) {
+                                    $day = substr($tag['at'], 0, 10);
+                                    if (!isset($laneAt[$day])) {
+                                        continue;
+                                    }
+                                    $i = $laneAt[$day];
+                                    if (!isset($tagByBin[$i])) {
+                                        $tagByBin[$i] = array(
+                                            'n' => 0,
+                                            'parts' => array(),
+                                            'names' => array(),
+                                        );
+                                    }
+                                    $tagByBin[$i]['n']++;
+                                    $tagByBin[$i]['parts'][] = array(
+                                        'hue' => $tag['colour']
+                                            ? $tag['colour']
+                                            : 'var(--vp-tl-tag)',
+                                        'n' => 1,
+                                    );
+                                    $tagByBin[$i]['names'][] = $tag['name'];
+                                }
+                                foreach ($tagByBin as $i => $bin) {
+                                    $names = array_slice($bin['names'], 0, 6);
+                                    $rest = $bin['n'] - count($names);
+                                    $tagByBin[$i]['title'] = sprintf(
+                                        __('%1$s — first attached %2$s'),
+                                        implode(', ', $names)
+                                            . ($rest > 0 ? sprintf(
+                                                __(' +%s more'),
+                                                $rest
+                                            ) : ''),
+                                        $laneBins[$i]['title']
+                                    );
+                                }
+                                $tagCols = $columnsFor($tagByBin, true);
+                                ?>
+                                <div class="vp-lane-plot">
+                                    <?= $peakTag($tagCols['peak']) ?>
+                                    <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
+                                             (int)$LANE_H ?>"
+                                         preserveAspectRatio="none"
+                                         class="vp-lane-svg"
+                                         data-vp-tl-marks><?=
+                                        $tagCols['svg'] ?></svg>
+                                </div>
                             </div>
                             <div class="vp-lane-count"
                                  data-vp-tl-count="<?= h($lane['key']) ?>">
@@ -1557,93 +1832,127 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                              )
                                          )) ?>"></div>
                                 <?php endif; ?>
-                                <?php foreach ($mine as $entry): ?>
-                                    <?php if ($lane['draw'] !== 'spans') {
-                                        continue;
-                                    } ?>
-                                    <span class="vp-lane-tag"
-                                          style="left: <?= h(round(
-                                              100 * $xFor($entry['at'])
-                                                  / $LANE_W,
-                                              2
-                                          )) ?>%;">
-                                        <?= h($entry['ref']['attribute']) ?>
-                                    </span>
-                                <?php endforeach; ?>
                                 <?php
                                 /*
-                                 * `style="fill: var(…)"` and not the
+                                 * `style="--vp-tl-hue: …"` and not a
                                  * `fill` attribute: a presentation
                                  * attribute does not resolve a custom
                                  * property, and the whole palette here
                                  * is custom properties so that a lane
-                                 * mark and its stack segment cannot
+                                 * bar and its stack segment cannot
                                  * drift apart.
+                                 *
+                                 * The seen lane is the exception to all
+                                 * of this and keeps its rects. It draws
+                                 * intervals, not instants: a first-seen
+                                 * span binned into a column would be a
+                                 * bar saying *something lasted a while
+                                 * somewhere in here*, which is a worse
+                                 * sentence than the one it says now.
                                  */
-                                ?>
-                                <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
-                                         (int)$LANE_H ?>"
-                                     preserveAspectRatio="none"
-                                     class="vp-lane-svg"
-                                     data-vp-tl-marks>
-                                    <?php foreach ($mine as $entry): ?>
-                                        <?php
+                                $barSvg = '';
+                                if ($lane['draw'] === 'spans') {
+                                    foreach ($mine as $entry) {
                                         $x = $xFor($entry['at']);
-                                        $hue =
-                                            $sourceMeta[$entry['source']]
-                                                ['token'];
-                                        if ($lane['draw'] === 'spans') {
-                                            $to = $entry['span_to'] === null
-                                                ? $entry['at']
-                                                : $entry['span_to'];
-                                            $w = max(
-                                                $MARK_W,
-                                                $xFor($to) - $x
-                                            );
-                                            ?>
-                                            <rect class="vp-lane-span"
-                                                  x="<?= h($x) ?>" y="19"
-                                                  width="<?= h($w) ?>"
-                                                  height="7" rx="3"
-                                                  style="--vp-tl-hue: <?=
-                                                      h($hue) ?>;">
-                                                <title><?= h(
-                                                    $entry['title']
-                                                ) ?></title>
-                                            </rect>
-                                            <?php
+                                        $to = $entry['span_to'] === null
+                                            ? $entry['at']
+                                            : $entry['span_to'];
+                                        $barSvg .= '<rect'
+                                            . ' class="vp-lane-span" x="'
+                                            . h($x) . '" y="19" width="'
+                                            . h(max($MARK_W, $xFor($to) - $x))
+                                            . '" height="7" rx="3"'
+                                            . ' style="--vp-tl-hue: '
+                                            . h($sourceMeta[$entry['source']]
+                                                ['token'])
+                                            . ';"><title>'
+                                            . h($entry['title'])
+                                            . '</title></rect>';
+                                    }
+                                    $peak = null;
+                                } else {
+                                    $byBin = array();
+                                    foreach ($mine as $entry) {
+                                        $day = substr($entry['at'], 0, 10);
+                                        if (!isset($laneAt[$day])) {
                                             continue;
                                         }
-                                        ?>
-                                        <?php if (!empty($lane['hatch'])): ?>
-                                            <?php
-                                            /*
-                                             * A mark on a hatch needs a
-                                             * ground. The one recorded
-                                             * edit against an
-                                             * unrecorded background is
-                                             * this lane's whole point,
-                                             * and a mark the colour of
-                                             * the hatch behind it loses
-                                             * it (§8.2).
-                                             */
-                                            ?>
-                                            <rect class="vp-lane-ground"
-                                                  x="<?= h($x - 3) ?>" y="9"
-                                                  width="11" height="19"
-                                                  rx="2"></rect>
-                                        <?php endif; ?>
-                                        <rect class="vp-lane-mark"
-                                              x="<?= h($x) ?>" y="12"
-                                              width="<?= (int)$MARK_W ?>"
-                                              height="13" rx="1.5"
-                                              style="--vp-tl-hue: <?=
-                                                  h($hue) ?>;">
-                                            <title><?= h($entry['title'])
-                                                ?></title>
-                                        </rect>
+                                        $i = $laneAt[$day];
+                                        if (!isset($byBin[$i])) {
+                                            $byBin[$i] = array(
+                                                'n' => 0,
+                                                'by' => array(),
+                                            );
+                                        }
+                                        $byBin[$i]['n']++;
+                                        $s = $entry['source'];
+                                        $byBin[$i]['by'][$s] = 1 + (
+                                            isset($byBin[$i]['by'][$s])
+                                                ? $byBin[$i]['by'][$s]
+                                                : 0
+                                        );
+                                    }
+                                    /*
+                                     * Segments in the vocabulary's
+                                     * order and not in arrival order,
+                                     * so a source is in the same place
+                                     * in every column of the lane —
+                                     * otherwise a stack that happened
+                                     * to start with a cluster reads as
+                                     * a different lane from the one
+                                     * beside it.
+                                     */
+                                    foreach ($byBin as $i => $bin) {
+                                        $parts2 = array();
+                                        $words = array();
+                                        foreach ($sourceMeta as $s => $m) {
+                                            if (empty($bin['by'][$s])) {
+                                                continue;
+                                            }
+                                            $parts2[] = array(
+                                                'hue' => $m['token'],
+                                                'n' => $bin['by'][$s],
+                                            );
+                                            $words[] = $bin['by'][$s] . ' '
+                                                . $m['label'];
+                                        }
+                                        $byBin[$i]['parts'] = $parts2;
+                                        $byBin[$i]['title'] =
+                                            $laneBins[$i]['title'] . ' — '
+                                            . implode(', ', $words);
+                                    }
+                                    $cols = $columnsFor(
+                                        $byBin,
+                                        false,
+                                        !empty($lane['hatch'])
+                                    );
+                                    $barSvg = $cols['svg'];
+                                    $peak = $cols['peak'];
+                                }
+                                ?>
+                                <div class="vp-lane-plot">
+                                    <?= $peakTag($peak) ?>
+                                    <?php foreach ($mine as $entry): ?>
+                                        <?php if ($lane['draw'] !== 'spans') {
+                                            continue;
+                                        } ?>
+                                        <span class="vp-lane-tag"
+                                              style="left: <?= h(round(
+                                                  100 * $xFor($entry['at'])
+                                                      / $LANE_W,
+                                                  2
+                                              )) ?>%;">
+                                            <?= h($entry['ref']['attribute'])
+                                                ?>
+                                        </span>
                                     <?php endforeach; ?>
-                                </svg>
+                                    <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
+                                             (int)$LANE_H ?>"
+                                         preserveAspectRatio="none"
+                                         class="vp-lane-svg"
+                                         data-vp-tl-marks><?= $barSvg
+                                        ?></svg>
+                                </div>
                             </div>
                             <div class="vp-lane-count"
                                  data-vp-tl-count="<?= h($lane['key']) ?>">
@@ -1755,9 +2064,11 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                 </div>
 
                 <div class="vp-tl-why pt-2">
-                    <?= h(__('Six lanes can carry marks · one is'
-                        . ' truncated and says where · what nothing'
-                        . ' dates is named on the strip above')) ?>
+                    <?= h(__('Height is that bin\'s share of the'
+                        . ' lane, on the lane\'s own scale · one'
+                        . ' lane is truncated and says where · what'
+                        . ' nothing dates is named on the strip'
+                        . ' above')) ?>
                 </div>
             </section>
 
