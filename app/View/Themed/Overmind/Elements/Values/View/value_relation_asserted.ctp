@@ -221,8 +221,7 @@ if (empty($claims)) {
                 <?= sprintf(
                     __(
                         '%1$s Written one at a time by people, so'
-                        . ' nothing here is ranked or truncated — the'
-                        . ' only cut is ACL.'
+                        . ' nothing here is ranked or truncated.'
                     ),
                     '<strong>' . h(__n(
                         'The single claim is shown.',
@@ -473,9 +472,9 @@ if (empty($claims)) {
             <span class="small text-muted vp-min-w-0">
                 <?= h(sprintf(
                     __(
-                        'Claims are stored against an occurrence, not'
-                        . ' against the value — this list is the union'
-                        . ' over the %d occurrences, in both directions.'
+                        'A claim is written against one occurrence of'
+                        . ' this value; this lists the claims on all'
+                        . ' %d.'
                     ),
                     $asserted['occurrences']
                 )) ?>
@@ -502,21 +501,12 @@ if (empty($claims)) {
                     <?php
                     /*
                      * Said once here rather than as a placeholder on
-                     * every block. `relationships` has no free-text
-                     * column at all — `notes.note` and
-                     * `opinions.comment` beside it do — so a claim's
-                     * prose is not missing data, it is data MISP does
-                     * not model.
+                     * every block: a claim's prose is not missing data,
+                     * it is data MISP does not model.
                      */
                     ?>
-                    <?= sprintf(
-                        __(
-                            'A relationship carries no text of its own:'
-                            . ' %s has the type, the two ends, an author'
-                            . ' and a distribution, and no prose column.'
-                        ),
-                        '<span class="font-monospace">relationships</span>'
-                    ) ?>
+                    <?= __('MISP stores no text on a relationship, so no'
+                        . ' claim here has a description.') ?>
                 <?php endif; ?>
             </span>
         </div>

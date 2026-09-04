@@ -3536,3 +3536,52 @@ the `.vp-panel` holding it. On `8.8.8.8` all ten visible captions read
 (*Aggregated over 500 of the 32,922 objects*), all nine do. The 45
 fragments over the five §12.1 values were refetched: all 200, no PHP
 notices, `<div>` balanced in all nine panels.
+
+### 16.8 Three sentences that were wrong, obvious or opaque
+
+Read back against the built tab, and each one failed a different test.
+
+**The Labels section was named for a subset of what it lists.** The
+caption read *"What the events around this value are marked as"* and
+the panel, the strip card and the settings row all called it *Labels on
+those events*. But a label reaches this value three ways, and the table
+has had an **Attached to** column saying which since B8.1: `on this
+value`, `on a neighbour`, `on the event`. On `8.8.8.8` the split is
+**49 on a neighbour, 45 on the event, 6 on this value** — so the
+majority of rows were never event labels, and the name described the
+minority. Renamed to **Labels in this neighbourhood** in all three
+places, which is also the word the rail's threat card already uses for
+the same scope. The caption now states the label kinds and the read
+scope — *"Galaxy clusters and taxonomy tags across all 20 events this
+value is in"* — and the carrier moves to the glyph, because a column
+one line below already answers it.
+
+**A cut everything shares is not worth stating.** The asserted caption
+ended *"— the only cut is ACL."* Every list in MISP is ACL-cut; saying
+it on one panel implies the others are not, which is the opposite of
+true. Removed.
+
+**Two sentences nobody could parse.** The asserted footer explained
+itself in schema terms:
+
+> Claims are stored against an occurrence, not against the value — this
+> list is the union over the 26 occurrences, in both directions. A
+> relationship carries no text of its own: `relationships` has the
+> type, the two ends, an author and a distribution, and no prose
+> column.
+
+*Union*, *in both directions* and a column inventory are how the query
+was written, not what the reader needs. The direction is a chip on
+every row already. It now reads:
+
+> A claim is written against one occurrence of this value; this lists
+> the claims on all 26. MISP stores no text on a relationship, so no
+> claim here has a description.
+
+Same two facts, no schema.
+
+**Verified.** The 45 fragments over the five §12.1 values refetched:
+all 200, no PHP notices, `<div>` balanced. Caption geometry unchanged
+at `dL 0, dR 0` for all ten. *Labels in this neighbourhood* is four
+characters longer than any other strip card title and still sets on one
+line at 1500 px — checked in the browser, not assumed.

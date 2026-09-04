@@ -69,7 +69,7 @@ $sections = array(
     array(
         'key' => 'labels',
         'anchor' => 'vp-rel-sec-cooccurrence',
-        'title' => __('Labels on those events'),
+        'title' => __('Labels in this neighbourhood'),
         'unit' => __('clusters and tags'),
         'icon' => 'misp-icon misp-icon-galaxy misp-simple',
         'colour' => 'var(--vp-rel-co)',

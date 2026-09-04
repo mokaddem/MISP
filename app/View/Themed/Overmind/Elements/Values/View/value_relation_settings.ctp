@@ -338,7 +338,7 @@ $split = array(
  */
 if (!empty($summary['labels'])) {
     $split[] = array(
-        'label' => __('Labels on those events'),
+        'label' => __('Labels in this neighbourhood'),
         'unit' => __('clusters and tags'),
         'colour' => 'var(--vp-rel-co)',
         'count' => $summary['labels'],

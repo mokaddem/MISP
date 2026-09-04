@@ -2679,7 +2679,7 @@ $headerSub = ob_get_clean();
              <?php endif; ?>>
 
         <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('Labels on those events'),
+            'panelTitle' => __('Labels in this neighbourhood'),
             'panelIcon' => 'misp-icon misp-icon-galaxy misp-simple',
             'panelColor' => 'var(--vp-rel-co)',
             'panelSub' => $labelHeaderSub,
@@ -2690,16 +2690,15 @@ $headerSub = ob_get_clean();
             <div class="vp-rel-cap">
                 <i class="fas fa-circle-info"
                    title="<?= h(__(
-                       'Including events the table above could not'
+                       'A label sits on this value, on a neighbour or on'
+                       . ' the event itself — Attached to says which.'
+                       . ' Includes events the table above could not'
                        . ' afford to open.'
                    )) ?>"></i>
                 <span>
                     <?= sprintf(
-                        __('What the events around this value are'
-                            . ' marked as — %1$s, over %2$s.'),
-                        '<strong>' . h(__(
-                            'galaxy clusters and taxonomy tags'
-                        )) . '</strong>',
+                        __('Galaxy clusters and taxonomy tags across'
+                            . ' %s.'),
                         '<strong>' . h(sprintf(
                             __n(
                                 'the one event this value is in',
