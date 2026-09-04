@@ -43,15 +43,16 @@ to `done` only when §14's verification has run against it.
 | T19 | Each lane bands the span it counts and has no row to draw | §19 | **done** |
 | T20 | `TIMELINE_ROW_CAP` 300 → 1,000 | §19.5, §20.3 | **done** |
 | T21 | The band's tooltip fires; a mark's says what the server wrote | §20.1, §20.2 | **done** |
+| T22 | The spine's key filters the chart and the chronology | §21 | **done** |
 
-**Where the phase stands.** Nineteen of twenty-one rows are done and the tab reads
+**Where the phase stands.** Twenty of twenty-two rows are done and the tab reads
 the database: the endpoint is wired, five dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log; §17 to §20 are what the first
-reader of the built tab found over four rounds, and T15 to T21 are that.
+than a lane that lies. §16 is the build log; §17 to §21 are what the first
+reader of the built tab asked for over five rounds, and T15 to T22 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -1077,6 +1078,11 @@ The plain sentence stays for the window that really is empty, and for
 any window a source filter emptied — that is the reader's own doing and
 they have the filter note beside it.
 
+> **Superseded by §21.4.** A filtered list is now counted the same way,
+> because the filter has an aggregate of its own to be counted from. The
+> plain sentence keeps only the window that is empty of everything the
+> reader asked for.
+
 **What this does not fix, and what would.** The rows for an old window
 are not on the client at all, so no amount of wording puts them on
 screen. The fix would be a window parameter on `viewTimeline`, the way
@@ -1460,3 +1466,120 @@ above, which is the part that is discoverable; the band says *where*.
 | 7 | **The band at 1,000** | `193.161.193.99` over its range: bands on Publications and Edits, 111 and 1,145, note *1,256*, `--vp-cut` 0.0086, band right edge and first mark both at 9px |
 | 8 | **Digits group the same both ways** | the raw fragment and the repainted panel both read *1,256* and *the newest 1,000*; `tlCount` matches `number_format`'s defaults rather than the browser's locale |
 | 9 | Both themes, console | reads in light and dark; no page error, no console error |
+
+---
+
+## 21. The key filters the chart
+
+Asked for by the reader in one line: *make the legend of the timeline
+filter said timeline when clicking on an item.*
+
+The key was a caption. On `8.8.8.8` the spine is 447 entries of which
+369 are edits, so the chart is a wall of grey with the sightings, the
+publications and the analyst notes drawn as a hairline along the floor —
+and the only control over it was a brush, which narrows *time*. There
+was no way to ask the chart about a source.
+
+### 21.1 What a press does
+
+**Plain click solos.** The chart draws that source alone, the count axis
+closes over it — `8.8.8.8`'s y axis goes 100 → 20 for sightings and →
+3 for publications — and the chronology lists the same source's rows.
+Pressing it again lets it go, which is the gesture the lane buttons
+already offered.
+
+**Shift, ctrl or meta-click drops one.** From no filter that is the
+subtractive reading a stacked legend usually has — take the tall segment
+out and read the rest against their own axis — and from a filter it adds
+or removes one source at a time. A selection that ends up naming every
+source, or none, is stored as *no filter*: keeping it would leave the
+note claiming a narrowing that is not one, and an empty chart offers
+nothing to press a way out of.
+
+`aria-pressed` on a key means **this source is drawn** and starts true,
+which is deliberately the opposite of a lane button's *this lane is the
+whole filter*. Two gestures, and each one's `title` says which. Off is
+legible without the dimming carrying it alone: the swatch hollows to an
+inset ring in its own hue, so the state survives a display that cannot
+separate two opacities.
+
+### 21.2 One filter, two controls, and neither can lie
+
+`tl.filter` was a comma-joined lane string that only the chronology
+read. It is now an array of source keys — or null for all of them — and
+three things render it: the key, the lane buttons and the note over the
+chronology. All three are recomputed from the state by `tlSyncFilter`
+rather than toggled where the click landed, which is what makes a lane
+press move the keys and a key press release the lane.
+
+The note names the filter the shortest way that is true, in this order:
+
+| The filter is | The note reads |
+|---|---|
+| exactly one lane's sources | *Showing **Sightings*** — the lane's own label, not its three sources spelled out |
+| everything but one source | *Hiding **Sighting*** — what a shift-click took out |
+| anything else | *Showing **Published, Note, Edit*** |
+
+`Showing` and `Hiding` travel in the payload's `labels` so the sentence
+is the server's vocabulary, not the script's.
+
+The spine is **rebuilt** on a filter change (`bootChart` hands back a
+refresh, not the instance — the same shape the Sightings panel's
+`hiddenOrgs` uses). That costs one rebuild per click and none per brush
+frame: the spine covers the whole range whatever the window is, so a
+filter is the only thing that can change what it draws. The datasets are
+marked `hidden` rather than dropped, so an index and a colour cannot
+move under a press.
+
+### 21.3 What it deliberately does not touch
+
+**The lanes.** They are one lane per source already, so filtering them
+would blank rows rather than answer anything, and each lane's `In
+window` count stays that lane's own truth. The lanes' header keeps the
+unfiltered window total for the same reason.
+
+**A lane whose sources this value has nothing dated of no longer gets a
+button.** With the filter reaching the chart, pressing the Sightings
+lane on `193.161.193.99` — which has only publications and edits — drew
+an empty spine under a note naming a source that was never there, which
+reads as a broken panel rather than as an answer. Those lanes now render
+their chip as a label with a `title` saying there is nothing to narrow
+to. The lane itself still renders in full: §8.2's rule is that what is
+missing must be as visible as what is not.
+
+### 21.4 The capped empty state now answers for a filter too
+
+§17.3 gave the chronology a second empty state — *N dated entries fall
+in this window, and none of them are among the rows this list carries* —
+and confined it to unfiltered lists, because the only number available
+was the window's whole total. The filtered total is the same aggregate
+sum restricted to the selected sources, so the state is no longer
+confined: a reader who narrows to a source whose rows the cap dropped
+gets the sentence that is true instead of *nothing dated falls in this
+window*, which contradicts the count beside the window label. The key
+makes that one press away, so the fix ships with it.
+
+### 21.5 Verified
+
+Driven in a real browser against the instance —
+`prd/value-profile-live/25-key-filter-harness.mjs <value> [theme]`, which
+logs in, opens the tab and reads the chart's datasets, the axis maximum,
+both controls' `aria-pressed`, the note, the visible rows by source and
+both empty states after each gesture.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `node --check`, `php -l`, 80 columns over the diff | clean |
+| 2 | **The server ships a caption** | 7 keys, all `disabled` and `aria-pressed="true"` in the raw fragment; live after `initTimeline`, like the brush |
+| 3 | **Solo** | `8.8.8.8`, press `Sighting`: 1 of 7 datasets visible, y axis 100 → 20, note *Showing Sighting*, 14 rows all `sighting` |
+| 4 | **Solo something small** | press `Published`: y axis → 3, one row, and the Publications *lane* button presses itself because the filter is exactly its source |
+| 5 | **Release** | pressing the same key again: 7 of 7 visible, y axis back to 100, note hidden |
+| 6 | **Shift-drop** | shift-press `Sighting`: 6 of 7 visible, its swatch hollow with a `1.5px inset` ring in its own hue, note *Hiding Sighting* |
+| 7 | **Shift back** | every source selected is stored as no filter: note hidden, nothing pressed |
+| 8 | **The lane drives the same state** | pressing the Sightings lane presses its three keys and unpresses the other four; releasing it restores all seven |
+| 9 | **`clear` in the note** | releases both controls and the chart |
+| 10 | **A filter survives a brush** | brushed while soloed on `sighting`: window 28 → 329 entries, the hidden datasets stay hidden |
+| 11 | **And a brush that refetches** | `193.161.193.99` brushed onto its first active bar: `viewTimeline` on the wire, the new fragment arrives unfiltered and coherent, and a press on it filters — 2,000 → 200 on the axis |
+| 12 | **Filtered, capped, empty** | `193.161.193.99` soloed on `Published` over a window whose rows the cap dropped: the capped sentence with the filtered count, not *nothing dated falls in this window* |
+| 13 | **No dead ends** | `193.161.193.99` renders lane buttons only for Publications and Edits; `8.8.8.8` loses only its Seen spans button; a value with nothing dated has no `data-vp-tl` at all and no key |
+| 14 | Both themes, console | reads in light and dark; no page error, no console error across every gesture above |

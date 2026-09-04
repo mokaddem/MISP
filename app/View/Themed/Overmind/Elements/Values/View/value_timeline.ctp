@@ -753,6 +753,14 @@ if ($window !== null) {
             'entries' => __('entries'),
             'cut' => $cutTitle,
             'axis' => __('Dated entries per month, stacked by source'),
+            /*
+             * The note over the chronology names the filter either way
+             * round, because shift-clicking a key drops one source and
+             * *showing* the six that are left is the same fact written
+             * six times.
+             */
+            'showing' => __('Showing'),
+            'hiding' => __('Hiding'),
         ),
     );
 }
@@ -858,7 +866,9 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                     '%1$s %2$s, stacked by source.'
                                     . ' Drag to set the window — the'
                                     . ' lanes and the chronology below'
-                                    . ' both follow it.'
+                                    . ' both follow it. Press a source'
+                                    . ' in the key to narrow the chart'
+                                    . ' to it.'
                                 ),
                                 __n(
                                     '%s dated entry',
@@ -872,15 +882,49 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                             )) ?>
                         </div>
                     </div>
-                    <div class="vp-tl-legend">
+                    <?php
+                    /*
+                     * The key is a control, not a caption. A stacked
+                     * bar whose bottom segment is three orders of
+                     * magnitude taller than the rest — `193.161.193.99`
+                     * files 1,256 sightings against 111 publications —
+                     * draws the other sources as a hairline, and the
+                     * only way to read them was to squint. Pressing a
+                     * key narrows the chart *and* the chronology to
+                     * that source, which is the same selection the lane
+                     * buttons below set: one filter, two ways in.
+                     *
+                     * `aria-pressed` here means *this source is drawn*
+                     * and starts true, which is the opposite of the
+                     * lane buttons' *this lane is the whole filter*.
+                     * They are two gestures — a visibility toggle and
+                     * a solo — and each one's title says which.
+                     *
+                     * Disabled until the script arrives, for the
+                     * brush's reason: without it these would offer a
+                     * gesture that cannot do anything.
+                     */
+                    ?>
+                    <div class="vp-tl-legend" data-vp-tl-legend>
                         <?php foreach ($present as $source): ?>
-                            <span class="vp-tl-key">
+                            <button type="button" class="vp-tl-key"
+                                    data-vp-tl-key="<?= h($source) ?>"
+                                    aria-pressed="true" disabled
+                                    title="<?= h(sprintf(
+                                        __('%1$s · %2$s dated. Click to'
+                                            . ' show only this source,'
+                                            . ' shift-click to drop it.'),
+                                        $sourceMeta[$source]['label'],
+                                        number_format(
+                                            $counts['by_source'][$source]
+                                        )
+                                    )) ?>">
                                 <span class="vp-tl-swatch"
                                       style="--vp-tl-hue: <?=
                                           h($sourceMeta[$source]['token'])
                                       ?>;"></span>
                                 <?= h($sourceMeta[$source]['label']) ?>
-                            </span>
+                            </button>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -1158,11 +1202,41 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                 $mine[] = $entry;
                             }
                         }
+
+                        /*
+                         * A lane whose sources this value has nothing
+                         * dated of gets no button. Narrowing to it can
+                         * only empty the chart and the chronology
+                         * together — the filter reaches both now — and
+                         * an empty spine under a note naming a source
+                         * that was never here reads as a broken panel
+                         * rather than as an answer. The lane still
+                         * renders, because §8.2's rule is that what is
+                         * missing must be as visible as what is not.
+                         */
+                        $laneDead = true;
+                        foreach ($sources as $source) {
+                            if (!empty($counts['by_source'][$source])) {
+                                $laneDead = false;
+                            }
+                        }
                         ?>
 
                         <div class="vp-lane-label">
                             <?php if ($undatedLane): ?>
                                 <span class="vp-tl-src vp-tl-src-none">
+                                    <?= h($lane['label']) ?>
+                                </span>
+                            <?php elseif ($laneDead): ?>
+                                <span class="vp-tl-src vp-tl-src-<?=
+                                        h($lane['key']) ?>"
+                                      title="<?= h(sprintf(
+                                          __('Nothing dated of %s on'
+                                              . ' this value, so there'
+                                              . ' is nothing to narrow'
+                                              . ' to'),
+                                          $lane['label']
+                                      )) ?>">
                                     <?= h($lane['label']) ?>
                                 </span>
                             <?php else: ?>
@@ -1174,6 +1248,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                         aria-pressed="false"
                                         title="<?= h(sprintf(
                                             __('Show only %s in the'
+                                                . ' chart and the'
                                                 . ' chronology'),
                                             $lane['label']
                                         )) ?>">
@@ -1458,10 +1533,12 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                     number_format($listOf)
                                 )) ?></b>
                             <?php endif; ?>
-                            <?= __('Newest first. Click a source above to'
-                                . ' narrow to it.') ?>
+                            <?= __('Newest first. Click a source in the'
+                                . ' key or a lane above to narrow to'
+                                . ' it.') ?>
                             <span data-vp-tl-filter-note hidden>
-                                <?= __('Showing') ?>
+                                <span data-vp-tl-filter-verb><?=
+                                    __('Showing') ?></span>
                                 <b data-vp-tl-filter-name></b>
                                 <button type="button"
                                         class="btn btn-link btn-sm p-0"

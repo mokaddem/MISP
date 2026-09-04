@@ -8065,11 +8065,43 @@ th.vp-rel-num {
     font-size: 0.75rem;
 }
 
+/*
+ * A button that has to go on reading as the caption it replaced: the
+ * key filters the chart, and a key that announced itself with a border
+ * and a fill would be a row of chips over a chart it is only labelling
+ * until pressed.
+ */
 .vp-tl-key {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     white-space: nowrap;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Until the script arrives, which is the only state that renders one. */
+.vp-tl-key:disabled {
+    cursor: default;
+}
+
+/*
+ * Switched off, and legible as off without the dimming carrying it
+ * alone: the swatch hollows out, so a reader who cannot separate two
+ * opacities still sees which sources the chart is drawing.
+ */
+.vp-tl-key[aria-pressed="false"] {
+    color: var(--bs-secondary-color);
+}
+
+.vp-tl-key[aria-pressed="false"] .vp-tl-swatch {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--vp-tl-hue);
+    opacity: 0.55;
 }
 
 .vp-tl-swatch {

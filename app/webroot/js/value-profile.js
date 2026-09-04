@@ -4557,7 +4557,10 @@
         // Bin index bounds of the brush, or null while the window is the
         // one the panel was rendered with.
         brush: null,
-        // A lane key, or null for every source.
+        // The sources the chart and the chronology are showing, as an
+        // array of source keys, or null while that is all of them. Set
+        // from two controls: the spine's key, one source at a time, and
+        // a lane button, which sets the whole array at once.
         filter: null,
         // Runs the reader has opened, by their run id.
         expanded: null,
@@ -4942,6 +4945,152 @@
     }
 
     /**
+     * The sources the spine has a dataset for, in the key's order.
+     *
+     * The key's own filter is expressed in these rather than in the
+     * lanes' sources: a lane names every source it would carry whether
+     * or not this value has one, and the key draws only what the counts
+     * found.
+     *
+     * @return {Array<string>}
+     */
+    function tlSources() {
+        return tl.data.datasets.map(function (dataset) {
+            return dataset.source;
+        });
+    }
+
+    /**
+     * @param {string} source
+     * @return {boolean} Whether the chart and the chronology draw it
+     */
+    function tlShows(source) {
+        return tl.filter === null || tl.filter.indexOf(source) !== -1;
+    }
+
+    /**
+     * @param {Array<string>} a
+     * @param {Array<string>} b
+     * @return {boolean} Whether the two name the same set
+     */
+    function tlSameSet(a, b) {
+        return a.length === b.length && a.every(function (item) {
+            return b.indexOf(item) !== -1;
+        });
+    }
+
+    /**
+     * @param {Array<string>} sources
+     * @return {boolean} Whether the filter is exactly this set
+     */
+    function tlFilterIs(sources) {
+        return tl.filter !== null && tlSameSet(tl.filter, sources);
+    }
+
+    /**
+     * Narrow the chart and the chronology to a set of sources, or to
+     * all of them.
+     *
+     * The spine is **rebuilt**, which is what the Sightings panel does
+     * with `hiddenOrgs` for the same reason: a chart's datasets are its
+     * state and `bootChart` hands back a refresh rather than the
+     * instance. It costs one rebuild per click and none per brush
+     * frame — the spine covers the whole range whatever the window is,
+     * so a filter is the only thing that can change what it draws.
+     *
+     * The lanes are deliberately left alone. They are one lane per
+     * source already, so narrowing them would blank rows rather than
+     * answer anything, and their `In window` counts stay each lane's
+     * own truth.
+     *
+     * @param {Element} panel
+     * @param {Array<string>|null} sources
+     */
+    function tlSetFilter(panel, sources) {
+        tl.filter = sources === null ? null : sources.slice();
+        if (tl.filter !== null) {
+            // In the key's order, so the note over the chronology reads
+            // the way the legend does and not the way it was clicked.
+            var order = tlSources();
+            tl.filter.sort(function (a, b) {
+                return order.indexOf(a) - order.indexOf(b);
+            });
+        }
+        tl.showAll = false;
+        tlSyncFilter(panel);
+        if (tl.spine) {
+            tl.spine.refresh();
+        }
+        tlRefreshList(panel);
+    }
+
+    /**
+     * Put everything that expresses the filter in step with it: the
+     * key, the lane buttons, and the note naming it.
+     *
+     * The two controls do not read `aria-pressed` the same way — a key
+     * is pressed while its source is drawn, a lane button while the
+     * filter is its lane and nothing else — because they are two
+     * gestures over one state. Both are recomputed from `tl.filter`
+     * rather than toggled where they were clicked, so pressing either
+     * one cannot leave the other lying about what is on screen.
+     *
+     * @param {Element} panel
+     */
+    function tlSyncFilter(panel) {
+        panel.querySelectorAll('[data-vp-tl-key]').forEach(
+            function (key) {
+                key.setAttribute(
+                    'aria-pressed',
+                    String(tlShows(key.dataset.vpTlKey))
+                );
+            }
+        );
+        var named = null;
+        panel.querySelectorAll('[data-vp-tl-lane]').forEach(
+            function (button) {
+                var mine = (button.dataset.vpTlSources || '').split(',');
+                var is = tlFilterIs(mine);
+                button.setAttribute('aria-pressed', String(is));
+                if (is) {
+                    named = button.textContent.trim();
+                }
+            }
+        );
+        var name = panel.querySelector('[data-vp-tl-filter-name]');
+        var verb = panel.querySelector('[data-vp-tl-filter-verb]');
+        if (name && tl.filter !== null) {
+            var labels = tl.data.labels || {};
+            var dropped = tlSources().filter(function (source) {
+                return tl.filter.indexOf(source) === -1;
+            });
+            /*
+             * Three ways of naming one filter, shortest first. A lane's
+             * own label wherever the filter is exactly a lane, because
+             * `Sightings` is what the reader pressed and `Sightings,
+             * False positives, Expirations` is that said three times.
+             * Then what a shift-click took out, for the same reason
+             * from the other side. The list only where it is the only
+             * thing that says which sources are on screen.
+             */
+            var hiding = named === null && dropped.length === 1
+                && tl.filter.length > 1;
+            if (named !== null) {
+                name.textContent = named;
+            } else if (hiding) {
+                name.textContent = tlLabel(dropped[0]);
+            } else {
+                name.textContent = tl.filter.map(tlLabel).join(', ');
+            }
+            if (verb) {
+                verb.textContent = hiding
+                    ? (labels.hiding || verb.textContent)
+                    : (labels.showing || verb.textContent);
+            }
+        }
+    }
+
+    /**
      * A count, grouped the way `number_format` groups it.
      *
      * Not `toLocaleString`: `number_format` is called with its defaults
@@ -5140,7 +5289,7 @@
             return;
         }
         var window_ = tlWindow();
-        var sources = tl.filter === null ? null : tl.filter.split(',');
+        var sources = tl.filter;
         /*
          * The two row sets, held for the life of the fragment for
          * `tlEntries`' reason: this runs on every frame of a drag and
@@ -5232,8 +5381,21 @@
          * precision tally beside it stays a tally over those rows,
          * because it is a statement about the list and sums to it.
          */
-        var windowTotal = tlWindowCounts(window_).total;
-        setText(panel, '[data-vp-tl-window-count]', windowTotal);
+        var counts = tlWindowCounts(window_);
+        setText(panel, '[data-vp-tl-window-count]', counts.total);
+        /*
+         * And the same window under the filter, still from the
+         * aggregate: it is what the capped empty state below claims.
+         * The lanes' header keeps the unfiltered total, because the
+         * lanes do not answer to the filter.
+         */
+        var shownTotal = counts.total;
+        if (sources !== null) {
+            shownTotal = 0;
+            sources.forEach(function (source) {
+                shownTotal += counts[source] || 0;
+            });
+        }
         var label = panel.querySelector('[data-vp-tl-window-label]');
         if (label) {
             label.textContent = window_.from + ' → ' + window_.to;
@@ -5258,13 +5420,15 @@
          * one reading that makes the panel look broken. Every value
          * with years of history hits it on its first active bar.
          *
-         * A source filter is the reader's own doing and keeps the plain
-         * sentence, so only an unfiltered list can reach the capped
-         * one.
+         * A filtered list is counted the same way rather than sent back
+         * to the plain sentence. *2 publications fall in this window
+         * and none of them are among the rows this list carries* is as
+         * true of one source as of all of them, and the key is what
+         * makes the state easy to reach: one press narrows to a source
+         * whose rows the cap dropped.
          */
         var hasRows = !!list.querySelector('[data-vp-tl-at]');
-        var outOfReach = matched === 0 && hasRows
-            && sources === null && windowTotal > 0;
+        var outOfReach = matched === 0 && hasRows && shownTotal > 0;
         var blank = list.querySelector('[data-vp-tl-blank]');
         if (blank) {
             blank.hidden = matched > 0 || !hasRows || outOfReach;
@@ -5272,7 +5436,7 @@
         var capped = list.querySelector('[data-vp-tl-blank-capped]');
         if (capped) {
             capped.hidden = !outOfReach;
-            setText(capped, '[data-vp-tl-blank-n]', windowTotal);
+            setText(capped, '[data-vp-tl-blank-n]', shownTotal);
             /*
              * The remedy, and only where there is one. Releasing the
              * brush fetches the window, so this state is normally what
@@ -5406,6 +5570,16 @@
                         borderWidth: 0,
                         barPercentage: 0.72,
                         categoryPercentage: 0.86,
+                        /*
+                         * The key's filter. Hidden rather than dropped,
+                         * so a dataset keeps its index whatever is
+                         * switched off — and the stack and the count
+                         * axis both close over what is left, which is
+                         * the whole point of pressing a key on a chart
+                         * whose bottom segment is three orders of
+                         * magnitude taller than the rest.
+                         */
+                        hidden: !tlShows(dataset.source),
                     };
                 }),
             },
@@ -6448,7 +6622,15 @@
         if (brush) {
             brush.hidden = false;
         }
+        // The key's buttons ship disabled for the same reason, and are
+        // live from here.
+        panel.querySelectorAll('[data-vp-tl-key]').forEach(
+            function (key) {
+                key.disabled = false;
+            }
+        );
         wireTimelineBrush(panel);
+        tlSyncFilter(panel);
         refreshTimeline(panel);
     }
 
@@ -6464,40 +6646,54 @@
             return;
         }
 
+        /*
+         * The key as a filter. A plain click solos the source, which is
+         * the gesture a reader wants for a segment the stack has
+         * flattened to a hairline; shift, ctrl or meta toggles one,
+         * which is how they drop the segment that is burying the rest.
+         */
+        var key = event.target.closest('[data-vp-tl-key]');
+        if (key && !key.disabled) {
+            var source = key.dataset.vpTlKey;
+            if (!(event.shiftKey || event.ctrlKey || event.metaKey)) {
+                tlSetFilter(panel, tlFilterIs([source]) ? null : [source]);
+                return;
+            }
+            var next = (tl.filter === null ? tlSources() : tl.filter)
+                .slice();
+            var at = next.indexOf(source);
+            if (at === -1) {
+                next.push(source);
+            } else {
+                next.splice(at, 1);
+            }
+            /*
+             * A selection that ends up naming every source, or none, is
+             * no filter: keeping it would leave the note claiming a
+             * narrowing that is not one, and an empty chart offers the
+             * reader nothing to press their way out of.
+             */
+            tlSetFilter(
+                panel,
+                next.length === 0 || tlSameSet(next, tlSources())
+                    ? null
+                    : next
+            );
+            return;
+        }
+
         var lane = event.target.closest('[data-vp-tl-lane]');
         if (lane) {
             // Pressing the lane that is already showing lets it go,
             // which is the same gesture the type chips in the banner
             // use.
-            var sources = lane.dataset.vpTlSources;
-            var already = tl.filter === sources;
-            panel.querySelectorAll('[data-vp-tl-lane]').forEach(
-                function (button) {
-                    button.setAttribute('aria-pressed', 'false');
-                }
-            );
-            tl.filter = already ? null : sources;
-            if (!already) {
-                lane.setAttribute('aria-pressed', 'true');
-            }
-            tl.showAll = false;
-            var name = panel.querySelector('[data-vp-tl-filter-name]');
-            if (name) {
-                name.textContent = lane.textContent.trim();
-            }
-            tlRefreshList(panel);
+            var mine = (lane.dataset.vpTlSources || '').split(',');
+            tlSetFilter(panel, tlFilterIs(mine) ? null : mine);
             return;
         }
 
         if (event.target.closest('[data-vp-tl-filter-clear]')) {
-            tl.filter = null;
-            tl.showAll = false;
-            panel.querySelectorAll('[data-vp-tl-lane]').forEach(
-                function (button) {
-                    button.setAttribute('aria-pressed', 'false');
-                }
-            );
-            tlRefreshList(panel);
+            tlSetFilter(panel, null);
             return;
         }
 
