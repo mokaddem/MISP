@@ -270,9 +270,7 @@ class ValueRelationTool
          * caller for the same reason `warninglists` is: it is a lookup,
          * and this class issues none.
          */
-        $prevalence = isset($context['prevalence'])
-            ? (array)$context['prevalence']
-            : array();
+        $prevalence = self::prevalenceOf($context);
         /*
          * The label side's two inputs, and both are lookups the caller
          * owns for the reason every other lookup here is: this class
@@ -438,13 +436,16 @@ class ValueRelationTool
          */
         $spreadRead = 0;
         foreach ($groups as &$group) {
-            if (!isset($prevalence[$group['value']])) {
-                continue;
-            }
-            $group['spread'] = max(
-                (int)$prevalence[$group['value']],
+            $spread = self::spreadOf(
+                $prevalence,
+                $group['value'],
                 count($group['events'])
             );
+            if ($spread === null) {
+                continue;
+            }
+            $group['spread'] = $spread['spread'];
+            $group['spread_least'] = $spread['least'];
             $spreadRead++;
         }
         unset($group);
@@ -1263,6 +1264,13 @@ class ValueRelationTool
              * nowhere.
              */
             'spread' => null,
+            /*
+             * Whether that number is a count or a floor. A value the
+             * lookup found too common to count carries the cap it
+             * stopped at, and the row has to say *at least* rather than
+             * print it as measured.
+             */
+            'spread_least' => false,
         ), $extra);
     }
 
@@ -1350,6 +1358,7 @@ class ValueRelationTool
                  * and *"this value is nowhere else"*.
                  */
                 'spread' => $group['spread'],
+                'spread_least' => !empty($group['spread_least']),
                 'tokens' => self::groupTokens($group, $orgs, $ourObjects),
             );
         }
@@ -1715,9 +1724,7 @@ class ValueRelationTool
          * arrived afterwards could only reorder the rows that had
          * already won.
          */
-        $sibPrevalence = isset($context['prevalence'])
-            ? (array)$context['prevalence']
-            : array();
+        $sibPrevalence = self::prevalenceOf($context);
         $triples = array();
         $objects = array();
         $templates = array();
@@ -1833,6 +1840,11 @@ class ValueRelationTool
                 $names[] = self::orgName($orgs, $orgId);
             }
             sort($names);
+            $sibSpread = self::spreadOf(
+                $sibPrevalence,
+                $triple['value'],
+                $held
+            );
             $out[] = array(
                 'object' => $triple['object'],
                 'relation' => $triple['relation'],
@@ -1858,12 +1870,11 @@ class ValueRelationTool
                  * own number is objects, and a fraction in the other
                  * unit would not describe the column beside it.
                  */
-                'spread' => isset($sibPrevalence[$triple['value']])
-                    ? max(
-                        (int)$sibPrevalence[$triple['value']],
-                        $held
-                    )
-                    : null,
+                'spread' => $sibSpread === null
+                    ? null
+                    : $sibSpread['spread'],
+                'spread_least' => $sibSpread !== null
+                    && $sibSpread['least'],
             );
         }
         /*
@@ -2004,7 +2015,8 @@ class ValueRelationTool
              * reasoning as the ranked table's flag: without it the
              * column would print a page of empty cells.
              */
-            'spread_read' => !empty($sibPrevalence),
+            'spread_read' => !empty($sibPrevalence['counts'])
+                || !empty($sibPrevalence['capped']),
             'total' => $triples,
             'raw' => count($rows),
             'objects' => count($objects),
@@ -3425,6 +3437,105 @@ class ValueRelationTool
             $counts[$key] = 0;
         }
         $counts[$key]++;
+    }
+
+    /**
+     * The prevalence lookup off a context, in the shape this class reads.
+     *
+     * `Value::prevalenceFor` answers in three parts — the values it
+     * counted exactly, the values it found too common to count, and the
+     * cap it stopped at — because a value's spread is now one of three
+     * things rather than a number or nothing. A scan cached before that
+     * split carries a flat map, so that reading is accepted too and
+     * treated as all-exact: it is the shape this used to hand over, and
+     * for one `RELATION_SCAN_TTL` after a deploy it is what is in Redis.
+     *
+     * @param array $context The fold's context
+     * @return array `counts`, `capped`, `row_cap`
+     */
+    private static function prevalenceOf(array $context)
+    {
+        $out = array(
+            'counts' => array(),
+            'capped' => array(),
+            'row_cap' => 0,
+        );
+        if (empty($context['prevalence'])) {
+            return $out;
+        }
+        $prevalence = (array)$context['prevalence'];
+        if (!isset($prevalence['counts'])
+            && !isset($prevalence['capped'])
+        ) {
+            $out['counts'] = $prevalence;
+            return $out;
+        }
+        if (!empty($prevalence['counts'])) {
+            $out['counts'] = (array)$prevalence['counts'];
+        }
+        if (!empty($prevalence['capped'])) {
+            $out['capped'] = (array)$prevalence['capped'];
+        }
+        if (!empty($prevalence['row_cap'])) {
+            $out['row_cap'] = (int)$prevalence['row_cap'];
+        }
+        return $out;
+    }
+
+    /**
+     * One value's spread, and whether the number is a count or a floor.
+     *
+     * Three outcomes, because the lookup has three. A value it counted
+     * gets its count, clamped up to the shared total — arithmetic
+     * rather than caution: the numerator counts what this scan *read*
+     * and the denominator counts everywhere the neighbour appears, so
+     * the two can only disagree in one direction, and a fraction
+     * reading `5 of its 3` would be nonsense on the row even where it
+     * changed no ordering.
+     *
+     * A value too common to count gets the cap and `least`. **The cap
+     * is a count of occurrences, not of this row's unit**, so the
+     * renderer must not spend it on a fraction — `flood` is 65,717
+     * occurrences across two events, and *in 2 of its 500+ events*
+     * would be false about a value that is in two of its two.
+     *
+     * Ranking such a value last is therefore a decision rather than a
+     * derivation, and it is the right one: the rank exists to raise
+     * neighbours whose company means something, and a value carried by
+     * five hundred occurrences is an object template's vocabulary
+     * rather than a fact about this value. Every capped value ranks
+     * together, which also keeps the order stable — nothing separates
+     * two values whose real spread nobody measured.
+     *
+     * A value nobody probed gets null, which the caller leaves as no
+     * spread at all — `emptyGroup` has why that is not a spread of zero.
+     *
+     * @param array $prevalence From prevalenceOf
+     * @param string $value The fold key
+     * @param int $shared Events or objects shared with the subject
+     * @return array|null `spread` and `least`, or null when unprobed
+     */
+    private static function spreadOf(array $prevalence, $value, $shared)
+    {
+        if (isset($prevalence['counts'][$value])) {
+            return array(
+                'spread' => max(
+                    (int)$prevalence['counts'][$value],
+                    (int)$shared
+                ),
+                'least' => false,
+            );
+        }
+        if (!empty($prevalence['capped'][$value])) {
+            return array(
+                'spread' => max(
+                    (int)$prevalence['row_cap'],
+                    (int)$shared
+                ),
+                'least' => true,
+            );
+        }
+        return null;
     }
 
     /**

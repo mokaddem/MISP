@@ -242,7 +242,7 @@ class ValueProfile extends AppModel
      * `00-contract.md` §14.4 carries the rule; this is the second thing
      * a key here must capture, after the permission scope.
      */
-    const CACHE_SHAPE = 10;
+    const CACHE_SHAPE = 11;
 
     /**
      * Nodes per notion in the rail's neighbourhood graph.
@@ -3396,10 +3396,22 @@ class ValueProfile extends AppModel
         $values = array();
         foreach ($rows as $row) {
             if (!empty($row['Attribute']['value'])) {
-                $values[$row['Attribute']['value']] = true;
+                $key = $row['Attribute']['value'];
+                $values[$key] = isset($values[$key])
+                    ? $values[$key] + 1
+                    : 1;
             }
         }
-        return array_keys($values);
+        /*
+         * **Most locally frequent first**, because that is the order
+         * `Value::prevalenceFor` cuts its tail off in. A value carried
+         * by many of the rows this scan read is a value many of the
+         * panel's own rows rest on, so if the probe cap bites it should
+         * bite the neighbours that appear once. Stable within a
+         * frequency so the fold stays reproducible between scans.
+         */
+        arsort($values, SORT_NUMERIC);
+        return array_map('strval', array_keys($values));
     }
 
 

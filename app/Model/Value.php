@@ -43,14 +43,57 @@ class Value extends AppModel
      * missing without this is the data, not the permission.
      */
     /**
-     * How many values one prevalence lookup asks about at a time.
+     * How many values one prevalence lookup asks about per round trip.
      *
-     * The candidate set is a whole co-occurrence fold — 9,520 values on
-     * `8.8.8.8` — and an `IN` list that long is a query nobody should
-     * send. Measured flat between 1,000 and 2,000 per chunk, so the
-     * smaller one stands.
+     * The candidate set is a whole co-occurrence fold — 10,040 values
+     * on `8.8.8.8` — and each one is now its own bounded probe, so this
+     * is how many of those probes share a statement rather than how
+     * long an `IN` list may get. Measured flat from 200 to 400.
      */
-    const PREVALENCE_CHUNK = 1000;
+    const PREVALENCE_CHUNK = 250;
+
+    /**
+     * How many occurrences a single value's probe may read.
+     *
+     * **The number that stops this lookup scaling with the instance.**
+     * Prevalence used to be one `IN` pass per column that grouped every
+     * matching row, so its cost tracked the rows the candidates matched
+     * rather than the candidates themselves. `8.8.8.8`'s 34 sibling
+     * values matched **277,987** rows — they are object-template enum
+     * values like `flood` (65,717), `not-applicable` (32,945) and
+     * `client-to-server` (32,869) — which grouped to 239,076 triples,
+     * every one of them hydrated into PHP to be counted. That was
+     * **3,631 ms** for 34 numbers, and linear: 7.3 µs per matched row,
+     * measured from 55 rows to 267,474.
+     *
+     * A value that has already been seen this many times is not going
+     * to be told apart from one seen twice as often by a denominator,
+     * so the probe stops here and the caller is told it stopped. The
+     * bound has to be on **rows read**, not on grouped output: a
+     * `GROUP BY … LIMIT` has to group before it can limit, so it still
+     * reads every matching row — measured at ~60 ms for one hot value
+     * whether the limit was 50 or 1,000, against 23 ms for the same
+     * value once the grouping came out.
+     */
+    const PREVALENCE_ROW_CAP = 500;
+
+    /**
+     * How many values get a prevalence probe at all.
+     *
+     * Each probe is bounded, so this bounds the lookup: at ~0.3 ms for
+     * a value nothing much holds, 1,500 of them is ~420 ms whatever the
+     * instance holds. Above it the tail goes unprobed and those rows
+     * carry no spread, which is a state the fold and both tables
+     * already render — `ValueRelationTool::emptyGroup` has why an
+     * unknown spread is not a spread of zero.
+     *
+     * The tail is the right thing to drop because the caller hands the
+     * values over in local-frequency order, so what goes unprobed is
+     * what the fewest of the panel's own rows rest on. A value with
+     * more than 1,500 distinct neighbours is not a value anyone reads
+     * to a conclusion; it is `8.8.8.8`, and it still answers.
+     */
+    const PREVALENCE_PROBE_CAP = 1500;
 
     const CONTEXT_FIELDS = array(
         'Event' => array('fields' => array(
@@ -272,10 +315,10 @@ class Value extends AppModel
      * costs almost nothing here: 775 ms against 626 ms unscoped over
      * `8.8.8.8`'s 9,520 neighbours, the worst fold on the instance.
      *
-     * **Two `IN` passes and nothing else, which is the whole design.**
-     * Identity and storage disagree on composite attributes: a value is
-     * an identity when it is `value1` **or** `value2`
-     * (`conditionsFor`, and the reason is in this class's own
+     * **One bounded probe per value, which is what stops this scaling
+     * with the instance.** Identity and storage disagree on composite
+     * attributes: a value is an identity when it is `value1` **or**
+     * `value2` (`conditionsFor`, and the reason is in this class's own
      * docblock), while the co-occurrence fold keys its rows on
      * `Attribute.value`, which composes to `value1|value2`. 16% of this
      * instance's attributes are composite and 2,231 of `8.8.8.8`'s
@@ -284,26 +327,38 @@ class Value extends AppModel
      * value equals `A|B` exactly when `value1` is `A` and `value2` is
      * `B`, or when `value1` is the literal `A|B` and `value2` is empty.
      *
-     * The union is assembled from the rows rather than from the query,
-     * because matching pairs *in SQL* is what made the first attempt
-     * unusable — a thousand `(value1 = A AND value2 = B)` arms OR'd
-     * into one condition took **311 seconds** over this fold and
-     * matched far more than it was asked about. Here both passes are
-     * plain `IN` lists on the two indexed value columns, and the
-     * composed key is rebuilt in PHP from the `value1`/`value2` pair
-     * each row already carries. The first parts of the composite keys
-     * join the first pass's `IN` list so those rows come back at all.
+     * This used to be two `IN` passes that grouped every matching row
+     * and rebuilt the union in PHP, and its cost tracked the rows the
+     * candidates matched rather than the candidates themselves —
+     * `PREVALENCE_ROW_CAP` carries the measurements. Each key now asks
+     * its own question, capped, and MariaDB answers it off the two
+     * value indexes: `EXPLAIN` reports
+     * `index_merge … sort_union(value1,value2)` for the plain shape.
      *
-     * Ids come back as rows and the distinct-count is taken in PHP,
-     * because `COUNT(DISTINCT)` grouped by `value1` cannot see the
-     * `value2` matches and two grouped counts cannot be added without
-     * double-counting an id that holds both.
+     * **The arms are separate statements, not one condition.** A
+     * thousand `(value1 = A AND value2 = B)` arms OR'd into a single
+     * `WHERE` took **311 seconds** over this fold and matched far more
+     * than it was asked about. Chunking them as `UNION ALL` keeps every
+     * arm its own indexed lookup with its own `LIMIT`, which is the
+     * only way the cap can bind per value.
+     *
+     * **Equality, so an absent value costs nothing.** The cap would be
+     * no protection if a miss had to scan: 200 values that match
+     * nothing cost 98 ms, against the 4.5 s a `LIKE '%…'` shape spends
+     * discovering the same thing — the trap recorded at
+     * `nearMatches`. Every arm here is an equality on an indexed
+     * column, so a value nobody holds is a range lookup that finds
+     * nothing.
      *
      * @param array $user
-     * @param array $values Value strings, as the caller keys them
+     * @param array $values Value strings, as the caller keys them, most
+     *                      locally frequent first — the tail past
+     *                      `PREVALENCE_PROBE_CAP` goes unprobed
      * @param array $options `unit` counts `event` (default) or
      *                       `object`; otherwise as conditionsFor
-     * @return array Value string => count, absent when zero
+     * @return array `counts` (key => exact count, absent when zero),
+     *               `capped` (key => true, too common to count),
+     *               `row_cap`, `probed`, `unprobed`
      */
     public function prevalenceFor(array $user, array $values,
         array $options = array()
@@ -314,30 +369,6 @@ class Value extends AppModel
                 $wanted[(string)$value] = true;
             }
         }
-        if (empty($wanted)) {
-            return array();
-        }
-        $object = isset($options['unit'])
-            && $options['unit'] === 'object';
-        $idKey = $object ? 'object_id' : 'event_id';
-
-        /*
-         * The left-hand halves of the composite keys, so the first pass
-         * returns the rows a composed key is rebuilt from. A key whose
-         * pipe is part of a plain value contributes a first part that
-         * simply matches nothing.
-         */
-        $probes = $wanted;
-        foreach (array_keys($wanted) as $key) {
-            // Cast for the same reason as below: a numeric-looking key
-            // comes back from array_keys() as an int.
-            $key = (string)$key;
-            $cut = strpos($key, '|');
-            if ($cut !== false && $cut > 0) {
-                $probes[substr($key, 0, $cut)] = true;
-            }
-        }
-
         /*
          * **Back to strings, and this is not defensive tidying.** PHP
          * turns an array key that looks like an integer into one, so
@@ -345,131 +376,180 @@ class Value extends AppModel
          * a port and a passive-DNS record count — as ints. CakePHP
          * binds them as integers, MariaDB then compares a varchar
          * column against a number, converts the whole column to do it
-         * and abandons the `value1` index: a full scan of 3.2M rows
-         * joined twice. Only the chunks holding a numeric-looking
-         * value were affected, which is why 4 of 16 queries took 40
-         * seconds each while an 983-row one among them took 41 — the
-         * cost tracked the cast, not the rows. 171 seconds over
-         * `8.8.8.8`'s fold, all of it here.
+         * and abandons the `value1` index.
          */
-        $seen = array();
-        $this->prevalencePass($user, array_map('strval',
-            array_keys($probes)), 'value1', $idKey, $wanted, $seen,
-            $options);
-        $this->prevalencePass($user, array_map('strval',
-            array_keys($wanted)), 'value2', $idKey, $wanted, $seen,
-            $options);
-
-        $out = array();
-        foreach ($seen as $value => $ids) {
-            $out[$value] = count($ids);
+        $keys = array_map('strval', array_keys($wanted));
+        $out = array(
+            'counts' => array(),
+            'capped' => array(),
+            'row_cap' => self::PREVALENCE_ROW_CAP,
+            'probed' => 0,
+            'unprobed' => 0,
+        );
+        if (empty($keys)) {
+            return $out;
         }
+        if (count($keys) > self::PREVALENCE_PROBE_CAP) {
+            $out['unprobed'] = count($keys) - self::PREVALENCE_PROBE_CAP;
+            $keys = array_slice($keys, 0, self::PREVALENCE_PROBE_CAP);
+        }
+        $out['probed'] = count($keys);
+        $probed = $this->prevalenceProbe($user, $keys, $options);
+        $out['counts'] = $probed['counts'];
+        $out['capped'] = $probed['capped'];
         return $out;
     }
 
     /**
-     * One `IN` pass, folded onto the id sets the caller is building.
-     *
-     * Chunked because the candidate set is a whole co-occurrence fold
-     * and an `IN` list of twelve thousand strings is a query nobody
-     * should send. Measured flat between 1,000 and 2,000 per chunk.
+     * The probes themselves, chunked into `UNION ALL` statements.
      *
      * `Event` and `Object` are joined because
      * `MispAttribute::buildConditions` names their columns directly,
-     * and only their ids are selected: the ACL filters on columns it
-     * does not have to read back, and a fold this wide should not
-     * carry every event's `info` through PHP to reach a count.
+     * and only the id being counted is selected: the ACL filters on
+     * columns it does not have to read back.
+     *
+     * Each arm reads at most `PREVALENCE_ROW_CAP + 1` occurrences and
+     * reports two numbers about them — how many it read, and how many
+     * distinct events or objects they were. The first says whether the
+     * second can be trusted: an arm that came back short of its limit
+     * saw every occurrence there is, so its distinct count is exact;
+     * one that filled its limit saw a prefix, and the honest answer
+     * about such a value is that it is too common to count rather than
+     * whatever the prefix happened to hold. `flood` reads 501 rows
+     * spread over one event — the distinct count off a truncated read
+     * is not a small number, it is a meaningless one.
      *
      * @param array $user
-     * @param array $probes The values to match on this column
-     * @param string $column `value1` or `value2`
-     * @param string $idKey `event_id` or `object_id`
-     * @param array $wanted The keys the caller actually asked about
-     * @param array $seen Accumulator: key => array of id => true
-     * @param array $options
-     * @return void
+     * @param array $keys Value strings, already capped and stringified
+     * @param array $options As prevalenceFor
+     * @return array `counts` and `capped`
      */
-    private function prevalencePass(array $user, array $probes, $column,
-        $idKey, array $wanted, array &$seen, array $options
+    private function prevalenceProbe(array $user, array $keys,
+        array $options
     ) {
         $attributes = $this->attributes();
-        $idField = 'Attribute.' . $idKey;
-        foreach (array_chunk($probes, self::PREVALENCE_CHUNK) as $chunk) {
-            $conditions = $attributes->buildConditions($user);
-            $conditions['AND'][] = array('Attribute.' . $column => $chunk);
-            if (!empty($options['types'])) {
-                $conditions['AND'][]
-                    = array('Attribute.type' => $options['types']);
-            }
-            if ($idKey === 'object_id') {
-                $conditions['AND'][]
-                    = array('Attribute.object_id !=' => 0);
-            }
-            $rows = $attributes->find('all', array(
-                'fields' => array(
-                    'Attribute.value1',
-                    'Attribute.value2',
-                    $idField,
+        $db = $attributes->getDataSource();
+        $acl = $attributes->buildConditions($user);
+        $object = isset($options['unit'])
+            && $options['unit'] === 'object';
+        $idKey = $object ? 'object_id' : 'event_id';
+        $joins = array(
+            array(
+                'table' => $db->fullTableName(ClassRegistry::init('Event')),
+                'alias' => 'Event',
+                'type' => 'LEFT',
+                'conditions' => array('Event.id = Attribute.event_id'),
+            ),
+            array(
+                'table' => $db->fullTableName(
+                    ClassRegistry::init('MispObject')
                 ),
-                'conditions' => $conditions,
-                'recursive' => -1,
-                'contain' => array(
-                    'Event' => array('fields' => array('Event.id')),
-                    'Object' => array('fields' => array('Object.id')),
-                ),
+                'alias' => 'Object',
+                'type' => 'LEFT',
+                'conditions' => array('Object.id = Attribute.object_id'),
+            ),
+        );
+
+        $counts = array();
+        $capped = array();
+        foreach (array_chunk($keys, self::PREVALENCE_CHUNK) as $chunk) {
+            $arms = array();
+            foreach ($chunk as $key) {
+                $conditions = $acl;
+                $conditions['AND'][] = $this->prevalencePredicate($key);
+                if (!empty($options['types'])) {
+                    $conditions['AND'][] = array(
+                        'Attribute.type' => $options['types'],
+                    );
+                }
+                if ($object) {
+                    $conditions['AND'][] = array(
+                        'Attribute.object_id !=' => 0,
+                    );
+                }
                 /*
-                 * **Grouped, and `order` explicitly off — it takes
-                 * both.** The grouping is not for correctness; the
-                 * accumulator below is a set keyed on the id and would
-                 * dedupe anyway. It is there to stop the rows reaching
-                 * PHP at all: one chunk of a thousand values matches
-                 * 35,884 attribute rows and collapses to 1,197 distinct
-                 * triples, and hydrating the difference is what cost
-                 * **190 seconds** over `8.8.8.8`'s fold against 0.4
-                 * seconds in the database.
-                 *
-                 * And `order` has to go with it, because
-                 * `MispAttribute` carries a default
-                 * `Attribute.event_id DESC` that CakePHP appends to
-                 * every `find()`: grouping under that sort was **401
-                 * seconds**, and dropping the group to escape the sort
-                 * was **1,431**. Neither alone is the answer. An
-                 * ordering nobody reads is not free.
+                 * `order` empty on purpose: `MispAttribute` carries a
+                 * default `Attribute.event_id DESC` that a `find()`
+                 * would append here, and an ordering nobody reads would
+                 * turn a bounded index lookup into a sort of everything
+                 * the arm matched.
                  */
-                'group' => array(
-                    'Attribute.value1',
-                    'Attribute.value2',
-                    $idField,
-                ),
-                'order' => false,
-            ));
+                $inner = $db->buildStatement(array(
+                    'fields' => array(
+                        'Attribute.' . $idKey . ' AS probe_id',
+                    ),
+                    'table' => $db->fullTableName($attributes),
+                    'alias' => 'Attribute',
+                    'joins' => $joins,
+                    'conditions' => $conditions,
+                    'order' => null,
+                    'group' => null,
+                    'having' => null,
+                    'limit' => self::PREVALENCE_ROW_CAP + 1,
+                    'offset' => null,
+                ), $attributes);
+                $arms[] = 'SELECT ' . $db->value($key, 'string')
+                    . ' AS probe_key, COUNT(*) AS probe_rows,'
+                    . ' COUNT(DISTINCT probe_id) AS probe_ids'
+                    . ' FROM (' . $inner . ') AS probe';
+            }
+            $rows = $db->fetchAll(implode(' UNION ALL ', $arms));
+            if (empty($rows)) {
+                continue;
+            }
             foreach ($rows as $row) {
-                $row = $row['Attribute'];
-                if (!isset($row[$idKey])) {
+                /*
+                 * Every column here is computed, so CakePHP files them
+                 * under the no-table key rather than under an alias.
+                 */
+                $cells = isset($row[0]) ? $row[0] : reset($row);
+                if (!is_array($cells)
+                    || !array_key_exists('probe_key', $cells)
+                ) {
                     continue;
                 }
-                $id = (int)$row[$idKey];
-                $one = (string)$row['value1'];
-                $two = isset($row['value2'])
-                    ? (string)$row['value2']
-                    : '';
-                /*
-                 * The identity this row carries on the column that
-                 * matched, and the composed key it spells. Either may
-                 * be a key the caller asked about; both, when a value
-                 * is stored plain in one place and as half of a pair in
-                 * another.
-                 */
-                $identity = $column === 'value2' ? $two : $one;
-                if ($identity !== '' && isset($wanted[$identity])) {
-                    $seen[$identity][$id] = true;
+                $key = (string)$cells['probe_key'];
+                if ((int)$cells['probe_rows'] > self::PREVALENCE_ROW_CAP) {
+                    $capped[$key] = true;
+                    continue;
                 }
-                $composed = $two === '' ? $one : $one . '|' . $two;
-                if ($composed !== '' && isset($wanted[$composed])) {
-                    $seen[$composed][$id] = true;
+                $ids = (int)$cells['probe_ids'];
+                if ($ids > 0) {
+                    $counts[$key] = $ids;
                 }
             }
         }
+        return array('counts' => $counts, 'capped' => $capped);
+    }
+
+    /**
+     * Every way one fold key can be stored, as one indexed predicate.
+     *
+     * A plain key is an identity on either column. A composed key is
+     * additionally the pair that spells it — and still the literal, for
+     * the attribute whose `value1` carries a pipe of its own with an
+     * empty `value2`. All arms are equalities, so the whole predicate
+     * stays a set of range lookups over `value1` and `value2`.
+     *
+     * @param string $key A key as the co-occurrence fold spells it
+     * @return array
+     */
+    private function prevalencePredicate($key)
+    {
+        $predicate = array(
+            'OR' => array(
+                array('Attribute.value1' => $key),
+                array('Attribute.value2' => $key),
+            ),
+        );
+        $cut = strpos($key, '|');
+        if ($cut !== false && $cut > 0) {
+            $predicate['OR'][] = array(
+                'Attribute.value1' => substr($key, 0, $cut),
+                'Attribute.value2' => substr($key, $cut + 1),
+            );
+        }
+        return $predicate;
     }
 
     /**

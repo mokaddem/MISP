@@ -174,13 +174,38 @@ $spreadRead = !empty($co['spread_read']);
  * @param string $unit `event` or `object`
  * @return string
  */
-$specificRead = function ($shared, $spread, $unit = 'event') {
+$specificRead = function ($shared, $spread, $unit = 'event',
+    $least = false
+) {
     if ($spread === null) {
         return '';
     }
     $spread = (int)$spread;
     $shared = (int)$shared;
     $object = $unit === 'object';
+    /*
+     * **A floor names the unit it was measured in, which is not this
+     * row's.** The lookup stops after `Value::PREVALENCE_ROW_CAP`
+     * *occurrences* of a value, and what it can say afterwards is only
+     * about occurrences: `flood` is 65,717 of them across **two**
+     * events, so a capped read rendered as a fraction of events would
+     * print *in 2 of its 500+ events* about a value that is in two of
+     * its two. The rows a truncated read saw cannot be sampled for the
+     * answer either — they arrive in index order, which for one value
+     * is insertion order, so the events they name are the earliest ones
+     * rather than a spread of them.
+     *
+     * So the fraction is dropped and the one measured fact is printed.
+     * It is still the fact worth having: a value seen this many times
+     * is one this table exists to push down the page, whichever unit
+     * that many were counted in.
+     */
+    if ($least) {
+        return sprintf(
+            __('in %s+ occurrences'),
+            number_format($spread)
+        );
+    }
     if ($spread === 1) {
         return $object
             ? __('in its only object')
@@ -1508,7 +1533,8 @@ $headerSub = ob_get_clean();
                                         <?= h($specificRead(
                                             $sibling['objects'],
                                             $sibling['spread'] ?? null,
-                                            'object'
+                                            'object',
+                                            !empty($sibling['spread_least'])
                                         )) ?>
                                     </td>
                                 <?php endif; ?>
@@ -2359,7 +2385,9 @@ $headerSub = ob_get_clean();
                                         <td class="small text-nowrap">
                                             <?= h($specificRead(
                                                 $row['shared_events'],
-                                                $row['spread'] ?? null
+                                                $row['spread'] ?? null,
+                                                'event',
+                                                !empty($row['spread_least'])
                                             )) ?>
                                         </td>
                                     <?php endif; ?>
