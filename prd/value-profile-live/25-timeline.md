@@ -38,15 +38,17 @@ to `done` only when §14's verification has run against it.
 | T14 | The board rows: §14.12 `viewTimeline`, and this document's numbers | §14.12, §16.5 | **done** |
 | T15 | The axis names its years; the ruler follows the brush and names them too | §17.1, §17.2 | **done** |
 | T16 | The chronology stops denying entries the counts state | §17.3 | **done** |
+| T17 | The brush's mask stops where the plot area does, at any axis height | §18.1 | **done** |
+| T18 | `forTimeline` takes a window; the brush fetches one on release | §18.2, §18.3 | **done** |
 
-**Where the phase stands.** Fourteen of sixteen rows are done and the tab reads
+**Where the phase stands.** Sixteen of eighteen rows are done and the tab reads
 the database: the endpoint is wired, five dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log; §17 is what the first reader of
-the built tab found, and T15 and T16 are that.
+than a lane that lies. §16 is the build log; §17 and §18 are what the first
+reader of the built tab found over two rounds, and T15 to T18 are that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -755,16 +757,10 @@ Whether the publications lane should draw them beside the two columns —
 and how it would say that one lane holds two kinds of evidence — is a
 question this phase names and does not answer.
 
-**A window the chronology can go back for** (added by §17.3). The rows
-are the newest `TIMELINE_ROW_CAP`, so a brush past what the fragment
-carries has nothing to list and the panel now says so in a sentence
-rather than denying the entries exist. The fix is a window parameter on
-`viewTimeline`, as the History tab takes its period in the path (§11):
-the brush re-fetches where it reaches past the rows it holds. It stays
-deferred because it is a model, controller and cache-key change and the
-reader's actual complaint was that the panel contradicted itself, which
-the sentence settles. The cost of deferring: the first two thirds of a
-busy value's axis stay a chart with no chronology under it.
+**~~A window the chronology can go back for~~** — no longer deferred.
+Added here by §17.3 and built in §18, one review round later: the reader
+who found the contradiction did not want a better sentence about it, and
+was right.
 
 **`T2` standalone and `T1`**, unchanged from `06-timeline.md` §12.
 
@@ -1119,3 +1115,137 @@ The one thing not covered: the no-JavaScript render of the ruler is the
 template's, which is what §16.5 row 7 already exercises — but a brushed
 window has no no-JS equivalent, so the recomputed labels are verified
 with a script running and only that way.
+
+## 18. The brush goes back to the server
+
+§17 answered the reader's two objections and got two more back, one of
+them the same objection refusing the answer it was given.
+
+### 18.1 The mask was dimming the month names
+
+§17.1's second tick line made the axis taller, and `.vp-tl-spine` was
+telling the brush how much of the canvas is axis in a constant:
+
+```css
+/* The 22px the month labels below the bars occupy */
+--vp-brush-floor: 22px;
+```
+
+At 38px of axis, 16px of the mask sat over the month names — the brush's
+dimming is `color-mix` with `--bs-body-bg`, so in the light theme it
+reads as a white wash over exactly the labels §17.1 had just made worth
+reading.
+
+The constant was already approximate before that: Chart.js rotates tick
+labels when they will not fit, and a rotated axis on this panel is 55px.
+So the number is not one the stylesheet can hold. The spine's chart now
+carries a plugin that writes `--vp-brush-floor` from
+`chart.height - chart.chartArea.bottom` in `afterLayout`, which is the
+axis's real height for the grain, the width and the rotation Chart.js
+settled on, and it re-runs on every resize. The CSS keeps a default —
+34px, one line plus a year — for the moment before the chart exists.
+
+Measured after: the brush's bottom edge and the plot area's bottom edge
+are the same pixel, in both themes, at both the unrotated 38px axis and
+the rotated 55px one.
+
+### 18.2 The chronology fetches the window it is asked about
+
+§17.3 shipped a sentence saying *these 14 entries exist and this list
+cannot show them*, and §15 kept the fetch that would show them as
+deferred. The reader's reply was that they had expected the brush to go
+and get them, the way the Relationships tab's tables go back for what
+the front end does not hold. That is the right expectation, and the
+sentence was a smaller answer than the question deserved.
+
+**`forTimeline` takes a window, and it narrows the rows and nothing
+else.** `$options['window']` is a `from`/`to` pair of `Y-m-d`, and the
+whole design is one line: it reaches the *lanes*, not their output.
+Every lane caps at `TIMELINE_ROW_CAP` and the cap means *the newest
+cap-many*, so a filter applied after it would be selecting from a
+fortnight; applied before it, the same cap means the newest 300 of what
+the reader is looking at. Two lanes needed more than
+`timelineLane`'s filter:
+
+- **The edit lane with the audit log on** does not build rows in PHP —
+  it reads them under a `LIMIT` with `id DESC`. So the window has to
+  reach the query, as `AuditLog.created` bounds. It buys no speed
+  (`created` is unindexed), and it costs none: the scan is already
+  bounded by `model`/`model_id` to the value's own rows, which is what
+  `auditCountsFor` scans anyway.
+- **The seen lane is deliberately left whole.** It caps at 25 bars and
+  takes the *oldest*, so it is cheap to carry entire, the client already
+  filters marks to the window, and windowing it would make its
+  sub-label — three whole-value numbers — start describing a slice.
+
+**The counts are never windowed**, and that is what makes this a
+different list rather than a different panel: `by_day`, `by_source`,
+`total` and the range are tallied over every row each lane found, so a
+chronology fetched for November 2024 still draws two years of bars above
+it, with the brush painted over the month it was fetched for. `in_window`
+is the one count that takes the window, and it is a sum over that same
+whole map.
+
+**The window is in the path**, and `self::period` validates it —
+`viewHistory`'s shape and `viewHistory`'s validator. It is not the same
+kind of thing there: History's period is the panel's subject, and what
+that endpoint returns for one window is a different fragment top to
+bottom, where this one returns the same spine whatever it is given. It
+takes the path shape anyway, because a reader of the two actions should
+not have to learn that one page states a window two ways.
+
+**The gesture is `settle`.** `attachBrush` has offered a release hook
+since the History tab needed one, and it is the seam: `range` fires
+every few pixels and re-scopes what is already here, `settle` fires once
+on release and asks the server if the window holds rows the fragment
+does not carry. Two guards, both of which fire in practice — the window
+the fragment already is (a brush over every bin of a spine fetched for
+every bin), and a window whose rows are all present. A click clears the
+brush, and on a fetched fragment that means going back for the default
+window; `Reset window` does the same, and the server renders it visible
+when it was asked for a window, so a reader who arrived by URL has the
+way back before any script runs.
+
+`reloadAjaxTabIndex` keeps the old markup and dims it, so a release is a
+panel that dims and re-fills rather than one that collapses to a
+spinner and pushes the page around.
+
+### 18.3 What the list says it is showing
+
+`Showing the newest 300 of 447 entries` is a statement about the
+fragment, and a fragment fetched for a window is a different claim: the
+rows are the newest of *it*. So the header names which set the cap bit
+into — *the newest 300 of 2,256 entries in this window* — and, where the
+window fits whole, says nothing at all, which is the usual case after a
+fetch and the point of having one.
+
+§17.3's empty state stays, and it is now a state the brush passes
+*through* rather than lands in: it is what a reader sees for as long as
+they hold the pointer. Its last clause is the script's, because only the
+script knows whether the fetch is available, and its advice is
+*release the brush to fetch this window*.
+
+### 18.4 Verified
+
+Live instance, real browser, logged in, plus the facade probe for the
+model layer.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `parallel-lint` on the three changed PHP files, `node --check` on the JS, 80-column rule over the diff | clean |
+| 2 | **§14's six values, unwindowed** | 6/6 hold every invariant. No count, range or row set moved: the default path is what it was |
+| 3 | **The windowed facade** — counts identical, window honoured, rows accounting for the aggregate per source | `8.8.8.8` / Nov 2024: 13 listed against an aggregate of 13, `{edit: 12, sighting: 1}` both ways; `total` 447, range and `by_day` byte-identical to the unwindowed call |
+| 4 | **Over the cap** | `193.161.193.99` over its whole range: 2,256 in window, 300 listed, `{edit: 276, publication: 24}`, header reads *the newest 300 of 2,256 entries in this window* |
+| 5 | **The heaviest value, an old window** | `443` / 2020: 174,299 total, 1 entry in the window, 1 listed. 21 seen-lane rows carried outside it by design. 3.4 s windowed against 3.8 s unwindowed — the occurrence read dominates and the window does not add to it (busy box; not a clean number) |
+| 6 | **The audit window reaches the query** | `8.8.8.8` / Nov 2024 lists `audit_logs` rows dated 11–15 November 2024, which are 300 rows older than the unwindowed read returns |
+| 7 | **The gesture, end to end** | brush the first active bar → mid-drag the empty state with *release the brush to fetch this window* → release → one request to `…/2024-11-01/2024-11-30` → 13 rows, lane marks, `Reset window` shown, no cap notice. `Reset window` → the default fragment. A click on a fetched spine → the default fragment. Exactly one request per gesture |
+| 8 | **The mask** | brush bottom == plot bottom, both themes, at 38px and 55px of axis |
+| 9 | Console | no page error and no console error across every run |
+
+**One thing observed and not touched:** the panel is fetched twice on a
+page load that arrives with `#tab-timeline`. Both are the plain endpoint,
+before any gesture, and nothing on either of §17's or §18's paths can
+issue them — `loadAjaxContainer` guards on `dataset.loaded`, which is
+only set when a response lands, so two triggers firing before the first
+returns both pass. It is `mispOvermind.js`'s, it predates this phase, and
+on `443` it is a 3.8-second read done twice.

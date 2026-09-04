@@ -194,6 +194,32 @@ $windowFrom = $window === null ? null : $window['from'] . ' 00:00:00';
 $windowTo = $window === null ? null : $window['to'] . ' 23:59:59';
 
 /*
+ * Whether the endpoint was asked for this window or chose it.
+ *
+ * The panel says different things about the two. Asked, the rows are
+ * everything the viewer may see in the window (up to the cap), so the
+ * list's numbers are the window's; unasked, they are the newest of the
+ * whole value and the numbers are the value's. It also decides whether
+ * `Reset window` is offered before any script runs — a fragment fetched
+ * for a window is already off the default, and a reader who arrived by
+ * following the URL needs the way back.
+ */
+$windowRequested = $window !== null && !empty($window['requested']);
+
+/*
+ * What the list carries, against what it could have carried, and the
+ * second number is the whole of what `$windowRequested` decides.
+ *
+ * Asked for a window, the rows are the newest cap-many *in it*, so the
+ * set they are a sample of is the window's — and when the whole window
+ * fits, which is the usual case, there is no cap to mention at all.
+ * Unasked, they are the newest cap-many of the value.
+ */
+$listShown = $counts['shown'];
+$listOf = $windowRequested ? $inWindow['total'] : $counts['total'];
+$listCapped = $listShown < $listOf;
+
+/*
  * Which of the *listed* rows fall in the window. This is the
  * chronology's own business — which rows to show — and never a count
  * the panel prints: the numbers come from `$inWindow`, which was summed
@@ -618,6 +644,14 @@ if ($window !== null) {
         'window' => array(
             'from' => $window['from'],
             'to' => $window['to'],
+            /*
+             * Whether this window was asked for. The script needs it
+             * for the two gestures that go back to the server: a click
+             * clearing the brush, and `Reset window`, both of which are
+             * a repaint on a default fragment and a request on one
+             * fetched for a window.
+             */
+            'requested' => $windowRequested,
         ),
         'lane' => array(
             'width' => $LANE_W,
@@ -641,8 +675,19 @@ $subtitle = $timeline === null
         array_sum(array_column($undated, 'count'))
     ));
 ?>
+<?php
+/*
+ * The endpoint, without the window: what the brush asks again for when
+ * it lands past the rows this fragment carries, and what `Reset window`
+ * asks for to get back. The same shape `value_history.ctp` ships as
+ * `data-vp-audit-base`, because it is the same gesture — a control that
+ * has reached the edge of what it was sent.
+ */
+$timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
+?>
 <div class="card shadow-sm mb-3 vp-panel"
      style="--vp-panel-color: var(--bs-info);"
+     data-vp-tl-base="<?= h($timelineBase) ?>"
      <?= $timeline === null ? '' : 'data-vp-tl' ?>>
 
     <?= $this->element('Values/View/value_panel_header', array(
@@ -930,9 +975,18 @@ $subtitle = $timeline === null
                                 . ' it') ?>
                         </div>
                     </div>
+                    <?php
+                    /*
+                     * Hidden unless the window is already off the
+                     * default — which the server knows when it was
+                     * asked for one, and the script takes over from
+                     * there.
+                     */
+                    ?>
                     <button type="button"
                             class="btn btn-sm btn-outline-secondary"
-                            data-vp-tl-reset hidden>
+                            data-vp-tl-reset
+                            <?= $windowRequested ? '' : 'hidden' ?>>
                         <?= __('Reset window') ?>
                     </button>
                 </div>
@@ -1214,7 +1268,7 @@ $subtitle = $timeline === null
                             <?= __('Chronology') ?>
                         </div>
                         <div class="vp-tl-why">
-                            <?php if ($counts['capped']): ?>
+                            <?php if ($listCapped): ?>
                                 <?php
                                 /*
                                  * Two numbers about the same query at
@@ -1225,13 +1279,25 @@ $subtitle = $timeline === null
                                  * that fit. A cap is not a permission,
                                  * so it reads the same for every
                                  * reader.
+                                 *
+                                 * Which set the cap bit into is named,
+                                 * because a fragment fetched for a
+                                 * window holds the newest of *it*:
+                                 * *the newest 300 of 447* over a
+                                 * chronology that is 14 rows of one
+                                 * November would be arithmetic about
+                                 * the wrong pair of numbers.
                                  */
                                 ?>
                                 <b><?= h(sprintf(
-                                    __('Showing the newest %1$s of'
-                                        . ' %2$s entries.'),
-                                    number_format($counts['shown']),
-                                    number_format($counts['total'])
+                                    $windowRequested
+                                        ? __('Showing the newest %1$s'
+                                            . ' of %2$s entries in this'
+                                            . ' window.')
+                                        : __('Showing the newest %1$s'
+                                            . ' of %2$s entries.'),
+                                    number_format($listShown),
+                                    number_format($listOf)
                                 )) ?></b>
                             <?php endif; ?>
                             <?= __('Newest first. Click a source above to'
@@ -1429,6 +1495,14 @@ $subtitle = $timeline === null
                  * chronology, whose numbers are worth printing, and
                  * `TIMELINE_SPAN_CAP` inside the seen lane, which bites
                  * on values whose chronology fits whole.
+                 *
+                 * It is a state the brush passes *through* rather than
+                 * lands in: releasing the drag fetches the window, so
+                 * what a reader normally sees here is the sentence for
+                 * as long as they hold the pointer. The last clause is
+                 * the script's — it is the only party that knows
+                 * whether the fetch is available — and this state is
+                 * hidden entirely once one is on its way.
                  */
                 ?>
                 <div class="vp-empty vp-tl-blank"
@@ -1441,19 +1515,21 @@ $subtitle = $timeline === null
                                 . ' rows this list carries.'),
                             '<b data-vp-tl-blank-n>0</b>'
                         ) ?>
-                        <?php if ($counts['capped']): ?>
+                        <?php if ($listCapped): ?>
                             <?= h(sprintf(
-                                __('It holds the newest %1$s of %2$s —'
-                                    . ' brush a more recent period to'
-                                    . ' read them.'),
-                                number_format($counts['shown']),
-                                number_format($counts['total'])
+                                __('It holds the newest %1$s of %2$s.'),
+                                number_format($listShown),
+                                number_format($listOf)
                             )) ?>
                         <?php else: ?>
                             <?= h(__('A lane caps the rows it draws;'
                                 . ' the counts above are over all of'
                                 . ' them.')) ?>
                         <?php endif; ?>
+                        <span data-vp-tl-blank-fetch hidden>
+                            <?= h(__('Release the brush to fetch this'
+                                . ' window.')) ?>
+                        </span>
                     </span>
                 </div>
 

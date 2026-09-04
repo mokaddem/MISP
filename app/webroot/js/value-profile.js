@@ -4670,7 +4670,12 @@
 
         var reset = panel.querySelector('[data-vp-tl-reset]');
         if (reset) {
-            reset.hidden = !tl.brush;
+            // Offered while the brush is off the window the fragment
+            // arrived with, and also while that window is itself one
+            // the panel was fetched for — there the way back is a
+            // request rather than a repaint, so the button has to be
+            // there before the reader touches the brush at all.
+            reset.hidden = !tl.brush && !tl.data.window.requested;
         }
     }
 
@@ -4836,6 +4841,111 @@
             }
         });
         return found;
+    }
+
+    /**
+     * How many of the rows this fragment carries fall in a window,
+     * counted with no regard for the source filter.
+     *
+     * The filter is the reader's own narrowing and says nothing about
+     * what the fragment holds, so a filtered-away row still counts as
+     * carried — otherwise ticking a lane would look like a reason to go
+     * back to the server.
+     *
+     * @param {Element} panel
+     * @param {Object} window_ `from` and `to`
+     * @return {number}
+     */
+    function tlCarried(panel, window_) {
+        var n = 0;
+        panel.querySelectorAll('[data-vp-tl-at]').forEach(function (row) {
+            var day = row.dataset.vpTlDay;
+            if (day >= window_.from && day <= window_.to) {
+                n++;
+            }
+        });
+        return n;
+    }
+
+    /**
+     * Whether the window on screen holds entries this fragment cannot
+     * list — the aggregate counts them and no row carries them.
+     *
+     * @param {Element} panel
+     * @return {boolean}
+     */
+    function tlPastTheRows(panel) {
+        var window_ = tlWindow();
+        var total = tlWindowCounts(window_).total;
+        return total > 0 && tlCarried(panel, window_) < total;
+    }
+
+    /**
+     * Ask the endpoint again, for one window or for the default one.
+     *
+     * The whole panel comes back, and it has to: the rows are what
+     * changes, but the chronology, the lane marks and the brush are
+     * three readings of one array and the fragment is where that array
+     * lives. `reloadAjaxTabIndex` keeps the old markup on screen and
+     * dims it, so a brush release is a panel that dims and re-fills
+     * rather than one that collapses to a spinner.
+     *
+     * The spine is unaffected by the round trip — its bins come from
+     * counts the window never narrows — so what the reader sees change
+     * is the list they were asking about.
+     *
+     * @param {Element} panel
+     * @param {Object|null} window_ `from` and `to`, or null for the
+     *                              value's own default window
+     * @return {boolean} Whether the request could be made
+     */
+    function tlFetchWindow(panel, window_) {
+        var base = panel.dataset.vpTlBase;
+        var container = panel.closest('.ajax-card, .ajax-tab-content');
+        if (!base || !container || !window.reloadAjaxTabIndex) {
+            return false;
+        }
+        window.reloadAjaxTabIndex(
+            container,
+            window_ === null
+                ? base
+                : base + '/' + window_.from + '/' + window_.to
+        );
+        return true;
+    }
+
+    /**
+     * The brush has been let go. If it landed past the rows the
+     * fragment carries, go and get them.
+     *
+     * On release and never during the drag, for `wireAuditBrush`'s
+     * reason: a range inside what was fetched is instant, and one past
+     * it is a request, so the check runs once rather than every few
+     * pixels.
+     *
+     * @param {Element} panel
+     */
+    function tlSettle(panel) {
+        if (!tl.brush) {
+            return;
+        }
+        var window_ = tlWindow();
+        /*
+         * The window the fragment already is. A brush over every bin of
+         * a spine that was fetched for every bin lands here, and asking
+         * again would fetch the same rows over the same cap — the one
+         * case where `tlPastTheRows` is true and there is nothing on
+         * the other end to get.
+         */
+        if (window_.from === tl.data.window.from
+            && window_.to === tl.data.window.to
+        ) {
+            return;
+        }
+        if (!tlPastTheRows(panel)) {
+            return;
+        }
+        tlFetchWindow(panel, window_);
     }
 
     /**
@@ -5033,6 +5143,21 @@
         if (capped) {
             capped.hidden = !outOfReach;
             setText(capped, '[data-vp-tl-blank-n]', windowTotal);
+            /*
+             * The remedy, and only where there is one. Releasing the
+             * brush fetches the window, so this state is normally what
+             * a reader sees for as long as they hold the pointer — but
+             * the fetch needs `reloadAjaxTabIndex` and a container to
+             * put the answer in, and where either is missing the
+             * sentence would be an instruction that does nothing.
+             */
+            var advice = capped.querySelector('[data-vp-tl-blank-fetch]');
+            if (advice) {
+                advice.hidden = !tl.brush
+                    || !panel.dataset.vpTlBase
+                    || !panel.closest('.ajax-card, .ajax-tab-content')
+                    || !window.reloadAjaxTabIndex;
+            }
         }
 
         var note = list.querySelector('[data-vp-tl-filter-note]');
@@ -5111,6 +5236,34 @@
         var yearStarts = tlYearStarts();
         var config = window.VP.chart.resolve({
             type: 'bar',
+            plugins: [{
+                /*
+                 * The brush is an overlay over this canvas and has to
+                 * stop where the plot area does, so its floor is the
+                 * height of the laid-out x axis and not a number in the
+                 * stylesheet. The CSS default was one line of month
+                 * names; a second line for the year put the mask over
+                 * the first, which is the whitening a reader sees over
+                 * the months.
+                 *
+                 * Read after layout, so it is right for the grain, the
+                 * panel's width and whatever rotation Chart.js chose —
+                 * three things the stylesheet cannot know.
+                 */
+                id: 'vpTlBrushFloor',
+                afterLayout: function (chart) {
+                    var host = chart.canvas
+                        .closest('[data-vp-tl-spine]');
+                    if (!host || !chart.chartArea) {
+                        return;
+                    }
+                    host.style.setProperty(
+                        '--vp-brush-floor',
+                        Math.round(chart.height - chart.chartArea.bottom)
+                            + 'px'
+                    );
+                },
+            }],
             data: {
                 labels: tl.data.bins.map(function (bin) {
                     return bin.label;
@@ -5206,9 +5359,22 @@
                 refreshTimeline(panel);
             },
             clear: function () {
+                /*
+                 * A click clears the brush, and where the fragment was
+                 * fetched for a window that means going back for the
+                 * default one — the same thing `Reset window` does,
+                 * for a reader who never found the button.
+                 */
+                if (tl.data.window.requested
+                    && tlFetchWindow(panel, null)) {
+                    return;
+                }
                 tl.brush = null;
                 tl.showAll = false;
                 refreshTimeline(panel);
+            },
+            settle: function () {
+                tlSettle(panel);
             },
         });
     }
@@ -6203,6 +6369,10 @@
         }
 
         if (event.target.closest('[data-vp-tl-reset]')) {
+            if (tl.data.window.requested
+                && tlFetchWindow(panel, null)) {
+                return;
+            }
             tl.brush = null;
             tl.showAll = false;
             refreshTimeline(panel);

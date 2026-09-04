@@ -6294,9 +6294,21 @@ class ValueProfile extends AppModel
      * `fetchSimpleEvents` for every event the value sits in, never one
      * call per event.
      *
+     * **`window` is what makes the cap survivable.** Without it the
+     * fragment is the newest 300 entries and a reader who brushes the
+     * spine past them has a chart with no chronology under it —
+     * `8.8.8.8`'s newest 300 begin at 2025-11-16, so eleven of its 23
+     * bars were unreadable. With it the panel can be asked again for a
+     * window, and the same cap then means the newest 300 *of that
+     * window*. The counts stay whole either way, so the answer is a
+     * different list under the same chart rather than a different
+     * chart.
+     *
      * @param array $user
      * @param string $value
-     * @param array $options Reserved; `types` reaches `Value`
+     * @param array $options `types` reaches `Value`; `window` is a
+     *                       `from`/`to` pair of `Y-m-d` scoping the
+     *                       listed rows and nothing else
      * @return array
      */
     public function forTimeline(array $user, $value,
@@ -6321,11 +6333,38 @@ class ValueProfile extends AppModel
              */
             return array('value' => $value, 'timeline' => null);
         }
+        /*
+         * The window the caller asked for, or none.
+         *
+         * It reaches the lanes rather than being applied to their
+         * output, because every one of them caps its rows: the cap is
+         * *the newest cap-many*, so the newest 300 of a busy value are
+         * a fortnight and the window a reader brushed two years back
+         * would come back empty however the panel filtered afterwards.
+         * Filtered on the way in, the same cap means the newest 300 of
+         * what the reader is looking at.
+         *
+         * The **counts are never windowed**, and that is what keeps the
+         * spine the whole value's: the day map, the per-source totals
+         * and the range are tallied over every row each lane found, so
+         * a chronology fetched for November 2024 still draws two years
+         * of bars above it. `in_window` below is the one count that
+         * takes the window, and it is a sum over that same whole map.
+         *
+         * The seen lane is deliberately not windowed. It caps at 25
+         * bars and takes the *oldest* of them, so its rows are cheap to
+         * carry whole and the client already filters marks to the
+         * window; windowing it would only make its sub-label — three
+         * whole-value numbers — start describing a slice.
+         */
+        $asked = isset($options['window']) && is_array($options['window'])
+            ? $options['window']
+            : null;
         $lanes = array(
-            $this->timelineSightingEntries($user, $value, $options),
-            $this->timelinePublicationEntries($context),
-            $this->timelineAnalystEntries($user, $value, $context),
-            $this->timelineEditEntries($context),
+            $this->timelineSightingEntries($user, $value, $options, $asked),
+            $this->timelinePublicationEntries($context, $asked),
+            $this->timelineAnalystEntries($user, $value, $context, $asked),
+            $this->timelineEditEntries($context, $asked),
             $this->timelineSpanEntries($context),
         );
         $entries = array();
@@ -6353,7 +6392,17 @@ class ValueProfile extends AppModel
          * offered 1,847 uncapped entries.
          */
         $counts = $this->timelineCounts($lanes, $entries);
-        $window = $this->timelineWindow($counts);
+        /*
+         * A requested window is the panel's window; otherwise the
+         * value's own default one. `requested` travels with it because
+         * the panel says different things about the two: a fragment
+         * fetched for a window lists everything in it and states the
+         * window's numbers, while the default one lists the newest of
+         * the value's and states the value's.
+         */
+        $window = ($asked === null
+            ? $this->timelineWindow($counts)
+            : $asked) + array('requested' => $asked !== null);
         $counts['in_window'] = $this->timelineWindowCounts(
             $counts['by_day'],
             $window
@@ -6485,7 +6534,7 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function timelineSightingEntries(array $user, $value,
-        array $options
+        array $options, array $window = null
     ) {
         $context = $this->sightingContext($user, $value, $options);
         $rows = ValueStatsTool::sightingList(
@@ -6549,7 +6598,9 @@ class ValueProfile extends AppModel
         }
         return $this->timelineLane(
             $entries,
-            array('sighting', 'false_positive', 'expiration')
+            array('sighting', 'false_positive', 'expiration'),
+            array(),
+            $window
         );
     }
 
@@ -6573,8 +6624,9 @@ class ValueProfile extends AppModel
      * @param array $context From `timelineContext`
      * @return array
      */
-    private function timelinePublicationEntries(array $context)
-    {
+    private function timelinePublicationEntries(array $context,
+        array $window = null
+    ) {
         $entries = array();
         foreach ($context['events'] as $event) {
             $first = $event['first_publication'];
@@ -6618,7 +6670,8 @@ class ValueProfile extends AppModel
                 );
             }
         }
-        return $this->timelineLane($entries, array('publication'));
+        return $this->timelineLane($entries, array('publication'),
+            array(), $window);
     }
 
     /**
@@ -6684,8 +6737,9 @@ class ValueProfile extends AppModel
      * @param array $context From `timelineContext`
      * @return array
      */
-    private function timelineEditEntries(array $context)
-    {
+    private function timelineEditEntries(array $context,
+        array $window = null
+    ) {
         if (!Configure::read('MISP.log_new_audit')) {
             $entries = array();
             foreach ($context['occurrences'] as $id => $occurrence) {
@@ -6716,14 +6770,25 @@ class ValueProfile extends AppModel
             return $this->timelineLane(
                 $entries,
                 array('edit'),
-                array('recorded' => false)
+                array('recorded' => false),
+                $window
             );
         }
 
         $counts = $this->auditCountsFor($context['scope']);
         $rows = $this->auditRowsFor(
             $context['scope'],
-            array('limit' => self::TIMELINE_ROW_CAP)
+            array(
+                'limit' => self::TIMELINE_ROW_CAP,
+                /*
+                 * The one lane whose cap is applied by the database
+                 * rather than in PHP, so its window has to reach the
+                 * query. Without it a windowed fetch would read the
+                 * newest 300 rows of the whole scoped set and then find
+                 * none of them in the window it was asked for.
+                 */
+                'window' => $window,
+            )
         );
         $entries = array();
         foreach ($rows as $row) {
@@ -7157,10 +7222,11 @@ class ValueProfile extends AppModel
      * @param array $entries Every row the lane found, any order
      * @param array $sources The source keys this lane owns
      * @param array $extra Merged into the result, e.g. `spans`
+     * @param array|null $window `from` and `to`; the rows only
      * @return array
      */
     private function timelineLane(array $entries, array $sources,
-        array $extra = array()
+        array $extra = array(), array $window = null
     ) {
         $byDay = array();
         $first = null;
@@ -7183,20 +7249,62 @@ class ValueProfile extends AppModel
         }
         ksort($byDay);
         $total = count($entries);
-        if ($total > self::TIMELINE_ROW_CAP) {
-            usort($entries, function ($a, $b) {
+        /*
+         * **The window narrows the rows and nothing else.** Everything
+         * above it — the day map, the total, the range — was tallied
+         * over every row the lane found, because those are what the
+         * spine and the lane grid are drawn from and they describe the
+         * whole value however narrow the reader's window is.
+         *
+         * The order matters and is the whole of what makes a windowed
+         * fetch work: filtering before the cap means the newest
+         * cap-many *of the window*, where filtering after it would be
+         * the window's share of the newest cap-many overall — nothing
+         * at all, for any window older than the cap reaches.
+         */
+        $rows = self::timelineWindowed($entries, $window);
+        if (count($rows) > self::TIMELINE_ROW_CAP) {
+            usort($rows, function ($a, $b) {
                 return strcmp($a['at'], $b['at']);
             });
-            $entries = array_slice($entries, -self::TIMELINE_ROW_CAP);
+            $rows = array_slice($rows, -self::TIMELINE_ROW_CAP);
         }
         return array(
-            'entries' => $entries,
+            'entries' => $rows,
             'total' => $total,
             'sources' => $sources,
             'by_day' => $byDay,
             'first' => $first,
             'last' => $last,
         ) + $extra;
+    }
+
+    /**
+     * The entries whose day falls inside `$window`, or all of them when
+     * there is no window.
+     *
+     * By day and not by timestamp, because that is what both readers of
+     * this set compare on — the template's own filter and
+     * `tlRefreshList`'s in the browser — and a window is two dates.
+     *
+     * @param array $entries Each with an `at` of `Y-m-d H:i:s`
+     * @param array|null $window `from` and `to`, `Y-m-d`
+     * @return array
+     */
+    private static function timelineWindowed(array $entries,
+        array $window = null
+    ) {
+        if ($window === null) {
+            return $entries;
+        }
+        $out = array();
+        foreach ($entries as $entry) {
+            $day = substr($entry['at'], 0, 10);
+            if ($day >= $window['from'] && $day <= $window['to']) {
+                $out[] = $entry;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -7298,7 +7406,7 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function timelineAnalystEntries(array $user, $value,
-        array $context
+        array $context, array $window = null
     ) {
         $targets = array();
         foreach ($context['events'] as $event) {
@@ -7332,7 +7440,9 @@ class ValueProfile extends AppModel
         if (empty($targets)) {
             return $this->timelineLane(
                 array(),
-                array('note', 'opinion')
+                array('note', 'opinion'),
+                array(),
+                $window
             );
         }
 
@@ -7353,7 +7463,8 @@ class ValueProfile extends AppModel
                 }
             }
         }
-        return $this->timelineLane($entries, array('note', 'opinion'));
+        return $this->timelineLane($entries, array('note', 'opinion'),
+            array(), $window);
     }
 
     /**
@@ -7739,6 +7850,24 @@ class ValueProfile extends AppModel
                 : array('AuditLog.id' => 'DESC'),
             'recursive' => -1,
         );
+        /*
+         * A window narrows the read rather than the result, and it has
+         * to: the cap below is a `LIMIT` on an `id DESC` read, so a
+         * caller that filtered afterwards would be filtering the newest
+         * cap-many rows of the whole scoped set — and find none of them
+         * in any window older than that reaches.
+         *
+         * `created` is not indexed (see the order note above), so this
+         * buys no speed. The scan is already bounded by the
+         * `model`/`model_id` index to the value's own rows, which is
+         * what `auditCountsFor` scans to count them.
+         */
+        if (!empty($options['window'])) {
+            $params['conditions']['AuditLog.created >='] =
+                $options['window']['from'] . ' 00:00:00';
+            $params['conditions']['AuditLog.created <='] =
+                $options['window']['to'] . ' 23:59:59';
+        }
         if ($cap !== null) {
             $params['limit'] = (int)$cap;
         }

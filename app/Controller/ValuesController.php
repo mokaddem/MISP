@@ -580,16 +580,34 @@ class ValuesController extends AppController
      * above is about the brush and nothing about reading the database
      * touches it.
      *
+     * **The window is in the path, and it is a filter rather than an
+     * identity.** `viewHistory`'s period is the panel's subject — what
+     * that endpoint returns for one window is a different fragment, top
+     * to bottom. This one returns the same spine over the value's whole
+     * range whatever window it is given; only the chronology's rows
+     * change. It takes the path shape anyway, and `self::period` with
+     * it, because a reader of these two actions should not have to
+     * learn that one page states a window two ways.
+     *
+     * Absent or malformed dates mean no window, which is the panel a
+     * page load asks for.
+     *
      * @param string $b64value
+     * @param string $from `Y-m-d`
+     * @param string $to `Y-m-d`
      * @return void
      */
-    public function viewTimeline($b64value = null)
+    public function viewTimeline($b64value = null, $from = null, $to = null)
     {
+        $window = self::period($from, $to);
         $this->loadModel('ValueProfile');
         $this->renderPanel(
             $this->ValueProfile->forTimeline(
                 $this->Auth->user(),
-                $this->decodeValue($b64value)
+                $this->decodeValue($b64value),
+                // `period` also answers `all`, which this panel has no
+                // use for: its spine is already the whole range.
+                array('window' => is_array($window) ? $window : null)
             ),
             'value_timeline'
         );

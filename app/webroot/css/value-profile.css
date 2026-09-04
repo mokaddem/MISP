@@ -8082,9 +8082,18 @@ th.vp-rel-num {
 .vp-tl-spine {
     position: relative;
     height: 132px;
-    /* The 22px the month labels below the bars occupy: the brush ends
-       where the plot area does, not where the canvas does. */
-    --vp-brush-floor: 22px;
+    /*
+     * How much of the canvas's bottom edge is axis rather than plot:
+     * the brush ends where the plot area does, or its mask dims the
+     * labels along with the bars.
+     *
+     * A guess, and only until the chart exists. It was 22px for one
+     * line of month names, which stopped being the number the moment a
+     * bar could carry a year under its month; the script overwrites it
+     * from the laid-out scale, which also covers the axis growing again
+     * when Chart.js rotates the labels in a narrow panel.
+     */
+    --vp-brush-floor: 34px;
 }
 
 /*
