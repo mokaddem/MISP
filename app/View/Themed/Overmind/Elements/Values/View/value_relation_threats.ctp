@@ -651,13 +651,51 @@ $row = function (array $threat, $folded) use (
                         </li>
                     <?php endforeach; ?>
                 </ul>
-                <?php /*
-                 * What the chips are counted from, and the two ways
-                 * that count is not a partition of it. Both have to be
-                 * said: a reader adding the chips up gets a number
-                 * larger than the techniques folded, and a technique
-                 * whose galaxy ships no kill chain is in none of them.
-                 */ ?>
+                <?php
+                /*
+                 * The chips are not a partition of what they count: a
+                 * reader adding them up gets more than the techniques
+                 * folded, and one whose galaxy ships no kill chain is
+                 * in none of them. Both belong on the card, neither is
+                 * worth a line of a rail this narrow — so the count
+                 * stays and the qualifiers hang off its glyph.
+                 */
+                $tacticMore = array();
+                if ($multi > 0) {
+                    $tacticMore[] = sprintf(
+                        __n(
+                            '%d of them sits in more than one tactic'
+                            . ' and counts in each.',
+                            '%d of them sit in more than one tactic'
+                            . ' and count in each.',
+                            $multi
+                        ),
+                        $multi
+                    );
+                }
+                if ($unplaced > 0) {
+                    $tacticMore[] = sprintf(
+                        __n(
+                            '%d names no tactic and is in none of'
+                            . ' these counts.',
+                            '%d name no tactic and are in none of'
+                            . ' these counts.',
+                            $unplaced
+                        ),
+                        $unplaced
+                    );
+                }
+                if ($frameworks > 1) {
+                    $tacticMore[] = sprintf(
+                        __(
+                            'They come from %d galaxies, each ordered'
+                            . ' by its own kill chain — hover a tactic'
+                            . ' for which.'
+                        ),
+                        $frameworks
+                    );
+                }
+                ?>
                 <p class="vp-tactic-note">
                     <?= h(sprintf(
                         __n(
@@ -667,45 +705,10 @@ $row = function (array $threat, $folded) use (
                         ),
                         $techniques
                     )) ?>
-                    <?php if ($multi > 0): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%d of them sits in more than one'
-                                . ' tactic and counts in each.',
-                                '%d of them sit in more than one'
-                                . ' tactic and count in each.',
-                                $multi
-                            ),
-                            $multi
-                        )) ?>
-                    <?php endif; ?>
-                    <?php if ($unplaced > 0): ?>
-                        <?= h(sprintf(
-                            __n(
-                                '%d names no tactic and is in none of'
-                                . ' these counts.',
-                                '%d name no tactic and are in none of'
-                                . ' these counts.',
-                                $unplaced
-                            ),
-                            $unplaced
-                        )) ?>
-                    <?php endif; ?>
-                    <?php if ($frameworks > 1): ?>
-                        <?php /*
-                         * The one thing the strip's shape can mislead
-                         * about: laid out as a single run it looks like
-                         * one chain, and two galaxies' tactics in a
-                         * row are two. Each chip's hover names its own.
-                         */ ?>
-                        <?= h(sprintf(
-                            __(
-                                'They come from %d galaxies, each'
-                                . ' ordered by its own kill chain —'
-                                . ' hover a tactic for which.'
-                            ),
-                            $frameworks
-                        )) ?>
+                    <?php if (!empty($tacticMore)): ?>
+                        <i class="fas fa-circle-info vp-cap-more"
+                           title="<?= h(implode(' ', $tacticMore)) ?>"
+                        ></i>
                     <?php endif; ?>
                 </p>
             </div>

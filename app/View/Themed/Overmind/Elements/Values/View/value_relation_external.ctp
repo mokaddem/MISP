@@ -166,9 +166,15 @@ $icon = 'fas fa-cloud-arrow-down';
     <div class="p-3">
 
         <div class="vp-rel-cap">
-            <i class="fas fa-circle-info"></i>
+            <i class="fas fa-circle-info"
+               title="<?= h(__(
+                   'Set membership on a hash — no CIDR, no substring'
+                   . ' and no near-match — so it is never a statement'
+                   . ' that two values are alike.'
+               )) ?>"></i>
             <span>
-                <?= __('A hit here means a feed or sync server cache holds this exact value. It is set membership on a hash — no CIDR, no substring and no near-match — so it is never a statement that two values are alike.') ?>
+                <?= __('A hit means a feed or sync server cache holds'
+                    . ' this exact value.') ?>
             </span>
         </div>
 

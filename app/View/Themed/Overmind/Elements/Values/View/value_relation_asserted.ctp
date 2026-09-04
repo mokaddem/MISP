@@ -24,11 +24,6 @@ $asserted = $profile['relationships']['asserted'];
 $claims = $asserted['claims'];
 $view = $this;
 
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
-
 /**
  * @param string $text
  * @return string
@@ -217,16 +212,17 @@ if (empty($claims)) {
     <?php else: ?>
 
         <div class="vp-rel-cap vp-rel-cap-complete">
-            <i class="fas fa-user-check"></i>
+            <i class="fas fa-user-check"
+               title="<?= h(__(
+                   'The section stays complete even on a value whose'
+                   . ' events the neighbourhood above could not read.'
+               )) ?>"></i>
             <span>
                 <?= sprintf(
                     __(
-                        '%1$s Asserted relationships are written one at a'
-                        . ' time by people, so this section is never'
-                        . ' ranked and never truncated — the only cut is'
-                        . ' ACL. It stays complete on a value whose'
-                        . ' events the section above could not even'
-                        . ' read.'
+                        '%1$s Written one at a time by people, so'
+                        . ' nothing here is ranked or truncated — the'
+                        . ' only cut is ACL.'
                     ),
                     '<strong>' . h(__n(
                         'The single claim is shown.',
@@ -474,19 +470,12 @@ if (empty($claims)) {
         </div>
 
         <div class="px-3 pb-3 d-flex align-items-center gap-2 flex-wrap">
-            <button type="button" class="btn btn-sm btn-outline-primary
-                                         disabled"
-                    title="<?= h($noWrites) ?>">
-                <i class="fas fa-plus me-1"></i>
-                <?= __('Add a relationship') ?>
-            </button>
             <span class="small text-muted vp-min-w-0">
                 <?= h(sprintf(
                     __(
                         'Claims are stored against an occurrence, not'
                         . ' against the value — this list is the union'
-                        . ' over the %d occurrences, in both directions,'
-                        . ' de-duplicated by relationship UUID.'
+                        . ' over the %d occurrences, in both directions.'
                     ),
                     $asserted['occurrences']
                 )) ?>

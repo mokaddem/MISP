@@ -98,9 +98,16 @@ $profileUrl = function ($value) use ($baseurl) {
     <div class="p-3">
 
         <div class="vp-rel-cap">
-            <i class="fas fa-circle-info"></i>
+            <i class="fas fa-circle-info"
+               title="<?= h(__(
+                   'Rows reach this value directly, at one of its own'
+                   . ' attributes, or through an object it sits in. A'
+                   . ' reference pointing back at this value is not'
+                   . ' listed — it relates the value to itself.'
+               )) ?>"></i>
             <span>
-                <?= __('A reference is recorded between two objects by whoever wrote the event, and it carries a type they chose. Rows here reach this value either directly — the reference points at one of its own attributes — or through an object it sits in. A reference pointing back at this value is not listed: it relates the value to itself.') ?>
+                <?= __('A reference is a typed link between two objects,'
+                    . ' written by whoever wrote the event.') ?>
             </span>
         </div>
 

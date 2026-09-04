@@ -225,9 +225,19 @@ if ($datedListsHit > 0) {
     <div class="p-3">
 
         <div class="vp-rel-cap">
-            <i class="fas fa-circle-info"></i>
+            <i class="fas fa-circle-info"
+               title="<?= h(__(
+                   'Each date carries the object\'s own name for it,'
+                   . ' printed beneath. An object recording a single'
+                   . ' date recorded a moment rather than a span, and'
+                   . ' is not counted. Origin is the object\'s word for'
+                   . ' where the observation came from; most templates'
+                   . ' have none, and the organisation beneath it is'
+                   . ' who reported the event.'
+               )) ?>"></i>
             <span>
-                <?= __('A row is one object that records both a start and an end, and names each date itself — those names are printed under the dates. An object that records a single date recorded a moment rather than a span, and is not counted here. Origin is the object\'s own word for where the observation came from, and most templates do not have one; the organisation beneath it is who reported the event.') ?>
+                <?= __('A row is one object that records both a start'
+                    . ' and an end date.') ?>
             </span>
         </div>
 
@@ -237,7 +247,7 @@ if ($datedListsHit > 0) {
                 <i class="<?= h($icon) ?>"></i>
                 <span>
                     <?php if ($dated['in_objects'] === 0): ?>
-                        <?= __('This value sits in no object, so there is no object relation to date. Around four attributes in five are like it.') ?>
+                        <?= __('This value sits in no object, so there is no object relation to date.') ?>
                     <?php elseif ($dated['read_objects'] === 0): ?>
                         <?= h(sprintf(
                             __n(
@@ -405,7 +415,7 @@ if ($datedListsHit > 0) {
                 <div class="vp-empty vp-empty-inline">
                     <i class="fas fa-filter"></i>
                     <span>
-                        <?= h(__('No dated relation survives that narrowing. The strip above dims the spans it removed rather than redrawing without them, so the period they covered is still on the axis.')) ?>
+                        <?= h(__('No dated relation survives that narrowing. The strip above dims what it removed rather than redrawing.')) ?>
                     </span>
                 </div>
             </div>

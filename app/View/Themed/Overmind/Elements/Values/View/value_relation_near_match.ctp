@@ -261,14 +261,15 @@ if (!$offerSimilarity) {
     <?php else: ?>
 
         <div class="vp-rel-cap">
-            <i class="fas fa-triangle-exclamation"></i>
+            <i class="fas fa-triangle-exclamation"
+               title="<?= h(__(
+                   'A row here never means the two values are the same.'
+               )) ?>"></i>
             <span>
                 <?= sprintf(
                     __(
-                        'A near-match is %s. Every row names the engine'
-                        . ' that produced it and how close the match is;'
-                        . ' a row here never means the two values are'
-                        . ' the same.'
+                        'A near-match is %s — every row names the engine'
+                        . ' that produced it and how close the match is.'
                     ),
                     '<strong>' . h(__('not equality')) . '</strong>'
                 ) ?>
@@ -570,9 +571,8 @@ if (!$offerSimilarity) {
                     <div class="vp-empty vp-empty-inline">
                         <i class="fas fa-filter"></i>
                         <span>
-                            <?= __('No containing block is that close.'
-                                . ' The widest block here is the least'
-                                . ' useful and the first to go.') ?>
+                            <?= __('No containing block is that'
+                                . ' close.') ?>
                         </span>
                     </div>
                 </div>
@@ -648,10 +648,7 @@ if (!$offerSimilarity) {
                                     'This value %1$s an %2$s hash, so the'
                                     . ' engine applies — but %3$s is not'
                                     . ' loaded on this instance, so'
-                                    . ' nothing can compare it. The'
-                                    . ' engine is present and inert,'
-                                    . ' which is neither *not applicable*'
-                                    . ' nor *missing from MISP*.'
+                                    . ' nothing can compare it.'
                                 ),
                                 '<strong>' . h(__('is')) . '</strong>',
                                 '<span class="font-monospace">ssdeep</span>',
@@ -825,9 +822,9 @@ if (!$offerSimilarity) {
                              */
                             ?>
                             <?= __('This name has no spelling to'
-                                . ' generate — every variation of it'
-                                . ' would be longer than DNS allows, or'
-                                . ' would not be a name at all.') ?>
+                                . ' generate: every variation would be'
+                                . ' too long for DNS, or not a name at'
+                                . ' all.') ?>
                         <?php else: ?>
                             <?= sprintf(
                                 __('%1$s of this name were checked'
@@ -868,11 +865,9 @@ if (!$offerSimilarity) {
                                         count($typo['rows'])
                                     )) . '</strong>'
                                 ) ?>
-                                <?= __('Nothing in MISP correlates a'
-                                    . ' value with a different spelling'
-                                    . ' of it, so every row below is'
-                                    . ' derived here and exists nowhere'
-                                    . ' in the database.') ?>
+                                <?= __('Every row below is derived'
+                                    . ' here: MISP correlates no two'
+                                    . ' spellings of a value.') ?>
                             <?php endif; ?>
                         <?php endif; ?>
                     </div>

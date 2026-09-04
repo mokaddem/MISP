@@ -50,10 +50,6 @@ $relations = $profile['relationships'];
 $graph = $relations['graph'];
 $summary = $relations['summary'];
 
-/*
- * Live data brings the two feeds; a fixture render brings neither, and
- * keeps the strip alone with the button it always had disabled.
- */
 $feed = isset($graph['feed']) ? $graph['feed'] : null;
 $peek = isset($graph['peek']) ? $graph['peek'] : null;
 $layers = isset($graph['layers']) ? $graph['layers'] : array();
@@ -287,40 +283,18 @@ foreach ($layers as $layer) {
                 </span>
             <?php endforeach; ?>
         </div>
-        <?php if ($feed === null): ?>
-            <button type="button"
-                    class="btn btn-sm btn-outline-secondary w-100 mt-3
-                           disabled"
-                    title="<?= h(__(
-                        'Disabled in this pass — this render has no'
-                        . ' node and edge feed behind it.'
-                    )) ?>">
-                <i class="fas fa-maximize me-1"></i>
-                <?= __('Open the full graph') ?>
-            </button>
-        <?php else: ?>
-            <?php
-            /*
-             * The button now means something specific: the rail draws
-             * one node per object template, and the overlay expands
-             * those templates into the values behind them. Two
-             * surfaces, progressive disclosure — not two sizes of one
-             * picture, which is what it was before the roll-up.
-             */
-            ?>
-            <button type="button"
-                    class="btn btn-sm btn-outline-secondary w-100 mt-3
-                           d-none"
-                    data-vp-relgraph-expand
-                    title="<?= h(__(
-                        'The same five layers, full width, with the'
-                        . ' object templates expanded into the values'
-                        . ' behind them.'
-                    )) ?>">
-                <i class="fas fa-maximize me-1"></i>
-                <?= __('Open the full graph') ?>
-            </button>
-        <?php endif; ?>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary w-100 mt-3
+                       d-none"
+                data-vp-relgraph-expand
+                title="<?= h(__(
+                    'The same five layers, full width, with the'
+                    . ' object templates expanded into the values'
+                    . ' behind them.'
+                )) ?>">
+            <i class="fas fa-maximize me-1"></i>
+            <?= __('Open the full graph') ?>
+        </button>
     </div>
 
     <?php if ($peek !== null): ?>

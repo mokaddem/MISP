@@ -966,15 +966,15 @@ if ($listsHit > 0) {
     ob_start();
     ?>
         <div class="vp-rel-cap" data-vp-group-only="value">
-            <i class="fas fa-list-check"></i>
+            <i class="fas fa-list-check"
+               title="<?= h(__(
+                   'The Warninglist facet names the lists, and its first'
+                   . ' two entries keep or drop the lot. The ranking'
+                   . ' does not account for them.'
+               )) ?>"></i>
             <span>
                 <?= sprintf(
-                    __(
-                        '%1$s, checked against %2$s. Listed values are'
-                        . ' dimmed; %3$s names the lists, and its first'
-                        . ' two entries keep or drop the lot — the'
-                        . ' ranking does not account for them.'
-                    ),
+                    __('%1$s, checked against %2$s, and dimmed here.'),
                     '<strong>' . h(sprintf(
                         __('%1$s of %2$s are on a warninglist'),
                         number_format($listsHit),
@@ -988,8 +988,7 @@ if ($listsHit > 0) {
                             (int)($co['warninglists_checked'] ?? 0)
                         ),
                         (int)($co['warninglists_checked'] ?? 0)
-                    )),
-                    '<em>' . h(__('the Warninglist facet')) . '</em>'
+                    ))
                 ) ?>
             </span>
         </div>
@@ -1162,8 +1161,7 @@ $headerSub = ob_get_clean();
                 <div class="small mb-2">
                     <?= __('What else was recorded alongside this value'
                         . ' in the same object — a file\'s other hashes,'
-                        . ' an IP\'s resolved domains — and usually'
-                        . ' where you pivot next.') ?>
+                        . ' an IP\'s resolved domains.') ?>
                 </div>
                 <?php
                 /*
@@ -1178,10 +1176,9 @@ $headerSub = ob_get_clean();
                  */
                 ?>
                 <div class="small text-muted mb-2">
-                    <?= __('Fields the correlation engine links on are'
-                        . ' listed first; the rest describe the capture'
-                        . ' rather than lead out of it, and are dimmed'
-                        . ' in the Relation column.') ?>
+                    <?= __('Linking fields first, then the descriptive'
+                        . ' ones — dimmed in the Relation column, not'
+                        . ' hidden.') ?>
                     <?php
                     /*
                      * The example names two fields off this table
@@ -1207,20 +1204,15 @@ $headerSub = ob_get_clean();
                         <?= __('No field this table carries is one the'
                             . ' engine links on.') ?>
                     <?php endif; ?>
-                    <?= __('Nothing is hidden —'
-                        . ' <strong>Field kind</strong> below cuts them'
-                        . ' in one click.') ?>
                     <?php if ($sibUnreached > 0): ?>
                         <?= sprintf(
                             __n(
                                 'One descriptive sibling is counted'
-                                . ' below and not listed: the table'
-                                . ' carries %2$s rows and the linking'
-                                . ' ones fill them.',
+                                . ' below but not listed — linking ones'
+                                . ' fill the table\'s %2$s rows.',
                                 '%1$s descriptive siblings are counted'
-                                . ' below and not listed: the table'
-                                . ' carries %2$s rows and the linking'
-                                . ' ones fill them.',
+                                . ' below but not listed — linking ones'
+                                . ' fill the table\'s %2$s rows.',
                                 $sibUnreached
                             ),
                             '<strong>' . h(number_format($sibUnreached))
@@ -1245,23 +1237,25 @@ $headerSub = ob_get_clean();
                  */
                 ?>
                 <div class="vp-rel-cap">
-                    <i class="fas fa-circle-info"></i>
+                    <i class="fas fa-circle-info"
+                       title="<?= h(__(
+                           'Every count in this section is a floor'
+                           . ' rather than a total, and is written ≥'
+                           . ' to say so.'
+                       )) ?>"></i>
                     <span>
                         <?= sprintf(
                             __(
                                 'Aggregated over %1$s of the %2$s objects'
                                 . ' this value sits in, most recent'
-                                . ' first. Every count in this section'
-                                . ' is a floor rather than a total, and'
-                                . ' is written %3$s to say so.'
+                                . ' first.'
                             ),
                             '<strong>' . h(number_format(
                                 $siblings['objects']
                             )) . '</strong>',
                             '<strong>' . h(number_format(
                                 $siblings['in_objects']
-                            )) . '</strong>',
-                            '<code>&ge;</code>'
+                            )) . '</strong>'
                         ) ?>
                     </span>
                 </div>
@@ -1339,23 +1333,21 @@ $headerSub = ob_get_clean();
 
                     <span class="small text-muted ms-2 vp-min-w-0">
                         <?= sprintf(
-                            __(
-                                'Counts are folded from all %1$s siblings,'
-                                . ' not from the page. A count larger than'
-                                . ' the table can show means the value it'
-                                . ' names is outside the %2$s carried;'
-                                . ' an entry none of them reaches is greyed,'
-                                . ' because narrowing on it could only'
-                                . ' empty the table.'
-                            ),
+                            __('Counts are folded from all %1$s siblings,'
+                                . ' not from the page.'),
                             '<span class="font-monospace">'
                                 . h(number_format($siblings['total']))
-                                . '</span>',
-                            '<span class="font-monospace">'
-                                . h(number_format(
-                                    count($siblings['rows'])
-                                )) . '</span>'
+                                . '</span>'
                         ) ?>
+                        <i class="fas fa-circle-info vp-cap-more"
+                           title="<?= h(sprintf(
+                               __('A count larger than the table can show'
+                                   . ' names a value outside the %s'
+                                   . ' carried. An entry none of them'
+                                   . ' reaches is greyed — narrowing on'
+                                   . ' it could only empty the table.'),
+                               number_format(count($siblings['rows']))
+                           )) ?>"></i>
                     </span>
 
                     <span class="small text-muted ms-auto"
@@ -1748,13 +1740,11 @@ $headerSub = ob_get_clean();
                     </div>
                     <div class="mt-2">
                         <?= h(__(
-                            'Nothing is hidden from you here and nothing'
-                            . ' is missing. The object siblings below sit'
-                            . ' in those same events and are listed in'
-                            . ' full, because an object is a statement'
-                            . ' somebody made about which attributes'
-                            . ' belong together — it does not get larger'
-                            . ' because the event around it did.'
+                            'Nothing is hidden and nothing is missing.'
+                            . ' The object siblings below sit in those'
+                            . ' same events and are listed in full — an'
+                            . ' object does not get larger because the'
+                            . ' event around it did.'
                         )) ?>
                     </div>
                 <?php else: ?>
@@ -1879,38 +1869,35 @@ $headerSub = ob_get_clean();
         }
         ?>
         <div class="vp-rel-cap" data-vp-group-only="value">
-            <i class="fas fa-filter"></i>
+            <i class="fas fa-filter"
+               title="<?= h($co['distinct_values'] > count($valueRows)
+                   ? sprintf(
+                       __('Facet counts below stay exact at %s: they are'
+                           . ' folded from every row read, not tallied'
+                           . ' from the page.'),
+                       number_format($co['distinct_values'])
+                   )
+                   : __('Nothing here is ranked away — the cut below is'
+                       . ' on which events were read, not on which'
+                       . ' values survived.')) ?>"></i>
             <span>
-                <?php if ($co['distinct_values'] > count($valueRows)): ?>
-                    <?= sprintf(
-                        __(
-                            '%1$s, %3$s. The facet'
-                            . ' counts below stay exact at %2$s: they'
-                            . ' are folded from every row read, not'
-                            . ' tallied from the page.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __('%1$s of %2$s distinct values are carried'),
-                            number_format(count($valueRows)),
-                            number_format($co['distinct_values'])
-                        )) . '</strong>',
-                        h(number_format($co['distinct_values'])),
-                        h($rankPhrase)
-                    ) ?><?= h($rankScope) ?>
-                <?php else: ?>
-                    <?= sprintf(
-                        __(
-                            '%1$s, %2$s. Nothing here is ranked away —'
-                            . ' the cut below is on which events were'
-                            . ' read, not on which values survived.'
-                        ),
-                        '<strong>' . h(sprintf(
-                            __('All %d distinct values are listed'),
-                            $co['distinct_values']
-                        )) . '</strong>',
-                        h($rankPhrase)
-                    ) ?><?= h($rankScope) ?>
-                <?php endif; ?>
+                <?= sprintf(
+                    __('%1$s, %2$s.'),
+                    '<strong>' . h(
+                        $co['distinct_values'] > count($valueRows)
+                            ? sprintf(
+                                __('%1$s of %2$s distinct values are'
+                                    . ' carried'),
+                                number_format(count($valueRows)),
+                                number_format($co['distinct_values'])
+                            )
+                            : sprintf(
+                                __('All %d distinct values are listed'),
+                                $co['distinct_values']
+                            )
+                    ) . '</strong>',
+                    h($rankPhrase)
+                ) ?><?= h($rankScope) ?>
             </span>
         </div><?= $warninglistCap ?>
 
@@ -1993,13 +1980,9 @@ $headerSub = ob_get_clean();
                         <?= h(sprintf(
                             __n(
                                 '%1$d event was left out for holding'
-                                    . ' more than %2$s attributes,'
-                                    . ' where co-occurrence describes'
-                                    . ' the event rather than the value.',
+                                    . ' more than %2$s attributes.',
                                 '%1$d events were left out for holding'
-                                    . ' more than %2$s attributes each,'
-                                    . ' where co-occurrence describes'
-                                    . ' the event rather than the value.',
+                                    . ' more than %2$s attributes each.',
                                 $scan['events_oversized'],
                                 $scan['events_oversized'],
                                 number_format($scan['size_cap'])
@@ -2221,29 +2204,27 @@ $headerSub = ob_get_clean();
 
                 <span class="small text-muted ms-2 vp-min-w-0">
                     <?= $scanned ? sprintf(
-                        __(
-                            'Facet counts are exact at every count —'
-                            . ' they are folded from %s, not from the'
-                            . ' page. Narrowing on a count larger than'
-                            . ' the %s carried below fetches its rows'
-                            . ' rather than emptying the table.'
-                        ),
+                        __('Facet counts are folded from %s, not from'
+                            . ' the page.'),
                         '<span class="font-monospace">'
                             . h(sprintf(
                                 __('all %s rows read'),
                                 number_format($scan['rows_read'])
-                            )) . '</span>',
-                        '<span class="font-monospace">'
-                            . h(number_format(count($valueRows)))
-                            . '</span>'
+                            )) . '</span>'
                     ) : sprintf(
-                        __(
-                            'Facet counts are exact at every count —'
-                            . ' they are a %s over the whole scope, not'
-                            . ' a count of the page.'
-                        ),
+                        __('Facet counts are a %s over the whole scope,'
+                            . ' not a count of the page.'),
                         '<span class="font-monospace">GROUP BY</span>'
                     ) ?>
+                    <?php if ($scanned): ?>
+                        <i class="fas fa-circle-info vp-cap-more"
+                           title="<?= h(sprintf(
+                               __('Narrowing on a count larger than the'
+                                   . ' %s carried below fetches its rows'
+                                   . ' rather than emptying the table.'),
+                               number_format(count($valueRows))
+                           )) ?>"></i>
+                    <?php endif; ?>
                 </span>
             </div>
 
@@ -2624,22 +2605,6 @@ $headerSub = ob_get_clean();
             )) ?>
         </div>
 
-        <div class="p-3 pt-0 d-flex align-items-center gap-2 flex-wrap">
-            <button type="button" class="btn btn-sm btn-outline-secondary
-                                         disabled"
-                    title="<?= h(__(
-                        'Disabled in this pass — the search this would'
-                        . ' open is a restSearch the page does not run'
-                        . ' yet.'
-                    )) ?>">
-                <?= h(sprintf(
-                    __('Open all %s as a search'),
-                    number_format($co['matched'])
-                )) ?>
-                <i class="fas fa-arrow-right ms-1"></i>
-            </button>
-        </div>
-
     <?php endif; ?>
 
     <?php
@@ -2724,15 +2689,15 @@ $headerSub = ob_get_clean();
 
             <div class="px-3 pt-3">
                 <div class="vp-rel-cap">
-                    <i class="fas fa-circle-info"></i>
+                    <i class="fas fa-circle-info"
+                       title="<?= h(__(
+                           'Including events the table above could not'
+                           . ' afford to open.'
+                       )) ?>"></i>
                     <span>
                         <?= sprintf(
-                            __(
-                                'What the events around this value are'
-                                . ' marked as — %1$s. Read over %2$s,'
-                                . ' including any the table above could'
-                                . ' not afford to open.'
-                            ),
+                            __('What the events around this value are'
+                                . ' marked as — %1$s, over %2$s.'),
                             '<strong>' . h(__(
                                 'galaxy clusters and taxonomy tags'
                             )) . '</strong>',
@@ -2794,14 +2759,14 @@ $headerSub = ob_get_clean();
 
             <?php if ($labelCapped): ?>
                 <div class="vp-rel-cap">
-                    <i class="fas fa-filter"></i>
+                    <i class="fas fa-filter"
+                       title="<?= h(__(
+                           'The bar below narrows the rows this table'
+                           . ' holds, not the fold behind them.'
+                       )) ?>"></i>
                     <span>
                         <?= sprintf(
-                            __(
-                                '%s, ranked by shared events. The bar'
-                                . ' below narrows the rows this table'
-                                . ' holds, not the fold behind them.'
-                            ),
+                            __('%s, ranked by shared events.'),
                             '<strong>' . h(sprintf(
                                 __('%1$s of %2$s are listed'),
                                 number_format(count($labelRows)),

@@ -31,13 +31,15 @@ Update this table in the same pass as the code, not in a catch-up
 sweep. A task is `done` only when its change is verified against the
 live instance and recorded in its own section below.
 
-**Every row is done as of 2026-09-03.** B10 closed the eleven the
+**Every row is done as of 2026-09-04.** B10 closed the eleven the
 subphase planned, and was the only one whose grilling gate was lifted
 rather than held — §12.2 says by whom and records the decisions it
 would have taken. B11 came afterwards, out of §13 rather than out of
 the plan, and §14 has it. B12 came out of `24-relationships.md` §14.12,
 which had named its own condition for reopening; §15 has it, and
-answers no to the move that condition implied.
+answers no to the move that condition implied. B13 closes the subphase
+by taking back the surface the other twelve spent: §16 is the text
+pass, and it is the only task here that adds nothing to the page.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -54,6 +56,7 @@ answers no to the move that condition implied.
 | B10 | A typosquat engine for near-matches | `value_relation_near_match`, new `DomainPermutationTool` | L | lifted | no | **done** |
 | B11 | The ssdeep candidate cap | `value_relation_near_match`, `Value::valuesOfType` | M | no | no | **done** — §14 |
 | B12 | The Relationships tab badge, and the `ownTagsFor` ACL join it uncovered | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor`, `Value::ownTagsFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
+| B13 | The text pass: mockup controls out, captions to one line, the rest onto the glyph | all twelve Relationships templates, `value-profile.css` | M | no | **yes — the caption glyph becomes a `title` carrier** | **done** — §16 |
 
 ## 2. The order, and why
 
@@ -3392,3 +3395,112 @@ numbers are unchanged, so nothing regressed on the path that worked.
   thing.
 - **Sightings still has no badge**, and its condition is unchanged —
   `Sighting` growing a counting method that applies the policy in SQL.
+
+---
+
+## 16. B13 — the tab says it once, and the glyph holds the rest
+
+**Done, 2026-09-04.** The eleven planned tasks and the two that came
+after them all added text: a caption per panel, a footnote per facet
+bar, a qualifier per count. Each was defensible on its own and the tab
+read as a wall. This is the pass that takes the surface back, and it
+does it with one rule rather than a judgement per sentence.
+
+### 16.1 The rule
+
+Every prose block answers one question: **does this tell a reader how
+to read the rows in front of them, or does it justify the
+implementation to a reviewer?** §29.4 of `tabs/03-relationships.md`
+asked exactly this and applied it to six captions. B13 applies it to
+the whole tab, and adds a third destination the earlier pass did not
+have:
+
+| Verdict | Where it goes |
+|---|---|
+| Tells the reader how to read the rows | stays visible, first sentence |
+| A reader might still want it, but not on every read | the caption glyph's `title` |
+| Justifies the build, or restates a visible control | deleted |
+
+The `.vp-rel-cap` glyph was decorative on every panel. It now carries
+the demoted half, which is why the rule could be applied at all: a
+sentence worth keeping no longer costs a line.
+
+### 16.2 Three mockup controls that shipped
+
+`prd/phase7/kit/frame.html` gave the page a convention for an
+affordance the prototype could not honour: a disabled button whose
+`title` reads *"Disabled in this pass — …"*. Three reached this tab and
+were still there.
+
+| Control | Panel | Why it went |
+|---|---|---|
+| `Add a relationship` | asserted | hard-coded `disabled`, no condition — the page writes nothing |
+| `Open all N as a search` | co-occurrence | same, and the restSearch behind it was never built |
+| `Open the full graph`, disabled variant | graph | the `$feed === null` arm |
+
+The third was not merely disabled, it was **unreachable**. Every
+Relationships panel is served by `renderRelationPanel`, which calls
+`ValueProfile::forRelation*` directly; `ValueProfileFixture` reaches
+none of them, and `graphFor` initialises `$feed` as an array and has a
+single return. The arm existed for a fixture render that stopped
+happening when the tab went live in phase 24. Its `else` — the real
+`data-vp-relgraph-expand` button — is now unconditional.
+
+The same convention is still on **eight other templates** and on the
+page header (`Values/view.ctp`): Occurrences, Sightings, Verdict,
+Enrichment and Analyst each carry a `$noWrites` of their own. Those are
+their own tabs' business and are untouched here; whoever converts one
+should expect to delete the control rather than to wire it.
+
+### 16.3 What each panel lost
+
+| Panel | Cut, or moved to the glyph |
+|---|---|
+| Object relationships | *"…and it carries a type they chose"* and the whole direct/indirect sentence — the **Reaches this value** column already prints which |
+| Dated relations | the date-naming, single-date and origin rules; the empty state's *"Around four attributes in five are like it"*, an instance statistic of the kind §27.7 had already rejected elsewhere |
+| Outside this instance | *"set membership on a hash — no CIDR, no substring…"* |
+| Near-matches | *"a row here never means the two values are the same"* to the glyph; *"the engine is present and inert, which is neither not applicable nor missing from MISP"* deleted, being about the state taxonomy rather than the value; the CIDR empty state's ordering rationale deleted |
+| Asserted | *"de-duplicated by relationship UUID"* deleted; the completeness reassurance to the glyph |
+| In the same object | three stacked blocks became two lines — *"and usually where you pivot next"* and *"Nothing is hidden — **Field kind** below cuts them in one click"* went, the second pointing at a control one scroll below it |
+| In the same events | the facet-exactness tails and the rank rationale to their glyphs; the oversized-event clause, which the suppressed box states in full a screen away |
+| Labels | *"including any the table above could not afford to open"* to the glyph |
+| Named threats | the three tactic qualifiers fold into one glyph on the rail's narrowest card |
+
+### 16.4 What it comes to
+
+Counting translatable prose that is *not* inside a `title`, across
+every branch of all twelve templates: **3,085 words to 2,797, −288
+(−9 %)**. 260 of those are still a hover away; the rest are gone. The
+figure understates what a reader sees, because it counts every
+conditional arm and a page renders one of each — the always-on
+captions, which is what B13 mostly cut, are counted once here and read
+every time.
+
+### 16.5 Verified
+
+Against the instance the worktree serves, 2026-09-04, via the live
+`misp-track` sync. All nine Relationships endpoints fetched for six
+values — the five `24-relationships.md` §12.1 names plus `8.8.8.8`.
+
+- **54 fragments, every one HTTP 200, no PHP notice, warning or fatal.**
+- **No `Disabled in this pass` in any rendered fragment.**
+- Each rewritten caption present, each demoted sentence present as a
+  `title`, each deleted sentence absent.
+- The conditional arms exercised where they fire rather than asserted
+  in the abstract: `0.0.0.0` for the sibling cap (`Aggregated over …`
+  and its `≥` glyph) and the oversized-event note, `1.0.155.105` for
+  the suppressed state, `185.92.180.100` for the CIDR engine,
+  `github.com` for dated relations, and
+  `no-such-value-anywhere.example` for the empty states.
+- `data-vp-relgraph-expand` still resolves for the inline script that
+  reveals it, so dropping the disabled arm did not strand the live one.
+
+### 16.6 What is still open
+
+- Unchanged from §15.7 — the pill over more than one notion, and the
+  sightings badge.
+- **The `$noWrites` convention on the other eight templates**, above.
+- **Panel captions are still per-panel prose.** Seven panels each open
+  with a sentence in the same register; a reader going down the tab
+  reads seven of them. Whether the tab wants one contract stated once
+  at the top instead is a question this pass did not open.

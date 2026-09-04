@@ -5374,6 +5374,20 @@ th[aria-sort="descending"] .sort-icon::before,
     flex: 0 0 auto;
 }
 
+/*
+ * A caption states the cut in one line and hands the rest to its glyph.
+ * `help` is the cursor that says a hover will answer something.
+ */
+.vp-rel-cap > i[title],
+.vp-cap-more {
+    cursor: help;
+}
+
+.vp-cap-more {
+    margin-left: 2px;
+    opacity: 0.7;
+}
+
 .vp-rel-cap > span {
     flex: 1 1 auto;
     min-width: 0;
