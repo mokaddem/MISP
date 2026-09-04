@@ -234,7 +234,6 @@ $relationshipBadge = $relationshipObjects === 0 ? null : array(
         number_format($relationshipObjects)
     ),
     'color' => 'var(--vp-rel-object)',
-    'dot' => true,
 );
 
 $tabRegistry = array(

@@ -3300,6 +3300,12 @@ been in the layout since the Verdict tab needed it and had one caller.
 This is the contents strip's rule arriving on the tab bar: seven notions,
 seven units, and none of them a total.
 
+**Without the pill's dot**, which the Verdict badge takes and this one
+does not. There the dot is the signal — a filled disposition colour
+readable before the word beside it is. Here the colour is only kinship
+with the panel the number came from, and a second dotted pill on the
+same bar makes the first one's dot mean less.
+
 ### 15.4 Zero renders nothing, which is what makes it honest
 
 A value can sit in no object and still carry an analyst claim, a
