@@ -31,7 +31,7 @@ rules have to hold for whichever of them goes first.
 Writes are not here either. The analyst's own tags, opinions and notes on a
 value need new storage and touch sync, which is a different risk profile from
 replacing a read; they are specified in
-[`value-profile-writes.md`](value-profile-writes.md). Under §14 the page still
+[`value-profile-writes.md`](../value-profile-writes.md). Under §14 the page still
 reads only, and every disabled control stays disabled.
 
 ### 14.1 What this replaces, and what it must not disturb
@@ -304,6 +304,7 @@ that own them, not defects:
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
 | tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's.** The two *badges* naming converted tabs were corrected on 2026-08-28 — see §14.10 |
 | the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
+| `06-timeline.md`, the tab's own `.vp-acl-note` band (`value_timeline.ctp:1235`, from `timeline.acl_note`) | *"Four of this value's nine occurrences are on events you cannot see, and nothing they contribute is in this chronology."* | band and key removed — **this row was missing until 2026-09-04**, added by phase 25, which is the first phase in a position to notice it. `25-timeline.md` §12 |
 
 **The exception: a permanent line wherever the page renders a computed
 judgement.** Always shown, on every value, identical for every reader —
@@ -476,7 +477,7 @@ account for.
 
 ### 14.11 Out of scope
 
-- **Writes.** [`value-profile-writes.md`](value-profile-writes.md). Under §14
+- **Writes.** [`value-profile-writes.md`](../value-profile-writes.md). Under §14
   the page still reads only.
 - **Caching and query optimisation.** A later stage, per §14.4. The batching
   rule is the only performance commitment made here.
@@ -698,6 +699,7 @@ its decisions and deferrals live; this is only the map.
 | 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
+| 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **opened 2026-09-04** — nothing built; its §1 is the task board |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,

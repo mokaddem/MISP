@@ -4103,7 +4103,7 @@ deferred on somebody else's timetable.
 | The `light` overlay and its `edgeFacets` switches | pivotick's `editors.notes.enabled`; the server side is already done | §26.9, §27.7 of `24-relationships.md` |
 | Live expand-one-hop | the re-founded graph's next pass | §26.12 |
 | A claim's prose — child Notes on relationships | the per-claim bound decision | §13 |
-| The Timeline source lane | the Timeline tab's own phase | §26.7 |
+| The Timeline source lane | phase 25, which **opened 2026-09-04 and deferred it again**, with the cost named — [`25-timeline.md`](25-timeline.md) §15 | §26.7 |
 | The promote list, and with it a matched hash opening its own page | **a measurement nobody has taken** — see §20.3 | §26.3, §28.9 |
 | The badge over more than one notion; a Sightings badge | a page-load price for asserted claims and external presence | §15.7 |
 

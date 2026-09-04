@@ -118,6 +118,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
 | 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built |
 | 24 | Relationships goes live — all five panels, and the rail's graph made real | `live/24-relationships.md` | **closed 2026-09-04** |
+| 25 | Timeline goes live — one endpoint, nine lanes, and the audit ACL model §8.2 left open | `live/25-timeline.md` | **opened 2026-09-04** — nothing built |
 | 24B | Relationships, the insight pass over the built tab — sixteen tasks, converts nothing | `live/24b-relationships.md` | **closed 2026-09-04** (§20 carries it forward) |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
@@ -135,9 +136,9 @@ goes first argues why in its own document.
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | **23** | **Sightings** | [`live/23-sightings.md`](value-profile-live/23-sightings.md) | **built** — all five panels, plus the Overview's `value_sightings` card. Closed the decay aggregation rule §14.5 had left open (§5) and found §14.6's exception has a second member (§7). **A clean `no` on all three concepts**, argued in §11.5 |
 | **24** | **Relationships** | [`live/24-relationships.md`](value-profile-live/24-relationships.md) | **CLOSED 2026-09-04** — all five panels, and the rail's graph is now real (§10). Found that **the correlation engine has nothing to say about a value** and that section one has to be an event join (§3). All three concepts **deferred with reasons** (§14); feed co-occurrence is the one piece of real upside left. **Subphase B shipped sixteen tasks** over the built tab and the phase **closed 2026-09-04** — [`live/24b-relationships.md`](value-profile-live/24b-relationships.md), whose §20 lists what it hands on: five items waiting on somebody else, a promote list that should be **measured before it is built** (§20.3), and four unrecorded board rows (§20.4) |
-| 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing |
+| 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing. **Re-checked 2026-09-04** and still true in all three parts: `Module` is `useTable = false`, no per-value/per-module run store or dismissal store exists among the instance's 106 tables, and `Event::enrichmentRouter()` returns at `Event.php:7998` above its own `MISP.background_jobs` branch, so the interactive path is synchronous whatever the setting says. It is a schema phase, not a conversion phase — `live/25-timeline.md` §2 |
 | 22+ | Analyst data | — | not started |
-| 22+ | Timeline | — | not started |
+| **25** | **Timeline** | [`live/25-timeline.md`](value-profile-live/25-timeline.md) | **opened 2026-09-04 — nothing built.** Closes §8.2's open audit-ACL choice (§5), splits counts from rows because one value's history is 162,539 entries (§6), and adds two lanes the coverage survey owes — proposals and event reports (§10). Found §14.6's required-changes table missing this tab's own ACL band (§12) |
 | 22+ | History | — | not started |
 
 #### What a fresh session must not break
