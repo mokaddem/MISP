@@ -3504,3 +3504,35 @@ values — the five `24-relationships.md` §12.1 names plus `8.8.8.8`.
   with a sentence in the same register; a reader going down the tab
   reads seven of them. Whether the tab wants one contract stated once
   at the top instead is a question this pass did not open.
+
+### 16.7 The caption is full-bleed, and four of them were not
+
+Reported against the built pass: the grey row renders differently panel
+to panel — flush to the panel edge in some, inset in others, with its
+bottom border stopping short.
+
+`.vp-rel-cap` is designed full-bleed. It carries its own `9px 16px` and
+a `border-bottom` that is meant to meet both panel edges, which is what
+makes a stack of two captions read as two bands rather than two boxes.
+Four of the twelve sat as the first child of a padded wrapper instead —
+`p-3` in Object relationships, Dated relations and Outside this
+instance, `px-3 pt-3` in Labels on those events — so those four drew a
+16 px inset and a border floating clear of the edge. Labels was the
+worst of them: its two captions are adjacent, the first wrapped and the
+second not, so the mismatch sat in one panel where nothing could hide
+it.
+
+Each caption moved above its wrapper. The Labels wrapper held nothing
+else and went entirely; the other three still pad the table below them.
+No CSS changed — the rule was already right, and only its callers were
+not.
+
+**Measured rather than eyeballed.**
+[`24b-caption-geometry.mjs`](24b-caption-geometry.mjs) walks the live tab in
+Chromium, opens Relationships, scrolls every lazy panel in, and
+compares each caption's left and right edges against the inner edges of
+the `.vp-panel` holding it. On `8.8.8.8` all ten visible captions read
+`dL 0, dR 0`; on `0.0.0.0`, which adds the sibling-cap caption
+(*Aggregated over 500 of the 32,922 objects*), all nine do. The 45
+fragments over the five §12.1 values were refetched: all 200, no PHP
+notices, `<div>` balanced in all nine panels.

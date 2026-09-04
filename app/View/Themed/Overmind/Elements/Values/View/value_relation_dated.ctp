@@ -222,24 +222,24 @@ if ($datedListsHit > 0) {
         'panelSub' => $headerSub,
     )) ?>
 
-    <div class="p-3">
+    <div class="vp-rel-cap">
+        <i class="fas fa-circle-info"
+           title="<?= h(__(
+               'Each date carries the object\'s own name for it,'
+               . ' printed beneath. An object recording a single'
+               . ' date recorded a moment rather than a span, and'
+               . ' is not counted. Origin is the object\'s word for'
+               . ' where the observation came from; most templates'
+               . ' have none, and the organisation beneath it is'
+               . ' who reported the event.'
+           )) ?>"></i>
+        <span>
+            <?= __('A row is one object that records both a start'
+                . ' and an end date.') ?>
+        </span>
+    </div>
 
-        <div class="vp-rel-cap">
-            <i class="fas fa-circle-info"
-               title="<?= h(__(
-                   'Each date carries the object\'s own name for it,'
-                   . ' printed beneath. An object recording a single'
-                   . ' date recorded a moment rather than a span, and'
-                   . ' is not counted. Origin is the object\'s word for'
-                   . ' where the observation came from; most templates'
-                   . ' have none, and the organisation beneath it is'
-                   . ' who reported the event.'
-               )) ?>"></i>
-            <span>
-                <?= __('A row is one object that records both a start'
-                    . ' and an end date.') ?>
-            </span>
-        </div>
+    <div class="p-3">
 
         <?php if (empty($rows)): ?>
 

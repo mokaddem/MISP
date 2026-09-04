@@ -2687,74 +2687,72 @@ $headerSub = ob_get_clean();
 
         <div data-vp-list>
 
-            <div class="px-3 pt-3">
-                <div class="vp-rel-cap">
-                    <i class="fas fa-circle-info"
-                       title="<?= h(__(
-                           'Including events the table above could not'
-                           . ' afford to open.'
-                       )) ?>"></i>
-                    <span>
+            <div class="vp-rel-cap">
+                <i class="fas fa-circle-info"
+                   title="<?= h(__(
+                       'Including events the table above could not'
+                       . ' afford to open.'
+                   )) ?>"></i>
+                <span>
+                    <?= sprintf(
+                        __('What the events around this value are'
+                            . ' marked as — %1$s, over %2$s.'),
+                        '<strong>' . h(__(
+                            'galaxy clusters and taxonomy tags'
+                        )) . '</strong>',
+                        '<strong>' . h(sprintf(
+                            __n(
+                                'the one event this value is in',
+                                'all %d events this value is in',
+                                $labelScope,
+                                $labelScope
+                            )
+                        )) . '</strong>'
+                    ) ?>
+                    <?php /*
+                     * Said only where the scopes actually differ.
+                     * On a value whose events were all read it
+                     * describes a distinction that did not arise.
+                     */ ?>
+                    <?php if ($labelScopeDiffers): ?>
+                        <?= h(sprintf(
+                            __n(
+                                'The table above read %d of them.',
+                                'The table above read %d of them.',
+                                $scan['events_read'],
+                                $scan['events_read']
+                            )
+                        )) ?>
+                    <?php endif; ?>
+                    <?php /*
+                     * Where the rail folds the same clusters, say
+                     * so. Attack patterns are usually most of this
+                     * section — 21 of `8.8.8.8`'s 26 — and they are
+                     * rows here and a tactic roll-up on the
+                     * named-threat card, which without a word
+                     * between them reads as two findings about the
+                     * neighbourhood rather than one set read twice.
+                     */ ?>
+                    <?php if ($labelTechniques > 0): ?>
                         <?= sprintf(
-                            __('What the events around this value are'
-                                . ' marked as — %1$s, over %2$s.'),
-                            '<strong>' . h(__(
-                                'galaxy clusters and taxonomy tags'
-                            )) . '</strong>',
+                            __(
+                                '%s, which the rail\'s'
+                                . ' %s strip folds into tactics —'
+                                . ' one set read two ways, not two'
+                                . ' findings.'
+                            ),
                             '<strong>' . h(sprintf(
                                 __n(
-                                    'the one event this value is in',
-                                    'all %d events this value is in',
-                                    $labelScope,
-                                    $labelScope
+                                    '%d is an attack pattern',
+                                    '%d are attack patterns',
+                                    $labelTechniques,
+                                    $labelTechniques
                                 )
-                            )) . '</strong>'
+                            )) . '</strong>',
+                            h(__('Where in the intrusion'))
                         ) ?>
-                        <?php /*
-                         * Said only where the scopes actually differ.
-                         * On a value whose events were all read it
-                         * describes a distinction that did not arise.
-                         */ ?>
-                        <?php if ($labelScopeDiffers): ?>
-                            <?= h(sprintf(
-                                __n(
-                                    'The table above read %d of them.',
-                                    'The table above read %d of them.',
-                                    $scan['events_read'],
-                                    $scan['events_read']
-                                )
-                            )) ?>
-                        <?php endif; ?>
-                        <?php /*
-                         * Where the rail folds the same clusters, say
-                         * so. Attack patterns are usually most of this
-                         * section — 21 of `8.8.8.8`'s 26 — and they are
-                         * rows here and a tactic roll-up on the
-                         * named-threat card, which without a word
-                         * between them reads as two findings about the
-                         * neighbourhood rather than one set read twice.
-                         */ ?>
-                        <?php if ($labelTechniques > 0): ?>
-                            <?= sprintf(
-                                __(
-                                    '%s, which the rail\'s'
-                                    . ' %s strip folds into tactics —'
-                                    . ' one set read two ways, not two'
-                                    . ' findings.'
-                                ),
-                                '<strong>' . h(sprintf(
-                                    __n(
-                                        '%d is an attack pattern',
-                                        '%d are attack patterns',
-                                        $labelTechniques,
-                                        $labelTechniques
-                                    )
-                                )) . '</strong>',
-                                h(__('Where in the intrusion'))
-                            ) ?>
-                        <?php endif; ?>
-                    </span>
-                </div>
+                    <?php endif; ?>
+                </span>
             </div>
 
             <?php if ($labelCapped): ?>

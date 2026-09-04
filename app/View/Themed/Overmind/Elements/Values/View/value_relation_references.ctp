@@ -95,21 +95,21 @@ $profileUrl = function ($value) use ($baseurl) {
         'panelSub' => $headerSub,
     )) ?>
 
-    <div class="p-3">
+    <div class="vp-rel-cap">
+        <i class="fas fa-circle-info"
+           title="<?= h(__(
+               'Rows reach this value directly, at one of its own'
+               . ' attributes, or through an object it sits in. A'
+               . ' reference pointing back at this value is not'
+               . ' listed — it relates the value to itself.'
+           )) ?>"></i>
+        <span>
+            <?= __('A reference is a typed link between two objects,'
+                . ' written by whoever wrote the event.') ?>
+        </span>
+    </div>
 
-        <div class="vp-rel-cap">
-            <i class="fas fa-circle-info"
-               title="<?= h(__(
-                   'Rows reach this value directly, at one of its own'
-                   . ' attributes, or through an object it sits in. A'
-                   . ' reference pointing back at this value is not'
-                   . ' listed — it relates the value to itself.'
-               )) ?>"></i>
-            <span>
-                <?= __('A reference is a typed link between two objects,'
-                    . ' written by whoever wrote the event.') ?>
-            </span>
-        </div>
+    <div class="p-3">
 
         <?php if (empty($rows)): ?>
 
