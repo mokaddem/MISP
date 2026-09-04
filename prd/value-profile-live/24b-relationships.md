@@ -3769,3 +3769,191 @@ Against the instance the worktree serves, 2026-09-04.
   renders `id="tab-objects"`, event 1 renders `id="tab-attributes"`.
 - `$profileUrl` is gone from both templates; no unused closure is left
   behind.
+
+## 18. B15 — the tab's cold load, priced and bounded — **done, 2026-09-04**
+
+Reported: *"the loading time to load the first few panels for the value
+profile's relationships tab is slow despite the instance having low
+amount of data … if we use that page on a large instance (~10 millions
+attributes or more), I don't want them to wait 5min or make the PHP
+timeout."*
+
+Two separate causes, both measured on the dev instance (3,915,429
+attributes) with the machine settled — see the note in §12.1 about
+readings taken under a neighbour's test suite.
+
+### 18.1 What was actually slow, measured
+
+The instance was never the problem. A sparse value (`1.1.1.0/24`, one
+occurrence) rendered the whole tab in **0.11 s**. Cost tracks the
+value's neighbourhood, not the instance:
+
+| value | occurrences | nine panels, cold |
+| --- | --- | --- |
+| `1.1.1.0/24` | 1 | 0.11 s |
+| `213.205.40.169` | 27 | 0.64 s |
+| `443` | 48,255 | 4.13 s |
+| `8.8.8.8` | 17 | **15.10 s** |
+
+**Cause one: five panels computed the same scan.** `mispOvermind.js`
+fires every `.ajax-card` on a tab the moment it is shown, and of the
+nine, `viewRelationCooccurrence` and `viewRelationDated` read
+`relationScan` while `viewRelationGraph`, `viewRelationThreats` and
+`viewRelationSettings` read the digest built on it. With a plain
+`GET`/`SETEX` pair all five missed together and all five scanned, then
+contended for the same rows. Nine panels cold was **15.10 s** against
+**5.43 s** for the same nine with one scan primed first — worse than
+*sequential*, whose slowest panel was 6.2 s.
+
+**Cause two: prevalence cost tracked rows matched, not values asked
+about.** `Value::prevalenceFor` ran one `IN` pass per column that
+grouped every matching row. Phase timings for `8.8.8.8`'s 4,726 ms
+scan:
+
+| phase | time |
+| --- | --- |
+| `objectSections` | **3,489 ms (74%)** |
+| `prevalenceFor` (event unit) | 861 ms |
+| `neighbourRowsFor` (10,187 rows) | 175 ms |
+| everything else | < 90 ms each |
+
+Inside `objectSections` everything was trivial except
+`prevalenceFor(unit=object)` at **3,631 ms — to probe 34 values**.
+Those 34 are object-template enum values, and they matched **277,987**
+rows:
+
+```
+ 65717  flood            32945  not-applicable
+ 33110  0.0.0.0          32869  client-to-server
+ 32851  THREAT           29823  0.0.0.0-0.255.255.255
+ 23259  TCP                395  443
+```
+
+`value1` is `text` with a **255-character prefix index**, which can
+never be covering, so every matching row was read from the table and
+grouped — 239,076 triples, all hydrated into PHP to be counted. Linear
+in rows matched at ~7.3 µs per row:
+
+| probes | rows matched | grouped `IN` shape | bounded shape |
+| --- | --- | --- | --- |
+| 4 | 55 | 77 ms | 83 ms |
+| 8 | 10,884 | 164 ms | 87 ms |
+| 11 | 69,982 | 593 ms | 199 ms |
+| 14 | 168,647 | 1,414 ms | 313 ms |
+| 16 | 267,474 | **1,942 ms** | **441 ms** |
+
+**This is the 10M-attribute risk**, and it is not the neighbour count
+that grows — it is the row count behind a fixed handful of template
+enum values, which scales with the object count.
+
+### 18.2 Single-flight on the two folds — `cachedFold`
+
+Both cache sites go through one helper: the first request through takes
+a Redis `SET NX` lock and computes, the rest poll the key it will
+write. A waiter whose lock disappears with nothing written computes
+rather than erroring; losing Redis degrades to what this replaced.
+`relationDigest` split into a cached front and `readRelationDigest` so
+the lock can be held over it.
+
+Nine panels cold on `8.8.8.8`: **15.10 s → 4.81 s**, every panel's
+response byte-identical. Sparse values unchanged; `?fresh=1` still
+recomputes.
+
+### 18.3 One bounded probe per value
+
+Each key now asks its own capped question instead of two `IN` passes
+grouping everything:
+
+- `PREVALENCE_ROW_CAP = 500` — occurrences read per value. Short of the
+  cap the probe saw everything there is, so its distinct count is
+  **exact**; at the cap it saw a prefix and the value is reported as
+  too common to count.
+- `PREVALENCE_PROBE_CAP = 1500` — values probed at all. The caller
+  hands them over in local-frequency order (`neighbourValues` now
+  sorts), so what goes unprobed is what the fewest of the panel's own
+  rows rest on.
+- `PREVALENCE_CHUNK = 250` — probes per `UNION ALL` statement.
+
+**The bound has to be on rows read.** A `GROUP BY … LIMIT` groups
+before it limits, so it still reads every matching row: ~60 ms for one
+hot value whether the limit was 50 or 1,000, against 23 ms for the same
+value once the grouping came out. Removing it took the sibling set from
+3,631 ms to **97 ms**.
+
+**Equality, so a miss costs nothing** — 200 values matching nothing
+cost 98 ms, which is the trap §12.1 recorded for the `LIKE '%…'`
+shapes. `EXPLAIN` reports `index_merge … sort_union(value1,value2)` for
+the plain predicate. The arms are separate statements rather than one
+condition, which is what the 311-second attempt in the old docblock
+got wrong.
+
+**A capped read cannot name events or objects.** `flood` is 65,717
+occurrences across **two** events, so a fraction of events would print
+*in 2 of its 500+ events* about a value that is in two of its two —
+and the rows a truncated read saw cannot be sampled for the answer
+either, since they arrive in index order. Those rows print **`in 500+
+occurrences`** and rank last, which `ValueRelationTool::spreadOf`
+states as a decision rather than a measurement: the rank exists to
+raise neighbours whose company means something, and a value carried by
+five hundred occurrences is an object template's vocabulary.
+
+`prevalenceFor` returns `counts` / `capped` / `row_cap` / `probed` /
+`unprobed`; `prevalenceOf` still accepts the flat map a scan cached
+before the split carries. `CACHE_SHAPE` bumped to 11.
+
+Nine panels cold on `8.8.8.8`: **4.81 s → 1.38 s**. Scan 4,726 ms →
+**785 ms** (`objectSections` 3,489 → 223, `prevalenceFor` 861 → 181).
+`443`'s scan is 1,331 ms with nothing dominating — `neighbourRowsFor`
+373 ms and `objectSections` 375 ms, both against the 19,993 attributes
+`RELATION_SCAN_BUDGET` allowed.
+
+Fidelity, verified in the render: `213.205.40.169` and `443` carry an
+**exact** spread on every visible row, 0 blank. `8.8.8.8` shows 17
+capped rows and 34 blanks — and the blanks are the label rows, which
+never carried a spread; raising the probe cap to 20,000 changed neither
+number.
+
+### 18.4 "What is counted" reads no fold
+
+The rail's settings card pulled the whole digest for the eight counts
+at its foot, so the page's only live statement about the correlation
+engine waited on the scan and the four sections built on it — 2.5 s on
+`443` to render three alerts and a settings list costing 20 ms.
+
+The counts now arrive the way the contents strip's already do: each
+panel stamps its headline number on itself and `initRelationSummary`
+copies it into both places. The split fill reads every stamp on the
+page rather than the container that just arrived, because these rows
+live in one of the nine lazy cards and land in whatever order the
+fetches finish. `over_correlating` comes straight off
+`relationSettings`; the fold's `suppressed` flag was a fallback for a
+question the live read always answers.
+
+Two intended consequences: the subtitle loses its age, since each count
+now carries whatever age its own panel discloses; and a section that
+draws no table drops its row instead of showing a zero, matching the
+strip, with the subhead counting what is shown.
+
+`viewRelationSettings` cold: **2.47 s → 0.035 s**.
+
+### 18.5 Where the tab stands
+
+| value | before | after |
+| --- | --- | --- |
+| `1.1.1.0/24` | 0.11 s | 0.11 s |
+| `213.205.40.169` | — | 0.64 s |
+| `8.8.8.8` | 15.10 s | **1.38 s** |
+| `443` | 4.13 s | **2.84 s** |
+
+What is left is bounded work rather than a shape that grows: the scan
+reads at most `RELATION_EVENT_CAP` events and
+`RELATION_SCAN_BUDGET` attributes, and every prevalence probe reads at
+most `PREVALENCE_ROW_CAP` occurrences of one value. `443`'s residual is
+its scan (2.1 s for the 19,993 attributes the budget allows) plus
+~0.5 s of near-match, claim, external and reference reads, each already
+capped in §11–§14.
+
+Verified in the browser on `8.8.8.8`, `0.0.0.0` and `1.1.1.0/24`: every
+breakdown count matches the strip, bars scale, the floor marker and its
+footnote appear on `0.0.0.0`, absent sections drop, no JS errors.
+`value-profile.js` changed, so a re-test needs Ctrl+Shift+R.
