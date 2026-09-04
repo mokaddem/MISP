@@ -6135,17 +6135,153 @@
      * @param {Element|Document} root The panel that just landed, or the
      *                                whole document on first run
      */
-    function initRelationSummary(root) {
-        var strip = relationSummaryStrip();
-        if (!strip) {
+    /**
+     * The same figures again, into the rail's "What is counted" card.
+     *
+     * That card's foot is the tab's arithmetic — eight notions in five
+     * units — and it used to read them off the held digest server-side,
+     * which meant the rail's live statement about the correlation
+     * engine waited on a 20,000-row neighbourhood scan to render three
+     * alerts. It reads nothing now: the rows arrive empty and the panel
+     * that owns each section fills it here, off the very same
+     * `data-vp-rel-*` stamps the strip above is reading.
+     *
+     * The `≥` a bounded section prints comes with the count, because
+     * the panel already puts it there for the strip.
+     *
+     * @param {Element} panel The panel that just landed
+     */
+    function readRelationSplit(panel) {
+        var key = panel.dataset.vpRelSummary;
+        var row = key
+            ? document.querySelector(
+                '[data-vp-relsum-split="' + key + '"]'
+            )
+            : null;
+        if (!row) {
             return;
         }
-        (root || document)
+
+        var count = panel.dataset.vpRelCount || '';
+        var note = panel.dataset.vpRelNote || '';
+        var figure = row.querySelector('[data-vp-relsum-split-count]');
+        if (figure) {
+            figure.textContent = count;
+        }
+        var holder = row.querySelector('[data-vp-relsum-split-figure]');
+        if (holder && note) {
+            holder.setAttribute('title', note);
+        }
+        row.classList.remove('d-none');
+        row.classList.toggle('vp-split-none', relationSplitValue(row) === 0);
+    }
+
+    /**
+     * A filled row's figure as a number, for the bars and the reveal.
+     *
+     * The text is what the panel printed — thousands separators, and a
+     * `≥` where the section is a floor — so it is read back rather than
+     * carried separately. A row nobody has filled yet reads 0, which is
+     * why the block is revealed on a stamp arriving rather than on a
+     * total being positive.
+     *
+     * @param {Element} row
+     * @return {number}
+     */
+    function relationSplitValue(row) {
+        var figure = row.querySelector('[data-vp-relsum-split-count]');
+        var text = figure ? figure.textContent : '';
+        var digits = text.replace(/[^0-9]/g, '');
+        return digits === '' ? 0 : parseInt(digits, 10);
+    }
+
+    /**
+     * Scale the bars, count the notions, and reveal the block.
+     *
+     * Run after every arrival rather than once, because the panels land
+     * one at a time and the widest figure is not known until the last
+     * of them has. The scale is a rough sense of size and nothing more
+     * — the notions do not share a unit — but a bar that contradicted
+     * the number beside it would still be wrong, so 3 remote events
+     * beside 1,214 co-occurring values keeps a minimum width instead of
+     * rounding to nothing.
+     */
+    function layoutRelationSplit() {
+        var block = document.querySelector('[data-vp-relsum-split-block]');
+        if (!block) {
+            return;
+        }
+        var rows = Array.prototype.slice.call(
+            block.querySelectorAll('[data-vp-relsum-split]')
+        ).filter(function (row) {
+            return !row.classList.contains('d-none');
+        });
+        if (!rows.length) {
+            return;
+        }
+
+        var max = 0;
+        var capped = false;
+        rows.forEach(function (row) {
+            max = Math.max(max, relationSplitValue(row));
+            if (/≥/.test(row.textContent)) {
+                capped = true;
+            }
+        });
+        rows.forEach(function (row) {
+            var value = relationSplitValue(row);
+            var fill = row.querySelector('[data-vp-relsum-split-fill]');
+            if (!fill) {
+                return;
+            }
+            fill.style.width = (value > 0 && max > 0
+                ? Math.max(4, Math.round((value / max) * 100))
+                : 0) + '%';
+        });
+
+        var head = block.querySelector('[data-vp-relsum-split-head]');
+        if (head) {
+            var form = rows.length === 1
+                ? (head.dataset.vpSplitOne || '')
+                : (head.dataset.vpSplitMany || '');
+            head.textContent = form.replace('%d', String(rows.length));
+        }
+        var floor = block.querySelector('[data-vp-relsum-split-capped]');
+        if (floor) {
+            floor.classList.toggle('d-none', !capped);
+        }
+        block.classList.remove('d-none');
+    }
+
+    function initRelationSummary(root) {
+        var strip = relationSummaryStrip();
+        if (strip) {
+            (root || document)
+                .querySelectorAll('[data-vp-rel-summary]')
+                .forEach(function (panel) {
+                    readRelationSummary(strip, panel);
+                });
+            dropAbsentRelationSummaries(strip);
+        }
+
+        /*
+         * **Over the whole document, not the container that just
+         * arrived.** The strip is in the page shell, so it exists
+         * before any panel lands and can be filled from each one as it
+         * comes. The split rows are in the rail's own lazily-loaded
+         * card, which is one of the nine and lands in whatever order
+         * the fetches finish — usually first, because it is now the
+         * cheapest. Filling it only from the arriving container left
+         * it empty whenever a panel had already landed before it, so
+         * every arrival re-reads every stamp on the page. The stamps
+         * are attributes on markup that is already there and the fill
+         * is idempotent, so the cost is a `querySelectorAll` per
+         * panel.
+         */
+        document
             .querySelectorAll('[data-vp-rel-summary]')
-            .forEach(function (panel) {
-                readRelationSummary(strip, panel);
-            });
-        dropAbsentRelationSummaries(strip);
+            .forEach(readRelationSplit);
+        layoutRelationSplit();
     }
 
     /**

@@ -1729,29 +1729,39 @@ class ValueProfile extends AppModel
      * engine output, the only panel that reads the correlation engine's
      * state at all.
      *
+     * **It reads no fold, and that is the point.** This card used to
+     * pull the whole digest for one thing: the eight counts in the
+     * breakdown at its foot. So the rail's live statement about the
+     * correlation engine — *this value is past the limit*, *this value
+     * is excluded* — waited on a 20,000-row neighbourhood scan and the
+     * four sections built on it, which on `443` was 2.5 s to render
+     * three alerts and a settings list that cost 20 ms to read.
+     *
+     * The counts now arrive the way the contents strip's already do:
+     * every panel stamps its own headline number on itself as it
+     * lands, and `initRelationSummary` copies it into both places. The
+     * strip proved the pattern and its docblock states the reason — a
+     * total computed here would run the scan again to print an integer
+     * the panel that owns it is about to print anyway.
+     *
+     * That also settles the age disclosure. The subtitle used to date
+     * the counts off the digest; each count now carries whatever age
+     * its own panel discloses, which is the honest figure since the
+     * panels no longer land together.
+     *
      * @param array $user
      * @param string $value
-     * @param array $options
+     * @param array $options Unused; the panel reads no fold
      * @return array
      */
     public function forRelationSettings(array $user, $value,
         array $options = array()
     ) {
-        $digest = $this->relationDigest($user, $value, $options);
         return array(
             'value' => $value,
             'relationships' => array(
-                'summary' => $digest['summary'],
-                /*
-                 * Only the flag, not the fold. This card reads
-                 * `suppressed` and nothing else off the neighbourhood.
-                 */
-                'cooccurrence' => array(
-                    'suppressed' => $digest['suppressed'],
-                ),
-                // config, so read live rather than held with the digest
+                // config and engine state, and now the whole panel
                 'settings' => $this->relationSettings($user, $value),
-                'read_at' => $digest['read_at'],
             ),
         );
     }

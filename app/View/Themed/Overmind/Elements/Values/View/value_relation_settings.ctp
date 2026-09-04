@@ -65,8 +65,6 @@
 $profile = $valueProfile;
 $relations = $profile['relationships'];
 $settings = $relations['settings'];
-$summary = $relations['summary'];
-$co = $relations['cooccurrence'];
 
 /*
  * The value is past the limit when MISP recorded it in
@@ -75,11 +73,15 @@ $co = $relations['cooccurrence'];
  * and it is a different question from whether the pane beside this one
  * could read the value's events, which is what `suppressed` means
  * since phase 24.
+ *
+ * Read straight off `relationSettings`, which asks
+ * `OverCorrelatingValue` for this value every time this panel is
+ * fetched. It used to fall back to the neighbourhood fold's
+ * `suppressed` flag, which was the last thing holding this card to a
+ * 20,000-row scan — and a fallback for a question the live read always
+ * answers.
  */
-$overCorrelating = isset($settings['over_correlating'])
-    ? !empty($settings['over_correlating'])
-    : !empty($co['suppressed']);
-$suppressed = $overCorrelating;
+$suppressed = !empty($settings['over_correlating']);
 
 $external = $settings['external'];
 $nothingCached = empty($external['cached']['feeds'])
@@ -254,104 +256,78 @@ if (!$nothingCached) {
  */
 $split = array(
     array(
+        'key' => 'siblings',
         'label' => __('In the same object'),
         'unit' => __('siblings'),
         'colour' => 'var(--vp-rel-co)',
-        'count' => $summary['siblings'],
-        'capped' => !empty($summary['siblings_capped']),
         'ungoverned' => true,
     ),
     array(
+        'key' => 'cooccurrence',
         'label' => __('In the same events'),
         'unit' => __('values'),
         'colour' => 'var(--vp-rel-co)',
-        'count' => $summary['cooccurrence'],
-        'capped' => false,
         'ungoverned' => false,
     ),
     array(
+        'key' => 'dated',
         'label' => __('Dated relations'),
         'unit' => __('relations'),
         'colour' => 'var(--vp-rel-object)',
-        'count' => $summary['dated'],
-        'capped' => !empty($summary['dated_capped']),
         'ungoverned' => true,
     ),
     array(
+        'key' => 'near',
         'label' => __('Near-matches'),
         'unit' => __('values'),
         'colour' => 'var(--vp-rel-near)',
-        'count' => $summary['near'],
-        'capped' => false,
         'ungoverned' => false,
     ),
     array(
+        'key' => 'external',
         'label' => __('Outside this instance'),
         'unit' => __('remote events'),
         'colour' => 'var(--vp-rel-external)',
-        'count' => $summary['external'],
-        'capped' => false,
         'ungoverned' => false,
-        /*
-         * The one fact the deleted prose foot carried that no bar did.
-         * A tooltip rather than a row of its own: sources and events
-         * are two units, and this card's rule is that two units are
-         * never one bar.
-         */
-        'note' => sprintf(
-            __n('Held by %d source outside this instance.',
-                'Held by %d sources outside this instance.',
-                $summary['external_sources']),
-            $summary['external_sources']
-        ),
     ),
     array(
+        'key' => 'references',
         'label' => __('Object relationships'),
         'unit' => __('references'),
         'colour' => 'var(--vp-rel-reference)',
-        'count' => $summary['references'],
-        'capped' => !empty($summary['references_capped']),
         'ungoverned' => true,
     ),
     array(
+        'key' => 'asserted',
         'label' => __('Asserted by analysts'),
         'unit' => __('claims'),
         'colour' => 'var(--vp-rel-human)',
-        'count' => $summary['asserted'],
-        'capped' => false,
         'ungoverned' => false,
     ),
-);
-/*
- * §10.2's label neighbours, in their own unit and appended rather than
- * declared with the rest.
- *
- * **Its own row because it is its own unit**, which is this card's one
- * rule: a galaxy cluster is not a value, so it cannot be added to the
- * row above it any more than a remote event or a reference can. The
- * co-occurrence table carries both and `relationSummary` splits them
- * for exactly this reason.
- *
- * Appended so that a value whose events carry no clusters and no tags
- * renders the rows it always did, rather than one more reading zero —
- * the same rule the warninglist facet follows one panel over.
- */
-if (!empty($summary['labels'])) {
-    $split[] = array(
+    /*
+     * §10.2's label neighbours, in their own unit.
+     *
+     * **Its own row because it is its own unit**, which is this card's
+     * one rule: a galaxy cluster is not a value, so it cannot be added
+     * to the row above it any more than a remote event or a reference
+     * can. The co-occurrence table carries both and `relationSummary`
+     * splits them for exactly this reason.
+     *
+     * Declared with the rest now rather than appended on a non-zero
+     * count, because this card no longer holds the counts to test. A
+     * value whose events carry no clusters and no tags draws no
+     * `labels` section, so the panel stamps no such key and the row is
+     * dropped on arrival — the same treatment, decided by the panel
+     * that knows rather than by a fold this card would have to read.
+     */
+    array(
+        'key' => 'labels',
         'label' => __('Labels in this neighbourhood'),
         'unit' => __('clusters and tags'),
         'colour' => 'var(--vp-rel-co)',
-        'count' => $summary['labels'],
-        'capped' => false,
         'ungoverned' => false,
-    );
-}
-$maxSplit = 0;
-$anyCapped = false;
-foreach ($split as $part) {
-    $maxSplit = max($maxSplit, (int)$part['count']);
-    $anyCapped = $anyCapped || !empty($part['capped']);
-}
+    ),
+);
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
      style="--vp-panel-color: var(--bs-secondary-color);">
@@ -361,19 +337,14 @@ foreach ($split as $part) {
         'panelIcon' => 'fas fa-sliders',
         'panelColor' => 'var(--bs-secondary-color)',
         /*
-         * The settings are read live; the counts at the foot come from
-         * the held digest, so the age is disclosed here for §16.7's
-         * reason rather than left to be assumed current.
+         * No age beside the title any more. Everything this card reads
+         * itself is live, and the counts at the foot are copied from
+         * the panels as they land — each of which discloses its own
+         * age. One figure here would have to date eight readings taken
+         * at eight different moments, which §16.7 asks for the
+         * opposite of.
          */
-        'panelSub' => h(__('The settings and caches these sections depend on'))
-            . '&nbsp;·&nbsp;' . $this->element(
-                'Values/View/value_read_age',
-                array(
-                    'readAt' => isset($relations['read_at'])
-                        ? $relations['read_at'] : 0,
-                    'prefix' => __('counts read %s'),
-                )
-            ),
+        'panelSub' => __('The settings and caches these sections depend on'),
     )) ?>
 
     <div class="p-3">
@@ -413,116 +384,104 @@ foreach ($split as $part) {
 
     </div>
 
-    <?php if ($maxSplit > 0): ?>
+    <?php
+    /*
+     * **Always rendered, and empty until the panels land.** The counts
+     * are no longer here to test for — `forRelationSettings` reads no
+     * fold — so the block cannot decide up front whether it has
+     * anything to draw. It starts hidden and `layoutRelationSplit` in
+     * `value-profile.js` reveals it once a panel has stamped a figure
+     * on it, which is the same discipline the contents strip keeps:
+     * *not yet read* and *nothing there* are different answers, and a
+     * row of zeroes would claim the second while the first is true.
+     */
+    ?>
+    <div class="px-3 pb-3 d-none" data-vp-relsum-split-block>
+        <?php
+        /*
+         * Both plural forms from here rather than a string in the
+         * script, for the reason every other label this page fills in
+         * comes from a `data-` attribute: `__()` runs in PHP and a
+         * translation is free to disagree with English about where the
+         * number goes.
+         */
+        ?>
+        <div class="vp-subhead" data-vp-relsum-split-head
+             data-vp-split-one="<?= h(__('%d notion, counted apart')) ?>"
+             data-vp-split-many="<?= h(__('%d notions, counted apart')) ?>"
+             ></div>
 
-        <div class="px-3 pb-3">
-            <div class="vp-subhead">
-                <?= h(sprintf(
-                    __n('%d notion, counted apart',
-                        '%d notions, counted apart', count($split)),
-                    count($split)
-                )) ?>
+        <?php
+        /*
+         * Two lines per notion rather than the rail's usual
+         * name-bar-count row. `.vp-reporter` gives its label 40% of
+         * a card that is a quarter of the page, which is about
+         * twenty characters — enough for an organisation's acronym
+         * in the Sightings rail, and not enough for `Outside this
+         * instance` beside the unit it counts. Here the name and
+         * its figure take a line and the bar takes the next.
+         *
+         * The figure, the bar's width and the `≥` a bounded section
+         * prints are all filled in from the panel that owns the
+         * section. The `†` is not: which notions answer to none of
+         * the rules above is a property of this card's own list, so
+         * it is written here and stays put.
+         */
+        ?>
+        <?php foreach ($split as $part): ?>
+            <div class="vp-split-row vp-split-none d-none"
+                 data-vp-relsum-split="<?= h($part['key']) ?>"
+                 style="--vp-split-colour: <?= h($part['colour']) ?>;">
+                <span class="vp-split-dot"></span>
+                <span class="vp-split-label" data-vp-relsum-split-label>
+                    <?= h($part['label']) ?><?php
+                    if (!empty($part['ungoverned'])): ?><span
+                        class="vp-split-mark"
+                        title="<?= h(__('Answers to none of the rules'
+                            . ' above.')) ?>">&#8224;</span><?php
+                    endif; ?>
+                </span>
+                <span class="vp-split-figure" data-vp-relsum-split-figure>
+                    <span class="vp-split-count"
+                          data-vp-relsum-split-count></span>
+                    <span class="vp-split-unit">
+                        <?= h($part['unit']) ?>
+                    </span>
+                </span>
+                <span class="vp-split-track">
+                    <span class="vp-split-fill"
+                          data-vp-relsum-split-fill
+                          style="width: 0%;"></span>
+                </span>
             </div>
+        <?php endforeach; ?>
 
-            <?php
-            /*
-             * Two lines per notion rather than the rail's usual
-             * name-bar-count row. `.vp-reporter` gives its label 40% of
-             * a card that is a quarter of the page, which is about
-             * twenty characters — enough for an organisation's acronym
-             * in the Sightings rail, and not enough for `Outside this
-             * instance` beside the unit it counts. Here the name and
-             * its figure take a line and the bar takes the next.
-             */
-            ?>
-            <?php foreach ($split as $part): ?>
-                <?php
-                /*
-                 * A non-zero count never draws as an empty bar. The
-                 * notions do not share a unit, so the scale is a rough
-                 * sense of size and nothing more — but 3 remote events
-                 * beside 1,214 co-occurring values rounds to 0% and
-                 * then the bar contradicts the number printed next to
-                 * it. Anything present gets a minimum; only a real
-                 * zero is empty.
-                 */
-                $width = $part['count'] > 0
-                    ? max(4, round(($part['count'] / $maxSplit) * 100))
-                    : 0;
-                // A floor is only a floor when there is something to be
-                // at least; see the `≥ 0` note in the header above.
-                $showFloor = $part['capped'] && $part['count'] > 0;
-                $bound = $part['capped']
-                    ? ($part['count'] > 0
-                        ? __('A floor: the join was bounded by how many of'
-                            . ' this value\'s objects the scan reached.')
-                        : __('None in the objects the scan reached, and it'
-                            . ' did not reach all of them.'))
-                    : '';
-                $note = isset($part['note']) ? $part['note'] : '';
-                ?>
-                <div class="vp-split-row<?= $part['count'] > 0
-                    ? '' : ' vp-split-none' ?>"
-                     style="--vp-split-colour: <?= h($part['colour']) ?>;">
-                    <span class="vp-split-dot"></span>
-                    <span class="vp-split-label"<?php
-                        if ($note !== ''): ?> title="<?= h($note) ?>"<?php
-                        endif; ?>>
-                        <?= h($part['label']) ?><?php
-                        if (!empty($part['ungoverned'])): ?><span
-                            class="vp-split-mark"
-                            title="<?= h(__('Answers to none of the rules'
-                                . ' above.')) ?>">&#8224;</span><?php
-                        endif; ?>
-                    </span>
-                    <span class="vp-split-figure"<?php
-                        if ($bound !== ''): ?> title="<?= h($bound) ?>"<?php
-                        endif; ?>>
-                        <span class="vp-split-count"><?php
-                            if ($showFloor) {
-                                echo "\u{2265}\u{00A0}";
-                            }
-                            echo h(number_format($part['count']));
-                        ?></span>
-                        <span class="vp-split-unit">
-                            <?= h($part['unit']) ?>
-                        </span>
-                    </span>
-                    <span class="vp-split-track">
-                        <span class="vp-split-fill"
-                              style="width: <?= h($width) ?>%;"></span>
-                    </span>
-                </div>
-            <?php endforeach; ?>
-
-            <?php
-            /*
-             * The two markers the rows use, spelled out once. This is
-             * what the two paragraphs at the foot cost 189px to say
-             * less clearly — the sentences restated every figure the
-             * bars had just printed, so the card said each number
-             * three times and the tab's contents strip said it a
-             * fourth.
-             */
-            ?>
-            <div class="vp-split-footnote">
-                <span class="vp-split-mark">&#8224;</span>
+        <?php
+        /*
+         * The two markers the rows use, spelled out once. This is
+         * what the two paragraphs at the foot cost 189px to say
+         * less clearly — the sentences restated every figure the
+         * bars had just printed, so the card said each number
+         * three times and the tab's contents strip said it a
+         * fourth.
+         */
+        ?>
+        <div class="vp-split-footnote">
+            <span class="vp-split-mark">&#8224;</span>
+            <?= sprintf(
+                __('Read straight from attributes and %s — none of'
+                    . ' the rules above governs it.'),
+                '<span class="font-monospace">object_references'
+                    . '</span>'
+            ) ?>
+            <span class="d-none" data-vp-relsum-split-capped>
                 <?= sprintf(
-                    __('Read straight from attributes and %s — none of'
-                        . ' the rules above governs it.'),
-                    '<span class="font-monospace">object_references'
-                        . '</span>'
+                    __('%s marks a floor: the scan did not reach'
+                        . ' every object this value sits in.'),
+                    '<span class="font-monospace">&#8805;</span>'
                 ) ?>
-                <?php if ($anyCapped): ?>
-                    <?= sprintf(
-                        __('%s marks a floor: the scan did not reach'
-                            . ' every object this value sits in.'),
-                        '<span class="font-monospace">&#8805;</span>'
-                    ) ?>
-                <?php endif; ?>
-            </div>
+            </span>
         </div>
-
-    <?php endif; ?>
+    </div>
 
 </div>
