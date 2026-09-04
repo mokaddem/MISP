@@ -22,20 +22,28 @@ to `done` only when §14's verification has run against it.
 
 | # | Task | Section | Status |
 |---|---|---|---|
-| T1 | `ValueProfile::forTimeline` — the facade method, per-panel | §4 | todo |
+| T1 | `ValueProfile::forTimeline` — the facade method, per-panel | §4, §16 | **done** |
 | T2 | The audit reader on the decided ACL model, three model scopes | §5, §5.5 | **done** |
-| T3 | The counts/rows split: one grouped aggregate, one capped read | §6 | todo |
-| T4 | Sightings lane from phase 23's context, no second read | §11 | todo |
-| T5 | Publications from one `fetchSimpleEvents`, epoch-0 excluded | §11 | todo |
-| T6 | Analyst lane — the occurrence ∪ event union, rows labelled | §8 | todo |
-| T7 | Seen-span lane, no merging, capped, remainder stated | §7 | todo |
-| T8 | Edit lane on the audit rows, with the not-recorded branch kept | §5, §6 | todo |
-| T9 | Undated strip: tags, galaxy clusters, feeds — matched by key | §11, §14.1 | todo |
+| T3 | The counts/rows split: one grouped aggregate, one capped read | §6, §16.1 | **done** |
+| T4 | Sightings lane from phase 23's context, no second read | §11 | **done** |
+| T5 | Publications from one `fetchSimpleEvents`, epoch-0 excluded | §11 | **done** |
+| T6 | Analyst lane — the occurrence ∪ event union, rows labelled | §8 | **done** |
+| T7 | Seen-span lane, no merging, capped, remainder stated | §7 | **done** |
+| T8 | Edit lane on the audit rows, with the not-recorded branch kept | §5, §6 | **done** |
+| T9 | Undated strip: tags, galaxy clusters, feeds — matched by key | §11, §14.1 | **done** |
 | T10 | Proposals lane | §10 | todo |
 | T11 | Event reports lane | §10 | todo |
-| T12 | The spine's grain planned from the range, not pinned | §9 | todo |
-| T13 | Remove the ACL band §14.6 forbids and §14.6's table missed | §12 | todo |
-| T14 | The board rows: §14.12 `viewTimeline`, and this document's numbers | §14.12 | todo |
+| T12 | The spine's grain taken from the range, not pinned | §9, §16.2 | **done** |
+| T13 | Remove the ACL band §14.6 forbids and §14.6's table missed | §12 | **done** |
+| T14 | The board rows: §14.12 `viewTimeline`, and this document's numbers | §14.12, §16.5 | **done** |
+
+**Where the phase stands.** Twelve of fourteen rows are done and the tab reads
+the database: the endpoint is wired, five dated lanes and the off-axis strip
+are live, and the panel renders with no fixture behind it for either reader
+class and with the audit log on or off. **T10 and T11 are the whole of what is
+left** — two additive lanes, proposals and event reports, whose fetchers §10
+has already chosen and whose absence today is a lane that does not exist rather
+than a lane that lies. §16 is the build log.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -60,6 +68,14 @@ reopen the row, in this document, with what it found.
 | D6 | Proposals and event reports each get a lane; the report lane reads through its own ACL'd fetch and never `EventReport::attachReportCountsToEvents` | §10, §13 | The coverage survey's verdicts changing. The fetch decision does not reopen while that defect ships |
 | D7 | The tab's `.vp-acl-note` band and its `acl_note` key are removed, and §14.6's required-changes table gains the row it was missing | §12 | §14.6 itself, which names the oracle risk as the first thing to revisit if it is ever judged acceptable |
 | D8 | The passive-dns lane is deferred a second time, with the cost named | §15 | Whoever picks it up; the data and the query both exist |
+| D9 | The counts are grouped **per day**, not per month, and every lane hands one up over all of its rows | §16.1 | A grain the panel cannot answer a question at. Day answers all three of its questions; month answers only the widest |
+| D10 | The default window is 30 days ending at the value's newest dated entry, clamped to its oldest | §16.2 | A measured reading of what readers open the tab for. The rule this replaced — the calendar month of the newest entry — is *falsified*, not merely disliked: it gives a one-day window to any value whose newest entry falls on the 1st |
+
+**Two rows were taken during the build rather than before it**, against §1.1's
+own preference, and both for the same reason: each is a decision the build
+*found* — D9 because a month grain cannot answer a 30-day window that straddles
+two months, D10 because the first rule tried produced a degenerate window on a
+verification value. Neither contradicts a row above; §16 has the working.
 
 **Not decided here, and deliberately.** Whether the publications lane
 should draw `ACTION_PUBLISH` audit rows beside the two columns MISP keeps
@@ -540,6 +556,10 @@ this belongs on §14.7's report-do-not-fix list rather than in this phase.
 
 ## 9. The spine's bins come from the range
 
+> **Built.** §16.2 has what shipped, the grain table it shipped with, and
+> why it reuses `unitForSpan()` and `series()` rather than `plan()` —
+> which is D5's stated reopening condition met rather than ignored.
+
 `06-timeline.md` §12 lists this as live-data work the fixture pins:
 *"twelve monthly bins because the range is a year. A value first seen last
 week needs daily bins."* The template hard-codes twelve months ending at
@@ -619,6 +639,12 @@ hosts with four clusters apiece, and one of them is the verification case.
 
 ### 11.1 A latent defect the live facade must not inherit
 
+> **Closed, both halves.** The facade emits a stable `key` beside the
+> translated `kind`, and the template matches on the key. The chip list
+> also took the bound this section asks for: `TIMELINE_CHIP_CAP`, with
+> the whole count stated beside what is drawn — `443` resolves 3,858
+> distinct tags and shows twelve of them.
+
 `value_timeline.ctp` matches undated rows to lanes by their **translated
 label** — `$undatedBy[__('Tags')]`, `$undatedBy[__('Feed appearances')]`.
 The fixture supplies `kind` through the same `__()` call, so the two agree
@@ -630,6 +656,13 @@ emits a stable key beside `kind`, and the template matches on the key.
 ---
 
 ## 12. §14.6 missed this tab, and the band it renders
+
+> **Applied.** The band and the `acl_note` key are gone, and §14.6's
+> table row — which this phase added when it opened — now reads
+> *applied, phase 25*. §16.3 carries the part this section did not
+> anticipate: the no-timeline state's own wording had the same defect in
+> reverse, asserting that MISP had never held the value, which is false
+> for a reader who merely cannot see its events.
 
 `value_timeline.ctp:1235` renders a `.vp-acl-note` band from
 `timeline.acl_note`, and the fixture's text for the benign value is:
@@ -720,3 +753,194 @@ and how it would say that one lane holds two kinds of evidence — is a
 question this phase names and does not answer.
 
 **`T2` standalone and `T1`**, unchanged from `06-timeline.md` §12.
+
+---
+
+## 16. The build log
+
+What the build found, in the order it found it. Every number here was
+taken on a quiet box — load 0.76 on 12 cores — because the first set was
+taken at load 31 and was four times too slow across the board;
+`measure only on a quiet machine` is not advice this phase can skip when
+half its decisions are cost decisions.
+
+### 16.1 The counts are per day, and no lane tallies its own rows
+
+**D9.** §6 decided that counts come from an aggregate and rows from a
+capped read. It did not say at what grain, and the first build grouped by
+month — which cannot answer the question the lane grid asks. The default
+window is 30 days (D10) and therefore straddles two months on most
+values, so a monthly map answers *how many entries this year* and needs a
+second, date-bounded aggregate for *how many in this window*. A day
+answers all three of the panel's questions from one query: the spine bins
+days into whatever width its range wants, the lane grid sums the days
+inside the window, and the header sums all of them. `443`'s eleven months
+of audit history come back as 49 rows, because its 172,426 rows sit on 49
+days — a bulk-import instance is bursty, and that is the shape that makes
+the day grain cheap rather than expensive.
+
+**And the rule became absolute rather than case-by-case.** The first
+build let the lanes that *could* materialise all their rows tally them,
+and gave a grouped map only to the edit lane that could not. Two things
+were wrong with that:
+
+1. **A lane that happens to fit today stops fitting tomorrow.** The
+   publication lane is up to two rows per event, and `443` sits in 1,844
+   events, so it offered 1,847 entries; with the audit log off the edit
+   lane is one row per occurrence, which is 48,255. Both were building
+   arrays to have them thrown away by the merge.
+2. **A lane is not a source.** The sightings lane owns three —
+   `sighting`, `false_positive`, `expiration` — and the analyst lane two.
+   A per-lane tally attributed to the lane's first source would have
+   reported `8.8.8.8`'s four false positives and two expirations as six
+   sightings: right total, wrong word in the breakdown, same colour on
+   the spine, and nothing on the page to notice it by. Every lane's map
+   is therefore keyed by day **and** by source.
+
+So: every lane returns a per-day per-source map over all of its rows and
+at most `TIMELINE_ROW_CAP` of the rows themselves, the merge keeps the
+newest cap-many of the union, and **nothing the panel prints is tallied
+from the rows it printed.** The one exception is the chronology's own
+precision tally, which is a statement about the list and sums to it,
+which is what makes it worth printing.
+
+**The cap moved to the merged array.** The first build capped only the
+audit read, so `443` shipped 2,173 entries — 1,847 of them publications.
+The fragment's weight is the sum of the lanes, so the bound has to be on
+the sum.
+
+**Counted before the cap, shipped after it**, and stated: *Showing the
+newest 300 of 174,299 entries.*
+
+### 16.2 The spine's grain, and where D5 did not fit
+
+**D5 said the grain is planned from the range through
+`ValueProfileBuckets::plan()`. It is planned from the range through
+`unitForSpan()` and `series()` instead, and D5's own reopening condition
+is what allows it** — *it reopens only if `plan()` stops fitting.*
+`plan()` ships every grain the caller's rule permits and lets the browser
+re-aggregate a single series. This spine is **stacked per source**, so a
+grain is a matrix rather than a row, and the counts it stacks are
+server-side already. Using it would have meant either shipping a matrix
+per grain or rewriting the spine as a browser-side aggregation — a larger
+change than the row it appears under. The reuse is from the same class
+and the same range, which is what D5 was actually for.
+
+The rule is the panel's own, because a bar here does not mean what a bar
+on the Sightings navigator means:
+
+| Range | Grain | Why |
+|---|---|---|
+| ≤ 45 days | day | The whole range is what the reader is asking about |
+| ≤ 400 days | week | The fixture's twelve monthly bins, at the resolution a year deserves |
+| wider | month | `443` spans 2020 to 2026 and gets 80 monthly bars |
+
+Measured on the verification values: `8.8.8.8` draws 23 monthly bins,
+`443` 80 monthly, `143.14.244.37` 8 weekly over its 53-day range, and
+`45.155.205.233` 39 weekly. **The grain is named in the panel's own
+subtitle** — *111 dated entries by week, stacked by source* — because two
+values on this page can now carry two different bar widths, and a reader
+who is not told will read one as the other.
+
+`$before` — the count of entries older than the spine's first bin — is
+now structurally zero, since the spine begins where the value does. The
+branch is kept rather than deleted, because a future ceiling on the axis
+would need it back and deleting it would take its wording too.
+
+### 16.3 Three bugs the build made and one it inherited
+
+**`$byDay`, twice.** The counts map was named `$byDay` in the template's
+header and the chronology's day-grouping already used that name 300 lines
+down — so the grouping silently overwrote the map before the payload was
+built. The spine was unaffected, because it is binned above the
+collision; the payload shipped a map of the *capped rows*, which is what
+the brush counts from, so a brushed window would have reported `443`'s
+whole history as 8 days. Caught by comparing the payload's key count
+against the facade's: 8 against 49, and 67 against 95 on `8.8.8.8`. Both
+ends are now named for what they hold.
+
+**A lane's map attributed to one source**, above.
+
+**An empty timeline where the fixture had none.** `ValueProfileFixture`
+returns `timeline => null` for a value MISP has never held, with the note
+that an empty timeline *"would be inventing a period of silence that
+never happened."* The live facade returned an array unconditionally, so a
+value with no visible occurrence drew an axis, empty bins and seven lanes.
+It now returns null, and the panel's no-timeline state carries it — 736
+bytes, and 2 queries for a reader who can see nothing.
+
+**And the fixture's wording for that state was wrong**, which only
+mattered once it had a second cause. It read *"Nothing has happened to
+this value, because MISP has never held it"* — true for an unknown value
+and false for a value held only in events this reader cannot open, which
+is now the commoner case. It is also §14.6's problem in reverse: a
+sentence asserting non-existence makes the panel answer *does this exist
+on the instance*. One sentence now, true both ways, identical for every
+reader: *There is no occurrence of this value here to place on an axis.*
+
+**Inherited, and reported not fixed:** `AnalystData::afterFind` calls
+`setUser()`, which reads only `Configure::read('CurrentUserId')`, and
+then hands the result to `rearrangeSharingGroup(array $user)` — typed
+`array`, called unconditionally. So **any** `find` on a `Note` or an
+`Opinion` with `CurrentUserId` unset is a `TypeError` rather than a
+degraded row, which makes every CLI and worker path that touches analyst
+data fatal. Found by the facade probe on its first run. The page sets the
+key, so this phase is unaffected; it belongs on §14.7's
+report-do-not-fix list.
+
+### 16.4 What it costs
+
+Endpoint total, `forTimeline` end to end, on a quiet box:
+
+| Value | Site admin | Org admin | Queries |
+|---|---|---|---|
+| `8.8.8.8` | 47 ms | 53 ms | 33 / 30 |
+| `143.14.244.37` | 11 ms | 11 ms | 16 |
+| `443` | **2,263 ms** | 391 ms | 27 / 20 |
+| `193.161.193.99` | 54 ms | 13 ms | 16 |
+| `2.2.2.2` | 26 ms | 22 ms | 27 / 24 |
+| `45.155.205.233` | 12 ms | 2 ms | 20 / 2 |
+
+**The query count does not scale with the value.** It runs 16 to 33 and
+tracks *which lanes have data* — a value with sightings pays for
+`listSightings`, one with analyst data pays for two `fetchForUuids` — not
+how many occurrences or events the value has. `193.161.193.99` sits in
+204 events and costs 16 queries, which is §14.4's batching rule holding:
+one `fetchSimpleEvents` for all of them, never one call per event.
+
+**`443` is the one number that needs watching, and it is a site-admin
+pathology.** 2,263 ms to a site admin against 391 ms to an org admin, on
+the same value, because the site admin's occurrence set is 48,255 rows
+and the org admin's is 829. Two components account for most of it, each
+measured on its own: `Value::occurrenceIdsFor` at 1,067 ms — `Value`'s
+cost, not this endpoint's, and the largest single number on it — and the
+audit reader's aggregate plus capped read at 956 ms (§5.5). The rest is
+`ownTagsFor`, which resolves 3,858 distinct tags on that value.
+
+### 16.5 Verification, run
+
+§14's plan, executed. Eighteen checks: six values × three
+configurations.
+
+| # | §14's requirement | Result |
+|---|---|---|
+| 1 | `php -l` over every changed file | clean; `parallel-lint` not run — no `app/Vendor/` in this checkout. `node --check` on the changed JS, clean |
+| 2 | No `value1`/`value2` outside `Value.php`; no live element naming `ValueProfileFixture` | clean. The four `value1` hits in `ValueProfile.php` are phase 24's prose, not queries |
+| 3 | **Both audit branches** | on: 6/6 values hold every invariant. Off, forced per-run so the instance's 9.5 M rows stay put: 6/6, and the edit lane collapses to one point per occurrence — 26 on `8.8.8.8`, 48,255 on `443`, matching each occurrence count exactly |
+| 4 | **The counts/rows split cannot disagree** on `443` | holds. The panel states three numbers about three different things and the lane grid sums to the window count on every value: `443` reads *11 in window*, *showing 300 of 174,299*, and 0+1+0+10+0 = 11 across the lanes. The 11 was checked independently in SQL — 8 attribute + 0 object + 2 event audit rows, plus 1 publication |
+| 5 | **A non-site-admin reader** | 6/6. `8.8.8.8` goes 447 entries → 249 and 53 sightings → 8; `443` goes 174,299 → 1,999 and 48,255 occurrences → 829; `45.155.205.233` goes to the null timeline. Under the model D1 rejected this reader would have got **nothing** on all of them (§5.5) |
+| 6 | Both themes | **not run.** No colour, token or literal was added to the element; every new string rides an existing class. A visual pass is still owed |
+| 7 | **The no-JavaScript render** | holds, and it is what §16.4's fragments were fetched as. Every count in the served HTML is the server's, correct for the default window, with no script having run |
+
+The values that carry each case are §14's six, and the split is the one
+§3.2 predicted: `143.14.244.37` is the only one that exercises the seen
+lane — 32 of 32 occurrences dated, 25 drawn, and the sub-label states all
+three numbers — and `8.8.8.8`, which has the sightings, has no span at
+all.
+
+**Two occurrence-level analyst values the probe turned up**, which §8
+predicted did not exist among the candidates and was right about:
+`https://circl.lu` and `https://google.com` each carry 3 notes on their
+own occurrences. §14.9's row 7 should gain them when the analyst lane is
+next touched — every candidate value's analyst data is on events, so the
+occurrence half of D4's union is currently verified only by construction.

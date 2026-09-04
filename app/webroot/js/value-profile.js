@@ -4700,6 +4700,8 @@
             ) / 10;
         }
 
+        var windowCounts = tlWindowCounts(window_);
+
         panel.querySelectorAll('[data-vp-tl-axis]').forEach(function (axis) {
             var sources = (axis.dataset.vpTlSources || '').split(',');
             var spans = axis.dataset.vpTlDraw === 'spans';
@@ -4767,17 +4769,58 @@
             if (!cell) {
                 return;
             }
-            setText(cell, '[data-vp-tl-count-n]', mine.length);
-            var breakdown = {};
-            mine.forEach(function (entry) {
-                breakdown[entry.source] = (breakdown[entry.source] || 0) + 1;
-            });
+            /*
+             * The marks above came from `mine` — the rows the fragment
+             * carries — and the count comes from the aggregate. The two
+             * are allowed to differ, and where they do it is the marks
+             * that are the sample: a lane can show fewer marks than its
+             * count, which is what a capped chronology looks like from
+             * here.
+             */
+            var laneTotal = 0;
             var parts = [];
-            Object.keys(breakdown).forEach(function (source) {
-                parts.push(breakdown[source] + ' ' + tlLabel(source));
+            sources.forEach(function (source) {
+                var n = windowCounts[source] || 0;
+                laneTotal += n;
+                if (n > 0) {
+                    parts.push(n + ' ' + tlLabel(source));
+                }
             });
+            setText(cell, '[data-vp-tl-count-n]', laneTotal);
             setText(cell, '[data-vp-tl-count-why]', parts.join(', '));
         });
+    }
+
+    /**
+     * How much of each source falls inside a window, summed over every
+     * day the viewer may see.
+     *
+     * **Not a tally over the rows in the DOM**, which is what this used
+     * to be and what makes the number wrong the moment a value's
+     * chronology does not fit in one fragment: the list carries the
+     * newest few hundred entries, so on a busy value they can all sit
+     * inside three days and a tally over them reports a quiet window as
+     * a busy one. The day map is the same aggregate the server counted
+     * the default window from, so brushing cannot make the panel
+     * disagree with itself.
+     *
+     * @param {Object} window_ `from` and `to`, `YYYY-MM-DD`
+     * @return {Object} source => count, plus `total`
+     */
+    function tlWindowCounts(window_) {
+        var out = { total: 0 };
+        var byDay = tl.data.by_day || {};
+        Object.keys(byDay).forEach(function (day) {
+            if (day < window_.from || day > window_.to) {
+                return;
+            }
+            Object.keys(byDay[day]).forEach(function (source) {
+                var n = byDay[day][source];
+                out[source] = (out[source] || 0) + n;
+                out.total += n;
+            });
+        });
+        return out;
     }
 
     /**
@@ -4892,7 +4935,17 @@
 
         setText(list, '[data-vp-tl-tally-exact]', tally.exact);
         setText(list, '[data-vp-tl-tally-part]', tally.partial);
-        setText(panel, '[data-vp-tl-window-count]', matched);
+        /*
+         * The window's own count, from the aggregate rather than from
+         * `matched` — the number of rows the list ended up showing. The
+         * precision tally beside it stays a tally over those rows,
+         * because it is a statement about the list and sums to it.
+         */
+        setText(
+            panel,
+            '[data-vp-tl-window-count]',
+            tlWindowCounts(window_).total
+        );
         var label = panel.querySelector('[data-vp-tl-window-label]');
         if (label) {
             label.textContent = window_.from + ' → ' + window_.to;

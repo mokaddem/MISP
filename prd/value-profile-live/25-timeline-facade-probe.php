@@ -42,6 +42,32 @@ class ValueTimelineProbeShell extends AppShell
      */
     public function run()
     {
+        $this->go(false);
+    }
+
+    /**
+     * The other half of the edit lane, which this instance cannot show
+     * by having the setting off — it has 9.5 million audit rows.
+     *
+     * `MISP.log_new_audit` is read live by the lane, so writing it here
+     * exercises the hatched branch against real occurrences without
+     * touching the instance's own configuration. That branch is what a
+     * default MISP renders, so it is the *more* common state in the
+     * world and the one that would otherwise ship untested.
+     *
+     * cake ValueTimelineProbe auditOff <userId> [value]
+     */
+    public function auditOff()
+    {
+        $this->go(true);
+    }
+
+    /**
+     * @param bool $forceAuditOff
+     * @return void
+     */
+    private function go($forceAuditOff)
+    {
         $user = $this->User->getAuthUser((int)$this->args[0]);
         if (empty($user)) {
             $this->out('no such user');
@@ -70,6 +96,10 @@ class ValueTimelineProbeShell extends AppShell
          * scope: the page sets it.
          */
         Configure::write('CurrentUserId', (int)$user['id']);
+        if ($forceAuditOff) {
+            Configure::write('MISP.log_new_audit', false);
+            $this->out('** forcing MISP.log_new_audit off for this run');
+        }
         $values = isset($this->args[1])
             ? array($this->args[1])
             : self::VALUES;
@@ -97,12 +127,28 @@ class ValueTimelineProbeShell extends AppShell
     private function report(array $profile, $ms, $queries)
     {
         $tl = $profile['timeline'];
-        $counts = $tl['counts'];
         $this->out(sprintf(
             '  %.0f ms, %d queries',
             $ms,
             $queries
         ));
+        if ($tl === null) {
+            /*
+             * A legitimate answer and not an absent one: the reader
+             * holds no occurrence of this value, so there is no axis to
+             * draw and the panel says so in one sentence that is true
+             * whether the value is unknown to the instance or merely
+             * unreadable by this reader. Checked here so that a future
+             * change returning an empty timeline instead — an axis and
+             * seven lanes over nothing — fails rather than renders.
+             */
+            $this->out('  timeline: null (no visible occurrence)');
+            $this->out(array_keys($profile) === array('value', 'timeline')
+                ? '  ok: the null answer carries nothing else'
+                : '  ** FAIL: the null answer carries extra keys');
+            return;
+        }
+        $counts = $tl['counts'];
         $this->out(sprintf(
             '  window %s .. %s   range %s .. %s',
             $tl['window']['from'],
@@ -126,8 +172,20 @@ class ValueTimelineProbeShell extends AppShell
             $mix[] = $source . ' ' . $n;
         }
         $this->out('  by source: ' . (empty($mix) ? '-' : implode(', ', $mix)));
-        $this->out(sprintf('  months with entries: %d',
-            count($counts['by_month'])));
+        $this->out(sprintf('  days with entries: %d',
+            count($counts['by_day'])));
+        $win = array();
+        foreach ($counts['in_window'] as $source => $n) {
+            if ($source === 'total') {
+                continue;
+            }
+            $win[] = $source . ' ' . $n;
+        }
+        $this->out(sprintf(
+            '  in window: %d  (%s)',
+            $counts['in_window']['total'],
+            empty($win) ? '-' : implode(', ', $win)
+        ));
 
         $spans = $tl['spans'];
         $this->out(sprintf(
@@ -273,15 +331,45 @@ class ValueTimelineProbeShell extends AppShell
             );
         }
         $summed = 0;
-        foreach ($tl['counts']['by_month'] as $bySource) {
+        foreach ($tl['counts']['by_day'] as $day => $bySource) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$day)) {
+                $fail[] = 'by_day key is not `Y-m-d`: '
+                    . var_export($day, true);
+                break;
+            }
             foreach ($bySource as $n) {
                 $summed += $n;
             }
         }
         if ($summed !== $total) {
             $fail[] = sprintf(
-                'by_month sums to %d against a total of %d',
+                'by_day sums to %d against a total of %d',
                 $summed,
+                $total
+            );
+        }
+        /*
+         * The window is a slice of the range, so its tally can never
+         * exceed the total and must equal it when the window covers the
+         * whole range — the second half being what catches an off-by-one
+         * at either edge.
+         */
+        $inWindow = $tl['counts']['in_window']['total'];
+        if ($inWindow > $total) {
+            $fail[] = sprintf(
+                'in_window %d exceeds the total %d',
+                $inWindow,
+                $total
+            );
+        }
+        if ($tl['counts']['first'] !== null
+            && $tl['window']['from'] <= substr($tl['counts']['first'], 0, 10)
+            && $tl['window']['to'] >= substr($tl['counts']['last'], 0, 10)
+            && $inWindow !== $total
+        ) {
+            $fail[] = sprintf(
+                'window covers the range but tallies %d of %d',
+                $inWindow,
                 $total
             );
         }

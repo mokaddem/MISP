@@ -6304,6 +6304,23 @@ class ValueProfile extends AppModel
     ) {
         $this->forget($value);
         $context = $this->timelineContext($user, $value, $options);
+        if (empty($context['occurrences'])) {
+            /*
+             * **Null, and deliberately not an empty timeline.** An empty
+             * one would be an axis, a set of empty bins and seven lanes
+             * over a value this reader holds no occurrence of — which
+             * invents a period of silence that never happened, and
+             * invents it in the one direction that misleads: a reader
+             * cannot tell a value nothing was ever filed about from a
+             * value they cannot see.
+             *
+             * The panel's own no-timeline state says *nothing to place
+             * on an axis*, which is true either way, and it is the same
+             * sentence for every reader — so it discloses nothing about
+             * which of the two it is.
+             */
+            return array('value' => $value, 'timeline' => null);
+        }
         $lanes = array(
             $this->timelineSightingEntries($user, $value, $options),
             $this->timelinePublicationEntries($context),
@@ -6336,6 +6353,11 @@ class ValueProfile extends AppModel
          * offered 1,847 uncapped entries.
          */
         $counts = $this->timelineCounts($lanes, $entries);
+        $window = $this->timelineWindow($counts);
+        $counts['in_window'] = $this->timelineWindowCounts(
+            $counts['by_day'],
+            $window
+        );
         $entries = $this->timelineCap($entries);
         return array(
             'value' => $value,
@@ -6343,7 +6365,7 @@ class ValueProfile extends AppModel
                 'entries' => $entries,
                 'undated' => $this->timelineUndated($user, $value, $context,
                     $options),
-                'window' => $this->timelineWindow($counts),
+                'window' => $window,
                 'range' => array(
                     'from' => $counts['first'],
                     'to' => $counts['last'],
@@ -6525,10 +6547,9 @@ class ValueProfile extends AppModel
                 'span_to' => null,
             );
         }
-        return array(
-            'entries' => $entries,
-            'total' => $total,
-            'sources' => array('sighting', 'false_positive', 'expiration'),
+        return $this->timelineLane(
+            $entries,
+            array('sighting', 'false_positive', 'expiration')
         );
     }
 
@@ -6597,11 +6618,7 @@ class ValueProfile extends AppModel
                 );
             }
         }
-        return array(
-            'entries' => $entries,
-            'total' => count($entries),
-            'sources' => array('publication'),
-        );
+        return $this->timelineLane($entries, array('publication'));
     }
 
     /**
@@ -6696,11 +6713,10 @@ class ValueProfile extends AppModel
                     'span_to' => null,
                 );
             }
-            return array(
-                'entries' => $entries,
-                'total' => count($entries),
-                'sources' => array('edit'),
-                'recorded' => false,
+            return $this->timelineLane(
+                $entries,
+                array('edit'),
+                array('recorded' => false)
             );
         }
 
@@ -6720,7 +6736,7 @@ class ValueProfile extends AppModel
             'recorded' => true,
             // Authoritative: the rows above are capped and these are
             // not, so `timelineCounts` bins the spine from here.
-            'by_month' => $counts['by_month'],
+            'by_day' => self::asSourceMap($counts['by_day'], 'edit'),
             'by_action' => $counts['by_action'],
             'first' => $counts['first'],
             'last' => $counts['last'],
@@ -6840,7 +6856,7 @@ class ValueProfile extends AppModel
          * would hide the months the other spans are in.
          * `143.14.244.37` is 32 spans drawn 25 at a time.
          */
-        $byMonth = array();
+        $byDay = array();
         $first = null;
         $last = null;
         foreach ($dated as $occurrence) {
@@ -6848,9 +6864,9 @@ class ValueProfile extends AppModel
             if ($at === null) {
                 continue;
             }
-            $month = substr($at, 0, 7);
-            $byMonth[$month] = (isset($byMonth[$month])
-                ? $byMonth[$month]
+            $day = substr($at, 0, 10);
+            $byDay[$day] = (isset($byDay[$day])
+                ? $byDay[$day]
                 : 0) + 1;
             if ($first === null || $at < $first) {
                 $first = $at;
@@ -6859,7 +6875,7 @@ class ValueProfile extends AppModel
                 $last = $at;
             }
         }
-        ksort($byMonth);
+        ksort($byDay);
 
         $entries = array();
         foreach ($shown as $id => $occurrence) {
@@ -6911,7 +6927,11 @@ class ValueProfile extends AppModel
             'entries' => $entries,
             'total' => $with,
             'sources' => array('seen'),
-            'by_month' => $byMonth,
+            // Its own map, and not `timelineLane`'s: this lane caps at
+            // 25 bars rather than at the chronology's 300, so the map
+            // has to be tallied over the dated occurrences and never
+            // over the entries built from them.
+            'by_day' => self::asSourceMap($byDay, 'seen'),
             'first' => $first,
             'last' => $last,
             'spans' => array(
@@ -6969,72 +6989,40 @@ class ValueProfile extends AppModel
     private function timelineCounts(array $lanes, array $entries)
     {
         /*
-         * A lane that could not materialise its rows hands over its own
-         * grouped month map instead, and that map is authoritative for
-         * its sources: the edit lane ships 300 rows and 172,426 of them
-         * happened, so tallying its *rows* into the spine would draw
-         * eleven months of history as one afternoon. Every other lane
-         * has all its rows here, so tallying them is exact by
-         * construction — which is what keeps the two kinds of lane from
-         * needing two kinds of trust.
+         * **Nothing here is tallied from `$entries`.** Every lane hands
+         * up a day map over all of its rows, so the spine and the lane
+         * grid are counted before any cap was applied and `$entries` is
+         * only ever the list. The edit lane is why the rule has to be
+         * absolute rather than case-by-case: it ships 300 rows and
+         * 172,426 of them happened, so tallying its rows would draw
+         * eleven months of history as one afternoon — and a lane that
+         * *happens* to fit today is a lane that stops fitting on a
+         * bigger instance without anything saying so.
+         *
+         * A source with no rows at all is left out rather than carried
+         * as a zero: the spine draws one stack segment per source
+         * present, and a segment for a source nobody ever filed is a
+         * legend entry teaching the reader a colour they will never
+         * meet again.
          */
-        $authoritative = array();
-        foreach ($lanes as $lane) {
-            if (!isset($lane['by_month'])) {
-                continue;
-            }
-            foreach ($lane['sources'] as $source) {
-                $authoritative[$source] = true;
-            }
-        }
-
         $bySource = array();
-        $byMonth = array();
-        foreach ($entries as $entry) {
-            $source = $entry['source'];
-            if (isset($authoritative[$source])) {
-                continue;
-            }
-            $month = substr($entry['at'], 0, 7);
-            if (!isset($bySource[$source])) {
-                $bySource[$source] = 0;
-            }
-            $bySource[$source]++;
-            if (!isset($byMonth[$month])) {
-                $byMonth[$month] = array();
-            }
-            if (!isset($byMonth[$month][$source])) {
-                $byMonth[$month][$source] = 0;
-            }
-            $byMonth[$month][$source]++;
-        }
+        $byDay = array();
         foreach ($lanes as $lane) {
-            if (!isset($lane['by_month'])) {
-                continue;
-            }
-            // One source per grouped lane today; the loop is here so a
-            // second one cannot silently overwrite the first.
-            $source = $lane['sources'][0];
-            /*
-             * A source the value has none of is left out rather than
-             * carried as a zero. The spine draws one stack segment per
-             * source present, and a segment for a source nobody ever
-             * filed is a legend entry teaching the reader a colour they
-             * will never meet again.
-             */
-            if ($lane['total'] > 0) {
-                $bySource[$source] = $lane['total'];
-            }
-            foreach ($lane['by_month'] as $month => $n) {
-                if (!isset($byMonth[$month])) {
-                    $byMonth[$month] = array();
+            foreach ($lane['by_day'] as $day => $bySourceOnDay) {
+                if (!isset($byDay[$day])) {
+                    $byDay[$day] = array();
                 }
-                $byMonth[$month][$source] = (isset($byMonth[$month][$source])
-                    ? $byMonth[$month][$source]
-                    : 0) + $n;
+                foreach ($bySourceOnDay as $source => $n) {
+                    $byDay[$day][$source] = (isset($byDay[$day][$source])
+                        ? $byDay[$day][$source]
+                        : 0) + $n;
+                    $bySource[$source] = (isset($bySource[$source])
+                        ? $bySource[$source]
+                        : 0) + $n;
+                }
             }
         }
-        ksort($byMonth);
+        ksort($byDay);
 
         $total = 0;
         foreach ($lanes as $lane) {
@@ -7076,12 +7064,139 @@ class ValueProfile extends AppModel
             'total' => $total,
             'shown' => $shown,
             'by_source' => $bySource,
-            'by_month' => $byMonth,
+            'by_day' => $byDay,
             'first' => $first,
             'last' => $last,
             'capped' => $total > $shown,
             'cap' => self::TIMELINE_ROW_CAP,
         );
+    }
+
+    /**
+     * What the lane grid states beside each lane: how much of that
+     * source falls inside the window.
+     *
+     * Summed from the day map and never from the entries, which is the
+     * one thing that makes the number survive the cap. The lanes' counts
+     * used to be a tally over the rendered rows, and on any value where
+     * the cap bites that reads as a lane going quiet: `443` ships 300
+     * rows all inside three days, so a tally over them would report
+     * every other lane as empty for a window they are not empty in.
+     *
+     * The day grain is what lets this be exact for a window that
+     * straddles two months, which the default one usually does.
+     *
+     * @param array $byDay `Y-m-d` => source => n
+     * @param array $window `from`, `to`
+     * @return array `total` and one entry per source present
+     */
+    private function timelineWindowCounts(array $byDay, array $window)
+    {
+        $counts = array('total' => 0);
+        foreach ($byDay as $day => $bySource) {
+            if ($day < $window['from'] || $day > $window['to']) {
+                continue;
+            }
+            foreach ($bySource as $source => $n) {
+                if (!isset($counts[$source])) {
+                    $counts[$source] = 0;
+                }
+                $counts[$source] += $n;
+                $counts['total'] += $n;
+            }
+        }
+        return $counts;
+    }
+
+    /**
+     * A flat `day => n` tally, keyed under the one source it counts.
+     *
+     * Two lanes tally without walking their own entries — the edit
+     * lane's map comes from SQL and the seen lane's from the occurrence
+     * rows — and both count exactly one source. This is where they join
+     * the shape every other lane produces, so nothing downstream has to
+     * know which kind of lane it is looking at.
+     *
+     * @param array $flat `Y-m-d` => n
+     * @param string $source
+     * @return array `Y-m-d` => source => n
+     */
+    private static function asSourceMap(array $flat, $source)
+    {
+        $out = array();
+        foreach ($flat as $day => $n) {
+            $out[$day] = array($source => $n);
+        }
+        return $out;
+    }
+
+    /**
+     * One lane's result: its day map over every row, and only the
+     * newest `TIMELINE_ROW_CAP` of the rows themselves.
+     *
+     * **Every lane is bounded here, not just the ones that looked
+     * dangerous.** The merge keeps the newest cap-many of the union, so
+     * a lane that hands over more than that many rows is building an
+     * array to have it thrown away — and two lanes do it on real
+     * values: with the audit log off the edit lane is one row per
+     * occurrence, which is 48,255 on `443`, and the publication lane is
+     * up to two rows per event, which is 1,847. The day map is tallied
+     * over all of them first, so bounding the rows costs no count.
+     *
+     * The bound is per lane and equal to the global one, which is what
+     * keeps the merge exact rather than approximate: the newest n of a
+     * union is a subset of the union of each part's newest n.
+     *
+     * The map is per day **and per source**, because a lane is not a
+     * source: the sightings lane owns three of them and the analyst
+     * lane two, so a flat per-lane tally would report four false
+     * positives as four sightings — the same colour on the spine, the
+     * wrong word in the lane's breakdown, and no way to tell from the
+     * outside.
+     *
+     * @param array $entries Every row the lane found, any order
+     * @param array $sources The source keys this lane owns
+     * @param array $extra Merged into the result, e.g. `spans`
+     * @return array
+     */
+    private function timelineLane(array $entries, array $sources,
+        array $extra = array()
+    ) {
+        $byDay = array();
+        $first = null;
+        $last = null;
+        foreach ($entries as $entry) {
+            $day = substr($entry['at'], 0, 10);
+            $source = $entry['source'];
+            if (!isset($byDay[$day])) {
+                $byDay[$day] = array();
+            }
+            $byDay[$day][$source] = (isset($byDay[$day][$source])
+                ? $byDay[$day][$source]
+                : 0) + 1;
+            if ($first === null || $entry['at'] < $first) {
+                $first = $entry['at'];
+            }
+            if ($last === null || $entry['at'] > $last) {
+                $last = $entry['at'];
+            }
+        }
+        ksort($byDay);
+        $total = count($entries);
+        if ($total > self::TIMELINE_ROW_CAP) {
+            usort($entries, function ($a, $b) {
+                return strcmp($a['at'], $b['at']);
+            });
+            $entries = array_slice($entries, -self::TIMELINE_ROW_CAP);
+        }
+        return array(
+            'entries' => $entries,
+            'total' => $total,
+            'sources' => $sources,
+            'by_day' => $byDay,
+            'first' => $first,
+            'last' => $last,
+        ) + $extra;
     }
 
     /**
@@ -7215,10 +7330,9 @@ class ValueProfile extends AppModel
             );
         }
         if (empty($targets)) {
-            return array(
-                'entries' => array(),
-                'total' => 0,
-                'sources' => array('note', 'opinion'),
+            return $this->timelineLane(
+                array(),
+                array('note', 'opinion')
             );
         }
 
@@ -7239,11 +7353,7 @@ class ValueProfile extends AppModel
                 }
             }
         }
-        return array(
-            'entries' => $entries,
-            'total' => count($entries),
-            'sources' => array('note', 'opinion'),
-        );
+        return $this->timelineLane($entries, array('note', 'opinion'));
     }
 
     /**
@@ -7648,20 +7758,28 @@ class ValueProfile extends AppModel
      * wrong shape — a tally over the fetched page also stops being
      * honest the moment the list paginates.
      *
-     * Grouped by month and action rather than by month alone, because
-     * the edit lane's own totals and the spine's stack both read this
-     * and a stack segment is a source. The month key is `Y-m` from
-     * `created`, which is a `datetime` and needs no conversion.
+     * **Grouped by day**, and the grain is the whole reason this is
+     * affordable rather than three queries. A day answers every
+     * question the panel asks — the spine bins days into whatever width
+     * its range wants, the lane grid sums the days inside the window,
+     * and the header sums all of them — where a month grain answers
+     * only the last of those and would need a second, date-bounded
+     * aggregate for a window that straddles two months, which the
+     * default one does. `443`'s eleven months come back as roughly two
+     * thousand rows, which is a few kilobytes and one round trip.
+     *
+     * Also grouped by action, because the edit lane's own breakdown
+     * reads it and a stack segment is a source.
      *
      * @param array $scope As `auditRowsFor`
-     * @return array `total`, `by_month` (`Y-m` => n), `by_action`,
+     * @return array `total`, `by_day` (`Y-m-d` => n), `by_action`,
      *               `first`, `last`
      */
     private function auditCountsFor(array $scope)
     {
         $counts = array(
             'total' => 0,
-            'by_month' => array(),
+            'by_day' => array(),
             'by_action' => array(),
             'first' => null,
             'last' => null,
@@ -7671,25 +7789,27 @@ class ValueProfile extends AppModel
             $rows = $audit->find('all', array(
                 'conditions' => $query['conditions'],
                 'fields' => array(
-                    'DATE_FORMAT(AuditLog.created, \'%Y-%m\') AS month',
+                    'DATE(AuditLog.created) AS day',
                     'AuditLog.action',
                     'COUNT(*) AS n',
                     'MIN(AuditLog.created) AS first_c',
                     'MAX(AuditLog.created) AS last_c',
                 ),
-                'group' => array('month', 'AuditLog.action'),
-                'order' => array('month' => 'ASC'),
+                'group' => array('day', 'AuditLog.action'),
+                'order' => array('day' => 'ASC'),
                 'recursive' => -1,
             ));
             foreach ($rows as $row) {
-                $month = $row[0]['month'];
+                $day = $row[0]['day'];
                 $action = $row['AuditLog']['action'];
                 $n = (int)$row[0]['n'];
                 $counts['total'] += $n;
-                if (!isset($counts['by_month'][$month])) {
-                    $counts['by_month'][$month] = 0;
+                if (!isset($counts['by_day'][$day])) {
+                    $counts['by_day'][$day] = 0;
                 }
-                $counts['by_month'][$month] += $n;
+                $counts['by_day'][$day] += $n;
+                // Flat here, and keyed by source where the lane hands
+                // it up: this aggregate knows only one source.
                 if (!isset($counts['by_action'][$action])) {
                     $counts['by_action'][$action] = 0;
                 }
@@ -7706,7 +7826,7 @@ class ValueProfile extends AppModel
                 }
             }
         }
-        ksort($counts['by_month']);
+        ksort($counts['by_day']);
         return $counts;
     }
 

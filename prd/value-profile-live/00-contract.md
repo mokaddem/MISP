@@ -304,7 +304,7 @@ that own them, not defects:
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
 | tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's.** The two *badges* naming converted tabs were corrected on 2026-08-28 — see §14.10 |
 | the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
-| `06-timeline.md`, the tab's own `.vp-acl-note` band (`value_timeline.ctp:1235`, from `timeline.acl_note`) | *"Four of this value's nine occurrences are on events you cannot see, and nothing they contribute is in this chronology."* | band and key removed — **this row was missing until 2026-09-04**, added by phase 25, which is the first phase in a position to notice it. `25-timeline.md` §12 |
+| `06-timeline.md`, the tab's own `.vp-acl-note` band (`value_timeline.ctp:1235`, from `timeline.acl_note`) | *"Four of this value's nine occurrences are on events you cannot see, and nothing they contribute is in this chronology."* | band and key removed — **applied, phase 25**. This row was missing until 2026-09-04, added by the phase that was the first in a position to notice it. `25-timeline.md` §12 |
 
 **The exception: a permanent line wherever the page renders a computed
 judgement.** Always shown, on every value, identical for every reader —
@@ -535,7 +535,7 @@ document that filled it.
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
 | Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
 | Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
-| Timeline | `viewTimeline` | `value_timeline` | — | — | — | — |
+| Timeline | `viewTimeline` | `value_timeline` | 16–33 | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25** |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
 Fourteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row

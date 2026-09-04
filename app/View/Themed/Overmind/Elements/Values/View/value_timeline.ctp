@@ -35,15 +35,28 @@
 App::uses('ValueProfileBuckets', 'Tools');
 
 /*
- * The spine's grain and its width. Monthly and not finer for the
- * reason every hatched lane below states: MISP cannot date four of
- * this tab's seven sources to the day, so a daily bar would be a
- * precision the data does not have. This is the caller §12.2 has in
- * mind when it says the unit is given and not derived — however far
- * the spine is narrowed, it stays monthly.
+ * The spine's grain, chosen from the value's own range.
+ *
+ * The fixture pinned twelve monthly bins because its range was a year.
+ * A value first seen last week needs finer bins and one held since 2020
+ * needs coarser, so the rule is the range's — and it is this tab's own
+ * rule rather than `ValueProfileBuckets`' default, because a bar here
+ * means something different from a bar on the Sightings navigator. A
+ * sighting has a timestamp to the second; a bar here is a density over
+ * sources MISP dates unevenly, so the finest grain it offers is a day
+ * and it reaches for it only when the whole range is short enough that
+ * a day is what the reader is asking about.
+ *
+ * Deliberately not `plan()`. That ships every grain and lets the
+ * browser re-aggregate, which is right for a chart with one series and
+ * wrong here: this spine is stacked per source, so a grain is a matrix
+ * rather than a row, and the counts it stacks are already server-side.
  */
-$spineUnit = ValueProfileBuckets::MONTH;
-$spineBins = 12;
+$spineRule = array(
+    array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
+    array('days' => 400, 'unit' => ValueProfileBuckets::WEEK),
+    array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+);
 
 $timeline = isset($valueProfile['timeline'])
     ? $valueProfile['timeline']
@@ -139,19 +152,52 @@ $entries = $timeline === null ? array() : $timeline['entries'];
 $undated = $timeline === null ? array() : $timeline['undated'];
 $window = $timeline === null ? null : $timeline['window'];
 $auditRecorded = $timeline !== null && $timeline['audit_recorded'];
-$aclNote = $timeline === null ? null : $timeline['acl_note'];
+
+/*
+ * ------------------------------------------------------------------
+ * The counts arrive; they are no longer all derived here
+ * ------------------------------------------------------------------
+ * The tab's rule was that every number in the panel is an aggregate
+ * over `entries`, so two of them could not disagree. That holds only
+ * while `entries` is all of them, and on a value like `443` — 174,299
+ * dated things, 172,426 of them audit rows — it is not: the array is
+ * the newest few hundred and the panel would be charting a fortnight
+ * under a year's axis.
+ *
+ * So the counts come from aggregates over the whole set the viewer may
+ * see, and `entries` is what the chronology lists. The invariant is
+ * kept, in the stronger form: **no number below is tallied from the
+ * rows unless the rows are all of them.** `by_day` bins the spine,
+ * `in_window` fills the lane grid, `total` and `shown` are what the
+ * panel says out loud.
+ */
+$counts = $timeline === null
+    ? array(
+        'total' => 0,
+        'shown' => 0,
+        'by_source' => array(),
+        'by_day' => array(),
+        'in_window' => array('total' => 0),
+        'first' => null,
+        'last' => null,
+        'capped' => false,
+        'cap' => 0,
+    )
+    : $timeline['counts'];
+$countsByDay = $counts['by_day'];
+$inWindow = $counts['in_window'];
+$spans = $timeline === null
+    ? array('occurrences' => 0, 'with' => 0, 'shown' => 0, 'cap' => 0)
+    : $timeline['spans'];
 
 $windowFrom = $window === null ? null : $window['from'] . ' 00:00:00';
 $windowTo = $window === null ? null : $window['to'] . ' 23:59:59';
 
 /*
- * ------------------------------------------------------------------
- * Everything below is derived from `entries` and `undated`
- * ------------------------------------------------------------------
- * The spine's monthly bars, the lanes' in-window counts and the
- * chronology's list are three aggregates over one array (§7). Nothing
- * on this tab is written into the fixture as a number, which is what
- * makes it impossible for the panel to state two counts that disagree.
+ * Which of the *listed* rows fall in the window. This is the
+ * chronology's own business — which rows to show — and never a count
+ * the panel prints: the numbers come from `$inWindow`, which was summed
+ * over every day the viewer may see rather than over the rows that fit.
  */
 $windowed = array();
 foreach ($entries as $entry) {
@@ -164,59 +210,46 @@ foreach ($entries as $entry) {
  * ------------------------------------------------------------------
  * The spine's bins
  * ------------------------------------------------------------------
- * Twelve months ending at the window's own end, because the fixture's
- * range is a year. A value first seen last week needs daily bins, and
- * choosing the bin width from the range is live-data work the fixture
- * deliberately pins (§12).
+ * Over the value's whole dated range, at whatever grain the range
+ * asks for, and binned from `by_day` rather than from the rows — so a
+ * value whose chronology is capped still gets its whole history
+ * charted. That is the difference between this chart and a chart of
+ * the last fortnight labelled as a year.
  *
- * The last bin stops at the window's end rather than running to the end
- * of its month: there is no data after today, and a bar drawn over days
- * that have not happened invites the reader to read a dip in it.
+ * `$before` therefore stays at zero and the notice under the chart no
+ * longer fires: the spine now begins where the value does, so there is
+ * nothing older than it to count. The branch is kept because a future
+ * ceiling on the axis would need it back, and removing it would take
+ * the wording with it.
  */
 $bins = array();
 $before = 0;
 $earliest = null;
-if ($window !== null) {
-    $end = new DateTimeImmutable($window['to'] . ' 00:00:00', $utc);
-    $first = $end->modify('first day of this month')
-        ->modify('-' . ($spineBins - 1) . ' months');
-    $bins = ValueProfileBuckets::series(
-        $first->format('Y-m-d'),
-        $window['to'],
-        $spineUnit
-    );
+if ($window !== null && $counts['first'] !== null) {
+    $rangeFrom = substr($counts['first'], 0, 10);
+    $rangeTo = substr($counts['last'], 0, 10);
+    $rangeDays = 1 + (int)(new DateTimeImmutable($rangeFrom, $utc))
+        ->diff(new DateTimeImmutable($rangeTo, $utc))
+        ->days;
+    $spineUnit = ValueProfileBuckets::unitForSpan($rangeDays, $spineRule);
+    $bins = ValueProfileBuckets::series($rangeFrom, $rangeTo, $spineUnit);
     foreach ($bins as $i => $bin) {
         $bins[$i]['counts'] = array();
         $bins[$i]['total'] = 0;
     }
-
-    /*
-     * Anything older than the first bin is counted rather than
-     * silently dropped. A chart that quietly discards entries is the
-     * exact failure this tab exists to avoid, so if the spine cannot
-     * hold the value's whole history it says so under itself.
-     */
-    $floor = $bins[0]['from'];
     $index = ValueProfileBuckets::locate($bins);
-    foreach ($entries as $entry) {
-        $day = substr($entry['at'], 0, 10);
-        if ($day < $floor) {
-            $before++;
-            if ($earliest === null || $entry['at'] < $earliest) {
-                $earliest = $entry['at'];
-            }
-            continue;
-        }
+    foreach ($countsByDay as $day => $bySource) {
         if (!isset($index[$day])) {
             continue;
         }
         $at = $index[$day];
-        $source = $entry['source'];
-        if (!isset($bins[$at]['counts'][$source])) {
-            $bins[$at]['counts'][$source] = 0;
+        foreach ($bySource as $source => $n) {
+            if (!isset($bins[$at]['counts'][$source])) {
+                $bins[$at]['counts'][$source] = 0;
+            }
+            $bins[$at]['counts'][$source] += $n;
+            $bins[$at]['total'] += $n;
         }
-        $bins[$at]['counts'][$source]++;
-        $bins[$at]['total']++;
     }
 }
 
@@ -224,14 +257,16 @@ if ($window !== null) {
  * Which sources the value actually has, in the vocabulary's order. A
  * stack segment for a source nobody ever filed is a legend entry
  * teaching the reader a colour they will never meet again.
+ *
+ * From the counts and not from the rows, which is the same correction
+ * as everywhere else on this page: a source whose every row was capped
+ * away still has entries, and a legend that dropped it would be
+ * hiding a stack segment the chart above is drawing.
  */
 $present = array();
 foreach ($sourceMeta as $key => $meta) {
-    foreach ($entries as $entry) {
-        if ($entry['source'] === $key) {
-            $present[] = $key;
-            break;
-        }
+    if (!empty($counts['by_source'][$key])) {
+        $present[] = $key;
     }
 }
 
@@ -330,18 +365,16 @@ if ($window !== null) {
  * to miss what is missing, which is the reason this design was chosen
  * over the cheaper one that put the same facts in a rail.
  */
-$spanCount = 0;
-$spanTotal = 0;
-foreach ($valueProfile['occurrences'] as $occurrence) {
-    $spanTotal++;
-    if (!empty($occurrence['Attribute']['first_seen'])) {
-        $spanCount++;
-    }
-}
-
+/*
+ * Matched on the stable key and never on the translated `kind`. Both
+ * used to come from the same `__()` call, so they agreed in English and
+ * in any locale that translated the two strings identically — and
+ * stopped agreeing otherwise, the lane rendering its *absent* text
+ * while the strip below it listed the chips.
+ */
 $undatedBy = array();
 foreach ($undated as $row) {
-    $undatedBy[$row['kind']] = $row;
+    $undatedBy[$row['key']] = $row;
 }
 
 $lanes = array(
@@ -385,11 +418,24 @@ $lanes = array(
     array(
         'key' => 'seen',
         'label' => __('Seen spans'),
-        'sub' => sprintf(
-            __('%1$s of %2$s occurrences carry one'),
-            $spanCount,
-            $spanTotal
-        ),
+        /*
+         * Three numbers and not two, when the cap bites: how many
+         * occurrences carry a span, of how many the viewer can see, and
+         * how many of those this lane drew. A cap is not a permission,
+         * so the third is said out loud for every reader.
+         */
+        'sub' => $spans['shown'] < $spans['with']
+            ? sprintf(
+                __('%1$s of %2$s occurrences carry one · drawing %3$s'),
+                $spans['with'],
+                $spans['occurrences'],
+                $spans['shown']
+            )
+            : sprintf(
+                __('%1$s of %2$s occurrences carry one'),
+                $spans['with'],
+                $spans['occurrences']
+            ),
         'sources' => array('seen'),
         'draw' => 'spans',
     ),
@@ -398,8 +444,8 @@ $lanes = array(
         'label' => __('Tags'),
         'sub' => __('no column exists, any instance'),
         'draw' => 'undated',
-        'row' => isset($undatedBy[__('Tags')])
-            ? $undatedBy[__('Tags')]
+        'row' => isset($undatedBy['tags'])
+            ? $undatedBy['tags']
             : null,
         'absent' => __(
             'Nothing has tagged this value — and if something had, MISP'
@@ -411,8 +457,8 @@ $lanes = array(
         'label' => __('Feed appearances'),
         'sub' => __('one date per feed, moves on refresh'),
         'draw' => 'undated',
-        'row' => isset($undatedBy[__('Feed appearances')])
-            ? $undatedBy[__('Feed appearances')]
+        'row' => isset($undatedBy['feeds'])
+            ? $undatedBy['feeds']
             : null,
         'absent' => __(
             'No feed on this instance carries this value — and if one'
@@ -435,17 +481,17 @@ $lanes = array(
 $RUN_MIN = 3;
 $SHOWN_MAX = 14;
 
-$byDay = array();
+$rowsByDay = array();
 foreach (array_reverse($entries) as $entry) {
     $day = substr($entry['at'], 0, 10);
-    if (!isset($byDay[$day])) {
-        $byDay[$day] = array();
+    if (!isset($rowsByDay[$day])) {
+        $rowsByDay[$day] = array();
     }
-    $byDay[$day][] = $entry;
+    $rowsByDay[$day][] = $entry;
 }
 
 $days = array();
-foreach ($byDay as $day => $rows) {
+foreach ($rowsByDay as $day => $rows) {
     $units = array();
     $current = array();
     foreach ($rows as $entry) {
@@ -470,7 +516,9 @@ foreach ($byDay as $day => $rows) {
 /*
  * The precision tally, over the window and only over the window. It
  * sums to the number of entries in the list beneath it, which is the
- * property that makes it worth printing at all.
+ * property that makes it worth printing at all — and it is therefore
+ * a tally over the *listed* rows rather than over the value, which is
+ * the one place on this panel where that is the right choice.
  */
 $tally = array('exact' => 0, 'partial' => 0);
 foreach ($windowed as $entry) {
@@ -512,6 +560,17 @@ if ($window !== null) {
             );
         }, $bins),
         'datasets' => $datasets,
+        /*
+         * The day map travels with the chart, so a brushed window is
+         * counted the same way the default one was: summed over every
+         * day the viewer may see. Without it the script would fall back
+         * to tallying the rows in the DOM, which are capped — and the
+         * lane counts would drop the moment a reader brushed a value
+         * whose chronology did not fit, which is the disagreement this
+         * panel exists to make impossible. A day is a date and a small
+         * object; `443`'s whole history is 49 of them.
+         */
+        'by_day' => $countsByDay,
         'window' => array(
             'from' => $window['from'],
             'to' => $window['to'],
@@ -532,7 +591,7 @@ $subtitle = $timeline === null
     ? h(__('Nothing to place on an axis'))
     : h(sprintf(
         __('%1$s dated · %2$s named but undatable'),
-        count($entries),
+        $counts['total'],
         array_sum(array_column($undated, 'count'))
     ));
 ?>
@@ -551,16 +610,26 @@ $subtitle = $timeline === null
 
         <?php
         /*
-         * Not an empty timeline — no timeline. Twelve empty months and
-         * seven lanes over a value MISP has never held would be
+         * Not an empty timeline — no timeline. An axis, empty bins and
+         * seven lanes over a value with no occurrence to date would be
          * inventing a period of silence that never happened.
+         *
+         * **The sentence says nothing about why**, and that is the
+         * fixture-era wording corrected rather than carried over. It
+         * read *because MISP has never held it*, which is one of the two
+         * cases: the other is a value held only in events this reader
+         * cannot open. Naming the first would be false for the second,
+         * and naming either would make the panel answer *does this exist
+         * on the instance* — on a page whose URL takes any value the
+         * reader types. So one sentence, true both ways, identical for
+         * every reader.
          */
         ?>
         <div class="p-3">
             <div class="vp-empty">
                 <i class="fas fa-clock"></i>
-                <span><?= __('Nothing has happened to this value,'
-                    . ' because MISP has never held it.') ?></span>
+                <span><?= __('There is no occurrence of this value here'
+                    . ' to place on an axis.') ?></span>
             </div>
         </div>
 
@@ -589,9 +658,23 @@ $subtitle = $timeline === null
                             <?= __('Activity on this value') ?>
                         </div>
                         <div class="vp-tl-why">
+                            <?php
+                            /*
+                             * The grain is named rather than assumed:
+                             * it is chosen from the value's range, so
+                             * two values on this page can carry two
+                             * different bar widths and a reader who is
+                             * not told will read one as the other.
+                             */
+                            $grainWord = array(
+                                ValueProfileBuckets::DAY => __('by day'),
+                                ValueProfileBuckets::WEEK => __('by week'),
+                                ValueProfileBuckets::MONTH => __('by month'),
+                            );
+                            ?>
                             <?= h(sprintf(
                                 __(
-                                    '%s by month, stacked by source.'
+                                    '%1$s %2$s, stacked by source.'
                                     . ' Drag to set the window — the'
                                     . ' lanes and the chronology below'
                                     . ' both follow it.'
@@ -599,9 +682,12 @@ $subtitle = $timeline === null
                                 __n(
                                     '%s dated entry',
                                     '%s dated entries',
-                                    count($entries),
-                                    count($entries)
-                                )
+                                    $counts['total'],
+                                    $counts['total']
+                                ),
+                                isset($grainWord[$spineUnit])
+                                    ? $grainWord[$spineUnit]
+                                    : __('by month')
                             )) ?>
                         </div>
                     </div>
@@ -776,7 +862,7 @@ $subtitle = $timeline === null
                             )) ?></span>
                             ·
                             <span data-vp-tl-window-count><?=
-                                count($windowed) ?></span>
+                                (int)$inWindow['total'] ?></span>
                             <?= __('entries') ?>
                             ·
                             <?= __('every source the tab promises gets a'
@@ -810,25 +896,35 @@ $subtitle = $timeline === null
                             ? $lane['sources']
                             : array();
 
-                        // The lane's own share of the window, counted
-                        // from the same array the chronology lists.
+                        /*
+                         * The lane's own share of the window, from the
+                         * summed day map rather than from the rows the
+                         * chronology happens to be carrying. On a value
+                         * whose chronology is capped these differ, and
+                         * the row tally is the one that is wrong: `443`
+                         * ships 300 rows inside three days, so tallying
+                         * them would report a window of 11 entries as
+                         * 300 and every quiet lane as busy.
+                         */
+                        $laneCount = 0;
+                        $parts = array();
+                        foreach ($sources as $source) {
+                            $n = isset($inWindow[$source])
+                                ? (int)$inWindow[$source]
+                                : 0;
+                            $laneCount += $n;
+                            if ($n > 0) {
+                                $parts[] = $n . ' '
+                                    . $sourceMeta[$source]['label'];
+                            }
+                        }
+                        // What the lane draws, which is still the rows:
+                        // marks come from entries, counts do not.
                         $mine = array();
                         foreach ($windowed as $entry) {
                             if (in_array($entry['source'], $sources)) {
                                 $mine[] = $entry;
                             }
-                        }
-                        $breakdown = array();
-                        foreach ($mine as $entry) {
-                            $label = $sourceMeta[$entry['source']]['label'];
-                            if (!isset($breakdown[$label])) {
-                                $breakdown[$label] = 0;
-                            }
-                            $breakdown[$label]++;
-                        }
-                        $parts = array();
-                        foreach ($breakdown as $label => $n) {
-                            $parts[] = $n . ' ' . $label;
                         }
                         ?>
 
@@ -1028,7 +1124,7 @@ $subtitle = $timeline === null
                             <div class="vp-lane-count"
                                  data-vp-tl-count="<?= h($lane['key']) ?>">
                                 <span data-vp-tl-count-n><?=
-                                    count($mine) ?></span>
+                                    (int)$laneCount ?></span>
                                 <div class="vp-tl-why"
                                      data-vp-tl-count-why><?=
                                     h(implode(', ', $parts)) ?></div>
@@ -1058,6 +1154,26 @@ $subtitle = $timeline === null
                             <?= __('Chronology') ?>
                         </div>
                         <div class="vp-tl-why">
+                            <?php if ($counts['capped']): ?>
+                                <?php
+                                /*
+                                 * Two numbers about the same query at
+                                 * two grains, and not a disagreement:
+                                 * the aggregates above describe every
+                                 * dated thing the viewer may see, and
+                                 * this list carries the newest of them
+                                 * that fit. A cap is not a permission,
+                                 * so it reads the same for every
+                                 * reader.
+                                 */
+                                ?>
+                                <b><?= h(sprintf(
+                                    __('Showing the newest %1$s of'
+                                        . ' %2$s entries.'),
+                                    number_format($counts['shown']),
+                                    number_format($counts['total'])
+                                )) ?></b>
+                            <?php endif; ?>
                             <?= __('Newest first. Click a source above to'
                                 . ' narrow to it.') ?>
                             <span data-vp-tl-filter-note hidden>
@@ -1232,21 +1348,23 @@ $subtitle = $timeline === null
                     </span>
                 </div>
 
-                <?php if ($aclNote !== null): ?>
-                    <?php
-                    /*
-                     * The entry set is the viewer's, not the
-                     * instance's, and a chronology that does not say so
-                     * reads as complete. `Sightings_policy` and
-                     * `Sightings_anonymise` move this line for two
-                     * users looking at the same value.
-                     */
-                    ?>
-                    <div class="vp-acl-note">
-                        <i class="fas fa-eye-slash"></i>
-                        <span><?= h($aclNote) ?></span>
-                    </div>
-                <?php endif; ?>
+                <?php
+                /*
+                 * **No ACL band here, deliberately.** The fixture drew
+                 * one — *four of this value's nine occurrences are on
+                 * events you cannot see* — and a note whose presence is
+                 * itself the disclosure cannot ship on a page whose URL
+                 * takes any value the reader types: it turns the page
+                 * into an oracle for what exists on the instance. The
+                 * panel where everything is hidden therefore renders as
+                 * the panel where nothing is dated, which is a real
+                 * loss and the cheaper of the two.
+                 *
+                 * Cap notices are a different thing and stay: a cap is
+                 * a property of the fragment, not of the reader, so it
+                 * reads identically for everyone and discloses nothing.
+                 */
+                ?>
             </section>
 
         </div>
