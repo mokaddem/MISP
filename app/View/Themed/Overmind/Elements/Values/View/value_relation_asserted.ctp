@@ -214,8 +214,8 @@ if (empty($claims)) {
         <div class="vp-rel-cap vp-rel-cap-complete">
             <i class="fas fa-user-check"
                title="<?= h(__(
-                   'The section stays complete even on a value whose'
-                   . ' events the neighbourhood above could not read.'
+                   'Stays complete even on a value whose events were'
+                   . ' too large for In the same events to read.'
                )) ?>"></i>
             <span>
                 <?= sprintf(

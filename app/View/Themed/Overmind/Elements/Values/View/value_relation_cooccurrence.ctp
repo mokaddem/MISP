@@ -2663,14 +2663,36 @@ $headerSub = ob_get_clean();
 
         <div data-vp-list>
 
+            <?php
+            /*
+             * The wider scope belongs on the glyph, not in the line:
+             * it matters only to a reader comparing this panel with the
+             * one above, and that panel already states its own cut. The
+             * section is named rather than called *the table above*,
+             * which on a tab of seven tables names nothing.
+             */
+            $labelTip = __('A label sits on this value, on a neighbour'
+                . ' or on the event itself — Attached to says which.');
+            if ($labelScopeDiffers) {
+                $labelSkipped = $labelScope - (int)$scan['events_read'];
+                $labelTip .= ' ' . sprintf(
+                    __n(
+                        'All %1$d events are read here, including the'
+                            . ' one In the same events could not afford'
+                            . ' to open.',
+                        'All %1$d events are read here, including the'
+                            . ' %2$d In the same events could not afford'
+                            . ' to open.',
+                        $labelSkipped
+                    ),
+                    $labelScope,
+                    $labelSkipped
+                );
+            }
+            ?>
             <div class="vp-rel-cap">
                 <i class="fas fa-circle-info"
-                   title="<?= h(__(
-                       'A label sits on this value, on a neighbour or on'
-                       . ' the event itself — Attached to says which.'
-                       . ' Includes events the table above could not'
-                       . ' afford to open.'
-                   )) ?>"></i>
+                   title="<?= h($labelTip) ?>"></i>
                 <span>
                     <?= sprintf(
                         __('Galaxy clusters and taxonomy tags across'
@@ -2684,21 +2706,6 @@ $headerSub = ob_get_clean();
                             )
                         )) . '</strong>'
                     ) ?>
-                    <?php /*
-                     * Said only where the scopes actually differ.
-                     * On a value whose events were all read it
-                     * describes a distinction that did not arise.
-                     */ ?>
-                    <?php if ($labelScopeDiffers): ?>
-                        <?= h(sprintf(
-                            __n(
-                                'The table above read %d of them.',
-                                'The table above read %d of them.',
-                                $scan['events_read'],
-                                $scan['events_read']
-                            )
-                        )) ?>
-                    <?php endif; ?>
                 </span>
             </div>
 

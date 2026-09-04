@@ -3626,3 +3626,46 @@ left alone: a caption earns its words by telling a reader how to read
 the rows, and this one was arguing a point the numbers had already
 made. Verified: 45 fragments over the five §12.1 values, all 200, no
 PHP notices, `<div>` balanced, `GalaxyCategory` no longer referenced.
+
+### 16.10 *The table above* names nothing on a tab of seven tables
+
+The Labels caption ended *"The table above read 19 of them."* Two
+problems, and the second is the one that decided it.
+
+**It does not say which table.** The tab is seven of them; *above* is a
+position, not a name, and it changes with what the reader has scrolled
+past. It meant **In the same events**.
+
+**That panel already discloses its own cut.** Its caption reads *"Read
+from 19 of this value's 20 events, newest first — 10,187 rows read. 1
+event was left out for holding more than 10,000 attributes."* Repeating
+the 19 down here restated a statement the other panel makes about
+itself, in a form that named neither the panel nor the reason.
+
+What is left worth saying is narrower: labels are read over *more*
+events than the panel above managed, so the label figures are not cut
+by that budget. That is a reassurance for a reader comparing two
+panels, not a rule for reading these rows — §16.1's second bucket — so
+it moved to the glyph, where it now names the section:
+
+> A label sits on this value, on a neighbour or on the event itself —
+> Attached to says which. All 20 events are read here, including the
+> one In the same events could not afford to open.
+
+The visible caption is one line: *"Galaxy clusters and taxonomy tags
+across all 20 events this value is in."*
+
+**The same fault, once more.** The asserted glyph read *"…even on a
+value whose events the neighbourhood above could not read"* — the same
+positional reference, to the same panel. Now *"Stays complete even on a
+value whose events were too large for In the same events to read."*
+Grepped the tab afterwards: no *table above*, *section above*,
+*panel above* or *neighbourhood above* survives in any of the twelve
+templates.
+
+**The rule this adds to §16.1.** A caption that points at another
+section names it. Position words describe where the reader was when the
+sentence was written, not where they are.
+
+Verified: 45 fragments over the five §12.1 values, all 200, no PHP
+notices, `<div>` balanced.
