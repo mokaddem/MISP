@@ -53,7 +53,7 @@ answers no to the move that condition implied.
 | B9 | Where in the intrusion: tactic mix | B8's card, `value_relation_cooccurrence` (one caption line) | S → M | no | no — a group on B8's card | **done** |
 | B10 | A typosquat engine for near-matches | `value_relation_near_match`, new `DomainPermutationTool` | L | lifted | no | **done** |
 | B11 | The ssdeep candidate cap | `value_relation_near_match`, `Value::valuesOfType` | M | no | no | **done** — §14 |
-| B12 | The Relationships tab badge | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
+| B12 | The Relationships tab badge, and the `ownTagsFor` ACL join it uncovered | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor`, `Value::ownTagsFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
 
 ## 2. The order, and why
 
@@ -3344,21 +3344,39 @@ a site admin counts 33,110 occurrences and `user@admin.test` counts
 attribute has `object_id = 0`, so the object count correctly stays
 32,922 for both readers.
 
-### 15.6 Found on the way, not fixed here
+### 15.6 Found on the way — the whole tab was down for ordinary users
 
-**`Value::ownTagsFor` throws for every non-site-admin.** Its find
-carries `'contain' => array('Event')` while `buildConditions($user)`
-names `Object.distribution` directly for an unprivileged reader, so
-`viewRelationCooccurrence` dies with `Unknown column
-'Object.distribution' in 'WHERE'`. This is the gotcha
-`occurrenceCountFor` documents in the comment three methods above it —
-*"both have to be joined for the ACL to be expressible at all"* — and
-the fix is adding `'Object'` to that contain.
+**`Value::ownTagsFor` threw for every reader who was not a site
+admin.** Its find carried `'contain' => array('Event')` while
+`buildConditions($user)` names `Object.distribution` directly for an
+unprivileged reader, so `viewRelationCooccurrence` died with
+`Unknown column 'Object.distribution' in 'WHERE'` — not a degraded
+label section but a 500 taking section one down with it. This is
+exactly the gotcha `occurrenceCountFor` documents three methods above
+it: *"both have to be joined for the ACL to be expressible at all."*
 
-It predates this task and is left alone: it is a defect in section
-one's label read, with its own verification to do, and folding it into
-a badge change would hide it. Recorded here so it is not rediscovered
-from scratch.
+It surfaced because the badge needed an ACL check on a second reader,
+which is the first time anything here had asked this tab a question as
+`user@admin.test`. Fixed by containing `Object` as every other
+`buildConditions` caller in the file already does.
+
+**The sweep found no second instance.** All ten call sites in
+`Value.php` were read: `occurrenceCountFor`, `objectCountFor`,
+`occurrenceSummaryFor`, `sightedOccurrenceIdsFor`, `typesFor`,
+`occurrenceEventsFor` and `occurrenceObjectIdsFor` name both models
+literally; `prevalencePass` contains both with narrowed fields;
+`neighbourRowsFor` inherits both through `CONTEXT_FIELDS`. In
+`ValueProfile.php`, `objectCensus` contains both, and
+`assertedClaims` builds against `AnalystData`, where neither applies.
+
+**The added join does not disturb the group.** The docblock warns that
+this find selects columns MySQL must prove constant under
+`ONLY_FULL_GROUP_BY`, so a second joined table was the risk worth
+checking rather than assuming. Verified on live data: the panel now
+answers for both readers and returns the label counts it had never
+reached — 176 on `8.8.8.8`, 9 on `101.200.156.217`, 4 on
+`193.227.248.241`, and 77 on `0.0.0.0` at 32,922 objects. Site admin's
+numbers are unchanged, so nothing regressed on the path that worked.
 
 ### 15.7 What is still open
 

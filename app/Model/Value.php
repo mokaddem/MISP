@@ -799,7 +799,9 @@ class Value extends AppModel
      * argument short: those ids came from `occurrenceEventsFor`, so the
      * events are ones this viewer may read. `buildConditions($user)` is
      * still applied, because an attribute inside a readable event can
-     * be org-only.
+     * be org-only — and applying it is what obliges the `Object` join
+     * below, since those conditions name `Object.distribution` directly
+     * for anybody who is not a site admin.
      *
      * @param array $user
      * @param string $value
@@ -840,7 +842,10 @@ class Value extends AppModel
             ),
             'conditions' => $conditions,
             'recursive' => -1,
-            'contain' => array('Event'),
+            // Both, as everywhere else here: the ACL is not expressible
+            // without them. `Event` alone threw for every reader who was
+            // not a site admin, and took the whole panel down with it.
+            'contain' => array('Event', 'Object'),
             'joins' => array(
                 array(
                     'table' => 'attribute_tags',
