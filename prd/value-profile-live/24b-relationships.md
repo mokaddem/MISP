@@ -39,7 +39,9 @@ the plan, and §14 has it. B12 came out of `24-relationships.md` §14.12,
 which had named its own condition for reopening; §15 has it, and
 answers no to the move that condition implied. B13 closes the subphase
 by taking back the surface the other twelve spent: §16 is the text
-pass, and it is the only task here that adds nothing to the page.
+pass, and it is the only task here that adds nothing to the page. B14
+came after it, out of a coming app-wide gesture rather than out of this
+tab: §17 sends a value in a table to the record that stores it.
 
 | # | Task | Surface | Size | Grilling first? | New UI element | Status |
 |---|---|---|---|---|---|---|
@@ -57,6 +59,7 @@ pass, and it is the only task here that adds nothing to the page.
 | B11 | The ssdeep candidate cap | `value_relation_near_match`, `Value::valuesOfType` | M | no | no | **done** — §14 |
 | B12 | The Relationships tab badge, and the `ownTagsFor` ACL join it uncovered | `Values/view.ctp`, `ValueProfile::forTabCounts`, `Value::objectCountFor`, `Value::ownTagsFor` | S | no | **yes — the layout's `badge` pill, second caller** | **done** — §15 |
 | B13 | The text pass: mockup controls out, captions to one line, the rest onto the glyph | all twelve Relationships templates, `value-profile.css` | M | no | **yes — the caption glyph becomes a `title` carrier** | **done** — §16 |
+| B14 | A value in a table opens where it is stored, not its own page | `value_relation_dated`, `value_relation_references` | XS | no | no | **done** — §17 |
 
 ## 2. The order, and why
 
@@ -3669,3 +3672,100 @@ sentence was written, not where they are.
 
 Verified: 45 fragments over the five §12.1 values, all 200, no PHP
 notices, `<div>` balanced.
+
+## 17. B14 — a value in a table opens where it is stored
+
+**Done, 2026-09-04.** Two cells in this tab took a value's *string* and
+linked it to that value's own Value Profile. They now link to the
+record that stores it.
+
+### 17.1 Why the destination changed
+
+A gesture is coming that will offer a summary of any value, on any
+page, for the string itself — hover a `8.8.8.8` anywhere in MISP and
+get its profile in a tooltip, with a link through to the page. Once
+that exists, a value's page is one gesture away from everywhere, and
+spending a table cell's only link on it buys nothing. The record that
+carries the value is *not* one gesture away, and it is what the row is
+actually about: a dated relation is a resolution some object recorded,
+and a reference's far end is an object somebody wrote.
+
+So the click follows the row rather than the string. The two cells
+were the only `/values/view/` hrefs in the twelve Relationships
+templates — grepped before and after.
+
+| Cell | Panel | Now opens |
+|---|---|---|
+| **Related value** | Dated relations | `/events/view2/<event>#tab-objects` |
+| **Its values** | Object relationships | whatever the chip beside it opens |
+
+### 17.2 Where they go, and why not `focus:`
+
+§19.2 of `24-relationships.md` settled this for the rest of the tab and
+nothing about it has changed: the flat views redirect to the event and
+lose which record they were asked about, and this theme's event view
+takes no `focus:` — `view2` never reads it, and the only wiring for it
+in MISP is the legacy `eventattribute.ctp`'s `focusObjectByUuid`, which
+this theme's Attributes tab does not use. A link that carried `focus:`
+here would be a promise the page cannot keep. So the destination is
+the event's own tab for the record's kind, and the record's identity
+goes on the `title`.
+
+**Dated relations never varies.** Every dated relation is an attribute
+inside an object — that is what makes it dated — so the tab is always
+`#tab-objects` and the helper takes only the event.
+
+**Object relationships follows `kind`**, which is B1's rule (§3) and is
+now stated once rather than re-derived. The row builds `$farUrl` and
+`$farTitle` in its preamble; the chip cell and the faces cell both read
+them, so the two cells cannot disagree about where the far end is. That
+is also why "Its values" needed no new data: the values *are* the far
+end's, and the far end already knew its event and its kind.
+
+### 17.3 The title carries what the href gave up
+
+The old titles were the value again — `Related value` repeated the cell
+it was on, and a face repeated its own `relation: value`. Hovering told
+a reader nothing they were not already reading. The new ones say where
+the click lands:
+
+- `141.255.159.82, in the passive-dns object 21153 of event 1416`
+- `domain circl.lu, on domain-ip object 2 in event 1`
+- `foo.com, on Attribute 6656 in event 8`
+
+which is §19.2's answer to the same problem, in the same words as the
+chip beside them.
+
+### 17.4 What this does not touch
+
+**The relationship graph still links values.** `ValueProfile`'s graph
+feed builds `/values/view/<b64>` for its co-occurrence and near-match
+nodes, and `/objects/view/<id>` for a reference far end. A node in a
+graph is a different gesture from a cell in a table and this pass did
+not open it — but the `/objects/view/` one is the destination B1 took
+out of the table for landing on the unthemed page, so it is worth its
+own look before the graph is called done.
+
+### 17.5 Verified
+
+Against the instance the worktree serves, 2026-09-04.
+
+- `viewRelationDated` for `draculax.myq-see.com.`: 5 rows, 5 hrefs, all
+  `/events/view2/1416#tab-objects`, each title naming its own object —
+  `passive-dns` 21152 through 21156. No `/values/view/` string in the
+  render.
+- `viewRelationReferences` for `8.8.8.8`: 6 rows, 13 faces, and chip
+  and faces agree on the destination wherever both exist. Both tabs
+  exercised — `domain-ip` object 2 in event 1 for `#tab-objects`,
+  attribute 32 in event 1 and attribute 6656 in event 8 for
+  `#tab-attributes`. No `/values/view/` string in the render.
+- **A bare attribute far end now has a link where the chip has none.**
+  Three of the six rows point at an attribute in no object, so B1's
+  unlinked chip stands (§3, *Left alone*) — but its value beside it is
+  a link, to `#tab-attributes` of the right event. That is the reader
+  reaching the record from the cell that names it, which is what the
+  chip could not offer.
+- The destinations resolve and carry the anchors named: event 1416
+  renders `id="tab-objects"`, event 1 renders `id="tab-attributes"`.
+- `$profileUrl` is gone from both templates; no unused closure is left
+  behind.

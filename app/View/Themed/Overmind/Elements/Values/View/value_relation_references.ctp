@@ -41,20 +41,6 @@ $references = $valueProfile['relationships']['references'];
 $rows = $references['rows'];
 
 $icon = 'fas fa-diagram-project';
-
-/**
- * A neighbour's own Value Profile. See the same helper in
- * `value_relation_dated.ctp`.
- *
- * @param string $value
- * @return string
- */
-$profileUrl = function ($value) use ($baseurl) {
-    return $baseurl . '/values/view/' . rtrim(
-        strtr(base64_encode($value), '+/', '-_'),
-        '='
-    );
-};
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-rel-k-reference"
      style="--vp-panel-color: var(--vp-rel-reference);"
@@ -160,6 +146,49 @@ $profileUrl = function ($value) use ($baseurl) {
                             <?php
                             $inbound = $row['direction'] === 'inbound';
                             $far = $row['far'];
+                            /*
+                             * One destination for the whole far end,
+                             * built once here because two cells open
+                             * it: the chip that names the record, and
+                             * every one of its values beside it.
+                             *
+                             * **To the themed event view's tab** and
+                             * not to `/objects/view`, which redirects
+                             * to `/events/view` — the *unthemed* event
+                             * page, a worse place to land than the tab,
+                             * and it loses which record it was asked
+                             * about on the way. This theme's view takes
+                             * no `focus:`, so the title carries the
+                             * record's own id;
+                             * `value_relation_asserted.ctp` and the
+                             * near-match panel reached this URL the
+                             * same way for the same reason.
+                             *
+                             * The tab follows `kind` and not the chip:
+                             * a far end that is an attribute *inside*
+                             * an object still shows the object's name —
+                             * that is where the reader will recognise
+                             * it — but the reference points at the
+                             * attribute, so that is the tab it opens.
+                             */
+                            $farIsObject = $far['kind'] === 'object';
+                            $farUrl = $baseurl . '/events/view2/'
+                                . $far['event']
+                                . ($farIsObject
+                                    ? '#tab-objects'
+                                    : '#tab-attributes');
+                            $farTitle = $farIsObject
+                                ? sprintf(
+                                    __('%1$s object %2$s in event %3$s'),
+                                    $far['object'],
+                                    $far['id'],
+                                    $far['event']
+                                )
+                                : sprintf(
+                                    __('Attribute %1$s in event %2$s'),
+                                    $far['id'],
+                                    $far['event']
+                                );
                             ?>
                             <tr class="vp-rel-stripe vp-rel-k-reference">
                                 <td>
@@ -220,51 +249,11 @@ $profileUrl = function ($value) use ($baseurl) {
                                      * reference — the same cell
                                      * `value_relation_near_match.ctp`
                                      * builds for a matched record, and
-                                     * it goes to the same place.
-                                     *
-                                     * **To the themed event view's tab**
-                                     * and not to `/objects/view`, which
-                                     * redirects to `/events/view` — the
-                                     * *unthemed* event page, a worse
-                                     * place to land than the tab, and it
-                                     * loses which record it was asked
-                                     * about on the way. This theme's
-                                     * view takes no `focus:`, so the
-                                     * title carries the record's own id;
-                                     * `value_relation_asserted.ctp` and
-                                     * the near-match panel reached this
-                                     * URL the same way for the same
-                                     * reason.
-                                     *
-                                     * The tab follows `kind` and not the
-                                     * chip: a far end that is an
-                                     * attribute *inside* an object still
-                                     * shows the object's name — that is
-                                     * where the reader will recognise
-                                     * it — but the reference points at
-                                     * the attribute, so that is the tab
-                                     * it opens.
+                                     * it goes to the same place. The
+                                     * URL and title are built in the
+                                     * row preamble, which is where the
+                                     * choice of destination is argued.
                                      */
-                                    $farIsObject = $far['kind'] === 'object';
-                                    $farUrl = $baseurl . '/events/view2/'
-                                        . $far['event']
-                                        . ($farIsObject
-                                            ? '#tab-objects'
-                                            : '#tab-attributes');
-                                    $farTitle = $farIsObject
-                                        ? sprintf(
-                                            __('%1$s object %2$s in'
-                                                . ' event %3$s'),
-                                            $far['object'],
-                                            $far['id'],
-                                            $far['event']
-                                        )
-                                        : sprintf(
-                                            __('Attribute %1$s in'
-                                                . ' event %2$s'),
-                                            $far['id'],
-                                            $far['event']
-                                        );
                                     ?>
                                     <?php if ($far['object'] !== null): ?>
                                         <a class="vp-rel-tag"
@@ -291,22 +280,33 @@ $profileUrl = function ($value) use ($baseurl) {
                                     <?php
                                     /*
                                      * The far object's identifying
-                                     * values, and each of them a pivot.
-                                     * §25.3's whole reading is that the
-                                     * object on the other end of a
-                                     * `hosted-by` names a brand this
-                                     * value's own page never mentions.
+                                     * values. §25.3's whole reading is
+                                     * that the object on the other end
+                                     * of a `hosted-by` names a brand
+                                     * this value's page never mentions,
+                                     * and the reader who sees that name
+                                     * wants the object it was written
+                                     * in — so each one opens the record
+                                     * it is stored on, which is the
+                                     * chip's destination beside it.
+                                     * A value's own page is about to be
+                                     * one gesture away from any string
+                                     * on the page; the event is not.
                                      */
                                     ?>
                                     <div class="vp-ref-faces">
                                         <?php foreach ($far['values']
                                             as $entry): ?>
                                             <a class="vp-ref-face"
-                                               href="<?= h($profileUrl(
-                                                   $entry['value'])) ?>"
-                                               title="<?= h(trim(
-                                                   $entry['relation'] . ' '
-                                                   . $entry['value']
+                                               href="<?= h($farUrl) ?>"
+                                               title="<?= h(sprintf(
+                                                   __('%1$s, on %2$s'),
+                                                   trim(
+                                                       $entry['relation']
+                                                       . ' '
+                                                       . $entry['value']
+                                                   ),
+                                                   $farTitle
                                                )) ?>">
                                                 <?php if ($entry['relation']
                                                     !== ''

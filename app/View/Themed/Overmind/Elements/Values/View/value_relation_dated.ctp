@@ -52,22 +52,25 @@ $rows = $dated['rows'];
 $icon = 'fas fa-clock-rotate-left';
 
 /**
- * A neighbour's own Value Profile.
+ * Where a related value is stored.
  *
- * The far end of a dated relation is the pivot — §25.2's whole reading
- * is the list of names on the address, and every one of them is a page
- * of its own. The encoding is `ValuesController::decodeValue`'s, which
- * the graph feed also builds; three characters of alphabet, duplicated
- * rather than shared for the same reason the model duplicates it.
+ * **Not the neighbour's own Value Profile.** §25.2's reading still
+ * wants the list of names on the address, but a value's page is about
+ * to be one gesture away from any string on any page, and the record
+ * that wrote the resolution is not. So the click goes to the object
+ * that carries the dates the row is made of.
  *
- * @param string $value
+ * `/events/view2/<event>#tab-objects` for §19.2's reason: the flat
+ * views redirect to the event and lose which record they were asked
+ * about, and this theme's event view takes no `focus:`. Every dated
+ * relation is an attribute inside an object, so the tab never varies
+ * and the row's own object and event go on the title.
+ *
+ * @param int $event
  * @return string
  */
-$profileUrl = function ($value) use ($baseurl) {
-    return $baseurl . '/values/view/' . rtrim(
-        strtr(base64_encode($value), '+/', '-_'),
-        '='
-    );
+$recordUrl = function ($event) use ($baseurl) {
+    return $baseurl . '/events/view2/' . (int)$event . '#tab-objects';
 };
 
 /**
@@ -460,9 +463,16 @@ if ($datedListsHit > 0) {
                                        empty($row['warninglists'])
                                            ? ''
                                            : ' vp-rel-listed' ?>"
-                                       href="<?= h($profileUrl(
-                                           $row['value'])) ?>"
-                                       title="<?= h($row['value']) ?>">
+                                       href="<?= h($recordUrl(
+                                           $row['event'])) ?>"
+                                       title="<?= h(sprintf(
+                                           __('%1$s, in the %2$s object'
+                                               . ' %3$s of event %4$s'),
+                                           $row['value'],
+                                           $row['object'],
+                                           $row['object_id'],
+                                           $row['event']
+                                       )) ?>">
                                         <?= h($row['value']) ?>
                                     </a><?= empty($row['warninglists'])
                                         ? ''
