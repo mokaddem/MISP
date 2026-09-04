@@ -507,11 +507,17 @@ if ($window !== null) {
  * ------------------------------------------------------------------
  * The lanes
  * ------------------------------------------------------------------
- * Seven, one per source the tab's own note promises, whether or not
- * MISP records it. Three will never carry a mark and keep a full-size
+ * Eight, one per source the tab's own note promises, whether or not
+ * MISP records it. Two will never carry a mark and keep a full-size
  * hatched lane anyway — a reader who scans the lanes must not be able
  * to miss what is missing, which is the reason this design was chosen
  * over the cheaper one that put the same facts in a rail.
+ *
+ * That is the whole intent of the Tags lane, and §22.2's dated Tag
+ * changes lane does not replace it: this one is the set the value
+ * carries *now*, undatable on any instance, and with
+ * `MISP.log_new_audit` off — MISP's default — it is the only row on the
+ * tab that says the value is tagged at all.
  */
 /*
  * Matched on the stable key and never on the translated `kind`. Both
@@ -592,9 +598,8 @@ $lanes = array(
         'sources' => array('tag', 'cluster'),
         'draw' => 'marks',
         'hatch' => $auditRecorded ? null : __(
-            'A tag is dated only by an audit_logs row, and'
-            . ' MISP.log_new_audit is off — so none of this value\'s'
-            . ' tags can be placed on this axis at all.'
+            'An audit row is the only thing that dates a tag, and'
+            . ' MISP.log_new_audit is off.'
         ),
     ),
     array(
@@ -624,7 +629,7 @@ $lanes = array(
     array(
         'key' => 'tags',
         'label' => __('Tags'),
-        'sub' => __('no column exists, any instance'),
+        'sub' => __('what it carries now, undated'),
         'draw' => 'undated',
         'row' => isset($undatedBy['tags'])
             ? $undatedBy['tags']
@@ -1595,8 +1600,8 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
 
                 <div class="vp-tl-why pt-2">
                     <?= h(__('Five lanes can carry marks · one is'
-                        . ' truncated and says where · two carry what'
-                        . ' MISP stores no date for at all')) ?>
+                        . ' truncated and says where · two hold what'
+                        . ' MISP never dates')) ?>
                 </div>
             </section>
 

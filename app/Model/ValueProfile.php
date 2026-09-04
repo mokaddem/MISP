@@ -7820,19 +7820,18 @@ class ValueProfile extends AppModel
         $out = array();
         if (!empty($tags)) {
             $out[] = $this->undatedRow('tags', __('Tags'), $tags, __(
-                'attribute_tags and event_tags carry no created or'
-                . ' modified column, on any instance — so this is the'
-                . ' set the value carries now, with no date of its own.'
-                . ' When a tag was attached or taken off is in the Tag'
-                . ' changes lane, from audit_logs.'
+                'The tags this value carries now. attribute_tags has no'
+                . ' created column, so nothing dates them — when each'
+                . ' was attached is in the Tag changes lane.'
             ));
         }
         if (!empty($clusters)) {
             $out[] = $this->undatedRow('clusters', __('Galaxy clusters'),
                 $clusters, __(
-                    'Cluster attachments are tags underneath, and'
-                    . ' inherit the same missing column. Their changes'
-                    . ' are on the axis in the Tag changes lane.'
+                    'The clusters it carries now. A cluster attachment'
+                    . ' is a tag underneath, so nothing dates these'
+                    . ' either — their changes are in the Tag changes'
+                    . ' lane.'
                 ));
         }
 

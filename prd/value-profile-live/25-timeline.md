@@ -1732,3 +1732,25 @@ server could then no longer read its own config and every request
 redirected to `/users/login` — the instance was down until the
 ownership was put back. `cake` inside the container runs as
 `-u www-data`, always.
+
+### 22.5 The Tags lane stays, and says less
+
+Asked, once the dated lane existed: *what is the Tags lane for?*
+
+It is §8.2's rule — a source the tab promises gets a full-size lane
+whether or not MISP can date it, so an absence is as visible as a
+presence. The lane carries the tag set the value holds **now**, which is
+a different fact from the attach and detach events next to it: those are
+a stream that starts wherever the audit log starts, and you cannot read
+the current set off them. **And with `MISP.log_new_audit` off — MISP's
+default — it is the only row on the tab that says the value is tagged at
+all.** So it stays.
+
+What was wrong was the wording, not the lane. The sub-label said *no
+column exists, any instance*, which describes a missing column rather
+than the row, and the body said the same thing twice at three clauses'
+length. Now: **what it carries now, undated**, over *"The tags this
+value carries now. attribute_tags has no created column, so nothing
+dates them — when each was attached is in the Tag changes lane."* Same
+facts, one sentence shorter, and the first four words say what the row
+is. The cluster row and the audit-off hatch took the same pass.
