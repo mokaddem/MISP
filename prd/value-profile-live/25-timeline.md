@@ -40,15 +40,19 @@ to `done` only when §14's verification has run against it.
 | T16 | The chronology stops denying entries the counts state | §17.3 | **done** |
 | T17 | The brush's mask stops where the plot area does, at any axis height | §18.1 | **done** |
 | T18 | `forTimeline` takes a window; the brush fetches one on release | §18.2, §18.3 | **done** |
+| T19 | Each lane bands the span it counts and has no row to draw | §19 | **done** |
+| T20 | `TIMELINE_ROW_CAP` 300 → 1,000 | §19.5 | todo — held for review of T19 |
 
-**Where the phase stands.** Sixteen of eighteen rows are done and the tab reads
+**Where the phase stands.** Seventeen of twenty rows are done and the tab reads
 the database: the endpoint is wired, five dated lanes and the off-axis strip
 are live, and the panel renders with no fixture behind it for either reader
 class and with the audit log on or off. **T10 and T11 are the whole of what is
 left** — two additive lanes, proposals and event reports, whose fetchers §10
 has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log; §17 and §18 are what the first
-reader of the built tab found over two rounds, and T15 to T18 are that.
+than a lane that lies — and T20, which is a constant waiting on a look at the
+thing that made it safe to raise. §16 is the build log; §17 to §19 are what the
+first reader of the built tab found over three rounds, and T15 to T20 are
+that.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -1249,3 +1253,101 @@ issue them — `loadAjaxContainer` guards on `dataset.loaded`, which is
 only set when a response lands, so two triggers firing before the first
 returns both pass. It is `mispOvermind.js`'s, it predates this phase, and
 on `443` it is a 3.8-second read done twice.
+
+## 19. The lanes say which span they have no rows for
+
+§18 made the cap survivable and left one thing dishonest. Brush a window
+holding more entries than the cap carries — `193.161.193.99` over its
+whole range is 2,256 against 300 — and the fetch comes back with the
+newest 300, which is the right answer. But the lanes then draw marks
+across four fifths of the axis and nothing across the first fifth, while
+their `IN WINDOW` cells read *204 Published* and *2,052 Edit*. A reader
+looking at the left of that axis sees a quiet period. It is not quiet;
+it is unfetched, and nothing on the panel said so.
+
+**The band is that admission, put where the silence is.** It runs from
+the window's start to the oldest row the fragment carries, on each lane
+that has entries it cannot draw.
+
+### 19.1 One cut line, and why it is one
+
+The row cap is applied once, to the merged array: `timelineCap` keeps
+the newest 300 of the union, so **every** lane's rows are newer than the
+300th newest overall. One boundary is therefore true for all of them,
+and the band's right edge is the same x in every lane — which is what
+makes it read as one fact about the fetch rather than seven facts about
+seven lanes.
+
+`null` — no row at all in the window — is the mid-drag state, and the
+band then covers the whole axis. That is the same window §17.3 gave an
+empty chronology to, now with lanes that agree with it: on `8.8.8.8`
+brushed to November 2024, Sightings and Edits are hatched end to end and
+their counts read 1 and 12.
+
+### 19.2 Which lanes get one, and which must not
+
+Per lane, the band appears when the aggregate for its sources exceeds
+the rows it drew. So a lane with nothing in the window stays clean —
+Sightings, Notes/Opinions and Seen spans are blank on the
+`193.161.193.99` case, because a hatch over a span where that lane has
+nothing would be claiming a truncation that never happened.
+
+**The seen lane never gets one.** Its own cap takes the *oldest* 25 of
+its spans, so the entries it drops are the newest and a band anchored to
+the window's start would point at the wrong end of the axis. Its
+sub-label already states all three of its numbers. The undated lanes
+have no time axis to band. Both exclusions are the `draw` kind, checked
+in one place in each renderer.
+
+The grid's total is summed over the lanes that drew a band rather than
+taken as *window total less rows carried*, so the seen lane's own
+truncation is never counted into a sentence about the row cap. On
+`193.161.193.99`: 180 publications and 1,776 edits, and the note reads
+1,956.
+
+### 19.3 A different hatch, and that is the point
+
+`.vp-lane-fill` is already a hatch on this panel — grey, 135°, on the
+lanes MISP cannot date. It means *this can never be drawn*. The band
+means *this is dated and was not fetched*, which is a hole in the
+request rather than in the record, and a reader who cannot tell the two
+apart learns something false about the instance. So the band is
+warning-toned, at 45°, with a solid edge at the cut, and the sentence
+naming it carries the same hatch at a legend's size — a swatch and not a
+word, because what the reader has to match is a texture.
+
+The advice in that sentence is real: *brush the hatched span to fetch
+them*. The newest cap-many of a narrower window reaches further back, so
+brushing into the band is what un-hatches it — which is why the band and
+§18's fetch had to ship in that order and not the other.
+
+**One geometry note.** The band's width is
+`calc((100% - 10px) * var(--vp-cut))` and not a percentage, because a
+percentage width on an absolutely positioned child resolves against
+`.vp-lane-axis`'s padding box while the SVG beside it resolves against
+the content box. Ten pixels of difference is a band whose edge misses
+the first mark — on the one element whose whole job is to say exactly
+where the marks start. Measured: the band's right edge and the first
+mark's left edge are within one pixel, which is the mark's own inset.
+
+### 19.4 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l` on the element, `node --check` on the JS, 80 columns over the diff | clean |
+| 2 | **Over the cap** | `193.161.193.99` fetched for its whole range: bands on Publications and Edits only, `--vp-cut` 0.2545 on both, titles reading *180 / 1,776 … older than the 300 rows this fetch carries*, note *1956 with no mark* |
+| 3 | **Nothing cut** | the same value's default window: no band, note hidden, `n` 0 |
+| 4 | **Nothing carried** (mid-drag) | `8.8.8.8` over November 2024: `--vp-cut` 1, full-width bands on Sightings and Edits, note *13*; and after the release fetches it, no band and the note hidden again |
+| 5 | **Alignment** | band right edge 274px, first mark 273px, from the same origin |
+| 6 | **The two renderers agree** | the raw fragment for `…/2025-11-26/2026-09-01`, fetched with no script running, carries the same two bands, the same `0.2545`, the same 1,956 and the same title as the browser draws |
+| 7 | Both themes | the 45° warning hatch is legible against the 135° grey one in light and dark; the legend swatch matches the band |
+| 8 | Console | no page error, no console error |
+
+### 19.5 Next, and not yet done
+
+The cap itself. `TIMELINE_ROW_CAP` is 300, and with §18's fetch and this
+band the number is no longer load-bearing for honesty — it only decides
+how often a reader has to brush. Raising it to 1,000 is the obvious
+follow-up and is **held pending review of this band**, because a wider
+cap makes the band rarer and the right time to look at it is while it is
+still easy to reach.

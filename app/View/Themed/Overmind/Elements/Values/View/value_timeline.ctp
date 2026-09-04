@@ -147,6 +147,18 @@ $precisionMeta = array(
     ),
 );
 
+/*
+ * The cut band's own sentence, held in one variable because both
+ * renderers of the band need it: the template for the window the
+ * fragment arrives with, and the script for every window after it. The
+ * script substitutes rather than composes, so the words stay
+ * translatable and there is no second sentence to keep in step.
+ */
+$cutTitle = __(
+    '%1$s of this lane\'s entries here are older than the %2$s rows'
+    . ' this fetch carries. Brush this span to list them.'
+);
+
 $utc = new DateTimeZone('UTC');
 $entries = $timeline === null ? array() : $timeline['entries'];
 $undated = $timeline === null ? array() : $timeline['undated'];
@@ -229,6 +241,30 @@ $windowed = array();
 foreach ($entries as $entry) {
     if ($entry['at'] >= $windowFrom && $entry['at'] <= $windowTo) {
         $windowed[] = $entry;
+    }
+}
+
+/*
+ * ------------------------------------------------------------------
+ * Where the rows stop
+ * ------------------------------------------------------------------
+ * The oldest listed row in the window, and the panel's most useful
+ * number when the cap has bitten: the rows are the newest cap-many, so
+ * **nothing older than this moment has a row**, in any lane, and the
+ * span between it and the window's start is one the lanes can count and
+ * cannot draw.
+ *
+ * A single boundary and not one per lane, because the cap is applied
+ * once to the merged array: every lane's rows are newer than the 300th
+ * newest of the union, so one cut line is true for all of them.
+ *
+ * `null` means no row at all falls in the window, and the whole window
+ * is then the span the lanes cannot draw.
+ */
+$boundary = null;
+foreach ($windowed as $entry) {
+    if ($boundary === null || $entry['at'] < $boundary) {
+        $boundary = $entry['at'];
     }
 }
 
@@ -359,16 +395,28 @@ $t1 = $window === null
 $span = max(1, $t1 - $t0);
 
 /**
+ * How far along the window a moment sits, 0 to 1.
+ *
+ * Its own function because two things need it at two scales: a mark is
+ * placed in viewBox units and inset by its own width, and the cut band
+ * is a CSS width over the same box that must land on the moment itself.
+ *
+ * @param string $at `Y-m-d H:i:s`
+ * @return float
+ */
+$fractionFor = function ($at) use ($t0, $span, $utc) {
+    $t = (new DateTimeImmutable($at, $utc))->getTimestamp();
+    return max(0, min(1, ($t - $t0) / $span));
+};
+
+/**
  * Where a moment sits on the lane axis, in viewBox units.
  *
  * @param string $at `Y-m-d H:i:s`
  * @return float
  */
-$xFor = function ($at) use ($t0, $span, $utc, $LANE_W, $MARK_W) {
-    $t = (new DateTimeImmutable($at, $utc))->getTimestamp();
-    $fraction = ($t - $t0) / $span;
-    $fraction = max(0, min(1, $fraction));
-    return round($fraction * ($LANE_W - $MARK_W), 1);
+$xFor = function ($at) use ($fractionFor, $LANE_W, $MARK_W) {
+    return round($fractionFor($at) * ($LANE_W - $MARK_W), 1);
 };
 
 /*
@@ -537,6 +585,46 @@ $lanes = array(
     ),
 );
 
+/**
+ * How many of a lane's entries in the window have no row to be drawn
+ * from — its aggregate less the rows the fragment carries.
+ *
+ * Only the mark lanes are asked. The seen lane's own cap cuts the
+ * *newest* of its spans, not the oldest, so a band anchored to the
+ * window's start would be exactly backwards there — and its sub-label
+ * already states all three of its numbers. The undated lanes have no
+ * time axis to band.
+ *
+ * @param array $lane
+ * @return int
+ */
+$laneCut = function (array $lane) use ($inWindow, $windowed) {
+    if ($lane['draw'] !== 'marks') {
+        return 0;
+    }
+    $n = 0;
+    foreach ($lane['sources'] as $source) {
+        $n += isset($inWindow[$source]) ? (int)$inWindow[$source] : 0;
+    }
+    foreach ($windowed as $entry) {
+        if (in_array($entry['source'], $lane['sources'], true)) {
+            $n--;
+        }
+    }
+    return max(0, $n);
+};
+
+/*
+ * The whole grid's share of it, for the one sentence that explains the
+ * bands. Summed over the lanes that can carry a band rather than taken
+ * as *window total less rows carried*, so the seen lane's own
+ * truncation is not counted into a claim about the row cap.
+ */
+$cutTotal = 0;
+foreach ($lanes as $lane) {
+    $cutTotal += $laneCut($lane);
+}
+
 /*
  * ------------------------------------------------------------------
  * The chronology
@@ -662,6 +750,7 @@ if ($window !== null) {
         'months' => $months,
         'labels' => array(
             'entries' => __('entries'),
+            'cut' => $cutTitle,
             'axis' => __('Dated entries per month, stacked by source'),
         ),
     );
@@ -970,6 +1059,34 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                 (int)$inWindow['total'] ?></span>
                             <?= __('entries') ?>
                             ·
+                            <?php
+                            /*
+                             * The bands' one sentence, and the reason
+                             * they are not left to be read as a
+                             * texture. It is in the reading path rather
+                             * than in a tooltip for §8.2's rule: a
+                             * lane's admission that it is incomplete
+                             * has to be as visible as the lane.
+                             *
+                             * The advice is real now. Brushing the
+                             * hatched span fetches it, because the
+                             * newest cap-many of a narrower window
+                             * reaches further back.
+                             */
+                            ?>
+                            <span data-vp-tl-cut-note
+                                  <?= $cutTotal > 0 ? '' : 'hidden' ?>>
+                                <span class="vp-lane-cut-key"></span>
+                                <?= sprintf(
+                                    __('%s with no mark — brush the'
+                                        . ' hatched span to fetch'
+                                        . ' them'),
+                                    '<b data-vp-tl-cut-n>'
+                                        . (int)$cutTotal
+                                        . '</b>'
+                                ) ?>
+                                ·
+                            </span>
                             <?= __('every source the tab promises gets a'
                                 . ' lane, whether or not MISP records'
                                 . ' it') ?>
@@ -1146,6 +1263,44 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                             <?= h($lane['hatch']) ?>
                                         </span>
                                     </div>
+                                <?php endif; ?>
+                                <?php
+                                /*
+                                 * The span this lane counts and cannot
+                                 * draw, banded from the window's start
+                                 * to the oldest row the fragment
+                                 * carries.
+                                 *
+                                 * **A different hatch from
+                                 * `.vp-lane-fill`'s, deliberately.**
+                                 * That one is grey and means *MISP
+                                 * cannot date this, ever*; this one is
+                                 * warning-toned and means *these are
+                                 * dated and this fetch did not bring
+                                 * them*. One is a hole in the record
+                                 * and the other is a hole in the
+                                 * request, and a reader who cannot tell
+                                 * them apart learns the wrong thing
+                                 * about the instance.
+                                 */
+                                $cut = $laneCut($lane);
+                                ?>
+                                <?php if ($cut > 0): ?>
+                                    <div class="vp-lane-cut"
+                                         style="--vp-cut: <?= h($boundary
+                                             === null
+                                                 ? 1
+                                                 : round(
+                                                     $fractionFor($boundary),
+                                                     4
+                                                 )) ?>;"
+                                         data-vp-tl-cut="<?=
+                                             h($lane['key']) ?>"
+                                         title="<?= h(sprintf(
+                                             $cutTitle,
+                                             (int)$cut,
+                                             count($windowed)
+                                         )) ?>"></div>
                                 <?php endif; ?>
                                 <?php foreach ($mine as $entry): ?>
                                     <?php if ($lane['draw'] !== 'spans') {

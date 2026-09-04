@@ -4697,15 +4697,38 @@
         var to = tlStamp(window_.to + ' 23:59:59');
         var span = Math.max(1, to - from);
 
+        function fractionFor(at) {
+            return Math.max(0, Math.min(1, (tlStamp(at) - from) / span));
+        }
+
         function xFor(at) {
-            var fraction = (tlStamp(at) - from) / span;
-            fraction = Math.max(0, Math.min(1, fraction));
             return Math.round(
-                fraction * (geometry.width - geometry.mark) * 10
+                fractionFor(at) * (geometry.width - geometry.mark) * 10
             ) / 10;
         }
 
         var windowCounts = tlWindowCounts(window_);
+
+        /*
+         * Where the rows stop, and how many rows there are to stop.
+         *
+         * The cap is applied once to the merged array, so every lane's
+         * rows are newer than the same moment and one cut line is true
+         * for all of them. `null` — no row in the window at all — means
+         * the whole window is a span the lanes cannot draw.
+         */
+        var inWindow = entries.filter(function (entry) {
+            return entry.day >= window_.from && entry.day <= window_.to;
+        });
+        var boundary = null;
+        inWindow.forEach(function (entry) {
+            if (boundary === null || entry.at < boundary) {
+                boundary = entry.at;
+            }
+        });
+        var cutFraction = boundary === null ? 1 : fractionFor(boundary);
+        var cutTemplate = (tl.data.labels && tl.data.labels.cut) || '';
+        var cutTotal = 0;
 
         panel.querySelectorAll('[data-vp-tl-axis]').forEach(function (axis) {
             var sources = (axis.dataset.vpTlSources || '').split(',');
@@ -4767,13 +4790,6 @@
                 });
             }
 
-            var key = axis.dataset.vpTlAxis;
-            var cell = panel.querySelector(
-                '[data-vp-tl-count="' + key + '"]'
-            );
-            if (!cell) {
-                return;
-            }
             /*
              * The marks above came from `mine` — the rows the fragment
              * carries — and the count comes from the aggregate. The two
@@ -4791,9 +4807,61 @@
                     parts.push(n + ' ' + tlLabel(source));
                 }
             });
+
+            /*
+             * And where they differ, the lane says *where*. The
+             * difference is entries it counted and has no row for, and
+             * every one of them is older than the boundary, so the band
+             * from the window's start to there is exactly the span the
+             * marks are silent about.
+             *
+             * Only the mark lanes. The seen lane's own cap cuts the
+             * *newest* of its spans, so a band anchored to the window's
+             * start would be backwards there, and its sub-label states
+             * its three numbers already.
+             */
+            axis.querySelectorAll('.vp-lane-cut').forEach(function (old_) {
+                old_.remove();
+            });
+            var cut = axis.dataset.vpTlDraw === 'marks'
+                ? Math.max(0, laneTotal - mine.length)
+                : 0;
+            if (cut > 0) {
+                cutTotal += cut;
+                var band = document.createElement('div');
+                band.className = 'vp-lane-cut';
+                band.dataset.vpTlCut = axis.dataset.vpTlAxis;
+                band.style.setProperty('--vp-cut',
+                    Math.round(cutFraction * 10000) / 10000);
+                band.title = cutTemplate
+                    .replace('%1$s', cut)
+                    .replace('%2$s', inWindow.length);
+                axis.insertBefore(band, svg);
+            }
+
+            var key = axis.dataset.vpTlAxis;
+            var cell = panel.querySelector(
+                '[data-vp-tl-count="' + key + '"]'
+            );
+            if (!cell) {
+                return;
+            }
             setText(cell, '[data-vp-tl-count-n]', laneTotal);
             setText(cell, '[data-vp-tl-count-why]', parts.join(', '));
         });
+
+        /*
+         * One sentence for the bands, with the grid's whole share of
+         * what they cover. Summed over the lanes that drew one rather
+         * than taken as *window total less rows carried*, so the seen
+         * lane's own truncation is never counted into a claim about the
+         * row cap.
+         */
+        var note = panel.querySelector('[data-vp-tl-cut-note]');
+        if (note) {
+            note.hidden = cutTotal === 0;
+            setText(note, '[data-vp-tl-cut-n]', cutTotal);
+        }
     }
 
     /**

@@ -8259,6 +8259,56 @@ th.vp-rel-num {
     border-radius: 5px;
 }
 
+/*
+ * The span the row cap left out: entries the lane counts and has no row
+ * to draw. It runs from the window's start to the oldest row the
+ * fragment carries, so its right edge is where the marks begin.
+ *
+ * `calc((100% - 10px) * var(--vp-cut))` and not a plain percentage,
+ * because a percentage width on an absolutely positioned child
+ * resolves against `.vp-lane-axis`'s *padding* box while the SVG beside
+ * it resolves against the content box. Ten pixels of difference is a
+ * band whose edge misses the first mark by a couple of pixels — on the
+ * one element whose whole job is to say exactly where the marks start.
+ *
+ * Warning-toned and at the opposite angle to `.vp-lane-fill`'s grey
+ * 135deg, which is the point: that hatch means MISP cannot date this
+ * and never will, this one means these are dated and were not
+ * fetched. Under `.vp-lane-svg`'s `z-index: 1`, so a mark at the
+ * boundary still paints over it.
+ */
+.vp-lane-cut {
+    position: absolute;
+    top: 7px;
+    bottom: 7px;
+    left: 5px;
+    width: calc((100% - 10px) * var(--vp-cut, 0));
+    border-right: 2px solid color-mix(in srgb,
+        var(--bs-warning) 55%, transparent);
+    border-radius: 3px 0 0 3px;
+    background-image: repeating-linear-gradient(45deg,
+        color-mix(in srgb, var(--bs-warning) 26%, transparent) 0 5px,
+        transparent 5px 10px);
+}
+
+/*
+ * The same hatch at a legend's size, so the sentence naming the bands
+ * carries the thing it is naming. A swatch and not a word, because the
+ * reader has to match it against a texture rather than against a
+ * label.
+ */
+.vp-lane-cut-key {
+    display: inline-block;
+    width: 22px;
+    height: 0.72em;
+    vertical-align: -0.05em;
+    border-right: 2px solid color-mix(in srgb,
+        var(--bs-warning) 55%, transparent);
+    background-image: repeating-linear-gradient(45deg,
+        color-mix(in srgb, var(--bs-warning) 26%, transparent) 0 5px,
+        transparent 5px 10px);
+}
+
 .vp-lane-tag {
     position: absolute;
     top: 1px;
