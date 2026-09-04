@@ -9,7 +9,9 @@ tab's fixture-era design is
 cannot date for it is `value-profile-page.md` §8.2, and this phase is the
 one §8.2 named as having to close its open choice.
 
-**Opened 2026-09-04.** Nothing is built yet. §1 is the board.
+**Opened 2026-09-04.** Nothing is built yet. §1 is the task board, §1.1
+the eight decisions the phase took before building anything, and §1.2 what
+a session picking this up cold needs to know before it writes a line.
 
 ---
 
@@ -40,6 +42,68 @@ Two rows are deliberately not here. The passive-dns lane
 badge needs nothing: the registry gives Timeline no count and §14.13's
 *"whoever converts a tab next: check its badge"* is satisfied by there
 being none to check.
+
+### 1.1 The decisions this phase has taken
+
+Taken when the phase opened, before any of it was built, because each one
+changes what gets built rather than how. **A task that contradicts a row
+here is a task that has found something, not a task that may proceed** —
+reopen the row, in this document, with what it found.
+
+| # | Decided | Where the argument is | What would reopen it |
+|---|---|---|---|
+| D1 | The value-scoped audit history is the rows about ids the viewer may already see: `Attribute` by occurrence id, `Object` by occurrence object id, `Event` by the ACL'd event ids. Neither of the two models MISP ships is adopted whole | §5 | A viewer class for whom this returns *more* than `__createEventIndexConditions` would grant on the same event. The safety argument is a subset claim, and a subset claim is falsifiable |
+| D2 | Counts come from a grouped aggregate, rows from a capped read, and the panel states both numbers. The tab's one-array invariant moves from the template into the facade | §6 | A measured cap at which the chronology stops being useful in practice — not an argument that 300 feels low |
+| D3 | The seen lane merges nothing, caps at 25 bars ordered by span start, states the remainder, and draws instants as marks rather than zero-width bars | §7 | An agreed aggregation rule for merging spans, which is precisely what §8.2 records nobody has |
+| D4 | Analyst data is the union over the value's occurrences **and** its events, and every row names its target | §8 | The Analyst tab's own phase deciding otherwise — in which case both tabs change together, because they read one union |
+| D5 | The spine's grain is planned from the range through `ValueProfileBuckets::plan()`, not pinned at twelve months | §9 | Nothing local. This is a reuse, and it reopens only if `plan()` stops fitting |
+| D6 | Proposals and event reports each get a lane; the report lane reads through its own ACL'd fetch and never `EventReport::attachReportCountsToEvents` | §10, §13 | The coverage survey's verdicts changing. The fetch decision does not reopen while that defect ships |
+| D7 | The tab's `.vp-acl-note` band and its `acl_note` key are removed, and §14.6's required-changes table gains the row it was missing | §12 | §14.6 itself, which names the oracle risk as the first thing to revisit if it is ever judged acceptable |
+| D8 | The passive-dns lane is deferred a second time, with the cost named | §15 | Whoever picks it up; the data and the query both exist |
+
+**Not decided here, and deliberately.** Whether the publications lane
+should draw `ACTION_PUBLISH` audit rows beside the two columns MISP keeps
+(§15) — D1's reader already has those rows in hand, which is what makes
+the question live rather than academic. And nothing about Enrichment: §2
+says why that tab is not this phase's to take, and taking its gating
+decision in passing would be the wrong way to take it.
+
+### 1.2 Starting from cold
+
+**Nothing is built.** `ValuesController::viewTimeline` still calls
+`profileFor()`, which is `ValueProfileFixture`. What already exists and is
+*not* the work: the endpoint, its `ACLComponent` entry
+(`ACLComponent.php:1083`, `theming_enabled`), the skeleton descriptor in
+`Values/view.ctp`, and `value_timeline.ctp` itself — 1,255 lines that
+render the whole tab against the fixture's array.
+
+**Where.** The corpus and the code are both in the
+`attribute-value-page-brief` worktree, branch
+`worktree-attribute-value-page-brief`. Three other worktrees carry copies
+of `prd/` that lag this one; check `git log -1 -- prd/` before believing
+any of them.
+
+**Re-derive the numbers before trusting them.**
+[`25-timeline-probe.sql`](25-timeline-probe.sql) is every instance
+measurement in §3, §5.2, §10 and §11, one block per section, with the
+command in its header. The instance is a working dev box and it moves.
+
+**Build order.** T1 and T2 first — the facade method and the audit reader
+— because every lane hangs off them and D1 and D2 are the two decisions
+that would be expensive to unpick after six lanes are written against
+them.
+
+**Three traps, all of which look like success.**
+
+1. **The fixture says the audit log is off; this instance says on.** Read
+   only this instance and the not-recorded branch ships untested (§3.1).
+2. **A probe matching only `value1` measures a different value than the
+   page will.** `443` is a 395-occurrence value on one side and a
+   48,255-occurrence value to the seam (§3.3).
+3. **Verified as a site admin, all three audit ACL models look
+   identical.** §8.2 says this in as many words, and §5.2's first row is
+   what it costs: a non-ADMIN reader gets an empty tab under the model
+   this phase rejects, and cannot tell it from a quiet value.
 
 ---
 

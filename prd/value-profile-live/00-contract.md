@@ -699,7 +699,7 @@ its decisions and deferrals live; this is only the map.
 | 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
-| 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **opened 2026-09-04** — nothing built; its §1 is the task board |
+| 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **opened 2026-09-04** — nothing built; §1 is the board, §1.1 the eight decisions it took before building, §1.2 the cold start |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
