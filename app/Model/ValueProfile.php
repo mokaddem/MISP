@@ -198,6 +198,36 @@ class ValueProfile extends AppModel
     const RELATION_SCAN_TTL = 300;
 
     /**
+     * How long a computing request holds the right to compute.
+     *
+     * The lock exists to stop a stampede, not to serialise the page, so
+     * the only thing this number has to beat is one scan on the worst
+     * value an instance holds. It is deliberately far above that: the
+     * key self-expires, so an interpreter killed mid-scan costs the
+     * next reader a wait and never wedges the value.
+     */
+    const RELATION_LOCK_TTL = 120;
+
+    /**
+     * How long a waiting request waits before scanning itself.
+     *
+     * A waiter gives up early only when the lock has *gone* without the
+     * cache being filled — the leader died — and this ceiling is the
+     * backstop for the case where it neither finishes nor releases.
+     * Above the leader's own cost, so the normal outcome of waiting is
+     * the leader's answer rather than a second scan.
+     */
+    const RELATION_LOCK_WAIT = 45;
+
+    /**
+     * How often a waiter looks for the answer, in microseconds.
+     *
+     * 50 ms adds at most that to a warm read and costs ~90 `GET`s over
+     * a 4.6 s scan, which is nothing next to the scan it replaces.
+     */
+    const RELATION_LOCK_POLL = 50000;
+
+    /**
      * The shape of what the caches above hold. **Bump it in the same
      * commit as any change to the arrays they store.**
      *
@@ -2167,21 +2197,28 @@ class ValueProfile extends AppModel
             . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($keyOptions));
 
-        $redis = null;
-        try {
-            $redis = RedisTool::init();
-        } catch (Exception $e) {
-            $redis = null;
-        }
-        if ($redis !== null && !$fresh) {
-            $cached = RedisTool::deserialize(
-                RedisTool::decompress($redis->get($key))
-            );
-            if (!empty($cached)) {
-                return $cached;
-            }
-        }
+        return $this->cachedFold($key, $fresh,
+            function () use ($user, $value, $options) {
+                return $this->readRelationDigest($user, $value, $options);
+            });
+    }
 
+    /**
+     * The digest itself, once the cache has decided it must be read.
+     *
+     * Split out so `cachedFold` can hold the single-flight lock over
+     * it: three of the tab's nine panels read this, and the four
+     * sections it composes are the same four the near-match, external,
+     * reference and claim panels are asking for beside it.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function readRelationDigest(array $user, $value,
+        array $options
+    ) {
         $context = $this->cooccurrenceContext($user, $value, $options);
         $types = $this->model('Value')->typesFor($user, $value, $options);
         $near = $this->nearMatches($user, $value, $types);
@@ -2256,13 +2293,6 @@ class ValueProfile extends AppModel
                 : time(),
         );
 
-        if ($redis !== null) {
-            $redis->setex(
-                $key,
-                self::RELATION_SCAN_TTL,
-                RedisTool::compress(RedisTool::serialize($digest))
-            );
-        }
         return $digest;
     }
 
@@ -3014,30 +3044,98 @@ class ValueProfile extends AppModel
         $key = 'misp:value_profile:relation_scan:v'
             . self::CACHE_SHAPE . ':' . (int)$user['id']
             . ':' . hash('sha256', $value . '|' . json_encode($options));
+        return $this->cachedFold($key, $fresh,
+            function () use ($user, $value, $options) {
+                $scan = $this->readRelationScan($user, $value, $options);
+                $scan['read_at'] = time();
+                return $scan;
+            });
+    }
+
+    /**
+     * Read a fold from Redis, and let exactly one request compute it.
+     *
+     * **The tab's nine panels are nine requests, and five of them want
+     * this.** `mispOvermind.js` fires every `.ajax-card` on a tab the
+     * moment it is shown, so on the first visit to Relationships the
+     * co-occurrence and dated panels ask for the scan while the graph,
+     * threat and settings panels ask for the digest that contains it.
+     * A plain `GET`/`SETEX` pair means all five miss together and all
+     * five scan, so the reader pays for one scan five times over and
+     * the five copies contend for the same rows while they do it.
+     *
+     * Measured on `8.8.8.8` before this: the nine panels cold took
+     * **15.1 s** wall-clock, against **5.4 s** for the same nine when a
+     * single scan had been primed first — worse than *sequential*,
+     * whose slowest panel was 6.2 s. The duplication was not merely
+     * wasted, it was the largest single cost on the tab.
+     *
+     * So the first request through takes a lock and computes; the rest
+     * wait on the key it will write. A waiter that finds the lock gone
+     * with nothing written computes rather than reporting an error —
+     * the leader died, and a slow answer beats none. Losing Redis
+     * entirely degrades to what this replaced: everyone computes.
+     *
+     * @param string $key The cache key, already scoped and versioned
+     * @param bool $fresh Skip the read; still take the lock
+     * @param callable $compute Returns the fold to cache
+     * @return array
+     */
+    private function cachedFold($key, $fresh, callable $compute)
+    {
         $redis = null;
         try {
             $redis = RedisTool::init();
         } catch (Exception $e) {
             $redis = null;
         }
-        if ($redis !== null && !$fresh) {
-            $cached = RedisTool::deserialize(
+        if ($redis === null) {
+            return $compute();
+        }
+        $read = function () use ($redis, $key) {
+            return RedisTool::deserialize(
                 RedisTool::decompress($redis->get($key))
             );
+        };
+        if (!$fresh) {
+            $cached = $read();
             if (!empty($cached)) {
                 return $cached;
             }
         }
-        $scan = $this->readRelationScan($user, $value, $options);
-        $scan['read_at'] = time();
-        if ($redis !== null) {
+
+        $lockKey = $key . ':lock';
+        $leader = (bool)$redis->set($lockKey, 1, array(
+            'nx',
+            'ex' => self::RELATION_LOCK_TTL,
+        ));
+        if (!$leader) {
+            $deadline = microtime(true) + self::RELATION_LOCK_WAIT;
+            while (microtime(true) < $deadline) {
+                usleep(self::RELATION_LOCK_POLL);
+                $cached = $read();
+                if (!empty($cached)) {
+                    return $cached;
+                }
+                if (!$redis->exists($lockKey)) {
+                    break;
+                }
+            }
+        }
+
+        try {
+            $fold = $compute();
             $redis->setex(
                 $key,
                 self::RELATION_SCAN_TTL,
-                RedisTool::compress(RedisTool::serialize($scan))
+                RedisTool::compress(RedisTool::serialize($fold))
             );
+        } finally {
+            if ($leader) {
+                $redis->del($lockKey);
+            }
         }
-        return $scan;
+        return $fold;
     }
 
     /**
