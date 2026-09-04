@@ -927,12 +927,28 @@ a §14.7 *small* change — a new optional key, skipped when absent, and the
 existing callers' bytes are unchanged (verified: on `/events/view2/1` all
 three ajax containers still carry the identical spinner block).
 
-`Values/View/value_panel_loading` is what this page passes, and
+The skeleton behind that key is **theme-wide, not this page's**.
+`genericElementsBS5/Layout/ajax_card_skeleton` owns everything that is not
+a matter of one page's design: the card wrapper, `aria-busy`, the shimmer
+body, the ragged-but-deterministic bar widths, the visually-hidden
+*Loading*, and the row-of-columns layout for an endpoint that owns an
+internal split. Its `.skeleton-*` styles live in `mainOvermind.css`, so any
+page in the theme can pass it as a card's `placeholder` and get a named
+card instead of a spinner. It draws its own head — icon, name, a shimmer
+where a headline number goes — for a page that has no header element of its
+own.
+
+What is left in `Values/View/value_panel_loading` is the only part that
+*is* this page's: the chrome. It builds each card's head — the real
+`value_panel_header` for a panel, the `vp-aside-head` strip for a rail card
+— and hands it to the shared element as `head`, so the glyph tile, the
+title baseline and the header's 36px do not move when the fetch lands. That
+is the hook a second page would use too: `head` and `cardClass` keep a
+page's own chrome without forking the element.
+
 `Values/view.ctp` carries the table it reads: one entry per endpoint, one
 descriptor per card that endpoint will draw — title, glyph, colour, and how
-many body lines to shimmer. It renders the *real* `value_panel_header`, so
-the glyph tile, the title baseline and the header's 36px do not move when
-the fetch lands.
+many body lines to shimmer.
 
 Three things the table is careful about:
 
@@ -1013,3 +1029,12 @@ Against the instance the worktree serves, 2026-09-04, in Chromium at
   shot in dark for the stacked case.
 - `/events/view2/1` unchanged — three ajax containers, the same spinner
   block in each, no PHP notice.
+- **The shared element's own head exercised outside this page**, by
+  pointing `events/view2`'s Objects tab at it temporarily with the endpoint
+  held back 9s: a named *Objects* card, 9 bars, the bar's computed
+  `animation-name` resolving to `skeleton-sweep` — so the styles reach a
+  page that never loads `value-profile.css` — in both themes. Reverted
+  after; no page but the Value Profile passes a `placeholder` today.
+- The refactor that split the element is markup-equivalent: the same 35
+  cards, 213 bars, 6 rail heads and 29 panel headers before and after, with
+  only the class order on the card differing.

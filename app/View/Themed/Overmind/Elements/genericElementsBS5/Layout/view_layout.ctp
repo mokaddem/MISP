@@ -3,12 +3,25 @@
  * What a lazily-loaded card shows before its fetch answers.
  *
  * The default is a centred spinner, which says *something is coming*
- * and nothing else: the container is ~60px tall whatever will land in
+ * and nothing else: the container is ~84px tall whatever will land in
  * it, so a tab of them opens as a row of spinners and then grows panel
  * by panel as the fetches return. A caller that knows the shape of what
  * it asked for can pass `placeholder` — an element and its params — and
  * draw that shape instead, so the page has its structure and its
  * section names from the first paint.
+ *
+ * `Layout/ajax_card_skeleton` beside this file is the ready-made one,
+ * and its docblock has the call:
+ *
+ * ```php
+ * $card['placeholder'] = array(
+ *     'element' => 'genericElementsBS5/Layout/ajax_card_skeleton',
+ *     'params' => array('cards' => array(
+ *         array('title' => __('Attributes'), 'icon' => 'fas fa-tag',
+ *               'lines' => 8),
+ *     )),
+ * );
+ * ```
  *
  * @param array $card
  * @return void

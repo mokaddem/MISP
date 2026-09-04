@@ -972,6 +972,76 @@ th .sort-icon::before {
     background: var(--nav-view-badge-color);
 }
 
+/* ==================================================================
+ * Skeletons — a lazily-loaded card that has not arrived yet
+ * ------------------------------------------------------------------
+ * `genericElementsBS5/Layout/ajax_card_skeleton` draws real card
+ * chrome and shimmers where the contents will be, so a tab of ajax
+ * cards has its structure and its section names from the first paint
+ * instead of after the last fetch. Any page in the theme can pass that
+ * element as an ajax card's `placeholder`.
+ *
+ * The bars are deliberately quiet. They stand in for content, and a
+ * loading state that draws more attention than the content it replaces
+ * makes a page that is merely slow feel broken.
+ * ================================================================== */
+
+.skeleton-card {
+    /*
+     * The card that lands is almost always taller than this, so the
+     * page grows rather than shrinking as the fetches come back —
+     * which is the direction that does not pull a section out from
+     * under a reader who has already scrolled to it.
+     */
+    min-height: 8rem;
+}
+
+.skeleton-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+}
+
+.skeleton-bar {
+    display: inline-block;
+    height: 0.7rem;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--bs-body-bg) 70%, transparent) 50%,
+        transparent 100%
+    );
+    background-size: 220% 100%;
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+/* Where an icon will be, on a card whose icon depends on the data. */
+.skeleton-square {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-sweep {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+}
+
+/*
+ * Motion is the whole of what the bars add over a flat grey block, and
+ * it is the whole of what someone who asked for less of it does not
+ * want. The blocks stay; only the sweep stops.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-bar {
+        animation: none;
+    }
+}
+
 /*
  * A lazily-loaded container fetching a *replacement* for what it is
  * already showing — a filtered table, the next page, a re-sorted index.
