@@ -529,8 +529,8 @@ document that filled it.
 | Relationships | `viewRelationDated` | `value_relation_dated` | 14 cold, 0 warm | shares the co-occurrence scan | 1, four aggregates at 2 | **24**, row added by **24b** |
 | Relationships | `viewRelationReferences` | `value_relation_references` | — | — | — | **24**, never recorded |
 | Relationships | `viewRelationExternal` | `value_relation_external` | — | — | — | **24**, never recorded |
-| Relationships | `viewRelationGraph` | `value_relation_graph` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
-| Relationships | `viewRelationSettings` | `value_relation_settings` | 37 | all three sections at once | 1, four aggregates at 2 | **24** |
+| Relationships | `viewRelationGraph` | `value_relation_graph` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
+| Relationships | `viewRelationSettings` | `value_relation_settings` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
 | Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
 | Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
@@ -540,6 +540,16 @@ document that filled it.
 Fourteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
+
+**Relationships closed with four of its own rows imperfect, and they are
+named rather than quietly filled.** `viewRelationReferences` and
+`viewRelationExternal` were built in phase 24 and their numbers were
+never recorded. `viewRelationGraph` and `viewRelationSettings` carry a
+`Q` of 37 measured in phase 24 — *before* B15 rebuilt both onto a single
+shared scan (`24b-relationships.md` §18), which changed what they cost;
+the timings there are recorded, the query counts were not re-taken. All
+four are one measuring pass, and they are the phase's only outstanding
+bookkeeping (§20 of that document).
 
 **Two of the thirteen are on a tab whose phase has not run.** `viewSightings` is
 the Overview's sightings card, converted after phase 23 because it is made of
@@ -686,8 +696,8 @@ its decisions and deferrals live; this is only the map.
 |---|---|---|---|
 | 22 | Occurrences — `value_occurrence_table` and its rail | [`22-occurrences.md`](22-occurrences.md) | built |
 | 23 | Sightings — all five panels | [`23-sightings.md`](23-sightings.md) | built |
-| 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | built |
-| 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | built — B1–B16 done, its §1 is the task board |
+| 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
+| 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,

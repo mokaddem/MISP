@@ -31,7 +31,8 @@ Update this table in the same pass as the code, not in a catch-up
 sweep. A task is `done` only when its change is verified against the
 live instance and recorded in its own section below.
 
-**Every row is done as of 2026-09-04.** B10 closed the eleven the
+**The phase is closed as of 2026-09-04; §20 is what it hands on.**
+Every row below is done. B10 closed the eleven the
 subphase planned, and was the only one whose grilling gate was lifted
 rather than held — §12.2 says by whom and records the decisions it
 would have taken. B11 came afterwards, out of §13 rather than out of
@@ -4076,3 +4077,80 @@ of nothing. Both graphs still draw, and no page errors in either run.
 The `pvt-graphnavigation` element in the rail is an empty layout slot —
 0 children, 0 buttons — so §16's `navigation` gate is still holding;
 the slot exists whether or not the toolbar mounts into it.
+
+---
+
+## 20. The phase is closed — 2026-09-04
+
+Sixteen tasks, against eleven planned. §1's board has every one of them
+`done` and verified against the live instance; this section is what the
+phase hands on, so that "closed" does not have to mean "everything
+anybody named is finished".
+
+### 20.1 What closing does and does not claim
+
+It claims the Relationships tab reads the database, that every panel on
+it has been rendered against real data, and that the six items below are
+the complete list of what was left. It does **not** claim the tab is
+finished in the sense of nothing further being worth doing — §13's
+rejected items stay rejected on their merits, and the deferred ones stay
+deferred on somebody else's timetable.
+
+### 20.2 Carried forward, and who it waits on
+
+| Item | Waiting on | Named in |
+|---|---|---|
+| The `light` overlay and its `edgeFacets` switches | pivotick's `editors.notes.enabled`; the server side is already done | §26.9, §27.7 of `24-relationships.md` |
+| Live expand-one-hop | the re-founded graph's next pass | §26.12 |
+| A claim's prose — child Notes on relationships | the per-claim bound decision | §13 |
+| The Timeline source lane | the Timeline tab's own phase | §26.7 |
+| The promote list, and with it a matched hash opening its own page | **a measurement nobody has taken** — see §20.3 | §26.3, §28.9 |
+| The badge over more than one notion; a Sightings badge | a page-load price for asserted claims and external presence | §15.7 |
+
+Two smaller ones, both page-wide rather than this tab's: `$noWrites` has
+not spread to the eleven relation templates, and the seven panel
+captions are still seven separate prose blocks (§16.6).
+
+### 20.3 The promote list should be priced before it is built
+
+Recorded here because the phase closes with it deferred, and deferring
+it a third time without saying this would be how it gets built by
+default.
+
+§26.3 deferred a curated promote list and said *"ranking needs its own
+evidence."* No evidence was ever gathered. Meanwhile B6 shipped the half
+that needs none — the **Most specific** rank, which sinks values that
+appear in many objects.
+
+That rank may already do the curated list's job. The fields a promote
+list exists to demote — `UDP`, `TCP`, `443`, `AF_INET`, `Brazil`,
+`client-to-server`, a timestamp — are the *common* ones, and the leads
+it exists to promote — `google.com`, `dns.google` — are the rare ones.
+A specificity rank is already pointed at exactly that difference.
+
+So the next move on this item is a measurement, not a build: render the
+ranked sibling table for a handful of real values and see where the
+descriptive fields actually land. Both outcomes close something.
+
+- **Already at the bottom** → the promote list is *rejected*, not
+  deferred, and MISP is spared a list hand-maintained against 373
+  upstream templates forever. §28.9's matched-hash question stops
+  waiting on it.
+- **Still at the top** → build it, and the measurement supplies the
+  list rather than somebody's judgement supplying it.
+
+### 20.4 The bookkeeping this phase still owes
+
+Four rows on `00-contract.md` §14.12, all Relationships, all one
+measuring pass:
+
+- `viewRelationReferences` and `viewRelationExternal` — built in phase
+  24, numbers never recorded.
+- `viewRelationGraph` and `viewRelationSettings` — `Q` of 37 taken in
+  phase 24, before §18 rebuilt both onto one shared scan. §18 records
+  the timings; the query counts were not re-taken, and the board now
+  says so rather than continuing to assert 37.
+
+This is the only thing on the phase's ledger that is neither blocked nor
+a judgement call, and it is the first thing to do if anybody reopens the
+tab.
