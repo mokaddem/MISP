@@ -972,7 +972,56 @@ th .sort-icon::before {
     background: var(--nav-view-badge-color);
 }
 
+/*
+ * A lazily-loaded container fetching a *replacement* for what it is
+ * already showing — a filtered table, the next page, a re-sorted index.
+ *
+ * The old markup stays put while the request is out, so the container
+ * keeps its height and nothing below it moves; it is dimmed and made
+ * inert, because it is the previous answer and clicking a pager inside
+ * it would race the fetch already in flight.
+ */
+.ajax-tab-content.is-loading,
+.ajax-card.is-loading {
+    position: relative;
+    cursor: progress;
+}
+
+.ajax-tab-content.is-loading > *,
+.ajax-card.is-loading > * {
+    opacity: 0.5;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.ajax-tab-content.is-loading::after,
+.ajax-card.is-loading::after {
+    content: "";
+    position: absolute;
+    top: 1.25rem;
+    left: 50%;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-left: -0.875rem;
+    border: 3px solid var(--bs-border-color);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: ajax-busy-spin 0.75s linear infinite;
+}
+
+@keyframes ajax-busy-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ajax-tab-content.is-loading::after,
+    .ajax-card.is-loading::after {
+        animation-duration: 2.4s;
+    }
+}
+
 .nav-ajax.active {
+
     background-color: var(--primary) !important;
 }
 

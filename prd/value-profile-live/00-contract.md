@@ -891,3 +891,125 @@ phase should expect:
   copying its `type`**, so a `<script type="application/json">` data block is
   appended to `<head>` as executable JavaScript and throws. Put the data in the
   script that reads it. §10.3.
+
+### 14.14 A lazily-loaded panel holds its place — **done, 2026-09-04**
+
+Every panel on this page is fetched after the page paints, and until this
+pass the container each one lands in held nothing but a centred spinner.
+That has two costs, and the second is the one nobody had named.
+
+**Opening a tab.** The Relationships tab is nine endpoints, and every one
+of them opened as the same anonymous 84px box — that figure measured, from
+a container reverted to the old markup mid-session. Nine of them stacked is
+under 800px of page for a tab that settles at 6,026px, so it then grew,
+panel by panel, as the fetches came back. A reader who came for *Dated
+relations* could not see where it was, could not use the contents strip to
+reach it, and watched the page move under the cursor until the slowest
+endpoint answered. That strip had been listing all eight sections by name
+the whole time.
+
+**Filtering a table.** `reloadAjaxTabIndex` blanked the container and put
+the spinner back before fetching, so a facet that narrows server-side
+collapsed a 2,063px panel to 84px for the length of the request. Measured
+on `8.8.8.8`, ticking one facet in *In the same events*: *Dated relations*
+jumped from y=2,665 to y=670 and back, *Object relationships* from 4,207 to
+2,212 and back. Two ~2,000px jumps per tick, on the panel the reader was
+looking at.
+
+Both are the same omission — the page throwing away its own structure while
+it waits — so both are fixed the same way.
+
+#### The page draws the shape it asked for
+
+`view_layout`'s ajax card takes an optional `placeholder`: an element name
+and its params, rendered into the container instead of the spinner. This is
+a §14.7 *small* change — a new optional key, skipped when absent, and the
+existing callers' bytes are unchanged (verified: on `/events/view2/1` all
+three ajax containers still carry the identical spinner block).
+
+`Values/View/value_panel_loading` is what this page passes, and
+`Values/view.ctp` carries the table it reads: one entry per endpoint, one
+descriptor per card that endpoint will draw — title, glyph, colour, and how
+many body lines to shimmer. It renders the *real* `value_panel_header`, so
+the glyph tile, the title baseline and the header's 36px do not move when
+the fetch lands.
+
+Three things the table is careful about:
+
+- **It repeats each panel's title, and that is the cost.** The titles have
+  to live in the panel templates — a panel composes its subtitle out of its
+  own numbers — so a name changed there and not here shows the old one for
+  as long as the fetch takes. A stale name for 400ms is cheaper than no
+  name at all, which is what the spinner was.
+- **`lines` is guessed low on purpose.** The panel that lands is then
+  taller than its skeleton, so the page grows rather than shrinking, and a
+  section never slides up out from under a reader who has scrolled to it.
+  Measured: 2,439px of skeleton settling to 6,026px, every anchor moving
+  down and none up.
+- **A skeleton names only what will certainly be there.** The Verdict rail
+  is four cards or five depending on the disposition, and each one's title
+  with it. Those three entries carry `title => null` and shimmer where the
+  words go. Only the rail's lighter `vp-aside` chrome takes a null:
+  `value_panel_header` escapes and prints the title it is given, and
+  teaching it to hold markup for one caller would change an element twenty
+  panels share.
+
+The three endpoints that draw more than one card declare all of them —
+co-occurrence's three sections in the order it draws them, and the two that
+own an internal `col-lg-3` / `col-lg-9` split. Two of co-occurrence's three
+are conditional on the value having such rows; they are declared anyway,
+because the contents strip above already lists all three whatever the value
+holds, and a skeleton listing fewer would disagree with the page's own
+table of contents.
+
+#### A reload keeps the previous answer on screen
+
+`reloadAjaxTabIndex` no longer empties the container. The old markup stays,
+dimmed and inert under `is-loading`, until the response is ready to replace
+it — so the container changes height exactly once, when it has something
+new to be. Two supporting changes came with it:
+
+- **A request token.** Nothing stopped a container that was reloaded
+  mid-flight from rendering whichever response happened to return last
+  rather than the one for the URL it now holds. Each request takes a token
+  and only the newest may write. This was latent before and is reachable
+  now: the old code's blanking made a second click hard, the new code's
+  live-but-dimmed markup makes it merely disallowed by CSS.
+- **`is-loading` is set by the reload, not by the load.** On a first load
+  the container holds a placeholder that already says it is waiting;
+  dimming that would only make the panel names harder to read, which is the
+  one thing the placeholder is for.
+
+**This changes a shared behaviour, and §14.7 says to fork rather than
+improve an existing caller.** It is not forked, and the reason is that the
+rule is about *elements* whose output belongs to another page. Here the
+collapse is the same defect wherever `reloadAjaxTabIndex` is called, and a
+Value-Profile-only copy would leave the theme's own index tables jumping on
+every page click. So the fix is shared and the other caller class was
+reviewed rather than assumed: `IndexTable/filter_bar` paging on event 3793
+(18,457 attributes) now holds its container at 1,134px across a page-2
+click, marked busy in flight, instead of collapsing to the spinner.
+`.vp-narrowing`, which dimmed the narrowing list at 0.55, is neutralised
+inside a loading container so the two dims cannot multiply to 0.275 on a
+list nested a few levels down.
+
+#### Verified
+
+Against the instance the worktree serves, 2026-09-04, in Chromium at
+1600×1000.
+
+- Relationships on `8.8.8.8`, 150ms after the tab is shown: **11 named
+  skeleton cards**, six anchored sections at distinct scroll offsets from
+  560 to 2,184 — so the contents strip reaches them before any panel has
+  arrived. Settled: 0 skeletons, 9 containers loaded, every anchor moved
+  down.
+- The same narrowing, with the pre-fix `reloadAjaxTabIndex` restored in the
+  page for comparison: container 2,063 → **84** → 2,063px, `datedTop`
+  2,665 → **670** → 2,665. With the fix: 2,063px and y=2,665 throughout,
+  `is-loading` true in flight and false after.
+- The two-column skeleton, photographed in both themes with the endpoint
+  held back 8s: Occurrences renders `Filters` at `col-lg-3` beside
+  `Occurrences` at `col-lg-9`, glyph tints intact in each. Relationships
+  shot in dark for the stacked case.
+- `/events/view2/1` unchanged — three ajax containers, the same spinner
+  block in each, no PHP notice.

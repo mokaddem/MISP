@@ -441,6 +441,78 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
+ * A panel that has not arrived yet
+ * ------------------------------------------------------------------
+ * `value_panel_loading` draws the real card chrome — glyph tile,
+ * title, the header's 36px — and shimmers where the contents will be,
+ * so a lazily-loaded tab has its structure and its section names from
+ * the first paint instead of after the last fetch.
+ *
+ * The bars are deliberately quiet. They stand in for content, and a
+ * loading state that draws more attention than the content it replaces
+ * makes a page that is merely slow feel broken.
+ * ================================================================== */
+
+.vp-panel-await {
+    /*
+     * The panel that lands is almost always taller than this, so the
+     * page grows rather than shrinking as the fetches come back —
+     * which is the direction that does not pull a section out from
+     * under a reader who has already scrolled to it.
+     */
+    min-height: 8rem;
+}
+
+.vp-await-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+}
+
+.vp-await-bar {
+    display: inline-block;
+    height: 0.7rem;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, var(--bs-body-bg) 70%, transparent) 50%,
+        transparent 100%
+    );
+    background-size: 220% 100%;
+    animation: vp-await-sweep 1.4s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+.vp-aside-title > .vp-await-bar {
+    height: 0.6rem;
+}
+
+.vp-await-glyph {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 4px;
+}
+
+@keyframes vp-await-sweep {
+    from { background-position: 120% 0; }
+    to { background-position: -120% 0; }
+}
+
+/*
+ * Motion is the whole of what the bars add over a flat grey block, and
+ * it is the whole of what someone who asked for less of it does not
+ * want. The blocks stay; only the sweep stops.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .vp-await-bar {
+        animation: none;
+    }
+}
+
+/* ==================================================================
  * Panel building blocks
  * ------------------------------------------------------------------
  * Shared by the seven Overview panels: a section heading, a fact line,
@@ -5331,6 +5403,19 @@ th[aria-sort="descending"] .sort-icon::before,
 
 .vp-narrowing [data-vp-list-rows] {
     pointer-events: none;
+}
+
+/*
+ * The container dims too, and the two must not multiply. A narrowing
+ * that goes to the fold now leaves the panel standing and marks the
+ * whole container `is-loading` — so on a list sitting a few levels
+ * inside that container, 0.55 under 0.5 is 0.275, which is not a dimmed
+ * table but an unreadable one. The container owns the dimming; this
+ * rule keeps the list's own, for the case where it is the only one.
+ */
+.ajax-tab-content.is-loading .vp-narrowing,
+.ajax-card.is-loading .vp-narrowing {
+    opacity: 1;
 }
 
 /*

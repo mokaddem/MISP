@@ -167,6 +167,199 @@ echo $this->element('Values/View/value_pivot_rail', array(
  */
 $counts = $profile['counts'];
 
+/*
+ * ------------------------------------------------------------------
+ * What each endpoint's panels look like before they arrive
+ * ------------------------------------------------------------------
+ * Every panel below is fetched after the page paints, and the layout
+ * used to hold nothing for it but a centred spinner — so a tab opened
+ * as a column of 60px spinners and grew to its real height one fetch at
+ * a time. A reader could not tell which section was which, could not
+ * reach the one they came for, and watched the page move under the
+ * cursor until the slowest endpoint answered.
+ *
+ * This table is the shape of the answer, stated before it comes:
+ * `value_panel_loading` draws the real card chrome from it, so the
+ * structure and the section names are there from the first paint.
+ *
+ * **It repeats each panel's title, and that is the cost of the move.**
+ * The titles live in the panel templates, which is where they have to
+ * live — a panel composes its own subtitle out of its own numbers — so
+ * a name changed there and not here shows the old one for as long as
+ * the fetch takes. The alternative is a spinner that says nothing at
+ * all, and a wrong name for 400ms is cheaper than no name at all.
+ *
+ * `lines` is how many body bars to shimmer, and it is a guess at the
+ * panel's height rather than a claim about its contents. Guessed low on
+ * purpose: the panel that lands is then taller than its skeleton, so
+ * the page grows rather than shrinking, which is the direction that
+ * does not pull a section out from under a reader who has scrolled to
+ * it.
+ */
+$icoAttr = 'misp-icon misp-icon-attribute misp-simple';
+$icoNote = 'misp-icon misp-icon-analyst-note misp-simple';
+$icoSight = 'misp-icon misp-icon-sighting misp-simple';
+$icoTag = 'misp-icon misp-icon-tag misp-simple';
+$icoObj = 'misp-icon misp-icon-object misp-simple';
+$icoGalaxy = 'misp-icon misp-icon-galaxy misp-simple';
+$icoOrg = 'misp-icon misp-icon-organisation misp-simple';
+
+/**
+ * One card of chrome.
+ *
+ * @param string|null $title Null only on an `aside`, whose title this
+ *                           page cannot know — see the element
+ * @param string|null $icon
+ * @param string $color
+ * @param int $lines
+ * @param array $extra `shape` and `col`, for the two endpoints that
+ *                     own their own split and the rail's lighter card
+ * @return array
+ */
+$await = function ($title, $icon, $color, $lines = 3,
+    array $extra = array()
+) {
+    return $extra + array(
+        'title' => $title,
+        'icon' => $icon,
+        'color' => $color,
+        'lines' => $lines,
+    );
+};
+
+$aside = array('shape' => 'aside');
+
+$panelChrome = array(
+    'viewOccurrences' => array(
+        $await(__('Occurrences'), $icoAttr, 'var(--attribute)', 6),
+    ),
+    'viewContext' => array(
+        $await(__('Tags and galaxies'), $icoTag, 'var(--tag)', 4),
+    ),
+    'viewAnalystPreview' => array(
+        $await(__('Analyst data'), $icoNote, 'var(--analystData)'),
+    ),
+    'viewVerdictCard' => array(
+        $await(__('Verdict'), 'fas fa-gavel', 'var(--primary)', 4),
+    ),
+    'viewSightings' => array(
+        $await(__('Sightings'), $icoSight, 'var(--sighting)'),
+    ),
+    'viewLifecycle' => array(
+        $await(__('Lifecycle'), 'fas fa-hourglass-half',
+            'var(--correlation)'),
+    ),
+    'viewExternal' => array(
+        $await(__('External presence'), 'fas fa-cloud-arrow-down',
+            'var(--enrichment)'),
+    ),
+    'viewVerdict' => array(
+        $await(__('Verdict'), 'fas fa-gavel', 'var(--primary)', 10),
+    ),
+    /*
+     * The rail is four cards or five and each one's title with it, so
+     * the skeleton holds three unnamed ones: the shape is honest, the
+     * names would be guesses.
+     */
+    'viewVerdictAside' => array(
+        $await(null, null, 'var(--primary)', 4, $aside),
+        $await(null, null, 'var(--primary)', 4, $aside),
+        $await(null, null, 'var(--primary)', 3, $aside),
+    ),
+    'viewOccurrenceTable' => array(
+        $await(__('Filters'), 'fas fa-filter', 'var(--attribute)', 5,
+            array('col' => 3)),
+        $await(__('Occurrences'), $icoAttr, 'var(--attribute)', 8,
+            array('col' => 9)),
+    ),
+    'viewSightingChart' => array(
+        $await(__('Sightings over time'), $icoSight, 'var(--sighting)',
+            6),
+    ),
+    'viewSightingList' => array(
+        $await(__('Individual sightings'), $icoSight, 'var(--sighting)',
+            6),
+    ),
+    'viewSightingDecay' => array(
+        $await(__('Decay models'), 'fas fa-hourglass-half',
+            'var(--correlation)', 3, $aside),
+    ),
+    'viewSightingReporters' => array(
+        $await(__('Reporters'), $icoOrg, 'var(--sighting)', 3, $aside),
+    ),
+    'viewSightingAdd' => array(
+        $await(__('Report a sighting'), $icoSight, 'var(--sighting)', 3,
+            $aside),
+    ),
+    /*
+     * Three panels out of one endpoint, in the order it draws them.
+     * Two of the three are conditional on the value having such rows —
+     * but the contents strip above already lists all three whatever the
+     * value turns out to hold, so a skeleton that listed fewer would
+     * disagree with the page's own table of contents.
+     */
+    'viewRelationCooccurrence' => array(
+        $await(__('In the same object'), $icoObj, 'var(--vp-rel-co)', 6),
+        $await(__('In the same events'), 'fas fa-link',
+            'var(--vp-rel-co)', 8),
+        $await(__('Labels in this neighbourhood'), $icoGalaxy,
+            'var(--vp-rel-co)', 5),
+    ),
+    'viewRelationDated' => array(
+        $await(__('Dated relations'), 'fas fa-clock-rotate-left',
+            'var(--vp-rel-object)', 6),
+    ),
+    'viewRelationNearMatch' => array(
+        $await(__('Near-matches'), 'fas fa-code-compare',
+            'var(--vp-rel-near)', 5),
+    ),
+    'viewRelationExternal' => array(
+        $await(__('Outside this instance'), 'fas fa-cloud-arrow-down',
+            'var(--vp-rel-external)', 4),
+    ),
+    'viewRelationReferences' => array(
+        $await(__('Object relationships'), 'fas fa-diagram-project',
+            'var(--vp-rel-reference)', 5),
+    ),
+    'viewRelationAsserted' => array(
+        $await(__('Asserted by analysts'), $icoNote,
+            'var(--vp-rel-human)', 4),
+    ),
+    'viewRelationGraph' => array(
+        $await(__('Neighbourhood'), 'fas fa-circle-nodes',
+            'var(--bs-secondary-color)', 5),
+    ),
+    'viewRelationThreats' => array(
+        $await(__('Named threats in this neighbourhood'), $icoGalaxy,
+            'var(--bs-secondary-color)', 4),
+    ),
+    'viewRelationSettings' => array(
+        $await(__('What is counted'), 'fas fa-sliders',
+            'var(--bs-secondary-color)', 4),
+    ),
+    'viewEnrichment' => array(
+        $await(__('Enrichment'), 'fas fa-wand-magic-sparkles',
+            'var(--vp-e-accent)', 8),
+    ),
+    'viewAnalystStanding' => array(
+        $await(__('Where the organisations stand'),
+            'fas fa-arrows-left-right-to-line', 'var(--analystData)', 6),
+    ),
+    'viewAnalystThread' => array(
+        $await(__('Notes and opinions'), $icoNote, 'var(--analystData)',
+            6),
+    ),
+    'viewTimeline' => array(
+        $await(__('Timeline'), 'fas fa-clock', 'var(--bs-info)', 8),
+    ),
+    'viewHistory' => array(
+        $await(__('Filters'), 'fas fa-filter',
+            'var(--bs-secondary-color)', 5, array('col' => 3)),
+        $await(__('History'), 'fas fa-history',
+            'var(--bs-secondary-color)', 8, array('col' => 9)),
+    ),
+);
+
 /**
  * The optional anchor is the panel's *container*, not its card: it is
  * put on the empty div that holds the spinner, so a link can reach the
@@ -178,12 +371,20 @@ $counts = $profile['counts'];
  * @param string $anchor
  * @return array A view_layout card pointing at one panel endpoint
  */
-$panel = function ($action, $anchor = null) use ($baseurl, $valueB64) {
+$panel = function ($action, $anchor = null) use ($baseurl, $valueB64,
+    $panelChrome
+) {
     $card = array(
         'ajax' => $baseurl . '/values/' . $action . '/' . h($valueB64),
     );
     if ($anchor !== null) {
         $card['id'] = $anchor;
+    }
+    if (isset($panelChrome[$action])) {
+        $card['placeholder'] = array(
+            'element' => 'Values/View/value_panel_loading',
+            'params' => array('panels' => $panelChrome[$action]),
+        );
     }
     return $card;
 };

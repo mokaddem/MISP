@@ -3503,6 +3503,17 @@ function initTopbarFilterSelects(scope) {
 const AJAX_CONTAINER_SELECTOR = '.ajax-tab-content, .ajax-card';
 
 /**
+ * Which fetch a container is currently waiting for.
+ *
+ * A container that is reloaded while a request is still out — three ticks
+ * on a facet bar, a pager clicked twice — would otherwise render whichever
+ * response happened to come back last rather than the one for the URL it
+ * now holds. Each request takes a token; only the newest one is allowed to
+ * write into the container.
+ */
+let ajaxLoadToken = 0;
+
+/**
  * Fetch an ajax container's URL into it, once, and run the scripts it brings.
  *
  * @param {Element} container carries data-url, gains data-loaded
@@ -3513,12 +3524,25 @@ function loadAjaxContainer(container) {
     const url = container.dataset.url;
     if (!url) return;
 
+    /*
+     * No `is-loading` here. On a container's first load what it holds is
+     * a placeholder that already says it is waiting — dimming that would
+     * only make the panel names harder to read, which is the one thing
+     * the placeholder is there for. The class is for a *re*-load, where
+     * what is on screen is the previous answer, and `reloadAjaxTabIndex`
+     * sets it; this function only clears it.
+     */
+    const token = String(++ajaxLoadToken);
+    container.dataset.loadToken = token;
+
     fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(res => {
             if (!res.ok) throw new Error('HTTP ' + res.status);
             return res.text();
         })
         .then(html => {
+            if (container.dataset.loadToken !== token) return;
+            container.classList.remove('is-loading');
             container.innerHTML = html;
             container.dataset.loaded = '1';
 
@@ -3562,6 +3586,8 @@ function loadAjaxContainer(container) {
             }));
         })
         .catch(() => {
+            if (container.dataset.loadToken !== token) return;
+            container.classList.remove('is-loading');
             container.innerHTML =
                 '<div class="text-danger">Error loading content</div>';
         });
@@ -3572,6 +3598,20 @@ function loadAjaxContainer(container) {
  * sorted or paginated) URL, keeping the user inside the current tab instead
  * of navigating the whole page. Called by IndexTable/filter_bar.
  *
+ * **The old markup stays until the new markup arrives.** This used to
+ * replace the container's contents with a centred spinner and then wait,
+ * which collapsed a panel of any height to about 60px for the length of
+ * the request and pushed everything below it up the page — then back down
+ * when the rows landed. Ticking a facet made the page jump twice, and on
+ * a debounced narrowing the reader was looking at a spinner where the
+ * table they were filtering had been.
+ *
+ * So nothing is thrown away here. `is-loading` dims what is there and
+ * makes it inert — it is the previous answer, and a pager clicked inside
+ * it would race the fetch already out — and `loadAjaxContainer` swaps in
+ * the response when it comes. The container never changes height except
+ * once, at the moment it has something new to be.
+ *
  * @param {Element} container
  * @param {string} url
  */
@@ -3579,8 +3619,7 @@ window.reloadAjaxTabIndex = function (container, url) {
     if (!container || !url) return;
     container.dataset.url = url;
     delete container.dataset.loaded;
-    container.innerHTML =
-        '<div class="text-center p-4"><div class="spinner-border"></div></div>';
+    container.classList.add('is-loading');
     loadAjaxContainer(container);
 };
 

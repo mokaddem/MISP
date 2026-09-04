@@ -1,4 +1,31 @@
 <?php
+/**
+ * What a lazily-loaded card shows before its fetch answers.
+ *
+ * The default is a centred spinner, which says *something is coming*
+ * and nothing else: the container is ~60px tall whatever will land in
+ * it, so a tab of them opens as a row of spinners and then grows panel
+ * by panel as the fetches return. A caller that knows the shape of what
+ * it asked for can pass `placeholder` — an element and its params — and
+ * draw that shape instead, so the page has its structure and its
+ * section names from the first paint.
+ *
+ * @param array $card
+ * @return void
+ */
+$ajaxPlaceholder = function (array $card) {
+    if (!empty($card['placeholder']['element'])) {
+        echo $this->element(
+            $card['placeholder']['element'],
+            $card['placeholder']['params'] ?? array()
+        );
+        return;
+    }
+    echo '<div class="text-center p-4">';
+    echo '<div class="spinner-border"></div>';
+    echo '</div>';
+};
+
 $activeTabIndex = 0;
 foreach ($tabs as $i => $tab) {
     if (!empty($tab['active'])) {
@@ -75,9 +102,7 @@ foreach ($tabs as $i => $tab) {
                                             // a link can reach before its content has arrived.
                                             // Absent for every existing caller.
                                             echo '<div class="ajax-tab-content"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
-                                            echo '<div class="text-center p-4">';
-                                            echo '<div class="spinner-border"></div>';
-                                            echo '</div>';
+                                            $ajaxPlaceholder($card);
                                             echo '</div>';
                                         } elseif (!empty($card['element'])) {
                                             // Optional `params` lets one element serve several
@@ -102,9 +127,7 @@ foreach ($tabs as $i => $tab) {
 
                                         if (!empty($card['ajax'])) {
                                             echo '<div class="ajax-card"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
-                                            echo '<div class="text-center p-4">';
-                                            echo '<div class="spinner-border"></div>';
-                                            echo '</div>';
+                                            $ajaxPlaceholder($card);
                                             echo '</div>';
                                         } elseif (!empty($card['element'])) {
                                             // Optional `params` lets one element serve several
