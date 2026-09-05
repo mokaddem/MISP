@@ -2,15 +2,19 @@
 
 **Phase 26**, the fifth live phase. Converts `viewAnalystStanding` and
 `viewAnalystThread` — the tab's two endpoints and the two panels inside
-them — from `ValueProfileFixture` to the database. Depends on
+them — from `ValueProfileFixture` to the database, and adds a third,
+`viewAnalystReports`, for the narrative list the coverage survey placed
+here and nobody had built. Depends on
 [`00-contract.md`](00-contract.md) §14 and on the four phases before it,
 whose seam, facade and tools this extends. The tab's fixture-era design
 is [`05-analyst.md`](../value-profile-tabs/05-analyst.md), and that
 document's §11 is the list this phase exists to close.
 
-**Opened 2026-09-05.** §1 is the task board, §1.1 the decisions taken
-before building anything, §1.2 what a session picking this up cold needs
-to know, and **§11 the three calls this phase cannot take on its own.**
+**Opened and built 2026-09-05.** §1 is the task board, §1.1 the
+decisions — seven taken before building and three the build forced,
+§1.2 what a session picking this up cold needs to know, §11 how the
+three calls this phase could not take alone were settled, §12
+verification as run, and **§16 the build log and what it cost.**
 
 **A naming collision, so nobody trips.** The `26-object-graph-*.php` and
 `26-panel-harness.mjs` files in this directory are **not** this phase's.
@@ -27,22 +31,24 @@ to `done` only when §12's verification has run against it.
 
 | # | Task | Section | Status |
 |---|---|---|---|
-| T1 | `ValueProfile::forAnalystStanding` and `forAnalystThread` — the two facade methods | §4 | todo |
-| T2 | The anchor set: phase 25's union, widened by two anchors | §5 | todo |
-| T3 | The thread read per level, not per item — no `fetchChildNotesAndOpinions` | §7 | todo |
-| T4 | The aggregate computed in the facade: mean, buckets, gap, per-org rollup | §6 | todo |
-| T5 | What an opinion on a note rates, and what the aggregate therefore counts | §6.2, §8 | todo |
-| T6 | The per-organisation ledger, on the built `B4` design | §4, `05-analyst.md` §16.3 | todo |
-| T7 | Orphan and unknown anchors survive the render | §5.4 | todo |
-| T8 | Proposals in the thread, or excluded in words | §9.1 | todo |
-| T9 | Event reports as the narrative list | §9.2 | todo |
-| T10 | §14.6: the ACL band removed, the standing panel's permanent caveat added, both rows written into the table | §10.1 | todo |
-| T11 | The tab badge, which is a fixture literal today | §10.2 | todo |
-| T12 | The board rows: §14.12's two `—` cells, and this document's numbers | §12.4 | todo |
+| T1 | `ValueProfile::forAnalystStanding` and `forAnalystThread` — the two facade methods | §4 | **done** |
+| T2 | The anchor set: phase 25's union, widened by two anchors | §5 | **done** |
+| T3 | The thread read per level, not per item — no `fetchChildNotesAndOpinions` | §7 | **done** |
+| T4 | The aggregate computed in the facade: mean, buckets, gap, per-org rollup | §6 | **done** |
+| T5 | What an opinion on a note rates, and what the aggregate therefore counts | §6.2, §8 | **done** |
+| T6 | The per-organisation ledger, on the built `B4` design | §4, `05-analyst.md` §16.3 | **done, and the design changed** — §6.3 |
+| T7 | Orphan and unknown anchors survive the render | §5.4 | **done** |
+| T8 | Proposals in the thread, or excluded in words | §9.1 | **done** — included, labelled |
+| T9 | Event reports as the narrative list | §9.2 | **done** — a third panel and a third endpoint |
+| T10 | §14.6: the ACL band removed, the standing panel's permanent caveat added, both rows written into the table | §10.1 | **done** |
+| T11 | The tab badge, which is a fixture literal today | §10.2 | **done** — dropped |
+| T12 | The board rows: §14.12's two `—` cells, and this document's numbers | §12.4 | **done** — three cells, not two |
 
-**Where the phase stands. Nothing is built.** Both endpoints still call
-`profileFor()`. The two elements exist and are 605 and 635 lines of
-markup rendering the fixture's array; neither is this phase's to redraw.
+**Where the phase stands. Built 2026-09-05, in four commits.** Both
+endpoints read the database, a third endpoint was added for the report
+list, and the numbers are in §16. What is *not* done and was never this
+phase's: the Overview's analyst preview card, which §11's second call
+left on the fixture deliberately.
 
 ### 1.1 The decisions this phase has taken
 
@@ -68,23 +74,46 @@ the Analyst tab's own reading of opinions, and the four `blocked` rows on
 verdict, and treating the one as the other is how the campaign would
 acquire an algorithm nobody reviewed.
 
+**Three more the build forced.** Each one is a row above that turned out
+to be wrong, or a question the seven did not reach, and each was found by
+running the code against the instance rather than by reading it.
+
+| # | Decided | Where the argument is | What would reopen it |
+|---|---|---|---|
+| D8 | A ledger row is **an opinion, not an organisation**. An organisation's rows sit together, groups are ordered by their strongest opinion, and the tug-bar counts opinions | §6.3 | A ledger that draws an organisation's several opinions on one lane, which is the truer answer and a redraw this phase did not take |
+| D9 | The ledger groups on the organisation's **uuid**, and prints the name | §6.4 | Nothing. Eleven notes on this instance name an organisation that no longer exists, and two of those must not merge into one lane for want of a name |
+| D10 | Event reports are a **third panel and a third endpoint**, not more thread items | §9.2 | A report list short enough everywhere that it reads as part of the conversation. It is not: the instance's longest is 994 characters and nothing bounds it |
+
+**D8 is the one that contradicts a built design**, and by §1.1's own
+rule that makes it a finding rather than a permission. `05-analyst.md`
+§16.3 chose `B4`, one lane per organisation, from a fixture in which
+every organisation held exactly one opinion. §6.3 is what the instance
+said about that.
+
 ### 1.2 Starting from cold
 
-**Nothing is built.** `ValuesController::viewAnalystStanding`
-(`ValuesController.php:553`) and `viewAnalystThread`
-(`ValuesController.php:561`) both call `profileFor()`, which is
-`ValueProfileFixture`. What already exists and is *not* the work: both
-endpoints, their `ACLComponent` entries (`ACLComponent.php:1081` and
-`:1082`, `theming_enabled`), the skeleton descriptors in
-`Values/view.ctp`, and the two elements —
-`value_analyst_standing.ctp` (605 lines) and `value_analyst_thread.ctp`
-(635 lines) — which render the whole tab against the fixture's array.
+**It is built. This section is what it was written against, kept for the
+record, plus what a session arriving after it needs.**
 
-**`viewAnalystPreview` is not this phase's.** It is the Overview's card
-(`ACLComponent.php:1054`, `value_analyst_preview.ctp`, 155 lines), and
-`05-analyst.md` §3 leaves it untouched. It will start lying the day these
-two panels stop — see §10.2, which is a row on this board precisely so
-the lie is deliberate rather than inherited.
+Before the phase: `viewAnalystStanding` and `viewAnalystThread` both
+called `profileFor()`, which is `ValueProfileFixture`, and the two
+elements — 605 and 635 lines — rendered the whole tab against the
+fixture's array.
+
+After it: three endpoints, all live. `forAnalystStanding` and
+`forAnalystThread` are two readings of one `analystContext`;
+`forAnalystReports` is the new third and shares only the occurrence
+read. The elements were **fed rather than redrawn**, with four
+exceptions, each argued where it is made: the ledger's row identity
+(§6.3), two new attachment chips for the cluster and unresolved anchors
+(§5.4), the proposal kind (§9.1), and the two removals T10 required.
+
+**`viewAnalystPreview` is still the fixture's, and that is now a
+deliberate lie rather than an inherited one.** It is the Overview's card
+(`ACLComponent.php:1054`, `value_analyst_preview.ctp`, 155 lines), it
+reads the same union, and it sits one tab away from three panels that no
+longer agree with it. §11's second call is where that was decided and
+by whom.
 
 **Where.** The corpus and the code are both in the
 `attribute-value-page-brief` worktree, branch
@@ -208,17 +237,32 @@ Six organisations write opinions on this instance; thirteen write notes.
 
 ## 4. What ships
 
-Two facade methods and no new endpoint, no new element and no new route.
+Two facade methods over the built elements — **and a third endpoint,
+which the plan did not have.** §9.2 is where that grew: the coverage
+survey forecast *one new element, probably two*, and T9 was already on
+the board without anywhere named to put it.
 
 | Action | Facade | Element | Panel |
 |---|---|---|---|
-| `viewAnalystStanding` | `forAnalystStanding` | `value_analyst_standing` | the position strip, the histogram, the per-organisation ledger |
-| `viewAnalystThread` | `forAnalystThread` | `value_analyst_thread` | the chronological thread, nested to depth 2, and the composer |
+| `viewAnalystStanding` | `forAnalystStanding` | `value_analyst_standing` | the tug-bar and the ledger |
+| `viewAnalystThread` | `forAnalystThread` | `value_analyst_thread` | the chronological thread, nested to depth 2, proposals, and the composer |
+| `viewAnalystReports` | `forAnalystReports` | `value_analyst_reports` | **new** — the event reports written about this value's events |
 
-Both take `array $user, $value, array $options` and return the tab's
-existing array shape. The ledger's built design is `05-analyst.md` §16.3
-(`B4`, the lane ledger with the tug-bar) and its sorting is §16.6 — this
-phase feeds those, it does not redraw them.
+All three take `array $user, $value, array $options`; the first two
+return the tab's existing array shape and the third returns its own.
+The ledger's built design is `05-analyst.md` §16.3 (`B4`, the lane
+ledger with the tug-bar) and its sorting is §16.6 — this phase feeds
+those and changed one thing about them, which is §6.3.
+
+**The standing panel has no histogram**, and this document's §6.1 said
+it did. `05-analyst.md` §16 deleted it before this phase opened: ten
+bands over three or four opinions is a chart of almost nothing, and it
+was the one place on the panel painting the axis the other way round.
+The ten buckets are still computed and `empty_bands` is still drawn —
+*7 of ten bands unoccupied* is one of the summary chips — but no element
+reads `buckets` itself today. It stays because the panel states a count
+derived from it and because the Verdict tab's histogram, when that phase
+is unblocked, is the same ten.
 
 **The composer is not this phase's.** Writes are out of the campaign's
 scope by `00-contract.md` §1; the picker stays drawn and stays disabled,
@@ -245,6 +289,27 @@ This phase takes that set and adds two:
   reachable from its events' tags, which the page already reads.
 - **the analyst rows themselves**, which is the thread's nesting and is
   §7's per-level read rather than a fourth anchor in the first query.
+
+**And not relationships, which costs two rows.** §6.2 counts nine
+opinions that rate another analyst row, and two of those rate a
+`Relationship`. D1's set does not contain relationships, so those two are
+not in this union and this tab does not draw them — §8's *excludes
+nothing from the page* is about the rows the union returns, not about
+every row in the class. The argument for leaving it: a claim about the
+value is phase 24's panel, `assertedClaims` already reads it, and
+widening the anchor set here would put a second reader of the same rows
+on a second tab. The cost is named rather than absorbed, and one of the
+two is an orphan anyway — its relationship does not exist.
+
+**Both levels of galaxy tag, and on this instance only one of them
+reaches anything.** A galaxy tag on the occurrence classifies the value;
+one on its event classifies the neighbourhood the value is part of,
+which is the same argument that admits event-level notes at all. Measured
+2026-09-05: no attribute on the instance carries a galaxy tag that has
+analyst data on it, and exactly one event does — event 1522, tagged
+`misp-galaxy:sector="Employment"`, whose cluster carries one note. So the
+occurrence half of this branch is written from the schema and the event
+half is the one that fires. §12.2 verifies on a value in that event.
 
 ### 5.2 One query per model, six branches per anchor kind
 
@@ -282,6 +347,16 @@ anchor must treat resolution as fallible. A row whose target does not
 resolve is drawn with an unresolved target, never dropped — dropping it
 would let a write the instance accepted vanish from the one page whose
 subject is who said what.
+
+**How it landed, and the honest limit of it.** The union looks rows up
+*by* the anchor uuids, so a root item resolves by construction and the
+`Event1556` row simply never matches anything — the code keys on the
+uuid and never switches on `object_type`, which is the half of D5 that
+does work every request. The unresolved branch is therefore reachable
+only if a row comes back for a uuid the target map does not hold; it is
+written, it has its own dashed chip and its own *not in the aggregate*
+wording, and **nothing on this instance exercises it.** Recorded as
+written-from-the-schema rather than claimed as verified.
 
 ---
 
@@ -322,6 +397,66 @@ argument and not about an indicator.
 decide — in code — that an opinion written on a note rates the note and
 not the value."* Decided, and widened: the same holds for opinions on
 opinions and on relationships, which that sentence did not reach.
+
+**Verified on `google.com`**, which is the only value on the instance
+that exercises it: the thread draws five items and the standing panel
+says *4 opinions from 1 organisation*. The fifth is an 80/100 written on
+a note, drawn with its own *about the item above, not about the value —
+not in the aggregate* marker, and absent from the mean. A reader who
+counts the thread and compares finds the difference explained rather
+than apparent, which is the whole reason §8 draws it at all.
+
+### 6.3 A ledger row is an opinion — D8
+
+**The built ledger assumed one opinion per organisation, and the
+campaign's own default value breaks that assumption in the worst
+direction.** `05-analyst.md` §16.3 chose `B4`, one lane per
+organisation, from a fixture in which every organisation held exactly
+one position. On the instance, `8.8.8.8` carries four opinions and all
+four are ADMIN's, written within 42 seconds of each other on event 47:
+**100, 100, 80, then 10.**
+
+Rolled up to one lane, whichever rule picks the score:
+
+- *the latest* draws one `Strongly disagree` lane at 10/100 over a set
+  that is three-quarters agreement, and the tug-bar's clause reads
+  *every organisation disputes*;
+- *the mean* paints ADMIN at 72.5, a position nobody wrote, on the one
+  panel whose entire argument is that a mean can describe nobody.
+
+Both are worse than the shape they were meant to summarise. So every
+opinion gets its lane, an organisation's lanes sit together, groups are
+ordered by their strongest opinion and rows within a group by score —
+which keeps the panel readable as the scale §16.3 built it to be, and
+keeps `vp-sort-default` able to restore that order on the third click.
+
+What the change costs, stated: the *Organisation* column repeats a name
+down an organisation's rows, and the *Notes* and *Last activity* columns
+are properties of the organisation repeated on each of its rows. The
+tug-bar's caption changed from *sized by headcount* to *sized by number
+of opinions*, because it now counts opinions and a caption that said
+otherwise would be the second thing on the panel to mislead.
+
+**The truer answer was not taken.** `B4`'s lane is already a 0–100 axis,
+so an organisation's several opinions could be several marks on its own
+lane — one row per organisation *and* no opinion lost. That is a redraw
+of the lane markup, which §4 says is not this phase's, and it is the
+obvious next move on this panel rather than a defect in it.
+
+### 6.4 The ledger groups on a uuid — D9
+
+Eleven of this instance's 75 notes carry an `orgc_uuid` that matches no
+`organisations` row: the organisation was deleted, the contained
+association comes back empty, and `AnalystData::rearrangeOrganisation`
+hands back a record with a null name. So *Unknown organisation* is a
+path live data takes on this page, not a defensive branch — phase 25's
+note lane already prints it, and this tab prints it on `1.2.3.4`.
+
+Grouping the ledger on the printed label would then merge two deleted
+organisations into one lane group for want of a name to tell them apart,
+which is an aggregation the reader could not see happening. The key is
+`orgc_uuid`, falling back to `org_uuid` and only then to the label; the
+label is what gets printed. Free — both columns are already fetched.
 
 ---
 
@@ -407,6 +542,36 @@ the proposals lane for the Timeline (T10) and phase 22 owns the
 occurrence-table rows, so the read is a known quantity; what is open is
 whether a proposal is a *claim* in this thread's sense. §11's first call.
 
+**Answered: included, labelled.** `Value::proposalsFor` — phase 25's
+reader, both directions, unchanged — supplies them as root thread items
+with their own `proposal` kind. What that decided in passing:
+
+- **They filter as their own pill**, which needed no JavaScript: the
+  thread's kind filter already matches `data-vp-a-kind-filter` against
+  each item's `data-vp-a-kind` generically. The pill appears only when
+  the value has proposals, because a permanent `Proposals 0` on a tab
+  where every other pill filters to something is a control that does
+  nothing.
+- **They carry `Open` or `Resolved`, and never *accepted* or
+  *discarded*.** Both paths end at `ShadowAttribute::setDeleted`, which
+  writes one column; the schema that would tell them apart does not
+  exist, so the chip states what MISP recorded and stops.
+- **Every date says *(last moved)*.** `shadow_attributes` has no
+  `created`, and `setDeleted` stamps `timestamp` at resolution — so a
+  resolved proposal sits at its resolution rather than at its proposal.
+- **They reach neither the aggregate nor the ledger**, and they do not
+  set an organisation's *Last activity*: a proposal is a change somebody
+  wants made to a row, and its date is when it last moved rather than
+  when that organisation was last heard from.
+- **What the proposal proposes is stated by the page, not left in the
+  comment** — the comment is often empty, and the value belongs outside
+  the markdown renderer, which would read `*` in an indicator as
+  emphasis. `2.2.2.2` draws *Proposes 2.2.2.3 in place of 2.2.2.2 on
+  attribute 1495259*.
+
+**And it broadened the tab past its own name**, which the maintainer
+raised in the same breath as the answer. §11.4.
+
 ### 9.2 Event reports — T9
 
 The survey, §4.5: reports are *the natural home for the list* — narrative
@@ -419,6 +584,30 @@ that adds them adds the rows** to §14.12. Phase 25 built the Timeline's
 report lane through its own ACL'd fetch and never
 `EventReport::attachReportCountsToEvents` (its D6), and that decision
 does not reopen while the defect behind it ships.
+
+**Built as one element, one endpoint and one row — D10.**
+`value_analyst_reports`, third on the tab, under
+`viewAnalystReports`. Three things it settles:
+
+- **A panel and not more thread items.** A report is a document, not a
+  turn in a conversation; dropped between two one-line notes it buries
+  both. The thread stayed a thread and the list became a list.
+- **Its own endpoint**, because it is one `fetchReports` over the value's
+  events and should not wait on the thread's five-anchor union — which
+  is the same reasoning that split this tab into two endpoints in the
+  first place. It costs 2 to 18 queries where the thread costs 7 to 28.
+- **The extract is the report's own opening, not a summary.** MISP holds
+  no summary of a report and this page will not write one: an abstract
+  the page invented would be the page's claim about somebody else's
+  document. The first 600 characters are carried, the markdown is
+  stripped for the extract — MISP's `@![attribute](uuid)` element
+  references included, since they render as a card in the report and as
+  a uuid in a three-line preview — and the full length is printed beside
+  it. `viewSummary` was not used: it is a controller action rendering a
+  modal, and this panel is a server-rendered list.
+
+The `fetchReports` half of phase 25's D6 carries over unchanged, and
+`attachReportCountsToEvents` is not reached from here either.
 
 ---
 
@@ -474,12 +663,44 @@ and say so — and the phase must take one deliberately. The cost argument
 that killed Timeline's badge applies here too: a badge that agreed with
 this panel would have to do this panel's work.
 
+**Dropped**, which is the second of the three, and for both of the
+reasons the Timeline and History tabs already carry in
+`Values/view.ctp`:
+
+1. **It is the viewer's count.** `buildConditions` scopes every note and
+   opinion, and §12.5's seventh check is a CIRCL org admin reading four
+   items on `8.8.8.8` where a site admin reads six. Two readers would
+   read two numbers off one value's tab bar.
+2. **It would cost the panel's own work.** 7 to 28 queries, at page
+   load, on a tab nobody may open.
+
+Taken by removing the `count` key from the tab's registry entry rather
+than by unsetting it in `forTabCounts` — `view.ctp` already reads
+`$tab['count'] ?? null`, so a countless tab is a tab that declares no
+count, which is how Timeline and History spell the same thing.
+`$counts['analyst']` is still produced by the fixture and now read by
+nobody.
+
+The Overview's preview card keeps its own numbers and its own lie; that
+is §11's second call and not this row.
+
 ---
 
 ## 11. Three calls this phase cannot take on its own
 
 Each of these changes what gets built, none is settled by measurement,
 and taking them in passing would be the wrong way to take them.
+
+**All three were put to the maintainer on 2026-09-05, before any of the
+phase was built, and all three came back.** The answers are recorded
+under each, and where an answer differs from the recommendation the
+recommendation is left standing rather than edited away.
+
+| # | Recommended | Decided | Built |
+|---|---|---|---|
+| 1 | include, labelled | **include, labelled** — with a naming question raised alongside it, §11.4 | §9.1 |
+| 2 | convert the Overview card here | **leave it on the fixture, and record that it lies** | §1.2, §10.2 |
+| 3 | route around the memo and record it | **route around and record** | §7.2 |
 
 **1. Are proposals claims in this thread?** §9.1. Including them makes
 the thread the complete record of third-party disagreement and mixes two
@@ -512,11 +733,50 @@ before either goes live, and the tab already decided which way it goes:
 it unifies on the Verdict reading. What is unresolved is the *Overview
 card*, which is call 2 wearing a different hat.
 
+**Call 2's answer makes that contradiction visible rather than
+theoretical**, and it is the price the answer names. The Overview's card
+now reads the fixture's opinions beside three panels reading the
+database, so on `8.8.8.8` a reader meets one set of numbers on the
+Overview and a different set one tab across. That is exactly the
+Occurrences banner problem phase 22 spent a section on, taken
+deliberately this time: the campaign's rule is that a tab's row belongs
+to the tab's phase, and buying consistency by reaching into the
+Overview's row is how a board stops describing the code.
+
+### 11.4 A naming question the first answer raised
+
+Including proposals broadens the thread past what its tab is called.
+*Analyst data* names a MISP feature — notes, opinions and relationships,
+the three `AnalystData` subclasses — and the tab now also carries
+proposals, which are `shadow_attributes` and predate that feature, and a
+list of event reports, which are neither. The tab's subject has become
+*everything anybody has said about this value*, and its name still names
+one of the four mechanisms.
+
+**Raised by the maintainer alongside call 1 and not taken here.**
+*Collaboration* was the suggestion. The panels have moved in the
+meantime, which is the cheap half:
+
+- the thread's title reads **Notes, opinions and proposals** on a value
+  that has proposals, and *Notes and opinions* on one that does not;
+- the new report panel is titled **Event reports**;
+- the standing panel is unchanged — it really is about analyst opinions
+  and nothing else.
+
+What is left is the **tab label** in `Values/view.ctp:628` and the
+matching entries in `value-profile-page.md` and `05-analyst.md`, whose
+filenames carry the old name. Renaming a tab renames it in every
+document that cites it, so it is one edit and a sweep, and it is a
+naming decision rather than a build one. **Open.**
+
 ---
 
-## 12. Verification — the plan, and the values
+## 12. Verification — as run
 
-Nothing here has run. This is what §12 will be filled with.
+**Run 2026-09-05.** Eight values across three endpoints, fetched as real
+authenticated HTTP fragments and read back as rendered text, plus a
+second reader class through the facade. What was checked, and what is
+still owed, is §12.5.
 
 ### 12.1 The shape
 
@@ -555,12 +815,58 @@ Not the fixture. The per-value opinion set read straight from
 prints — mean, bucket heights, the empty band, and the ledger's per-org
 rows. §3.1 is the instance-wide control.
 
+**The five were replaced by six chosen against the branches rather than
+against the anchor kind alone.** The table above was built from a query
+for attribute-anchored notes; three of its five turned out to exercise
+nothing the others did not, while three branches it named no value for —
+the object anchor, the cluster anchor and the nesting — each needed one.
+What was actually verified is §12.5.
+
+### 12.3 What the aggregate must be checked against
+
+Not the fixture. The per-value opinion set read straight from
+`opinions`, with D4's exclusions applied by hand, against what the panel
+prints — mean, bucket heights, the empty band, and the ledger's per-org
+rows. §3.1 is the instance-wide control.
+
+**Checked on `8.8.8.8`.** The four opinions in `opinions` are 100, 100,
+80 and 10, all ADMIN's, all on event 47. The panel prints *4 opinions
+from 1 organisation · two positions 70 points apart · nothing between 10
+and 80*, four lanes in that order, *7 of ten bands unoccupied*, and a
+mean of **72.5** struck through as one nobody holds — the nearest actual
+opinion is 80, which is 7.5 away and so past the half-band threshold.
+Every one of those numbers follows from the four scores by hand.
+
 ### 12.4 The board — T12
 
-Two `—` cells on §14.12, `viewAnalystStanding` and `viewAnalystThread`,
-plus whatever §9.2's element adds and whatever call 2 decides about the
-Overview's row. A row moves off `—` only when this document records the
-same numbers.
+**Three cells, not two.** §14.12 now carries `viewAnalystStanding` and
+`viewAnalystThread` at 7–28 queries and the new `viewAnalystReports` at
+2–18, each scaling with *how much analyst content exists* rather than
+with the value's size — `443` has 48,255 occurrences and costs 8 and 2.
+§14.13's phase row, §14.6's two new rows and the badge note under
+§14.11 were written in the same pass. The Overview's row is untouched,
+which is call 2's answer.
+
+### 12.5 What ran, and what did not
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l` over every changed file | clean. `parallel-lint` not run — no `app/Vendor/` in this checkout |
+| 2 | **Every anchor kind executes** | 4/4. Attribute — `google.com`, a note on attribute 1 with the `domain in #1` chip. Event — `8.8.8.8`, four opinions on event 47. Object — `94.156.177.68`, the note on object 24033 rendering as `url in #1545` with the object glyph. Cluster — a sha256 in event 1522, drawing the `Employment cluster` note through the galaxy chip |
+| 3 | **The nesting, to its full depth** | `google.com`. Note on an attribute → opinion 80/100 on that note → note on that opinion, rendered `vpa-reply` then `vpa-reply-2`, with *the note above* and *the opinion above* on the two replies. Counts read *5 items · 4 opinions, 1 note · 2 replies* |
+| 4 | **D4's exclusion** | same value: thread 5 items, standing *4 opinions*. The 80/100 on a note is drawn, marked, and absent from the mean |
+| 5 | **The aggregate by hand** | §12.3 |
+| 6 | **Both empty states** | `b1`, a value in events with no analyst content at all. Standing renders *No organisation has recorded an opinion on this value*; the thread renders *Nobody has written a note or an opinion*, and keeps its composer, which still names the 3 occurrences it would offer |
+| 7 | **A non-site-admin reader** | through the facade, as CIRCL's org admin. `8.8.8.8` goes 6 items → 4: the THA-CERT note and the ADMIN event note drop, the four community-distributed opinions stay. This is §14.6's case made concrete and it is why the standing panel took the permanent caveat |
+| 8 | **Proposals** | `8.8.8.8` draws one *Open* proposal reading *Proposes Network activity / ip-dst for attribute 2, whose value it leaves alone*; `2.2.2.2` draws two, one of them *Proposes 2.2.2.3 in place of 2.2.2.2 on attribute 1495259* — the row `value-profile-coverage.md` §5.1 cites. Neither reaches the ledger or moves an organisation's last activity |
+| 9 | **The report list** | `8.8.8.8`, 8 reports on 20 events, newest change first, each with its event chip, organisation, *(last changed)* date, distribution and length. Extracts survive MISP's own `@![attribute](uuid)` references, image links and backslash escapes |
+| 10 | **The occurrence cap is stated** | `443`. Both live panels now say the union was built from the newest 300 occurrences, and the report panel says its list covers the 19 events those reach — outside the empty branch, so *nobody has written one* can no longer stand over a slice |
+| 11 | **The ACL entry for the new endpoint** | `queryACL/findMissingFunctionNames` lists only this controller's private helpers. `viewAnalystReports` is mapped |
+| 12 | **The tab badge is gone** | the page's tab bar renders *Analyst data* with no pill, while Relationships and Enrichment keep theirs |
+| 13 | Query counts and timings | §16.1 |
+| 14 | **Both themes** | **not run.** Three new classes were added — `.vpa-chip-unresolved`, `.vpa-proposal-what` and the `.vpa-report*` set — and every one of them is defined in tokens (`--bs-border-color`, `--bs-body-bg`, `--bs-secondary-color`), so none carries a fixed colour. A visual pass is still owed |
+| 15 | **The no-JavaScript render** | holds, and it is what every fragment above was fetched as. The proposal pill is server-rendered and the filter it drives reuses the existing generic `data-vp-a-kind` matcher, which was not itself re-exercised by hand — see below |
+| 16 | **The filter and sort controls with real clicks** | **not run.** The new `Proposals` pill rides `data-vp-a-kind-filter`, which `refreshAnalyst` already matches generically against each item's `data-vp-a-kind`, and no JavaScript changed. Reasoned rather than clicked, and it is the second thing owed |
 
 ---
 
@@ -591,3 +897,79 @@ tab is unblocked and both are live.
 the rows come from up to five anchor sets in two tables. If a value is
 ever found whose thread is too long to render, the answer is a cap with a
 stated remainder — phase 25's D2 pattern — and not a page parameter.
+
+---
+
+## 16. The build log
+
+Four commits on `worktree-attribute-value-page-brief`, in the order they
+landed.
+
+| Commit | What |
+|---|---|
+| `c8685de2a` | the union, the level read, the aggregate, the ledger, T10's two halves — T1–T7 and T10 |
+| `6198ba359` | proposals in the thread, and the tab badge dropped — T8 and T11 |
+| `471938122` | the report panel and its endpoint, plus the occurrence-cap notes on all three — T9 |
+| this one | the documents: §14.6, §14.12, §14.13 and §14.11's badge note in the contract, and this section — T12 |
+
+**What was touched outside this tab**, since each is a shared surface:
+
+- `Value::occurrenceUuidsFor` gained `Object.name`. Free — the `Object`
+  join is already there for the uuid beside it — and it is what lets the
+  attachment chip print *url in #1545* rather than a uuid.
+- `ValuesController::renderRelationPanel` became `renderLivePanel`. The
+  name had already stopped being true at `viewExternal`; this phase is
+  the third tab to use it.
+- `ACLComponent` gained one entry, `viewAnalystReports`.
+
+### 16.1 What it costs
+
+Per endpoint, site admin, measured through the facade on a quiet box
+(load average 1.5) with the query log's 200-row cap lifted:
+
+| Value | Standing | Thread | Reports | Q |
+|---|---|---|---|---|
+| `8.8.8.8` | 13 ms | 13 ms | 6 ms | 22 / 22 / 18 |
+| `google.com` | 12 ms | 11 ms | 5 ms | 28 / 28 / 16 |
+| `2.2.2.2` | 7 ms | 7 ms | 3 ms | 12 / 12 / 10 |
+| `94.156.177.68` | 7 ms | 6 ms | 2 ms | 14 / 14 / 4 |
+| `b1` | 3 ms | 3 ms | 1 ms | 7 / 7 / 2 |
+| `443` | 111 ms | 114 ms | 100 ms | 8 / 8 / 2 |
+
+**The query count tracks how much analyst content exists, not the
+value's size** — which is §14.4's batching rule holding. `443` has
+48,255 occurrences and is the *cheapest* value on the board in queries,
+because nothing is written about it: the union finds no anchors with
+rows and the level read stops immediately. `google.com` is the most
+expensive at 28 and has nine occurrences, because its thread nests three
+deep and each level is two more reads.
+
+**`443`'s ~100 ms is `Value::occurrenceUuidsFor` and not this tab.**
+It is the same component phase 25 measured at 1,067 ms on the same
+value; the difference is the cap — 300 rows here against that phase's
+larger read — and it is the whole of all three endpoints' time on that
+value.
+
+**Where the queries go**, on a value with content: one occurrence read,
+two tag reads and one `fetchGalaxyClusters` for the anchor set, then two
+per thread level including the probe past the last drawn one, then two
+for proposals. The ACL machinery behind `fetchGalaxyClusters` and
+`fetchReports` accounts for the rest.
+
+### 16.2 Two findings for whoever owns these models
+
+Neither is this phase's to fix and both are recorded rather than
+absorbed.
+
+1. **`AnalystData::$fetchedUUIDFromRecursion` is never cleared within a
+   request** — §7.2. Routed around here by not calling the method at
+   all, which is call 3's answer, so this page cannot be the thing that
+   surfaces it. It remains true for every caller of
+   `fetchChildNotesAndOpinions`.
+2. **Eleven `notes` rows name an organisation that does not exist**, and
+   `rearrangeOrganisation` returns a record with a null name rather than
+   saying so. Every reader of analyst data on this instance prints
+   *Unknown organisation* for them; this page groups on the uuid so at
+   least two such organisations stay apart (§6.4).
+
+---

@@ -307,6 +307,7 @@ that own them, not defects:
 | tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's.** The two *badges* naming converted tabs were corrected on 2026-08-28 — see §14.10 |
 | the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
 | `06-timeline.md`, the tab's own `.vp-acl-note` band (`value_timeline.ctp:1235`, from `timeline.acl_note`) | *"Four of this value's nine occurrences are on events you cannot see, and nothing they contribute is in this chronology."* | band and key removed — **applied, phase 25**. This row was missing until 2026-09-04, added by the phase that was the first in a position to notice it. `25-timeline.md` §12 |
+| `05-analyst.md` §8, the thread's `.vp-acl-note` band (`value_analyst_thread.ctp:628`, from `analyst.acl_note`) | *"analyst data exists here that you cannot see"* — stated **without a count**, because `05-analyst.md` §11 recorded that the count is not obtainable | band and key removed — **applied, phase 26**. Its §11 concluded that an unobtainable count justified stating existence alone; it does not. An existence claim with the number filed off is the same disclosure with no way to gauge it, which is worse than a count and not milder. `26-analyst.md` §10.1 |
 
 **The exception: a permanent line wherever the page renders a computed
 judgement.** Always shown, on every value, identical for every reader —
@@ -329,6 +330,15 @@ a count does not.** A count being viewer-scoped is invisible and harmless — th
 is the whole of §14.6. A judgement being viewer-scoped is a number people
 disagree about out loud. A later phase that computes rather than counts should
 expect to add the third.
+
+**Phase 26 added the third, as predicted.** `value_analyst_standing` computes a
+mean, ten buckets, the widest empty band and a per-organisation rollup — none of
+which exists anywhere in MISP — over the opinions `AnalystData::buildConditions`
+lets this reader see. Measured on `8.8.8.8`: a site admin's thread holds six
+items and a CIRCL org admin's holds four, so the two readers are computing over
+different sets on the same value on the same afternoon. The panel carries the
+permanent line; `value_analyst_thread` beside it gets nothing, because it
+renders rows rather than a judgement. `26-analyst.md` §10.1.
 
 **What this costs, stated plainly.** §1.3 founded the page on three visually
 distinct states — *not implemented*, *nothing to show*, *hidden from you by
@@ -498,7 +508,7 @@ account for.
 
 ### 14.12 The conversion board
 
-Thirty endpoints, each rendering one element — twenty-seven until 2026-09-02, when three Relationships rows turned out to be missing rather than absent. This is the fine-grained
+Thirty-one endpoints, each rendering one element — twenty-seven until 2026-09-02, when three Relationships rows turned out to be missing rather than absent, and thirty until 2026-09-05, when phase 26 added the Analyst tab's report list. This is the fine-grained
 record of the campaign: a live phase fills in its rows and nothing else claims
 to know which elements are still fixture-backed. Tab-level status lives in
 `value-profile-page.md` §1.4 — **§1.4 says whether, this table says what.**
@@ -535,12 +545,13 @@ document that filled it.
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Relationships | `viewRelationSettings` | `value_relation_settings` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
-| Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
-| Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
+| Analyst | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
+| Analyst | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
+| Analyst | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Fifteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Eighteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
@@ -702,7 +713,7 @@ its decisions and deferrals live; this is only the map.
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
 | 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **closed 2026-09-05** — T1–T30 done; §1 is the board, §1.1 its twelve decisions, §16 the build log, and §26–§29 four rounds of reader feedback taken over the closed phase |
-| 26 | Analyst data — two endpoints, the aggregate nothing in MISP computes, and the thread | [`26-analyst.md`](26-analyst.md) | **opened 2026-09-05** — nothing built; §1 is the board, §1.1 the seven decisions it took before building, §11 the three calls it cannot take alone |
+| 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list | [`26-analyst.md`](26-analyst.md) | **built 2026-09-05** — T1–T12 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, and §16 the build log |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
@@ -848,6 +859,16 @@ expect:
   **Whoever converts a tab next: check its badge.** Relationships, Enrichment
   and Analyst are each carrying a fixture literal that will start lying the day
   their panels stop doing so.
+
+  **Analyst's is gone — phase 26 dropped it rather than wiring it**, which is
+  the third of the three ways out that phase's §10.2 named. Two reasons, both
+  already on the Timeline and History tabs: it is the *viewer's* count, since
+  `AnalystData::buildConditions` scopes every note and opinion and a CIRCL org
+  admin reads four items on `8.8.8.8` where a site admin reads six; and a badge
+  that agreed with the panel would have to do the panel's work, which is a
+  five-anchor union costing 7 to 28 queries — not a price to pay at page load
+  for a tab nobody may open. **Relationships and Enrichment still carry
+  theirs.**
 
 **What phase 24 leaves behind.** One new file every later phase inherits —
 `app/Lib/Tools/ValueRelationTool.php` — plus six accessors on `Value`, one new
