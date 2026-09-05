@@ -7866,6 +7866,48 @@ th.vp-rel-num {
     opacity: 0.85;
 }
 
+/* One event report in the narrative list. A document, not a turn in
+   the thread beside it, so it is a block rather than a .vp-analyst. */
+.vpa-report {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vpa-report:last-of-type {
+    border-bottom: 0;
+}
+
+/* Withdrawn: still listed, because somebody wrote it and somebody
+   withdrew it, and both are part of who said what. */
+.vpa-report-gone .vpa-report-name,
+.vpa-report-gone .vpa-report-extract {
+    opacity: 0.6;
+}
+
+.vpa-report-name {
+    font-weight: 600;
+    color: var(--bs-body-color);
+    text-decoration: none;
+}
+
+.vpa-report-name:hover {
+    text-decoration: underline;
+}
+
+.vpa-report-extract {
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.vpa-report-more {
+    color: var(--bs-secondary-color);
+}
+
 /* What a proposal proposes, said in the page's own words rather than
    left inside the proposer's comment — which may be empty. */
 .vpa-proposal-what {

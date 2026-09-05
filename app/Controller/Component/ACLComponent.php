@@ -1080,6 +1080,7 @@ class ACLComponent extends Component
             'viewEnrichment' => array('theming_enabled'),
             'viewAnalystStanding' => array('theming_enabled'),
             'viewAnalystThread' => array('theming_enabled'),
+            'viewAnalystReports' => array('theming_enabled'),
             'viewTimeline' => array('theming_enabled'),
             'viewHistory' => array('theming_enabled'),
         ),

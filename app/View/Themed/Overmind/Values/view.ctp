@@ -656,6 +656,15 @@ $tabRegistry = array(
         'left' => array(
             $panel('viewAnalystStanding'),
             $panel('viewAnalystThread'),
+            /*
+             * The narrative list, added by phase 26 —
+             * `value-profile-coverage.md` §4.5 places event reports on
+             * this tab, and a report is a document rather than a turn
+             * in the thread above it. Its own endpoint, because it is
+             * one `fetchReports` over the value's events and should not
+             * wait on the thread's five-anchor union.
+             */
+            $panel('viewAnalystReports'),
         ),
         'right' => null,
     ),

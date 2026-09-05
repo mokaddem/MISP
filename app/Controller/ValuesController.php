@@ -574,6 +574,28 @@ class ValuesController extends AppController
     }
 
     /**
+     * The tab's third panel: the event reports written about the events
+     * this value sits in.
+     *
+     * Its own endpoint rather than a third region of the thread's,
+     * because it is a different question of a different model and
+     * answers at a different speed — the reports read is one
+     * `fetchReports` over the value's events and never waits for the
+     * thread's five-anchor union.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewAnalystReports($b64value = null)
+    {
+        $this->renderLivePanel(
+            $b64value,
+            'forAnalystReports',
+            'value_analyst_reports'
+        );
+    }
+
+    /**
      * The Timeline tab: the spine, the source lanes and the
      * chronology, in one panel.
      *

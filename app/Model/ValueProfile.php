@@ -507,6 +507,24 @@ class ValueProfile extends AppModel
     const ANALYST_GALAXY_TAG_CAP = 100;
 
     /**
+     * Reports the narrative list draws before it states a remainder.
+     *
+     * A cap with a stated remainder rather than a page parameter: the
+     * rows come from every event a value sits in, and `443` sits in
+     * thousands. Phase 25's D2 pattern.
+     */
+    const ANALYST_REPORT_CAP = 50;
+
+    /**
+     * Characters of a report's body carried for its extract.
+     *
+     * `event_reports.content` is `mediumtext` and has no length limit
+     * in practice, so a list of twenty reports could be a megabyte of
+     * markdown fetched to render four lines of each.
+     */
+    const ANALYST_REPORT_HEAD = 600;
+
+    /**
      * Days the brush's default window covers.
      *
      * The fixture pinned a window per value — a fixed date to its own
@@ -9288,6 +9306,170 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The event reports written about this value's events.
+     *
+     * **The third panel on the tab, and the one that is a list rather
+     * than an argument.** `value-profile-coverage.md` §4.5 places
+     * reports here — narrative analyst content about the value's
+     * context, beside the notes and opinions — and it is a separate
+     * panel rather than more thread items because a report is a
+     * document, not a turn in a conversation: dropping a 5,000-word
+     * report between two one-line notes buries both.
+     *
+     * **Every row is about an event, and says so.** Nothing addresses
+     * a value, so what this panel can honestly state is *a report was
+     * written about an event this value is in* — the same half-union
+     * the thread's event anchors take, and the same sentence phase 25's
+     * report lane carries.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forAnalystReports(array $user, $value,
+        array $options = array()
+    ) {
+        $events = $this->analystEventIds($user, $value, $options);
+        return array(
+            'value' => $value,
+            'analyst_reports' => $this->analystReports(
+                $user,
+                $events['ids']
+            ) + array('occurrence_capped' => $events['capped']),
+        );
+    }
+
+    /**
+     * The events this value occurs in, for a panel that needs no other
+     * anchor. One query, and never the cluster resolution the thread's
+     * union pays for.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array ids => event ids, capped => whether the occurrence
+     *               read stopped at its cap
+     */
+    private function analystEventIds(array $user, $value,
+        array $options = array()
+    ) {
+        $occurrences = $this->model('Value')->occurrenceUuidsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::ANALYST_OCCURRENCE_CAP,
+                'order' => self::OCCURRENCE_ORDER,
+            ))
+        );
+        $ids = array();
+        foreach ($occurrences as $occurrence) {
+            $ids[$occurrence['event_id']] = true;
+        }
+        return array(
+            'ids' => array_keys($ids),
+            'capped' => count($occurrences)
+                >= self::ANALYST_OCCURRENCE_CAP,
+        );
+    }
+
+    /**
+     * The reports, newest first.
+     *
+     * **Through `fetchReports` and never
+     * `EventReport::attachReportCountsToEvents`.** That method's
+     * non-site-admin branch ANDs `distribution IN (1,2,3,5)` with
+     * `distribution = 4` where an `'OR' =>` was intended
+     * (`EventReport.php:392-407`), so it returns 0 for every event the
+     * viewer's org does not own. It ships and it is on the standing
+     * do-not-fix list; phase 25's report lane routed around it and this
+     * panel does the same rather than inherit the defect into a fifth
+     * surface.
+     *
+     * **`timestamp` is when the report last changed, not when it was
+     * written.** `event_reports` has no `created` column and
+     * `EventReport::touch()` rewrites the one it has on every edit. A
+     * soft-deleted report saves only its `deleted` column, so a
+     * withdrawn report keeps the date of its last content edit — the
+     * asymmetry with a resolved proposal, which *is* stamped at
+     * resolution, is worth knowing and both rows say which they are.
+     *
+     * @param array $user
+     * @param array $eventIds
+     * @return array
+     */
+    private function analystReports(array $user, array $eventIds)
+    {
+        $out = array(
+            'rows' => array(),
+            'events' => count($eventIds),
+            'total' => 0,
+            'withdrawn' => 0,
+            'capped' => false,
+        );
+        if (empty($eventIds)) {
+            return $out;
+        }
+        $rows = $this->model('EventReport')->fetchReports(
+            $user,
+            array('conditions' => array(
+                'EventReport.event_id' => $eventIds,
+            ))
+        );
+        $reports = array();
+        foreach ($rows as $row) {
+            $report = $row['EventReport'];
+            $withdrawn = !empty($report['deleted']);
+            if ($withdrawn) {
+                $out['withdrawn']++;
+            }
+            $content = (string)$report['content'];
+            $reports[] = array(
+                'id' => (int)$report['id'],
+                'name' => $report['name'],
+                'event' => array(
+                    'id' => (int)$report['event_id'],
+                    'info' => isset($row['Event']['info'])
+                        ? $row['Event']['info']
+                        : null,
+                ),
+                'org' => isset($row['Event']['Orgc']['name'])
+                    ? $row['Event']['Orgc']['name']
+                    : __('Unknown organisation'),
+                'at' => (int)$report['timestamp'] > 0
+                    ? gmdate('Y-m-d', (int)$report['timestamp'])
+                    : null,
+                'distribution' => (int)$report['distribution'],
+                'sharing_group' => isset($row['SharingGroup']['name'])
+                    ? $row['SharingGroup']['name']
+                    : null,
+                'withdrawn' => $withdrawn,
+                /*
+                 * The head of the report rather than the report. A
+                 * report has no length limit and this panel shows a
+                 * list; carrying every byte of every one of them to
+                 * render four lines of each is the cost that would make
+                 * the panel worth not opening.
+                 */
+                'head' => mb_substr($content, 0, self::ANALYST_REPORT_HEAD),
+                'length' => mb_strlen($content),
+            );
+        }
+        $out['total'] = count($reports);
+        usort($reports, function ($a, $b) {
+            $byDate = strcmp((string)$b['at'], (string)$a['at']);
+            return $byDate !== 0 ? $byDate : $a['id'] - $b['id'];
+        });
+        if (count($reports) > self::ANALYST_REPORT_CAP) {
+            $out['capped'] = true;
+            $reports = array_slice($reports, 0,
+                self::ANALYST_REPORT_CAP);
+        }
+        $out['rows'] = $reports;
+        return $out;
+    }
+
+    /**
      * The union, the thread over it, and the two readings of it.
      *
      * One method for both endpoints because they are two readings of
@@ -9310,6 +9492,7 @@ class ValueProfile extends AppModel
         ));
         return array(
             'occurrences' => $anchors['occurrences'],
+            'capped' => $anchors['capped'],
             'counts' => $this->analystCounts($thread),
             'standing' => $this->analystStanding($thread),
             'thread' => $thread,
@@ -9391,6 +9574,14 @@ class ValueProfile extends AppModel
                 array_keys($eventIds)
             ),
             'occurrences' => count($occurrences),
+            /*
+             * The union is built from the newest cap-many occurrences,
+             * so on a value past the cap a note written on one this
+             * read did not reach is a note the tab cannot show. `443`
+             * has 48,255 occurrences and reaches 19 events; the panel
+             * says so rather than presenting a slice as the whole.
+             */
+            'capped' => count($occurrences) >= self::ANALYST_OCCURRENCE_CAP,
         );
     }
 

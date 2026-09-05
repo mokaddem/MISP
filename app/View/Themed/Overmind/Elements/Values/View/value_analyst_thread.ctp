@@ -825,6 +825,25 @@ if (!empty($thread)) {
         </div>
     </div>
 
+    <?php if (!empty($analyst['capped'])): ?>
+        <?php
+        /*
+         * The union is assembled from the newest cap-many occurrences,
+         * so past the cap a note written on one this read did not reach
+         * is a note the panel cannot show. Said rather than absorbed:
+         * this is the one condition under which the thread is a slice
+         * and looks exactly like a whole.
+         */
+        ?>
+        <p class="vp-aside-note"><?= h(sprintf(
+            __('This value has more occurrences than one read takes, so'
+                . ' the thread was assembled from the %s most recent of'
+                . ' them and their events. A note written on an older'
+                . ' occurrence is not shown.'),
+            $stats['shown']
+        )) ?></p>
+    <?php endif; ?>
+
     <?php
     /*
      * **No withheld-items band, and it was removed rather than
