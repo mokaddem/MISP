@@ -108,6 +108,30 @@ $sourceMeta = array(
         'icon' => 'fas fa-comment-dots',
         'token' => 'var(--vp-tl-opinion)',
     ),
+    /*
+     * MISP's own icon for an event report, the one `EventReports/view`
+     * puts in its header — a report on this axis should be the glyph a
+     * reader has already met on the page the row links to.
+     */
+    'report' => array(
+        'label' => __('Report'),
+        'plural' => __('event reports'),
+        'icon' => 'fas fa-file-lines',
+        'token' => 'var(--vp-tl-report)',
+    ),
+    /*
+     * Not MISP's own, and that is a collision rather than a
+     * disagreement: the product draws a proposal as `fa-comment-dots`
+     * (`NavbarHelper.php:221`), which is the glyph an opinion already
+     * wears two rows up. A pull request is what a proposal is — a
+     * change offered for someone else to accept or discard.
+     */
+    'proposal' => array(
+        'label' => __('Proposal'),
+        'plural' => __('proposals'),
+        'icon' => 'fas fa-code-pull-request',
+        'token' => 'var(--vp-tl-proposal)',
+    ),
     'edit' => array(
         'label' => __('Edit'),
         'plural' => __('edits'),
@@ -783,6 +807,33 @@ $lanes = array(
         'label' => __('Notes / Opinions'),
         'sub' => __('created, exact'),
         'sources' => array('note', 'opinion'),
+        'draw' => 'marks',
+    ),
+    /*
+     * Beside the analyst lane because it is the same union's other
+     * half: a report is written about an event, exactly as an
+     * event-level note is, and nothing in MISP addresses a value. The
+     * sub-label says which date it is, because `event_reports` has no
+     * `created` and a reader who assumes one would read every mark as
+     * the day the report was filed.
+     */
+    array(
+        'key' => 'reports',
+        'label' => __('Event reports'),
+        'sub' => __('last edited, on this value\'s events'),
+        'sources' => array('report'),
+        'draw' => 'marks',
+    ),
+    /*
+     * Beside Edits, because a proposal is an edit that has not
+     * happened — and the pair reads as one question: what changed, and
+     * what was asked to change.
+     */
+    array(
+        'key' => 'proposals',
+        'label' => __('Proposals'),
+        'sub' => __('last moved; a resolved one sits at its resolution'),
+        'sources' => array('proposal'),
         'draw' => 'marks',
     ),
     array(

@@ -120,7 +120,9 @@ Three accessors, each with a today form and a tomorrow form:
 // A condition fragment. Composes with buildConditions($user) untouched,
 // so every existing ACL fetcher keeps working exactly as it does today.
 Value::conditionsFor($value, array $options = [])
-    today     ['OR' => ['Attribute.value1' => $v, 'Attribute.value2' => $v]]
+    today     ['OR' => ['<alias>.value1' => $v, '<alias>.value2' => $v]]
+              $options['alias'] defaults to 'Attribute'; phase 25 added it
+              for 'ShadowAttribute', the second table carrying the pair
     tomorrow  a subquery or join against the value table(s)
 
 // An ACL'd id set, for the aggregation path in §14.4 tier 2.
@@ -535,10 +537,10 @@ document that filled it.
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
 | Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
 | Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
-| Timeline | `viewTimeline` | `value_timeline` | 16–33 | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25** |
+| Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7 | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7** |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
-Fourteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Fifteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 

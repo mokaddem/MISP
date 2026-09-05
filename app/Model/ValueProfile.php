@@ -6388,6 +6388,14 @@ class ValueProfile extends AppModel
             $audit[0],
             $audit[1],
             $spans,
+            /*
+             * The two the coverage survey owed this tab. Both are
+             * additive: neither reads anything the six above read, and
+             * a reader who was looking at this tab yesterday sees the
+             * same seven lanes plus two more.
+             */
+            $this->timelineProposalEntries($user, $value, $asked),
+            $this->timelineReportEntries($user, $context, $asked),
         );
         $entries = array();
         foreach ($lanes as $lane) {
@@ -7904,6 +7912,233 @@ class ValueProfile extends AppModel
             ),
             'span_to' => null,
         );
+    }
+
+    /**
+     * Proposals about this value, from either direction.
+     *
+     * `Value::proposalsFor` is the union and the argument for it; this
+     * turns each row into a claim. The lane is thin — 23 proposals on
+     * the whole instance — and real, which is why it is a lane and not
+     * a chip: a proposal is dated, and every other dated thing on this
+     * tab has an axis.
+     *
+     * **Every row is `latest` and not `exact`.** `shadow_attributes`
+     * has no `created` column; it has one `timestamp`, and MISP
+     * rewrites it on every change to the proposal. So the mark is where
+     * the proposal *last moved*, and the precision chip is the tab's
+     * existing way of saying exactly that.
+     *
+     * **`deleted = 1` means resolved, and cannot say how.** Accepting a
+     * proposal and discarding one both end at `setDeleted`
+     * (`ShadowAttribute.php:510`, reached from the accept path at
+     * `:991` and `:1024` and from discard at `:1075`), and that method
+     * writes `deleted = 1` **and stamps `timestamp` with the moment it
+     * ran**. Two consequences the rows carry rather than smooth over:
+     * a resolved proposal sits on the axis at its resolution and not at
+     * its proposal, and no row may say *withdrawn*, because the schema
+     * that would tell withdrawn from accepted does not exist.
+     *
+     * Epoch zero is excluded rather than plotted in 1970, as the
+     * publications lane excludes it. `timestamp` is `NOT NULL
+     * DEFAULT 0`, so the row is possible; none of this instance's 23 is
+     * one, which makes it a branch written from the schema rather than
+     * from an observation.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array|null $window
+     * @return array
+     */
+    private function timelineProposalEntries(array $user, $value,
+        array $window = null
+    ) {
+        $rows = $this->model('Value')->proposalsFor($user, $value);
+        $entries = array();
+        foreach ($rows as $row) {
+            if ($row['timestamp'] <= 0) {
+                continue;
+            }
+            $entries[] = array(
+                'at' => gmdate('Y-m-d H:i:s', $row['timestamp']),
+                'source' => 'proposal',
+                'precision' => 'latest',
+                'title' => $this->proposalClaim($row),
+                'note' => $this->proposalNote($row),
+                'org' => $row['org'],
+                'ref' => array(
+                    /*
+                     * The attribute it proposes against, which is null
+                     * for a standalone addition — the state
+                     * `value-profile-coverage.md` §2.2 found the rest
+                     * of this page blind to, and the one row shape here
+                     * that has no attribute to point at.
+                     */
+                    'attribute' => $row['target'] === null
+                        ? null
+                        : $row['target']['id'],
+                    'event' => $row['event_id'],
+                ),
+                'span_to' => null,
+            );
+        }
+        return $this->timelineLane($entries, array('proposal'), array(),
+            $window);
+    }
+
+    /**
+     * What one proposal proposes, in a phrase.
+     *
+     * Four shapes, and the third is the one the union exists for: a
+     * proposal that would replace one value with another is about both
+     * of them, and the arrow is what tells the reader which end of it
+     * they are standing on.
+     *
+     * @param array $row One `Value::proposalsFor` record
+     * @return string
+     */
+    private function proposalClaim(array $row)
+    {
+        if ($row['to_delete']) {
+            return sprintf(
+                __('%1$s — proposes deleting %2$s'),
+                $row['org'],
+                $row['value']
+            );
+        }
+        if ($row['target'] === null) {
+            return sprintf(
+                __('%1$s — proposes adding %2$s %3$s'),
+                $row['org'],
+                $row['type'],
+                $row['value']
+            );
+        }
+        if ($row['target']['value'] !== $row['value']) {
+            return sprintf(
+                __('%1$s — proposes %2$s → %3$s'),
+                $row['org'],
+                $row['target']['value'],
+                $row['value']
+            );
+        }
+        return sprintf(
+            __('%1$s — proposes editing %2$s'),
+            $row['org'],
+            $row['value']
+        );
+    }
+
+    /**
+     * Whether the proposal is still open, and what it hangs off.
+     *
+     * @param array $row One `Value::proposalsFor` record
+     * @return string
+     */
+    private function proposalNote(array $row)
+    {
+        $state = $row['deleted']
+            ? __(
+                'Resolved on this date — accepted or discarded, and'
+                . ' MISP records only that it closed.'
+            )
+            : __('Still open.');
+        $where = $row['target'] === null
+            ? __('A standalone addition, which no attribute stands'
+                . ' behind.')
+            : sprintf(
+                __('Proposed against attribute %s.'),
+                $row['target']['id']
+            );
+        return $state . ' ' . $where;
+    }
+
+    /**
+     * Event reports on the events this value sits in.
+     *
+     * The same union half the analyst lane takes and for the same
+     * reason: a report is written about an event, nothing addresses a
+     * value, and what this tab can honestly place on an axis is *a
+     * report was written about an event this value is in*. So every row
+     * names its event, exactly as an event-level note does.
+     *
+     * **Through `fetchReports` and never `attachReportCountsToEvents`.**
+     * That method's non-site-admin branch ANDs
+     * `distribution IN (1,2,3,5)` with `distribution = 4` where an
+     * `'OR' =>` was intended (`EventReport.php:392-407`), so it returns
+     * 0 for every event the viewer's org does not own. It ships, it is
+     * visible on the event index and the event view, it is on the
+     * standing do-not-fix list — and this lane reads through the
+     * correct `buildACLConditions` rather than inheriting the defect
+     * into a fifth surface.
+     *
+     * **`latest`, like the proposals lane and for a weaker reason.**
+     * `event_reports` has no `created` either; `timestamp` is set on
+     * create and rewritten by `EventReport::touch()` on every edit. The
+     * asymmetry with proposals is worth knowing: a soft-deleted report
+     * saves only its `deleted` column, so a withdrawn report keeps the
+     * date of its last content edit, where a resolved proposal is
+     * stamped with its resolution.
+     *
+     * @param array $user
+     * @param array $context From `timelineContext`
+     * @param array|null $window
+     * @return array
+     */
+    private function timelineReportEntries(array $user, array $context,
+        array $window = null
+    ) {
+        if (empty($context['scope']['events'])) {
+            return $this->timelineLane(array(), array('report'), array(),
+                $window);
+        }
+        $rows = $this->model('EventReport')->fetchReports(
+            $user,
+            array('conditions' => array(
+                'EventReport.event_id' => $context['scope']['events'],
+            ))
+        );
+        $entries = array();
+        foreach ($rows as $row) {
+            $report = $row['EventReport'];
+            $stamp = (int)$report['timestamp'];
+            if ($stamp <= 0) {
+                continue;
+            }
+            $eventId = (int)$report['event_id'];
+            /*
+             * The creator organisation off the contained event, which
+             * is the same attribution every other row on this tab
+             * carries — and the report has no org of its own to offer.
+             */
+            $org = isset($row['Event']['Orgc']['name'])
+                ? $row['Event']['Orgc']['name']
+                : __('Unknown organisation');
+            $entries[] = array(
+                'at' => gmdate('Y-m-d H:i:s', $stamp),
+                'source' => 'report',
+                'precision' => 'latest',
+                'title' => sprintf(
+                    __('%1$s — “%2$s”'),
+                    $org,
+                    $report['name']
+                ),
+                'note' => empty($report['deleted'])
+                    ? sprintf(__('event report on event %s'), $eventId)
+                    : sprintf(
+                        __('withdrawn event report on event %s'),
+                        $eventId
+                    ),
+                'org' => $org,
+                'ref' => array(
+                    'attribute' => null,
+                    'event' => $eventId,
+                ),
+                'span_to' => null,
+            );
+        }
+        return $this->timelineLane($entries, array('report'), array(),
+            $window);
     }
 
     /**

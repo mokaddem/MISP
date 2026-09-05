@@ -51,15 +51,18 @@ Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
 endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
 render their own content; nothing on the page is a placeholder.
 
-**Phases 22, 23, 24 and 24B are the live campaign so far**, and
+**Phases 22, 23, 24, 24B and 25 are the live campaign so far.**
 Relationships **closed on 2026-09-04** — phase 24 built it and subphase
 B's sixteen tasks finished it; `live/24b-relationships.md` §20 is what
-that phase hands on. The Occurrences, Sightings and Relationships tabs
-now read the database; the other six tabs still read the fixture, so the
-two regimes sit side by side until the campaign finishes. **Nothing
-writes**, on either side. `live/00-contract.md` §14.12 is the
-panel-level record — fourteen of thirty endpoints have moved, and four
-Relationships rows closed imperfect, named there and in §20.4.
+that phase hands on. **Timeline closed on 2026-09-05**, its last two
+rows the proposals and event-report lanes the coverage survey owed
+(`live/25-timeline.md` §25). The Occurrences, Sightings, Relationships
+and Timeline tabs now read the database; the other five tabs still read
+the fixture, so the two regimes sit side by side until the campaign
+finishes. **Nothing writes**, on either side. `live/00-contract.md`
+§14.12 is the panel-level record — fifteen of thirty endpoints have
+moved, and four Relationships rows closed imperfect, named there and in
+§20.4.
 
 Two of the thirteen are on a tab whose phase has not run: the **Overview's**
 `value_sightings` card was converted with phase 23's follow-ups, because it is
@@ -118,7 +121,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 22 | Occurrences goes live — the first live phase | `live/22-occurrences.md` | built |
 | 23 | Sightings goes live — all five panels, and the decay aggregation rule decided | `live/23-sightings.md` | built |
 | 24 | Relationships goes live — all five panels, and the rail's graph made real | `live/24-relationships.md` | **closed 2026-09-04** |
-| 25 | Timeline goes live — one endpoint, nine lanes, and the audit ACL model §8.2 left open | `live/25-timeline.md` | **opened 2026-09-04** — nothing built |
+| 25 | Timeline goes live — one endpoint, nine lanes, and the audit ACL model §8.2 left open | `live/25-timeline.md` | **closed 2026-09-05** — all 25 rows built |
 | 24B | Relationships, the insight pass over the built tab — sixteen tasks, converts nothing | `live/24b-relationships.md` | **closed 2026-09-04** (§20 carries it forward) |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
@@ -138,7 +141,7 @@ goes first argues why in its own document.
 | **24** | **Relationships** | [`live/24-relationships.md`](value-profile-live/24-relationships.md) | **CLOSED 2026-09-04** — all five panels, and the rail's graph is now real (§10). Found that **the correlation engine has nothing to say about a value** and that section one has to be an event join (§3). All three concepts **deferred with reasons** (§14); feed co-occurrence is the one piece of real upside left. **Subphase B shipped sixteen tasks** over the built tab and the phase **closed 2026-09-04** — [`live/24b-relationships.md`](value-profile-live/24b-relationships.md), whose §20 lists what it hands on: five items waiting on somebody else, a promote list that should be **measured before it is built** (§20.3), and four unrecorded board rows (§20.4) |
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing. **Re-checked 2026-09-04** and still true in all three parts: `Module` is `useTable = false`, no per-value/per-module run store or dismissal store exists among the instance's 106 tables, and `Event::enrichmentRouter()` returns at `Event.php:7998` above its own `MISP.background_jobs` branch, so the interactive path is synchronous whatever the setting says. It is a schema phase, not a conversion phase — `live/25-timeline.md` §2 |
 | 22+ | Analyst data | — | not started |
-| **25** | **Timeline** | [`live/25-timeline.md`](value-profile-live/25-timeline.md) | **opened 2026-09-04 — nothing built.** Closes §8.2's open audit-ACL choice (§5), splits counts from rows because one value's history is 162,539 entries (§6), and adds two lanes the coverage survey owes — proposals and event reports (§10). Found §14.6's required-changes table missing this tab's own ACL band (§12). **§1.1 is the decision register and §1.2 the cold start**; [`25-timeline-probe.sql`](value-profile-live/25-timeline-probe.sql) re-derives every instance number in it |
+| **25** | **Timeline** | [`live/25-timeline.md`](value-profile-live/25-timeline.md) | **CLOSED 2026-09-05 — all 25 rows built.** Closes §8.2's open audit-ACL choice (§5), splits counts from rows because one value's history is 162,539 entries (§6), and found §14.6's required-changes table missing this tab's own ACL band (§12). Six review rounds over the built tab are §17–§22, and §23–§24 replaced the mark lanes with density profiles. **§25 is the last two rows**: the proposals and event-report lanes the coverage survey owed, which also close that survey's §2.4 — the `alias` option on `Value::conditionsFor()`. Found that a proposals lane needs **two** scopes, not one (§25.2), that `deleted = 1` on a proposal means *resolved* and cannot say whether it was accepted (§25.3), and two pre-existing defects neither lane introduced (§25.5, §25.6). **§1.1 is the decision register and §1.2 the cold start**; [`25-timeline-probe.sql`](value-profile-live/25-timeline-probe.sql) re-derives every instance number in it |
 | 22+ | History | — | not started |
 
 #### What a fresh session must not break
@@ -184,8 +187,10 @@ so it need not be reassembled from fourteen sections.
 | Shared-code defects | §7.9, `live/22-occurrences.md` §13.3, `value-profile-coverage.md` §7 | the `bg-light` bulk bar, the `border-dark` type badge, `DistributionLevel`'s level-1 tint at 4.09:1, and `EventReport::attachReportCountsToEvents` returning 0 for every event the viewer's org does not own (`EventReport.php:386`, missing `'OR' =>`; shipped, visible on the event index and event view) — all reported and deliberately unfixed |
 | Feed hits are gated one way and searched another | `value-profile-coverage.md` §3.2, §7, `tabs/03-relationships.md` §20.2 | `Feed::searchCaches()` applies no role check, so the panel must gate its own output. **Resolved 2026-09-01 (B3), after shipping wrong once:** the gate is `lookup_visible` against `perm_site_admin`, not `perm_view_feed_correlations` — the permission decides whether feed correlations appear, never which feeds may be named, and an upgrade migration sets it on every role. `live/24b-relationships.md` §5.1 has the before/after diff per reader |
 | The feed cache is written raw and read lowercased | `value-profile-coverage.md` §3.3, §7 | `searchCaches` hashes `md5(strtolower(trim($v)))`, the write paths and `attachFeedCorrelations` hash raw. The two readers disagree in both directions on any value with an uppercase character, and the page's `utf8mb3_bin` identity is a third answer. Not fixable from this page |
-| A proposal-only value renders as unknown | `value-profile-coverage.md` §2.2 | proposals are counted over the occurrence row ids, so a proposed *addition* (`ShadowAttribute.old_id = 0`) is invisible to the whole page. Correct for a badge; a defect against §1.1's claim |
-| §14.3's seam needs an `alias` option | `value-profile-coverage.md` §2.4 | `Value::conditionsFor()` hardcodes the `Attribute` alias; proposals need `ShadowAttribute.value1`/`value2`, which §14.3's rule forbids writing anywhere else. **The one item here that gets more expensive per live phase that ships** |
+| A proposal-only value renders as unknown | `value-profile-coverage.md` §2.2, `live/25-timeline.md` §25.9 | proposals are counted over the occurrence row ids, so a proposed *addition* (`ShadowAttribute.old_id = 0`) is invisible to the whole page. Correct for a badge; a defect against §1.1's claim. **One item less blind since 2026-09-05**: `Value::proposalsFor()` finds those rows, and `2.2.2.3` is a real instance value it returns one for — but `forTimeline` still returns null for a value the viewer holds no occurrence of, because a tab that rendered where the rest of the page says *unknown* would disagree with its own page. The fetcher exists; the page-level decision does not |
+| ~~§14.3's seam needs an `alias` option~~ | `value-profile-coverage.md` §2.4, `live/25-timeline.md` §25.1 | **Closed 2026-09-05.** `Value::conditionsFor($value, ['alias' => 'ShadowAttribute'])` ships, defaulting to `Attribute`; none of the fourteen call sites passes the key, and all three call shapes in use were asserted `===` the array the old code built. This was the one item here with a cost per live phase deferred, and the phase that needed it is the phase that added it |
+| Two shipping source colours are indistinguishable under deutan | `live/25-timeline.md` §25.5 | `--vp-tl-opinion` `#f39a1f` and `--vp-tl-seen` `#97CC04` measure **ΔE2000 0.9** under deutan simulation, in both themes. §23.6's check 9 measured *worst adjacent* pairs and got 16.6; these two are not adjacent in the legend, so nothing had looked at them. They are adjacent segments in the spine's own stack. Found while choosing a colour for the proposals lane, not introduced by it |
+| The two lane renderers drift by ≤0.01 units in `width` | `live/25-timeline.md` §25.6 | `$binBox` computes the column width from the **unrounded** x, `tlColumns` from the **rounded** one. Under a hundredth of a pixel and invisible, but it falsifies §24.7's check 2 — *rect-for-rect identical* — for the whole tab. Measured at 78 of 219 rects over 28 lane comparisons, spread across every mark lane. Unfixed because `tlColumns` is shared by all seven, so changing it needs all seven re-verified |
 | §8.2's datable-source scoreboard is missing two sources | `value-profile-coverage.md` §7 | `shadow_attributes.timestamp` and `event_reports.timestamp` are both `int NOT NULL` and both usable. Changes Timeline's evidence base, not its verdict on tags and feeds |
 | First/last seen has no date filter | `live/22-occurrences.md` §13.2 | the Time ranges cut on instants; an interval needs an overlap test, which is one more matcher |
 | Per-phase deferrals | each phase's Deferred subsection | §9.12, §10.6, §11.7, §12.7, §13.7 |

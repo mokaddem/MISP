@@ -31,8 +31,8 @@ to `done` only when §14's verification has run against it.
 | T7 | Seen-span lane, no merging, capped, remainder stated | §7 | **done** |
 | T8 | Edit lane on the audit rows, with the not-recorded branch kept | §5, §6 | **done** |
 | T9 | Undated strip: tags, galaxy clusters, feeds — matched by key | §11, §14.1 | **done** |
-| T10 | Proposals lane | §10 | todo |
-| T11 | Event reports lane | §10 | todo |
+| T10 | Proposals lane | §10, §25 | **done** |
+| T11 | Event reports lane | §10, §25 | **done** |
 | T12 | The spine's grain taken from the range, not pinned | §9, §16.2 | **done** |
 | T13 | Remove the ACL band §14.6 forbids and §14.6's table missed | §12 | **done** |
 | T14 | The board rows: §14.12 `viewTimeline`, and this document's numbers | §14.12, §16.5 | **done** |
@@ -48,14 +48,16 @@ to `done` only when §14's verification has run against it.
 | T24 | The tab says when the instance first held the value | §22.3 | **done** |
 | T25 | The tag set is placed at each tag's first attach | §22.7 | **done** |
 
-**Where the phase stands.** Twenty-three of twenty-five rows are done and the tab reads
-the database: the endpoint is wired, six dated lanes and the off-axis strip
-are live, and the panel renders with no fixture behind it for either reader
-class and with the audit log on or off. **T10 and T11 are the whole of what is
-left** — two additive lanes, proposals and event reports, whose fetchers §10
-has already chosen and whose absence today is a lane that does not exist rather
-than a lane that lies. §16 is the build log; §17 to §22 are what the first
-reader of the built tab asked for over six rounds, and T15 to T25 are that.
+**Where the phase stands. Every row is done and the phase is closed
+(2026-09-05).** The tab reads the database: the endpoint is wired,
+**eight** dated lanes and the off-axis strip are live, and the panel
+renders with no fixture behind it for either reader class and with the
+audit log on or off. §16 is the build log; §17 to §22 are what the first
+reader of the built tab asked for over six rounds, and T15 to T25 are
+that. **§25 is T10 and T11**, the two lanes the coverage survey owed,
+and it closes `value-profile-coverage.md` §2.4 — the one item in that
+survey with a cost per live phase deferred — by giving
+`Value::conditionsFor()` the `alias` option a second value table needs.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -643,7 +645,7 @@ row 2 is filled by measurement, not by estimate, and a blank here is a row
 | Notes / Opinions | `notes`, `opinions` | `AnalystData::fetchChildNotesAndOpinions` over the occurrence ∪ event union | 1 | §8's labelling; `rearrangeOrganisation`'s nesting; one `object_type` that is not a type |
 | Edits | `audit_logs` | §5's three id-scoped reads | 1 rows, 2 counts | §3.3's 162,539; and the not-recorded branch, which this instance cannot show |
 | Seen spans | `attributes.first_seen` / `last_seen` | already on the occurrence rows | 1 | §7's cap; microsecond epochs; instants outnumbering spans 2:3 |
-| Proposals | `shadow_attributes.timestamp` | ACL'd fetch, `old_id` kept for the row's wording | 1 | thin data — 23 rows instance-wide |
+| Proposals | `shadow_attributes.timestamp` | ACL'd fetch, `old_id` kept for the row's wording | **2**, and see §25.2 | thin data — 23 rows instance-wide |
 | Event reports | `event_reports.timestamp` | ACL'd fetch, **not** `attachReportCountsToEvents` | 1 | §10's shipped defect |
 | Tags — undated | `attribute_tags`, `event_tags` | `Value::ownTagsFor` | 1 | `193.161.193.99` carries **670** attribute tags and `8.8.8.8`'s events 69 event-tag rows over 48 distinct tags. The strip's chip list needs a bound the fixture never needed |
 | Feeds — undated | Redis feed/server caches | phase 24's `forExternal`, unchanged | the fourth tier §14.12 describes and §14.4 lacks | none new; the `as_of` is `misp:feed_cache_timestamp:<id>` and dates the fetch |
@@ -707,9 +709,9 @@ dated, which is the loss §14.6 already priced and took deliberately.
 
 | Concept | Verdict | Why |
 |---|---|---|
-| Proposals | **yes — built** | §10. `shadow_attributes.timestamp` is dated, which §8.2's scoreboard missed; the lane is thin on this instance and real |
-| Feeds / servers | **no — already settled** | `06-timeline.md` §12 proves it from `Feed.php:1573`: one timestamp per feed, rewritten on every refresh. The hatched lane renders the exclusion honestly, and there is nothing to redo |
-| Event reports | **yes — built** | §10. `event_reports.timestamp`, 174 on the instance, 8 on `8.8.8.8`'s events |
+| Proposals | **yes — built 2026-09-05** | §10 for the verdict, **§25 for the build**. `shadow_attributes.timestamp` is dated, which §8.2's scoreboard missed; the lane is thin on this instance and real, and §25.2 found it needs two scopes rather than the one §10 assumed |
+| Feeds / servers | **no — already settled** | `06-timeline.md` §12 proves it from `Feed.php:1573`: one timestamp per feed, rewritten on every refresh. §22.6 then removed the hatched lane entirely — there is no period for a feed to be quiet in, and the off-axis chip keeps the fact on the tab |
+| Event reports | **yes — built 2026-09-05** | §10 for the verdict, **§25 for the build**. `event_reports.timestamp`, 174 on the instance, 8 on `8.8.8.8`'s events and 7 of those to an org admin of another org — which is the ACL working where `attachReportCountsToEvents` would have returned 0 |
 
 ---
 
@@ -2142,3 +2144,255 @@ twelve month names `months` already carried:
 it on this stack risks the `config.php` ownership fault, so the branch
 is written to match the mark version it replaces and is stated here as
 untested rather than demonstrated.
+
+---
+
+## 25. The two lanes the coverage survey owed
+
+**T10 and T11, built 2026-09-05, and the phase closes with them.** §10
+chose both fetchers before anything was built and neither choice was
+overturned; what the build found is below, and one of the three findings
+falsifies a claim §24.7 made about the whole tab rather than about these
+two lanes.
+
+### 25.1 The seam grew the parameter §2.4 said it would
+
+`value-profile-coverage.md` §2.4 named `Value::conditionsFor()`'s
+hardcoded `Attribute` alias as **the one item in that survey with a cost
+per live phase that ships**, because `shadow_attributes` carries its own
+`value1`/`value2` pair and §14.3's rule is that no file but `Value` may
+spell those columns at all. This phase is the one that needed it, so
+this phase added it:
+
+```php
+Value::conditionsFor($value, array('alias' => 'ShadowAttribute'))
+// → ['OR' => ['ShadowAttribute.value1' => …, 'ShadowAttribute.value2' => …]]
+```
+
+It defaults to `Attribute`, and **none of the fourteen existing call
+sites passes the key** — three of them pass a page-wide options array
+that could have carried one, so the new fetcher builds its own array
+rather than forwarding the caller's. Asserted rather than assumed: the
+three call shapes in use (no options, `types`, and an options array
+carrying `limit`/`page`/`order`) each produce an array `===` to the
+literal the old code built.
+
+### 25.2 Two scopes, and one row on the instance proves both are needed
+
+The obvious scope for a proposals lane is *proposals against this
+value's occurrences*. It is wrong on its own, and so is its opposite.
+
+Proposal 12 proposes `2.2.2.3` against attribute 1495259, which holds
+`2.2.2.2`:
+
+| Reader is on | Reaches it by | What the row says |
+|---|---|---|
+| `2.2.2.2` | the **target** it points at | *ADMIN — proposes 2.2.2.2 → 2.2.2.3* |
+| `2.2.2.3` | the proposal's **own** columns | the same row, from the other end |
+
+Neither scope alone carries both readings, and this is not hypothetical:
+it is one of the instance's 23 proposals, and the **only** one of the 17
+attribute-targeted ones whose value differs from its target's. The other
+16 are reached both ways, which is why the union deduplicates by id
+rather than concatenating, and why `proposed` wins the tie — a proposal
+naming this value is about it more directly than one that merely targets
+a row holding it.
+
+**Two statements, not one `OR`.** The scopes sit on different columns of
+different tables, and an `OR` spanning those is the shape that cost the
+co-occurrence panel a full table scan. Each half matches a prefix index
+of its own; `shadow_attributes` carries `value1(255)` and `value2(255)`,
+the same shape `attributes` has.
+
+**The target scope is a join, not an id list.** `old_id` is a `belongsTo`
+to `MispAttribute`, so `ShadowAttribute::buildConditions` has already
+joined `Attribute` to express its own ACL — the value predicate rides
+that join for nothing. Written as `old_id IN (occurrence ids)` it would
+be an `IN` list of 48,255 integers on `443`.
+
+### 25.3 `deleted = 1` is *resolved*, and the schema cannot say how
+
+The build went looking for the word *withdrawn* and could not honestly
+write it. Accepting a proposal and discarding one both end at
+`ShadowAttribute::setDeleted()` (`:510`, reached from the accept path at
+`:991` and `:1024` and from discard at `:1075`), and that method writes
+`deleted = 1` **and stamps `timestamp` with the moment it ran**.
+
+Two consequences, both carried by the rows rather than smoothed over:
+
+- **A resolved proposal sits on the axis at its resolution**, not at its
+  proposal. There is no column that would place it anywhere else.
+- **No row may say *withdrawn*.** It says *Resolved on this date —
+  accepted or discarded, and MISP records only that it closed.*
+
+`shadow_attributes` has no `created` column at all, so every row on this
+lane is `latest` precision, which is the tab's existing chip for exactly
+this. `event_reports` has no `created` either — `timestamp` is set on
+create and rewritten by `EventReport::touch()` — so the reports lane is
+`latest` too. **The two are not symmetric**, and the sub-labels say so:
+a soft-deleted report saves only its `deleted` column, so a withdrawn
+report keeps the date of its last content edit where a resolved proposal
+is stamped with its resolution.
+
+### 25.4 What each lane draws
+
+| | Proposals | Event reports |
+|---|---|---|
+| Source | `shadow_attributes.timestamp` | `event_reports.timestamp` |
+| Scope | the value's own columns ∪ its occurrences' | the value's events |
+| Gate | `ShadowAttribute::buildConditions` | `EventReport::buildACLConditions` |
+| Precision | `latest` | `latest` |
+| Placed beside | Edits — a proposal is an edit that has not happened | Notes / Opinions — the same union's other half |
+
+**The report lane does not use `attachReportCountsToEvents`**, and D6 did
+not reopen: that method's non-site-admin branch ANDs
+`distribution IN (1,2,3,5)` with `distribution = 4` where an `'OR' =>`
+was intended (`EventReport.php:392-407`), returning 0 for every event the
+viewer's org does not own. It ships and it is on the standing
+do-not-fix list. Reading through `fetchReports` instead is visible in the
+verification: an org admin of org 9 sees **7** of `8.8.8.8`'s 8 reports,
+which is an ACL narrowing the event scope — not the zero the broken
+method would have returned.
+
+**The proposal lane's ACL is looser than the occurrence fetcher's, and
+that is MISP's rule rather than this page's.**
+`value-profile-coverage.md` §2.2 found that a standalone proposal
+(`old_id = 0`) is OR'd past the whole attribute-and-object distribution
+test, because there is no attribute to test, and is therefore gated by
+**event visibility alone**. Applied as MISP wrote it and stated here
+rather than tightened silently.
+
+### 25.5 The colour was measured, not chosen
+
+An event report is `--report` on every other MISP surface, so it is
+`--report` here — the same argument that gave the tag and cluster marks
+MISP's own two.
+
+A proposal has no MISP colour to inherit. The product's answer is amber:
+Overmind paints a standalone proposal row `--bs-warning`
+(`mainOvermind.css:1174`). **It cannot go there**, for two reasons that
+compound — the palette already spends three sources in the warm band
+(`#d97706`, `#f39a1f`, `#DB6A47`), and **`.vp-lane-cut` hatches in
+`--bs-warning` inside this very lane**, so an amber column and *these
+rows were not fetched* would be the same hue in the same box. §19.3 made
+that distinction load-bearing; an amber proposal would undo it.
+
+So it was picked by pairwise CIEDE2000 over the full palette under
+normal, deutan, protan and tritan simulation, in both themes:
+
+| Candidate | Worst ΔE | Nearest |
+|---|---|---|
+| `#1d4ed8` **chosen** | **10.2** | sighting (protan) |
+| `#4f46e5` indigo | 9.9 | cluster (protan) |
+| `#0f766e` teal | 8.8 | note (protan) |
+| `#6366f1` first try | **0.7** | cluster (protan) |
+
+`#1d4ed8` sits inside the shipping lightness band (L\* 39.0, band
+31.9–75.9) and clears 6.7:1 on the light ground; it manages only 2.5:1
+on the dark one, so it takes a dark-theme override the way `note` and
+`edit` already do — `#6ea8fe`, Bootstrap's own dark link blue, at 7.0:1
+and 8.2 ΔE from its nearest neighbour.
+
+**And the measurement found something it was not looking for.** The ten
+tokens that ship today have a pair at **ΔE 0.9 under deutan
+simulation — `opinion` `#f39a1f` and `seen` `#97CC04`** — in both
+themes. §23.6's check 9 measured *worst adjacent* separation and got
+16.6; these two are not adjacent in the legend, so nothing looked at
+them. They are in different lanes, but they are adjacent segments in the
+spine's own stack and in its key. **Pre-existing, not introduced here,
+and not fixed here** — recorded in the open backlog because changing a
+shipping source colour is a decision about the whole palette rather than
+about these two lanes.
+
+### 25.6 §24.6's invariant is not quite true, and was not true before this
+
+Verifying the two renderers over the new lanes turned up a drift in the
+shared column geometry, so the check was widened to all seven mark
+lanes. The two spell the same rounding in a different order:
+
+```php
+// value_timeline.ctp, $binBox
+$x  = $fractionFor(…) * $LANE_W;              // unrounded
+return array(round($x, 2), round(max(1.0, $to - $x - $BIN_GAP), 2));
+//                                        ↑ width from the UNROUNDED x
+```
+```js
+// value-profile.js, tlColumns
+var x = Math.round(edge(…) * 100) / 100;      // rounded first
+var w = Math.round(Math.max(1, edge(…) - x - gapX) * 100) / 100;
+//                                       ↑ width from the ROUNDED x
+```
+
+So the server's width can differ from the client's by up to 0.01 viewBox
+units — `6.71` against `6.70`, `6.45` against `6.46`. Over 740 units
+rendered at about 700px that is under a hundredth of a pixel, and it is
+invisible; what it is not is *rect-for-rect identical*, which is what
+§24.7's check 2 claimed for the whole tab.
+
+**Measured, not asserted**: 28 lane comparisons over 219 rects, four
+windows across three values, server fetch against client redraw —
+**0 real differences, 0 peak labels differing, 78 rects differing in
+`width` alone by ≤0.011**. The drift is spread across every lane; the
+two new ones carry their proportional share and no more. Left unfixed
+deliberately: `tlColumns` is shared by all seven mark lanes, so changing
+it is a change to the built tab that needs its own re-verification of
+all of them, which is not T10 or T11.
+
+### 25.7 What it costs
+
+Endpoint total, `forTimeline` end to end, best of four runs, and the two
+new fetchers timed on their own. **These are not comparable with §16.4's
+figures** — that table was taken at load 0.76 and this one between 1.30
+and 1.75, which is why the two lanes' own cost is given separately
+rather than as a difference of endpoint totals.
+
+| Value | Reader | `proposalsFor` | `fetchReports` | Endpoint |
+|---|---|---|---|---|
+| `8.8.8.8` | site admin | 4 ms, 1 row | 9 ms, 8 rows | 27 ms |
+| `8.8.8.8` | org admin (org 9) | 3 ms, 1 row | 6 ms, 7 rows | 35 ms |
+| `193.161.193.99` | site admin | 4 ms, 0 rows | 6 ms, 0 rows | 100 ms |
+| `443` | site admin | 3 ms, 0 rows | 18 ms, 2 rows | 3,234 ms |
+
+**Three statements between them** — two for the proposal union, one for
+the reports — and neither scales with the value. `443` is the case that
+could have: 1,844 events in the report scope and 48,255 occurrences that
+the target scope deliberately does not turn into an `IN` list. It costs
+21 ms of a 3,234 ms endpoint whose cost is where §16.4 left it, in
+`occurrenceIdsFor` and the audit aggregate.
+
+### 25.8 Verified
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l` on all three PHP files, 80 columns over the diff | clean |
+| 2 | **The seam is behaviour-identical** | all three existing call shapes `===` the literal the old code built; `alias` returns the `ShadowAttribute` pair |
+| 3 | **Both directions of the value-change case** | `2.2.2.2` draws proposal 12 as *2.2.2.2 → 2.2.2.3*; `2.2.2.3` draws the same row from the other end |
+| 4 | **All five proposal shapes render** | adding (standalone, `tinyurl.com`), deleting (`5.6.3.4`), value change (`2.2.2.2`), editing (`8.8.8.8`), resolved (`tinyurl.com`) |
+| 5 | **Three reader classes** | site admin / plain user / org admin of another org on `8.8.8.8`: 8 / 8 / **7** reports, 1 / 1 / 1 proposal, and the whole entry set 456 / 429 / 257 |
+| 6 | **The tokens resolve before any colour is asserted** (§6.1) | `--vp-tl-sighting` non-empty first; then `--vp-tl-proposal` `#1d4ed8`/`#6ea8fe` and `--vp-tl-report` `#4DA167` |
+| 7 | **The columns wear their own token** | `rgb(29,78,216)` light and `rgb(110,168,254)` dark for proposals, `rgb(77,161,103)` both for reports — computed fill against the resolved token, not against a literal |
+| 8 | **Nothing escapes its plot** | 0 bars outside the plot box, both lanes, both themes |
+| 9 | **The two renderers agree** | 28 lanes / 219 rects: 0 real differences, 0 peak labels differing (§25.6 has the 78 width-drift rects) |
+| 10 | **The brush rebins the new lanes** | `8.8.8.8` full range → 2025-02-01→2025-12-31: reports 5 → 3 columns, proposals 1 → 0, tag colours survive, no console error |
+| 11 | **Nine lanes on four values** | `8.8.8.8`, `2.2.2.2`, `193.161.193.99`, `443` — 9 axes each, no page or console error, no horizontal overflow at 1500px |
+| 12 | **The empty state** | `mughalmotifs.com` draws both lanes with 0 columns and no band — a lane with nothing in it, not a lane that lies |
+| 13 | Counts agree with rows | `8.8.8.8`: the count column reads *8 Report* / *1 Proposal* and the chronology carries 8 and 1 |
+
+**Not exercised.** A proposal or report with `timestamp = 0`: the column
+is `NOT NULL DEFAULT 0` on both tables so the row is possible, and none
+of this instance's 23 proposals or 174 reports is one. Both branches are
+written from the schema and excluded from the axis rather than plotted
+in 1970, matching the publications lane — stated here as untested rather
+than demonstrated.
+
+### 25.9 What these two lanes still do not reach
+
+**A value that exists only as a proposal still renders as unknown**, and
+this phase did not change that. `forTimeline` returns null when the
+viewer holds no occurrence of the value, so `2.2.2.3` — which the
+proposals fetcher finds a row for — gets no timeline at all. That is
+`value-profile-coverage.md` §2.2's finding, it is a property of the whole
+page rather than of this tab, and a Timeline that rendered for values the
+rest of the page calls unknown would be a tab disagreeing with its own
+page. It stays in the open backlog, one item less blind than it was: the
+fetcher that would serve it now exists.

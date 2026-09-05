@@ -135,6 +135,25 @@ class Value extends AppModel
     }
 
     /**
+     * MISP's proposal model. Its `$alias` is `ShadowAttribute`, which
+     * is the alias `conditionsFor` is asked for by name.
+     *
+     * @var ShadowAttribute
+     */
+    private $proposalModel = null;
+
+    /**
+     * @return ShadowAttribute
+     */
+    private function proposals()
+    {
+        if ($this->proposalModel === null) {
+            $this->proposalModel = ClassRegistry::init('ShadowAttribute');
+        }
+        return $this->proposalModel;
+    }
+
+    /**
      * The condition fragment that selects a value's occurrences.
      *
      * Composes with `MispAttribute::buildConditions($user)` untouched,
@@ -148,22 +167,38 @@ class Value extends AppModel
      * parameter nobody has to use now and saves revisiting every call
      * site later.
      *
+     * **`$options['alias']` is the same bargain, for a second table.**
+     * `shadow_attributes` carries its own `value1`/`value2` pair with
+     * the same semantics, so the Timeline's proposals lane needs this
+     * predicate spelled `ShadowAttribute.value1` — and §14.3's rule is
+     * that no file but this one may spell it at all. Defaulting to
+     * `Attribute` keeps every existing caller byte-identical; none of
+     * the fourteen passes the key.
+     *
+     * The parameter was named by `value-profile-coverage.md` §2.4 as
+     * the one item in that survey with a cost per live phase deferred,
+     * because a value table landing later has to answer the proposals
+     * question too and `shadow_attributes.value1` is a column that
+     * migration must either move or leave behind.
+     *
      * @param string $value
-     * @param array $options `types` narrows to a set of MISP types
+     * @param array $options `types` narrows to a set of MISP types;
+     *                       `alias` names the model the columns are on
      * @return array
      */
     public function conditionsFor($value, array $options = array())
     {
+        $alias = empty($options['alias']) ? 'Attribute' : $options['alias'];
         $conditions = array(
             'OR' => array(
-                'Attribute.value1' => $value,
-                'Attribute.value2' => $value,
+                $alias . '.value1' => $value,
+                $alias . '.value2' => $value,
             ),
         );
         if (!empty($options['types'])) {
             return array(
                 $conditions,
-                'Attribute.type' => $options['types'],
+                $alias . '.type' => $options['types'],
             );
         }
         return $conditions;
@@ -1122,6 +1157,188 @@ class Value extends AppModel
             );
         }
         return $set;
+    }
+
+    /**
+     * Every proposal that is about this value, from either direction.
+     *
+     * **Two scopes, and the instance holds exactly one row that proves
+     * both are needed.** Proposal 12 proposes `2.2.2.3` against
+     * attribute 1495259, which holds `2.2.2.2`:
+     *
+     * - `2.2.2.2` reaches it only through the *target*, and what it
+     *   says there is *someone proposed replacing this*.
+     * - `2.2.2.3` reaches it only through the proposal's own columns,
+     *   and what it says there is *someone proposed this as a
+     *   replacement*.
+     *
+     * Sixteen of the other seventeen attribute-targeted proposals carry
+     * the same value as their target and are reached both ways, which
+     * is why the union is deduplicated by id rather than concatenated.
+     *
+     * **Two statements and not one `OR`.** The two scopes sit on
+     * different columns of different tables — `ShadowAttribute.value1`
+     * and `Attribute.value1` — and an `OR` spanning them is the shape
+     * that cost the co-occurrence panel a full table scan. Each half
+     * here matches a prefix index of its own: `shadow_attributes` has
+     * `value1(255)` and `value2(255)`, the same shape `attributes`
+     * carries.
+     *
+     * **The target scope is a join and not an id list.** `old_id` is a
+     * `belongsTo` to `MispAttribute`, so `ShadowAttribute::buildConditions`
+     * has already joined `Attribute` in order to express its own ACL —
+     * which means the value predicate can be written against that join
+     * for nothing. The alternative was `old_id IN (occurrence ids)`,
+     * and on `443` that is an `IN` list of 48,255 integers.
+     *
+     * **The gate is MISP's own**, `ShadowAttribute::buildConditions`,
+     * which is what `ShadowAttributesController::index` uses. It is not
+     * the attribute ACL with an extra clause: `value-profile-coverage.md`
+     * §2.2 found that a standalone proposal (`old_id = 0`) is OR'd past
+     * the whole attribute-and-object distribution test, because there is
+     * no attribute to test, and is therefore gated by **event visibility
+     * alone**. That is looser than the occurrence fetcher, and it is
+     * MISP's rule rather than this page's — so it is applied as MISP
+     * wrote it and stated here rather than tightened silently.
+     *
+     * Soft-deleted proposals are kept. A withdrawn proposal is still a
+     * dated thing that happened to this value, and the row says so —
+     * unlike the co-occurrence panel, whose subject is what the value
+     * currently sits beside.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor, minus `alias`
+     * @return array id => the proposal row, its event and its org
+     */
+    public function proposalsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $model = $this->proposals();
+        $fields = array(
+            'ShadowAttribute.id',
+            'ShadowAttribute.old_id',
+            'ShadowAttribute.event_id',
+            'ShadowAttribute.type',
+            'ShadowAttribute.category',
+            'ShadowAttribute.value1',
+            'ShadowAttribute.value2',
+            'ShadowAttribute.comment',
+            'ShadowAttribute.deleted',
+            'ShadowAttribute.proposal_to_delete',
+            'ShadowAttribute.timestamp',
+            'Org.name',
+            'Event.id',
+            'Event.info',
+            // What the target holds today, so a row that changes the
+            // value can name both ends of the change.
+            'Attribute.id',
+            'Attribute.value1',
+            'Attribute.value2',
+        );
+        // `alias` is passed on a fresh array and never on the caller's,
+        // so a page-wide options array cannot pick it up and re-point
+        // some other fetcher at a table it does not read.
+        $scopes = array(
+            'proposed' => $this->conditionsFor($value,
+                array('alias' => 'ShadowAttribute')),
+            'target' => $this->conditionsFor($value),
+        );
+        $found = array();
+        foreach ($scopes as $reach => $scope) {
+            $conditions = $model->buildConditions($user);
+            $conditions['AND'][] = $scope;
+            $rows = $model->find('all', array(
+                'fields' => $fields,
+                'conditions' => $conditions,
+                'recursive' => -1,
+                /*
+                 * All three, and each for a different job: `Event` and
+                 * `Attribute` are what `buildConditions` names, so the
+                 * ACL is not expressible without them; `Org` is the
+                 * proposing organisation, which every row on the
+                 * Timeline is attributed to.
+                 */
+                'contain' => array('Event', 'Attribute', 'Org'),
+            ));
+            foreach ($rows as $row) {
+                $id = (int)$row['ShadowAttribute']['id'];
+                if (isset($found[$id])) {
+                    // Reached both ways. The first reach wins, which is
+                    // `proposed`, because a proposal naming this value
+                    // is about it more directly than one that merely
+                    // targets a row holding it.
+                    continue;
+                }
+                $found[$id] = self::proposalRow($row, $reach);
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * One proposal row, flattened, with the reach that found it.
+     *
+     * @param array $row One `ShadowAttribute` find record
+     * @param string $reach `proposed` or `target`
+     * @return array
+     */
+    private static function proposalRow(array $row, $reach)
+    {
+        $proposal = $row['ShadowAttribute'];
+        $target = isset($row['Attribute']['id'])
+            ? $row['Attribute']
+            : null;
+        return array(
+            'id' => (int)$proposal['id'],
+            'old_id' => (int)$proposal['old_id'],
+            'event_id' => (int)$proposal['event_id'],
+            'type' => $proposal['type'],
+            'category' => $proposal['category'],
+            'value' => self::composite($proposal),
+            'comment' => $proposal['comment'],
+            'deleted' => !empty($proposal['deleted']),
+            'to_delete' => !empty($proposal['proposal_to_delete']),
+            'timestamp' => (int)$proposal['timestamp'],
+            'reach' => $reach,
+            'org' => isset($row['Org']['name']) && $row['Org']['name'] !== null
+                ? $row['Org']['name']
+                : __('Unknown organisation'),
+            'event' => array(
+                'id' => (int)$proposal['event_id'],
+                'info' => isset($row['Event']['info'])
+                    ? $row['Event']['info']
+                    : null,
+            ),
+            /*
+             * Null for a standalone proposal, which is the state
+             * `old_id = 0` names and the one the whole page is blind to
+             * everywhere else (`value-profile-coverage.md` §2.2).
+             */
+            'target' => $target === null ? null : array(
+                'id' => (int)$target['id'],
+                'value' => self::composite($target),
+            ),
+        );
+    }
+
+    /**
+     * `value1|value2`, the way MISP spells a composite everywhere else.
+     *
+     * `ShadowAttribute` and `MispAttribute` both define this as a
+     * virtual field, and neither is selected here: both fetches list
+     * their columns explicitly, and a virtual field is not one.
+     *
+     * @param array $row A record holding `value1` and `value2`
+     * @return string
+     */
+    private static function composite(array $row)
+    {
+        $second = isset($row['value2']) ? $row['value2'] : '';
+        if ($second === '' || $second === null) {
+            return (string)$row['value1'];
+        }
+        return $row['value1'] . '|' . $second;
     }
 
     /**

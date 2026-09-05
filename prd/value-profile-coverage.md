@@ -156,6 +156,13 @@ Two cautions before anyone calls this cheap reuse:
 
 ### 2.4 The seam consequence — §14.3 needs one more parameter
 
+> **Closed 2026-09-05**, by the phase that needed it —
+> `live/25-timeline.md` §25.1. `Value::conditionsFor()` takes
+> `$options['alias']`, defaulting to `Attribute`; none of the fourteen
+> call sites passes it, and all three call shapes in use were asserted
+> `===` the array the old code built. The signature this section
+> predicted is the signature that shipped.
+
 §14.3's rule is that **`Value` is the only file naming `value1` or `value2`**,
 and phase 22 built `Value::conditionsFor()` as:
 
@@ -180,9 +187,11 @@ value table landing later will have to answer the proposals question too, and
 `shadow_attributes.value1` is a column that migration will have to either move
 or leave behind.
 
-**This is the one item in this document that has a cost if deferred.** Everything
-else is a panel that does not exist yet; this is a signature that gets harder to
-change with each live phase that calls it.
+**This ~~is~~ was the one item in this document that has a cost if deferred.**
+Everything else is a panel that does not exist yet; this is a signature that
+gets harder to change with each live phase that calls it — which is why it was
+taken at the fifth, and it cost three call-shape assertions rather than a
+retrofit across fourteen call sites.
 
 ### 2.5 Where it belongs
 
@@ -485,7 +494,7 @@ route the work nowhere.
 | Relationships | **yes** | **yes** — the strong case | weak |
 | Enrichment *(blocked)* | no | no | weak |
 | Analyst data | **yes** | no | **yes** — the list |
-| Timeline | **yes** — a datable source §8.2 missed | no — settled | **yes** |
+| Timeline ✔ | **yes** — a datable source §8.2 missed — **built 2026-09-05** | no — settled | **yes** — **built 2026-09-05** |
 | History | **yes** — already half-present | no | **yes** |
 
 Twenty-four verdicts: **thirteen `yes`, nine `no`, two `weak`.** One phase —
@@ -574,6 +583,19 @@ out, and that assessment is **already complete**: `tabs/06-timeline.md`
 §12 proves it from `Feed.php:1573`, and the hatched `Feed appearances` row in
 that document's own §8.2 lanes table renders the exclusion honestly. Nothing to
 redo.
+
+> **Built 2026-09-05** — `live/25-timeline.md` §25. Both caveats above are
+> carried: every row on both lanes is `latest` precision, and epoch zero is
+> excluded rather than plotted. Two things this assessment did not foresee.
+> The proposals lane needs **two** scopes rather than one, and the instance
+> holds exactly one row that proves it (§25.2). And `deleted = 1` on a
+> proposal means *resolved* — `setDeleted()` is reached from both the accept
+> and the discard path and stamps `timestamp` with the moment it ran — so
+> "last-modified" understates it: a resolved proposal sits on the axis at its
+> resolution, and no row may say *withdrawn* (§25.3). The feed row did better
+> than this survey expected: §22.6 removed the hatched lane entirely rather
+> than rendering the exclusion, because there is no period for a feed to be
+> quiet in.
 
 **History.** Proposals are already half-present — `tabs/07-history.md` §7's
 fixture carries a `model` facet with `'ShadowAttribute' => 1`, so the tab

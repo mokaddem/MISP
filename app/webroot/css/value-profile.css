@@ -8015,18 +8015,47 @@ th.vp-rel-num {
      */
     --vp-tl-tag: var(--tag);
     --vp-tl-cluster: var(--galaxy);
+    /*
+     * MISP's own third. An event report is `--report` on every other
+     * surface, so it is `--report` here.
+     */
+    --vp-tl-report: var(--report);
+    /*
+     * The one source with no MISP colour to inherit, chosen by
+     * measurement rather than by eye — the warm band this palette
+     * already crowds (`#d97706`, `#f39a1f`, `#DB6A47`, `#a51c30`) is
+     * where the product would have put it, since Overmind paints a
+     * standalone proposal row `--bs-warning`
+     * (`mainOvermind.css:1174`). It cannot go there twice over: three
+     * amber sources is one too many, and **the cut band is amber** —
+     * `.vp-lane-cut` hatches in `--bs-warning`, and it hatches inside
+     * this very lane, so an amber column and *these rows were not
+     * fetched* would be the same hue in the same box.
+     *
+     * `#1d4ed8` is 10.2 ΔE2000 from its nearest neighbour over normal,
+     * deutan, protan and tritan vision in both themes, against 0.7 for
+     * the indigo first tried, which collided with `--galaxy` under
+     * protan. It sits inside the shipping band for lightness
+     * (L* 39.0, band 31.9–75.9) and clears 6.7:1 on the light ground.
+     */
+    --vp-tl-proposal: #1d4ed8;
 }
 
 /*
- * Two of the eight are too dark to read as a small mark on a dark
+ * Three of the twelve are too dark to read as a small mark on a dark
  * ground, and one of them — the edit — is the single mark that has to
- * survive being drawn over its own hatch. The sighting was a third
+ * survive being drawn over its own hatch. The sighting was a fourth
  * until `--vp-sight-yes` took that step over, since the sightings
  * table needs it too.
+ *
+ * `#6ea8fe` is Bootstrap's own dark-theme link blue: 7.0:1 on the dark
+ * ground where `#1d4ed8` manages 2.5, and 8.2 ΔE from its nearest
+ * neighbour across the four vision models.
  */
 [data-bs-theme="dark"] {
     --vp-tl-note: #c26189;
     --vp-tl-edit: #a2938f;
+    --vp-tl-proposal: #6ea8fe;
 }
 
 .vp-tl-card {
@@ -8585,6 +8614,8 @@ th.vp-rel-num {
 .vp-tl-src-sightings { --vp-tl-hue: var(--vp-tl-sighting); }
 .vp-tl-src-publications { --vp-tl-hue: var(--vp-tl-publication); }
 .vp-tl-src-analyst { --vp-tl-hue: var(--vp-tl-note); }
+.vp-tl-src-reports { --vp-tl-hue: var(--vp-tl-report); }
+.vp-tl-src-proposals { --vp-tl-hue: var(--vp-tl-proposal); }
 .vp-tl-src-edits { --vp-tl-hue: var(--vp-tl-edit); }
 /* Its two sources are one mechanism; the chip takes the tag's. */
 .vp-tl-src-tagging { --vp-tl-hue: var(--vp-tl-tag); }
@@ -8600,6 +8631,8 @@ th.vp-rel-num {
 .vp-tl-src-publication { --vp-tl-hue: var(--vp-tl-publication); }
 .vp-tl-src-note { --vp-tl-hue: var(--vp-tl-note); }
 .vp-tl-src-opinion { --vp-tl-hue: var(--vp-tl-opinion); }
+.vp-tl-src-report { --vp-tl-hue: var(--vp-tl-report); }
+.vp-tl-src-proposal { --vp-tl-hue: var(--vp-tl-proposal); }
 .vp-tl-src-edit { --vp-tl-hue: var(--vp-tl-edit); }
 .vp-tl-src-tag { --vp-tl-hue: var(--vp-tl-tag); }
 .vp-tl-src-cluster { --vp-tl-hue: var(--vp-tl-cluster); }
