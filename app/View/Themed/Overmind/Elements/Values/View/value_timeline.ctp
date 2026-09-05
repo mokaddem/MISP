@@ -357,15 +357,23 @@ $counts = $timeline === null
         'shown' => 0,
         'by_source' => array(),
         'by_day' => array(),
+        'spans' => array(),
         'in_window' => array('total' => 0),
         'first' => null,
         'last' => null,
+        'first_record' => null,
         'capped' => false,
         'cap' => 0,
     )
     : $timeline['counts'];
 $countsByDay = $counts['by_day'];
 $inWindow = $counts['in_window'];
+/*
+ * The intervals, kept beside the day map rather than folded into it.
+ * A month a `passive-dns` pair runs straight through holds no *date*
+ * and is not empty, and only these can say so.
+ */
+$spanRanges = isset($counts['spans']) ? $counts['spans'] : array();
 $spans = $timeline === null
     ? array(
         'occurrences' => 0, 'with' => 0, 'shown' => 0, 'cap' => 0,
@@ -490,7 +498,16 @@ $listCapped = $listShown < $listOf;
  */
 $windowed = array();
 foreach ($entries as $entry) {
-    if ($entry['at'] >= $windowFrom && $entry['at'] <= $windowTo) {
+    /*
+     * Overlap and not start — `ValueProfile::timelineTouches`' rule,
+     * and this is the copy of it the lane marks read. A span whose two
+     * ends both sit outside the window still crosses it and the lane
+     * still draws a bar right across; tested on its start alone it was
+     * dropped here, and the bar the reader was looking at came with a
+     * precision tally and a count that had both forgotten it.
+     */
+    $end = empty($entry['span_to']) ? $entry['at'] : $entry['span_to'];
+    if ($end >= $windowFrom && $entry['at'] <= $windowTo) {
         $windowed[] = $entry;
     }
 }
@@ -511,9 +528,19 @@ foreach ($entries as $entry) {
  *
  * `null` means no row at all falls in the window, and the whole window
  * is then the span the lanes cannot draw.
+ *
+ * **Where a row starts, not where a span reaches back to.** A
+ * `passive-dns` pair crossing the window is in `$windowed` and belongs
+ * there — the lane draws it — but its 2013 start is not evidence that
+ * the cap left anything from 2013 alone. Reading it as the boundary
+ * would put the cut line before the window and erase a band that is
+ * describing real rows the cap took.
  */
 $boundary = null;
 foreach ($windowed as $entry) {
+    if ($entry['at'] < $windowFrom) {
+        continue;
+    }
     if ($boundary === null || $entry['at'] < $boundary) {
         $boundary = $entry['at'];
     }
@@ -679,6 +706,37 @@ if ($bins !== array() && $rangeTo !== null && isset($index[$rangeTo])) {
 }
 
 /*
+ * ------------------------------------------------------------------
+ * Which bins a span runs through
+ * ------------------------------------------------------------------
+ * A bin's `total` counts the dates that fall *in* it, and an interval
+ * has dates only at its two ends. So on `8.8.8.8` — a `passive-dns`
+ * pair running 2013-01-15 to 2018-09-30 — sixty-seven months between
+ * those two ends held a total of zero, and the panel went on to name
+ * the run and call it empty. It is not empty; a feed observed the
+ * value throughout it, which is the one thing a bar spanning five
+ * years exists to say.
+ *
+ * Counted after the tail fold rather than before it, so the elided bin
+ * is measured as the range it actually stands for instead of
+ * inheriting a sum from bins that no longer exist.
+ *
+ * This is a coverage flag and never a count: the bin's height stays
+ * the number of dates it holds. Smearing one span across sixty-seven
+ * columns would draw one observation as sixty-seven of them, which is
+ * the opposite mistake and a louder one.
+ */
+foreach ($bins as $i => $bin) {
+    $covered = 0;
+    foreach ($spanRanges as $span) {
+        if ($span['to'] >= $bin['from'] && $span['from'] <= $bin['to']) {
+            $covered++;
+        }
+    }
+    $bins[$i]['covered'] = $covered;
+}
+
+/*
  * Which sources the value actually has, in the vocabulary's order. A
  * stack segment for a source nobody ever filed is a legend entry
  * teaching the reader a colour they will never meet again.
@@ -704,12 +762,19 @@ foreach ($sourceMeta as $key => $meta) {
  *
  * A leading run is not a gap; it is the time before the value existed.
  * A trailing one is not a gap either; it is the present.
+ *
+ * **A month a span crosses is not empty**, whether or not a date lands
+ * in it. This sentence is the panel's strongest claim about silence —
+ * it tells the reader the lanes below will say whether the value was
+ * quiet or the record was not kept — and on a value carrying a
+ * multi-year `passive-dns` observation it was neither: the record was
+ * kept, and it says the value was there the whole time.
  */
 $gap = null;
 $run = null;
 $seen = false;
 foreach ($bins as $bin) {
-    if ($bin['total'] > 0) {
+    if ($bin['total'] > 0 || $bin['covered'] > 0) {
         if ($run !== null
             && ($gap === null || $run['len'] > $gap['len'])) {
             $gap = $run;
@@ -1448,6 +1513,15 @@ if ($window !== null) {
          * object; `443`'s whole history is 49 of them.
          */
         'by_day' => $countsByDay,
+        /*
+         * And the intervals beside it, for the half of the same
+         * problem a day map cannot hold. A brushed window that lands
+         * between a span's two ends shares no day with it, so counting
+         * from `by_day` alone reported a lane the reader can see a bar
+         * in as holding nothing — the exact disagreement the note
+         * above says this map exists to make impossible.
+         */
+        'spans' => $spanRanges,
         'window' => array(
             'from' => $window['from'],
             'to' => $window['to'],
@@ -2009,7 +2083,22 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                             ·
                             <span data-vp-tl-window-count><?=
                                 (int)$inWindow['total'] ?></span>
-                            <?= __('entries') ?>
+                            <?php
+                            /*
+                             * The noun agrees with the number, and it
+                             * is a node the script can rewrite because
+                             * the number is one the script rewrites. A
+                             * brush landing on a single entry — which
+                             * a narrow window over one span now
+                             * routinely is — was reading *1 entries*.
+                             */
+                            ?>
+                            <span data-vp-tl-window-noun
+                                  data-vp-tl-one="<?= h(__('entry')) ?>"
+                                  data-vp-tl-many="<?= h(__('entries')) ?>"
+                            ><?= h((int)$inWindow['total'] === 1
+                                ? __('entry')
+                                : __('entries')) ?></span>
                             ·
                             <?php
                             /*

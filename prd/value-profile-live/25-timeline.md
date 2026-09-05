@@ -2787,6 +2787,14 @@ data change; there is no new query.
 
 ### 28.4 What it does to `first_here`
 
+> **Reversed by [§31.3](#313-284-was-wrong-and-its-own-example-proves-it).**
+> This section is wrong and is kept as written because §31 argues
+> against it. An object's `datetime` field is a claim about the world,
+> not a trace of this instance: object 21154 was filed on
+> **2021-03-31** and merely *says* 2017-04-14, so what follows is a
+> four-year overstatement described as a correction. The axis still
+> begins at the claim; the flag no longer does.
+
 `168.181.48.248` is the case that shows why this is not cosmetic. Its
 only occurrence carries no span; the `passive-dns` object holding it
 carries **2017-04-14 → 2017-04-14**, and its every other dated trace is
@@ -3139,3 +3147,147 @@ states: *connected communities* on events 1 and 16, *all communities* on
 46, and **Test SG** on 22. The same 11 reports on the Collaboration tab
 resolve to the same 11 audiences, which is the check that matters — one
 derivation, two surfaces, no disagreement.
+
+---
+
+## 31. A span has a middle, and the window could not see it
+
+From the maintainer on 2026-09-05, over a screenshot of `8.8.8.8`: *the
+brushable timeline allows me to go back to Jan 2013, but in the lanes
+below, there's absolutely nothing* — and, of a narrow window inside
+2013, *the object relationship has some data but it tells a lie.*
+
+Both halves are the same defect wearing two faces, and the second one
+**reverses §28.4**, which is this document arguing for the bug.
+
+### 31.1 What `8.8.8.8` actually holds
+
+Three of its eleven object dates are pairs, and `TIMELINE_DATE_PAIRS`
+draws each as one bar:
+
+| entry | from | to |
+|---|---|---|
+| `passive-dns · time_first → time_last` | 2013-01-15 | 2018-09-30 |
+| `passive-dns · time_first → time_last` | 2019-06-04 | 2026-08-20 |
+| `domain-ip · first-seen → last-seen` | 2024-03-11 | 2025-11-02 |
+
+Between them they cover the whole axis but for eight months in late
+2018. The panel reported *February 2013 to August 2018 is empty here*.
+
+### 31.2 Membership was tested on the start day
+
+`by_day` is `Y-m-d => source => n`, and an interval has dates only at
+its two ends — so sixty-seven months of covered time each held a total
+of zero, the empty-run scan named the longest of them, and §19's
+sentence called it empty. The row filters made the same assumption
+independently, in five places: `timelineWindowed` and the template's
+`$windowed` on the server, and the lane marks, the header tally and the
+row visibility pass in the browser. All five read `at >= from && at <=
+to`, which drops a span whose start is older than the window **however
+far into the window it reaches**.
+
+So brushing 2013→2018 emptied every lane, including the one lane whose
+single entry ran the full width of what had been brushed.
+
+**It bit the default window too**, which is the version of the defect a
+reader meets without touching the brush. `2026-08-05 → 2026-09-03` sits
+inside the second span; the lane's count cell read *1 Object date*,
+picked up from that span's far end at 2026-08-20 landing in the window,
+while the chronology showed no object date at all — the row being filed
+under 2019-06-04, where the filter could not see it. One number, one
+list, and they disagreed on the landing view.
+
+**The rule is overlap**, `ValueProfile::timelineTouches` and `tlTouches`,
+and an instant is its own far end so there is one rule rather than two.
+The count is the same rule with one subtraction: a span the window
+touches adds one **only where neither end is inside it**, because an end
+inside is a day `by_day` already counted and adding it again would put
+the column one ahead of the rows beneath it. `$boundary` is the
+exception and keeps the start test — a 2013 start is not evidence that
+the row cap spared anything from 2013, and reading it as the cut line
+would erase a band describing real rows the cap took.
+
+The spine's bars are **not** changed. A bin's height stays the number of
+dates it holds; smearing one observation across sixty-seven columns
+would draw it as sixty-seven observations, which is the same lie louder.
+What the coverage flag changes is the *empty-run scan*, which is a claim
+about silence and now knows what a span is.
+
+### 31.3 §28.4 was wrong, and its own example proves it
+
+§28.4 read an object's `datetime` field as evidence of the record's age,
+called the result *a correction*, and said the tab had been
+understating how long the instance had held `168.181.48.248` by eight
+years. The instance says otherwise:
+
+| row | value |
+|---|---|
+| `objects.timestamp` (object 21154, `passive-dns`) | **2021-03-31 15:24:31** |
+| every attribute in it, `attributes.timestamp` | 2021-03-31 15:26:33 |
+| `time_first` / `time_last` | 2017-04-14 20:25:10 / 20:26:22 |
+
+A 72-second passive-DNS observation, filed in 2021. The object cannot
+predate the row that carries it, so §28.4 did not fix an eight-year
+understatement — it introduced a four-year overstatement. On `8.8.8.8`
+the same reasoning dated the instance to 2013-01-15 against an oldest
+occurrence of 2022-06-28: **nine years**, from a Farsight DNSDB
+observation window.
+
+`timelineFirstHere`'s own docblock had the distinction all along —
+*`first_seen` is an analyst's claim about when the threat was seen in
+the wild, a different fact* — and stated it in prose while the code read
+the bound off `$counts['first']`, which is every dated thing on the
+axis. `TIMELINE_CLAIM_SOURCES` is that paragraph made executable:
+`seen`, `seen_object` and `objdate` stay on the axis, in the lanes and
+in the chronology, and are excluded from exactly one question. The bound
+is now `$counts['first_record']`.
+
+Note that MISP copies an object's `passive-dns` dates into
+`objects.first_seen`/`last_seen` — 21154 carries `1492201510000000`,
+which is that same 2017 instant — so the claim reaches the tab twice, by
+two sources. Excluding one and not the other would have fixed nothing.
+
+**The axis is unchanged and still starts at the claim.** The two facts
+are different and the panel now states both: the left edge answers *when
+the record of this value starts*, the flag answers *when this instance
+first held it*, and on `8.8.8.8` they are nine years apart because that
+is true.
+
+### 31.4 One word, while in the sentence
+
+The window header read *1 entries*. It was reachable before and is
+routine now — a narrow brush over a single span is exactly a one-entry
+window. The noun is a node the script rewrites beside the number.
+
+### 31.5 Verified
+
+Fetched from `/values/viewTimeline/<b64>` as `admin@admin.test`, and
+driven through the real brush in Chromium against the live-synced
+worktree.
+
+`8.8.8.8`, brushed to the far left — **1 entry**, Object dates **1**,
+one bar drawn across the full lane width, and the chronology row
+`objdate @ 2013-01-15 → 2018-09-30`. Was: 0, 0, no bar, no row. The flag
+reads *on this instance by 2022-06-28, from an occurrence's
+last-modified stamp*, and the empty-run sentence now names **October
+2018 to May 2019**, which is the eight months that are genuinely empty.
+On the default window the Object dates count and the bar agree, where
+before the count stood alone.
+
+`168.181.48.248` — **2021-03-31**, matching `objects.timestamp` to the
+minute, and *May 2017 to September 2025 is empty here* survives, because
+a 72-second span covers one bin and no more.
+
+Regression on four values that exercise the other paths: `1.1.1.1` (one
+span, 2018-04-01 → 2026-07-15, which is why its empty-run sentence is
+now correctly absent), `193.161.193.99` and `0.0.0.0` (no spans — no
+behaviour change, and `0.0.0.0` still reports its 66,387-entry window),
+and `2.2.2.2`, whose exact `add` row keeps *on this instance since
+2025-02-20* untouched.
+
+Bounded cost: `spans` is collected from the lanes' rows, which both span
+lanes cap — `TIMELINE_SPAN_CAP` at 25 and `TIMELINE_OBJECT_DATE_CAP` at
+1,000 rows, so at most ~500 pairs — and both already state their cap in
+their own sub-label, so a span the cap dropped is one the reader was
+told about. This is a departure from §16.1's count-from-the-aggregate
+rule and is recorded as one.

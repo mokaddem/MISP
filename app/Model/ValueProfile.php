@@ -487,6 +487,25 @@ class ValueProfile extends AppModel
     );
 
     /**
+     * Sources whose dates describe the world, not this instance.
+     *
+     * Every other source on this tab is a trace the instance left: an
+     * audit row, a publish stamp, a note's `created`. These three are
+     * something an analyst or a feed *said* — `first_seen` is a claim
+     * about when a threat was seen in the wild, and an object's
+     * `datetime` field is whatever its template chose to record. A
+     * `passive-dns` object filed in 2022 can carry a `time_first` of
+     * 2013, and reading that as the record's age is the panel asserting
+     * something nobody recorded.
+     *
+     * So they are on the axis, in the lanes and in the chronology like
+     * everything else — they are dated facts about the value and this
+     * tab exists to draw those — and they are excluded from exactly one
+     * question: how long the value has been *here*.
+     */
+    const TIMELINE_CLAIM_SOURCES = array('seen', 'seen_object', 'objdate');
+
+    /**
      * Chips one undated kind lists before it states a remainder.
      *
      * `443` resolves to 3,858 distinct tags and `193.161.193.99` to 77,
@@ -6606,7 +6625,8 @@ class ValueProfile extends AppModel
             : $asked) + array('requested' => $asked !== null);
         $counts['in_window'] = $this->timelineWindowCounts(
             $counts['by_day'],
-            $window
+            $window,
+            $counts['spans']
         );
         $entries = $this->timelineCap($entries);
         return array(
@@ -7344,9 +7364,20 @@ class ValueProfile extends AppModel
      *   has a start, and a record created before it began leaves the
      *   oldest `add` row describing some *later* arrival.
      * - Otherwise the oldest trace of any kind is a bound — the value
-     *   was here by then. That is every dated entry the tab found, and
-     *   every occurrence's last-modified stamp, which is the older of
-     *   the two on a record nobody has touched since.
+     *   was here by then. That is every dated entry the tab found *that
+     *   the instance itself left*, and every occurrence's last-modified
+     *   stamp, which is the older of the two on a record nobody has
+     *   touched since.
+     *
+     * **A claim is not a trace**, and the second bullet is where that
+     * distinction has to be enforced rather than merely stated. The
+     * paragraph above rules `first_seen` out by name; an object's
+     * `datetime` field is the same kind of fact and used to walk in
+     * anyway, because the bound was read off the axis's left edge.
+     * `8.8.8.8` is what that looks like: a `passive-dns` object dated
+     * this instance to 2013-01-15, nine years before its oldest
+     * occurrence. `TIMELINE_CLAIM_SOURCES` is the list, and
+     * `timelineFirstRecord` applies it.
      *
      * Either way the wording on the panel stops at what the row it
      * came from can support, which is why this returns the evidence
@@ -7360,7 +7391,15 @@ class ValueProfile extends AppModel
     private function timelineFirstHere(array $context, array $counts,
         $firstAdd
     ) {
-        $bound = isset($counts['first']) ? $counts['first'] : null;
+        /*
+         * `first_record` and not `first`: the axis's left edge is every
+         * dated thing the tab found, and three of those sources are
+         * claims about the world rather than traces of this instance.
+         * `TIMELINE_CLAIM_SOURCES` carries the argument.
+         */
+        $bound = isset($counts['first_record'])
+            ? $counts['first_record']
+            : null;
         $from = $bound === null ? null : 'record';
         foreach ($context['occurrences'] as $occurrence) {
             if (empty($occurrence['timestamp'])) {
@@ -8079,17 +8118,107 @@ class ValueProfile extends AppModel
                 $last = $lane['last'];
             }
         }
+        /*
+         * The spans, kept apart from the day map because a day map
+         * cannot hold one. Every other fact on this axis is an instant
+         * and a `Y-m-d => n` tally states it exactly; an interval has a
+         * middle, and the middle is what the tally drops.
+         *
+         * Only the ends of the interval are recorded here. What the
+         * window makes of them is `timelineWindowCounts`' business,
+         * and the rule it applies cannot be pushed into the map
+         * without inventing a count for every day in between.
+         *
+         * These come off the lanes' rows rather than off an aggregate,
+         * which is a departure from §16.1 and a bounded one: both lanes
+         * that produce spans cap their rows and both state the cap in
+         * their own sub-label, so a span the cap dropped is a span the
+         * reader was already told about.
+         */
+        $spans = array();
+        foreach ($lanes as $lane) {
+            foreach ($lane['entries'] as $entry) {
+                if (empty($entry['span_to'])) {
+                    continue;
+                }
+                $spans[] = array(
+                    'source' => $entry['source'],
+                    'from' => substr($entry['at'], 0, 10),
+                    'to' => substr($entry['span_to'], 0, 10),
+                );
+            }
+        }
         $shown = min(count($entries), self::TIMELINE_ROW_CAP);
         return array(
             'total' => $total,
             'shown' => $shown,
             'by_source' => $bySource,
             'by_day' => $byDay,
+            'spans' => $spans,
             'first' => $first,
             'last' => $last,
+            'first_record' => self::timelineFirstRecord($lanes, $entries),
             'capped' => $total > $shown,
             'cap' => self::TIMELINE_ROW_CAP,
         );
+    }
+
+    /**
+     * The oldest trace this *instance* left, ignoring what anyone
+     * claimed about the world.
+     *
+     * `first` above is the axis's left edge and takes every dated thing
+     * the tab found, which is right for an axis and wrong for the one
+     * question the panel asks beside it: how long has this been here.
+     * `8.8.8.8` is the case that showed it. A `passive-dns` object
+     * filed in 2022 carries `time_first = 2013-01-15`, so the axis
+     * began in 2013 — correctly, the object does record that date — and
+     * the panel went on to state *on this instance by 2013-01-15*,
+     * which is Farsight's observation window read as this instance's
+     * age. Nine years of it. The oldest record trace is an occurrence's
+     * `timestamp` of 2022-06-28.
+     *
+     * `TIMELINE_CLAIM_SOURCES` is the exclusion, and it is the same
+     * distinction `timelineFirstHere` already drew in prose for
+     * `first_seen` without the code drawing it anywhere.
+     *
+     * @param array $lanes
+     * @param array $entries
+     * @return string|null
+     */
+    private static function timelineFirstRecord(array $lanes, array $entries)
+    {
+        $first = null;
+        foreach ($entries as $entry) {
+            if (in_array($entry['source'], self::TIMELINE_CLAIM_SOURCES,
+                true)
+            ) {
+                continue;
+            }
+            if ($first === null || $entry['at'] < $first) {
+                $first = $entry['at'];
+            }
+        }
+        /*
+         * A grouped lane's aggregate range, on the same terms: the edit
+         * lane's 172,426 changes reach back further than the 1,000 rows
+         * it ships, and dropping that would date the record from
+         * whichever afternoon the cap happened to land on.
+         */
+        foreach ($lanes as $lane) {
+            if (empty($lane['first'])) {
+                continue;
+            }
+            if (array_diff($lane['sources'], self::TIMELINE_CLAIM_SOURCES)
+                === array()
+            ) {
+                continue;
+            }
+            if ($first === null || $lane['first'] < $first) {
+                $first = $lane['first'];
+            }
+        }
+        return $first;
     }
 
     /**
@@ -8106,24 +8235,57 @@ class ValueProfile extends AppModel
      * The day grain is what lets this be exact for a window that
      * straddles two months, which the default one usually does.
      *
+     * **A span is counted where it is drawn**, which the day map alone
+     * could not do. An interval whose two ends both fall outside the
+     * window still crosses it, the lane draws a bar right across, and
+     * the column beside that bar used to read zero. So a span the
+     * window touches but neither end of which lands inside it adds one,
+     * and a span with an end inside is left to the map, which already
+     * counted that end and would otherwise count it twice.
+     *
+     * One, not the days it covers. The reader is being told how many
+     * dated things this lane has here, and a `passive-dns` pair is one
+     * thing however many months it spans.
+     *
      * @param array $byDay `Y-m-d` => source => n
      * @param array $window `from`, `to`
+     * @param array $spans From `timelineCounts`, each `source`, `from`,
+     *                     `to`
      * @return array `total` and one entry per source present
      */
-    private function timelineWindowCounts(array $byDay, array $window)
-    {
+    private function timelineWindowCounts(array $byDay, array $window,
+        array $spans = array()
+    ) {
         $counts = array('total' => 0);
+        $add = function ($source, $n) use (&$counts) {
+            if (!isset($counts[$source])) {
+                $counts[$source] = 0;
+            }
+            $counts[$source] += $n;
+            $counts['total'] += $n;
+        };
         foreach ($byDay as $day => $bySource) {
             if ($day < $window['from'] || $day > $window['to']) {
                 continue;
             }
             foreach ($bySource as $source => $n) {
-                if (!isset($counts[$source])) {
-                    $counts[$source] = 0;
-                }
-                $counts[$source] += $n;
-                $counts['total'] += $n;
+                $add($source, $n);
             }
+        }
+        foreach ($spans as $span) {
+            if ($span['to'] < $window['from']
+                || $span['from'] > $window['to']
+            ) {
+                continue;
+            }
+            $endInside = ($span['from'] >= $window['from']
+                    && $span['from'] <= $window['to'])
+                || ($span['to'] >= $window['from']
+                    && $span['to'] <= $window['to']);
+            if ($endInside) {
+                continue;
+            }
+            $add($span['source'], 1);
         }
         return $counts;
     }
@@ -8235,8 +8397,8 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The entries whose day falls inside `$window`, or all of them when
-     * there is no window.
+     * The entries the window touches, or all of them when there is no
+     * window.
      *
      * By day and not by timestamp, because that is what both readers of
      * this set compare on — the template's own filter and
@@ -8254,12 +8416,40 @@ class ValueProfile extends AppModel
         }
         $out = array();
         foreach ($entries as $entry) {
-            $day = substr($entry['at'], 0, 10);
-            if ($day >= $window['from'] && $day <= $window['to']) {
+            if (self::timelineTouches($entry, $window)) {
                 $out[] = $entry;
             }
         }
         return $out;
+    }
+
+    /**
+     * Whether one entry falls in a window — **overlap, not start.**
+     *
+     * An instant is in a window when its day is. A span is in one when
+     * the two intervals meet, which is a different test and the one
+     * this tab got wrong: `8.8.8.8` carries a `passive-dns` pair
+     * running 2013-01-15 to 2018-09-30, and a window anywhere inside
+     * those five years shares no *day* with either end. Filtering on
+     * the start day dropped it, so the lane drew nothing, the
+     * chronology listed nothing, and the panel reported a covered span
+     * of time as empty — a bar that exists precisely to say *this was
+     * observed throughout here*.
+     *
+     * A span with no far end is its own end, so instants take the same
+     * path and there is one rule rather than two.
+     *
+     * @param array $entry With `at` and optionally `span_to`
+     * @param array $window `from`, `to`
+     * @return bool
+     */
+    private static function timelineTouches(array $entry, array $window)
+    {
+        $from = substr($entry['at'], 0, 10);
+        $to = empty($entry['span_to'])
+            ? $from
+            : substr($entry['span_to'], 0, 10);
+        return $to >= $window['from'] && $from <= $window['to'];
     }
 
     /**

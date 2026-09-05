@@ -4595,6 +4595,43 @@
     }
 
     /**
+     * Whether one entry falls in a window — overlap, not start.
+     *
+     * The server's `timelineTouches`, and it has to be the same rule:
+     * a fragment fetched for a window and a window the reader brushed
+     * over that fragment are two paths to one set, and a lane whose
+     * rows change depending on which of the two got there is the
+     * disagreement `by_day` travels with the payload to prevent.
+     *
+     * An instant is its own end, so there is one rule and not two.
+     *
+     * @param {string} day The entry's own `Y-m-d`
+     * @param {?string} spanTo Its far end, or null on an instant
+     * @param {{from: string, to: string}} window_
+     * @return {boolean}
+     */
+    function tlTouches(day, spanTo, window_) {
+        var to = spanTo ? spanTo.slice(0, 10) : day;
+        return to >= window_.from && day <= window_.to;
+    }
+
+    /**
+     * `tlTouches` over a rendered row, which is where the chronology
+     * and the header tally read the same rule from.
+     *
+     * @param {Element} row
+     * @param {{from: string, to: string}} window_
+     * @return {boolean}
+     */
+    function tlRowTouches(row, window_) {
+        return tlTouches(
+            row.dataset.vpTlDay,
+            row.dataset.vpTlSpanTo || null,
+            window_
+        );
+    }
+
+    /**
      * Which bins the current window covers, so the brush can be painted
      * over the window the panel was rendered with and not only over one
      * the reader dragged.
@@ -5108,8 +5145,7 @@
             var svg = axis.querySelector('[data-vp-tl-marks]');
             var mine = entries.filter(function (entry) {
                 return sources.indexOf(entry.source) !== -1
-                    && entry.day >= window_.from
-                    && entry.day <= window_.to;
+                    && tlTouches(entry.day, entry.spanTo, window_);
             });
 
             if (svg && spans) {
@@ -5348,15 +5384,36 @@
     function tlWindowCounts(window_) {
         var out = { total: 0 };
         var byDay = tl.data.by_day || {};
+        var add = function (source, n) {
+            out[source] = (out[source] || 0) + n;
+            out.total += n;
+        };
         Object.keys(byDay).forEach(function (day) {
             if (day < window_.from || day > window_.to) {
                 return;
             }
             Object.keys(byDay[day]).forEach(function (source) {
-                var n = byDay[day][source];
-                out[source] = (out[source] || 0) + n;
-                out.total += n;
+                add(source, byDay[day][source]);
             });
+        });
+        /*
+         * `timelineWindowCounts`' span rule, and the same reasoning:
+         * an interval crossing the window is a thing the lane draws a
+         * bar for, and the day map has nothing in the middle of one to
+         * count. Only a span with neither end inside — an end inside is
+         * a day the map already counted, and adding it again would put
+         * the column one ahead of the rows underneath it.
+         */
+        (tl.data.spans || []).forEach(function (span) {
+            if (span.to < window_.from || span.from > window_.to) {
+                return;
+            }
+            if ((span.from >= window_.from && span.from <= window_.to)
+                || (span.to >= window_.from && span.to <= window_.to)
+            ) {
+                return;
+            }
+            add(span.source, 1);
         });
         return out;
     }
@@ -5556,8 +5613,7 @@
     function tlCarried(panel, window_) {
         var n = 0;
         panel.querySelectorAll('[data-vp-tl-at]').forEach(function (row) {
-            var day = row.dataset.vpTlDay;
-            if (day >= window_.from && day <= window_.to) {
+            if (tlRowTouches(row, window_)) {
                 n++;
             }
         });
@@ -5747,8 +5803,7 @@
         var matched = 0;
         var tally = { exact: 0, partial: 0 };
         tl.dated.forEach(function (row) {
-            var day = row.dataset.vpTlDay;
-            if (day < window_.from || day > window_.to) {
+            if (!tlRowTouches(row, window_)) {
                 return;
             }
             if (sources
@@ -5767,8 +5822,7 @@
         tl.rows.forEach(function (row) {
             var run = row.dataset.vpTlRun;
             var inRun = row.dataset.vpTlInRun;
-            var day = row.dataset.vpTlDay;
-            var keep = day >= window_.from && day <= window_.to;
+            var keep = tlRowTouches(row, window_);
             if (keep && sources) {
                 keep = sources.indexOf(row.dataset.vpTlSource) !== -1;
             }
@@ -5815,6 +5869,12 @@
          */
         var counts = tlWindowCounts(window_);
         setText(panel, '[data-vp-tl-window-count]', counts.total);
+        var noun = panel.querySelector('[data-vp-tl-window-noun]');
+        if (noun) {
+            noun.textContent = counts.total === 1
+                ? noun.dataset.vpTlOne
+                : noun.dataset.vpTlMany;
+        }
         /*
          * And the same window under the filter, still from the
          * aggregate: it is what the capped empty state below claims.

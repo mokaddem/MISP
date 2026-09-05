@@ -174,6 +174,15 @@ is not one: it has no axis of its own, no legend and no scale — seven Chart.js
 instances would be seven canvases for a shape that needs marks and a `<title>`.
 If a lane ever needs a real tooltip or a zoom, that is a local change.
 
+**A window holds a span it overlaps, not one that starts in it.** Added by
+`live/25-timeline.md` §31, which found the opposite rule in five places: a bar
+running through the whole of a brushed window was dropped from every one of
+them because its start day was older. An instant is its own far end, so the two
+cases share one test. The empty-run sentence under the chart knows about spans
+for the same reason — a month a bar crosses is not an empty month — and the
+lane's in-window count adds a crossing span only where neither of its ends is
+inside, so it cannot run ahead of the rows below it.
+
 **The seen-spans lane does not merge spans.** §8.2 flags this as needing an
 invented aggregation rule; the answer here is to invent nothing. One bar per
 occurrence that carries a span, labelled with its attribute id, stacked within
