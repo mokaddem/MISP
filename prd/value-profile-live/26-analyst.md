@@ -1007,6 +1007,15 @@ Two changes on 2026-09-05, after §12's verification had run and the
 phase was recorded as built. Both came from the maintainer reading the
 result, which is the pass phase 25 got over its closed phase too.
 
+| Commit | What |
+|---|---|
+| `f649ea10f` | the ledger numeral flips near the ends of the axis — §17.2 |
+| `530020069` | the tab is renamed, the thread's title stops varying, the report panel gets its missing skeleton, and this section — §17.1 |
+
+The fix is committed before the rename, and the rename carries both
+halves of this section, so §17.2 describes code that already landed
+rather than code the reader has to take on trust.
+
 ### 17.1 The tab is *Collaboration* — §11.4's open question, closed
 
 **Taken as offered.** *Analyst data* named a MISP feature — the three
