@@ -7539,6 +7539,24 @@ th.vp-rel-num {
     white-space: nowrap;
 }
 
+/* A numeral that had to flip to the inward side of its dot, because
+   outward would have left the lane — see `$lanePlacement` in
+   `value_analyst_standing.ctp`. Inward is over its own bar, and the ink
+   is that bar's hue, so it carries the lane's own background under it
+   rather than relying on a contrast that does not exist. */
+.vpa-lane-val-in {
+    padding: 0 3px;
+    border-radius: 3px;
+    background: var(--bs-body-bg);
+}
+
+/* Matching the row-hover wash, so the backing does not read as a chip
+   sitting on a lane that has changed colour underneath it. */
+.vpa-row:hover > .vpa-lane .vpa-lane-val-in {
+    background: color-mix(in srgb, var(--analystData) 7%,
+        var(--bs-body-bg));
+}
+
 /* The reading, said once, in words and in colour. Named apart from
    the thread's `.vpa-side-*` item markers, which are an unrelated
    family despite the resemblance. */

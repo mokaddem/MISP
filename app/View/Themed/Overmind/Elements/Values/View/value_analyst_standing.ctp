@@ -186,6 +186,56 @@ $rowSort = function ($org, $index) use ($sideOf, $pad, $sideRank) {
 };
 
 /**
+ * Where a lane's score numeral goes.
+ *
+ * **Outward from the dot** — away from the pivot — by default, because
+ * that is the free side of a bar growing from 50 and it puts the number
+ * at the end of the thing it measures.
+ *
+ * **Except near the ends of the axis, where outward is off the lane.**
+ * At 100 the numeral was placed 13px past the lane's right edge, and
+ * the grid gap to the next column is 8px — so on `8.8.8.8` the `100`
+ * sat on top of the word *agrees* in the *Reads it as* cell, 34px
+ * outside its own lane. Near either end the numeral now flips to the
+ * inward side of the dot and takes a backing, because inward means over
+ * its own bar and `--vpa-side-ink` on `--vpa-side` is one hue on
+ * itself.
+ *
+ * **The thresholds are derived rather than guessed.** `.vpa-ledger`'s
+ * lane column is `minmax(320px, 1fr)`, so 320px is the narrowest the
+ * lane ever gets — below that the ledger scrolls instead of shrinking.
+ * The numeral needs its 13px offset plus its own width, and it is
+ * monospace with `tabular-nums`: 3ch ≈ 21px at three digits, 2ch ≈ 14px
+ * at two. 34px of 320px is 10.7% of the axis and 27px is 8.5%, which is
+ * what puts the flip at 88 and at 12 rather than at a rounder pair.
+ * The asymmetry is the third digit.
+ *
+ * A clamp was the other option and is worse: pinning the numeral at the
+ * lane's edge leaves the dot to walk over it between 96 and 100, which
+ * trades a collision with the next column for a collision with the mark
+ * the numeral is labelling.
+ *
+ * @param int $score
+ * @return array style string, then the class suffix for a flipped one
+ */
+$lanePlacement = function ($score) {
+    $outwardIsRight = $score >= 50;
+    $flip = $score >= 88 || $score <= 12;
+    /*
+     * `left` anchors the numeral to the right of the dot and `right`
+     * anchors it to the left, so which property is used is the outward
+     * side XOR the flip.
+     */
+    $useLeft = $outwardIsRight !== $flip;
+    return array(
+        $useLeft
+            ? 'left: calc(' . $score . '% + 13px);'
+            : 'right: calc(' . (100 - $score) . '% + 13px);',
+        $flip ? ' vpa-lane-val-in' : '',
+    );
+};
+
+/**
  * A sortable heading. A real button, so it is reachable and operable
  * from the keyboard, carrying MISP's own `sortable-header`/`sort-icon`
  * so a sortable heading here looks like one anywhere else.
@@ -503,12 +553,12 @@ $headerExtra = $aggregate === null ? null
                                              right: <?= 100 - $to ?>%;"></span>
                                 <span class="vpa-lane-dot"
                                       style="left: <?= $score ?>%;"></span>
-                                <span class="vpa-lane-val"
-                                      style="<?= $score >= 50
-                                          ? 'left: calc(' . $score
-                                              . '% + 13px);'
-                                          : 'right: calc(' . (100 - $score)
-                                              . '% + 13px);'
+                                <?php
+                                list($valStyle, $valFlip) =
+                                    $lanePlacement($score);
+                                ?>
+                                <span class="vpa-lane-val<?= $valFlip ?>"
+                                      style="<?= $valStyle
                                       ?>"><?= $score ?></span>
                             </div>
 
