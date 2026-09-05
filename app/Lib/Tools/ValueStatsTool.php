@@ -80,19 +80,70 @@ class ValueStatsTool
         array $sharingGroupNames = array()
     ) {
         $links = array(
-            array('scope' => 'attribute', 'label' => __('Attribute'),
-                'from' => $row['Attribute']),
+            self::link('attribute', __('Attribute'), $row['Attribute']),
         );
         if (!empty($row['Object']['id'])) {
-            $links[] = array('scope' => 'object', 'label' => __('Object'),
-                'from' => $row['Object']);
+            $links[] = self::link('object', __('Object'), $row['Object']);
         }
-        $links[] = array('scope' => 'event', 'label' => __('Event'),
-            'from' => $row['Event']);
+        $links[] = self::link('event', __('Event'), $row['Event']);
+        return self::resolveChain($links, $sharingGroupNames);
+    }
 
+    /**
+     * One link of a distribution chain, from the record holding it.
+     *
+     * `sharing_group_id` is read off records that may not have been
+     * fetched with the column — a chain built from a `fields` list that
+     * omits it is a chain of levels, and a level that is not 4 has no
+     * group to name anyway.
+     *
+     * @param string $scope
+     * @param string $label
+     * @param array $from The record's own row
+     * @return array
+     */
+    private static function link($scope, $label, array $from)
+    {
+        return array(
+            'scope' => $scope,
+            'label' => $label,
+            'level' => (int)$from['distribution'],
+            'sharing_group_id' => isset($from['sharing_group_id'])
+                ? (int)$from['sharing_group_id']
+                : null,
+        );
+    }
+
+    /**
+     * The same two steps over any chain of records that inherit
+     * outward, so the rule lives in one place rather than once per
+     * chain shape.
+     *
+     * An occurrence's chain is attribute → object → event. **An event
+     * report's is report → event**, and MISP enforces the same
+     * conjunction there: `EventReport::buildACLConditions` requires the
+     * event to allow the viewer *and* the report, with level 5 passing
+     * through — so a report deferring to its event is read exactly as
+     * an attribute deferring to its own.
+     *
+     * The chain is ordered innermost first, and the outermost link must
+     * state a level: an event can never be 5, which is what makes
+     * `stated` non-empty for every chain MISP can hold.
+     *
+     * @param array $links scope, label, level, sharing_group_id — the
+     *                     innermost record first
+     * @param array $sharingGroupNames id => name, for the groups this
+     *                                 viewer may see
+     * @return array level, rank, sharing_group_id, sharing_group_name,
+     *               source, stated, intersects, inherited
+     */
+    public static function resolveChain(array $links,
+        array $sharingGroupNames = array()
+    ) {
+        $innermost = empty($links) ? null : $links[0]['scope'];
         $stated = array();
         foreach ($links as $link) {
-            $level = (int)$link['from']['distribution'];
+            $level = (int)$link['level'];
             if ($level === self::INHERIT) {
                 continue;
             }
@@ -101,7 +152,7 @@ class ValueStatsTool
                 'label' => $link['label'],
                 'level' => $level,
                 'sharing_group_id' => $level === 4
-                    ? (int)$link['from']['sharing_group_id']
+                    ? $link['sharing_group_id']
                     : null,
             );
         }
@@ -144,9 +195,10 @@ class ValueStatsTool
             'source' => $winner['scope'],
             'stated' => $stated,
             'intersects' => self::intersects($stated, $winner),
-            // The attribute deferred, so this level is somebody else's
-            // decision — worth saying, because it is not editable here.
-            'inherited' => $winner['scope'] !== 'attribute',
+            // The innermost record deferred, so this level is somebody
+            // else's decision — worth saying, because it is not
+            // editable where the reader is looking.
+            'inherited' => $winner['scope'] !== $innermost,
         );
     }
 

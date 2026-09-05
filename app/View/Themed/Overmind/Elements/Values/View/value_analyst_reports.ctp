@@ -15,6 +15,14 @@
  * about an event this value is in*, which is the same sentence the
  * thread's event-level items carry.
  *
+ * **The audience is resolved, not reported.** A report's own
+ * `distribution` is `5` — *inherit* — on every report nobody narrowed,
+ * because that is the shipped default, so a badge printing the column
+ * says nothing on almost every row. The model resolves the report →
+ * event chain through the same helper an occurrence's three links go
+ * through, and the badge names the level the reader is actually asking
+ * about.
+ *
  * **The extract is the head of the report, not a summary.** MISP has no
  * summary of a report and this page will not write one — an abstract
  * the page invented would be the page's claim about somebody's
@@ -68,6 +76,15 @@ $extract = function ($head) {
 };
 
 $distribution = function ($level, $sharingGroup) {
+    if ($level === null) {
+        /*
+         * The report defers and its event did not resolve, so the level
+         * it defers *to* is the one thing this row cannot state. Only
+         * reachable if an event went away between the two reads — the
+         * report fetch already required it to pass the same ACL.
+         */
+        return array(__('Inherit event'), 'fas fa-share-nodes');
+    }
     $levels = array(
         0 => array(__('Your organisation only'), 'fas fa-lock'),
         1 => array(__('This community only'), 'fas fa-share-nodes'),
@@ -83,6 +100,43 @@ $distribution = function ($level, $sharingGroup) {
     return isset($levels[(int)$level])
         ? $levels[(int)$level]
         : array(__('Inherit event'), 'fas fa-share-nodes');
+};
+
+/**
+ * The chain behind the badge — "Report: Inherit event → Event: This
+ * community only".
+ *
+ * The badge names one level and the reader's next question is whose it
+ * is, which is the same question the occurrence table's distribution
+ * cell answers the same way. A report whose event did not resolve is a
+ * one-link chain and says so by having nothing after the arrow.
+ *
+ * @param array $row
+ * @return string
+ */
+$chain = function ($row) use ($distribution) {
+    list($own) = $distribution($row['distribution'],
+        $row['sharing_group']);
+    $links = array(sprintf('%s: %s', __('Report'), $own));
+    if ($row['event']['distribution'] !== null) {
+        list($their) = $distribution($row['event']['distribution'],
+            $row['event']['sharing_group']);
+        $links[] = sprintf('%s: %s', __('Event'), $their);
+    }
+    $title = implode(' → ', $links);
+    if ($row['audience']['intersects']) {
+        /*
+         * A sharing group alongside another constraint means the real
+         * audience is an intersection, and no single level says that.
+         * The badge shows the tightest level it can name; this says the
+         * real audience is narrower still.
+         */
+        $title .= ' · ' . __(
+            'Both apply, so the real audience is narrower than any one'
+            . ' of them'
+        );
+    }
+    return $title;
 };
 
 /*
@@ -135,10 +189,23 @@ $subtitle = empty($rows)
     <?php else: ?>
         <div class="p-3">
             <?php foreach ($rows as $row):
-                list($distLabel, $distIcon) = $distribution(
-                    $row['distribution'],
-                    $row['sharing_group']
-                );
+                /*
+                 * The resolved level, not the report's own column —
+                 * which is `Inherit event` on every report nobody
+                 * narrowed, and that is the shipped default. The model
+                 * resolves the report → event chain the same way an
+                 * occurrence's three links are resolved, so the two
+                 * panels cannot disagree about one event's audience.
+                 */
+                $audience = $row['audience'];
+                list($distLabel, $distIcon) = $audience['level'] === null
+                    ? $distribution(null, null)
+                    : $distribution(
+                        $audience['level'],
+                        $audience['sharing_group_name'] === null
+                            ? $row['sharing_group']
+                            : $audience['sharing_group_name']
+                    );
                 $body = $extract($row['head']);
                 $truncated = $row['length'] > mb_strlen($row['head']);
                 ?>
@@ -243,10 +310,7 @@ $subtitle = empty($rows)
                         </span>
                         <span class="badge bg-body-tertiary
                                      text-body-secondary border fw-normal"
-                              title="<?= h(sprintf(
-                                  __('distribution %s'),
-                                  $row['distribution']
-                              )) ?>">
+                              title="<?= h($chain($row)) ?>">
                             <?php if ($distIcon === 'fas fa-lock'
                                 || $distIcon === 'fas fa-share-nodes'): ?>
                                 <i class="<?= $distIcon ?> me-1"></i>
@@ -254,6 +318,25 @@ $subtitle = empty($rows)
                                 <span class="<?= $distIcon ?> me-1"></span>
                             <?php endif; ?>
                             <?= h($distLabel) ?>
+                            <?php
+                            /*
+                             * Whose level this is. The badge would
+                             * otherwise read as the report's own claim,
+                             * and on a report at the shipped default it
+                             * is the event's — not something anybody
+                             * set on the report and not editable there.
+                             */
+                            ?>
+                            <?php if ($audience['source'] === 'event'): ?>
+                                <span class="vpa-chip-sep"><?=
+                                    __('from the event')
+                                ?></span>
+                            <?php endif; ?>
+                            <?php if ($audience['intersects']): ?>
+                                <i class="fas fa-link ms-1
+                                          text-warning-emphasis"
+                                   aria-hidden="true"></i>
+                            <?php endif; ?>
                         </span>
                         <span class="vpa-chip"><?= h(sprintf(
                             __n(

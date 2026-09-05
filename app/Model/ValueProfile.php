@@ -9416,6 +9416,12 @@ class ValueProfile extends AppModel
                 'EventReport.event_id' => $eventIds,
             ))
         );
+        $events = $this->reportEventAudiences($user, $rows);
+        $names = $this->sharingGroupNames(
+            $user,
+            array(),
+            self::reportChainLevels($rows, $events)
+        );
         $reports = array();
         foreach ($rows as $row) {
             $report = $row['EventReport'];
@@ -9424,14 +9430,38 @@ class ValueProfile extends AppModel
                 $out['withdrawn']++;
             }
             $content = (string)$report['content'];
+            $eventId = (int)$report['event_id'];
+            $event = isset($events[$eventId]) ? $events[$eventId] : null;
             $reports[] = array(
                 'id' => (int)$report['id'],
                 'name' => $report['name'],
                 'event' => array(
-                    'id' => (int)$report['event_id'],
+                    'id' => $eventId,
                     'info' => isset($row['Event']['info'])
                         ? $row['Event']['info']
                         : null,
+                    'distribution' => $event === null
+                        ? null
+                        : $event['distribution'],
+                    'sharing_group' => $event !== null
+                            && $event['distribution'] === 4
+                            && isset($names[$event['sharing_group_id']])
+                        ? $names[$event['sharing_group_id']]
+                        : null,
+                ),
+                /*
+                 * Who can actually see the report, rather than what its
+                 * own column says — which is `5`, *inherit*, on every
+                 * report nobody narrowed, because that is the shipped
+                 * default (`EventReport.php:91`). The chain is report →
+                 * event and `EventReport::buildACLConditions` enforces
+                 * the conjunction of the two, so it resolves through
+                 * the same helper an occurrence's three links do.
+                 */
+                'audience' => self::reportAudience(
+                    $report,
+                    $event,
+                    $names
                 ),
                 'org' => isset($row['Event']['Orgc']['name'])
                     ? $row['Event']['Orgc']['name']
@@ -9472,6 +9502,111 @@ class ValueProfile extends AppModel
         }
         $out['rows'] = $reports;
         return $out;
+    }
+
+    /**
+     * What each report's event states about its own audience.
+     *
+     * `EventReport::DEFAULT_CONTAIN` fetches six event columns and
+     * `distribution` is not among them, so the level a report defers to
+     * is not on the row `fetchReports` returns. One keyed read of the
+     * events that actually carry a report — a handful, against the
+     * value's whole event scope — rather than widening a contain four
+     * other surfaces share.
+     *
+     * Through `fetchSimpleEvents`, which re-applies
+     * `createEventConditions`. The ids came from an ACL'd read already,
+     * so this is belt and braces rather than the barrier; it costs one
+     * primary-key lookup and means no event's level can be read off a
+     * row this viewer should not have.
+     *
+     * @param array $user
+     * @param array $rows fetchReports-shaped
+     * @return array event id => distribution, sharing_group_id
+     */
+    private function reportEventAudiences(array $user, array $rows)
+    {
+        $ids = array();
+        foreach ($rows as $row) {
+            $ids[(int)$row['EventReport']['event_id']] = true;
+        }
+        if (empty($ids)) {
+            return array();
+        }
+        $events = $this->model('Event')->fetchSimpleEvents(
+            $user,
+            array('conditions' => array('Event.id' => array_keys($ids)))
+        );
+        $out = array();
+        foreach ($events as $event) {
+            $out[(int)$event['Event']['id']] = array(
+                'distribution' => (int)$event['Event']['distribution'],
+                'sharing_group_id' =>
+                    (int)$event['Event']['sharing_group_id'],
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * Every level the reports panel could resolve to, so
+     * `sharingGroupNames` can decide whether any of them needs a name.
+     *
+     * @param array $rows fetchReports-shaped
+     * @param array $events From `reportEventAudiences`
+     * @return array
+     */
+    private static function reportChainLevels(array $rows, array $events)
+    {
+        $levels = array();
+        foreach ($rows as $row) {
+            $levels[] = (int)$row['EventReport']['distribution'];
+        }
+        foreach ($events as $event) {
+            $levels[] = $event['distribution'];
+        }
+        return $levels;
+    }
+
+    /**
+     * Who can see one report, resolved against the event it is on.
+     *
+     * A report at level 5 states nothing and defers outward, exactly as
+     * an attribute does — and unlike an attribute it is *usually* at 5,
+     * because that is what `MISP.default_eventreport_distribution`
+     * ships as. A badge reading `Inherit event` on nearly every row is
+     * a badge that never answers the question it occupies space to ask.
+     *
+     * The event link is dropped where the event did not resolve rather
+     * than assumed: `resolveChain` then reports a null level, and the
+     * panel says the report defers without naming a level nobody
+     * confirmed.
+     *
+     * @param array $report The `EventReport` row
+     * @param array|null $event From `reportEventAudiences`
+     * @param array $names id => name, for the groups this viewer sees
+     * @return array As `ValueStatsTool::resolveChain`
+     */
+    private static function reportAudience(array $report, $event,
+        array $names
+    ) {
+        $links = array(array(
+            'scope' => 'report',
+            'label' => __('Report'),
+            'level' => (int)$report['distribution'],
+            'sharing_group_id' => isset($report['sharing_group_id'])
+                ? (int)$report['sharing_group_id']
+                : null,
+        ));
+        if ($event !== null) {
+            $links[] = array(
+                'scope' => 'event',
+                'label' => __('Event'),
+                'level' => $event['distribution'],
+                'sharing_group_id' => $event['sharing_group_id'],
+            );
+        }
+        return ValueStatsTool::resolveChain($links, $names);
     }
 
     /**

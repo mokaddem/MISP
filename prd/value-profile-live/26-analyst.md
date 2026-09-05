@@ -1240,3 +1240,92 @@ the change strip's near-white ground at **1.35:1**, and would have
 reported every mixed surface on this page as a failure. It parses both
 forms now, which is why §12.5's row 14 numbers are worth trusting and
 were worth re-running.
+
+---
+
+## 19. A third reading — the report badge said nothing
+
+From the maintainer on 2026-09-05, reading the built tab: *the event
+report shows `inherit`, but in other places in the value profile we have
+derived the actual distribution.*
+
+**It was every row, not some of them.**
+`MISP.default_eventreport_distribution` ships as `5`
+(`EventReport.php:91`), so a report nobody deliberately narrowed sits at
+*inherit* — and on this instance that is **every one of the 174
+reports**. The badge occupied a slot in the meta line on every row of
+the panel and answered the question it was there to ask on none of them.
+
+The rest of the page had already settled this. `8.8.8.8`'s occurrence
+table has read the *effective* level since phase 22 for exactly the same
+reason — `Attribute.distribution` is `5` on almost every real row — and
+the co-occurrence fold resolves a label's audience the same way rather
+than print `Inherited` beside a tag. The reports panel was the one
+surface still reporting a column instead of an answer.
+
+### 19.1 It is the same rule, over a shorter chain
+
+An occurrence's chain is attribute → object → event.
+**A report's is report → event**, and MISP enforces the identical
+conjunction over it: `EventReport::buildACLConditions` ANDs
+`Event::createEventConditions` with the report's own level, and lets `5`
+pass through — which is what an attribute's `5` does inside
+`MispAttribute::buildConditions`. So there was no new rule to decide,
+only a chain of two links to hand to the rule that exists.
+
+`ValueStatsTool::effectiveDistribution` was the whole rule welded to one
+chain shape. It now builds its three links and calls
+**`resolveChain()`**, which is the same two steps over any chain that
+inherits outward: level 5 states nothing and defers, then the tightest
+stated level wins by `$restrictiveness`, with `intersects` still true
+where a sharing group meets another constraint and no single level can
+say so. `inherited` became *the winner is not the innermost link*
+rather than *the winner is not the attribute*, which is what it always
+meant.
+
+### 19.2 The event's level was not on the row
+
+`EventReport::DEFAULT_CONTAIN` fetches six event columns and
+`distribution` is not one of them, so the level a report defers to is
+not in what `fetchReports` returns. Two ways to get it and only one of
+them is this page's business: widening a contain that the event view,
+the event index and the reports API all read, or one keyed read here.
+
+**One keyed read here** — `reportEventAudiences()`, a
+`fetchSimpleEvents` over the events that actually carry a report, which
+is a handful against the value's whole event scope. It re-applies
+`createEventConditions`; the ids came from an ACL'd read already, so
+that is belt and braces rather than the barrier, and it means no event's
+level can be read off a row this viewer should not have. Sharing-group
+*names* cost a query only when some level in the chain is `4`, through
+the `sharingGroupNames()` gate the occurrence rows already use.
+
+### 19.3 What a row says now
+
+The badge carries the **resolved** level and an italic **from the
+event** where the level is the event's — because the badge would
+otherwise read as the report's own claim, and on a report at the shipped
+default it is not: nobody set it there and it is not editable there. The
+tooltip carries the chain the occurrence table's distribution cell
+carries, in the same words: *Report: Inherit event → Event: This
+community only*. Where a sharing group meets another constraint the row
+takes the link glyph and the sentence that the real audience is narrower
+than any one level.
+
+An event that does not resolve drops out of the chain rather than being
+assumed: `resolveChain` then reports a null level and the badge falls
+back to *Inherit event*, which is the one honest thing left to say. It
+is unreachable in practice — the report fetch already required the event
+to pass the same ACL — and it is a branch rather than a warning.
+
+### 19.4 Verified against the instance
+
+`circl.lu` sits in eight events carrying eleven reports, and **all
+eleven are stored at `5`**. Every badge now names a real audience and
+each names its own: four rows *Connected communities*, two *This
+community only*, one *All communities*, one *Your organisation only*,
+and event 22's report reads **Test SG** with the sharing-group glyph and
+a link-free name — the level-4 branch, exercised by real data rather
+than by argument. Eleven of eleven carry *from the event*, which is the
+count that says the derivation fired on every row and not on the easy
+ones.
