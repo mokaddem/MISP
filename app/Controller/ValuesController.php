@@ -154,9 +154,26 @@ class ValuesController extends AppController
         $this->renderPanel($this->profileFor($b64value), 'value_context');
     }
 
+    /**
+     * The Overview's preview of the Collaboration tab.
+     *
+     * **Live since 2026-09-05**, and it reads the tab's own union
+     * rather than a cheaper one of its own — `ValueProfile::
+     * forAnalystPreview` has the argument. It was the last panel on
+     * this page still answering from the fixture beside panels reading
+     * the database, which `26-analyst.md` §11 call 2 recorded as the
+     * price of leaving the Overview's row to the Overview's phase.
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewAnalystPreview($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_analyst_preview');
+        $this->renderLivePanel(
+            $b64value,
+            'forAnalystPreview',
+            'value_analyst_preview'
+        );
     }
 
     public function viewVerdictCard($b64value = null)

@@ -2,74 +2,107 @@
 /**
  * The most recent analyst notes and opinions on this value.
  *
- * A preview: the threaded view, the replies and the full opinion
- * distribution belong to the Analyst data tab. `AnalystData/thread` is
- * not reused here because it carries the add / edit / delete controls,
- * and nothing on this page writes.
+ * A preview: the thread, the replies, the proposals, the event reports
+ * and the full opinion distribution belong to the Collaboration tab.
+ * `AnalystData/thread` is not reused here because it carries the add /
+ * edit / delete controls, and nothing on this page writes.
  *
- * The data is shaped like `AnalystData::fetchForObject` returns it, so
- * the swap is a data source rather than a template.
+ * **Live since 2026-09-05**, off `ValueProfile::forAnalystPreview` and
+ * therefore off the same union the tab reads. It carried the fixture's
+ * notes for three phases while the tab beside it went live, which is
+ * the state `26-analyst.md` §14.13 predicted would start lying — a
+ * reader met one set of counts here and another one tab across.
+ *
+ * **Newest first across both kinds.** The fixture handed over a `Note`
+ * array and an `Opinion` array and this card drew every note above
+ * every opinion; that was the fixture's shape and not a decision, and
+ * it let a card headed *the most recent* put a two-year-old note above
+ * yesterday's opinion.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystPreview.
  *
  * @var array $valueProfile
- * @var string $valueB64
  */
 $analyst = $valueProfile['analyst'];
-$notes = $analyst['Note'];
-$opinions = $analyst['Opinion'];
-$shown = count($notes) + count($opinions);
+$counts = $analyst['counts'];
+$items = $analyst['preview'];
+$written = (int)$counts['notes'] + (int)$counts['opinions'];
+$shown = count($items);
 
-$subtitle = implode(' &nbsp;·&nbsp; ', array(
-    h(sprintf(__('%s notes'), $analyst['notes'])),
-    h(sprintf(__('%s opinions'), $analyst['opinions'])),
-));
-if ($shown > 0 && $shown < $analyst['total']) {
-    $subtitle .= ' &nbsp;·&nbsp; ' . h(sprintf(
-        __('showing the %s most recent'),
-        $shown
-    ));
-}
+$subtitle = implode(' &nbsp;·&nbsp; ', array_filter(array(
+    h(sprintf(
+        __n('%s note', '%s notes', (int)$counts['notes']),
+        (int)$counts['notes']
+    )),
+    h(sprintf(
+        __n('%s opinion', '%s opinions', (int)$counts['opinions']),
+        (int)$counts['opinions']
+    )),
+    /*
+     * Proposals are counted here and drawn on the tab. The card says
+     * they exist because the alternative is a subtitle that reads
+     * `0 notes · 0 opinions` over a value three organisations have
+     * proposed edits to.
+     */
+    (int)$counts['proposals'] > 0
+        ? h(sprintf(
+            __n('%s proposal', '%s proposals', (int)$counts['proposals']),
+            (int)$counts['proposals']
+        ))
+        : null,
+    $shown > 0 && $shown < $written
+        ? h(sprintf(__('showing the %s most recent'), $shown))
+        : null,
+)));
 
-/*
- * The same banding AnalystData/thread uses, so an opinion reads the same
- * on both pages.
+/**
+ * One item's organisation, author and date.
+ *
+ * The organisation opens, under §18.1's rule that a chip naming a
+ * record is a link to that record — the thread's meta line, the report
+ * rows and the ledger already follow it, and this card could not while
+ * its organisations were fixture strings with no id behind them.
+ *
+ * @param array $item
+ * @return string
  */
-$opinionBand = function ($o) {
-    $o = max(0, min(100, (int)$o));
-    if ($o >= 81) {
-        return array(__('Strongly agree'), 'success');
-    }
-    if ($o >= 61) {
-        return array(__('Agree'), 'success');
-    }
-    if ($o >= 41) {
-        return array(__('Neutral'), 'secondary');
-    }
-    if ($o >= 21) {
-        return array(__('Disagree'), 'danger');
-    }
-    return array(__('Strongly disagree'), 'danger');
-};
-
-$meta = function ($item) {
+$meta = function ($item) use ($baseurl) {
     $bits = array();
-    if (!empty($item['Org']['name'])) {
-        $bits[] = '<i class="fas fa-building me-1"></i>'
-            . h($item['Org']['name']);
+    $bits[] = '<span class="misp-icon misp-icon-organisation'
+        . ' misp-simple me-1"></span>'
+        . (empty($item['org_id'])
+            ? h($item['org'])
+            : '<a class="vpa-orglink" href="' . h($baseurl)
+                . '/organisations/view/' . (int)$item['org_id'] . '">'
+                . h($item['org']) . '</a>');
+    // Free text on the row and not a user reference, so it is printed
+    // and never linked.
+    if (!empty($item['author'])) {
+        $bits[] = '<i class="fas fa-user me-1"></i>' . h($item['author']);
     }
-    if (!empty($item['authors'])) {
-        $bits[] = '<i class="fas fa-user me-1"></i>' . h($item['authors']);
-    }
-    if (!empty($item['created'])) {
-        $bits[] = '<i class="fas fa-clock me-1"></i>' . h($item['created']);
+    if (!empty($item['date'])) {
+        $bits[] = '<i class="fas fa-clock me-1"></i>' . h($item['date']);
     }
     return implode(' &nbsp;·&nbsp; ', $bits);
 };
 
-// Nothing written means nothing to open, so the affordance goes too.
-$headerExtra = $shown === 0 ? null : '<a href="#tab-analyst"'
+/*
+ * Nothing written is a state, and which state depends on what else the
+ * union found. A value nobody has written about and a value three
+ * organisations have proposed edits to are not the same emptiness, and
+ * this card previews a tab that holds both.
+ */
+$emptyText = (int)$counts['proposals'] > 0
+    ? __(
+        'Nobody has written a note or an opinion about this value, but'
+        . ' there are proposals on it.'
+    )
+    : __('No analyst has written about this value.');
+
+// Nothing on the tab means nothing to open, so the affordance goes too.
+$hasTab = $written > 0 || (int)$counts['proposals'] > 0;
+$headerExtra = !$hasTab ? null : '<a href="#tab-analyst"'
     . ' class="btn btn-sm btn-outline-secondary d-flex align-items-center'
     . ' gap-1" title="' . h(__('The full thread')) . '">'
     . h(__('Open thread')) . '<i class="fas fa-arrow-right"></i></a>';
@@ -88,63 +121,102 @@ $headerExtra = $shown === 0 ? null : '<a href="#tab-analyst"'
     <?php if ($shown === 0): ?>
         <div class="vp-empty">
             <span class="misp-icon misp-icon-analyst-note misp-simple"></span>
-            <span><?= __('No analyst has written about this value.') ?></span>
+            <span><?= h($emptyText) ?></span>
         </div>
     <?php else: ?>
         <div class="p-3 d-flex flex-column gap-2">
 
-            <?php foreach ($notes as $note): ?>
-                <div class="vp-analyst vp-analyst-note">
-                    <div class="vp-analyst-kind">
-                        <span class="misp-icon misp-icon-analyst-note
-                                     misp-simple"></span>
-                        <?= __('Note') ?>
-                    </div>
-                    <div class="vp-analyst-body">
-                        <?php
-                        /*
-                         * Tight against the tags: .vp-analyst-text is
-                         * pre-wrap so an analyst's own line breaks
-                         * survive, which also preserves the template's
-                         * indentation if it is allowed to leak in.
-                         */
-                        ?>
-                        <div class="vp-analyst-text"><?=
-                            h($note['note'])
-                        ?></div>
-                        <div class="vp-analyst-meta"><?= $meta($note) ?></div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-
-            <?php foreach ($opinions as $opinion):
-                list($label, $colour) = $opinionBand($opinion['opinion']);
+            <?php foreach ($items as $item):
+                $isOpinion = $item['kind'] === 'opinion';
                 ?>
-                <div class="vp-analyst vp-analyst-opinion">
+                <div class="vp-analyst vp-analyst-<?=
+                    $isOpinion ? 'opinion' : 'note' ?>">
                     <div class="vp-analyst-kind">
-                        <span class="misp-icon misp-icon-analyst-opinion
-                                     misp-simple"></span>
-                        <?= __('Opinion') ?>
+                        <span class="misp-icon misp-icon-analyst-<?=
+                            $isOpinion ? 'opinion' : 'note'
+                        ?> misp-simple"></span>
+                        <?= $isOpinion ? __('Opinion') : __('Note') ?>
                     </div>
                     <div class="vp-analyst-body">
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="badge bg-<?= h($colour) ?>-subtle
-                                         text-<?= h($colour) ?>-emphasis
-                                         border border-<?= h($colour) ?>-subtle
-                                         fw-semibold">
-                                <?= h($label) ?>
-                                &middot;
-                                <?= h($opinion['opinion']) ?>/100
-                            </span>
-                        </div>
-                        <?php if (!empty($opinion['comment'])): ?>
+                        <?php if ($isOpinion): ?>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <?php
+                                /*
+                                 * **The band word carries no colour**,
+                                 * which is the rule the standing panel
+                                 * on the tab already states and the
+                                 * reason it gives: MISP splits the five
+                                 * words at 20/40/60/80 while the
+                                 * reading splits at 50, so `Neutral`
+                                 * covers 41-60 and lands on both sides
+                                 * of the pivot. This card used to paint
+                                 * `Agree` green and `Disagree` red off
+                                 * those same boundaries, which is half
+                                 * of the contradiction `05-analyst.md`
+                                 * §11 ends on — a badge asserting a
+                                 * side the boundaries cannot support,
+                                 * beside a Verdict histogram painting
+                                 * everything above 50 as the malicious
+                                 * case. The word is MISP's own
+                                 * vocabulary and stays; the colour was
+                                 * this card's own claim and goes.
+                                 */
+                                ?>
+                                <span class="badge bg-body-tertiary
+                                             text-body-secondary border
+                                             fw-semibold"
+                                      title="<?= h(__(
+                                          'MISP\'s own band word. It is'
+                                          . ' uncoloured because the five'
+                                          . ' words split at 20/40/60/80'
+                                          . ' while agreement splits at'
+                                          . ' 50, so Neutral covers 41-60'
+                                          . ' and falls on both sides.'
+                                      )) ?>">
+                                    <?= h($item['label']) ?>
+                                    &middot;
+                                    <?= (int)$item['score'] ?>/100
+                                </span>
+                                <?php
+                                /*
+                                 * An opinion the ledger leaves out, in
+                                 * the tab's own words rather than in
+                                 * this card's. Only one of the two
+                                 * cases can reach a preview — these are
+                                 * roots, so nothing here hangs off the
+                                 * item above it — but a root whose
+                                 * anchor no longer resolves is D5's row
+                                 * and is drawn because somebody wrote
+                                 * it. Saying *rates a note* over one of
+                                 * those would be this card inventing a
+                                 * target the row does not have.
+                                 */
+                                ?>
+                                <?php if ($item['rates'] !== 'value'): ?>
+                                    <span class="vpa-chip"><?= h(
+                                        $item['attached_to']['kind']
+                                            === 'unresolved'
+                                            ? __(
+                                                'the row this hangs off'
+                                                . ' does not resolve —'
+                                                . ' not in the aggregate'
+                                            )
+                                            : __(
+                                                'about the item above,'
+                                                . ' not about the value'
+                                                . ' — not in the'
+                                                . ' aggregate'
+                                            )
+                                    ) ?></span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if ($item['body'] !== ''): ?>
                             <div class="vp-analyst-text"><?=
-                                h($opinion['comment'])
+                                h($item['body'])
                             ?></div>
                         <?php endif; ?>
-                        <div class="vp-analyst-meta">
-                            <?= $meta($opinion) ?>
-                        </div>
+                        <div class="vp-analyst-meta"><?= $meta($item) ?></div>
                     </div>
                 </div>
             <?php endforeach; ?>

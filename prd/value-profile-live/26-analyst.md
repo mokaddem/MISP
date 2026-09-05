@@ -1329,3 +1329,89 @@ a link-free name — the level-4 branch, exercised by real data rather
 than by argument. Eleven of eleven carry *from the event*, which is the
 count that says the derivation fired on every row and not on the easy
 ones.
+
+---
+
+## 20. The Overview's preview card goes live — call 2's consequence, paid
+
+Asked for by the maintainer on 2026-09-05, after §19. §11's call 2 was
+answered *leave it on the fixture, and record that it lies*; §11 then
+named the price — *the Overview's card now reads the fixture's opinions
+beside three panels reading the database, so on `8.8.8.8` a reader meets
+one set of numbers on the Overview and a different set one tab across.*
+This is that price being paid rather than carried.
+
+### 20.1 One union, two readings — not two unions
+
+`forAnalystPreview` runs `analystContext` and nothing else. That is the
+whole design: the card's counts and the tab's counts are the same array,
+so they cannot drift the way a cheaper second reader would let them.
+Checked on four values, card subtitle against tab subtitle:
+
+| Value | Card | Tab |
+|---|---|---|
+| `8.8.8.8` | 2 notes · 4 opinions · 1 proposal | 7 items · 4 opinions, 2 notes, 1 proposal |
+| `google.com` | 1 note · 4 opinions | 5 items · 4 opinions, 1 note · 2 replies |
+| `2.2.2.2` | 1 note · 0 opinions · 2 proposals | 3 items · 0 opinions, 1 note, 2 proposals |
+| `b1` | 0 notes · 0 opinions | nothing written |
+
+**The cost is the tab's and the card can afford it** — the distinction
+the tab-bar pill could not make. This is a lazily-loaded panel a reader
+is looking at, not a badge rendered on every page load whether or not
+anybody opens the tab. Measured against the thread endpoint on the same
+values: **29–46 ms for the card, 33–47 ms for the thread**, which is the
+same union costing the same money twice, as expected.
+
+### 20.2 Three things that fell out of going live
+
+**Newest first, across both kinds.** The fixture handed over a `Note`
+array and an `Opinion` array, so the card drew every note above every
+opinion — a card headed *the most recent* putting a two-year-old note
+above yesterday's opinion. Live data arrives as one thread ordered
+newest first, and preserving the split would have meant re-bucketing on
+purpose. Roots only and proposals excluded, so *the four most recent*
+means four items a reader can compare.
+
+**Proposals are counted, and the empty state knows about them.** The old
+card printed *No analyst has written about this value* off notes and
+opinions alone. On this instance **five values carry proposals and no
+analyst writing at all** — `123.123.123.1`, `123.43.32.21`,
+`123.43.32.22`, `2.2.2.3` and `5.6.3.4`, the last with three — so that
+sentence was about to become false on real data the day the card went
+live. It now reads *nobody has written a note or an opinion about this
+value, but there are proposals on it*, and the **Open thread** button
+survives, because there is something to open.
+
+**The organisation opens.** §18.1's rule — a chip naming a record links
+to it — could not reach this card while its organisations were fixture
+strings. They carry `org_id` now and follow the rule the thread meta,
+the report rows and the ledger already do.
+
+### 20.3 The band word loses its colour, and the contradiction moves
+
+`05-analyst.md` §11 ends on *MISP colours opinions two contradictory
+ways: the Overview preview paints "Agree" green, the Verdict histogram
+paints everything above 50 red … the Overview card is the one that
+should change.* It changed, and it changed by **dropping the claim
+rather than reversing it**.
+
+The reason is the standing panel's own, stated on the tab: MISP splits
+the five band words at 20/40/60/80 while agreement splits at 50, so
+`Neutral` covers 41–60 and lands on both sides of the pivot. A badge
+colouring `Agree` green and `Disagree` red off those boundaries asserts
+a side the boundaries cannot support. The word is MISP's vocabulary and
+stays; the colour was this card's own claim and goes. The badge is the
+neutral `bg-body-tertiary` the report panel's audience badge already
+uses — **14.6:1 in light, 10.2:1 in dark**.
+
+**What this does not settle, and where it went.** The contradiction is
+now between two other surfaces, and it is sharper than §11 described.
+`value_analyst_standing.ctp` maps an opinion above 50 to `agree` and
+paints `.vpa-s-agree` with **`--vp-ben`**, the benign token; the Verdict
+tab's `value_verdict_opinions.ctp` paints every bucket at or above 50
+`vp-hist-bar-mal`. Both are on this page and they disagree. The standing
+panel's comment justifies its choice as *the green the Overview card
+uses for agreement* — **a justification this commit removes**, since the
+Overview card no longer uses green for agreement. Recorded here rather
+than settled: the Verdict tab is still fixture-backed, and repainting
+either surface is a decision about what an opinion means, not a cleanup.

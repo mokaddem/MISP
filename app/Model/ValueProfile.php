@@ -525,6 +525,18 @@ class ValueProfile extends AppModel
     const ANALYST_REPORT_HEAD = 600;
 
     /**
+     * Items the Overview's preview card draws before it says how many
+     * more there are.
+     *
+     * Four, which is what the fixture drew and what the card's slot on
+     * a three-panel column holds without pushing the Verdict card below
+     * the fold. It is a preview and the tab is one press away: the
+     * number that matters on this card is the total in its subtitle,
+     * not how much of the thread it managed to fit.
+     */
+    const ANALYST_PREVIEW_CAP = 4;
+
+    /**
      * Days the brush's default window covers.
      *
      * The fixture pinned a window per value — a fixed date to its own
@@ -9394,6 +9406,100 @@ class ValueProfile extends AppModel
                 'shown' => $context['occurrences'],
             ),
         );
+    }
+
+    /**
+     * The Overview's preview of the Collaboration tab.
+     *
+     * **Off `analystContext` and never its own union.** That is the
+     * whole point of converting it: `05-analyst.md` §3 left this card
+     * on the fixture and §14.13 said its numbers would start lying the
+     * day the tab went live, which is what happened — a reader met one
+     * set of counts on the Overview and a different set one tab across,
+     * the Occurrences banner problem phase 22 spent a section on. Two
+     * readings of one union cannot disagree; two unions can.
+     *
+     * **The cost is the tab's, and this card can afford it** for the
+     * reason the tab bar's badge could not (§11 of `26-analyst.md`, and
+     * the pill question settled the same way on 2026-09-05). The union
+     * is five anchor kinds over two tables, 5 to 26 queries — a price
+     * for a lazily-loaded panel a reader is looking at, and not for a
+     * number on a tab bar that renders on every page load whether or
+     * not anybody opens the tab.
+     *
+     * **Notes and opinions, and proposals only as a count.** The card
+     * draws what it says it draws; a proposal is somebody's edit rather
+     * than somebody's writing, and the change strip that makes one
+     * legible is the tab's. But the *empty* state has to know about
+     * them, because *nobody has written about this value* over a value
+     * carrying three open proposals is the one sentence this card must
+     * not print. They come free — the union already holds them.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forAnalystPreview(array $user, $value,
+        array $options = array()
+    ) {
+        $context = $this->analystContext($user, $value, $options);
+        $context['preview'] = self::analystPreviewItems($context['thread']);
+        /*
+         * The thread and the ledger are dropped on the way out. The
+         * card renders four items and the union can hold hundreds;
+         * carrying the rest so the template can ignore them is the
+         * Overview paying the tab's memory for a panel that shows a
+         * handful.
+         *
+         * The ledger is built and then discarded, and that is the
+         * cheaper mistake. Teaching `analystContext` to skip it would
+         * give this page two assemblies of one union — the exact thing
+         * that method exists to prevent — to save some array grouping
+         * over rows already in memory. No query is involved.
+         */
+        unset($context['thread'], $context['standing']);
+        return array(
+            'value' => $value,
+            'analyst' => $context,
+        );
+    }
+
+    /**
+     * The newest few notes and opinions, in one order.
+     *
+     * **Newest first across both kinds**, where the fixture carried a
+     * `Note` array and an `Opinion` array and the card drew every note
+     * above every opinion. That grouping was the fixture's shape rather
+     * than a decision, and it made a card titled *the most recent* put
+     * a two-year-old note above yesterday's opinion. One union, read
+     * newest first, is what the thread beside it already does.
+     *
+     * Roots only, and proposals excluded. A reply is a statement about
+     * the item above it rather than about the value, and the card has
+     * no room to draw what it answers — the same exclusion the standing
+     * panel's aggregate makes, and for the same reason.
+     *
+     * @param array $thread From `analystContext`
+     * @return array
+     */
+    private static function analystPreviewItems(array $thread)
+    {
+        $items = array();
+        foreach ($thread as $item) {
+            if ($item['kind'] === 'proposal') {
+                continue;
+            }
+            // The replies go with them, so "roots only" is a property
+            // of what leaves this method rather than of what the
+            // template remembers not to draw.
+            unset($item['children'], $item['max_depth_reached']);
+            $items[] = $item;
+            if (count($items) >= self::ANALYST_PREVIEW_CAP) {
+                break;
+            }
+        }
+        return $items;
     }
 
     /**

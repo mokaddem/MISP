@@ -741,3 +741,39 @@ score, and a second announcement of the same number is noise.
 green growing right at 85 and 75, red growing left at 30, and grey at 68 for the
 opinion that rates the note above it — in light and dark theme, with the three
 sortable tables re-checked in the same pass.
+
+---
+
+## 17. The preview card is live, and §11's last bullet is half-closed
+
+**2026-09-05.** The Overview's preview card — §7's panel two, the one
+this phase built against the fixture — now reads the database, through
+`ValueProfile::forAnalystPreview` and therefore through the same union
+the Collaboration tab reads. `value-profile-live/26-analyst.md` §20 has
+the conversion, the counts it was checked against and its cost.
+
+Two of §11's bullets are answered by it and one is not:
+
+- **"Nothing computes the aggregate."** Something does, and has since
+  phase 26: the standing panel's mean, buckets and per-organisation
+  rollup are computed in the facade, and *an opinion written on a note
+  rates the note and not the value* is decided in code — the card now
+  says so on any such row it draws, in the tab's own words.
+- **"No pagination across it."** Still true and still correct. The card
+  takes the newest four and states the total beside them, which is
+  phase 25's cap-with-a-stated-remainder rather than a page parameter.
+- **"MISP colours opinions two contradictory ways."** The card was named
+  as the one that should change and it has, but **by dropping its colour
+  claim rather than by adopting the Verdict reading**. The band words
+  split at 20/40/60/80 while agreement splits at 50, so `Neutral` covers
+  41–60 and falls on both sides — a coloured band word asserts a side
+  those boundaries cannot support, which is the standing panel's own
+  rule arriving one card later.
+
+**The contradiction survives, between two other surfaces.**
+`value_analyst_standing.ctp` paints an above-50 opinion with `--vp-ben`
+and `value_verdict_opinions.ctp` paints the same opinion `mal`. The
+standing panel's comment gives its reason as *the green the Overview
+card uses for agreement*, and that card no longer does. Whoever unblocks
+the Verdict tab inherits the question, and it is a question about what
+an opinion asserts rather than about CSS.
