@@ -3062,3 +3062,80 @@ opens*. The panel's own line says it too, which costs four words:
   bare events.
 - Both themes, on the chronology and the lane grid; no endpoint slower
   and none over 200.
+
+---
+
+## 30. A report row that says who can see it
+
+From the maintainer on 2026-09-05, after the Collaboration tab's report
+list stopped printing *Inherit event* on every row (`26-analyst.md`
+§19): *a similar pass could be done on the timeline tab.*
+
+**The audit first, because it changes what the pass is.** This tab
+renders **no distribution anywhere** — not on a lane, not on a
+chronology row, not in the undated strip. There was no `Inherit event`
+here to fix. What there was is the other half of the same complaint: the
+report lane and the Collaboration panel are **the same records rendered
+twice**, and after §19 one of the two said who could see a report and
+the other said nothing at all. A page that answers a question on one tab
+and drops it on another is a page disagreeing with itself about what a
+row owes the reader.
+
+### 30.1 A clause, not a badge
+
+The chronology row is a grid of four parts — time, source chip, title,
+precision chip — and hanging an audience badge on the one lane of ten
+that could carry one makes the list ragged for a fact that is not why
+anybody opens a chronology. The **note line** is where a row already
+explains itself, in lowercase clauses joined by `·`: *audit_logs ·
+admin@admin.test*, *Its only publication*. The audience joins it in the
+same voice:
+
+> event report on event 16 · connected communities, from the event
+
+*from the event* is there for the reason §19's badge carries it: at the
+shipped default the level is not the report's own, nobody set it there,
+and it is not editable there. A sharing group keeps the case its owner
+gave it — *event report on event 22 · Test SG, from the event* — where
+the five stated levels are lowercased into the clause.
+
+### 30.2 It costs nothing to read
+
+`timelineContext` already runs `fetchSimpleEvents` over every event in
+scope and was dropping `distribution` and `sharing_group_id` on the
+floor; carrying them is two array keys and no query. The chain resolves
+through `ValueProfile::reportAudience()` — the same helper the
+Collaboration panel uses, over the same `ValueStatsTool::resolveChain()`
+— so the two surfaces cannot disagree about one report. Sharing-group
+names go through the existing `sharingGroupNames()` gate, and the levels
+handed to it are those of the events **that actually carry a report**
+rather than every event in scope, so the gate's promise to query only
+when a row could need a name still holds.
+
+`ValueStatsTool::levelLabel()` is new and is where the five level words
+now live: a lane composing a sentence about an audience cannot reach
+MISP's `DistributionLevel` helper, which is a view helper, and a third
+spelling of *Connected communities* on this page is drift nothing
+catches.
+
+### 30.3 The other lanes are left alone, on purpose
+
+Not an oversight and not a deferral — three of them have nothing to
+resolve:
+
+| Lane | Why not |
+|---|---|
+| edits, tags, galaxy clusters | audit rows about a record whose own level this fetch does not hold; reading it would be a second query per row for a chronology |
+| sightings | `sightings` has no `distribution` column at all — visibility is its own rule |
+| notes, opinions | analyst data at level 5 is **not** *inherit*: `AnalystData::buildConditions` excludes it from both branches, so a note stored at 5 is org-only, and resolving it against an event would be a new claim rather than a derived one |
+| proposals | `shadow_attributes` carries no distribution; §26 of `26-analyst.md` already says a proposal inherits its event's reach without declaring one |
+
+### 30.4 Verified
+
+`circl.lu` — **11 report rows across seven events**, every one of them
+stored at `5`, and each row's clause names the audience its event
+states: *connected communities* on events 1 and 16, *all communities* on
+177, *this community only* on 3325 and 7, *your organisation only* on
+46, and **Test SG** on 22. The same 11 reports on the Collaboration tab
+resolve to the same 11 audiences, which is the check that matters — one
+derivation, two surfaces, no disagreement.

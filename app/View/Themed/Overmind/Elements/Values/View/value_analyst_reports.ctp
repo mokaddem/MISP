@@ -34,6 +34,8 @@
  *
  * @var array $valueProfile
  */
+App::uses('ValueStatsTool', 'Tools');
+
 $reports = $valueProfile['analyst_reports'];
 $rows = $reports['rows'];
 
@@ -75,31 +77,35 @@ $extract = function ($head) {
     return $text;
 };
 
+/**
+ * A level as its words and its glyph.
+ *
+ * The words come from `ValueStatsTool::levelLabel()` and not from a
+ * table here: the Timeline lane names the same five audiences in a
+ * sentence, and two spellings of *Connected communities* on one page is
+ * the kind of drift nothing catches. The glyph stays local — it is this
+ * panel's badge and no other caller wants one.
+ *
+ * `$level` is `null` where the report defers and its event did not
+ * resolve, which is the one case this panel cannot state a level for.
+ * Unreachable in practice: the report fetch already required the event
+ * to pass the same ACL.
+ *
+ * @param int|null $level
+ * @param string|null $sharingGroup
+ * @return array label, icon
+ */
 $distribution = function ($level, $sharingGroup) {
+    $label = ValueStatsTool::levelLabel($level, $sharingGroup);
     if ($level === null) {
-        /*
-         * The report defers and its event did not resolve, so the level
-         * it defers *to* is the one thing this row cannot state. Only
-         * reachable if an event went away between the two reads — the
-         * report fetch already required it to pass the same ACL.
-         */
-        return array(__('Inherit event'), 'fas fa-share-nodes');
+        return array($label, 'fas fa-share-nodes');
     }
-    $levels = array(
-        0 => array(__('Your organisation only'), 'fas fa-lock'),
-        1 => array(__('This community only'), 'fas fa-share-nodes'),
-        2 => array(__('Connected communities'), 'fas fa-share-nodes'),
-        3 => array(__('All communities'), 'fas fa-share-nodes'),
-    );
     if ((int)$level === 4) {
-        return array(
-            $sharingGroup === null ? __('Sharing group') : $sharingGroup,
-            'misp-icon misp-icon-sharing-group misp-simple',
-        );
+        return array($label,
+            'misp-icon misp-icon-sharing-group misp-simple');
     }
-    return isset($levels[(int)$level])
-        ? $levels[(int)$level]
-        : array(__('Inherit event'), 'fas fa-share-nodes');
+    return array($label,
+        (int)$level === 0 ? 'fas fa-lock' : 'fas fa-share-nodes');
 };
 
 /**

@@ -6638,6 +6638,16 @@ class ValueProfile extends AppModel
                     'published' => !empty($event['published']),
                     'first_publication' => (int)$event['first_publication'],
                     'publish_timestamp' => (int)$event['publish_timestamp'],
+                    /*
+                     * The level a record on this event inherits when it
+                     * states none of its own — which is what an event
+                     * report almost always does. Free: this fetch
+                     * already reads every event column and the lane
+                     * that needs it would otherwise re-read the same
+                     * rows.
+                     */
+                    'distribution' => (int)$event['distribution'],
+                    'sharing_group_id' => (int)$event['sharing_group_id'],
                 );
             }
         }
@@ -8587,6 +8597,29 @@ class ValueProfile extends AppModel
                 'EventReport.event_id' => $context['scope']['events'],
             ))
         );
+        /*
+         * The events that actually carry a report, and no wider: the
+         * levels feed `sharingGroupNames`, whose whole promise is that
+         * it queries only when a row could need a name. No fetch of its
+         * own — `timelineContext` already read every event in scope.
+         */
+        $events = array();
+        foreach ($rows as $row) {
+            $id = (int)$row['EventReport']['event_id'];
+            if (!isset($context['events'][$id])) {
+                continue;
+            }
+            $events[$id] = array(
+                'distribution' => $context['events'][$id]['distribution'],
+                'sharing_group_id' =>
+                    $context['events'][$id]['sharing_group_id'],
+            );
+        }
+        $names = $this->sharingGroupNames(
+            $user,
+            array(),
+            self::reportChainLevels($rows, $events)
+        );
         $entries = array();
         foreach ($rows as $row) {
             $report = $row['EventReport'];
@@ -8612,12 +8645,12 @@ class ValueProfile extends AppModel
                     $org,
                     $report['name']
                 ),
-                'note' => empty($report['deleted'])
-                    ? sprintf(__('event report on event %s'), $eventId)
-                    : sprintf(
-                        __('withdrawn event report on event %s'),
-                        $eventId
-                    ),
+                'note' => self::timelineReportNote(
+                    $report,
+                    $eventId,
+                    isset($events[$eventId]) ? $events[$eventId] : null,
+                    $names
+                ),
                 'org' => $org,
                 'ref' => array(
                     'kind' => 'report',
@@ -8629,6 +8662,64 @@ class ValueProfile extends AppModel
         }
         return $this->timelineLane($entries, array('report'), array(),
             $window);
+    }
+
+    /**
+     * What a report row says under its title.
+     *
+     * The Collaboration tab's report list resolves who can see a report
+     * rather than print its own `distribution`, which is `5` on every
+     * report nobody narrowed. These are the same records on a second
+     * surface, and a chronology whose report rows say nothing about
+     * reach beside a panel whose rows do is the page disagreeing with
+     * itself about what a row owes the reader.
+     *
+     * **A clause and not a badge.** The row is already a grid of four
+     * parts — time, source chip, title, precision chip — and a badge on
+     * the one lane of ten that could carry one would make the list
+     * ragged for a fact that is not the reason anybody is reading a
+     * chronology. The note line is where a row explains itself, and it
+     * takes the audience in the same lowercase voice as the rest of it.
+     *
+     * The other lanes are left alone deliberately: an audit row's
+     * record has a level this fetch does not hold, a sighting has
+     * visibility rules and no distribution column, and analyst data at
+     * level 5 is not *inherit* at all — `AnalystData::buildConditions`
+     * excludes it, so a note stored at 5 is org-only and reading it as
+     * inheritance would be a new claim rather than a resolved one.
+     *
+     * @param array $report The `EventReport` row
+     * @param int $eventId
+     * @param array|null $event distribution, sharing_group_id
+     * @param array $names id => name, for the groups this viewer sees
+     * @return string
+     */
+    private static function timelineReportNote(array $report, $eventId,
+        $event, array $names
+    ) {
+        $audience = self::reportAudience($report, $event, $names);
+        $reach = ValueStatsTool::levelLabel(
+            $audience['level'],
+            $audience['sharing_group_name']
+        );
+        /*
+         * The level words join a lowercase clause; a sharing group's
+         * name is somebody's proper noun and keeps the case they gave
+         * it.
+         */
+        if ((int)$audience['level'] !== 4) {
+            $reach = mb_strtolower($reach);
+        }
+        if ($audience['source'] === 'event') {
+            $reach = sprintf(__('%s, from the event'), $reach);
+        }
+        return sprintf(
+            empty($report['deleted'])
+                ? __('event report on event %1$s · %2$s')
+                : __('withdrawn event report on event %1$s · %2$s'),
+            $eventId,
+            $reach
+        );
     }
 
     /**

@@ -203,6 +203,47 @@ class ValueStatsTool
     }
 
     /**
+     * A distribution level as the words the rest of the product uses.
+     *
+     * MISP's own `DistributionLevel` helper holds these, and a helper
+     * is reachable from a template and not from a model — so a lane
+     * composing a sentence about an audience had no way to name one.
+     * Rather than a third spelling of the same five strings beside it,
+     * the one place the levels are already reasoned about names them.
+     *
+     * `null` is *the chain did not resolve* and 5 is *inherit*: two
+     * different things that print the same way, because in both cases
+     * what the record states is nothing.
+     *
+     * @param int|null $level
+     * @param string|null $sharingGroupName Where the level is 4 and the
+     *                                      group resolved for this
+     *                                      viewer
+     * @return string
+     */
+    public static function levelLabel($level, $sharingGroupName = null)
+    {
+        if ($level === null) {
+            return __('Inherit event');
+        }
+        $level = (int)$level;
+        if ($level === 4) {
+            return $sharingGroupName === null
+                ? __('Sharing group')
+                : $sharingGroupName;
+        }
+        $levels = array(
+            0 => __('Your organisation only'),
+            1 => __('This community only'),
+            2 => __('Connected communities'),
+            3 => __('All communities'),
+        );
+        return isset($levels[$level])
+            ? $levels[$level]
+            : __('Inherit event');
+    }
+
+    /**
      * Where a level sits in `$restrictiveness`.
      *
      * Public because `effectiveDistribution` is not the only caller
