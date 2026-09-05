@@ -49,6 +49,8 @@ to `done` only when §14's verification has run against it.
 | T25 | The tag set is placed at each tag's first attach | §22.7 | **done** |
 | T26 | The seen lane's span labels stop overlapping | §26 | **done** |
 | T27 | The axis runs to today, and the empty end is drawn as a wait | §27 | **done** |
+| T28 | The seen lane falls back to the object's span, labelled | §28.3 | **done** |
+| T29 | The object-date lane — D8 reopened and widened | §28.5 | **done** |
 
 **Where the phase stands. Every row is done and the phase is closed
 (2026-09-05).** The tab reads the database: the endpoint is wired,
@@ -63,13 +65,26 @@ survey with a cost per live phase deferred — by giving
 **§26 is T26**, one round of reader feedback over the closed phase: the
 seen lane was printing its span labels on top of each other. **§27 is
 T27**, a second such round: the axis stopped at the value's last activity,
-so a value dead ten weeks drew the same picture as a live one.
+so a value dead ten weeks drew the same picture as a live one. **§28 is
+T28 and T29**, a third: the reader asked which of the three places a date
+can live this tab was reading, and the answer was one of them.
 
-Two rows are deliberately not here. The passive-dns lane
-(`06-timeline.md` §16) is §15, deferred with its reason. And the tab
-badge needs nothing: the registry gives Timeline no count and §14.13's
-*"whoever converts a tab next: check its badge"* is satisfied by there
-being none to check.
+One row is deliberately not here. The tab badge needs nothing: the
+registry gives Timeline no count and §14.13's *"whoever converts a tab
+next: check its badge"* is satisfied by there being none to check. The
+question was put again on 2026-09-05 — *should the tab carry an activity
+badge, like Relationships?* — and the answer is still no, now with a
+number behind it: a badge that agreed with this panel would have to read
+its lanes, and `viewTimeline` is 156 ms on a quiet value and seconds on
+`443`. What a cheap badge could say instead is the *edit* lane's
+recency, which is not the tab's. The fact strip above the tab bar
+already carries the recency question, is visible from every tab, and
+already links here.
+
+**The passive-dns lane is no longer deferred.** §15 named it D8; §28.5
+reopened it, found the framing too narrow by two orders of magnitude —
+51,994 objects on this instance hold a `datetime` attribute, not 829 —
+and built it as the general *Object dates* lane.
 
 ### 1.1 The decisions this phase has taken
 
@@ -87,7 +102,9 @@ reopen the row, in this document, with what it found.
 | D5 | The spine's grain is planned from the range through `ValueProfileBuckets::plan()`, not pinned at twelve months | §9 | Nothing local. This is a reuse, and it reopens only if `plan()` stops fitting |
 | D6 | Proposals and event reports each get a lane; the report lane reads through its own ACL'd fetch and never `EventReport::attachReportCountsToEvents` | §10, §13 | The coverage survey's verdicts changing. The fetch decision does not reopen while that defect ships |
 | D7 | The tab's `.vp-acl-note` band and its `acl_note` key are removed, and §14.6's required-changes table gains the row it was missing | §12 | §14.6 itself, which names the oracle risk as the first thing to revisit if it is ever judged acceptable |
-| D8 | The passive-dns lane is deferred a second time, with the cost named | §15 | Whoever picks it up; the data and the query both exist |
+| D8 | ~~The passive-dns lane is deferred a second time, with the cost named~~ — **reopened and built, §28.5.** Reopened by the reader asking for it, and the reopening falsified the row's own scope: the source is `datetime` attributes in *any* object, 51,994 of them, not 829 passive-dns ones | §15, §28.5 | Closed |
+| D11 | The seen lane draws the containing object's span where the occurrence carries none, as its own source, and never where the occurrence has one | §28.2, §28.3 | A viewer class for whom an object's span is *not* a claim about a value inside it. The de-duplication half would reopen on an instance where object and attribute spans disagree often — here it is 1 object in 36 |
+| D12 | `datetime` attributes in the value's objects are their own lane, never folded into Seen, and every mark carries the relation that named it | §28.5 | A vocabulary in which the relations *are* one notion. `compilation-timestamp` and `send-date` are why this one is not |
 | D9 | The counts are grouped **per day**, not per month, and every lane hands one up over all of its rows | §16.1 | A grain the panel cannot answer a question at. Day answers all three of its questions; month answers only the widest |
 | D10 | The default window is 30 days ending at the value's newest dated entry, clamped to its oldest | §16.2 | A measured reading of what readers open the tab for. The rule this replaced — the calendar month of the newest entry — is *falsified*, not merely disliked: it gives a one-day window to any value whose newest entry falls on the 1st |
 
@@ -763,16 +780,25 @@ dated, which is the loss §14.6 already priced and took deliberately.
 
 ## 15. Deferred, with the cost named
 
-**The passive-dns lane** (`06-timeline.md` §16, `24-relationships.md`
-§26.7). 829 passive-dns objects on the instance, 665 carrying both
-`time_first` and `time_last`. The query is the one `value_relation_dated`
-already runs and caches, so the data is close to free; what is new is a
-lane, its hatching rule when the value sits in no relational object, and
-the chronology rows. It stays deferred because this phase is already
-taking three decisions and adding two lanes, and because the eighth
-source's absence is honest — the Relationships tab shows those dates
-today. The cost of deferring: a value whose whole story is in passive-dns
-dates reads on this tab as a value with almost nothing dated.
+**~~The passive-dns lane~~** (`06-timeline.md` §16, `24-relationships.md`
+§26.7) — **no longer deferred; built in §28.5 as the object-date lane.**
+829 passive-dns objects on the instance, 665 carrying both `time_first`
+and `time_last`. The query is the one `value_relation_dated` already runs
+and caches, so the data is close to free; what is new is a lane, its
+hatching rule when the value sits in no relational object, and the
+chronology rows. It stayed deferred because this phase was already taking
+three decisions and adding two lanes, and because the eighth source's
+absence was honest — the Relationships tab shows those dates today. The
+cost of deferring: a value whose whole story is in passive-dns dates
+reads on this tab as a value with almost nothing dated.
+
+**What reopening it found.** The deferral costed the *passive-dns*
+template, which is the one `value_relation_dated` folds — but the source
+is `datetime` attributes in any object, and **51,994 of the instance's
+69,992 objects hold one**. So the deferred item was two orders of
+magnitude larger than its own cost line, and the lane it became is not
+the one described here: it reads no far value, needs no second date, and
+does not go through the relationship scan. §28.5 has the built shape.
 
 **A real publication history.** Two points per event is a ceiling MISP
 sets, not a choice this phase makes; `ACTION_PUBLISH` audit rows would
@@ -2670,3 +2696,252 @@ chart is a change to the brush rather than to this section, and the one
 thing the tooltip would have said that a reader cannot get elsewhere —
 the span the break stands for — is in the sentence under the chart for
 exactly that reason. The title stays on the bin, correct and waiting.
+
+---
+
+## 28. A date about a value lives in three places; the tab drew one
+
+From the reader of the built tab: *I guess you consider FS/LS on the
+attribute? But what about the one set on the object containing it? And
+what if the object contains another attribute with FS/LS. I think these
+should be represented on a lane.*
+
+All three exist in the schema. The seen lane drew the first of them, and
+the answer to *why not the other two* turned out to be **nothing** —
+one was a column already joined into a query this tab runs, and the
+other was a lane §15 had deferred under a name (*passive-dns*) narrow
+enough to hide how general it was.
+
+### 28.1 The three levels, and what MISP does with them
+
+| # | Where | What it is |
+|---|---|---|
+| 1 | `attributes.first_seen` / `last_seen` | MISP's own columns, on the occurrence itself |
+| 2 | `objects.first_seen` / `last_seen` | the same two columns, on the object holding it |
+| 3 | a `datetime` attribute inside that object | a date the *template* chose to record — `time_first`, `send-date` |
+
+(1) and (2) are the same claim at two granularities, and MISP treats the
+second as the first's default: `MispObject::saveObject` copies the
+object's span onto every attribute saved without one. But **only on the
+add path.** `deltaMerge` calls `syncObjectAndAttributeSeen` with
+`$applyOnAttribute = false`, so editing an object's span never reaches
+its attributes, and the two drift from there.
+
+(3) is a different kind of evidence and not a third granularity of the
+same one — see §28.5.
+
+### 28.2 The census, and why (2) was worth having
+
+Counted on the verification instance:
+
+| | |
+|---|---|
+| objects | 69,992 |
+| …carrying `first_seen` | 319 |
+| …carrying `last_seen` | 75 |
+| of the 319, objects **no member attribute** carries a `first_seen` for | **280** |
+| …fully copied down | 36 |
+| …copied in part | 3 |
+| objects where the object's date and an attribute's **disagree** | **1** |
+| attributes carrying a span inside an object carrying none | 168 |
+
+Two readings, and the phase took both.
+
+**The drift is nearly the whole population.** 280 of 319 is seven-eighths
+of the object-level spans on the instance sitting in a column the tab
+could not see, one join from a table it already joins for the ACL. A
+value whose only recorded span was its object's drew on this axis as a
+value with no span at all.
+
+**Where both are set they agree**, 35 times out of 36. So this is a
+de-duplication rule and not a preference between two rival dates: an
+object earns a bar only from an occurrence that carries no span of its
+own, which skips the 36 and catches the 280 and the 3.
+
+### 28.3 The seen lane takes the object's span, and says so
+
+`seen_object` is its own source rather than more rows in `seen`, and the
+reason is that the key, the spine and the filter all key on source: a
+reader can press the object-level spans away, the stacked spine draws
+them apart, and the lane's sub-label counts them separately —
+*0 of 1 occurrences carry one · 1 more dated by its object*.
+
+The claim is weaker than the attribute's and every mark says so: *The
+object carries this date, the occurrence carries none. A claim about the
+object this value sits in.*
+
+`Value::occurrenceIdsFor` was already joining `Object` — `buildConditions`
+names `Object.*`, so the ACL cannot be expressed without it — and was
+selecting nothing from it. That is the trap `occurrencesFor`'s own
+docblock records one screen down: **with an explicit `fields` list on the
+attribute, Containable takes nothing from a `belongsTo` unless told**, so
+a bare `contain` joins the table, satisfies the ACL, and hands back rows
+with no `Object` columns on them. Naming three fields is the whole of the
+data change; there is no new query.
+
+### 28.4 What it does to `first_here`
+
+`168.181.48.248` is the case that shows why this is not cosmetic. Its
+only occurrence carries no span; the `passive-dns` object holding it
+carries **2017-04-14 → 2017-04-14**, and its every other dated trace is
+October 2025.
+
+Before: the axis began in October 2025 and §22.3's line read *on this
+instance by* that date. After: the axis begins in **April 2017**, the
+line reads **2017-04-14**, and the eight-year emptiness between them is
+drawn as the empty band §19 built for exactly this. The tab was
+understating how long the instance had held the value by eight years,
+and the correction came out of a column it was already fetching the row
+of.
+
+### 28.5 The object-date lane, and why it is not part of Seen
+
+§15 deferred this as *the passive-dns lane* (D8), costed at 829
+passive-dns objects and 665 carrying both `time_first` and `time_last`.
+That framing was too narrow by two orders of magnitude: **51,994 of the
+instance's 69,992 objects hold at least one `datetime` attribute.**
+`passive-dns` is one template among many that date themselves.
+
+And the vocabulary is not one notion:
+
+| relation | rows | relation | rows |
+|---|---|---|---|
+| `time_generated` | 32,892 | `compilation-timestamp` | 136 |
+| `first-seen` | 11,318 | `published` | 61 |
+| `last-seen` | 11,193 | `modified` | 60 |
+| `last-submission` | 6,744 | `creation-date` | 48 |
+| `time_first` | 665 | `send-date` | 20 |
+| `time_last` | 665 | `expiration-date` | 11 |
+
+**A compilation timestamp folded into a lane called *Seen* would be the
+panel asserting something nobody recorded.** So it is its own lane, every
+mark carries the relation that named it, and the lane's sub-label prints
+the vocabulary this value actually has — *2 dates · time_first,
+time_last* — so a reader knows which kind of lane they are looking at
+before reading a single mark.
+
+**Paired where the template pairs them.** `TIMELINE_DATE_PAIRS` holds
+three: `time_first`/`time_last`, `first-seen`/`last-seen`,
+`validity-not-before`/`validity-not-after`. A pair draws one bar,
+everything else an instant. No fourth pair is guessed: `last-submission`
+in particular reads like the far end of a window MISP does not record the
+near end of, and drawing it as one would invent the near end.
+
+The lane is deliberately not a second rendering of Relationships' *Dated
+relations*. That fold needs **two** dates plus a linking value in the
+same object, because what it dates is a relation between two values.
+This dates the object, so one row is enough and no far value is needed —
+which is why `168.181.48.248` gets a bar here and a row there from the
+same two attributes.
+
+### 28.6 What it costs, measured
+
+Counts from a grouped aggregate, rows from a capped read — §16.1's rule,
+and this lane is the second reader that needs it as much as the edit lane
+does. Both reads are their own queries, so this is the one part of §28
+that is not free:
+
+| value | objects in scope | aggregate | rows read | `datetime` rows |
+|---|---|---|---|---|
+| `8.8.8.8` | 15 | 2 ms | 2 ms | 11 |
+| `143.14.244.37` | 32 | 2 ms | 2 ms | 32 |
+| `443` | 394 | 14 ms | 16 ms | 14 |
+| `0.0.0.0` | 32,922 | **415 ms** | **400 ms** | **32,893** |
+
+30 ms on `443` and 4 ms on the two mid-sized values; 815 ms on the value
+that sits in 32,922 objects, which is the value every cost table in this
+document is bounded by. `TIMELINE_OBJECT_DATE_CAP` is 1,000 — the
+chronology's own cap, since a lane handing up more would be building rows
+for `timelineCap` to discard.
+
+**One count was dropped rather than qualified.** The first cut printed
+*32,893 dates in 1,000 objects* on `0.0.0.0`, where the 1,000 was the cap
+counting itself — the aggregate groups by day and relation and cannot
+yield a distinct-object total without a third query. The lane now states
+the date count and the vocabulary, both from the aggregate, and no object
+count at all. §16.1 met by removing a number, which is the cheaper of the
+two ways to meet it.
+
+### 28.7 The colour that says this palette is full
+
+Both new sources needed one, and the axis already carried twelve.
+
+`seen_object` did not need a new hue: it is the same notion as `seen` one
+level up, so it is the same hue at a different lightness —
+`color-mix(in srgb, var(--vp-tl-seen) 55%, var(--bs-body-color))`, which
+is one declaration that steps away from the ground in whichever direction
+the theme leaves room for. A reader who has to learn a new hue to be told
+*the same date, recorded on the object* has been told the wrong thing.
+
+`objdate` did. It was picked the way `--vp-tl-proposal` was — a sweep of
+hue × chroma × lightness scored on the smallest CIEDE2000 distance to
+every source already on the axis, over normal, protan, deutan and tritan
+vision, in both themes, filtered to ≥3:1 on both grounds. The winner,
+`#876a1d`, scores **7.6 ΔE** (nearest: the tag's `#DB6A47` under
+protanopia) at 5.11:1 on the light ground.
+
+**That is below the 10.2 the proposal colour cleared, and it is the
+finding.** Nothing in the space does better with fourteen sources on the
+axis; the best both-ground candidate overall was a red at 8.4, which this
+palette cannot spend on a lane about dates. Thirteen is what this
+encoding holds comfortably. **A fifteenth source should change the
+encoding rather than add a hue** — the lane grid already separates by
+row, and only the stacked spine needs colour to tell sources apart.
+
+`#876a1d` clears only 3.02:1 on the dark ground, which is the threshold
+and not a margin for a 5px mark, so it takes a dark-theme override like
+the three before it: `#d9cda6`, **10.7 ΔE** and 9.7:1 — better separated
+there than the light value is on its own ground, because the warm band
+empties once the palette lightens.
+
+### 28.8 Two bugs in MISP's own propagation, found on the way
+
+Neither is this page's and neither is fixed here; both are why §28.2's
+drift is as wide as it is.
+
+**`MispObject.php:1146` and `:1155` are dead branches.** The test reads
+`!array_key_exists('first_seen', $object['Object']) && !is_null($object['Object']['first_seen'])`
+— if the key is absent the second half is false, and if it is present the
+first half is. Always false. So adding a single new attribute to an
+existing object never inherits the object's dates. Line 523 has the same
+test written correctly, which is what makes it a typo rather than a
+design.
+
+**`syncObjectAndAttributeSeen:1002` uses `elseif`.** When both dates are
+forced, only `first_seen` reaches the attributes and `last_seen` is
+silently dropped.
+
+### 28.9 Verified
+
+Over the values the phase has used throughout, plus two chosen for the
+new branches, in both themes, as a site admin:
+
+- **`168.181.48.248`** — the object-span fallback and a paired
+  object-date span from one `passive-dns` object. Seen lane reads *0 of 1
+  occurrences carry one · 1 more dated by its object*; Object dates reads
+  *2 dates · time_first, time_last*; the axis runs from April 2017 and
+  §22.3's line reads *on this instance by 2017-04-14*, both of which
+  said October 2025 before.
+- **`80`** — the mixed case, *24 of 32296 occurrences carry one · 8 more
+  dated by their objects (8)*.
+- **`0.0.0.0`** — the cap: *32,893 dates · time_generated,
+  compilation-timestamp · drawing 1,000*, over a 32,922-object scope.
+- **`8.8.8.8`, `143.14.244.37`, `443`, `2.2.2.2`, `45.155.205.233`,
+  `193.161.193.99`** — no regression; every endpoint 200, no notice or
+  warning in any fragment.
+- The five panels sharing `Value::occurrenceIdsFor` — `viewSightingChart`,
+  `viewVerdictCard`, `viewOccurrenceTable`, `viewLifecycle`,
+  `viewTimeline` — all still 200 after its `contain` was narrowed from a
+  bare `['Event', 'Object']` to named fields. This was the change most
+  able to break something silently, since the ACL is expressed in columns
+  the field list does not name; the join survives, which is what the
+  query erroring rather than under-filtering would have shown.
+- Both themes, on the lane grid, the spine and the key.
+
+**Not measured against the phase's own cost table**, and the reason is the box:
+it carried a load average of
+3.0 throughout, and `443`'s endpoint read 5.8 s against §27's recorded
+3.7 s *before* any of this section was in the request path. The two new
+reads were therefore timed in isolation, in-process, which is §28.6 —
+30 ms of the 5.8 s. Re-run the endpoint table on a quiet box before
+quoting a whole-endpoint number for this phase again.

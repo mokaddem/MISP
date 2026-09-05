@@ -8010,6 +8010,21 @@ th.vp-rel-num {
     --vp-tl-edit: var(--object);
     --vp-tl-seen: var(--attribute);
     /*
+     * The same notion one level up, so the same hue at a different
+     * lightness rather than a fourteenth colour: an object's span and
+     * an attribute's are the same claim recorded at two levels, and a
+     * reader who has to learn a new hue to be told that has been told
+     * the wrong thing.
+     *
+     * Mixed toward the body colour rather than fixed, which is what
+     * makes one declaration right in both themes: `--bs-body-color` is
+     * near-black on the light ground and near-white on the dark one, so
+     * the object bar steps *away* from the ground in whichever
+     * direction the theme leaves room for.
+     */
+    --vp-tl-seen_object: color-mix(in srgb, var(--vp-tl-seen) 55%,
+        var(--bs-body-color));
+    /*
      * MISP's own two, so a tag mark on this axis is the colour a tag is
      * everywhere else in the product and a cluster mark is a cluster's.
      */
@@ -8039,6 +8054,27 @@ th.vp-rel-num {
      * (L* 39.0, band 31.9–75.9) and clears 6.7:1 on the light ground.
      */
     --vp-tl-proposal: #1d4ed8;
+    /*
+     * The object-date lane, and the colour that says the palette is
+     * full.
+     *
+     * Chosen the way `--vp-tl-proposal` was — a sweep of hue × chroma ×
+     * lightness scored on the smallest CIEDE2000 distance to every
+     * source already on this axis, over normal, protan, deutan and
+     * tritan vision, in both themes, filtered to ≥3:1 on both grounds.
+     * `#876a1d` is the best of them at **7.6 ΔE** (nearest: the tag's
+     * `#DB6A47` under protanopia), and it is worth writing down that
+     * this is *below* the 10.2 the proposal colour cleared. Thirteen
+     * sources is what this palette holds comfortably; the fourteenth
+     * fits, and a fifteenth should change the encoding rather than add
+     * a hue — the lane grid already separates by row, and only the
+     * stacked spine needs colour to tell sources apart.
+     *
+     * Dark and warm rather than another green: the two greens on this
+     * axis are the report and the seen pair, and a third would be read
+     * as one of them.
+     */
+    --vp-tl-objdate: #876a1d;
 }
 
 /*
@@ -8056,6 +8092,16 @@ th.vp-rel-num {
     --vp-tl-note: #c26189;
     --vp-tl-edit: #a2938f;
     --vp-tl-proposal: #6ea8fe;
+    /*
+     * A fourth, and the one that made the list rather than a colour
+     * that happened to be dark: `#876a1d` clears only **3.02:1** on the
+     * dark ground, which is the threshold itself and not a margin for a
+     * 5px mark. The same sweep run against the dark palette puts
+     * `#d9cda6` at **10.7 ΔE** and 9.7:1 — better separated there than
+     * the light value is on its own ground, because the warm band this
+     * hue sits in is empty once the palette lightens.
+     */
+    --vp-tl-objdate: #d9cda6;
 }
 
 .vp-tl-card {
@@ -8664,6 +8710,10 @@ th.vp-rel-num {
 .vp-tl-src-tag { --vp-tl-hue: var(--vp-tl-tag); }
 .vp-tl-src-cluster { --vp-tl-hue: var(--vp-tl-cluster); }
 .vp-tl-src-seen { --vp-tl-hue: var(--vp-tl-seen); }
+.vp-tl-src-seen_object { --vp-tl-hue: var(--vp-tl-seen_object); }
+.vp-tl-src-objdate { --vp-tl-hue: var(--vp-tl-objdate); }
+/* The lane key, whose one source is the entry key above. */
+.vp-tl-src-objdates { --vp-tl-hue: var(--vp-tl-objdate); }
 
 .vp-tl-src-btn {
     padding: 0;

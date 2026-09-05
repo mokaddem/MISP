@@ -537,7 +537,7 @@ document that filled it.
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
 | Analyst | `viewAnalystStanding` | `value_analyst_standing` | — | — | — | — |
 | Analyst | `viewAnalystThread` | `value_analyst_thread` | — | — | — | — |
-| Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7 | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7** |
+| Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
 Fifteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row

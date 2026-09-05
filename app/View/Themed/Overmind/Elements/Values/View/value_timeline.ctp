@@ -164,6 +164,37 @@ $sourceMeta = array(
         'icon' => 'far fa-clock',
         'token' => 'var(--vp-tl-seen)',
     ),
+    /*
+     * The same date one level up. MISP keeps `first_seen` and
+     * `last_seen` on the object as well as on the attribute and copies
+     * the object's down at save time — but only on the add path, so
+     * the two drift and the object's is usually the only one set. It
+     * is a weaker claim than the attribute's, which is why it is its
+     * own source rather than more rows in the one above: the key can
+     * name it, the spine can stack it apart, and a reader can press it
+     * away.
+     */
+    'seen_object' => array(
+        'label' => __('First seen (object)'),
+        'plural' => __('object-level spans'),
+        'icon' => 'far fa-clock',
+        'token' => 'var(--vp-tl-seen_object)',
+    ),
+    /*
+     * A date an object template records in a field of its own, which is
+     * a different kind of evidence from the two above: those are MISP's
+     * `first_seen`/`last_seen` columns, this is whatever the template
+     * decided to call a date. The glyph is the one the Relationships
+     * tab's *Dated relations* section already wears, because these are
+     * the rows that section folds — a reader meeting the same dates on
+     * two tabs should meet the same mark.
+     */
+    'objdate' => array(
+        'label' => __('Object date'),
+        'plural' => __('dates recorded by objects'),
+        'icon' => 'fas fa-clock-rotate-left',
+        'token' => 'var(--vp-tl-objdate)',
+    ),
 );
 
 /*
@@ -267,8 +298,91 @@ $counts = $timeline === null
 $countsByDay = $counts['by_day'];
 $inWindow = $counts['in_window'];
 $spans = $timeline === null
-    ? array('occurrences' => 0, 'with' => 0, 'shown' => 0, 'cap' => 0)
+    ? array(
+        'occurrences' => 0, 'with' => 0, 'shown' => 0, 'cap' => 0,
+        'covered' => 0, 'objects' => 0, 'objects_shown' => 0,
+    )
     : $timeline['spans'];
+
+/*
+ * The seen lane's sub-label, composed here because it has two halves
+ * and either can be absent.
+ *
+ * The first is what the lane has always said: how many occurrences
+ * carry a span of their own, of how many the viewer can see, and — when
+ * the cap bites — how many were drawn. The second is the object half,
+ * and it appears only when there is one, because *0 dated by their
+ * object* on a value whose occurrences are all dated is a number
+ * answering a question nobody asked.
+ *
+ * `covered` rather than `objects` leads the second clause: a reader
+ * counting bars wants to know how many *occurrences* the fallback
+ * rescued, and one object can hold several.
+ */
+$seenSub = $spans['shown'] < $spans['with']
+    ? sprintf(
+        __('%1$s of %2$s occurrences carry one · drawing %3$s'),
+        $spans['with'],
+        $spans['occurrences'],
+        $spans['shown']
+    )
+    : sprintf(
+        __('%1$s of %2$s occurrences carry one'),
+        $spans['with'],
+        $spans['occurrences']
+    );
+if (!empty($spans['objects'])) {
+    $seenSub .= ' · ' . __n(
+        '%1$s more dated by its object',
+        '%1$s more dated by their objects (%2$s)',
+        $spans['covered'],
+        $spans['covered'],
+        $spans['objects']
+    );
+    if ($spans['objects_shown'] < $spans['objects']) {
+        $seenSub .= ' ' . sprintf(
+            __('· drawing %s of those'),
+            $spans['objects_shown']
+        );
+    }
+}
+
+/*
+ * The object-date lane's sub-label: how many dates the objects record,
+ * and — the half that matters — what they are called.
+ *
+ * The relation names are the point of printing anything here at all. A
+ * lane saying *32,893 dates* over a value in 32,922 objects has told
+ * the reader nothing; *time_generated, first-seen, last-seen* tells
+ * them whether this lane is about being seen or about something else
+ * entirely, which is the one question the lane cannot answer for them.
+ *
+ * From the aggregate and never from the drawn rows — the rows are the
+ * newest 1,000, and on `0.0.0.0` all 1,000 of them would be
+ * `time_generated`.
+ */
+$objdates = $timeline === null
+    ? array('total' => 0, 'shown' => 0, 'relations' => array())
+    : $timeline['objdates'];
+$objdateSub = __('nothing recorded');
+if (!empty($objdates['total'])) {
+    $names = array_keys($objdates['relations']);
+    $head = array_slice($names, 0, 3);
+    $objdateSub = sprintf(
+        __('%1$s · %2$s'),
+        __n('%s date', '%s dates', $objdates['total'],
+            number_format($objdates['total'])),
+        implode(', ', $head) . (count($names) > count($head)
+            ? sprintf(__(' +%s more'), count($names) - count($head))
+            : '')
+    );
+    if ($objdates['shown'] < $objdates['total']) {
+        $objdateSub .= ' · ' . sprintf(
+            __('drawing %s'),
+            number_format($objdates['shown'])
+        );
+    }
+}
 
 $windowFrom = $window === null ? null : $window['from'] . ' 00:00:00';
 $windowTo = $window === null ? null : $window['to'] . ' 23:59:59';
@@ -1040,20 +1154,32 @@ $lanes = array(
          * how many of those this lane drew. A cap is not a permission,
          * so the third is said out loud for every reader.
          */
-        'sub' => $spans['shown'] < $spans['with']
-            ? sprintf(
-                __('%1$s of %2$s occurrences carry one · drawing %3$s'),
-                $spans['with'],
-                $spans['occurrences'],
-                $spans['shown']
-            )
-            : sprintf(
-                __('%1$s of %2$s occurrences carry one'),
-                $spans['with'],
-                $spans['occurrences']
-            ),
-        'sources' => array('seen'),
+        'sub' => $seenSub,
+        'sources' => array('seen', 'seen_object'),
         'draw' => 'spans',
+    ),
+    /*
+     * Directly under Seen spans, because it is the same question asked
+     * of a third source and the reader should meet the three together:
+     * the attribute's column, the object's column, and the field the
+     * object's template chose to put a date in.
+     *
+     * Not folded into that lane, because the vocabulary is not one
+     * notion — `compilation-timestamp` and `send-date` are `datetime`
+     * fields that say nothing about when anything was *seen*. The
+     * sub-label prints the vocabulary this value actually has, so the
+     * reader knows which of the two they are looking at before they
+     * read a single mark.
+     */
+    array(
+        'key' => 'objdates',
+        'label' => __('Object dates'),
+        'sub' => $objdateSub,
+        'sources' => array('objdate'),
+        'draw' => 'spans',
+        'absent' => __(
+            'No object holding this value records a date of its own.'
+        ),
     ),
     array(
         'key' => 'tags',

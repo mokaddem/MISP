@@ -412,6 +412,39 @@ class ValueProfile extends AppModel
     const TIMELINE_SPAN_CAP = 25;
 
     /**
+     * `datetime` attributes the object-date lane reads before it stops.
+     *
+     * Bounded on the query and not on the lane's height, which is the
+     * difference from `TIMELINE_SPAN_CAP` above: these rows are a fetch
+     * of their own rather than columns already in hand, and `0.0.0.0`
+     * offers **32,893** of them across the 32,922 objects it sits in.
+     * The lane's own counts come from an aggregate over all of them, so
+     * what this bounds is the chronology and the bars, never the spine.
+     *
+     * 1,000 rather than the chronology's own cap for no cleverer reason
+     * than that they are the same number: a lane that handed up more
+     * would be building rows for `timelineCap` to throw away.
+     */
+    const TIMELINE_OBJECT_DATE_CAP = 1000;
+
+    /**
+     * Object-template relations that are the two ends of one interval.
+     *
+     * A pair draws one bar; every other `datetime` field draws an
+     * instant. Three pairs and not a guess at more: a relation named
+     * `first-*` is not reliably half of anything —
+     * `compilation-timestamp`, `last-submission` and `time_generated`
+     * are all single dates, and `last-submission` in particular would
+     * be read as the far end of a submission window that MISP does not
+     * record the near end of.
+     */
+    const TIMELINE_DATE_PAIRS = array(
+        'time_first' => 'time_last',
+        'first-seen' => 'last-seen',
+        'validity-not-before' => 'validity-not-after',
+    );
+
+    /**
      * Chips one undated kind lists before it states a remainder.
      *
      * `443` resolves to 3,858 distinct tags and `193.161.193.99` to 77,
@@ -6379,6 +6412,8 @@ class ValueProfile extends AppModel
             : null;
         $audit = $this->timelineAuditLanes($context, $asked);
         $spans = $this->timelineSpanEntries($context);
+        $objectDates = $this->timelineObjectDateEntries($user, $context,
+            $asked);
         $tagState = $this->timelineTagState($user, $value, $context,
             $options);
         $lanes = array(
@@ -6396,6 +6431,13 @@ class ValueProfile extends AppModel
              */
             $this->timelineProposalEntries($user, $value, $asked),
             $this->timelineReportEntries($user, $context, $asked),
+            /*
+             * The third place a date about this value lives — the
+             * object's own `datetime` fields. Additive like the two
+             * above it, and the last source `06-timeline.md` §16 and
+             * `24-relationships.md` §26.7 left off this axis.
+             */
+            $objectDates,
         );
         $entries = array();
         foreach ($lanes as $lane) {
@@ -6484,6 +6526,7 @@ class ValueProfile extends AppModel
                 // From the lane itself and not from its index in the
                 // list, which a sixth lane has already moved once.
                 'spans' => $spans['spans'],
+                'objdates' => $objectDates['objdates'],
             ),
         );
     }
@@ -7260,8 +7303,227 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * The object-date lane: the dates the objects this value sits in
+     * record in fields of their own.
+     *
+     * **The third of the three places a date about a value lives**, and
+     * the last one this tab was blind to. The seen lane above draws the
+     * two `first_seen`/`last_seen` *columns* — MISP's own, on the
+     * attribute and on the object. This draws what an object template
+     * puts in a `datetime` *field*: `passive-dns`'s `time_first` and
+     * `time_last`, `first-seen`/`last-seen` where a template spells them
+     * out, `send-date` on an email, `compilation-timestamp` on a file.
+     *
+     * It is its own lane and not more rows in the seen one, because the
+     * vocabulary is not one notion. On the verification instance the
+     * `datetime` rows run `time_generated` 32,892, `first-seen` 11,318,
+     * `last-seen` 11,193, `last-submission` 6,744,
+     * `time_first`/`time_last` 665 each, then a tail through
+     * `compilation-timestamp`, `creation-date` and `send-date` — and a
+     * compilation timestamp folded into a lane called *Seen* would be
+     * the panel asserting something nobody recorded. Every mark
+     * therefore carries the relation that named it.
+     *
+     * **Paired where the template pairs them.** Two relations that are
+     * the two ends of one interval draw one bar; everything else is an
+     * instant. The pairs are `TIMELINE_DATE_PAIRS`, and a pair whose
+     * far end fell outside the cap degrades to an instant rather than
+     * to a bar with a guessed end.
+     *
+     * Counts from the aggregate and rows from a capped read, §16.1's
+     * rule, and this lane is the second reader that needs it as much as
+     * the edit lane does: `0.0.0.0` sits in 32,922 objects holding
+     * 32,893 `datetime` rows.
+     *
+     * @param array $user
+     * @param array $context From `timelineContext`
+     * @param array|null $window
+     * @return array One lane, in `forTimeline`'s shape
+     */
+    private function timelineObjectDateEntries(array $user, array $context,
+        array $window = null
+    ) {
+        $valueModel = $this->model('Value');
+        $objectIds = $context['scope']['objects'];
+        $counts = $valueModel->objectDateCountsFor($user, $objectIds);
+        $lane = array(
+            'entries' => array(),
+            'total' => $counts['total'],
+            'sources' => array('objdate'),
+            'by_day' => self::asSourceMap($counts['by_day'], 'objdate'),
+            'first' => $counts['first'] === null
+                ? null
+                : $counts['first'] . ' 00:00:00',
+            'last' => $counts['last'] === null
+                ? null
+                : $counts['last'] . ' 00:00:00',
+            /*
+             * **No object count here, and that is a decision.** The
+             * obvious one — how many objects recorded a date — can only
+             * be counted off the rows, and the rows are the newest
+             * cap-many: `0.0.0.0` reported *32,893 dates in 1,000
+             * objects* on the first cut, where the 1,000 was the cap
+             * counting itself. The aggregate groups by day and relation
+             * and cannot yield a distinct-object total without a third
+             * query, so the lane states what it can count over all the
+             * rows and nothing else. §16.1's rule, met by dropping a
+             * number rather than by qualifying it.
+             */
+            'objdates' => array(
+                'total' => $counts['total'],
+                'shown' => 0,
+                'relations' => $counts['by_relation'],
+                'cap' => self::TIMELINE_OBJECT_DATE_CAP,
+            ),
+        );
+        if ($counts['total'] === 0) {
+            return $lane;
+        }
+
+        /*
+         * The newest cap-many. The ordering that makes *newest* mean
+         * anything belongs to `objectDatesFor` and not to this call —
+         * it is a claim about how the column stores a date, which is
+         * §14.3's seam and not this file's business.
+         */
+        $rows = $valueModel->objectDatesFor($user, $objectIds, array(
+            'limit' => self::TIMELINE_OBJECT_DATE_CAP,
+        ));
+
+        $byObject = array();
+        foreach ($rows as $row) {
+            $byObject[$row['object_id']][] = $row;
+        }
+        $entries = array();
+        $drawn = 0;
+        foreach ($byObject as $objectId => $objectRows) {
+            /*
+             * One row per relation. A template that files the same
+             * relation twice in one object is malformed rather than
+             * interesting, and taking the first keeps the pair lookup a
+             * lookup rather than a cross product.
+             */
+            $byRelation = array();
+            foreach ($objectRows as $row) {
+                if (!isset($byRelation[$row['relation']])) {
+                    $byRelation[$row['relation']] = $row;
+                }
+            }
+            foreach (self::TIMELINE_DATE_PAIRS as $from => $to) {
+                if (!isset($byRelation[$from]) || !isset($byRelation[$to])) {
+                    continue;
+                }
+                $start = self::plainStamp($byRelation[$from]['at']);
+                $end = self::plainStamp($byRelation[$to]['at']);
+                unset($byRelation[$from], $byRelation[$to]);
+                if ($start === null) {
+                    continue;
+                }
+                $drawn += 2;
+                $entries[] = self::objectDateEntry(
+                    $context,
+                    $objectRows[0],
+                    $start,
+                    $end === $start ? null : $end,
+                    sprintf(__('%1$s → %2$s'), $from, $to)
+                );
+            }
+            foreach ($byRelation as $relation => $row) {
+                $at = self::plainStamp($row['at']);
+                if ($at === null) {
+                    continue;
+                }
+                $drawn++;
+                $entries[] = self::objectDateEntry($context, $row, $at, null,
+                    $relation === '' ? __('undeclared field') : $relation);
+            }
+        }
+
+        $lane['entries'] = self::timelineWindowed($entries, $window);
+        $lane['objdates']['shown'] = $drawn;
+        return $lane;
+    }
+
+    /**
+     * One mark or bar for the object-date lane.
+     *
+     * @param array $context From `timelineContext`
+     * @param array $row One `Value::objectDatesFor` record
+     * @param string $at
+     * @param string|null $to
+     * @param string $relation What the template calls this date
+     * @return array
+     */
+    private static function objectDateEntry(array $context, array $row, $at,
+        $to, $relation
+    ) {
+        $event = isset($context['events'][$row['event_id']])
+            ? $context['events'][$row['event_id']]
+            : null;
+        return array(
+            'at' => $at,
+            'source' => 'objdate',
+            'precision' => 'exact',
+            'title' => sprintf(
+                __('%1$s · %2$s'),
+                $row['object'] === '' ? __('object') : $row['object'],
+                $relation
+            ),
+            /*
+             * The note carries the whole of what separates this lane
+             * from the one above it: the date is the object's own
+             * field, so it means whatever the template means by that
+             * field — and the panel will not guess which.
+             */
+            'note' => $to === null
+                ? sprintf(
+                    __(
+                        'The %1$s object records this date in its'
+                        . ' %2$s field. What it means is the'
+                        . ' template\'s to say, not this page\'s.'
+                    ),
+                    $row['object'] === '' ? __('containing') : $row['object'],
+                    $relation
+                )
+                : sprintf(
+                    __(
+                        'Closes %1$s. The %2$s object records this'
+                        . ' interval in its own fields.'
+                    ),
+                    substr($to, 0, 10),
+                    $row['object'] === '' ? __('containing') : $row['object']
+                ),
+            'org' => $event === null ? null : $event['org'],
+            'ref' => array(
+                'attribute' => $row['id'],
+                'event' => $row['event_id'],
+            ),
+            'span_to' => $to,
+        );
+    }
+
+    /**
      * The seen-span lane: one row per occurrence carrying a
-     * `first_seen`, no merging, capped, remainder stated.
+     * `first_seen`, plus the containing object's span where the
+     * occurrence has none — no merging, capped, remainder stated.
+     *
+     * **Two sources, because MISP records the span at two levels and
+     * treats one as the other's default.** `objects.first_seen` and
+     * `objects.last_seen` are columns of their own, and
+     * `MispObject::saveObject` copies them down onto every attribute
+     * saved without a span — but only on the add path.
+     * `deltaMerge` calls `syncObjectAndAttributeSeen` with
+     * `$applyOnAttribute = false`, so editing an object's span never
+     * reaches its attributes, and the two drift apart from there.
+     *
+     * On the verification instance that drift is nearly the whole
+     * population: 319 objects carry a `first_seen` and **280 of them
+     * have no member attribute carrying one**, against 36 fully copied
+     * down and 3 copied in part. So a lane reading only the attribute
+     * column was blind to seven-eighths of the object-level spans on
+     * the instance, and blind in the direction that matters — it drew
+     * a value as undated when a date was one join away, in a table
+     * this reader already joins for the ACL.
      *
      * Merging needs an aggregation rule nobody has agreed on, and this
      * lane invents none: each span stays its own row labelled with the
@@ -7286,18 +7548,63 @@ class ValueProfile extends AppModel
     {
         $dated = array();
         $total = 0;
+        /*
+         * The objects whose own span the lane may draw, keyed by object
+         * id so one object contributes one bar however many occurrences
+         * of this value sit in it.
+         *
+         * **An object earns a bar only from an occurrence that has no
+         * span of its own.** Where the attribute is dated, MISP either
+         * copied that date down from the object at save time or the
+         * attribute is the more specific claim — either way the object's
+         * bar would be a second drawing of a date already on the axis.
+         * On the verification instance the two are equal wherever both
+         * are set, with one object out of 36 the exception, so this is
+         * a de-duplication rule and not a preference between them.
+         */
+        $viaObject = array();
+        $covered = 0;
         foreach ($context['occurrences'] as $id => $occurrence) {
             $total++;
-            if (empty($occurrence['first_seen'])) {
+            if (!empty($occurrence['first_seen'])) {
+                $dated[(int)$id] = $occurrence;
                 continue;
             }
-            $dated[(int)$id] = $occurrence;
+            $objectId = isset($occurrence['object_id'])
+                ? (int)$occurrence['object_id']
+                : 0;
+            if ($objectId === 0 || empty($occurrence['object_first_seen'])) {
+                continue;
+            }
+            $covered++;
+            if (!isset($viaObject[$objectId])) {
+                $viaObject[$objectId] = array(
+                    'id' => $objectId,
+                    'first_seen' => $occurrence['object_first_seen'],
+                    'last_seen' => $occurrence['object_last_seen'],
+                    'event_id' => (int)$occurrence['event_id'],
+                    'name' => isset($context['objects'][$objectId]['name'])
+                        ? $context['objects'][$objectId]['name']
+                        : '',
+                );
+            }
         }
         uasort($dated, function ($a, $b) {
             return strcmp((string)$a['first_seen'], (string)$b['first_seen']);
         });
+        uasort($viaObject, function ($a, $b) {
+            return strcmp((string)$a['first_seen'], (string)$b['first_seen']);
+        });
         $with = count($dated);
         $shown = array_slice($dated, 0, self::TIMELINE_SPAN_CAP, true);
+        /*
+         * Its own budget rather than a share of the attribute cap: the
+         * two answer different questions, and a value with 25 dated
+         * occurrences should not thereby lose every object-level span
+         * it has. Both are stated in the lane's sub-label.
+         */
+        $shownObjects = array_slice($viaObject, 0,
+            self::TIMELINE_SPAN_CAP, true);
 
         /*
          * Over every dated occurrence and not only the drawn ones, for
@@ -7309,20 +7616,36 @@ class ValueProfile extends AppModel
         $byDay = array();
         $first = null;
         $last = null;
-        foreach ($dated as $occurrence) {
-            $at = self::plainStamp($occurrence['first_seen']);
-            if ($at === null) {
-                continue;
-            }
-            $day = substr($at, 0, 10);
-            $byDay[$day] = (isset($byDay[$day])
-                ? $byDay[$day]
-                : 0) + 1;
-            if ($first === null || $at < $first) {
-                $first = $at;
-            }
-            if ($last === null || $at > $last) {
-                $last = $at;
+        /*
+         * Two sources into one map, because the lane stacks them: the
+         * spine's segment for an object-level span has to be its own
+         * colour, or a reader cannot tell the axis's densest month from
+         * a month of dates the objects supplied.
+         */
+        $tallies = array(
+            array('seen', $dated),
+            array('seen_object', $viaObject),
+        );
+        foreach ($tallies as $tally) {
+            list($source, $rows) = $tally;
+            foreach ($rows as $row) {
+                $at = self::plainStamp($row['first_seen']);
+                if ($at === null) {
+                    continue;
+                }
+                $day = substr($at, 0, 10);
+                if (!isset($byDay[$day])) {
+                    $byDay[$day] = array();
+                }
+                $byDay[$day][$source] = (isset($byDay[$day][$source])
+                    ? $byDay[$day][$source]
+                    : 0) + 1;
+                if ($first === null || $at < $first) {
+                    $first = $at;
+                }
+                if ($last === null || $at > $last) {
+                    $last = $at;
+                }
             }
         }
         ksort($byDay);
@@ -7373,15 +7696,80 @@ class ValueProfile extends AppModel
                 'span_to' => $to,
             );
         }
+
+        /*
+         * The object-level bars, after the attribute ones so that a
+         * reader scanning the chronology meets the direct claim first.
+         * Every one of these says *the object this value sits in was
+         * seen then*, which is a weaker claim than the bars above and
+         * is labelled as one on every mark.
+         */
+        $drawnObjects = 0;
+        foreach ($shownObjects as $objectId => $object) {
+            $from = self::plainStamp($object['first_seen']);
+            if ($from === null) {
+                continue;
+            }
+            $to = empty($object['last_seen'])
+                ? null
+                : self::plainStamp($object['last_seen']);
+            if ($to === $from) {
+                $to = null;
+            }
+            $drawnObjects++;
+            $event = isset($context['events'][$object['event_id']])
+                ? $context['events'][$object['event_id']]
+                : null;
+            $entries[] = array(
+                'at' => $from,
+                'source' => 'seen_object',
+                'precision' => 'exact',
+                'title' => $object['name'] === ''
+                    ? sprintf(__('object %s — first seen'), $objectId)
+                    : sprintf(
+                        __('%1$s object %2$s — first seen'),
+                        $object['name'],
+                        $objectId
+                    ),
+                /*
+                 * The note carries the whole of the weaker claim,
+                 * because this is the one place a reader meets it: the
+                 * date is the object's, the value has none of its own,
+                 * and MISP would have copied this down had the object
+                 * been saved with it.
+                 */
+                'note' => $to === null
+                    ? __(
+                        'The object carries this date, the occurrence'
+                        . ' carries none. A claim about the object this'
+                        . ' value sits in.'
+                    )
+                    : sprintf(
+                        __(
+                            'Closes %s. The object carries this span,'
+                            . ' the occurrence carries none. A claim'
+                            . ' about the object this value sits in.'
+                        ),
+                        substr($to, 0, 10)
+                    ),
+                'org' => $event === null ? null : $event['org'],
+                'ref' => array(
+                    'attribute' => null,
+                    'event' => (int)$object['event_id'],
+                ),
+                'span_to' => $to,
+            );
+        }
+
         return array(
             'entries' => $entries,
-            'total' => $with,
-            'sources' => array('seen'),
+            'total' => $with + count($viaObject),
+            'sources' => array('seen', 'seen_object'),
             // Its own map, and not `timelineLane`'s: this lane caps at
             // 25 bars rather than at the chronology's 300, so the map
             // has to be tallied over the dated occurrences and never
             // over the entries built from them.
-            'by_day' => self::asSourceMap($byDay, 'seen'),
+            'by_day' => $byDay,
             'first' => $first,
             'last' => $last,
             'spans' => array(
@@ -7391,8 +7779,18 @@ class ValueProfile extends AppModel
                 // many of those this lane drew.
                 'occurrences' => $total,
                 'with' => $with,
-                'shown' => count($entries),
+                'shown' => count($entries) - $drawnObjects,
                 'cap' => self::TIMELINE_SPAN_CAP,
+                /*
+                 * The object half, and the three numbers answer the
+                 * same three questions one level up: how many
+                 * occurrences have no span but sit in an object that
+                 * does, how many distinct objects that is, and how many
+                 * of those the lane drew.
+                 */
+                'covered' => $covered,
+                'objects' => count($viaObject),
+                'objects_shown' => $drawnObjects,
             ),
         );
     }

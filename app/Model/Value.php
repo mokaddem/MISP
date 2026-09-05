@@ -95,6 +95,18 @@ class Value extends AppModel
      */
     const PREVALENCE_PROBE_CAP = 1500;
 
+    /**
+     * MISP's attribute type for a date an object template records in a
+     * field of its own — `time_first`, `first-seen`, `send-date`.
+     *
+     * The same string `ValueRelationTool::DATE_TYPE` folds the
+     * Relationships tab's dated relations on; stated again here rather
+     * than reached across because this file is the seam and a tool is
+     * not, and a value table landing later has to answer *which rows
+     * are dates* from whichever table holds them.
+     */
+    const DATE_TYPE = 'datetime';
+
     const CONTEXT_FIELDS = array(
         'Event' => array('fields' => array(
             'Event.id',
@@ -678,7 +690,8 @@ class Value extends AppModel
      * @param string $value
      * @param array $options As conditionsFor, plus `limit`/`order`
      * @return array attribute id => event_id, type, timestamp,
-     *               last_seen, deleted
+     *               last_seen, deleted, and the containing object's
+     *               id and span
      */
     public function occurrenceIdsFor(array $user, $value,
         array $options = array()
@@ -696,10 +709,34 @@ class Value extends AppModel
                 'Attribute.first_seen',
                 'Attribute.last_seen',
                 'Attribute.deleted',
+                // Which object the row sits in, so the seen lane can
+                // tell an occurrence that has no span of its own from
+                // one whose object has none either.
+                'Attribute.object_id',
             ),
-            // buildConditions() names Event.* and Object.* directly, so
-            // both have to be joined for the ACL to be expressible.
-            'contain' => array('Event', 'Object'),
+            /*
+             * buildConditions() names Event.* and Object.* directly, so
+             * both have to be joined for the ACL to be expressible —
+             * and the join was all this asked for until the seen lane
+             * needed the object's own span.
+             *
+             * **Named fields, for the reason `occurrencesFor` records
+             * one screen down**: with an explicit `fields` list on the
+             * attribute, Containable selects nothing of its own from a
+             * `belongsTo` unless it is told what to take. A bare
+             * `contain` joins both tables, satisfies the ACL, and hands
+             * back rows carrying no `Object` columns at all — which is
+             * why the object's `first_seen` was unreachable here for
+             * four phases while the table was already in the query.
+             */
+            'contain' => array(
+                'Event' => array('fields' => array('Event.id')),
+                'Object' => array('fields' => array(
+                    'Object.id',
+                    'Object.first_seen',
+                    'Object.last_seen',
+                )),
+            ),
         );
         foreach (array('limit', 'page', 'order') as $key) {
             if (isset($options[$key])) {
@@ -729,6 +766,20 @@ class Value extends AppModel
                 'first_seen' => $row['Attribute']['first_seen'] ?? null,
                 'last_seen' => $row['Attribute']['last_seen'] ?? null,
                 'deleted' => !empty($row['Attribute']['deleted']),
+                /*
+                 * The object's id and its own span, null on a loose
+                 * attribute and on every caller that did not ask the
+                 * `Object` association for its columns. Both accessors
+                 * share this shape, and only one of them names those
+                 * fields — so absent has to mean *not asked for* rather
+                 * than *not set*, which is why every read of these is
+                 * guarded rather than assumed.
+                 */
+                'object_id' => isset($row['Attribute']['object_id'])
+                    ? (int)$row['Attribute']['object_id']
+                    : 0,
+                'object_first_seen' => $row['Object']['first_seen'] ?? null,
+                'object_last_seen' => $row['Object']['last_seen'] ?? null,
             );
         }
         return $set;
@@ -1039,7 +1090,7 @@ class Value extends AppModel
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor, plus `limit`
-     * @return array object id => ['last' =>, 'relation' =>]
+     * @return array object id => ['last' =>, 'relation' =>, 'name' =>]
      */
     public function occurrenceObjectIdsFor(array $user, $value,
         array $options = array()
@@ -1053,6 +1104,14 @@ class Value extends AppModel
                 'Attribute.object_id',
                 'MAX(Attribute.timestamp) AS last_seen',
                 'MIN(Attribute.object_relation) AS our_relation',
+                /*
+                 * The template's name, so a mark drawn from an object
+                 * can say which kind of object it came from — `MIN()`
+                 * for the same `ONLY_FULL_GROUP_BY` reason as the
+                 * relation above, and free here: `Object` is already
+                 * joined for the ACL.
+                 */
+                'MIN(Object.name) AS object_name',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -1070,9 +1129,193 @@ class Value extends AppModel
                 'relation' => $row[0]['our_relation'] === null
                     ? ''
                     : $row[0]['our_relation'],
+                'name' => $row[0]['object_name'] === null
+                    ? ''
+                    : $row[0]['object_name'],
             );
         }
         return $objects;
+    }
+
+    /**
+     * The `datetime` attributes of the objects this value sits in —
+     * the dates an object template records in its own fields, as
+     * opposed to the `first_seen`/`last_seen` columns MISP keeps beside
+     * every attribute and object.
+     *
+     * **A third place a date about this value can live**, and the one
+     * the page reached only sideways: `ValueRelationTool::dated` folds
+     * these into the Relationships tab's *Dated relations*, but it
+     * needs two of them plus a linking value in the same object,
+     * because what it dates is a *relation between two values*. What
+     * this returns dates the object itself, so one row is enough and no
+     * far value is required.
+     *
+     * The vocabulary is the template's, not MISP's, and it is not all
+     * one notion: on the verification instance the `datetime` rows are
+     * `time_generated` (32,892), `first-seen` (11,318), `last-seen`
+     * (11,193), `last-submission` (6,744), `time_first`/`time_last`
+     * (665 each) and a long tail down through `compilation-timestamp`,
+     * `creation-date` and `send-date`. So a caller may not merge these
+     * into a *seen* claim — the relation has to travel with the row and
+     * be shown, which is why `object_relation` is in the field list.
+     *
+     * ACL'd through `fetchAttributesSimple` and not by the object's
+     * permission: a sibling attribute carries its own distribution, so
+     * an object a reader may open can still hold a row they may not.
+     *
+     * **Newest first, and the ordering is this file's rather than the
+     * caller's.** A caller asking for `Attribute.value1 DESC` would be
+     * spelling the column name outside this seam, which §14.3 forbids —
+     * and the sort is not incidental: the date lives in `value1` as a
+     * string, and ISO 8601 sorts lexically the way it sorts
+     * chronologically, which is the property that lets a `varchar` date
+     * column be ordered at all. A value table landing later has to keep
+     * that property or give this method a real column.
+     *
+     * @param array $user
+     * @param array $objectIds The objects this value sits in
+     * @param array $options `limit` reaches the fetcher
+     * @return array fetchAttributesSimple rows
+     */
+    public function objectDatesFor(array $user, array $objectIds,
+        array $options = array()
+    ) {
+        if (empty($objectIds)) {
+            return array();
+        }
+        $params = array(
+            'conditions' => array(
+                'Attribute.object_id' => array_values($objectIds),
+                'Attribute.type' => self::DATE_TYPE,
+                'Attribute.deleted' => 0,
+            ),
+            'fields' => array(
+                'Attribute.id',
+                'Attribute.event_id',
+                'Attribute.object_id',
+                'Attribute.object_relation',
+                'Attribute.value1',
+                'Attribute.timestamp',
+            ),
+            'contain' => self::CONTEXT_FIELDS,
+            'order' => array('Attribute.value1' => 'DESC'),
+        );
+        if (isset($options['limit'])) {
+            $params['limit'] = $options['limit'];
+        }
+        $out = array();
+        foreach ($this->attributes()->fetchAttributesSimple($user, $params)
+            as $row
+        ) {
+            $out[] = array(
+                'id' => (int)$row['Attribute']['id'],
+                'event_id' => (int)$row['Attribute']['event_id'],
+                'object_id' => (int)$row['Attribute']['object_id'],
+                'relation' => $row['Attribute']['object_relation'] === null
+                    ? ''
+                    : $row['Attribute']['object_relation'],
+                'at' => $row['Attribute']['value1'],
+                'object' => isset($row['Object']['name'])
+                    ? $row['Object']['name']
+                    : '',
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * The same rows as a per-day tally, so the lane's spine can be
+     * binned over all of them while the chronology carries only the
+     * newest cap-many.
+     *
+     * §16.1's rule, and this is the reader that needs it most: a value
+     * in 32,922 objects reaches **32,893** `datetime` rows on the
+     * verification instance, so a lane tallying what it drew would draw
+     * eleven years of dates as whichever fortnight the cap left it.
+     *
+     * The day comes from the left ten characters of the stored value
+     * rather than from a date function, because the column is a string:
+     * MISP validates a `datetime` attribute to ISO 8601, so the first
+     * ten characters are its calendar day in every row and the grouping
+     * needs no parse. A row whose value is not a date groups under
+     * whatever it starts with and is dropped by the caller's own parse,
+     * which is the same rule the rows take.
+     *
+     * **Grouped by relation as well as by day**, and the second half is
+     * what lets the lane name its own vocabulary honestly. The rows it
+     * draws are the newest cap-many, so tallying relations from those
+     * would report `0.0.0.0`'s eleven kinds of date as whichever one
+     * happens to be newest — and it is not a close call there:
+     * `time_generated` is 32,892 of its 32,893 rows.
+     *
+     * @param array $user
+     * @param array $objectIds The objects this value sits in
+     * @return array ['by_day' => day => n, 'by_relation' => rel => n,
+     *               'total' =>, 'first' =>, 'last' =>]
+     */
+    public function objectDateCountsFor(array $user, array $objectIds)
+    {
+        $empty = array(
+            'by_day' => array(),
+            'by_relation' => array(),
+            'total' => 0,
+            'first' => null,
+            'last' => null,
+        );
+        if (empty($objectIds)) {
+            return $empty;
+        }
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = array(
+            'Attribute.object_id' => array_values($objectIds),
+            'Attribute.type' => self::DATE_TYPE,
+            'Attribute.deleted' => 0,
+        );
+        $rows = $attributes->find('all', array(
+            'conditions' => $conditions,
+            'fields' => array(
+                'LEFT(Attribute.value1, 10) AS day',
+                'Attribute.object_relation',
+                'COUNT(*) AS n',
+            ),
+            'group' => array('day', 'Attribute.object_relation'),
+            'order' => array('day' => 'ASC'),
+            'recursive' => -1,
+            // Named for the ACL, exactly as the aggregate one screen up
+            // does: `buildConditions` spells both tables.
+            'contain' => array('Event', 'Object'),
+        ));
+        $out = $empty;
+        foreach ($rows as $row) {
+            $day = $row[0]['day'];
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$day)) {
+                continue;
+            }
+            $n = (int)$row[0]['n'];
+            $relation = $row['Attribute']['object_relation'] === null
+                ? ''
+                : $row['Attribute']['object_relation'];
+            $out['by_day'][$day] = $n + (isset($out['by_day'][$day])
+                ? $out['by_day'][$day]
+                : 0);
+            $out['by_relation'][$relation] = $n + (
+                isset($out['by_relation'][$relation])
+                    ? $out['by_relation'][$relation]
+                    : 0
+            );
+            $out['total'] += $n;
+            if ($out['first'] === null || $day < $out['first']) {
+                $out['first'] = $day;
+            }
+            if ($out['last'] === null || $day > $out['last']) {
+                $out['last'] = $day;
+            }
+        }
+        // Commonest first, because the lane names only its head.
+        arsort($out['by_relation']);
+        return $out;
     }
 
     /**
