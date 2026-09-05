@@ -47,6 +47,7 @@ to `done` only when §14's verification has run against it.
 | T23 | Tag and cluster attachments leave the Edits lane for one of their own | §22.1, §22.2 | **done** |
 | T24 | The tab says when the instance first held the value | §22.3 | **done** |
 | T25 | The tag set is placed at each tag's first attach | §22.7 | **done** |
+| T26 | The seen lane's span labels stop overlapping | §26 | **done** |
 
 **Where the phase stands. Every row is done and the phase is closed
 (2026-09-05).** The tab reads the database: the endpoint is wired,
@@ -58,6 +59,8 @@ that. **§25 is T10 and T11**, the two lanes the coverage survey owed,
 and it closes `value-profile-coverage.md` §2.4 — the one item in that
 survey with a cost per live phase deferred — by giving
 `Value::conditionsFor()` the `alias` option a second value table needs.
+**§26 is T26**, one round of reader feedback over the closed phase: the
+seen lane was printing its span labels on top of each other.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
@@ -2396,3 +2399,92 @@ page rather than of this tab, and a Timeline that rendered for values the
 rest of the page calls unknown would be a tab disagreeing with its own
 page. It stays in the open backlog, one item less blind than it was: the
 fetcher that would serve it now exists.
+
+---
+
+## 26. The seen lane's labels stop printing over each other
+
+Reported from the built tab on `143.14.244.37`: the bars overlapping is
+fine — two spans that ran at once is a fact and the composite says it —
+but the **words** were printing on top of each other.
+
+### 26.1 Eight labels on one pixel
+
+Every span drew a `.vp-lane-tag` naming its attribute, absolutely
+positioned at its own `left:` and at a shared `top: 1px`. Nothing
+checked whether two of them landed together, and on that value eight did
+— at the same coordinate, to the pixel. The result read
+`29344589344598`: not a dense label, an unreadable one.
+
+Measured before the fix, over the whole panel: **138 overlapping text
+pairs**, 128 of them `.vp-lane-tag` over `.vp-lane-tag`.
+
+**Bars may overlap and words may not**, and the asymmetry is the whole
+of the rule. Two bars on one line composite into a darker patch that
+means *more than one span here*, which is true and readable. Two words
+on one line mean nothing at all.
+
+### 26.2 A label is drawn only where it clears the last one
+
+Greedy, left to right, over the spans in ascending order: place a label,
+remember its right edge, and skip any whose left edge falls inside it.
+The dropped ones lose nothing a reader could have read, and their
+`<title>` still names them — it is on the bar, not on the word.
+
+**The estimate, and why it is conservative.** The labels are HTML at a
+fixed `font-size` positioned in *percent* of a plot whose pixel width is
+responsive, so whether two collide depends on a number the server does
+not have. Measured on the instance: **6.22px per digit at 0.68rem**, and
+the plot runs 1,078px at a 1500px viewport down to 570px at 992px. The
+rule takes the **narrow end** as its reference — sizing it for the widest
+plot would let labels collide on a narrow one, which is the defect;
+sizing it for the narrowest drops the occasional label on a wide screen
+that would in fact have fitted. One direction is a bug and the other is
+a lane that says slightly less than it could.
+
+`TAG_CHAR` and `TAG_REF` ship in the `lane` payload beside `bar`, `gap`
+and `rule`, for §24.6's reason: the script rebuilds these labels on every
+brush, and a second copy of the two numbers would be a second
+vocabulary.
+
+### 26.3 Two ways the renderers disagreed, both found by checking
+
+Neither was visible as an overlap; both would have shown up as a label
+changing when the reader let go of the brush.
+
+**The script was walking the rows backwards.** It builds its copy of a
+lane's rows out of the chronology's DOM, and the chronology is newest
+first — so a greedy pass in arrival order runs *right to left* and keeps
+the last label of a cluster where the server kept the first. On
+`143.14.244.37` the server drew two labels and the script redrew one, in
+the same window. The script now sorts ascending rather than trusting the
+order it inherited.
+
+**`at` alone does not order these rows.** Twenty-four of
+`45.178.180.13`'s spans share one instant, so a sort on the timestamp
+leaves the tie to whatever order each side's array happened to be in.
+The two then agreed on *where* every label went and disagreed about
+*which one it named* — `2934358` against `2934342`, at the same
+`49.73%`. The tie-break is the attribute id ascending, in both.
+
+### 26.4 Verified
+
+Four values × three viewports × two themes, before and after a brush —
+24 cases, 96 checks.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l`, `node --check` | clean |
+| 2 | **No two labels intersect** | worst overlap **0px** in all 24 cases, against 128 overlapping pairs before |
+| 3 | Every label stays inside its plot | 0 escaped, all cases |
+| 4 | **Client and server name the same labels at the same places** | identical strings and `left:` values in all 24; the two disagreements above were found here and fixed |
+| 5 | Still true after a brush | 0px worst overlap on the redraw path, which is the renderer the fix had to reach |
+| 6 | Narrow viewports | 992px (570px plot) is the reference case and passes with the same sets |
+| 7 | The rest of the tab is untouched | the §25.8 lane harness and the §25.6 rect comparison both re-run: all checks pass, 0 real rect differences over 219 rects |
+| 8 | Panel-wide text overlap | 138 pairs → 18, and **none of the 18 is a `.vp-lane-tag`** — the remainder are the detector counting a `<b>` inside its own sentence |
+
+The one thing this does not do is make every span nameable. A cluster of
+twenty-four spans on one instant gets one label and always will; that is
+the point rather than a shortfall, and §23.4's *packed spans* — giving
+overlapping spans their own rows — is still the change that would let
+the lane name more of them.

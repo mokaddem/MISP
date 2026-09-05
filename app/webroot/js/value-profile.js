@@ -5191,12 +5191,50 @@
                 tag.remove();
             });
             if (spans) {
-                mine.forEach(function (entry) {
+                // A label is drawn only where it clears the last one
+                // drawn — `lane.tag_char` and `lane.tag_ref` are the
+                // server's two numbers, not a second estimate, so the
+                // same window keeps the same labels across a brush.
+                var tagChar = geometry.tag_char || 6.22;
+                var tagRef = geometry.tag_ref || 560;
+                var tagEnd = null;
+                /*
+                 * **Ascending, explicitly.** `mine` is filtered out of
+                 * the chronology's rows and the chronology is newest
+                 * first, so a greedy pass over it in arrival order runs
+                 * right to left and keeps the *last* label of a cluster
+                 * where the server kept the first. The two then
+                 * disagree about which labels a window holds — the
+                 * server drew two on `143.14.244.37` and the script
+                 * redrew one, in the same window.
+                 */
+                mine.slice().sort(function (a, b) {
+                    if (a.at !== b.at) {
+                        return a.at < b.at ? -1 : 1;
+                    }
+                    // The tie-break, and it is load-bearing: 24 of
+                    // `45.178.180.13`'s spans share one instant, so
+                    // without it the two renderers put a label in the
+                    // same place and print a different id in it.
+                    return Number(a.ref) - Number(b.ref);
+                }).forEach(function (entry) {
+                    var label = entry.ref === null || entry.ref === undefined
+                        ? ''
+                        : String(entry.ref);
+                    if (label === '') {
+                        return;
+                    }
+                    var at = Math.round(
+                        ((100 * xFor(entry.at)) / geometry.width) * 100
+                    ) / 100;
+                    if (tagEnd !== null && at < tagEnd) {
+                        return;
+                    }
+                    tagEnd = at + (100 * label.length * tagChar) / tagRef;
                     var tag = document.createElement('span');
                     tag.className = 'vp-lane-tag';
-                    tag.style.left =
-                        (100 * xFor(entry.at)) / geometry.width + '%';
-                    tag.textContent = entry.ref;
+                    tag.style.left = at + '%';
+                    tag.textContent = label;
                     svg.parentNode.insertBefore(tag, svg);
                 });
             }

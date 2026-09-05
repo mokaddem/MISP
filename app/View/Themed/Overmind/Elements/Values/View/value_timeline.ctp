@@ -454,6 +454,28 @@ $LANE_W = 740;
 $LANE_H = 38;
 $MARK_W = 5;
 
+/*
+ * What a `.vp-lane-tag` costs, so the seen lane can tell whether two of
+ * them would land on each other.
+ *
+ * The labels are HTML at a fixed `font-size`, positioned in *percent*
+ * of a plot whose pixel width is responsive — so whether two collide
+ * depends on a number the server does not have. Measured: 6.22px per
+ * digit at 0.68rem, and the plot runs 1,078px at a 1500px viewport
+ * down to 570px at 992px.
+ *
+ * **The reference is the narrow end, deliberately.** Sizing the test
+ * for the widest plot would let labels collide on a narrow one, which
+ * is the defect; sizing it for the narrowest drops a label here and
+ * there on a wide screen that would in fact have fitted. One direction
+ * is a bug and the other is a lane that says slightly less than it
+ * could, so the rule is conservative and the script uses the same two
+ * numbers rather than measuring — §24.6's vocabulary, extended to the
+ * one lane that places words rather than columns.
+ */
+$TAG_CHAR = 6.22;
+$TAG_REF = 560;
+
 $t0 = $window === null
     ? 0
     : (new DateTimeImmutable($windowFrom, $utc))->getTimestamp();
@@ -1119,6 +1141,15 @@ if ($window !== null) {
             'bar' => $BAR_MAX,
             'gap' => $BIN_GAP,
             'rule' => $laneRule,
+            /*
+             * The seen lane's label-collision rule, for the same reason
+             * as the rest of this block: the script rebuilds those
+             * labels on every brush, and a second copy of these two
+             * numbers would let the two renderers disagree about which
+             * labels a window can hold.
+             */
+            'tag_char' => $TAG_CHAR,
+            'tag_ref' => $TAG_REF,
         ),
         // For the ruler over the lanes, which moves with the brush.
         'months' => $months,
@@ -1983,18 +2014,95 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                 ?>
                                 <div class="vp-lane-plot">
                                     <?= $peakTag($peak) ?>
-                                    <?php foreach ($mine as $entry): ?>
-                                        <?php if ($lane['draw'] !== 'spans') {
+                                    <?php
+                                    /*
+                                     * **A label is drawn only where it
+                                     * clears the last one drawn.**
+                                     * Every span used to get one at the
+                                     * same `top`, so any two starting
+                                     * near each other printed over each
+                                     * other: `143.14.244.37` put eight
+                                     * of them on the same pixel and the
+                                     * result was one unreadable smear
+                                     * of digits.
+                                     *
+                                     * Bars may overlap — two spans that
+                                     * ran at once is a fact, and the
+                                     * composite says it. Words may not:
+                                     * overlapping text is not a denser
+                                     * reading of anything, it is a
+                                     * thing nobody can read.
+                                     *
+                                     * Greedy and left to right, over
+                                     * rows already ordered by span
+                                     * start (§7's D3), so which label
+                                     * survives a cluster is the
+                                     * earliest span in it and not
+                                     * whichever the loop reached first.
+                                     * The dropped ones lose nothing a
+                                     * reader could have read; their
+                                     * `<title>` still names them, and
+                                     * it is on the bar rather than on
+                                     * the word.
+                                     */
+                                    $tagEnd = null;
+                                    /*
+                                     * **Sorted here, and by two keys.**
+                                     * The script builds its copy of
+                                     * these rows out of the chronology,
+                                     * which is newest first, so a
+                                     * greedy pass in arrival order runs
+                                     * the other way there and keeps a
+                                     * different label. And `at` alone
+                                     * does not order them: twenty-four
+                                     * of `45.178.180.13`'s spans share
+                                     * one instant, so the tie-break has
+                                     * to be a value both sides hold —
+                                     * the attribute id, ascending.
+                                     * Without it the two agree on where
+                                     * every label goes and disagree
+                                     * about which one it names, which
+                                     * is a label that changes identity
+                                     * when the reader lets go of the
+                                     * brush.
+                                     */
+                                    $labelled = $mine;
+                                    usort($labelled, function ($a, $b) {
+                                        if ($a['at'] !== $b['at']) {
+                                            return strcmp($a['at'], $b['at']);
+                                        }
+                                        return (int)$a['ref']['attribute']
+                                            - (int)$b['ref']['attribute'];
+                                    });
+                                    ?>
+                                    <?php foreach ($labelled as $entry): ?>
+                                        <?php
+                                        if ($lane['draw'] !== 'spans') {
                                             continue;
-                                        } ?>
+                                        }
+                                        $label = (string)$entry['ref']
+                                            ['attribute'];
+                                        if ($label === '') {
+                                            continue;
+                                        }
+                                        $at = round(
+                                            100 * $xFor($entry['at'])
+                                                / $LANE_W,
+                                            2
+                                        );
+                                        $wide = 100 * strlen($label)
+                                            * $TAG_CHAR / $TAG_REF;
+                                        if ($tagEnd !== null
+                                            && $at < $tagEnd
+                                        ) {
+                                            continue;
+                                        }
+                                        $tagEnd = $at + $wide;
+                                        ?>
                                         <span class="vp-lane-tag"
-                                              style="left: <?= h(round(
-                                                  100 * $xFor($entry['at'])
-                                                      / $LANE_W,
-                                                  2
-                                              )) ?>%;">
-                                            <?= h($entry['ref']['attribute'])
-                                                ?>
+                                              style="left: <?= h($at)
+                                                  ?>%;">
+                                            <?= h($label) ?>
                                         </span>
                                     <?php endforeach; ?>
                                     <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
