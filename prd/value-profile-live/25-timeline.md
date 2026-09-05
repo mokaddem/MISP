@@ -51,6 +51,7 @@ to `done` only when §14's verification has run against it.
 | T27 | The axis runs to today, and the empty end is drawn as a wait | §27 | **done** |
 | T28 | The seen lane falls back to the object's span, labelled | §28.3 | **done** |
 | T29 | The object-date lane — D8 reopened and widened | §28.5 | **done** |
+| T30 | Every entry opens the record behind it; the lane labels too | §29 | **done** |
 
 **Where the phase stands. Every row is done and the phase is closed
 (2026-09-05).** The tab reads the database: the endpoint is wired,
@@ -67,7 +68,9 @@ seen lane was printing its span labels on top of each other. **§27 is
 T27**, a second such round: the axis stopped at the value's last activity,
 so a value dead ten weeks drew the same picture as a live one. **§28 is
 T28 and T29**, a third: the reader asked which of the three places a date
-can live this tab was reading, and the answer was one of them.
+can live this tab was reading, and the answer was one of them. **§29 is
+T30**, from the same round: the panel named records it gave the reader no
+way to open, and had no link anywhere in it.
 
 One row is deliberately not here. The tab badge needs nothing: the
 registry gives Timeline no count and §14.13's *"whoever converts a tab
@@ -2945,3 +2948,114 @@ it carried a load average of
 reads were therefore timed in isolation, in-process, which is §28.6 —
 30 ms of the 5.8 s. Re-run the endpoint table on a quiet box before
 quoting a whole-endpoint number for this phase again.
+
+---
+
+## 29. Every entry opens the record behind it
+
+From the reader: *one thing missing is the ability to reach the content
+by clicking on some value. For example the objects or attributes that
+created these entries.*
+
+The panel had **no link in it at all** — not one `href` in 2,900 lines.
+Every other panel on this page links its rows; this one printed
+`attribute 266583` as text and left the reader to find it.
+
+### 29.1 Where a link can go, and where it cannot
+
+To `/events/view2/<event>` with a tab anchor, which is the rule
+`value_relation_asserted` §60 and the sightings table already settled and
+wrote down: **this theme's event view takes no `focus:` parameter, and
+`/attributes/view` and `/objects/view` redirect to the event and lose
+which record they were asked about.** So the anchor is as close as a link
+can get, and the link's `title` carries the record the anchor cannot:
+*Open event 1416 — attribute 266583 is on its Attributes tab*.
+
+Four destinations, from the event view's own tab ids:
+
+| `ref['kind']` | opens |
+|---|---|
+| `attribute` | `#tab-attributes` |
+| `object` | `#tab-objects` |
+| `report` | `#tab-reports` |
+| `event` | the event, no anchor |
+
+### 29.2 The kind is per entry, not per lane
+
+`ref['kind']` is set by the facade at all ten places an entry is built,
+and it has to be, because **two lanes hold rows of more than one kind**:
+
+- the **tag lane** draws `audit_logs` rows whose `model` is `Attribute`,
+  `Object` or `Event` — a tag attached to an object and one attached to
+  an attribute sit side by side and open different tabs. The kind is
+  `strtolower($row['model'])`, taken from the row rather than from the
+  lane it was filed in: what the reader is being sent to is the thing
+  that was tagged, not the lane the tagging was drawn in.
+- the **proposals lane** has the standalone-addition case
+  (`value-profile-coverage.md` §2.2) — a proposal against no attribute,
+  which now sends the reader to the event's proposal list rather than to
+  a record that does not exist.
+
+The two lanes §28 added take the kinds the sources mean: `seen_object`
+and `objdate` are both `object`. For `objdate` that is deliberate even
+though the row was read off a `datetime` *attribute* — the row's subject
+is *what the object records*, and the object tab is where that field can
+be seen beside the rest of its template.
+
+**One key changed meaning.** `ref['event']` was `null` on an analyst note
+about an attribute — true of the target, and useless to the only consumer
+the key has ever had. It is now the event either way, which is what a
+link needs and what nothing else read.
+
+### 29.3 Two links per entry, one of them rebuilt in the browser
+
+The chronology row's **title** is the link, not the whole row: the row is
+a grid whose other parts include a source chip that already means *press
+to filter*, and two gestures in one box — one of which navigates away —
+is how a reader loses the window they brushed.
+
+The **lane span labels** are the second, and they are the ones the reader
+asked about most directly: the attribute id floating over a bar in the
+Seen and Object dates lanes now opens it. Those labels are rebuilt by
+`value-profile.js` on every window change, so the URL travels on the row
+as `data-vp-tl-href` and the script creates an `<a>` or a `<span>`
+depending on whether there is one — the same choice the server makes, so
+a label does not become a dead link the first time the brush moves.
+`.vp-lane-tag` carries `pointer-events: none` so a label cannot swallow
+the hover belonging to the marks beneath it; the anchor form turns it
+back on, which it can afford because the label sits in the 12 units above
+the bars that `.vp-lane-peak` was given for the same reason.
+
+The SVG marks themselves are **not** links. Making a `<rect>` navigable
+is a change to the mark renderer and to the brush that covers it, and the
+row it stands for is one glance below with the same destination.
+
+### 29.4 The cue, which the first cut did not have
+
+Colour-inherited and nothing else, which is this page's idiom for a link
+inside a cell — and it was wrong here. 74 links in one list, none of them
+announcing itself: the affordance existed and only a hover found it.
+
+Link-blue on every title is worse: the chronology becomes a list of
+links, and the source chips that are its actual vocabulary sink under
+them. What ships is a dotted rule at 35% of the text colour, going solid
+and link-coloured on hover and focus — the smallest mark that says *this
+opens*. The panel's own line says it too, which costs four words:
+*Newest first. Click a source in the key or a lane above to narrow to it,
+**or an entry to open the record behind it**.*
+
+### 29.5 Verified
+
+- `104.207.76.157` — **74 row links and 2 lane-label links**, the labels
+  reading `/events/view2/4169#tab-objects` for the Object dates lane.
+- After pressing a lane to force `value-profile.js` to repaint: **2
+  anchors, 0 plain spans**. The rebuild produces the same element the
+  server did.
+- Followed a lane label in the browser: lands on `/events/view2/4169`,
+  and `#tab-objects` exists on the page it lands on. The anchor is not
+  aspirational.
+- `168.181.48.248` — every source on the value linked, and the anchors
+  right per kind: 6 × `#tab-objects`, 2 × `#tab-attributes`, the rest
+  bare events.
+- Both themes, on the chronology and the lane grid; no endpoint slower
+  and none over 200.

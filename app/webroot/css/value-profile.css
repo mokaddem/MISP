@@ -8665,6 +8665,61 @@ th.vp-rel-num {
     pointer-events: none;
 }
 
+/*
+ * The label as a link, where the entry it names has somewhere to open.
+ *
+ * `pointer-events` back on for this one form only — the rule above
+ * exists so a label cannot swallow the hover belonging to the marks
+ * under it, and a label that is a link has to take its own clicks. It
+ * can afford to: the label sits in the 12 units above the bars, which
+ * is the same band `.vp-lane-peak` was given so it could not land on
+ * the column it names.
+ *
+ * It stays the secondary colour until hovered rather than arriving
+ * link-blue. A lane of blue attribute ids reads as the lane's subject
+ * being links, and the subject is dates.
+ */
+a.vp-lane-tag {
+    pointer-events: auto;
+    text-decoration: none;
+}
+
+a.vp-lane-tag:hover,
+a.vp-lane-tag:focus-visible {
+    color: var(--bs-link-color);
+    text-decoration: underline;
+}
+
+/*
+ * A chronology row's title, as a link to the record behind it.
+ *
+ * Inherits its colour for the same reason: the row already carries a
+ * coloured source chip, and a second colour on the same line would read
+ * as a second category rather than as an affordance.
+ */
+.vp-tl-link {
+    color: inherit;
+    /*
+     * A cue that survives not being hovered. Colour-inherited alone
+     * made a list of 74 links indistinguishable from 74 sentences, so
+     * the affordance existed and nothing announced it; link-blue on
+     * every title paints the chronology as a link list and buries the
+     * source chips that are its actual vocabulary. A dotted rule at
+     * half opacity is the smallest thing that says *this opens*.
+     */
+    text-decoration: underline dotted;
+    text-decoration-color: color-mix(in srgb, currentColor 35%,
+        transparent);
+    text-underline-offset: 0.18em;
+}
+
+.vp-tl-link:hover,
+.vp-tl-link:focus-visible {
+    color: var(--bs-link-color);
+    text-decoration: underline solid;
+    text-decoration-color: currentColor;
+}
+
 /* ------------------------------------------------------------------
  * Source chips
  * ------------------------------------------------------------------ */

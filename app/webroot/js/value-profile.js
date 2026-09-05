@@ -4667,6 +4667,13 @@
                  * the server had written the title alone.
                  */
                 title: row.dataset.vpTlTitle || '',
+                /*
+                 * Where the row opens, composed by the server — the
+                 * anchor depends on what the entry is *about*, which
+                 * the browser cannot work out from a source name.
+                 * Empty for an entry with nowhere to go.
+                 */
+                href: row.dataset.vpTlHref || '',
             });
         });
         tl.entries = out;
@@ -5231,8 +5238,17 @@
                         return;
                     }
                     tagEnd = at + (100 * label.length * tagChar) / tagRef;
-                    var tag = document.createElement('span');
+                    // An anchor only where there is somewhere to go, so
+                    // the rebuilt label matches what the server drew
+                    // rather than offering a dead one.
+                    var tag = document.createElement(
+                        entry.href ? 'a' : 'span'
+                    );
                     tag.className = 'vp-lane-tag';
+                    if (entry.href) {
+                        tag.setAttribute('href', entry.href);
+                        tag.setAttribute('title', entry.title);
+                    }
                     tag.style.left = at + '%';
                     tag.textContent = label;
                     svg.parentNode.insertBefore(tag, svg);

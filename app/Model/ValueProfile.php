@@ -6685,6 +6685,7 @@ class ValueProfile extends AppModel
                     : sprintf(__('Sighting %1$s of %2$s'), $n, $total),
                 'org' => $row['org'],
                 'ref' => array(
+                    'kind' => 'attribute',
                     'attribute' => $row['against']['attribute'],
                     'event' => $row['against']['event'],
                 ),
@@ -6758,6 +6759,7 @@ class ValueProfile extends AppModel
                         $once),
                     'org' => $event['org'],
                     'ref' => array(
+                        'kind' => 'event',
                         'attribute' => null,
                         'event' => $event['id'],
                     ),
@@ -6856,6 +6858,7 @@ class ValueProfile extends AppModel
                     ),
                     'org' => $event === null ? null : $event['org'],
                     'ref' => array(
+                        'kind' => 'attribute',
                         'attribute' => (int)$id,
                         'event' => (int)$occurrence['event_id'],
                     ),
@@ -7295,6 +7298,14 @@ class ValueProfile extends AppModel
                 ? ($event === null ? null : $event['org'])
                 : $row['org'],
             'ref' => array(
+                /*
+                 * The audit row's own model, lowercased, and not the
+                 * lane it was filed in: a `tag` action on an Object is
+                 * drawn in the tag lane and still opens the object tab,
+                 * because what the reader is being sent to is the thing
+                 * that was tagged.
+                 */
+                'kind' => strtolower($row['model']),
                 'attribute' => $row['attribute_id'],
                 'event' => $eventId,
             ),
@@ -7495,6 +7506,13 @@ class ValueProfile extends AppModel
                 ),
             'org' => $event === null ? null : $event['org'],
             'ref' => array(
+                /*
+                 * The object, not the `datetime` attribute the date was
+                 * read off: the row's subject is *what the object
+                 * records*, and the object tab is where a reader can see
+                 * that field beside the rest of the template.
+                 */
+                'kind' => 'object',
                 'attribute' => $row['id'],
                 'event' => $row['event_id'],
             ),
@@ -7690,6 +7708,7 @@ class ValueProfile extends AppModel
                 'note' => $note,
                 'org' => $event === null ? null : $event['org'],
                 'ref' => array(
+                    'kind' => 'attribute',
                     'attribute' => (int)$id,
                     'event' => (int)$occurrence['event_id'],
                 ),
@@ -7754,6 +7773,7 @@ class ValueProfile extends AppModel
                     ),
                 'org' => $event === null ? null : $event['org'],
                 'ref' => array(
+                    'kind' => 'object',
                     'attribute' => null,
                     'event' => (int)$object['event_id'],
                 ),
@@ -8199,6 +8219,7 @@ class ValueProfile extends AppModel
             $targets[$event['uuid']] = array(
                 'kind' => 'event',
                 'id' => $event['id'],
+                'event' => $event['id'],
                 'label' => sprintf(__('event %s'), $event['id']),
             );
         }
@@ -8214,6 +8235,7 @@ class ValueProfile extends AppModel
             $targets[$uuid] = array(
                 'kind' => 'attribute',
                 'id' => (int)$occurrence['id'],
+                'event' => (int)$occurrence['event_id'],
                 'label' => sprintf(
                     __('attribute %s'),
                     $occurrence['id']
@@ -8301,12 +8323,18 @@ class ValueProfile extends AppModel
             'note' => $note,
             'org' => $org,
             'ref' => array(
+                'kind' => $target['kind'],
                 'attribute' => $target['kind'] === 'attribute'
                     ? $target['id']
                     : null,
-                'event' => $target['kind'] === 'event'
-                    ? $target['id']
-                    : null,
+                /*
+                 * The event either way. It used to be null on a note
+                 * about an attribute, which was true of *the target*
+                 * and useless to the only consumer this key has ever
+                 * had: the link, which opens an event and cannot be
+                 * built without one.
+                 */
+                'event' => $target['event'],
             ),
             'span_to' => null,
         );
@@ -8365,6 +8393,17 @@ class ValueProfile extends AppModel
                 'note' => $this->proposalNote($row),
                 'org' => $row['org'],
                 'ref' => array(
+                    /*
+                     * A standalone addition proposes a value no
+                     * attribute holds yet, so the reader is sent to the
+                     * event's proposal list rather than to a record
+                     * that does not exist — `value-profile-coverage.md`
+                     * §2.2's state, reaching the link as well as the
+                     * row.
+                     */
+                    'kind' => $row['target'] === null
+                        ? 'event'
+                        : 'attribute',
                     /*
                      * The attribute it proposes against, which is null
                      * for a standalone addition — the state
@@ -8529,6 +8568,7 @@ class ValueProfile extends AppModel
                     ),
                 'org' => $org,
                 'ref' => array(
+                    'kind' => 'report',
                     'attribute' => null,
                     'event' => $eventId,
                 ),

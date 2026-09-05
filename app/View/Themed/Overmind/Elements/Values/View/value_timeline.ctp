@@ -222,6 +222,75 @@ $precisionMeta = array(
     ),
 );
 
+/**
+ * Where an entry opens.
+ *
+ * **To the event's own tab and not to `/attributes/view` or
+ * `/objects/view`**, which is the choice `value_relation_asserted` and
+ * the sightings table already made and recorded: this theme's event view
+ * takes no `focus:` parameter, and the two flat views redirect to the
+ * event and lose which record they were asked about. So the anchor is as
+ * close as a link can get, and the title carries the record.
+ *
+ * The anchor comes from `ref['kind']`, which the facade sets per entry
+ * and not per lane — the distinction matters in the tag lane, where an
+ * audit row about an Object is drawn beside one about an Attribute and
+ * the two open different tabs.
+ *
+ * Null where there is nowhere to send the reader. Two entries can be in
+ * that state and both are honest: an analyst note whose target this
+ * viewer cannot resolve to an event, and any row on an instance where
+ * the audit log recorded no `event_id`.
+ *
+ * @param array $entry
+ * @return string|null
+ */
+$entryUrl = function (array $entry) use ($baseurl) {
+    $ref = $entry['ref'];
+    if (empty($ref['event'])) {
+        return null;
+    }
+    $anchors = array(
+        'attribute' => '#tab-attributes',
+        'object' => '#tab-objects',
+        'report' => '#tab-reports',
+    );
+    $kind = isset($ref['kind']) ? $ref['kind'] : 'event';
+    return $baseurl . '/events/view2/' . (int)$ref['event']
+        . (isset($anchors[$kind]) ? $anchors[$kind] : '');
+};
+
+/**
+ * What that link promises, since the anchor cannot promise the record.
+ *
+ * @param array $entry
+ * @return string
+ */
+$entryLinkTitle = function (array $entry) {
+    $ref = $entry['ref'];
+    $kind = isset($ref['kind']) ? $ref['kind'] : 'event';
+    if ($kind === 'attribute' && !empty($ref['attribute'])) {
+        return sprintf(
+            __('Open event %1$s — attribute %2$s is on its Attributes tab'),
+            $ref['event'],
+            $ref['attribute']
+        );
+    }
+    if ($kind === 'object') {
+        return sprintf(
+            __('Open event %s — the object is on its Objects tab'),
+            $ref['event']
+        );
+    }
+    if ($kind === 'report') {
+        return sprintf(
+            __('Open event %s — the report is on its Event reports tab'),
+            $ref['event']
+        );
+    }
+    return sprintf(__('Open event %s'), $ref['event']);
+};
+
 /*
  * The cut band's own sentence, held in one variable because both
  * renderers of the band need it: the template for the window the
@@ -2461,11 +2530,24 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                         }
                                         $tagEnd = $at + $wide;
                                         ?>
-                                        <span class="vp-lane-tag"
-                                              style="left: <?= h($at)
-                                                  ?>%;">
-                                            <?= h($label) ?>
-                                        </span>
+                                        <?php $tagHref = $entryUrl($entry); ?>
+                                        <?php if ($tagHref === null): ?>
+                                            <span class="vp-lane-tag"
+                                                  style="left: <?= h($at)
+                                                      ?>%;">
+                                                <?= h($label) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <a class="vp-lane-tag"
+                                               href="<?= h($tagHref) ?>"
+                                               title="<?=
+                                                   h($entryLinkTitle($entry))
+                                               ?>"
+                                               style="left: <?= h($at)
+                                                   ?>%;">
+                                                <?= h($label) ?>
+                                            </a>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                     <svg viewBox="0 0 <?= (int)$LANE_W ?> <?=
                                              (int)$LANE_H ?>"
@@ -2641,7 +2723,8 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                             <?php endif; ?>
                             <?= __('Newest first. Click a source in the'
                                 . ' key or a lane above to narrow to'
-                                . ' it.') ?>
+                                . ' it, or an entry to open the record'
+                                . ' behind it.') ?>
                             <span data-vp-tl-filter-note hidden>
                                 <span data-vp-tl-filter-verb><?=
                                     __('Showing') ?></span>
@@ -2734,6 +2817,7 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                             <?php
                             $meta = $sourceMeta[$entry['source']];
                             $prec = $precisionMeta[$entry['precision']];
+                            $href = $entryUrl($entry);
                             ?>
                             <div class="vp-audit-row"
                                  data-vp-tl-row
@@ -2762,6 +2846,18 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                  ?>
                                  data-vp-tl-title="<?=
                                      h($entry['title']) ?>"
+                                 <?php
+                                 /*
+                                  * Carried on the row so the script can
+                                  * link the span labels it rebuilds on
+                                  * every window — it works from these
+                                  * rows and has no other way to reach
+                                  * the URL the server composed.
+                                  */
+                                 ?>
+                                 <?php if ($href !== null): ?>
+                                     data-vp-tl-href="<?= h($href) ?>"
+                                 <?php endif; ?>
                                  <?php if ($collapse): ?>
                                      data-vp-tl-in-run="<?=
                                          h($group['day'] . ':'
@@ -2784,7 +2880,35 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                         <span class="vp-tl-src vp-tl-src-<?=
                                             h($entry['source']) ?>"><?=
                                             h($meta['label']) ?></span>
-                                        <?= h($entry['title']) ?>
+                                        <?php
+                                        /*
+                                         * The title is the link, not the
+                                         * whole row: the row is a grid
+                                         * of four parts and one of them
+                                         * is a source chip that already
+                                         * means *press to filter*. Two
+                                         * gestures in one box, one of
+                                         * which navigates away, is how
+                                         * a reader loses their window.
+                                         *
+                                         * An entry with nowhere to go
+                                         * renders the same words as
+                                         * plain text rather than a dead
+                                         * link — 8.2's rule about
+                                         * absences applies to
+                                         * affordances too.
+                                         */
+                                        ?>
+                                        <?php if ($href === null): ?>
+                                            <?= h($entry['title']) ?>
+                                        <?php else: ?>
+                                            <a class="vp-tl-link"
+                                               href="<?= h($href) ?>"
+                                               title="<?=
+                                                   h($entryLinkTitle($entry))
+                                               ?>"><?=
+                                                h($entry['title']) ?></a>
+                                        <?php endif; ?>
                                         <span class="vp-prec <?=
                                             h($prec['class']) ?>"><?=
                                             h($prec['label']) ?></span>
