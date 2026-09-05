@@ -1,4 +1,4 @@
-# PRD: Value Profile — Analyst data goes live
+# PRD: Value Profile — Analyst data goes live, and the tab becomes Collaboration
 
 **Phase 26**, the fifth live phase. Converts `viewAnalystStanding` and
 `viewAnalystThread` — the tab's two endpoints and the two panels inside
@@ -14,14 +14,23 @@ document's §11 is the list this phase exists to close.
 decisions — seven taken before building and three the build forced,
 §1.2 what a session picking this up cold needs to know, §11 how the
 three calls this phase could not take alone were settled, §12
-verification as run, and **§16 the build log and what it cost.**
+verification as run, §16 the build log and what it cost, and **§17 the
+two changes made after all of that: the tab's new name, and a lane bug
+the ledger shipped with.**
+
+**The tab is called *Collaboration* from §17.1 onward**, and this
+document is titled for the phase rather than for the tab. Everything
+before §17 says *Analyst data*, which is what it was called while the
+phase was being written; the elements, the endpoints, the tab's id and
+this file all still carry `analyst`, because an id is not a name.
 
 **A naming collision, so nobody trips.** The `26-object-graph-*.php` and
 `26-panel-harness.mjs` files in this directory are **not** this phase's.
 They are named after §26 and §27 of [`24-relationships.md`](24-relationships.md)
 — phase 24's object re-founding — and predate this document. Every
-artifact this phase adds is prefixed `26a-`, and there is one:
-[`26a-analyst-check.mjs`](26a-analyst-check.mjs), §12.5's browser pass.
+artifact this phase adds is prefixed `26a-`, and there are two:
+[`26a-analyst-check.mjs`](26a-analyst-check.mjs), §12.5's browser pass,
+and [`26a-lane-geometry.mjs`](26a-lane-geometry.mjs), §17.2's.
 
 ---
 
@@ -744,7 +753,13 @@ deliberately this time: the campaign's rule is that a tab's row belongs
 to the tab's phase, and buying consistency by reaching into the
 Overview's row is how a board stops describing the code.
 
-### 11.4 A naming question the first answer raised
+### 11.4 A naming question the first answer raised — settled
+
+**Settled 2026-09-05: the tab is *Collaboration*.** The maintainer
+raised the question, offered that name and left the choice open; it is
+the one taken, and §17 is what it cost.
+
+What follows is the argument as it stood when the question was open.
 
 Including proposals broadens the thread past what its tab is called.
 *Analyst data* names a MISP feature — notes, opinions and relationships,
@@ -768,7 +783,7 @@ What is left is the **tab label** in `Values/view.ctp:628` and the
 matching entries in `value-profile-page.md` and `05-analyst.md`, whose
 filenames carry the old name. Renaming a tab renames it in every
 document that cites it, so it is one edit and a sweep, and it is a
-naming decision rather than a build one. **Open.**
+naming decision rather than a build one.
 
 ---
 
@@ -912,7 +927,8 @@ stated remainder — phase 25's D2 pattern — and not a page parameter.
 ## 16. The build log
 
 Six commits on `worktree-attribute-value-page-brief`, in the order they
-landed. Three of code, three of record.
+landed. Three of code, three of record — plus §17's two, which came
+after the phase was recorded as built and are listed there.
 
 | Commit | What |
 |---|---|
@@ -984,3 +1000,111 @@ absorbed.
    least two such organisations stay apart (§6.4).
 
 ---
+
+## 17. After the build — the rename, and a bug the ledger shipped with
+
+Two changes on 2026-09-05, after §12's verification had run and the
+phase was recorded as built. Both came from the maintainer reading the
+result, which is the pass phase 25 got over its closed phase too.
+
+### 17.1 The tab is *Collaboration* — §11.4's open question, closed
+
+**Taken as offered.** *Analyst data* named a MISP feature — the three
+`AnalystData` subclasses — and this phase put two things on the tab that
+are not it: proposals, which are `shadow_attributes` and predate the
+feature, and event reports, which are neither. What the tab is *about*
+is everything anybody has said about this value, and that is the one
+axis separating it from the rest of the page: every other tab is
+machine-derived. *Collaboration* is the only single word that covers a
+note, an opinion, a proposal and a report without stretching one of
+them, and a proposal is literally somebody else's edit offered to your
+event.
+
+**The id did not move.** `#tab-analyst` is an address — the Overview
+card's *Open thread* button points at it, and anything bookmarked does
+too — and an id is not a name. Renaming it would break those in order to
+rename nothing a reader can see. The three elements keep their
+`value_analyst_*` filenames for the same reason, and this document keeps
+its own.
+
+**Two things renamed with it, and one deliberately not:**
+
+- The thread panel's title is now **Notes, opinions and proposals**, and
+  it is unconditional. It had been conditional on the value having any —
+  which meant the loading skeleton could not match it, so a value with
+  proposals renamed its own panel mid-load. Naming what a panel can hold
+  rather than what this value has is also what *Tags and galaxies* on
+  the Overview already does.
+- **The reports panel had no loading skeleton at all**, found while
+  wiring the one above: `panelChrome` had no entry for
+  `viewAnalystReports`, so the card arrived with nothing where both its
+  siblings show one — which on a tab of three reads as a panel that
+  failed rather than one still loading. Added.
+- The **Overview's preview card keeps the title *Analyst data***. It
+  shows notes and opinions and nothing else, so the name is still true
+  of it, and it is the Overview's row by §11's second call. Its *Open
+  thread* button never named the tab, so nothing there had to change.
+
+### 17.2 The ledger's score numeral left its lane at 100
+
+**Reported by the maintainer, and it shipped in the phase's first
+commit.** `.vpa-lane-val` was placed 13px *outward* from its dot — away
+from the pivot, at the end of the bar it measures — which is right
+everywhere except at the ends of the axis, where outward is off the
+lane. Measured on `8.8.8.8`, whose two `100`s made it visible: the
+numeral sat **34.3px past its lane's right edge**, the grid gap to the
+next column is 8px, and the *Reads it as* cell begins there. The `100`
+was drawn on top of the word *agrees*.
+
+Symmetric at the other end and not hypothetical: the instance holds six
+opinions at 0 and four at 10, and `8.8.8.8`'s own 10 overflowed the left
+edge into the *Organisation* cell — by less, because a two-digit numeral
+is narrower, which is why only the right-hand collision was visible
+enough to report.
+
+**Fixed by flipping, not by clamping.** Near either end the numeral goes
+to the *inward* side of its dot and takes a backing, since inward means
+over its own bar and `--vpa-side-ink` on `--vpa-side` is one hue on
+itself. Which property is used is the outward side XOR the flip, which
+is the whole of the logic.
+
+Clamping — pinning the numeral at the lane's edge and letting the
+percentage run past it — was the other option and is worse: between 96
+and 100 the dot walks over the pinned numeral, which trades a collision
+with the next column for a collision with the mark the numeral is
+labelling.
+
+**The thresholds are derived from the layout, not chosen.**
+`.vpa-ledger`'s lane column is `minmax(320px, 1fr)`, so 320px is the
+narrowest the lane ever gets — below that the ledger scrolls instead of
+shrinking. The numeral needs its 13px offset plus its own width, and it
+is monospace with `tabular-nums`: 3ch ≈ 21px at three digits, 2ch ≈ 14px
+at two. 34px of 320px is 10.7% of the axis and 27px is 8.5%, which puts
+the flip at **88 and at 12** rather than at a rounder pair. The
+asymmetry is the third digit.
+
+**Verified at both extremes of the layout**, not only at the width it
+was found on — [`26a-lane-geometry.mjs`](26a-lane-geometry.mjs), which
+measures every numeral against its lane's edges, its own dot and the
+reading cell, at a wide viewport and at one narrow enough to drive the
+lane to its 320px floor:
+
+| Lane | Score | Placement | Inside the lane | Clear of its dot | Hits *Reads it as* |
+|---|---|---|---|---|---|
+| 918.8px | 100 | flipped | 13.0px | 6.5px | no |
+| 918.8px | 80 | outward | 156.5px | 6.5px | no |
+| 918.8px | 10 | flipped | 104.9px | 6.5px | no |
+| **320px** | 100 | flipped | 13.0px | 6.5px | no |
+| **320px** | 80 | outward | 36.8px | 6.5px | no |
+| **320px** | 10 | flipped | 45.0px | 6.5px | no |
+
+**Every numeral keeps the same 6.5px clearance from its mark whether it
+flipped or not**, which is the geometry mirroring rather than a second
+rule: 13px from the dot's centre, and the dot's radius is 6.5px.
+
+**One thing measured and left alone.** The thread's own mini scale
+(`.vpa-scale-dot`) overflows its track by 4.5px at 100/100, because it
+is a marker centred on the axis end and half of it is past that end —
+the ledger's dot does the same. It collides with nothing, it is the
+convention both scales share, and clipping it would move the mark off
+the value it marks.

@@ -545,9 +545,9 @@ document that filled it.
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Relationships | `viewRelationSettings` | `value_relation_settings` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
-| Analyst | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
-| Analyst | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
-| Analyst | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
+| Collaboration | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
+| Collaboration | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
+| Collaboration | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | — | — | — | — |
 
@@ -713,7 +713,7 @@ its decisions and deferrals live; this is only the map.
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
 | 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **closed 2026-09-05** — T1–T30 done; §1 is the board, §1.1 its twelve decisions, §16 the build log, and §26–§29 four rounds of reader feedback taken over the closed phase |
-| 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list | [`26-analyst.md`](26-analyst.md) | **built 2026-09-05** — T1–T12 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, and §16 the build log |
+| 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list. **The tab is renamed *Collaboration*** | [`26-analyst.md`](26-analyst.md) | **built 2026-09-05** — T1–T12 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, §16 the build log, and §17 the rename and one ledger bug found after it |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,

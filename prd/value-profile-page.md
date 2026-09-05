@@ -61,18 +61,27 @@ and it grew a third panel doing it: the coverage survey's narrative
 report list, which had been owed to this tab since §4.5 and had no
 endpoint anywhere (`live/26-analyst.md` §9.2).
 
-The Occurrences, Sightings, Relationships, Timeline and Analyst tabs now
-read the database; the other four still read the fixture, so the two
+The Occurrences, Sightings, Relationships, Timeline and Collaboration
+tabs now read the database; the other four still read the fixture, so the two
 regimes sit side by side until the campaign finishes. **Nothing
 writes**, on either side. `live/00-contract.md` §14.12 is the
 panel-level record — eighteen of thirty-one endpoints have moved, and
 four Relationships rows closed imperfect, named there and in §20.4.
 
 **One card is now knowingly wrong.** The Overview's analyst preview
-reads the fixture beside three live Analyst panels, which was phase 26's
-second open call and was answered *leave it and record it* — the rule
-being that a tab's row belongs to its own phase. `live/26-analyst.md`
-§11 is where that cost is named.
+reads the fixture beside three live Collaboration panels, which was
+phase 26's second open call and was answered *leave it and record it* —
+the rule being that a tab's row belongs to its own phase.
+`live/26-analyst.md` §11 is where that cost is named.
+
+**The tab is called *Collaboration* from 2026-09-05.** It was *Analyst
+data*, which named a MISP feature rather than the tab's subject, and
+phase 26 put two things on it that are not that feature: proposals,
+which are `shadow_attributes`, and event reports. Its id is still
+`analyst` and so are its three elements, because `#tab-analyst` is an
+address that other panels link to. `live/26-analyst.md` §17.1. Earlier
+sections of this document, and the phase table below, keep the old
+name — they describe when they were written.
 
 Two of the eighteen are on a tab whose phase has not run: the **Overview's**
 `value_sightings` card was converted with phase 23's follow-ups, because it is
@@ -124,7 +133,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 10 | Sightings tab | `tabs/02-sightings.md` | built |
 | 11 | Relationships tab | `tabs/03-relationships.md` | built |
 | 12 | Enrichment tab | `tabs/04-enrichment.md` | built |
-| 13 | Analyst data tab | `tabs/05-analyst.md` | built |
+| 13 | Analyst data tab — renamed Collaboration by phase 26 | `tabs/05-analyst.md` | built |
 | 14 | Candidate decks for Timeline and History | §8 | done — 2 artifacts, both picked |
 | 15 | Timeline tab | `tabs/06-timeline.md` | built |
 | 16 | History tab | `tabs/07-history.md` | built |
@@ -395,7 +404,7 @@ MISP glyphs are written in full as `misp-icon misp-icon-<name> misp-simple`, the
 form `view2.ctp` already uses. The available names are `attribute`, `event`,
 `object`, `sighting`, `report`, `galaxy`, `tag`, `taxonomy`, `organisation`,
 `sharing-group`, `user`, `misp`, `analyst-note`, `analyst-opinion` — there is no
-generic analyst glyph, so the Analyst data tab uses `analyst-note`.
+generic analyst glyph, so the Collaboration tab uses `analyst-note`.
 
 The Verdict tab carries a state pill (`MALICIOUS 84`, `CONFLICTED`) with a
 colour dot, via the new optional `badge` key.

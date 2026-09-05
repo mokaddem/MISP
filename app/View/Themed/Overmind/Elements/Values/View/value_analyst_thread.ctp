@@ -686,9 +686,15 @@ if (!empty($thread)) {
      data-vp-analyst-thread>
 
     <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => $proposals > 0
-            ? __('Notes, opinions and proposals')
-            : __('Notes and opinions'),
+        /*
+         * Unconditional, and it names what the panel can hold rather
+         * than what this value happens to have — the same convention as
+         * *Tags and galaxies* on the Overview, which is titled that way
+         * on a value with no galaxy. A title that changed with the data
+         * also meant the loading skeleton could not match it, so a
+         * value with proposals renamed its own panel mid-load.
+         */
+        'panelTitle' => __('Notes, opinions and proposals'),
         'panelIcon' => 'misp-icon misp-icon-analyst-note misp-simple',
         'panelColor' => 'var(--analystData)',
         'panelSub' => $subtitle,

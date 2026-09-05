@@ -346,8 +346,18 @@ $panelChrome = array(
             'fas fa-arrows-left-right-to-line', 'var(--analystData)', 6),
     ),
     'viewAnalystThread' => array(
-        $await(__('Notes and opinions'), $icoNote, 'var(--analystData)',
-            6),
+        $await(__('Notes, opinions and proposals'), $icoNote,
+            'var(--analystData)', 6),
+    ),
+    /*
+     * Added with the panel in phase 26. Without an entry here the card
+     * arrives with no skeleton at all, which on a tab where both its
+     * siblings show one reads as a panel that failed rather than one
+     * still loading.
+     */
+    'viewAnalystReports' => array(
+        $await(__('Event reports'), 'fas fa-file-lines',
+            'var(--analystData)', 4),
     ),
     'viewTimeline' => array(
         $await(__('Timeline'), 'fas fa-clock', 'var(--bs-info)', 8),
@@ -625,8 +635,31 @@ $tabRegistry = array(
         'right' => null,
     ),
     array(
+        /*
+         * **The id stays `analyst` while the label does not.** `#tab-analyst`
+         * is an address — the Overview card's *Open thread* button
+         * points at it, and so does anything anyone has bookmarked —
+         * and an id is not a name. Renaming it would break those to
+         * rename nothing the reader can see.
+         */
         'id' => 'analyst',
-        'title' => __('Analyst data'),
+        /*
+         * **Renamed from *Analyst data* by phase 26**, because the tab
+         * stopped being about analyst data and the name stopped being
+         * true. *Analyst data* is a MISP feature — the three
+         * `AnalystData` subclasses — and this tab now also carries
+         * proposals, which are `shadow_attributes` and predate that
+         * feature, and event reports, which are neither. Its subject is
+         * everything anybody has said about this value, which is the
+         * one thing separating it from every other tab on the page:
+         * the rest are machine-derived.
+         *
+         * *Collaboration* is the only single word that covers a note,
+         * an opinion, a proposal and a report without stretching any of
+         * them — a proposal is literally somebody else's edit offered
+         * to your event. `26-analyst.md` §11.4.
+         */
+        'title' => __('Collaboration'),
         'icon' => 'misp-icon misp-icon-analyst-note misp-simple',
         /*
          * No count, dropped by phase 26 when the panels below went
