@@ -1388,6 +1388,22 @@ action — publications, event tags, the event's own edits — which is a real p
 of the value's story. The choice between them is a design decision this phase
 has to make explicitly, not a detail to settle in the controller.
 
+> **Closed by phase 25, and with a third answer neither of these two.**
+> `live/25-timeline.md` §5 took the choice this section assigned, measured
+> both models on the instance and adopted **id-scoping across three model
+> scopes** — `Attribute`, `Object` and `Event`, each `model_id IN` a set an
+> accessor has already run `buildConditions($user)` over. That keeps the
+> event-level actions the cheap option drops without a single `fetchEvent()`.
+> The section's prediction held as arithmetic: **all 54 of `8.8.8.8`'s audit
+> rows carry `org_id` ADMIN**, so under the per-user model every other reader
+> gets an empty tab. Two things §5 found that this section did not: the
+> per-event model's real cost is 204 `fetchEvent()` calls *followed by a read
+> over 816,041 rows*, and the third scope must name `model_id`, not
+> `event_id` — MISP writes `event_id` on every model's rows, and the
+> substitution measured **129 ms against 14,330 ms**. **The History tab
+> inherits this rather than re-deciding it**, which is the order §2 of that
+> document chose deliberately.
+
 #### `model_title` carries the value, and it carries the *new* one
 
 The behaviour's Attribute closure builds `"$category/$type $value"` preferring
