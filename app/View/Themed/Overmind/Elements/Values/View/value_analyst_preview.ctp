@@ -142,38 +142,51 @@ $headerExtra = !$hasTab ? null : '<a href="#tab-analyst"'
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <?php
                                 /*
-                                 * **The band word carries no colour**,
-                                 * which is the rule the standing panel
-                                 * on the tab already states and the
-                                 * reason it gives: MISP splits the five
-                                 * words at 20/40/60/80 while the
-                                 * reading splits at 50, so `Neutral`
-                                 * covers 41-60 and lands on both sides
-                                 * of the pivot. This card used to paint
-                                 * `Agree` green and `Disagree` red off
-                                 * those same boundaries, which is half
-                                 * of the contradiction `05-analyst.md`
-                                 * §11 ends on — a badge asserting a
-                                 * side the boundaries cannot support,
-                                 * beside a Verdict histogram painting
-                                 * everything above 50 as the malicious
-                                 * case. The word is MISP's own
-                                 * vocabulary and stays; the colour was
-                                 * this card's own claim and goes.
+                                 * **Coloured by the score against 50,
+                                 * never by the band word.** That is
+                                 * MISP's own rule, not this page's:
+                                 * `Analyst_data/opinion_scale.ctp`
+                                 * computes `$opinion > 50 ? green :
+                                 * red`, greys exactly 50, and paints
+                                 * the band word and the numeral with
+                                 * it. The five words split at
+                                 * 20/40/60/80 and agreement splits at
+                                 * 50, so the word is not what carries
+                                 * the side — the score is, and a
+                                 * `Neutral` at 45 is red where a
+                                 * `Neutral` at 55 is green.
+                                 *
+                                 * The card used to colour by *band*:
+                                 * 61+ green, 41-60 grey, 40 and below
+                                 * red. That is what made it half of
+                                 * `05-analyst.md` §11's contradiction —
+                                 * it painted a disagreeing 45 the same
+                                 * grey as an agreeing 60. The fix is
+                                 * the pivot, not the absence of colour.
+                                 *
+                                 * `reads` is resolved in the facade off
+                                 * the same 50, so this badge and the
+                                 * tab's ledger take one side per score.
                                  */
+                                $side = array(
+                                    'malicious' => 'agree',
+                                    'benign' => 'dispute',
+                                );
+                                $side = isset($side[$item['reads']])
+                                    ? $side[$item['reads']]
+                                    : 'neither';
                                 ?>
-                                <span class="badge bg-body-tertiary
-                                             text-body-secondary border
-                                             fw-semibold"
+                                <span class="vpa-reading vpa-s-<?=
+                                          h($side) ?>"
                                       title="<?= h(__(
-                                          'MISP\'s own band word. It is'
-                                          . ' uncoloured because the five'
-                                          . ' words split at 20/40/60/80'
-                                          . ' while agreement splits at'
-                                          . ' 50, so Neutral covers 41-60'
-                                          . ' and falls on both sides.'
+                                          'MISP colours an opinion by'
+                                          . ' its score against 50 —'
+                                          . ' above it agrees with what'
+                                          . ' the record asserts, below'
+                                          . ' it disagrees, and exactly'
+                                          . ' 50 takes no side.'
                                       )) ?>">
-                                    <?= h($item['label']) ?>
+                                    <i></i><?= h($item['label']) ?>
                                     &middot;
                                     <?= (int)$item['score'] ?>/100
                                 </span>

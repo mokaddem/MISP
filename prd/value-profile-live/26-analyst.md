@@ -1387,31 +1387,57 @@ to it — could not reach this card while its organisations were fixture
 strings. They carry `org_id` now and follow the rule the thread meta,
 the report rows and the ledger already do.
 
-### 20.3 The band word loses its colour, and the contradiction moves
+### 20.3 The colour question, settled on MISP's own source
 
 `05-analyst.md` §11 ends on *MISP colours opinions two contradictory
 ways: the Overview preview paints "Agree" green, the Verdict histogram
-paints everything above 50 red … the Overview card is the one that
-should change.* It changed, and it changed by **dropping the claim
-rather than reversing it**.
+paints everything above 50 red … this tab unifies on the Verdict
+reading, and the Overview card is the one that should change.*
 
-The reason is the standing panel's own, stated on the tab: MISP splits
-the five band words at 20/40/60/80 while agreement splits at 50, so
-`Neutral` covers 41–60 and lands on both sides of the pivot. A badge
-colouring `Agree` green and `Disagree` red off those boundaries asserts
-a side the boundaries cannot support. The word is MISP's vocabulary and
-stays; the colour was this card's own claim and goes. The badge is the
-neutral `bg-body-tertiary` the report panel's audience badge already
-uses — **14.6:1 in light, 10.2:1 in dark**.
+**The maintainer's instruction on 2026-09-05 was not to trust the
+Verdict page**, and reading MISP's own source shows why. The Verdict tab
+is fixture-backed and its histogram encodes an assumption nothing in
+MISP supports.
 
-**What this does not settle, and where it went.** The contradiction is
-now between two other surfaces, and it is sharper than §11 described.
-`value_analyst_standing.ctp` maps an opinion above 50 to `agree` and
-paints `.vpa-s-agree` with **`--vp-ben`**, the benign token; the Verdict
-tab's `value_verdict_opinions.ctp` paints every bucket at or above 50
-`vp-hist-bar-mal`. Both are on this page and they disagree. The standing
-panel's comment justifies its choice as *the green the Overview card
-uses for agreement* — **a justification this commit removes**, since the
-Overview card no longer uses green for agreement. Recorded here rather
-than settled: the Verdict tab is still fixture-backed, and repainting
-either surface is a decision about what an opinion means, not a cleanup.
+**MISP ships the answer.**
+`app/View/Elements/genericElements/Analyst_data/opinion_scale.ctp`, the
+element MISP renders every opinion with:
+
+```php
+$opinionColor = $opinion == 50 ? '#333'
+    : ($opinion > 50 ? '#468847' : '#b94a48');
+```
+
+Green above 50, red below it, grey at exactly 50 — and that colour is
+applied to **the band word and the numeral together**. Its 101-step
+gradient runs the same way, `rgb(164, 0, 0)` at 0 through yellow at the
+middle to `rgb(78, 155, 6)` at 100. An opinion is agreement with what
+the record asserts; agreement is green.
+
+So the three surfaces line up like this:
+
+| Surface | Above 50 | Correct? |
+|---|---|---|
+| MISP's `opinion_scale.ctp` | green | the reference |
+| this page's standing ledger | green (`--vp-ben`) | agrees with MISP |
+| this card, before | grey at 41–60, green at 61+ | wrong near the pivot |
+| the Verdict histogram | **red** (`vp-hist-bar-mal`) | **inverted** |
+
+**The card was wrong, but not in the way §11 says.** It coloured by
+*band* — 61+ green, 41–60 grey, 40 and below red — so a disagreeing 45
+got the same grey as an agreeing 60. The five band words split at
+20/40/60/80 and agreement splits at 50, and the resolution is not to
+stop colouring: it is to colour by **the score**, which is what MISP
+does and what makes a `Neutral` at 45 red and a `Neutral` at 55 green.
+The card now renders `.vpa-reading .vpa-s-*` off `reads`, resolved in
+the facade against the same 50 the ledger uses, so a score takes one
+side on this page. **6.3:1 in light, 8.6:1 in dark.**
+
+**What is left is the Verdict histogram**, and it is now the only
+surface on the page painting an above-50 opinion as the malicious case.
+Its own comment states the assumption plainly — *an opinion below the
+midpoint argues the value is benign and one above it argues malicious* —
+which is a claim about what an opinion is *for*, not about what MISP
+records. It is fixture-backed and unbuilt, so it is left to whoever
+converts the Verdict tab, with the finding recorded rather than the
+CSS quietly flipped underneath a panel nobody has wired yet.

@@ -744,7 +744,7 @@ sortable tables re-checked in the same pass.
 
 ---
 
-## 17. The preview card is live, and §11's last bullet is half-closed
+## 17. The preview card is live, and §11's last bullet is answered
 
 **2026-09-05.** The Overview's preview card — §7's panel two, the one
 this phase built against the fixture — now reads the database, through
@@ -752,28 +752,54 @@ this phase built against the fixture — now reads the database, through
 the Collaboration tab reads. `value-profile-live/26-analyst.md` §20 has
 the conversion, the counts it was checked against and its cost.
 
-Two of §11's bullets are answered by it and one is not:
+Three of §11's bullets are touched by it:
 
 - **"Nothing computes the aggregate."** Something does, and has since
   phase 26: the standing panel's mean, buckets and per-organisation
   rollup are computed in the facade, and *an opinion written on a note
-  rates the note and not the value* is decided in code — the card now
-  says so on any such row it draws, in the tab's own words.
+  rates the note and not the value* is decided in code — the card says
+  so on any such row it draws, in the tab's own words.
 - **"No pagination across it."** Still true and still correct. The card
   takes the newest four and states the total beside them, which is
   phase 25's cap-with-a-stated-remainder rather than a page parameter.
-- **"MISP colours opinions two contradictory ways."** The card was named
-  as the one that should change and it has, but **by dropping its colour
-  claim rather than by adopting the Verdict reading**. The band words
-  split at 20/40/60/80 while agreement splits at 50, so `Neutral` covers
-  41–60 and falls on both sides — a coloured band word asserts a side
-  those boundaries cannot support, which is the standing panel's own
-  rule arriving one card later.
+- **"MISP colours opinions two contradictory ways."** Answered, and
+  **this section's original instruction was wrong.**
 
-**The contradiction survives, between two other surfaces.**
-`value_analyst_standing.ctp` paints an above-50 opinion with `--vp-ben`
-and `value_verdict_opinions.ctp` paints the same opinion `mal`. The
-standing panel's comment gives its reason as *the green the Overview
-card uses for agreement*, and that card no longer does. Whoever unblocks
-the Verdict tab inherits the question, and it is a question about what
-an opinion asserts rather than about CSS.
+### 17.1 The Verdict reading was the wrong reference
+
+§11 says *this tab unifies on the Verdict reading* and names the
+Overview card as the one that should change. The maintainer's
+instruction on 2026-09-05 was **not to trust what is on the Verdict
+page**, and MISP's own source says why.
+
+`app/View/Elements/genericElements/Analyst_data/opinion_scale.ctp` is
+the element MISP renders every opinion with, and it decides the colour
+in one line:
+
+```php
+$opinionColor = $opinion == 50 ? '#333'
+    : ($opinion > 50 ? '#468847' : '#b94a48');
+```
+
+**Green above 50, red below, grey at exactly 50**, applied to the band
+word and the numeral together; the 101-step gradient beside it runs dark
+red at 0 to green at 100. An opinion is agreement with what the record
+asserts, and agreement is green. That is not a reading this campaign
+gets to pick — it is what the product does everywhere else it draws one.
+
+Measured against it:
+
+- the **standing ledger** built in §16.3 already agrees — `agree` takes
+  `--vp-ben`, `dispute` takes `--vp-mal`, and the split is at 50;
+- the **preview card** was wrong, but by *band* rather than by side: it
+  painted 61+ green, 41–60 grey and 40-and-below red, so a disagreeing
+  45 got the same grey as an agreeing 60. It now colours by the score;
+- the **Verdict histogram** is the inverted one, and it is the surface
+  §11 told the card to imitate.
+
+The Verdict tab is still fixture-backed, so the flip is left to whoever
+converts it. Its comment states the assumption plainly — *an opinion
+below the midpoint argues the value is benign and one above it argues
+malicious* — and that is a claim about what an opinion is for rather
+than about what MISP stores. Recorded here so the next phase inherits
+the finding and not this section's instruction.
