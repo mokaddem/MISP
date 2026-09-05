@@ -6804,16 +6804,28 @@
             note.textContent = '';
             return;
         }
+        /*
+         * The plural is picked here and not on the server, because the
+         * server does not know this number — it is whatever the
+         * reader's filter left standing. Choosing it there from the
+         * section total is what made `1 of the sections below have no
+         * entry` reachable.
+         */
+        var one = dropped === 1;
         var typed = auditTypedPeriod(list);
         if (typed.from !== null || typed.to !== null) {
             var period = auditPeriod(list);
-            note.textContent = (note.dataset.vpAuditDropPeriod || '')
+            note.textContent = ((one
+                ? note.dataset.vpAuditDropPeriodOne
+                : note.dataset.vpAuditDropPeriodMany) || '')
                 .replace('%1$s', dropped)
                 .replace('%2$s', auditDate(period.from))
                 .replace('%3$s', auditDate(period.to));
             return;
         }
-        note.textContent = (note.dataset.vpAuditDropPlain || '')
+        note.textContent = ((one
+            ? note.dataset.vpAuditDropPlainOne
+            : note.dataset.vpAuditDropPlainMany) || '')
             .replace('%1$s', dropped);
     }
 

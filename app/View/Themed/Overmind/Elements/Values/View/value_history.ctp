@@ -435,13 +435,54 @@ $renderRow = function ($row) use ($baseurl, $fmt) {
                     <?php endif; ?>
                 </div>
                 <?php if ($row['model_title'] !== null): ?>
+                    <?php
+                    /*
+                     * **The record this row names, opened.** Phase 26
+                     * §18.1 made that the rule for this page — a chip
+                     * that names a record links to it — and this tab
+                     * was built two phases before the rule and never
+                     * got it, so every one of these sub-lines named a
+                     * record and went nowhere.
+                     *
+                     * The targets are phase 26's, unchanged: an event
+                     * report has its own page, and everything else is
+                     * reached through the event that holds it, which
+                     * is where MISP renders attributes, objects and
+                     * proposals. Every audit row carries `event_id`,
+                     * so the fallback always resolves — and where it
+                     * somehow does not, the line renders exactly as it
+                     * did before rather than as a dead anchor.
+                     */
+                    $recordUrl = null;
+                    if ($row['model'] === 'EventReport'
+                        && $row['model_id'] !== null
+                    ) {
+                        $recordUrl = $baseurl . '/eventReports/view/'
+                            . (int)$row['model_id'];
+                    } elseif ($row['event_id'] !== null) {
+                        $recordUrl = $baseurl . '/events/view2/'
+                            . (int)$row['event_id'];
+                    }
+                    $recordLine = h($row['model'])
+                        . ($row['model_id'] !== null
+                            ? ' ' . h($row['model_id'])
+                            : '')
+                        . ' · ' . h($row['model_title']);
+                    ?>
                     <div class="text-muted font-monospace"
                          style="font-size: 0.7rem;">
-                        <?= h($row['model']) ?>
-                        <?php if ($row['model_id'] !== null): ?>
-                            <?= h($row['model_id']) ?>
+                        <?php if ($recordUrl !== null): ?>
+                            <a href="<?= h($recordUrl) ?>"
+                               class="text-reset"
+                               title="<?= h(sprintf(
+                                   __('Open %s'),
+                                   $row['model'] === 'EventReport'
+                                       ? __('this event report')
+                                       : __('the event holding it')
+                               )) ?>"><?= $recordLine ?></a>
+                        <?php else: ?>
+                            <?= $recordLine ?>
                         <?php endif; ?>
-                        · <?= h($row['model_title']) ?>
                     </div>
                 <?php endif; ?>
                 <?php if ($row['note'] !== null): ?>
@@ -518,12 +559,17 @@ $renderRow = function ($row) use ($baseurl, $fmt) {
         <?php if (!empty($row['change'])): ?>
             <?php
             /*
-             * From the fixture in this pass. Live, this is where
-             * `AuditLogsController::fullChange` is called:
-             * `audit_logs.change` is brotli-compressed above
-             * `AuditLog::COMPRESS_MIN_LENGTH` and capped at 64KB, so
-             * decoding every row at render time is exactly what that
-             * method exists to avoid.
+             * **From the row, and there is no second request.** The
+             * fixture-era note here nominated
+             * `AuditLogsController::fullChange` for the live version.
+             * That endpoint cannot serve this panel: it opens with
+             * `__applyAuditAcl`, which restricts a non-site-admin to
+             * their own `user_id`, so on an instance where one
+             * organisation wrote most of the audit log it answers 404
+             * for almost every diff already on screen. `auditRowsFor`
+             * fetches `change` with the row instead, and
+             * `AuditLog::afterFind` has already decompressed it.
+             * `27-history.md` §9.
              */
             ?>
             <table class="vp-audit-diff d-none">
@@ -955,7 +1001,7 @@ $chartPayload = array(
                          */
                         ?>
                         <div class="vp-audit-scope">
-                            <?php if ($allTime): ?>
+                            <?php if ($allTime || $history['capped']): ?>
                                 <button type="button"
                                         class="vp-filter-clear"
                                         data-vp-audit-scope="">
@@ -1065,16 +1111,21 @@ $chartPayload = array(
                         <?php if ($history['outside'] > 0): ?>
                             <?php
                             /*
-                             * Cause-neutral, because at all time the
-                             * reason is the row cap rather than the
-                             * period: the header states `Showing N of
-                             * M entries` either way, and a line
-                             * blaming a window that is not set would
-                             * be the wrong explanation rather than a
-                             * missing one.
+                             * Two forms, because there are two
+                             * reasons an occurrence has no section and
+                             * only one of them is the period's. At all
+                             * time there is no period to blame; and
+                             * whenever the read hit the row cap, some
+                             * of these occurrences *do* have entries
+                             * inside the period and were simply cut —
+                             * so naming the period there would be
+                             * false, not merely unhelpful. The header
+                             * states `Showing N of M entries` in both
+                             * cases, which is where the cap is
+                             * visible.
                              */
                             ?>
-                            <?php if ($allTime): ?>
+                            <?php if ($allTime || $history['capped']): ?>
                                 <?= h(sprintf(
                                     __n(
                                         '%1$d of the %2$d occurrences'
@@ -1118,22 +1169,35 @@ $chartPayload = array(
                          * names the dates, because a section vanishing
                          * has to read as a filter narrowing and not as
                          * data going missing.
+                         *
+                         * **Both plural forms are sent, and the browser
+                         * picks.** They used to be chosen here by
+                         * `__n` against the *section total* while the
+                         * browser substituted the *dropped* count, so
+                         * any value with more than one section and one
+                         * dropped section read `1 of the sections
+                         * below have no entry` — visible on `8.8.8.8`
+                         * from the moment the tab went live. The
+                         * server cannot know the number: it is
+                         * whatever the reader's filter leaves.
                          */
                         ?>
                         <span class="d-none" data-vp-audit-dropped
-                              data-vp-audit-drop-period="<?= h(__n(
+                              data-vp-audit-drop-period-one="<?= h(__(
                                   '%1$s of the sections below has no'
-                                      . ' entry between %2$s and %3$s.',
-                                  '%1$s of the sections below have no'
-                                      . ' entry between %2$s and %3$s.',
-                                  $history['occurrences']
+                                      . ' entry between %2$s and %3$s.'
                               )) ?>"
-                              data-vp-audit-drop-plain="<?= h(__n(
-                                  '%1$s of the sections below has no'
-                                      . ' entry matching these filters.',
+                              data-vp-audit-drop-period-many="<?= h(__(
                                   '%1$s of the sections below have no'
-                                      . ' entry matching these filters.',
-                                  $history['occurrences']
+                                      . ' entry between %2$s and %3$s.'
+                              )) ?>"
+                              data-vp-audit-drop-plain-one="<?= h(__(
+                                  '%1$s of the sections below has no'
+                                      . ' entry matching these filters.'
+                              )) ?>"
+                              data-vp-audit-drop-plain-many="<?= h(__(
+                                  '%1$s of the sections below have no'
+                                      . ' entry matching these filters.'
                               )) ?>"></span>
                     </span>
                 </div>
@@ -1452,16 +1516,32 @@ $chartPayload = array(
                                 <i class="fas fa-chevron-right"
                                    data-vp-audit-chevron></i>
                                 <span class="small fw-bold">
-                                    <?= __('Event-level actions') ?>
+                                    <?= __('Not tied to one occurrence') ?>
                                 </span>
                             </button>
                             <div class="vp-min-w-0 flex-grow-1
                                         vp-fact-line-sub">
+                                <?php
+                                /*
+                                 * Was *Event-level actions*, and was
+                                 * accurate while the only rows here
+                                 * were the event's own. Phase 27 added
+                                 * three more models to the scope — the
+                                 * containing object's edits, proposals
+                                 * and event reports — and none of them
+                                 * is event-level either. What the four
+                                 * share is the thing the section is
+                                 * for: they happened to this value and
+                                 * to no single copy of it.
+                                 */
+                                ?>
                                 <?= __(
-                                    'Publications and event tags. They'
-                                    . ' belong to this value and to no'
-                                    . ' single occurrence of it, so'
-                                    . ' they are counted once here'
+                                    'Publications, event tags, edits to'
+                                    . ' the objects this value sits in,'
+                                    . ' proposals and event reports.'
+                                    . ' Each belongs to this value and'
+                                    . ' to no single occurrence of it,'
+                                    . ' so each is counted once here'
                                     . ' rather than repeated in every'
                                     . ' section above.'
                                 ) ?>

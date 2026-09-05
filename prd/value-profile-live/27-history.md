@@ -1057,7 +1057,7 @@ probe found it by iterating the shape the contract promises. It now
 returns `historyFacets(array())`, four empty groups. A shape that changes
 between states is a shape every reader of it has to test for.
 
-### 16.3 A pre-existing defect, not fixed here
+### 16.3 A pre-existing defect — deferred here, fixed by §18.6
 
 The elided line's client-side half picks its plural at render time from
 `$history['occurrences']` — the section total — and the browser then
@@ -1066,7 +1066,8 @@ sections below have no entry matching these filters"**. Visible in the
 screenshot from the very first run of the browser pass. It is phase 19's
 `data-vp-audit-drop-plain` string and it predates this phase; recorded
 rather than fixed, because the fix is a client-side plural rule and this
-phase changed no JavaScript.
+phase changed no JavaScript. **§18.6 fixed it**, and records why the
+deferral was the wrong call.
 
 ### 16.4 What it costs
 
@@ -1088,10 +1089,9 @@ taken here, because with `fullChange` unusable for a non-site-admin
 
 ## 17. What the phase hands on
 
-The phase is **built, not closed**. Every live phase since 24 has taken
-review rounds over the built tab before closing, and none has run here
-yet. What follows is everything open, in the order someone picking it up
-should care.
+The phase is **closed 2026-09-05**, after the review round §18 records.
+What follows was written before that round and is what remains open
+after it; §18.7 says which items the round left untouched and why.
 
 ### 17.1 One thing that is wrong on other instances, and right here
 
@@ -1133,11 +1133,9 @@ action can still read as two different things on two pages.
 
 ### 17.4 Two defects, one not this phase's
 
-**§16.3's plural.** The elided line picks singular or plural at render
-time from the section total and the browser substitutes the dropped
-count, so *1 of the sections below **have** no entry* is reachable and
-visible on `8.8.8.8` today. Phase 19's string, a client-side plural rule
-to fix, and this phase changed no JavaScript.
+**§16.3's plural — fixed by §18.6**, which also says why deferring it
+was wrong: the server was choosing a plural for a number only the
+browser knows.
 
 **§16.2's two**, both found and both fixed here: the all-time crash the
 `outside` merge made reachable, and `historyShell`'s malformed `facets`.
@@ -1183,3 +1181,130 @@ exists, and `Event::enrichmentRouter()` returns above its own
 an above-50 opinion as malicious, inverting MISP's own
 `opinion_scale.ctp`. Still true, still that tab's to fix, and this phase
 touched nothing that bears on it.
+
+---
+
+## 18. A review round over the built tab
+
+Run 2026-09-05, after §17 recorded that none had. Six findings, all
+fixed. Two of them are the same defect the build had already made once
+and not learned from, one is a rule the campaign adopted after this tab
+was written and never applied to it, and one is the defect §16.3 had
+recorded and deferred.
+
+### 18.1 The section that stopped being what it is called
+
+`07-history.md` §1 gave the event-level section a name and a reason:
+*publications and event tags belong to the value's story and to no
+single occurrence*. T12 and T13 then put three more models in the audit
+scope, and every one of them lands in that section. Measured on
+`8.8.8.8` at all time — **377 rows, of which 78 are not event-level**:
+299 `Event`, 61 `EventReport`, 16 `Object`, 1 `ShadowAttribute`.
+
+So the heading said *Event-level actions* over rows about objects,
+proposals and reports, and the note under it promised *publications and
+event tags*. Renamed **Not tied to one occurrence**, which is what the
+four kinds actually share and what the section was always for; the note
+now lists all four. This is `26-analyst.md` §17.1's lesson arriving one
+tab later — a label naming a mechanism rather than a subject stops being
+true the moment the mechanism widens.
+
+### 18.2 The comment that told the next reader to do the wrong thing
+
+The diff block still carried its fixture-era note: *"From the fixture in
+this pass. Live, this is where `AuditLogsController::fullChange` is
+called."* Both halves false after §9, and the second is the specific
+design this phase rejected with a measurement. A comment that survives
+the change it describes is worse than none, because the next reader
+takes it as instruction. Rewritten to say where the diff comes from and
+why `fullChange` cannot serve it.
+
+### 18.3 The cap could make the elided line false, not merely unhelpful
+
+**The same defect as §16.2's, one step further in.** That one was: at
+all time there is no period, so a line naming one crashed. The fix
+branched the wording on `$allTime`. What it missed is that the *row cap*
+produces the same situation with a period set — an occurrence with
+entries inside the window that the cap cut has no section, and the line
+counted it and blamed the window.
+
+At all time the wording was already right by accident, because §16.2's
+branch caught it. With a window and a cap both biting it was wrong:
+*N of the M occurrences have no entry in ‹period›* about occurrences
+that do. `historyPanel` now returns `capped`, and the branch is
+`$allTime || $history['capped']`. Verified in both directions: `443` at
+all time is capped and takes the cap wording (48,091 occurrences,
+*older than the newest this panel returns*), and `443` over
+`2026-06-01 → 2026-06-30` returns 134 rows, is not capped, and takes the
+period wording.
+
+**The lesson is the one worth keeping**: `outside` is *occurrences with
+no section*, and the panel had been explaining it with the only cause
+the author had in mind. A derived number needs its explanation derived
+too.
+
+### 18.4 Every row named a record and opened nothing
+
+`26-analyst.md` §18.1 made it a rule for this page — *a chip that names
+a record links to it* — and this tab was built as phase 16, two phases
+before the rule existed. Every audit row carries a `Model id · title`
+sub-line naming a real record, and the only anchor in the whole panel
+was the occurrence section header's *open the event*.
+
+The targets are phase 26's unchanged: an event report has its own page,
+everything else is reached through the event that holds it, which is
+where MISP renders attributes, objects and proposals. Every audit row
+carries `event_id`, so the fallback always resolves. Measured after:
+**431 of 431 rows on `8.8.8.8` at all time link**, 61 of them to
+`/eventReports/view/`; 12 of 12 at the default window; 10 of 10 on
+`443`.
+
+### 18.5 Three keys nothing read
+
+`first`, `last` and `event_total` were carried from the fixture's shape
+into the live return and read by nothing — `first` and `last` cost a
+loop over every rendered row to compute. Removed. The panel's header
+prints the window and the corpus total, neither of which is any of the
+three.
+
+### 18.6 The plural, which §16.3 had recorded and deferred
+
+Fixed, and the deferral was wrong. §16.3 said the fix was a client-side
+plural rule and that this phase changed no JavaScript, which is a
+statement about the phase rather than about the defect: the line reads
+*1 of the sections below **have** no entry* on `8.8.8.8` at the default
+window, on the first facet a reader clicks.
+
+The cause is that the server chose the plural with `__n` against the
+**section total** while the browser substituted the **dropped count**.
+The server cannot know that number — it is whatever the filter leaves —
+so choosing there was wrong in principle and not only in effect. Both
+forms are now sent (`-one` and `-many` for each of the two variants) and
+`updateAuditDropped` picks on the number it is about to substitute.
+
+Verified with the asset cache bypassed, since a stale
+`value-profile.js` would mimic a working fix: six facet selections on
+`8.8.8.8`, emptying 1, 3, 1, 4, 4 and 4 sections — *has* at one and
+*have* at the rest, every time, no page error.
+
+### 18.7 What the round did not change
+
+The 2.0 MB all-time fragment (§16.4) stands, priced and deliberate. The
+theme reading is still the weak one §17.5 describes, and this round
+touched no CSS. `H3` and `H4` stay deferred on §14's reasons, both
+unaffected. And §17.1's real limitation — that `outside` merges two
+facts that are only one fact on an instance which logged from the start
+— is untouched by §18.3, which is about a third cause the same number
+now explains correctly.
+
+### 18.8 Re-run after the round
+
+The full pass of §12.4 again: **consistency `ok` on all ten value/reader
+combinations**, unchanged numbers, `Q` 11–34 and `443` at 1,036 ms. The
+seven live panels re-fetched over HTTP on two values — Timeline,
+Occurrences, Sightings, Relationships, the analyst thread, the Overview's
+preview card and History — **14 of 14 at 200 with no notice, warning or
+SQL error**, which is what says the shared reader still serves the four
+panels it served before. Browser pass re-run: diff opens with zero
+requests, facets narrow to `n of m`, an emptied section greys rather
+than vanishes, both themes, no console error.

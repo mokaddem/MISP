@@ -9163,8 +9163,7 @@ class ValueProfile extends AppModel
             'outside' => 0,
             'visible' => count($context['occurrences']),
             'events' => 0,
-            'first' => null,
-            'last' => null,
+            'capped' => false,
             /*
              * The same four groups the populated panel returns, empty
              * rather than absent: a shape that changes between states
@@ -9174,7 +9173,6 @@ class ValueProfile extends AppModel
             'vocab' => self::historyVocab(),
             'groups' => array(),
             'event_entries' => array(),
-            'event_total' => 0,
         );
         if ($recorded) {
             return $shell;
@@ -9308,17 +9306,6 @@ class ValueProfile extends AppModel
                 $events[$row['event_id']] = true;
             }
         }
-        $first = null;
-        $last = null;
-        foreach ($all as $row) {
-            if ($first === null || $row['created'] < $first) {
-                $first = $row['created'];
-            }
-            if ($last === null || $row['created'] > $last) {
-                $last = $row['created'];
-            }
-        }
-
         $visible = count($context['occurrences']);
         return array(
             'recorded' => true,
@@ -9351,13 +9338,22 @@ class ValueProfile extends AppModel
             'outside' => $visible - count($groups),
             'visible' => $visible,
             'events' => count($events),
-            'first' => $first,
-            'last' => $last,
+            /*
+             * **Whether the read hit `HISTORY_ROW_CAP`**, and the panel
+             * needs it to explain `outside` honestly rather than to
+             * apologise for the cap. `outside` is *occurrences with no
+             * section*, and there are two reasons an occurrence can
+             * have none: nothing of its own in the period, or the cap
+             * cut it. Only the first is the period's doing, so a line
+             * naming the period while the cap is what bit would be
+             * false rather than merely unhelpful — the same mistake
+             * §16.2 caught at all time, one step further in.
+             */
+            'capped' => count($rows) >= self::HISTORY_ROW_CAP,
             'facets' => self::historyFacets($all),
             'vocab' => self::historyVocab(),
             'groups' => $groups,
             'event_entries' => $eventEntries,
-            'event_total' => count($eventEntries),
         );
     }
 
