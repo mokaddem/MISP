@@ -45,7 +45,8 @@ here exists to make each of those a local change.
 ### 1.4 Where this stands
 
 **Read this first.** §1.2 describes the original skeleton pass; the document has
-since grown to twenty-six phases and this subsection is the current state.
+since grown to twenty-six built phases, with a twenty-seventh designed and not
+started, and this subsection is the current state.
 
 Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
 endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
@@ -65,6 +66,12 @@ rename, a lane bug, links on every chip that names a record, the report
 badge's audience, and the Overview's preview card — and §21 re-ran the
 verification against all four rather than assuming §12's pass still
 held.
+
+**Phase 27 is open and nothing is built.** History is the last unblocked
+tab and `live/27-history.md` is its design: what it inherits from phase
+25, three of its own design's assumptions falsified against the
+instance, and one disclosure phase 25 shipped that it fixes in both
+tabs. The board rows below say `opened`, not `built`.
 
 The Occurrences, Sightings, Relationships, Timeline and Collaboration
 tabs now read the database; the other four still read the fixture, so the two
@@ -168,6 +175,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 25 | Timeline goes live — one endpoint, nine lanes, and the audit ACL model §8.2 left open | `live/25-timeline.md` | **closed 2026-09-05** — all 25 rows built |
 | 24B | Relationships, the insight pass over the built tab — sixteen tasks, converts nothing | `live/24b-relationships.md` | **closed 2026-09-04** (§20 carries it forward) |
 | 26 | Analyst data goes live and the tab is renamed Collaboration — two endpoints converted, a third built, the Overview's preview card taken with it | `live/26-analyst.md` | **closed 2026-09-05** — all 16 tasks done, §21 the re-run |
+| 27 | History goes live — the last unblocked tab, against the reader phase 25 built for it | `live/27-history.md` | **opened 2026-09-05** — designed, nothing built; T1–T16 all `todo` |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
@@ -187,7 +195,7 @@ goes first argues why in its own document.
 | 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing. **Re-checked 2026-09-04** and still true in all three parts: `Module` is `useTable = false`, no per-value/per-module run store or dismissal store exists among the instance's 106 tables, and `Event::enrichmentRouter()` returns at `Event.php:7998` above its own `MISP.background_jobs` branch, so the interactive path is synchronous whatever the setting says. It is a schema phase, not a conversion phase — `live/25-timeline.md` §2 |
 | **26** | **Analyst data → Collaboration** | [`live/26-analyst.md`](value-profile-live/26-analyst.md) | **CLOSED 2026-09-05 — all 16 tasks done.** Converted `viewAnalystStanding` and `viewAnalystThread`, and **built a third panel the campaign had never had an endpoint for** — the coverage survey's narrative report list, owed to this tab since §4.5 (§9.2). **A clean answer on all three concepts**: proposals are *in* the thread and labelled (§9.1), event reports became that third panel, feeds are not this tab's. The thread reads **per level, not per item**, because `fetchChildNotesAndOpinions` is two queries per node with a memo that is never cleared (§7). Dropped the tab badge rather than correct it, because an honest count means running the panel's five-anchor union at page load (§10.2). **Four readings followed the build** — §17 the rename and a lane bug, §18 links on every chip that names a record and a proposal drawn as a change, §19 the report badge naming the audience it inherits, §20 the Overview's `value_analyst_preview` off the fixture, which reverses §11's second call and settles the opinion-colour question on MISP's own `opinion_scale.ctp` (§20.3). **§21 re-ran the verification against all four.** §21.2 hands on three model findings and one open question that belongs to whoever converts the Verdict tab: its histogram paints an above-50 opinion as malicious, which inverts `opinion_scale.ctp` and is now the only surface on this page that disagrees with MISP |
 | **25** | **Timeline** | [`live/25-timeline.md`](value-profile-live/25-timeline.md) | **CLOSED 2026-09-05 — all 25 rows built.** Closes §8.2's open audit-ACL choice (§5), splits counts from rows because one value's history is 162,539 entries (§6), and found §14.6's required-changes table missing this tab's own ACL band (§12). Six review rounds over the built tab are §17–§22, and §23–§24 replaced the mark lanes with density profiles. **§25 is the last two rows**: the proposals and event-report lanes the coverage survey owed, which also close that survey's §2.4 — the `alias` option on `Value::conditionsFor()`. Found that a proposals lane needs **two** scopes, not one (§25.2), that `deleted = 1` on a proposal means *resolved* and cannot say whether it was accepted (§25.3), and two pre-existing defects neither lane introduced (§25.5, §25.6). **§26** is one round of reader feedback after closure: the seen lane was printing eight span labels on one pixel, and fixing it turned up two more ways the two renderers disagreed. **§1.1 is the decision register and §1.2 the cold start**; [`25-timeline-probe.sql`](value-profile-live/25-timeline-probe.sql) re-derives every instance number in it |
-| 22+ | History | — | not started |
+| **27** | **History** | [`live/27-history.md`](value-profile-live/27-history.md) | **OPENED 2026-09-05 — designed, nothing built.** The last unblocked tab, and the phase 25 went first to enable: §2 lists the four things it inherits rather than builds, the ACL model among them. **§3 falsifies three of the design's assumptions against the instance** — no occurrence is silent, so phase 19's server-side reduction returns nothing and the window is the only bound; the default 30-day window renders 8 rows of 353 on `8.8.8.8` and 8 of 162,539 on `443`, so the empty-window state is the common landing rather than the edge case; and the tab is built around diffs where `edit` is 0.3% of a log that is 54% `tag`. **§8 is a disclosure phase 25 shipped**: `AuditLogsController::eventIndex` strips a foreign-org actor's email for every non-site-admin and `ValueProfile::auditRow` does not, so the Timeline's chronology already shows it — fixed in both tabs here. **§9** rejects `fullChange` as the diff source, because its `__applyAuditAcl` would 404 on rows the panel just rendered. §10 applies §14.6's two standing History rows and puts a third band to an open call |
 
 #### What a fresh session must not break
 
