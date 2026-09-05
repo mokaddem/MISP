@@ -178,38 +178,73 @@ $isMarkdown = function ($text) {
 };
 
 /**
- * The chip naming what an item hangs off.
+ * The chip naming what an item hangs off — and opening it.
+ *
+ * **Every chip that names a record is a link to that record**, which is
+ * the rule phase 25 settled for the Timeline and phase 26 applied here
+ * afterwards: naming `#177` and leaving the reader to find it is the
+ * page knowing an address and keeping it. The two that are not links
+ * are the two with nowhere to go — a reply, whose parent is drawn
+ * directly above it, and a target that no longer resolves.
+ *
+ * Event, object and attribute all open the event, because that is where
+ * MISP renders all three; the anchor picks the tab. A cluster opens its
+ * own page, at the address three other panels on this page already use.
  *
  * @param array $target
  * @return string
  */
-$attachChip = function ($target) {
+$attachChip = function ($target) use ($baseurl) {
     $event = isset($target['event'])
         ? '#' . $target['event']
         : __('an event');
+    $eventUrl = empty($target['event'])
+        ? null
+        : $baseurl . '/events/view2/' . (int)$target['event'];
+
+    /*
+     * One emitter for every branch, so a chip cannot become a link in
+     * one arm and stay inert in another by omission.
+     */
+    $chip = function ($href, $title, $body, $extra = '') {
+        $class = 'vpa-chip' . $extra . ($href === null ? '' : ' vpa-chip-link');
+        if ($href === null) {
+            return '<span class="' . $class . '" title="' . h($title)
+                . '">' . $body . '</span>';
+        }
+        return '<a class="' . $class . '" href="' . h($href)
+            . '" title="' . h($title) . '">' . $body
+            . '<i class="fas fa-arrow-up-right-from-square"
+                  aria-hidden="true"></i></a>';
+    };
 
     if ($target['kind'] === 'event') {
-        return '<span class="vpa-chip" title="'
-            . h(__(
+        return $chip(
+            $eventUrl,
+            __(
                 'Attached to the event, so it is inherited by every'
-                . ' occurrence in it'
-            )) . '">'
-            . '<span class="misp-icon misp-icon-event misp-simple"></span>'
-            . h($event)
-            . '<span class="vpa-chip-sep">' . h(__('inherited'))
-            . '</span></span>';
+                . ' occurrence in it. Opens the event.'
+            ),
+            '<span class="misp-icon misp-icon-event misp-simple"></span>'
+                . h($event)
+                . '<span class="vpa-chip-sep">' . h(__('inherited'))
+                . '</span>'
+        );
     }
 
     if ($target['kind'] === 'object') {
-        return '<span class="vpa-chip" title="'
-            . h(__('Attached to the object the occurrence sits in'))
-            . '">'
-            . '<span class="misp-icon misp-icon-object misp-simple"></span>'
-            . h($target['name'])
-            . '<span class="vpa-chip-sep">' . h(__('in')) . '</span>'
-            . '<span class="misp-icon misp-icon-event misp-simple"></span>'
-            . h($event)
-            . '</span>';
+        return $chip(
+            $eventUrl === null ? null : $eventUrl . '#tab-objects',
+            __(
+                'Attached to the object the occurrence sits in. Opens'
+                . ' the event, on its Objects tab.'
+            ),
+            '<span class="misp-icon misp-icon-object misp-simple"></span>'
+                . h($target['name'])
+                . '<span class="vpa-chip-sep">' . h(__('in')) . '</span>'
+                . '<span class="misp-icon misp-icon-event misp-simple">'
+                . '</span>' . h($event)
+        );
     }
 
     if ($target['kind'] === 'note' || $target['kind'] === 'reply') {
@@ -218,20 +253,23 @@ $attachChip = function ($target) {
          * opinion is not a reply to a note and the chip is the one
          * place that says what the row hangs off. `note` is the
          * fixture's spelling of the same thing and keeps working.
+         *
+         * Not a link: the item it names is the one immediately above
+         * it, already on the reader's screen.
          */
         $to = isset($target['to']) && $target['to'] === 'opinion'
             ? __('the opinion above')
             : __('the note above');
-        return '<span class="vpa-chip" title="'
-            . h(__(
+        return $chip(
+            null,
+            __(
                 'Attached to the item above, which is what makes it a'
                 . ' statement about that item rather than about the'
                 . ' value'
-            )) . '">'
-            . '<span class="misp-icon misp-icon-analyst-note'
-            . ' misp-simple"></span>'
-            . h($to)
-            . '</span>';
+            ),
+            '<span class="misp-icon misp-icon-analyst-note'
+                . ' misp-simple"></span>' . h($to)
+        );
     }
 
     /*
@@ -242,17 +280,20 @@ $attachChip = function ($target) {
      * about the cluster was the omission `26-analyst.md` D1 closes.
      */
     if ($target['kind'] === 'cluster') {
-        return '<span class="vpa-chip" title="'
-            . h(__(
+        return $chip(
+            empty($target['id'])
+                ? null
+                : $baseurl . '/galaxy_clusters/view/' . (int)$target['id'],
+            __(
                 'Attached to a galaxy cluster this value is classified'
                 . ' under, so it is inherited by everything else'
-                . ' carrying that cluster'
-            )) . '">'
-            . '<span class="misp-icon misp-icon-galaxy misp-simple">'
-            . '</span>'
-            . h($target['name'])
-            . '<span class="vpa-chip-sep">' . h(__('cluster'))
-            . '</span></span>';
+                . ' carrying that cluster. Opens the cluster.'
+            ),
+            '<span class="misp-icon misp-icon-galaxy misp-simple"></span>'
+                . h($target['name'])
+                . '<span class="vpa-chip-sep">' . h(__('cluster'))
+                . '</span>'
+        );
     }
 
     /*
@@ -261,32 +302,36 @@ $attachChip = function ($target) {
      * `object_uuid` that resolves to nothing — MISP's own UI wrote it —
      * and dropping such a row would let a write the instance accepted
      * vanish from the one page whose subject is who said what.
-     * `26-analyst.md` D5.
+     * `26-analyst.md` D5. Nowhere to link, which is the whole point.
      */
     if ($target['kind'] === 'unresolved') {
-        return '<span class="vpa-chip vpa-chip-unresolved" title="'
-            . h(__(
+        return $chip(
+            null,
+            __(
                 'This item names a target that no longer resolves to an'
                 . ' attribute, event, object or cluster. It is shown'
                 . ' because somebody wrote it, not because it still'
                 . ' points anywhere.'
-            )) . '">'
-            . '<i class="fas fa-link-slash"></i>'
-            . h(__('target does not resolve'))
-            . '</span>';
+            ),
+            '<i class="fas fa-link-slash"></i>'
+                . h(__('target does not resolve')),
+            ' vpa-chip-unresolved'
+        );
     }
 
-    return '<span class="vpa-chip" title="'
-        . h(__(
+    return $chip(
+        $eventUrl === null ? null : $eventUrl . '#tab-attributes',
+        __(
             'Analyst data attaches to an object_uuid, never to a value —'
-            . ' this item hangs off one attribute occurrence'
-        )) . '">'
-        . '<span class="misp-icon misp-icon-attribute misp-simple"></span>'
-        . h($target['type'])
-        . '<span class="vpa-chip-sep">' . h(__('in')) . '</span>'
-        . '<span class="misp-icon misp-icon-event misp-simple"></span>'
-        . h($event)
-        . '</span>';
+            . ' this item hangs off one attribute occurrence. Opens the'
+            . ' event, on its Attributes tab.'
+        ),
+        '<span class="misp-icon misp-icon-attribute misp-simple"></span>'
+            . h($target['type'])
+            . '<span class="vpa-chip-sep">' . h(__('in')) . '</span>'
+            . '<span class="misp-icon misp-icon-event misp-simple"></span>'
+            . h($event)
+    );
 };
 
 $readsBadge = function ($reads) {
@@ -359,7 +404,8 @@ $renderItem = function ($item, $depth) use (
     $attachChip,
     $distribution,
     $readsBadge,
-    $opinionScale
+    $opinionScale,
+    $baseurl
 ) {
     $isOpinion = $item['kind'] === 'opinion';
     $isProposal = $item['kind'] === 'proposal';
@@ -457,50 +503,98 @@ $renderItem = function ($item, $depth) use (
                     . ' the aggregate'
                 )) . '</span>';
     }
-    $out .= '<span class="ms-auto">' . $attachChip($item['attached_to'])
-        . '</span>';
+    /*
+     * A proposal's target is named by its change strip below, with the
+     * attribute id the chip does not carry — so the chip would be the
+     * same record said twice at a coarser grain.
+     */
+    if (!$isProposal) {
+        $out .= '<span class="ms-auto">'
+            . $attachChip($item['attached_to']) . '</span>';
+    }
     $out .= '</div>';
 
     if ($isProposal) {
         /*
-         * What is actually being proposed, stated rather than left in
-         * the comment — and kept out of the body deliberately, because
-         * the body goes through the markdown renderer and an indicator
-         * containing `*` or `_` is not emphasis.
+         * **The change, drawn as a change.** A proposal is the one item
+         * in this thread that is not somebody's prose about the value —
+         * it is an edit somebody wants made to a row — and a sentence
+         * saying *proposes 2.2.2.3 in place of 2.2.2.2 on attribute
+         * 1495259* buries the only two strings the reader is comparing
+         * in the middle of it. Drawn as `old → new` in monospace, with
+         * the old struck through, the two are side by side and the
+         * difference between `2.2.2.2` and `2.2.2.3` is visible rather
+         * than read.
+         *
+         * Kept out of the body deliberately: the body goes through the
+         * markdown renderer, and an indicator containing `*` or `_` is
+         * not emphasis.
          */
         $p = $item['proposal'];
-        if (!empty($p['to_delete'])) {
-            $what = sprintf(
-                __('Proposes deleting attribute %s.'),
-                $p['target'] === null
-                    ? __('it names')
-                    : $p['target']['id']
-            );
-        } elseif ($p['target'] === null) {
-            $what = sprintf(
-                __('Proposes adding %1$s %2$s.'),
-                $p['type'],
-                $p['value']
-            );
-        } elseif ($p['target']['value'] === $p['value']) {
-            $what = sprintf(
-                __('Proposes %1$s / %2$s for attribute %3$s, whose'
-                    . ' value it leaves alone.'),
-                $p['category'],
-                $p['type'],
-                $p['target']['id']
-            );
+        $ops = array(
+            'replace' => __('replace'),
+            'add' => __('add'),
+            'delete' => __('delete'),
+            'refile' => __('re-file'),
+        );
+        $out .= '<div class="vpa-change vpa-change-' . h($p['op'])
+            . (empty($p['resolved']) ? '' : ' vpa-change-done') . '">';
+        $out .= '<span class="vpa-change-op">' . h($ops[$p['op']])
+            . '</span>';
+
+        if ($p['op'] === 'delete') {
+            $out .= '<span class="vpa-change-from">' . h(
+                $p['target'] === null ? $p['value'] : $p['target']['value']
+            ) . '</span>';
+        } elseif ($p['op'] === 'add') {
+            $out .= '<span class="vpa-change-to">' . h($p['value'])
+                . '</span>';
+        } elseif ($p['op'] === 'refile') {
+            /*
+             * No arrow, because nothing moves: the value the proposal
+             * carries is the value the target already holds, and what
+             * it wants changed is in the type and category beside it.
+             */
+            $out .= '<span class="vpa-change-keep">' . h($p['value'])
+                . '</span>'
+                . '<span class="vpa-change-note">'
+                . h(__('value unchanged')) . '</span>';
         } else {
-            $what = sprintf(
-                __('Proposes %1$s in place of %2$s on attribute %3$s.'),
-                $p['value'],
-                $p['target']['value'],
-                $p['target']['id']
-            );
+            $out .= '<span class="vpa-change-from">'
+                . h($p['target']['value']) . '</span>'
+                . '<i class="fas fa-arrow-right vpa-change-arrow"'
+                . ' aria-hidden="true"></i>'
+                . '<span class="vpa-change-to">' . h($p['value'])
+                . '</span>';
         }
-        $out .= '<div class="vpa-proposal-what">'
-            . '<i class="fas fa-arrow-right-arrow-left me-1"></i>'
-            . h($what) . '</div>';
+
+        $out .= '<span class="vpa-change-meta">' . h(sprintf(
+            __('%1$s / %2$s'),
+            $p['category'],
+            $p['type']
+        )) . '</span>';
+
+        // The record the change lands on, at the grain the chip could
+        // not carry: which attribute, not only which event.
+        $on = $p['target'] === null
+            ? array(
+                $baseurl . '/events/view2/' . (int)$p['event'],
+                sprintf(__('a new attribute on #%s'), $p['event']),
+            )
+            : array(
+                $baseurl . '/events/view2/' . (int)$p['event']
+                    . '#tab-attributes',
+                sprintf(
+                    __('attribute %1$s in #%2$s'),
+                    $p['target']['id'],
+                    $p['event']
+                ),
+            );
+        $out .= '<a class="vpa-change-on" href="' . h($on[0]) . '">'
+            . h($on[1])
+            . '<i class="fas fa-arrow-up-right-from-square"'
+            . ' aria-hidden="true"></i></a>';
+        $out .= '</div>';
     }
 
     if ($item['body'] !== '') {
@@ -511,7 +605,17 @@ $renderItem = function ($item, $depth) use (
     $out .= '<div class="vp-analyst-meta d-flex align-items-center'
         . ' flex-wrap gap-2"><span>'
         . '<span class="misp-icon misp-icon-organisation misp-simple'
-        . ' me-1"></span>' . h($item['org']);
+        . ' me-1"></span>'
+        /*
+         * Linked where the organisation still resolves. Null on the
+         * eleven rows whose `orgc_uuid` names an organisation that no
+         * longer exists — no name to print and no page to open.
+         */
+        . (empty($item['org_id'])
+            ? h($item['org'])
+            : '<a class="vpa-orglink" href="' . h($baseurl)
+                . '/organisations/view/' . (int)$item['org_id'] . '">'
+                . h($item['org']) . '</a>');
     // A proposal has no author list: `shadow_attributes` records the
     // proposing user's address, not the free-text `authors` a note has.
     if ($item['author'] !== null) {

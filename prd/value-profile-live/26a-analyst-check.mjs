@@ -56,6 +56,18 @@ report.panels = await page.evaluate(() => ({
     proposals: document.querySelectorAll(
         '[data-vp-a-item][data-vp-a-kind="proposal"]').length,
     reportRows: document.querySelectorAll('.vpa-report').length,
+    /*
+     * Every chip that names a record should open it. A chip with no
+     * href is either a reply or an unresolved target; anything else is
+     * an address the page is holding rather than offering.
+     */
+    inertChips: Array.from(document.querySelectorAll('.vpa-chip'))
+        .filter((c) => c.tagName !== 'A')
+        .map((c) => c.textContent.trim().slice(0, 40)),
+    links: Array.from(document.querySelectorAll(
+        '.vpa-chip-link, .vpa-orglink, .vpa-change-on, .vpa-report-name'
+    )).map((a) => a.getAttribute('href')),
+    changeStrips: document.querySelectorAll('.vpa-change').length,
     caveat: !!Array.from(
         document.querySelectorAll('[data-vp-analyst-standing] .vp-acl-note')
     ).length,
@@ -105,8 +117,16 @@ const probe = async () => page.evaluate(() => {
         const lum = (c) => {
             const m = c.match(/[\d.]+/g);
             if (!m) return null;
-            const [r, g, b] = m.slice(0, 3).map((v) => {
-                const s = parseFloat(v) / 255;
+            /*
+             * `color-mix()` computes to `color(srgb r g b)` with
+             * channels in 0-1, not to `rgb()` with channels in 0-255.
+             * Dividing those by 255 reports a near-white background as
+             * near-black and turns every mixed surface into a contrast
+             * failure that is not there.
+             */
+            const unit = c.startsWith('color(');
+            const [r, g, b] = m.slice(unit ? 0 : 0, 3).map((v) => {
+                const s = unit ? parseFloat(v) : parseFloat(v) / 255;
                 return s <= 0.03928
                     ? s / 12.92
                     : Math.pow((s + 0.055) / 1.055, 2.4);
@@ -120,7 +140,13 @@ const probe = async () => page.evaluate(() => {
     };
     const bodyBg = getComputedStyle(document.body).backgroundColor;
     const nodes = {
-        proposalWhat: '.vpa-proposal-what',
+        changeStrip: '.vpa-change',
+        changeOp: '.vpa-change-op',
+        changeFrom: '.vpa-change-from',
+        changeTo: '.vpa-change-to',
+        changeOn: '.vpa-change-on',
+        chipLink: '.vpa-chip-link',
+        orgLink: '.vpa-orglink',
         reportExtract: '.vpa-report-extract',
         reportName: '.vpa-report-name',
         caveat: '[data-vp-analyst-standing] .vp-acl-note',

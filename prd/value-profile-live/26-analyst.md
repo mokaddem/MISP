@@ -14,9 +14,11 @@ document's §11 is the list this phase exists to close.
 decisions — seven taken before building and three the build forced,
 §1.2 what a session picking this up cold needs to know, §11 how the
 three calls this phase could not take alone were settled, §12
-verification as run, §16 the build log and what it cost, and **§17 the
-two changes made after all of that: the tab's new name, and a lane bug
-the ledger shipped with.**
+verification as run, and §16 the build log and what it cost. **§17 and
+§18 are what the maintainer's two readings of the built tab changed:**
+the tab's new name and a lane bug it shipped with, then links on every
+chip that names a record and a proposal drawn as a change rather than as
+a message.
 
 **The tab is called *Collaboration* from §17.1 onward**, and this
 document is titled for the phase rather than for the tab. Everything
@@ -1117,3 +1119,124 @@ is a marker centred on the axis end and half of it is past that end —
 the ledger's dot does the same. It collides with nothing, it is the
 convention both scales share, and clipping it would move the mark off
 the value it marks.
+
+---
+
+## 18. A second reading — links, and a proposal that looked like a note
+
+Two more from the maintainer on 2026-09-05, reading the built tab.
+
+### 18.1 The page knew addresses and kept them
+
+**Reported as an inconsistency, and it was one.** The report list linked
+its report titles and nothing else, so a row could read *#177 Event
+created via the API as an example* — naming an event, its id and its
+title — with no way to open it. The thread was worse: **every** one of
+its attachment chips named a record and none of them was a link.
+
+The rule taken is phase 25's for the Timeline, arriving one tab later:
+**a chip that names a record is a link to that record.** What that
+turned out to cover:
+
+| Where | Names | Now opens |
+|---|---|---|
+| thread chip | an event | `/events/view2/<id>` |
+| thread chip | an object | the event, on its Objects tab |
+| thread chip | an attribute | the event, on its Attributes tab |
+| thread chip | a galaxy cluster | `/galaxy_clusters/view/<id>`, the address three other panels here already use |
+| thread meta | the organisation | `/organisations/view/<id>` |
+| report row | its event | the event, on its Reports tab |
+| report row | the organisation | `/organisations/view/<id>` |
+| ledger row | the organisation | `/organisations/view/<id>` |
+
+**Two chips are deliberately still inert**, and they are the two with
+nowhere to go: a reply's *the note above*, whose target is drawn
+directly above it on the same screen, and an unresolved target, which is
+the whole point of §5.4. The report list's *N characters* chip is not a
+link either — it names a length, not a record.
+
+**Three ids had to be carried to make it possible**, and each was free:
+`GalaxyCluster.id` in the anchor (`fetchGalaxyClusters` already returns
+it), `Orgc.id` on a thread item (`rearrangeOrganisation` already
+contains it), and `Org.id` on a proposal — one field added to
+`Value::proposalsFor`, whose contain already joins `Org` for the name
+beside it. An organisation that no longer resolves gets no link, which
+is the same eleven rows §6.4 is about: no name to print and no page to
+open.
+
+**Verified** by extracting every `href` the three panels emit and
+requesting each one: 42 links on `8.8.8.8`, and `/events/view2/177`,
+`/galaxy_clusters/view/24248`, `/organisations/view/1`,
+`/organisations/view/9`, `/eventReports/view/155` and
+`/events/view2/3325` all return 200. `26a-analyst-check.mjs` now also
+lists every `.vpa-chip` that is *not* an anchor, so a chip added later
+without a link shows up as a named string rather than as silence.
+
+### 18.2 A proposal read as a note with a different word on it
+
+**It carried a glyph, a label and a status badge, and everything else
+about it was a note**: same border, same ground, same prose block. On a
+thread where a proposal is the one item that is not somebody's writing
+*about* the value — it is an edit somebody wants made *to a row* — that
+is the wrong shape.
+
+**Colour first, and borrowed rather than invented.** A proposal now
+takes `--vp-tl-proposal`, which is the Timeline's proposals lane: the
+same rows on two surfaces, so a reader who has met one recognises the
+other. It was chosen there against a colour-vision sweep and clears
+6.7:1 on the light ground, so nothing had to be re-derived here.
+
+**A specificity bug found doing it.** `.vp-analyst.vpa-side-none` sets
+the left border grey at (0,2,0), and a proposal carries `vpa-side-none`
+because it takes no position on the agree/dispute axis — so a
+`.vp-analyst-proposal` rule at (0,1,0) lost silently and the card kept a
+note's border while its label went blue. *Takes no side* and *is not an
+opinion at all* are different things and only one of them has a colour,
+so the rule is doubled to `.vp-analyst.vp-analyst-proposal` and wins on
+purpose rather than by luck. Measured: the proposal card's left border
+is now `rgb(29, 78, 216)` against a note's `rgb(222, 226, 230)` in
+light, and `rgb(110, 168, 254)` against `rgb(73, 80, 87)` in dark.
+
+**Then the sentence became a change.** It had read *Proposes 2.2.2.3 in
+place of 2.2.2.2 on attribute 1495259*, which buries the only two
+strings the reader is comparing in the middle of a line of prose. It is
+now a strip: an op chip, the old value struck through, an arrow, the new
+value, the category and type, and the target linked at the far end —
+both values in monospace, so `2.2.2.2` and `2.2.2.3` differ visibly
+rather than on a second reading.
+
+`ValueProfile::proposalOp` names which of the four a row is, because
+`shadow_attributes` says it in three columns and the panel draws each
+one differently:
+
+| Op | What the schema says | Drawn as |
+|---|---|---|
+| `delete` | `proposal_to_delete = 1` | the value, struck through, with no arrow |
+| `add` | `old_id = 0` — standing behind no attribute | the value alone, and *a new attribute on #N* |
+| `replace` | a target whose value differs | `old → new` |
+| `refile` | a target whose value is **the same** | the value, unstruck, and *value unchanged* — because an arrow between two identical strings is a diff that says nothing |
+
+`2.2.2.2` holds one of each of the last two, and both render correctly.
+
+**The state is in the form as well as in the badge.** An open proposal's
+strip is dashed — it is not part of the event yet — and a resolved one
+is solid, greyed and stepped back. The badge still carries the word, and
+still refuses to say *accepted* or *discarded*, because `setDeleted`
+writes one column for both.
+
+**The attachment chip is dropped for proposals.** The change strip names
+the target with the attribute id the chip does not carry, so keeping
+both was the same record said twice at two grains.
+
+**Contrast, both themes**, every node in the new treatment measured
+against its own painted background: **6.7–15.4 in light and 6.4–11.9 in
+dark**, the floor in each being the op chip's inverted text on the
+proposal blue.
+
+**One harness bug fixed to get those numbers.** `color-mix()` computes
+to `color(srgb r g b)` with channels in 0–1, not to `rgb()` with
+channels in 0–255, and the checker divided both by 255 — so it reported
+the change strip's near-white ground at **1.35:1**, and would have
+reported every mixed surface on this page as a failure. It parses both
+forms now, which is why §12.5's row 14 numbers are worth trusting and
+were worth re-running.

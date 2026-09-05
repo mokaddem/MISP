@@ -1483,6 +1483,7 @@ class Value extends AppModel
             'ShadowAttribute.deleted',
             'ShadowAttribute.proposal_to_delete',
             'ShadowAttribute.timestamp',
+            'Org.id',
             'Org.name',
             'Event.id',
             'Event.info',
@@ -1560,6 +1561,11 @@ class Value extends AppModel
             'org' => isset($row['Org']['name']) && $row['Org']['name'] !== null
                 ? $row['Org']['name']
                 : __('Unknown organisation'),
+            // For callers that link the organisation rather than only
+            // naming it; null where the row no longer resolves to one.
+            'org_id' => empty($row['Org']['id'])
+                ? null
+                : (int)$row['Org']['id'],
             'event' => array(
                 'id' => (int)$proposal['event_id'],
                 'info' => isset($row['Event']['info'])

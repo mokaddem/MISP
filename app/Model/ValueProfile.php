@@ -9436,6 +9436,11 @@ class ValueProfile extends AppModel
                 'org' => isset($row['Event']['Orgc']['name'])
                     ? $row['Event']['Orgc']['name']
                     : __('Unknown organisation'),
+                // The event's creator org, which is a report's only
+                // attribution — it has no organisation of its own.
+                'org_id' => empty($row['Event']['Orgc']['id'])
+                    ? null
+                    : (int)$row['Event']['Orgc']['id'],
                 'at' => (int)$report['timestamp'] > 0
                     ? gmdate('Y-m-d', (int)$report['timestamp'])
                     : null,
@@ -9665,6 +9670,12 @@ class ValueProfile extends AppModel
                     ? $cluster['tag_name']
                     : $cluster['value'],
                 'event' => null,
+                /*
+                 * So the chip can open the cluster. `galaxy_clusters/view/<id>`
+                 * is the address three other panels on this page already
+                 * use for the same record.
+                 */
+                'id' => (int)$cluster['id'],
             );
         }
         return $targets;
@@ -9831,10 +9842,21 @@ class ValueProfile extends AppModel
                 break;
             }
         }
+        // Null where the organisation no longer resolves, which is the
+        // same eleven rows §6.4 is about: no name to print and no page
+        // to open either.
+        $orgId = null;
+        foreach (array('Orgc', 'Org') as $which) {
+            if (!empty($row[$which]['id'])) {
+                $orgId = (int)$row[$which]['id'];
+                break;
+            }
+        }
         return array(
             'kind' => $isOpinion ? 'opinion' : 'note',
             'org' => $org,
             'org_key' => $key,
+            'org_id' => $orgId,
             'author' => empty($row['authors'])
                 ? __('unattributed')
                 : $row['authors'],
@@ -10043,6 +10065,7 @@ class ValueProfile extends AppModel
                 $scores[] = $item['score'];
                 $rows[] = array(
                     'org' => $item['org'],
+                    'org_id' => $item['org_id'],
                     'score' => $item['score'],
                     'label' => $item['label'],
                     'reads' => $item['reads'],
@@ -10101,6 +10124,7 @@ class ValueProfile extends AppModel
                 'kind' => 'proposal',
                 'org' => $row['org'],
                 'org_key' => $row['org'],
+                'org_id' => $row['org_id'],
                 /*
                  * `shadow_attributes` carries an `email` column that
                  * `proposalsFor` does not read, and it is the proposer
@@ -10142,10 +10166,51 @@ class ValueProfile extends AppModel
                     'to_delete' => $row['to_delete'],
                     'resolved' => $row['deleted'],
                     'event' => $row['event_id'],
+                    /*
+                     * Which of the four things a proposal can be, named
+                     * here rather than re-derived in the template: a
+                     * deletion, a standalone addition, a change of
+                     * value, or a re-filing that leaves the value
+                     * alone and moves its type or category. The panel
+                     * draws each one differently, so the branch is a
+                     * property of the row.
+                     */
+                    'op' => self::proposalOp($row),
                 ),
             );
         }
         return $items;
+    }
+
+    /**
+     * Which of the four things a proposal is.
+     *
+     * `shadow_attributes` says this in three columns rather than one —
+     * `proposal_to_delete`, `old_id`, and whether the proposed value
+     * differs from the value the target holds now — so the reading is
+     * assembled rather than looked up.
+     *
+     * @param array $row One `Value::proposalsFor` row
+     * @return string delete | add | replace | refile
+     */
+    private static function proposalOp(array $row)
+    {
+        if (!empty($row['to_delete'])) {
+            return 'delete';
+        }
+        if ($row['target'] === null) {
+            // `old_id = 0`: an addition standing behind no attribute.
+            return 'add';
+        }
+        /*
+         * A proposal that carries the value the target already holds is
+         * proposing something else about it — its category or its type.
+         * Drawing that as a value change would show the reader the same
+         * string twice with an arrow between them.
+         */
+        return $row['target']['value'] === $row['value']
+            ? 'refile'
+            : 'replace';
     }
 
     /**

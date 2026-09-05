@@ -169,12 +169,25 @@ $subtitle = empty($rows)
                                   )) ?>"><?= __('Withdrawn') ?></span>
                         <?php endif; ?>
 
-                        <span class="ms-auto vpa-chip"
-                              title="<?= h(__(
-                                  'A report is written about an event,'
-                                  . ' never about a value — this one is'
-                                  . ' on an event this value appears in'
-                              )) ?>">
+                        <?php
+                        /*
+                         * The event opens, on its Reports tab. It named
+                         * `#177 Event created via the API as an example`
+                         * and left the reader to find it, which is the
+                         * page holding an address rather than offering
+                         * it — the same rule the thread's chips and the
+                         * Timeline's entries already follow.
+                         */
+                        ?>
+                        <a class="ms-auto vpa-chip vpa-chip-link"
+                           href="<?= h($baseurl) ?>/events/view2/<?=
+                               (int)$row['event']['id'] ?>#tab-reports"
+                           title="<?= h(__(
+                               'A report is written about an event,'
+                               . ' never about a value — this one is on'
+                               . ' an event this value appears in. Opens'
+                               . ' the event, on its Reports tab.'
+                           )) ?>">
                             <span class="misp-icon misp-icon-event
                                          misp-simple"></span>
                             <?= h('#' . $row['event']['id']) ?>
@@ -184,7 +197,9 @@ $subtitle = empty($rows)
                                     h($row['event']['info'])
                                 ?></span>
                             <?php endif; ?>
-                        </span>
+                            <i class="fas fa-arrow-up-right-from-square"
+                               aria-hidden="true"></i>
+                        </a>
                     </div>
 
                     <?php if ($body !== ''): ?>
@@ -205,7 +220,15 @@ $subtitle = empty($rows)
                             <span class="misp-icon
                                          misp-icon-organisation
                                          misp-simple me-1"></span>
-                            <?= h($row['org']) ?>
+                            <?php if (empty($row['org_id'])): ?>
+                                <?= h($row['org']) ?>
+                            <?php else: ?>
+                                <a class="vpa-orglink"
+                                   href="<?= h($baseurl) ?>/organisations/view/<?=
+                                       (int)$row['org_id'] ?>"><?=
+                                    h($row['org'])
+                                ?></a>
+                            <?php endif; ?>
                             <?php if ($row['at'] !== null): ?>
                                 &nbsp;&middot;&nbsp;
                                 <i class="fas fa-clock me-1"></i>

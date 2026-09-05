@@ -522,9 +522,27 @@ $headerExtra = $aggregate === null ? null
                                 <span class="misp-icon
                                              misp-icon-organisation
                                              misp-simple"></span>
-                                <span class="vp-min-w-0 text-truncate"><?=
-                                    h($org['org'])
-                                ?></span>
+                                <span class="vp-min-w-0 text-truncate">
+                                    <?php
+                                    /*
+                                     * Linked where the organisation
+                                     * still resolves — null on a row
+                                     * whose `orgc_uuid` names one that
+                                     * no longer exists, which has no
+                                     * name to print either.
+                                     */
+                                    ?>
+                                    <?php if (empty($org['org_id'])): ?>
+                                        <?= h($org['org']) ?>
+                                    <?php else: ?>
+                                        <a class="vpa-orglink"
+                                           href="<?= h($baseurl)
+                                               ?>/organisations/view/<?=
+                                               (int)$org['org_id'] ?>"><?=
+                                            h($org['org'])
+                                        ?></a>
+                                    <?php endif; ?>
+                                </span>
                             </div>
 
                             <div class="vpa-lane vpa-s-<?= $side ?>"
