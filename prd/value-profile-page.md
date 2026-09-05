@@ -51,20 +51,30 @@ Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
 endpoints, real interactions — all reading `ValueProfileFixture`. All nine tabs
 render their own content; nothing on the page is a placeholder.
 
-**Phases 22, 23, 24, 24B and 25 are the live campaign so far.**
+**Phases 22, 23, 24, 24B, 25 and 26 are the live campaign so far.**
 Relationships **closed on 2026-09-04** — phase 24 built it and subphase
 B's sixteen tasks finished it; `live/24b-relationships.md` §20 is what
 that phase hands on. **Timeline closed on 2026-09-05**, its last two
 rows the proposals and event-report lanes the coverage survey owed
-(`live/25-timeline.md` §25). The Occurrences, Sightings, Relationships
-and Timeline tabs now read the database; the other five tabs still read
-the fixture, so the two regimes sit side by side until the campaign
-finishes. **Nothing writes**, on either side. `live/00-contract.md`
-§14.12 is the panel-level record — fifteen of thirty endpoints have
-moved, and four Relationships rows closed imperfect, named there and in
-§20.4.
+(`live/25-timeline.md` §25). **Analyst data was built the same day**,
+and it grew a third panel doing it: the coverage survey's narrative
+report list, which had been owed to this tab since §4.5 and had no
+endpoint anywhere (`live/26-analyst.md` §9.2).
 
-Two of the thirteen are on a tab whose phase has not run: the **Overview's**
+The Occurrences, Sightings, Relationships, Timeline and Analyst tabs now
+read the database; the other four still read the fixture, so the two
+regimes sit side by side until the campaign finishes. **Nothing
+writes**, on either side. `live/00-contract.md` §14.12 is the
+panel-level record — eighteen of thirty-one endpoints have moved, and
+four Relationships rows closed imperfect, named there and in §20.4.
+
+**One card is now knowingly wrong.** The Overview's analyst preview
+reads the fixture beside three live Analyst panels, which was phase 26's
+second open call and was answered *leave it and record it* — the rule
+being that a tab's row belongs to its own phase. `live/26-analyst.md`
+§11 is where that cost is named.
+
+Two of the eighteen are on a tab whose phase has not run: the **Overview's**
 `value_sightings` card was converted with phase 23's follow-ups, because it is
 built from that phase's own `sightingContext` and because a card and a tab on
 one page that could disagree about the same value is worse than a tab converted
@@ -88,9 +98,15 @@ no longer claims any (`live/24-relationships.md` §3). **Subphase B put a
 number back** — B12 found a count the tab could stand behind, its
 objects, and the pill now carries it
 (`live/24b-relationships.md` §15); the same section answers *no* to
-widening it to the other notions, and says what that would need. The
-other three badges still read literals, and each becomes wrong the day
-its tab is converted.
+widening it to the other notions, and says what that would need.
+**Analyst joined them in phase 26** and took the same answer
+Relationships first did — none at all, this time because the count is
+the viewer's and a badge that agreed with the panel would have to run
+the panel's five-anchor union at page load (`live/26-analyst.md` §10.2).
+**Enrichment's is the last one left**, and it becomes wrong the day that
+tab is converted: after phase 26 the tab bar carries exactly three
+numbers, and two of them — Occurrences' count and Relationships'
+objects — are the viewer's, read live.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
