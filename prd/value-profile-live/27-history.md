@@ -1083,3 +1083,103 @@ taken here, because with `fullChange` unusable for a non-site-admin
 (§9) a truncated diff would have nowhere to expand to.
 
 ---
+
+---
+
+## 17. What the phase hands on
+
+The phase is **built, not closed**. Every live phase since 24 has taken
+review rounds over the built tab before closing, and none has run here
+yet. What follows is everything open, in the order someone picking it up
+should care.
+
+### 17.1 One thing that is wrong on other instances, and right here
+
+**`outside` merges two facts that are only the same fact on this
+instance.** §16.1 replaced `silent` and `outside` with one number —
+occurrences with no section here — because §3.1 measured `silent` at
+zero everywhere and telling the two apart costs a grouped read over
+every occurrence. The line reads *N of the M occurrences you can read
+have no entry in ‹period›, so they have no sections here*, and its
+implicature is that moving the window would reveal them.
+
+On an instance that switched `MISP.log_new_audit` on **after** its bulk
+ingestion, that implicature is false for the occurrences that predate
+the log: no window reveals them, because there is nothing to reveal. The
+sentence stays literally true — they do have no entry in the period —
+and it stops being *useful*. The fix, if an instance like that turns up,
+is the grouped read D1 declined, and the reason to decline it was cost
+on a value like `443`, not principle. **Recorded here rather than
+discovered there.**
+
+### 17.2 Deferred, priced in §14 and unchanged
+
+`H3`'s per-organisation grouping, now blocked by this page's own
+redaction rather than only by MISP's — which makes the site-admin view
+the whole of it. `H4`'s field-level unpacking, whose cost arithmetic
+§9 changed and which the next phase to look at should **re-measure
+rather than re-read**. No pagination across the union, correctly parked.
+The 64 KB blob, bounded in practice by the row cap and not in principle.
+
+### 17.3 One item owed to somebody else
+
+**`Logs/timeline.ctp` still carries its own inline `$meta`.** Phase 16
+left it because rewriting a shared element with two live callers is not
+fixture-first work; T11 made `AuditActionMeta` the single source for
+this page without touching it. The class now has three consumers and the
+element has two, so the migration is a smaller change than when phase 16
+declined it — and it is the only place in MISP where the same audit
+action can still read as two different things on two pages.
+
+### 17.4 Two defects, one not this phase's
+
+**§16.3's plural.** The elided line picks singular or plural at render
+time from the section total and the browser substitutes the dropped
+count, so *1 of the sections below **have** no entry* is reachable and
+visible on `8.8.8.8` today. Phase 19's string, a client-side plural rule
+to fix, and this phase changed no JavaScript.
+
+**§16.2's two**, both found and both fixed here: the all-time crash the
+`outside` merge made reachable, and `historyShell`'s malformed `facets`.
+
+### 17.5 What verification could not reach
+
+**State 3 — recorded, and nothing for this value — was verified by
+construction rather than by sight**, and §3.1 is why: no value on this
+instance has an occurrence with nothing logged against it, so the state
+has no demo. It is the `entries === 0` branch over a count that comes
+straight from `auditCountsFor`, which is zero exactly when the scope
+matched no row. A reader who wants to *see* it needs an instance where
+logging started late — the same instance §17.1 wants.
+
+**The theme reading is weak and says so.** Forty nodes, every one
+resolving to the same foreground and background pair, which is a
+measurement of the page's ground rather than of this panel's own
+colours. No CSS changed in this phase, and phase 16 measured the
+panel's own tokens properly; a review round that touches any
+`.vp-audit-*` rule should re-measure the way phase 26's §21.1 did rather
+than trust this.
+
+**`parallel-lint` still has no `app/Vendor/` to run from**, unchanged
+since phase 25.
+
+### 17.6 Not this phase's, and what is actually left
+
+After this tab there is **one unblocked piece of the campaign left**:
+the Overview's four remaining fixture panels — occurrence, context,
+lifecycle — plus the page frame's fact strip, banner chips and tab
+counts, which `00-contract.md` §14.10 assigns to the Overview's own
+phase. Its verdict card is blocked on the engine, so that phase lands
+partial by construction.
+
+Everything else is blocked and stays blocked: the **Verdict** tab needs
+an engine that does not exist and has no PRD, and **Enrichment** is a
+schema phase — `Module` is `useTable = false`, no per-value run store
+exists, and `Event::enrichmentRouter()` returns above its own
+`MISP.background_jobs` branch.
+
+**And one open question inherited, not answered here.**
+`26-analyst.md` §21.2 handed on that the Verdict tab's histogram paints
+an above-50 opinion as malicious, inverting MISP's own
+`opinion_scale.ctp`. Still true, still that tab's to fix, and this phase
+touched nothing that bears on it.
