@@ -628,7 +628,23 @@ $tabRegistry = array(
         'id' => 'analyst',
         'title' => __('Analyst data'),
         'icon' => 'misp-icon misp-icon-analyst-note misp-simple',
-        'count' => $counts['analyst'],
+        /*
+         * No count, dropped by phase 26 when the panels below went
+         * live. It was a fixture literal, and §14.13 named this tab as
+         * one of the three carrying one that would start lying the day
+         * its panels stopped.
+         *
+         * Dropped rather than wired for both of the reasons the
+         * Timeline and History tabs already carry. It is the
+         * *viewer's* count — `AnalystData::buildConditions` scopes
+         * every note and opinion, and a CIRCL reader sees four items
+         * on `8.8.8.8` where a site admin sees six — so two users
+         * would read two numbers off one value's tab bar. And a badge
+         * that agreed with the panel would have to do the panel's
+         * work: the union is five anchor kinds over two tables and
+         * costs 5 to 26 queries, which is not a page-load price for a
+         * number on a tab nobody may open.
+         */
         /*
          * One full-width slot, and the standing panel lays out its own
          * internal row: the histogram at col-lg-4 beside the

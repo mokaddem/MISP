@@ -7866,6 +7866,18 @@ th.vp-rel-num {
     opacity: 0.85;
 }
 
+/* What a proposal proposes, said in the page's own words rather than
+   left inside the proposer's comment — which may be empty. */
+.vpa-proposal-what {
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    border-left: 2px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+    font-size: 0.78rem;
+    color: var(--bs-body-color);
+    word-break: break-word;
+}
+
 /* An opinion written on a note is an opinion about that note. It is
    not a reading of the value and must never reach the aggregate. */
 .vpa-notcounted {

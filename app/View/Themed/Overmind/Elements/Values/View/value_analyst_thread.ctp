@@ -1,11 +1,21 @@
 <?php
 /**
- * The notes and opinions on this value, in the order they were written.
+ * What has been said about this value, in the order it was said.
  *
- * One chronological thread rather than two lists, because a reply has
- * to sit next to what it replies to: MISP lets a note carry a note and
- * an opinion carry an opinion two levels deep, and a feed grouped by
- * kind turns that conversation into unrelated fragments.
+ * One chronological thread rather than separate lists, because a reply
+ * has to sit next to what it replies to: MISP lets a note carry a note
+ * and an opinion carry an opinion two levels deep, and a feed grouped
+ * by kind turns that conversation into unrelated fragments.
+ *
+ * **Proposals are here too, since phase 26.** A proposal is how MISP
+ * let a third party disagree before analyst data existed, and this
+ * panel's subject is who says what about the value
+ * (`value-profile-coverage.md` §5) — so the choice was to include them
+ * or to exclude them *in words*, and silently omitting them was the one
+ * option that left the panel claiming a completeness it did not have.
+ * They are drawn, filtered by their own pill, and they reach neither
+ * the aggregate nor the ledger: a proposal is a change somebody wants
+ * made to a row, not a position on the value.
  *
  * Three things this panel refuses to fake:
  *
@@ -17,9 +27,10 @@
  * - **What an opinion rates.** An opinion written on a note rates the
  *   note. It takes no side on the value and is excluded from the
  *   standing panel's aggregate, and it says so inline.
- * - **Where MISP stops.** `fetchChildNotesAndOpinions` is called at
- *   depth 2. The second level renders the limit rather than truncating
- *   silently.
+ * - **Where MISP stops.** The thread nests two levels. The endpoint
+ *   reads one level past the last one drawn, so the second level's
+ *   *flagged but not fetched* line is a measurement rather than an
+ *   assumption.
  *
  * Markdown is rendered here. MISP stores it and renders none of it
  * today — `Analyst_data/thread.ctp` prints notes `pre-line` with no
@@ -351,7 +362,14 @@ $renderItem = function ($item, $depth) use (
     $opinionScale
 ) {
     $isOpinion = $item['kind'] === 'opinion';
-    $ratesNote = $item['rates'] !== 'value';
+    $isProposal = $item['kind'] === 'proposal';
+    /*
+     * A proposal argues about a *row*, not about the value, so it is
+     * neither counted nor marked as one that was excluded — the
+     * "not in the aggregate" note belongs to opinions that could have
+     * been in it. Its own chips say what it is.
+     */
+    $ratesNote = !$isProposal && $item['rates'] !== 'value';
     list($distLabel, $distIcon) = $distribution(
         $item['distribution'],
         $item['sharing_group']
@@ -363,13 +381,24 @@ $renderItem = function ($item, $depth) use (
         $side = 'vpa-side-disagree';
     }
 
-    $out = '<div class="vp-analyst vp-analyst-'
-        . ($isOpinion ? 'opinion' : 'note') . ' ' . $side . '">';
+    $kind = 'note';
+    if ($isOpinion) {
+        $kind = 'opinion';
+    } elseif ($isProposal) {
+        $kind = 'proposal';
+    }
+    $out = '<div class="vp-analyst vp-analyst-' . $kind . ' ' . $side
+        . '">';
 
     $out .= '<div class="vp-analyst-kind">'
-        . '<span class="misp-icon misp-icon-analyst-'
-        . ($isOpinion ? 'opinion' : 'note') . ' misp-simple"></span>'
-        . h($isOpinion ? __('Opinion') : __('Note'))
+        . ($isProposal
+            ? '<i class="fas fa-code-pull-request"></i>'
+            : '<span class="misp-icon misp-icon-analyst-'
+                . ($isOpinion ? 'opinion' : 'note')
+                . ' misp-simple"></span>')
+        . h($isProposal
+            ? __('Proposal')
+            : ($isOpinion ? __('Opinion') : __('Note')))
         . '</div>';
 
     $out .= '<div class="vp-analyst-body">';
@@ -382,6 +411,30 @@ $renderItem = function ($item, $depth) use (
             . '-subtle fw-semibold">' . h($item['label'])
             . ' &middot; ' . h($item['score']) . '/100</span>'
             . $opinionScale($item['score']);
+    } elseif ($isProposal) {
+        /*
+         * **Open or resolved, and never accepted or discarded.**
+         * `ShadowAttribute::setDeleted` is what both the accept path
+         * and the discard path end at, and it writes one `deleted`
+         * column. The schema that would tell the two apart does not
+         * exist, so the chip states what MISP recorded and stops.
+         */
+        $resolved = !empty($item['proposal']['resolved']);
+        $out .= '<span class="badge bg-'
+            . ($resolved ? 'secondary' : 'warning')
+            . '-subtle text-' . ($resolved ? 'secondary' : 'warning')
+            . '-emphasis border border-'
+            . ($resolved ? 'secondary' : 'warning')
+            . '-subtle fw-semibold" title="'
+            . h($resolved
+                ? __(
+                    'Closed. MISP records only that it closed —'
+                    . ' accepting and discarding a proposal both write'
+                    . ' the same column.'
+                )
+                : __('Nobody has accepted or discarded this yet.'))
+            . '">' . h($resolved ? __('Resolved') : __('Open'))
+            . '</span>';
     } elseif ($isMarkdown($item['body'])) {
         $out .= '<span class="vpa-chip" title="'
             . h(__(
@@ -408,24 +461,92 @@ $renderItem = function ($item, $depth) use (
         . '</span>';
     $out .= '</div>';
 
-    $out .= '<div class="vp-analyst-text vpa-md">'
-        . $markdown($item['body']) . '</div>';
+    if ($isProposal) {
+        /*
+         * What is actually being proposed, stated rather than left in
+         * the comment — and kept out of the body deliberately, because
+         * the body goes through the markdown renderer and an indicator
+         * containing `*` or `_` is not emphasis.
+         */
+        $p = $item['proposal'];
+        if (!empty($p['to_delete'])) {
+            $what = sprintf(
+                __('Proposes deleting attribute %s.'),
+                $p['target'] === null
+                    ? __('it names')
+                    : $p['target']['id']
+            );
+        } elseif ($p['target'] === null) {
+            $what = sprintf(
+                __('Proposes adding %1$s %2$s.'),
+                $p['type'],
+                $p['value']
+            );
+        } elseif ($p['target']['value'] === $p['value']) {
+            $what = sprintf(
+                __('Proposes %1$s / %2$s for attribute %3$s, whose'
+                    . ' value it leaves alone.'),
+                $p['category'],
+                $p['type'],
+                $p['target']['id']
+            );
+        } else {
+            $what = sprintf(
+                __('Proposes %1$s in place of %2$s on attribute %3$s.'),
+                $p['value'],
+                $p['target']['value'],
+                $p['target']['id']
+            );
+        }
+        $out .= '<div class="vpa-proposal-what">'
+            . '<i class="fas fa-arrow-right-arrow-left me-1"></i>'
+            . h($what) . '</div>';
+    }
+
+    if ($item['body'] !== '') {
+        $out .= '<div class="vp-analyst-text vpa-md">'
+            . $markdown($item['body']) . '</div>';
+    }
 
     $out .= '<div class="vp-analyst-meta d-flex align-items-center'
         . ' flex-wrap gap-2"><span>'
         . '<span class="misp-icon misp-icon-organisation misp-simple'
-        . ' me-1"></span>' . h($item['org'])
-        . ' &nbsp;&middot;&nbsp; <i class="fas fa-user me-1"></i>'
-        . h($item['author'])
-        . ' &nbsp;&middot;&nbsp; <i class="fas fa-clock me-1"></i>'
-        . h($item['date']) . '</span>'
-        . '<span class="badge bg-body-tertiary text-body-secondary border'
-        . ' fw-normal" title="'
-        . h(sprintf(__('distribution %s'), $item['distribution'])) . '">'
-        . ($distIcon === 'fas fa-lock' || $distIcon === 'fas fa-share-nodes'
-            ? '<i class="' . $distIcon . ' me-1"></i>'
-            : '<span class="' . $distIcon . ' me-1"></span>')
-        . h($distLabel) . '</span>';
+        . ' me-1"></span>' . h($item['org']);
+    // A proposal has no author list: `shadow_attributes` records the
+    // proposing user's address, not the free-text `authors` a note has.
+    if ($item['author'] !== null) {
+        $out .= ' &nbsp;&middot;&nbsp; <i class="fas fa-user me-1"></i>'
+            . h($item['author']);
+    }
+    $out .= ' &nbsp;&middot;&nbsp; <i class="fas fa-clock me-1"></i>'
+        . ($isProposal
+            /*
+             * Not when it was written. `shadow_attributes` has no
+             * `created`; its one `timestamp` is rewritten on every
+             * change **and** stamped at resolution, so a resolved
+             * proposal's date is the day it closed.
+             */
+            ? '<span title="' . h(__(
+                'When the proposal last moved. shadow_attributes has no'
+                . ' creation date — a resolved proposal carries the day'
+                . ' it closed.'
+            )) . '">' . h($item['date']) . ' '
+                . h(__('(last moved)')) . '</span>'
+            : h($item['date']))
+        . '</span>';
+    // Null on a proposal, which inherits its event's reach rather than
+    // declaring one of its own.
+    if ($item['distribution'] !== null) {
+        $out .= '<span class="badge bg-body-tertiary text-body-secondary'
+            . ' border fw-normal" title="'
+            . h(sprintf(__('distribution %s'), $item['distribution']))
+            . '">'
+            . ($distIcon === 'fas fa-lock'
+                || $distIcon === 'fas fa-share-nodes'
+                    ? '<i class="' . $distIcon . ' me-1"></i>'
+                    : '<span class="' . $distIcon . ' me-1"></span>')
+            . h($distLabel) . '</span>';
+    }
     if (!empty($item['language'])) {
         $out .= '<span class="badge bg-body-tertiary text-body-secondary'
             . ' border fw-normal" title="'
@@ -476,21 +597,32 @@ $renderItem = function ($item, $depth) use (
  * the ordering of an empty list, which is the kind of sentence that
  * makes a working page look broken.
  */
+/*
+ * Proposals are a thread item since phase 26 and the fixture has none,
+ * so the key is read defensively rather than assumed.
+ */
+$proposals = isset($counts['proposals']) ? $counts['proposals'] : 0;
+
+$breakdown = sprintf(
+    __('%1$s, %2$s'),
+    __n('%s opinion', '%s opinions', $counts['opinions'],
+        $counts['opinions']),
+    __n('%s note', '%s notes', $counts['notes'], $counts['notes'])
+);
+if ($proposals > 0) {
+    $breakdown = sprintf(
+        __('%1$s, %2$s'),
+        $breakdown,
+        __n('%s proposal', '%s proposals', $proposals, $proposals)
+    );
+}
+
 $subtitle = empty($thread) ? h(__('Nothing written on this value')) : implode(' &nbsp;·&nbsp; ', array(
     h(sprintf(
         __('%s on this value'),
         __n('%s item', '%s items', $counts['items'], $counts['items'])
     )),
-    h(sprintf(
-        __('%1$s, %2$s'),
-        __n(
-            '%s opinion',
-            '%s opinions',
-            $counts['opinions'],
-            $counts['opinions']
-        ),
-        __n('%s note', '%s notes', $counts['notes'], $counts['notes'])
-    )),
+    h($breakdown),
     h(sprintf(
         __('%s written on them'),
         __n(
@@ -513,6 +645,14 @@ $pills = array(
     'note' => sprintf(__('Notes %s'), $counts['notes']),
     'opinion' => sprintf(__('Opinions %s'), $counts['opinions']),
 );
+/*
+ * Only when there are any. A permanent `Proposals 0` pill on the many
+ * values that have none is a control that does nothing, on a tab where
+ * every other pill filters to something.
+ */
+if ($proposals > 0) {
+    $pills['proposal'] = sprintf(__('Proposals %s'), $proposals);
+}
 
 $headerExtra = '';
 if (!empty($thread)) {
@@ -546,7 +686,9 @@ if (!empty($thread)) {
      data-vp-analyst-thread>
 
     <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => __('Notes and opinions'),
+        'panelTitle' => $proposals > 0
+            ? __('Notes, opinions and proposals')
+            : __('Notes and opinions'),
         'panelIcon' => 'misp-icon misp-icon-analyst-note misp-simple',
         'panelColor' => 'var(--analystData)',
         'panelSub' => $subtitle,

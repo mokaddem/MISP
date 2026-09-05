@@ -9304,7 +9304,10 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $anchors = $this->analystAnchors($user, $value, $options);
-        $thread = $this->analystThreadItems($user, $anchors['targets']);
+        $thread = self::analystNewestFirst(array_merge(
+            $this->analystThreadItems($user, $anchors['targets']),
+            $this->analystProposalItems($user, $value)
+        ));
         return array(
             'occurrences' => $anchors['occurrences'],
             'counts' => $this->analystCounts($thread),
@@ -9732,11 +9735,14 @@ class ValueProfile extends AppModel
             'items' => count($thread),
             'opinions' => 0,
             'notes' => 0,
+            'proposals' => 0,
             'replies' => 0,
         );
         foreach ($thread as $item) {
             if ($item['kind'] === 'opinion') {
                 $counts['opinions']++;
+            } elseif ($item['kind'] === 'proposal') {
+                $counts['proposals']++;
             } else {
                 $counts['notes']++;
             }
@@ -9795,6 +9801,15 @@ class ValueProfile extends AppModel
             &$last,
             &$opinions
         ) {
+            /*
+             * A proposal is not a position on the value and not a
+             * note, and its date is when it last *moved* — so it
+             * neither counts in the Notes column nor sets an
+             * organisation's last activity.
+             */
+            if ($item['kind'] === 'proposal') {
+                return;
+            }
             $org = self::analystOrgKey($item);
             if (!isset($notes[$org])) {
                 $notes[$org] = 0;
@@ -9854,6 +9869,92 @@ class ValueProfile extends AppModel
                 count($byOrg)
             ),
         );
+    }
+
+    /**
+     * Proposals about this value, as thread items.
+     *
+     * **Included, and labelled.** `value-profile-coverage.md` §5 is the
+     * argument: a proposal is how MISP let a third party disagree
+     * before analyst data existed, and this thread's subject is who
+     * says what about the value. Its conclusion was that the tab either
+     * includes them or excludes them *in words*, because silently
+     * omitting them leaves the thread claiming to show every
+     * organisation's view while dropping the oldest mechanism for
+     * expressing one.
+     *
+     * They are drawn and they touch nothing else: no score, no place in
+     * the aggregate, and no row on the ledger. A proposal is a change
+     * somebody wants made to a row, not a position on the value, and
+     * the standing panel answers the narrower question.
+     *
+     * **Every date is when the proposal last moved.**
+     * `shadow_attributes` has no `created` column — it has one
+     * `timestamp`, which `ShadowAttribute::setDeleted` rewrites at the
+     * moment a proposal is accepted *or* discarded. So a resolved
+     * proposal sits at its resolution rather than at its proposal, and
+     * no row may say *withdrawn*: the schema that would tell the two
+     * apart does not exist. Phase 25's proposals lane records the same
+     * two facts.
+     *
+     * @param array $user
+     * @param string $value
+     * @return array
+     */
+    private function analystProposalItems(array $user, $value)
+    {
+        $items = array();
+        $rows = $this->model('Value')->proposalsFor($user, $value);
+        foreach ($rows as $row) {
+            $items[] = array(
+                'kind' => 'proposal',
+                'org' => $row['org'],
+                'org_key' => $row['org'],
+                /*
+                 * `shadow_attributes` carries an `email` column that
+                 * `proposalsFor` does not read, and it is the proposer
+                 * rather than a free-text author list. The meta line
+                 * drops the field rather than inventing one.
+                 */
+                'author' => null,
+                'date' => date('Y-m-d', $row['timestamp']),
+                // No distribution column is fetched, and a proposal
+                // inherits its event's reach rather than declaring one.
+                'distribution' => null,
+                'sharing_group' => null,
+                'language' => null,
+                'score' => null,
+                'rates' => 'proposal',
+                'body' => (string)$row['comment'],
+                'attached_to' => $row['target'] === null
+                    ? array('kind' => 'event', 'event' => $row['event_id'])
+                    : array(
+                        'kind' => 'attribute',
+                        'type' => $row['type'],
+                        'event' => $row['event_id'],
+                    ),
+                'children' => array(),
+                'max_depth_reached' => false,
+                'label' => null,
+                'reads' => 'none',
+                /*
+                 * What the proposal actually proposes, kept out of the
+                 * body: the body goes through the markdown renderer,
+                 * and a value containing `*` or `_` is not emphasis.
+                 */
+                'proposal' => array(
+                    'id' => $row['id'],
+                    'type' => $row['type'],
+                    'category' => $row['category'],
+                    'value' => $row['value'],
+                    'target' => $row['target'],
+                    'to_delete' => $row['to_delete'],
+                    'resolved' => $row['deleted'],
+                    'event' => $row['event_id'],
+                ),
+            );
+        }
+        return $items;
     }
 
     /**
