@@ -20,7 +20,8 @@ verification as run, and **§16 the build log and what it cost.**
 `26-panel-harness.mjs` files in this directory are **not** this phase's.
 They are named after §26 and §27 of [`24-relationships.md`](24-relationships.md)
 — phase 24's object re-founding — and predate this document. Every
-artifact this phase adds is prefixed `26a-`.
+artifact this phase adds is prefixed `26a-`, and there is one:
+[`26a-analyst-check.mjs`](26a-analyst-check.mjs), §12.5's browser pass.
 
 ---
 
@@ -774,9 +775,10 @@ naming decision rather than a build one. **Open.**
 ## 12. Verification — as run
 
 **Run 2026-09-05.** Eight values across three endpoints, fetched as real
-authenticated HTTP fragments and read back as rendered text, plus a
-second reader class through the facade. What was checked, and what is
-still owed, is §12.5.
+authenticated HTTP fragments and read back as rendered text; a second
+reader class through the facade; and the whole tab driven in Chromium
+for the controls and both themes. Seventeen checks, all passing —
+§12.5.
 
 ### 12.1 The shape
 
@@ -864,9 +866,16 @@ which is call 2's answer.
 | 11 | **The ACL entry for the new endpoint** | `queryACL/findMissingFunctionNames` lists only this controller's private helpers. `viewAnalystReports` is mapped |
 | 12 | **The tab badge is gone** | the page's tab bar renders *Analyst data* with no pill, while Relationships and Enrichment keep theirs |
 | 13 | Query counts and timings | §16.1 |
-| 14 | **Both themes** | **not run.** Three new classes were added — `.vpa-chip-unresolved`, `.vpa-proposal-what` and the `.vpa-report*` set — and every one of them is defined in tokens (`--bs-border-color`, `--bs-body-bg`, `--bs-secondary-color`), so none carries a fixed colour. A visual pass is still owed |
-| 15 | **The no-JavaScript render** | holds, and it is what every fragment above was fetched as. The proposal pill is server-rendered and the filter it drives reuses the existing generic `data-vp-a-kind` matcher, which was not itself re-exercised by hand — see below |
-| 16 | **The filter and sort controls with real clicks** | **not run.** The new `Proposals` pill rides `data-vp-a-kind-filter`, which `refreshAnalyst` already matches generically against each item's `data-vp-a-kind`, and no JavaScript changed. Reasoned rather than clicked, and it is the second thing owed |
+| 14 | **Both themes** | 5/5, in Chromium. Every new or changed node — `.vpa-proposal-what`, `.vpa-report-extract`, `.vpa-report-name`, the standing panel's caveat and `.vpa-chip` — resolves to a token in both, and contrast against its own painted background runs **13.0–15.4 in light and 8.8–11.9 in dark**. No new rule carries a fixed colour |
+| 15 | **The no-JavaScript render** | holds, and it is what every fragment above was fetched as |
+| 16 | **The filter and sort controls with real clicks** | pass. On `8.8.8.8`: `Notes` leaves 2 items, `Opinions` 4, the new `Proposals` 1, `All` restores 7; `Oldest` reverses the seven dates exactly and `Newest` restores them. The proposal pill needed no JavaScript — `refreshAnalyst` already matches `data-vp-a-kind-filter` against each item's `data-vp-a-kind` generically |
+| 17 | **The whole tab in a real browser** | all three panels resolve after the lazy load — 4 ledger lanes, 7 thread items of which 1 is a proposal, 8 report rows, the permanent caveat present — with **no page error and no console error** |
+
+Checks 14, 16 and 17 are
+[`26a-analyst-check.mjs`](26a-analyst-check.mjs), which logs in, opens
+the tab, waits for the three fragments, clicks every pill and both sort
+buttons, and measures computed colour against each node's own painted
+background in each theme. Run it with `node`; it prints one JSON report.
 
 ---
 
