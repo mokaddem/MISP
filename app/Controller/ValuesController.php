@@ -684,12 +684,11 @@ class ValuesController extends AppController
      */
     public function viewHistory($b64value = null, $from = null, $to = null)
     {
-        $this->renderPanel(
-            $this->profileFor(
-                $b64value,
-                array('history_window' => self::period($from, $to))
-            ),
-            'value_history'
+        $this->renderLivePanel(
+            $b64value,
+            'forHistory',
+            'value_history',
+            array('window' => self::period($from, $to))
         );
     }
 

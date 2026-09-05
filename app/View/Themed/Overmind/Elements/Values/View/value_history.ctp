@@ -122,23 +122,23 @@ $deletedBadge = function () {
      * what this page still knows without the audit log — and it is not
      * a short list.
      */
-    $occurrences = $profile['occurrences'];
-    $edited = null;
-    foreach ($occurrences as $occurrence) {
-        $stamp = (int)$occurrence['Attribute']['timestamp'];
-        if ($edited === null || $stamp > $edited) {
-            $edited = $stamp;
-        }
-    }
-    $publications = array();
-    if (!empty($profile['timeline']['entries'])) {
-        foreach ($profile['timeline']['entries'] as $entry) {
-            if ($entry['source'] === 'publication') {
-                $publications[] = $entry['at'];
-            }
-        }
-    }
-    sort($publications);
+    /*
+     * The three facts the card lists, supplied by `forHistory` rather
+     * than reassembled from the whole profile here. This state is the
+     * only one that needs them, and it is the only state where paying
+     * for them is free: with `MISP.log_new_audit` off there is no audit
+     * read to run at all. `27-history.md` §4.
+     */
+    $knowable = isset($history['knowable'])
+        ? $history['knowable']
+        : array(
+            'occurrences' => 0,
+            'edited' => null,
+            'publications' => array(),
+            'sightings' => 0,
+        );
+    $edited = $knowable['edited'];
+    $publications = $knowable['publications'];
     ?>
     <div class="row">
         <div class="col-lg-8">
@@ -219,9 +219,9 @@ $deletedBadge = function () {
                                 . ' occurrence',
                                 'The latest edit to each of %d'
                                 . ' occurrences',
-                                count($occurrences)
+                                $knowable['occurrences']
                             ),
-                            count($occurrences)
+                            $knowable['occurrences']
                         )) ?>
                         <?php if ($edited !== null): ?>
                             <span class="vp-fact-line-sub">
@@ -241,12 +241,12 @@ $deletedBadge = function () {
                             <span class="vp-fact-line-sub">
                                 <?= h(sprintf(
                                     '%1$s → %2$s',
-                                    $fmt($publications[0], 'j M Y'),
-                                    $fmt(
+                                    date('j M Y', $publications[0]),
+                                    date(
+                                        'j M Y',
                                         $publications[
                                             count($publications) - 1
-                                        ],
-                                        'j M Y'
+                                        ]
                                     )
                                 )) ?>
                             </span>
@@ -259,7 +259,7 @@ $deletedBadge = function () {
                     <span>
                         <?= h(sprintf(
                             __('%d sightings, each to the minute'),
-                            $profile['counts']['sightings']
+                            $knowable['sightings']
                         )) ?>
                     </span>
                 </div>
@@ -271,53 +271,6 @@ $deletedBadge = function () {
                     ) ?>
                 </div>
             </div>
-        </div>
-    </div>
-
-<?php elseif ($history['visible'] === 0): ?>
-    <?php
-    /*
-     * State 4 taken to its limit — every occurrence hidden. The
-     * suppressed band rather than the empty state, because the panel
-     * knows the number it cannot show, and "nothing here" would be the
-     * one reading that is false.
-     *
-     * Keyed on the occurrences the viewer may open and not on the
-     * sections that got built: since phase 19 those are different
-     * numbers, and a value whose window happens to be quiet is not a
-     * value whose occurrences are hidden.
-     */
-    ?>
-    <div class="card shadow-sm mb-3 vp-panel"
-         style="--vp-panel-color: <?= h($panelColour) ?>;">
-        <?= $this->element('Values/View/value_panel_header', array(
-            'panelTitle' => __('History'),
-            'panelIcon' => $panelIcon,
-            'panelColor' => $panelColour,
-        )) ?>
-        <div class="vp-suppressed">
-            <i class="fas fa-eye-slash"></i>
-            <span>
-                <span class="vp-suppressed-badge">
-                    <?= __('Hidden from you') ?>
-                </span>
-                <?= h(sprintf(
-                    __n(
-                        'All %d occurrence of this value is on an event'
-                        . ' you cannot see, so there is no audit entry'
-                        . ' here you may read. How many entries they'
-                        . ' carry is not obtainable either — the count'
-                        . ' is itself a fact about those events.',
-                        'All %d occurrences of this value are on events'
-                        . ' you cannot see, so there is no audit entry'
-                        . ' here you may read. How many entries they'
-                        . ' carry is not obtainable either — the count'
-                        . ' is itself a fact about those events.',
-                        $history['total_occurrences']
-                    ),
-                    $history['total_occurrences']
-                )) ?>
-            </span>
         </div>
     </div>
 
@@ -344,53 +297,18 @@ $deletedBadge = function () {
             'panelTitle' => __('History'),
             'panelIcon' => $panelIcon,
             'panelColor' => $panelColour,
-            'panelSub' => h(sprintf(
-                __n(
-                    '%d occurrence, nothing logged',
-                    '%d occurrences, nothing logged',
-                    $history['visible']
-                ),
-                $history['visible']
-            )),
+            'panelSub' => __('Nothing logged'),
         )) ?>
         <div class="vp-empty">
             <i class="<?= h($panelIcon) ?>"></i>
             <span>
-                <?= h(sprintf(
-                    __n(
-                        'The audit log is running on this instance and'
-                        . ' has no entry for this value. Its %d visible'
-                        . ' occurrence has not been touched since'
-                        . ' recording began.',
-                        'The audit log is running on this instance and'
-                        . ' has no entry for this value. None of its %d'
-                        . ' visible occurrences has been touched since'
-                        . ' recording began.',
-                        $history['visible']
-                    ),
-                    $history['visible']
-                )) ?>
+                <?= __(
+                    'The audit log is running on this instance and has'
+                    . ' no entry here for this value. Nothing you can'
+                    . ' read has been touched since recording began.'
+                ) ?>
             </span>
         </div>
-        <?php if ($history['hidden'] > 0): ?>
-            <div class="vp-acl-note vp-acl-note-band">
-                <i class="fas fa-eye-slash"></i>
-                <span>
-                    <?= h(sprintf(
-                        __n(
-                            '%d further occurrence is on an event you'
-                            . ' cannot see. Whether it has entries is'
-                            . ' not obtainable from here.',
-                            '%d further occurrences are on events you'
-                            . ' cannot see. Whether they have entries'
-                            . ' is not obtainable from here.',
-                            $history['hidden']
-                        ),
-                        $history['hidden']
-                    )) ?>
-                </span>
-            </div>
-        <?php endif; ?>
     </div>
 
 <?php else: ?>
@@ -1105,18 +1023,14 @@ $chartPayload = array(
             <div class="vp-acl-note vp-acl-note-band">
                 <i class="fas fa-user-shield"></i>
                 <span>
-                    <?= h(sprintf(
-                        __(
-                            'You see every entry on the %1$d events'
-                            . ' your organisation created. On the other'
-                            . ' %2$d you see the event-level entries'
-                            . ' and the entries on occurrences you may'
-                            . ' read, and nothing else. A site admin'
-                            . ' sees more rows here than you do.'
-                        ),
-                        $history['viewer_events'],
-                        $history['other_events']
-                    )) ?>
+                    <?= __(
+                        'This history is scoped to what you may read:'
+                        . ' every entry on events your organisation'
+                        . ' created, and on the others the event-level'
+                        . ' entries plus the entries on occurrences you'
+                        . ' may read. A site admin sees more rows here'
+                        . ' than you do.'
+                    ) ?>
                 </span>
             </div>
 
@@ -1127,53 +1041,75 @@ $chartPayload = array(
              * seventeen boxes from reading as seventeen copies of this
              * value.
              *
-             * Three counts and three reasons, because they are three
-             * different answers. An occurrence nobody has ever touched
-             * has nothing to show at any period; one that was touched
-             * outside the window is reachable by moving it; one the
-             * filters emptied is reachable by clearing them. Phase 16
-             * dimmed all three to `opacity-50` and kept them on screen,
-             * which at 190 sections is the problem restated rather than
-             * fixed.
+             * Two counts and two reasons, and phase 27 merged what
+             * used to be three. An occurrence with no entry in this
+             * period is reachable by moving the window; one the filters
+             * emptied is reachable by clearing them. The third —
+             * *nothing logged against it at all* — is gone with the
+             * `silent` key: `27-history.md` §3.1 measured it at zero on
+             * every value on this instance, because `AuditLogBehavior`
+             * writes an `add` row when an attribute is created, and
+             * telling the two apart costs a grouped read over every
+             * occurrence to report a zero. Phase 16 dimmed all of them
+             * to `opacity-50` and kept them on screen, which at 190
+             * sections is the problem restated rather than fixed.
              */
             ?>
-            <?php if ($history['silent'] > 0
-                || $history['outside'] > 0
+            <?php if ($history['outside'] > 0
                 || $history['occurrences'] > 0
             ): ?>
                 <div class="vp-acl-note vp-acl-note-band"
                      data-vp-audit-elided>
                     <i class="fas fa-list-ul"></i>
                     <span>
-                        <?php if ($history['silent'] > 0): ?>
-                            <?= h(sprintf(
-                                __n(
-                                    '%1$d of the %2$d occurrences you can'
-                                    . ' read has nothing logged against'
-                                    . ' it at all, so it has no section'
-                                    . ' here.',
-                                    '%1$d of the %2$d occurrences you can'
-                                    . ' read have nothing logged against'
-                                    . ' them at all, so they have no'
-                                    . ' sections here.',
-                                    $history['silent']
-                                ),
-                                $history['silent'],
-                                $history['visible']
-                            )) ?>
-                        <?php endif; ?>
                         <?php if ($history['outside'] > 0): ?>
-                            <?= h(sprintf(
-                                __n(
-                                    '%1$d more was changed, outside'
-                                    . ' %2$s.',
-                                    '%1$d more were changed, outside'
-                                    . ' %2$s.',
-                                    $history['outside']
-                                ),
-                                $history['outside'],
-                                $windowLabel($window)
-                            )) ?>
+                            <?php
+                            /*
+                             * Cause-neutral, because at all time the
+                             * reason is the row cap rather than the
+                             * period: the header states `Showing N of
+                             * M entries` either way, and a line
+                             * blaming a window that is not set would
+                             * be the wrong explanation rather than a
+                             * missing one.
+                             */
+                            ?>
+                            <?php if ($allTime): ?>
+                                <?= h(sprintf(
+                                    __n(
+                                        '%1$d of the %2$d occurrences'
+                                        . ' you can read has no section'
+                                        . ' here — its entries are'
+                                        . ' older than the newest this'
+                                        . ' panel returns.',
+                                        '%1$d of the %2$d occurrences'
+                                        . ' you can read have no'
+                                        . ' section here — their'
+                                        . ' entries are older than the'
+                                        . ' newest this panel returns.',
+                                        $history['outside']
+                                    ),
+                                    $history['outside'],
+                                    $history['visible']
+                                )) ?>
+                            <?php else: ?>
+                                <?= h(sprintf(
+                                    __n(
+                                        '%1$d of the %2$d occurrences'
+                                        . ' you can read has no entry'
+                                        . ' in %3$s, so it has no'
+                                        . ' section here.',
+                                        '%1$d of the %2$d occurrences'
+                                        . ' you can read have no entry'
+                                        . ' in %3$s, so they have no'
+                                        . ' sections here.',
+                                        $history['outside']
+                                    ),
+                                    $history['outside'],
+                                    $history['visible'],
+                                    $windowLabel($window)
+                                )) ?>
+                            <?php endif; ?>
                         <?php endif; ?>
                         <?php
                         /*
@@ -1608,34 +1544,6 @@ $chartPayload = array(
                 </span>
             </div>
 
-            <?php if ($history['hidden'] > 0): ?>
-                <div class="vp-acl-note vp-acl-note-band border-bottom-0
-                            border-top">
-                    <i class="fas fa-eye-slash"></i>
-                    <span>
-                        <?= h(sprintf(
-                            __n(
-                                '%1$d of this value\'s %2$d occurrences'
-                                . ' is on an event you cannot see, so'
-                                . ' there is no section for it above.'
-                                . ' How many entries it carries is not'
-                                . ' obtainable either — the count is'
-                                . ' itself a fact about that event.',
-                                '%1$d of this value\'s %2$d occurrences'
-                                . ' are on events you cannot see, so'
-                                . ' there are no sections for them'
-                                . ' above. How many entries they carry'
-                                . ' is not obtainable either — the'
-                                . ' count is itself a fact about those'
-                                . ' events.',
-                                $history['hidden']
-                            ),
-                            $history['hidden'],
-                            $history['total_occurrences']
-                        )) ?>
-                    </span>
-                </div>
-            <?php endif; ?>
 
         </div>
     </div>

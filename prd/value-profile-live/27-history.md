@@ -15,37 +15,40 @@ The tab's fixture-era design is [`07-history.md`](../value-profile-tabs/07-histo
 specification this phase converts, and **§3 is where three of their
 load-bearing assumptions meet the instance and lose.**
 
-**Opened 2026-09-05.** §1 is the task board, §1.1 the decisions taken
-before building and §1.2 what a session picking this up cold needs to
-know. §3 is the instance survey, §8 a disclosure phase 25 shipped and
-this phase has to fix before it renders it twice as loudly, and §12 the
-verification plan.
+**Opened and built 2026-09-05.** §1 is the task board, §1.1 the decisions
+taken before building and §1.2 what a session picking this up cold needs
+to know. §3 is the instance survey, §8 a disclosure phase 25 shipped that
+this phase fixes in both tabs, §12 verification as run, and §16 the build
+log — what the build changed about the plan, and the two defects it
+found.
 
 ---
 
 ## 1. The task board
 
 Every row is `todo` until its own section says otherwise, and a row moves
-to `done` only when §12's verification has run against it.
+to `done` only when §12's verification has run against it. **All sixteen
+are done, built 2026-09-05**; §12 is the pass as it ran and §16 the build
+log.
 
 | # | Task | Section | Status |
 |---|---|---|---|
-| T1 | `ValueProfile::forHistory` — the facade method, and `viewHistory` onto `renderLivePanel` | §4 | `todo` |
-| T2 | The window pushed into the scope conditions, not filtered in PHP | §5.2 | `todo` |
-| T3 | Sections built from the entries returned, not from the occurrence list | §6 | `todo` |
-| T4 | The corpus totals, the chart and the span from `auditCountsFor` | §7 | `todo` |
-| T5 | `silent` retired; `outside` computed or dropped with its reason | §7.2 | `todo` |
-| T6 | The actor redaction `eventIndex` applies and phase 25 did not | §8 | `todo` |
-| T7 | The same redaction back-applied to the Timeline's chronology | §8.3 | `todo` |
-| T8 | The diff rendered from the row already read — `fullChange` not called | §9 | `todo` |
-| T9 | §14.6's two standing History rows: the footer graft and the suppressed state | §10.1 | `todo` |
-| T10 | The ACL band under the header — kept, reworded, or withdrawn | §10.2 | `todo` |
-| T11 | The action vocabulary widened to what the instance actually writes | §11.2 | `todo` |
-| T12 | Proposals: the `ShadowAttribute` scope, or the facet row withdrawn | §13.1 | `todo` |
-| T13 | Event reports as history — the coverage survey's third concept | §13.2 | `todo` |
-| T14 | Feeds: `no`, argued | §13.3 | `todo` |
-| T15 | The board rows — §14.12's `viewHistory` cell and §14.13's phase row | §12.4 | `todo` |
-| T16 | The tab badge, which the registry already declines to render | §11.3 | `todo` |
+| T1 | `ValueProfile::forHistory` — the facade method, and `viewHistory` onto `renderLivePanel` | §4 | **done** |
+| T2 | The window in the scope conditions — **already built by phase 25**; verify it is passed down | §5.2 | **done** — verified, no change |
+| T3 | Sections built from the entries returned, not from the occurrence list | §6 | **done** |
+| T4 | The corpus totals, the chart and the span from `auditCountsFor` | §7 | **done** |
+| T5 | `silent` retired; `outside` computed or dropped with its reason | §7.2 | **done** — the two merged into one line, §16.1 |
+| T6 | The actor redaction `eventIndex` applies and phase 25 did not | §8 | **done** — verified on both readers |
+| T7 | The same redaction back-applied to the Timeline's chronology | §8.3 | **done** — one change, in `auditRow` |
+| T8 | The diff rendered from the row already read — `fullChange` not called | §9 | **done** — zero requests on open |
+| T9 | §14.6's two standing History rows: the footer graft and the suppressed state | §10.1 | **done** — three bands, not two |
+| T10 | The ACL band under the header — kept, reworded, or withdrawn | §10.2 | **done** — reworded, option 3 |
+| T11 | The action vocabulary widened to what the instance actually writes | §11.2 | **done** — `AuditActionMeta::actions()` |
+| T12 | Proposals: the `ShadowAttribute` scope, or the facet row withdrawn | §13.1 | **done** — the scope |
+| T13 | Event reports as history — the coverage survey's third concept | §13.2 | **done** — 61 rows on `8.8.8.8` |
+| T14 | Feeds: `no`, argued | §13.3 | **done** |
+| T15 | The board rows — §14.12's `viewHistory` cell and §14.13's phase row | §12.5 | **done** |
+| T16 | The tab badge, which the registry already declines to render | §11.3 | **done** — nothing to change |
 
 ---
 
@@ -63,13 +66,15 @@ A count that is structurally zero is not worth a query, and a panel
 stating *and 0 occurrences have never been touched* is worse than
 silence.
 
-**D2 — the window is the only bound, and it is therefore pushed into
-SQL.** With D1 gone, nothing else bounds this panel. Phase 19 already
-made the window the bound (its decision 8, "the actual fix"); what it
-did not have to face is that the fixture filters in PHP over an array it
-authored. Live, `443` is 162,539 attribute rows and the default window
-holds **8** of them, so reading the lot to discard 162,531 is the
-difference between a panel and an outage. §5.2.
+**D2 — the window is the only bound, and it has to reach SQL.** With D1
+gone, nothing else bounds this panel. Phase 19 already made the window
+the bound (its decision 8, "the actual fix"); what it did not have to
+face is that the fixture filters in PHP over an array it authored. Live,
+`443` is 162,539 attribute rows and the default window holds **8** of
+them, so reading the lot to discard 162,531 is the difference between a
+panel and an outage. **The reader already does this** — §5.2 was opened
+claiming otherwise and is corrected there — so the decision stands as a
+constraint on `forHistory` rather than as work.
 
 **D3 — sections are built from the entries returned, never from the
 occurrence list.** The inversion follows from D2. The fixture walks
@@ -352,24 +357,39 @@ rows — the event scope is five times the attribute scope, which is worth
 knowing before assuming the sections are the expensive part. On
 `193.161.193.99` it is 1,007 / — / 1,045; on `443`, 162,539 / — / 9,493.
 
-### 5.2 The window belongs in the conditions — T2
+### 5.2 The window is already in the conditions — T2
 
-`auditScopeQueries` builds `model` + `model_id IN (chunk)` and nothing
-else, and `auditRowsFor` takes `limit`, `change` and `order`. There is no
-date condition anywhere in the reader, because the Timeline never needed
-one: its spine is the whole range by construction.
+**Corrected 2026-09-05, during the build.** This section was opened
+claiming the reader had no date condition and that this phase had to add
+one. It does have one. `auditRead` applies the window to the `conditions`
+before the cap:
 
-This tab does need one. Without it, the default window on `443` reads
-162,539 rows to render the handful inside 30 days. The change is a
-`created >=` / `created <` pair added to each scope's conditions when a
-window is given, and it is additive — a caller that passes no window
-gets the reader it has today, which keeps phase 25's four panels
-byte-identical.
+```php
+if (!empty($options['window'])) {
+    $params['conditions']['AuditLog.created >='] = …' 00:00:00';
+    $params['conditions']['AuditLog.created <='] = …' 23:59:59';
+}
+```
 
-**Whole days on both ends**, matching `ValueProfileFixture::auditInWindow`'s
-own note: a window given to the minute drops entries from the day the
-reader named, which reads as the log having lost them. So `to` becomes
-`< (to + 1 day)` rather than `<= to`.
+— whole days on both ends, which is the behaviour this section went on
+to specify, and with a comment giving the reason this phase would have
+given: a cap is a `LIMIT` on an `id DESC` read, so a caller that filtered
+afterwards would be filtering the newest cap-many rows of the *whole*
+scoped set and would find none of them in any window that does not reach
+that far back.
+
+The error was reading `auditScopeQueries`, finding only `model` and
+`model_id` there, and concluding the reader had none — without reading
+the caller that assembles the rest of the query. It is recorded rather
+than quietly fixed because it is the second time in two phases that
+phase 25 turned out to have already built what this tab needed, and a
+reader of §2 should weight that table accordingly.
+
+**T2 is therefore a verification, not a change.** What the phase must
+check is that `forHistory` passes the window down — `auditRowsFor` takes
+it in `$options` and hands it to `auditRead` unchanged — and that
+`auditCountsFor` is *not* given one, since the corpus totals and the
+chart are the whole log by definition (§7.1).
 
 **The cap stays, and it is a second bound rather than a replacement.** A
 window is a date, not a count, and a value can have a bad day — `443`
@@ -626,14 +646,23 @@ Three readings, and this phase has to pick one:
    invariant across readers, which is the property §14.6 requires of a
    permanent line.
 
-**The recommendation is 3**, and the argument for it is that it satisfies
-both rules rather than choosing between them: the band becomes identical
-for every reader, so its presence carries no information, and the
-sentence a reader actually needs survives. It also removes two more keys
-from the contract. Recorded as a call rather than taken, because §14.6's
-exception was written as *the Verdict tab and nowhere else*, has twice
-grown a member, and each time the phase that grew it argued the case in
-its own document first.
+**Taken: 3.** It satisfies both rules rather than choosing between them —
+the band becomes identical for every reader, so its presence carries no
+information, and the sentence a reader actually needs survives. It also
+removes `viewer_events` and `other_events` from the contract. As shipped:
+
+> This history is scoped to what you may read: every entry on events your
+> organisation created, and on the others the event-level entries plus
+> the entries on occurrences you may read. A site admin sees more rows
+> here than you do.
+
+**This is not a fourth member of §14.6's exception**, and the distinction
+is worth stating because the exception has grown twice. That exception is
+for a panel rendering a *computed judgement*, and it exists because two
+readers can honestly disagree about a number. This band is on a panel
+that renders rows and counts, and what it says is not a judgement but the
+shape of the scope. It qualifies under §14.6's own test — invariant, so
+disclosing nothing — rather than under the exception to it.
 
 ---
 
@@ -697,7 +726,7 @@ count today.
 
 ---
 
-## 12. Verification — planned
+## 12. Verification — planned, then as run
 
 ### 12.1 The shape
 
@@ -755,7 +784,93 @@ all three models look identical*.
 8. **Both themes**, by computed style, over every node phase 16
    measured.
 
-### 12.4 The board — T15
+### 12.4 What ran, and what it says
+
+Two harnesses, both kept:
+[`27-history-probe.php`](27-history-probe.php), a throwaway Console shell
+that calls `forHistory` directly and renders the element with no HTTP
+session, and [`27-history-check.mjs`](27-history-check.mjs), the browser
+pass against the real page.
+
+**The panel, five values, two readers, default window.** `Q` is queries
+per call, timed warm.
+
+| Value | Reader | Corpus | Shown | Sections | Q | ms |
+|---|---|---|---|---|---|---|
+| `8.8.8.8` | site admin | 431 | 12 | 4 | 33 | 83 |
+| `8.8.8.8` | CIRCL org admin | 287 | 11 | 4 | 34 | 22 |
+| `193.161.193.99` | site admin | 2,052 | 28 | 2 | 11 | 50 |
+| `193.161.193.99` | CIRCL org admin | 42 | 28 | 2 | 12 | 10 |
+| `443` | site admin | 172,428 | 10 | 8 | 21 | **1,151** |
+| `443` | CIRCL org admin | 1,928 | 10 | 8 | 20 | 178 |
+| `2.2.2.2` | site admin | 174 | 0 | 0 | 24 | 15 |
+| `google.com` | site admin | 235 | 0 | 0 | 28 | 16 |
+
+**`Q` scales with the events in scope, not with the value's size** — the
+report fetch and the sharing-group resolution behind it are per-event, so
+`443` at 48,255 occurrences costs *fewer* queries than `8.8.8.8` at 26.
+Tier 1, with the aggregate at tier 2: **the 1,151 ms on `443` is
+`auditCountsFor` grouping 172,428 rows**, which is the read
+`25-timeline.md` §6 already pays on the same value and the reason that
+phase split counts from rows. The three §3.2 predictions came out
+exactly: 8 rows over 8 sections on `443`, 4 over 4 on `8.8.8.8`, and
+`2.2.2.2` and `google.com` landing on the empty-window state.
+
+**Consistency, phase 16's rule re-run over live rows** — `ok` on all ten
+combinations: section counts plus event-level rows equal `shown`, every
+section's mix sums to its own count, no section's window count exceeds
+its whole-log total, `shown` never exceeds the corpus, and each of the
+four facet groups sums to `shown`.
+
+**The redaction, and it is the check the phase exists for.** Same value,
+same rows, two readers: the site admin's rows carry
+`admin@admin.test`, and **the CIRCL org admin's carry no address at
+all** — `actors=1` against `actors=0` on `8.8.8.8`, `193.161.193.99` and
+`443`. All-time on `8.8.8.8` the site admin sees two actors
+(`admin@admin.test`, `user@admin.test`) and CIRCL still sees none, which
+is `eventIndex`'s rule reproduced: the test is the actor's organisation
+and not the event's.
+
+**The diff, from the row.** In the browser, opening a row's disclosure
+issues **zero network requests** and the table renders 403 × 170 px over
+8 field rows — so `fullChange` is not reached, and phase 16's collapse
+defect (a diff 115 px wide and 436 px tall) has not returned.
+
+**The two new scopes deliver.** All-time on `8.8.8.8`, the model facet
+reads `Attribute 54, Event 299, Object 16, ShadowAttribute 1,
+EventReport 61` — the first three are phase 25's, the last two are T12
+and T13. The default window shows `ShadowAttribute 1` on the same value,
+so the proposal row the fixture claimed is a real row.
+
+**States.** Populated and empty-window from the values above. **State 2
+by flipping `MISP.log_new_audit` in-process** rather than through
+`setSetting` — the setting is read per request, so the flip needs no
+persistence and avoids the root-owned `config.php` that 302-loops the
+instance. It renders 3,666 bytes carrying its whole rail card: *the
+latest edit to each of 26 occurrences*, first and last publication, *53
+sightings*, and the records-forward warning. **State 3 was not reachable
+on this instance** and §3.1 is why — no value has an occurrence with
+nothing logged against it — so it is verified by construction: it is the
+`entries === 0` branch, and `forHistory` returns `entries` from
+`auditCountsFor`, which is zero exactly when the scope matched no row.
+
+**The real endpoint, over HTTP**, logged in with the form rather than an
+authkey: `/values/viewHistory/<b64>` answers **200** on `8.8.8.8`
+(130,703 bytes), `2.2.2.2` (17,921), `443` (97,288) and `8.8.8.8/all`
+(2,006,144), with no notice, warning or SQL error in any body. The shell
+pass does not cover the controller; this does.
+
+**Both themes**, by computed style over 40 nodes each: no console error,
+no page error, every measured node clears 4.5:1 — 15.43 light, 11.85
+dark. **No CSS changed in this phase**, and the reading is weaker than
+phase 26's for that reason: the nodes that carry this panel's own
+colours were measured by phase 16 and are untouched here.
+
+**Lint.** `php -l` over the four changed files and the probe, and
+`node --check` over the harness: clean. `parallel-lint` still has no
+`app/Vendor/` to run from, which every phase since 25 has recorded.
+
+### 12.5 The board — T15
 
 §14.12's `viewHistory` row and §14.13's phase row, filled with the same
 numbers this document records. Note that the board currently carries
@@ -789,8 +904,12 @@ model_id IN` the value's proposal ids, which `25-timeline.md` §25.2 found
 needs **two** scopes rather than one — or the facet row is withdrawn.
 **Withdrawing a row the tab already renders is the worse of the two**,
 because it is a visible claim being retracted rather than a feature not
-built; the recommendation is the fourth scope, and its cost is one more
-statement in `auditScopeQueries`.
+built. **Taken: the fourth scope**, and it cost one entry in
+`auditScopeQueries`'s model map plus `Value::proposalsFor`'s id list.
+Verified: `8.8.8.8` renders `ShadowAttribute 1` in the model facet at the
+default window, so the row the fixture claimed is a real row about this
+value. A caller that passes no `proposals` key — every Timeline call —
+gets exactly the three statements phase 25 measured.
 
 ### 13.2 Event reports — T13
 
@@ -801,7 +920,11 @@ creation and editing is a genuine history lane. Phase 26 built the report
 the Timeline; this is the third surface and the cheapest of the three,
 because both of those already resolve which reports the viewer may see.
 Same shape as §13.1: one more scope, over ids an accessor already
-produces.
+produces — `EventReport::fetchReports` over the events in scope, which
+is the read phase 25's report lane and phase 26's report panel both
+already make. **Built, and it is the larger of the two**: `8.8.8.8` at
+all time carries **61** `EventReport` rows against one `ShadowAttribute`
+row.
 
 ### 13.3 Feeds — T14
 
@@ -809,7 +932,11 @@ produces.
 is a job, not a change to anything `AuditLogBehavior` is attached to.
 The instance's 106 `Feed` audit rows are edits to feed *definitions*,
 which are not this value's history under any reading. This is a `no` with
-a reason, which §14.9 row 9 says is a complete answer.
+a reason, which §14.9 row 9 says is a complete answer — and it is the
+second clean answer on all three concepts after Sightings', except that
+this tab's is two `yes` and a `no` rather than three `no`.
+
+---
 
 ---
 
@@ -844,3 +971,115 @@ a reason, which §14.9 row 9 says is a complete answer.
   19 was written to prevent. Not bounded in this phase; the cap on rows
   bounds it in practice, and a per-blob truncation with a *show full
   change* link is the fix if it is ever seen.
+
+---
+
+## 15. What the panel is fed, and by which read
+
+| Key | Source |
+|---|---|
+| `recorded` | `Configure::read('MISP.log_new_audit')` |
+| `entries`, `span`, `chart` | `auditCountsFor` — the whole log, never the window |
+| `shown`, `groups`, `event_entries`, `facets` | `auditRowsFor` — the window's rows |
+| `groups[].total` | one grouped read over the sections the window produced |
+| `outside`, `visible` | `timelineContext`'s occurrence list, no read of its own |
+| `knowable` | state 2 only: the occurrence list, the event map, and one sightings read |
+| `vocab` | `AuditActionMeta::actions()` |
+| `window`, `default_window` | the path, resolved by `historyWindow` |
+
+Four keys left the contract: `silent` (§7.2), `hidden` and
+`total_occurrences` (§10.1), and `viewer_events` / `other_events`
+(§10.2). A template cannot re-grow a band whose data is not sent, which
+is what makes §14.6's withdrawals structural here rather than cosmetic.
+
+---
+
+## 16. The build log
+
+Six changes, and the two the plan did not have.
+
+| File | What |
+|---|---|
+| `ValueProfile.php` | `forHistory` and nine helpers; `auditRow` gains the redaction and the diff decode; `auditScopeQueries` gains two scopes; `timelineContext` carries the actor scope; four constants |
+| `ValuesController.php` | `viewHistory` onto `renderLivePanel` — the profile fixture is no longer reached |
+| `AuditActionMeta.php` | `actions()`, the vocabulary's single source |
+| `value_history.ctp` | three bands out, two reworded, state 2's rail card onto live keys |
+
+### 16.1 What the build changed about the plan
+
+**§5.2 was wrong and is corrected in place.** The phase opened claiming
+`auditRowsFor` had no date condition and that T2 was work. It has one,
+in `auditRead`, whole days on both ends, with the reason this phase
+would have given. The error was reading `auditScopeQueries` and stopping
+before the caller that assembles the rest of the query. T2 became a
+verification and the correction is written where the claim was, not
+here.
+
+**`silent` and `outside` merged into one number rather than one being
+dropped.** §7.2 planned to retire `silent` and keep `outside` as
+*touched, but not in this window*. Computing that still needs to know
+which occurrences have any entry at all, which is the grouped read over
+48,255 rows the section exists to avoid. So the panel states the one
+thing that costs nothing and is true either way — **occurrences with no
+section here** — and the line says so. `outside` is now
+`visible − sections`, no query.
+
+**The occurrence context is `timelineContext`, reused whole.** The plan
+described fetching section metadata after the rows. That is what happens,
+but the fetch was already there: `timelineContext` reads occurrence ids,
+their `event_id` and `deleted` flag, and the event map with `info` and
+`org` — everything a section header needs, in the queries the Timeline
+already pays. `Value::occurrencesFor`, the heavy accessor §6 warned
+against, is not called at all.
+
+### 16.2 Two defects the build found
+
+**1. The all-time window crashed the elided line, and the cause was this
+phase's own change.** `$windowLabel($window)` dereferences
+`$window['from']`, and at *show all time* the window is null. It had been
+unreachable: the fixture's `outside` counted occurrences whose entries
+fell outside the window, which at all time is none. Computing `outside`
+as `visible − sections` makes it non-zero at all time too — through the
+**row cap** rather than the period — so the branch became reachable and
+threw two `Trying to access array offset on value of type null` warnings
+on `193.161.193.99`.
+
+The fix is not only the guard. At all time the sentence would have named
+a period that is not set, so the line now has two forms and the all-time
+one names the real cause: *their entries are older than the newest this
+panel returns*. Blaming a window that is not set would have been the
+wrong explanation rather than a missing one.
+
+**2. `historyShell` returned a malformed `facets`.** An empty `array()`
+where the populated panel returns four keyed groups. No template path
+read it — states 2 and 3 return before the rail — so nothing broke; the
+probe found it by iterating the shape the contract promises. It now
+returns `historyFacets(array())`, four empty groups. A shape that changes
+between states is a shape every reader of it has to test for.
+
+### 16.3 A pre-existing defect, not fixed here
+
+The elided line's client-side half picks its plural at render time from
+`$history['occurrences']` — the section total — and the browser then
+substitutes the *dropped* count. On `8.8.8.8` that reads **"1 of the
+sections below have no entry matching these filters"**. Visible in the
+screenshot from the very first run of the browser pass. It is phase 19's
+`data-vp-audit-drop-plain` string and it predates this phase; recorded
+rather than fixed, because the fix is a client-side plural rule and this
+phase changed no JavaScript.
+
+### 16.4 What it costs
+
+`show all time` on `8.8.8.8` is **2.0 MB**, against 130 KB on landing.
+That is the row cap doing its job — 500 rows — and the diffs making each
+row heavy: 431 of them carry a `change` table, at roughly 4.6 KB each.
+Phase 19 permitted the unbounded request explicitly and priced it at
+about 600 KB; shipping the diff inline is what moved it, and shipping it
+inline is what §9 forced. It is a request a reader makes deliberately,
+the landing page is unaffected, and the cheap mitigation if it is ever
+judged too heavy is MISP's own: `Elements/AuditLog/change.ctp` truncates
+a value at 64 characters unless it is rendering the full change. Not
+taken here, because with `fullChange` unusable for a non-site-admin
+(§9) a truncated diff would have nowhere to expand to.
+
+---

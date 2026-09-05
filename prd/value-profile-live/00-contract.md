@@ -301,8 +301,8 @@ that own them, not defects:
 | `01-occurrences.md` §7, tab table footer | `.vp-acl-note` → *"Showing 6 of 10 occurrences. 4 are hidden by …"* | band removed — **applied, phase 22** |
 | `01-occurrences.md` §6, facet rail | `.vp-facet-note` explaining that the banner counts 10 while the rail counts 4 | sentence removed — there is no longer a gap to explain — **applied, phase 22** |
 | `01-occurrences.md` §8, states | *"everything hidden by ACL"* as a distinct rendered state | collapses into the empty state — **applied, phase 22** |
-| §8.7, History footer graft | *"four of the ten occurrences are ACL-hidden"* | graft withdrawn |
-| §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn |
+| §8.7, History footer graft | *"four of the ten occurrences are ACL-hidden"* | graft withdrawn — **applied, phase 27**. Two bands carried it, not one: the footer and a second under the empty state's header. `hidden` and `total_occurrences` left the return contract with them, so the bands cannot be re-grown from the template alone |
+| §11 (phase 19) suppressed state | *"All %d occurrences … are on events you cannot see"* | state withdrawn — **applied, phase 27**. It collapses into the empty state, whose wording was made invariant in the same pass: it had counted *%d visible occurrences*, which is the same disclosure the state was withdrawn for |
 | §9.6/§9.7 siblings | `.vp-acl-note` on the aggregated section | removed; the cap notice stays, since a cap is not a permission |
 | tab counts and banner type chips | instance-wide | viewer-scoped, so banner and facet rail agree by construction — **applied for the Occurrences tab, phase 22; the banner is still fixture-backed and is the Overview's.** The two *badges* naming converted tabs were corrected on 2026-08-28 — see §14.10 |
 | the Sightings tab | — | nothing to remove: §14.6 listed no note on any of its five panels, and the list panel's standing `policy` sentence is already viewer-neutral and always shown. **Phase 23 added** the computed-judgement line above |
@@ -549,9 +549,9 @@ document that filled it.
 | Collaboration | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
-| History | `viewHistory` | `value_history` | — | — | — | — |
+| History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Eighteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Nineteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
@@ -726,7 +726,7 @@ its decisions and deferrals live; this is only the map.
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
 | 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **closed 2026-09-05** — T1–T30 done; §1 is the board, §1.1 its twelve decisions, §16 the build log, and §26–§29 four rounds of reader feedback taken over the closed phase |
 | 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list. **The tab is renamed *Collaboration*** | [`26-analyst.md`](26-analyst.md) | **closed 2026-09-05** — T1–T16 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, §16 the build log. **Four readings followed the build**: §17 the rename and a ledger bug, §18 links on every chip that names a record, §19 the report badge's inherited audience, §20 the Overview's `value_analyst_preview` — which reverses §11's second call and makes this phase's fourth endpoint. **§21 re-ran the verification against all four**, and §21.2 is what the phase hands on |
-| 27 | History — one endpoint, and the audit reader phase 25 built in this tab's shape | [`27-history.md`](27-history.md) | **opened 2026-09-05 — designed, nothing built.** §1 is the board (T1–T16), §1.1 seven decisions, §3 the instance survey that falsifies three of the design's assumptions, and §8 an actor disclosure phase 25 shipped that this phase fixes in both tabs |
+| 27 | History — one endpoint, and the audit reader phase 25 built in this tab's shape | [`27-history.md`](27-history.md) | **built 2026-09-05** — T1–T16 done; §1 is the board, §1.1 seven decisions, §3 the instance survey that falsifies three of the design's assumptions, §12 verification as run and §16 the build log. **§8 is an actor disclosure phase 25 shipped** — `eventIndex` strips a foreign-org actor's email for a non-site-admin and `auditRow` did not — fixed here for both tabs. **§9** rejects `fullChange` as the diff source. §10 applies §14.6's two standing History rows and rewords a third band invariant |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,

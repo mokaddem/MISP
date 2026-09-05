@@ -135,6 +135,26 @@ class AuditActionMeta
     );
 
     /**
+     * Every action this class knows, in the order `MAP` declares —
+     * which is the order a reader should meet them, so it is also the
+     * order a facet rail should list them in.
+     *
+     * Added for the History tab's rail, which had been ordering itself
+     * off a ten-entry list in `ValueProfileFixture` while the instance
+     * wrote fourteen kinds of row. An action the list did not name was
+     * still tallied, but sorted after the zero rows — so on `8.8.8.8`
+     * three `tag_local` and three `remove_local_tag` entries, a ninth
+     * of that value's history, arrived below *undelete 0*.
+     * `27-history.md` §11.2.
+     *
+     * @return array `AuditLog::ACTION_*` values
+     */
+    public static function actions()
+    {
+        return array_keys(self::MAP);
+    }
+
+    /**
      * @param string $action An `AuditLog::ACTION_*` value
      * @return string `tag`, `cluster` or `edit`
      */

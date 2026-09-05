@@ -8,6 +8,8 @@ App::uses('ValueWarninglistTool', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
 App::uses('DomainPermutationTool', 'Tools');
 App::uses('AuditActionMeta', 'Tools');
+App::uses('ValueProfileBuckets', 'Tools');
+App::uses('JsonTool', 'Tools');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -398,6 +400,46 @@ class ValueProfile extends AppModel
     const AUDIT_ID_CHUNK = 25000;
 
     /**
+     * How many days of audit log the History tab lands on.
+     *
+     * A date rather than a count, which is the whole difference between
+     * this bound and a row cap: the reader is asking what has happened
+     * lately, and a ceiling of two hundred entries answers a question
+     * about the log's volume instead — worse, it answers it differently
+     * on a quiet value and a busy one.
+     */
+    const HISTORY_WINDOW_DAYS = 30;
+
+    /**
+     * The second bound, and the reason the first is not enough.
+     *
+     * A window is a date and a value can have a bad day: `443` took
+     * 411,840 audit rows in 2026-09 alone, so a thirty-day window over
+     * that month is not a small read. The cap is applied by the
+     * database on an `id DESC` read, per scope, and the merge takes the
+     * newest of what came back — so what a reader gets is the newest
+     * cap-many *inside the window they asked for*, and the header's
+     * `Showing <shown> of <all>` is where a capped read says so.
+     */
+    const HISTORY_ROW_CAP = 500;
+
+    /**
+     * Bar widths for the History tab's activity chart.
+     *
+     * The rule is about how wide a bar reads rather than anything about
+     * audit logs: 45 days of daily bars and 200 of weekly ones both
+     * fit, where 437 daily bars would be 0.68px each. Held here rather
+     * than read off `ValueProfileFixture` — the fixture is what this
+     * panel is being converted away from, and a live reader that
+     * imports a constant from it has not finished moving.
+     */
+    const HISTORY_CHART_RULE = array(
+        array('days' => 45, 'unit' => ValueProfileBuckets::DAY),
+        array('days' => 200, 'unit' => ValueProfileBuckets::WEEK),
+        array('days' => null, 'unit' => ValueProfileBuckets::MONTH),
+    );
+
+    /**
      * Bars the seen-span lane draws before it states a remainder.
      *
      * The lane merges nothing, so a value with 24 spans draws 24 bars
@@ -574,6 +616,29 @@ class ValueProfile extends AppModel
         'galaxy_local',
         'remove_galaxy',
         'remove_local_galaxy',
+    );
+
+    /**
+     * Actions whose `change` blob holds what was taken away rather than
+     * what was put there — the same set `Elements/AuditLog/change.ctp`
+     * keys its own arrow direction off.
+     */
+    const AUDIT_REMOVES = array(
+        'delete',
+        'remove_tag',
+        'remove_local_tag',
+        'remove_galaxy',
+        'remove_local_galaxy',
+    );
+
+    /**
+     * Fields a diff renders as a date rather than as the integer the
+     * column holds.
+     */
+    const AUDIT_DATE_FIELDS = array(
+        'expiration',
+        'created',
+        'date_created',
     );
 
     /**
@@ -6682,6 +6747,15 @@ class ValueProfile extends AppModel
                 'objects' => array_map('intval', array_keys($objects)),
                 'events' => array_keys($events),
             ),
+            /*
+             * Carried here because this is the last point in either
+             * tab's call chain that still holds `$user` — the audit
+             * lanes and the History sections are both reached through
+             * methods that take a context and a window and nothing
+             * else. Computing it here also means one `User` read per
+             * request rather than one per scope statement.
+             */
+            'actor_scope' => $this->auditActorScope($user),
         );
     }
 
@@ -6960,6 +7034,10 @@ class ValueProfile extends AppModel
                  * find none of them in the window it was asked for.
                  */
                 'window' => $window,
+                // Who this reader may see named. `27-history.md` §8.
+                'actor_scope' => isset($context['actor_scope'])
+                    ? $context['actor_scope']
+                    : null,
             )
         );
         $entries = array();
@@ -8905,6 +8983,610 @@ class ValueProfile extends AppModel
             : gmdate('Y-m-d H:i:s', $newest);
     }
 
+    /* ==================================================================
+     * History
+     * ==================================================================
+     * One endpoint, one element, and a reader phase 25 built in this
+     * tab's shape. `27-history.md` is the phase; §3 there is why three
+     * of the design's assumptions do not survive real data, and §7 is
+     * which read every key below comes from.
+     */
+
+    /**
+     * The value's audit history, grouped by occurrence.
+     *
+     * **Two reads and never one.** The corpus totals, the activity
+     * chart and the log's own span describe the *whole* history and are
+     * tallied by `auditCountsFor`; the rows the panel draws are the
+     * window's and come from `auditRowsFor`. That is phase 25's split
+     * (`25-timeline.md` §6) reused wholesale, and it is why this panel
+     * can draw two years of bars above eight rows without either number
+     * being wrong.
+     *
+     * **The sections are built from the entries, not from the
+     * occurrences.** The fixture walks the occurrence list and looks up
+     * each one's entries, which is right at six occurrences and is a
+     * read of 48,255 rows on `443`. Live, the window returns entries and
+     * the occurrences they name are a handful — measured at 8 on `443`
+     * and 4 on `8.8.8.8`. `27-history.md` §6.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `window`: `all`, a from/to pair of `Y-m-d`,
+     *                       or absent for the default period
+     * @return array
+     */
+    public function forHistory(array $user, $value, array $options = array())
+    {
+        $this->forget($value);
+        $window = self::historyWindow(
+            isset($options['window']) ? $options['window'] : null
+        );
+        /*
+         * The one key on this panel that is a fact about the instance
+         * rather than about the value, and the one that decides whether
+         * anything else runs. `MISP.log_new_audit` defaults to false
+         * (`Server.php:6649`), so state 2 is what a default instance
+         * renders and it costs nothing to reach.
+         */
+        $recorded = (bool)Configure::read('MISP.log_new_audit');
+        $context = $this->timelineContext($user, $value, $options);
+        $visible = count($context['occurrences']);
+        if (!$recorded || $visible === 0) {
+            return array(
+                'value' => $value,
+                'history' => $this->historyShell($user, $value, $context,
+                    $recorded, $window),
+            );
+        }
+
+        $scope = $context['scope'];
+        /*
+         * The two the coverage survey owes this tab, and the only part
+         * of the scope the Timeline never assembles. Both are id lists
+         * from accessors that have already applied MISP's own gate.
+         */
+        $scope['proposals'] = array_map(
+            'intval',
+            array_keys($this->model('Value')->proposalsFor($user, $value))
+        );
+        $scope['reports'] = $this->historyReportIds($user, $context);
+
+        $counts = $this->auditCountsFor($scope);
+        $rows = $this->auditRowsFor($scope, array(
+            'limit' => self::HISTORY_ROW_CAP,
+            'window' => $window,
+            /*
+             * The diff, paid for here rather than fetched per row by
+             * `AuditLogsController::fullChange` — which cannot serve
+             * this panel at all, because it applies `__applyAuditAcl`
+             * and would answer 404 for a non-site-admin on rows this
+             * page has just rendered. `27-history.md` §9.
+             */
+            'change' => true,
+            'actor_scope' => $context['actor_scope'],
+        ));
+
+        return array(
+            'value' => $value,
+            'history' => $this->historyPanel($rows, $counts, $context,
+                $scope, $window),
+        );
+    }
+
+    /**
+     * The window this panel renders, resolved.
+     *
+     * @param mixed $spec `all` for the whole log, a from/to pair of
+     *                    `Y-m-d`, or null for the default period
+     * @return array|null Null means the whole log
+     */
+    private static function historyWindow($spec)
+    {
+        if ($spec === 'all') {
+            return null;
+        }
+        if (is_array($spec) && isset($spec['from']) && isset($spec['to'])) {
+            return array(
+                'from' => (string)$spec['from'],
+                'to' => (string)$spec['to'],
+            );
+        }
+        return self::historyDefaultWindow();
+    }
+
+    /**
+     * The period the tab lands on, as days rather than as a count.
+     *
+     * **Kept at 30 days knowing what it renders.** Measured on this
+     * instance it leaves `8.8.8.8` — the richest audit history of the
+     * demo set — showing 8 rows of 353, and `443` showing 8 of 162,539:
+     * the audit log arrives in import bursts, so any fixed window is a
+     * lottery and a wider one only moves which month it gambles on. The
+     * chart above the control draws the whole span regardless, so what
+     * lies outside is visible rather than inferred, and `show all time`
+     * is one click. `27-history.md` §3.2.
+     *
+     * @return array `from`, `to`
+     */
+    private static function historyDefaultWindow()
+    {
+        $to = date('Y-m-d');
+        return array(
+            'from' => date(
+                'Y-m-d',
+                strtotime(
+                    sprintf('-%d days', self::HISTORY_WINDOW_DAYS - 1),
+                    strtotime($to)
+                )
+            ),
+            'to' => $to,
+        );
+    }
+
+    /**
+     * The panel where there is nothing to read: the log is off, or this
+     * reader holds no occurrence of the value.
+     *
+     * **The two render identically from `visible === 0` onwards**, which
+     * is §14.6 being applied rather than a shortcut. The suppressed
+     * state this tab used to draw named the number of occurrences it
+     * could not show, and a band that appears only when something is
+     * hidden is the same disclosure at one bit — its presence is the
+     * signal. So a value whose every occurrence is invisible now renders
+     * exactly what a value nobody ever logged renders.
+     *
+     * `knowable` is state 2's rail card and it is only built for state
+     * 2. It costs a sightings read, which is affordable precisely
+     * because this branch does no audit work at all: on an instance
+     * with `MISP.log_new_audit` off, it is the only query this tab runs.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $context From `timelineContext`
+     * @param bool $recorded
+     * @param array|null $window
+     * @return array
+     */
+    private function historyShell(array $user, $value, array $context,
+        $recorded, $window
+    ) {
+        $shell = array(
+            'recorded' => $recorded,
+            'window' => $window,
+            'default_window' => self::historyDefaultWindow(),
+            'span' => null,
+            'chart' => null,
+            'entries' => 0,
+            'shown' => 0,
+            'occurrences' => 0,
+            'outside' => 0,
+            'visible' => count($context['occurrences']),
+            'events' => 0,
+            'first' => null,
+            'last' => null,
+            /*
+             * The same four groups the populated panel returns, empty
+             * rather than absent: a shape that changes between states
+             * is a shape every reader of it has to test for.
+             */
+            'facets' => self::historyFacets(array()),
+            'vocab' => self::historyVocab(),
+            'groups' => array(),
+            'event_entries' => array(),
+            'event_total' => 0,
+        );
+        if ($recorded) {
+            return $shell;
+        }
+        $edited = null;
+        foreach ($context['occurrences'] as $occurrence) {
+            $stamp = (int)$occurrence['timestamp'];
+            if ($stamp > 0 && ($edited === null || $stamp > $edited)) {
+                $edited = $stamp;
+            }
+        }
+        $publications = array();
+        foreach ($context['events'] as $event) {
+            foreach (array('first_publication', 'publish_timestamp')
+                as $key
+            ) {
+                if (!empty($event[$key])) {
+                    $publications[] = (int)$event[$key];
+                }
+            }
+        }
+        sort($publications);
+        $sightings = $this->sightingContext($user, $value);
+        $shell['knowable'] = array(
+            'occurrences' => count($context['occurrences']),
+            'edited' => $edited,
+            'publications' => $publications,
+            'sightings' => count($sightings['sightings']),
+        );
+        return $shell;
+    }
+
+    /**
+     * The populated panel.
+     *
+     * @param array $rows From `auditRowsFor` — the window's
+     * @param array $counts From `auditCountsFor` — the whole log's
+     * @param array $context From `timelineContext`
+     * @param array $scope The five id lists
+     * @param array|null $window
+     * @return array
+     */
+    private function historyPanel(array $rows, array $counts,
+        array $context, array $scope, $window
+    ) {
+        $groups = array();
+        $eventEntries = array();
+        foreach ($rows as $row) {
+            /*
+             * An occurrence's own row, or the value's. `auditRow` sets
+             * `attribute_id` for `model = 'Attribute'` and nothing else,
+             * so the test is the model's and needs no second list — and
+             * everything else lands in the section below the rule:
+             * event actions, the containing object's, proposals and
+             * event reports. All four are things that happened to this
+             * value and to no single copy of it, which is the argument
+             * `07-history.md` §1 made for the event-level section and
+             * which the two new scopes join rather than widen.
+             */
+            $id = $row['attribute_id'];
+            if ($id === null || !isset($context['occurrences'][$id])) {
+                $eventEntries[] = $this->historyDecorate($row, $context);
+                continue;
+            }
+            if (!isset($groups[$id])) {
+                $occurrence = $context['occurrences'][$id];
+                $event = isset($context['events'][$occurrence['event_id']])
+                    ? $context['events'][$occurrence['event_id']]
+                    : null;
+                $groups[$id] = array(
+                    'attribute_id' => $id,
+                    'event_id' => (int)$occurrence['event_id'],
+                    'event_info' => $event === null
+                        ? __('Unknown event')
+                        : $event['info'],
+                    'org' => $event === null
+                        ? __('Unknown organisation')
+                        : $event['org'],
+                    'deleted' => !empty($occurrence['deleted']),
+                    'count' => 0,
+                    'total' => 0,
+                    'last' => null,
+                    'mix' => array(),
+                    'entries' => array(),
+                );
+            }
+            $row = $this->historyDecorate($row, $context);
+            $groups[$id]['entries'][] = $row;
+            $groups[$id]['count']++;
+            $action = $row['action'];
+            $groups[$id]['mix'][$action] = (
+                isset($groups[$id]['mix'][$action])
+                    ? $groups[$id]['mix'][$action]
+                    : 0
+            ) + 1;
+            if ($groups[$id]['last'] === null
+                || $row['created'] > $groups[$id]['last']
+            ) {
+                $groups[$id]['last'] = $row['created'];
+            }
+        }
+
+        /*
+         * The occurrence's whole-log count, so a section header can say
+         * *3 of 11 changes* rather than imply the window is all there
+         * is. Bounded by construction: the ids are the sections the
+         * window produced, which is single digits on every value
+         * measured, where the same question asked of every occurrence
+         * is a grouped read over 48,255 of them on `443`.
+         */
+        $totals = $this->historyOccurrenceTotals(array_keys($groups));
+        foreach ($groups as $id => $group) {
+            $groups[$id]['total'] = isset($totals[$id])
+                ? $totals[$id]
+                : $group['count'];
+        }
+        $groups = array_values($groups);
+        usort($groups, function ($a, $b) {
+            return strcmp((string)$b['last'], (string)$a['last']);
+        });
+
+        $all = array_merge($eventEntries, array());
+        foreach ($groups as $group) {
+            foreach ($group['entries'] as $row) {
+                $all[] = $row;
+            }
+        }
+        $events = array();
+        foreach ($all as $row) {
+            if ($row['event_id'] !== null) {
+                $events[$row['event_id']] = true;
+            }
+        }
+        $first = null;
+        $last = null;
+        foreach ($all as $row) {
+            if ($first === null || $row['created'] < $first) {
+                $first = $row['created'];
+            }
+            if ($last === null || $row['created'] > $last) {
+                $last = $row['created'];
+            }
+        }
+
+        $visible = count($context['occurrences']);
+        return array(
+            'recorded' => true,
+            'window' => $window,
+            'default_window' => self::historyDefaultWindow(),
+            /*
+             * The log's own bounds and the whole-span chart, both from
+             * the aggregate and never from the window: an input that
+             * only reached the month the reader has already landed on
+             * could not reach the rest of the log.
+             */
+            'span' => self::historySpan($counts),
+            'chart' => self::historyChart($counts),
+            'entries' => (int)$counts['total'],
+            'shown' => count($all),
+            'occurrences' => count($groups),
+            /*
+             * **Occurrences with no entry in this period**, and the
+             * merge of what the fixture kept as two numbers. It had
+             * `silent` — never touched at all — beside `outside` —
+             * touched, but not here. §3.1 measured `silent` at zero on
+             * every value on this instance and gave the mechanism:
+             * `AuditLogBehavior` writes an `add` row when an attribute
+             * is created, so an occurrence with no history is one that
+             * predates the log. Keeping the distinction would cost a
+             * grouped read over every occurrence to report a zero, so
+             * the panel states the one thing it can state for nothing
+             * and that is true either way.
+             */
+            'outside' => $visible - count($groups),
+            'visible' => $visible,
+            'events' => count($events),
+            'first' => $first,
+            'last' => $last,
+            'facets' => self::historyFacets($all),
+            'vocab' => self::historyVocab(),
+            'groups' => $groups,
+            'event_entries' => $eventEntries,
+            'event_total' => count($eventEntries),
+        );
+    }
+
+    /**
+     * The event the row belongs to, named.
+     *
+     * @param array $row From `auditRow`
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function historyDecorate(array $row, array $context)
+    {
+        $event = $row['event_id'] !== null
+                && isset($context['events'][$row['event_id']])
+            ? $context['events'][$row['event_id']]
+            : null;
+        if ($event !== null) {
+            $row['event_info'] = $event['info'];
+            if ($row['org'] === null) {
+                $row['org'] = $event['org'];
+            }
+        }
+        if ($row['org'] === null) {
+            $row['org'] = __('Unknown organisation');
+        }
+        return $row;
+    }
+
+    /**
+     * Each named occurrence's whole-log entry count.
+     *
+     * @param array $ids Attribute ids — the sections that were built
+     * @return array id => n
+     */
+    private function historyOccurrenceTotals(array $ids)
+    {
+        if (empty($ids)) {
+            return array();
+        }
+        $rows = $this->model('AuditLog')->find('all', array(
+            'conditions' => array(
+                'AuditLog.model' => 'Attribute',
+                'AuditLog.model_id' => array_map('intval', $ids),
+            ),
+            'fields' => array(
+                'AuditLog.model_id',
+                'COUNT(*) AS n',
+            ),
+            'group' => array('AuditLog.model_id'),
+            'recursive' => -1,
+        ));
+        $out = array();
+        foreach ($rows as $row) {
+            $out[(int)$row['AuditLog']['model_id']] = (int)$row[0]['n'];
+        }
+        return $out;
+    }
+
+    /**
+     * The ids of the event reports this reader may see on the value's
+     * events.
+     *
+     * @param array $user
+     * @param array $context From `timelineContext`
+     * @return array
+     */
+    private function historyReportIds(array $user, array $context)
+    {
+        if (empty($context['scope']['events'])) {
+            return array();
+        }
+        $rows = $this->model('EventReport')->fetchReports(
+            $user,
+            array('conditions' => array(
+                'EventReport.event_id' => $context['scope']['events'],
+            ))
+        );
+        $ids = array();
+        foreach ($rows as $row) {
+            $ids[] = (int)$row['EventReport']['id'];
+        }
+        return $ids;
+    }
+
+    /**
+     * The log's own bounds for this value, as days.
+     *
+     * @param array $counts From `auditCountsFor`
+     * @return array|null
+     */
+    private static function historySpan(array $counts)
+    {
+        if (empty($counts['first']) || empty($counts['last'])) {
+            return null;
+        }
+        return array(
+            'from' => substr((string)$counts['first'], 0, 10),
+            'to' => substr((string)$counts['last'], 0, 10),
+        );
+    }
+
+    /**
+     * The activity chart, over the whole log.
+     *
+     * Free: `auditCountsFor` already grouped by day, so this is a fold
+     * over rows the aggregate returned rather than a read of its own.
+     * The day map is keyed by action *group* for the Timeline's lanes,
+     * so it is flattened back to a per-day total here.
+     *
+     * @param array $counts From `auditCountsFor`
+     * @return array|null
+     */
+    private static function historyChart(array $counts)
+    {
+        $span = self::historySpan($counts);
+        if ($span === null) {
+            return null;
+        }
+        $today = date('Y-m-d');
+        $plan = ValueProfileBuckets::plan(
+            $span['from'],
+            $today,
+            self::HISTORY_CHART_RULE
+        );
+        $days = array();
+        foreach ($counts['by_day'] as $day => $byGroup) {
+            $days[$day] = array_sum($byGroup);
+        }
+        $plan['counts'] = ValueProfileBuckets::tally(
+            $span['from'],
+            $today,
+            $days
+        );
+        return $plan;
+    }
+
+    /**
+     * The rail, tallied over the rendered rows.
+     *
+     * The counts describe the period the reader is in, which phase 19's
+     * decision 7 settled: the corpus total is on screen once, in the
+     * header, and the chart above the control is the signal that
+     * activity exists outside the window.
+     *
+     * @param array $rows The rendered rows
+     * @return array
+     */
+    private static function historyFacets(array $rows)
+    {
+        $vocab = self::historyVocab();
+        $tallies = array(
+            'action' => array_fill_keys($vocab['action'], 0),
+            'model' => array_fill_keys($vocab['model'], 0),
+            'org' => array(),
+            'actor' => array(),
+        );
+        foreach ($rows as $row) {
+            foreach (array('action', 'model', 'org') as $key) {
+                $key_value = (string)$row[$key];
+                $tallies[$key][$key_value] = (
+                    isset($tallies[$key][$key_value])
+                        ? $tallies[$key][$key_value]
+                        : 0
+                ) + 1;
+            }
+            $actor = empty($row['actor'])
+                ? sprintf(__('%s (unnamed)'), $row['org'])
+                : $row['actor'];
+            $tallies['actor'][$actor] = (
+                isset($tallies['actor'][$actor])
+                    ? $tallies['actor'][$actor]
+                    : 0
+            ) + 1;
+        }
+        arsort($tallies['org']);
+        arsort($tallies['actor']);
+        $out = array();
+        foreach ($tallies as $key => $counts) {
+            $group = array();
+            foreach ($counts as $name => $count) {
+                $group[] = array(
+                    'label' => $key === 'action'
+                        ? AuditActionMeta::label($name)
+                        : $name,
+                    'value' => trim(preg_replace(
+                        '/[^a-z0-9]+/',
+                        '-',
+                        strtolower((string)$name)
+                    ), '-'),
+                    'count' => $count,
+                );
+            }
+            $out[$key] = $group;
+        }
+        return $out;
+    }
+
+    /**
+     * What the rail orders its rows by, and which of them get a zero
+     * row rather than no row.
+     *
+     * **Read from `AuditActionMeta` rather than listed here**, which is
+     * the same single-source move phase 25 made for the lane grouping.
+     * The fixture's own list named ten actions; this instance writes
+     * fourteen, and five of those ten are not among them — `tag_local`,
+     * `remove_local_tag`, `galaxy_local`, `remove_local_galaxy` and
+     * `publish_sightings`. Two of the five are on `8.8.8.8`, six of its
+     * 54 attribute-scope rows, so a ninth of the richest demo value's
+     * history was arriving as an action the rail had not been told
+     * about — tallied, but sorted after the zeros. `27-history.md`
+     * §11.2.
+     *
+     * `undelete` keeps its zero row on this instance, and that is the
+     * point of zero rows: *undelete 0* tells the reader nothing was
+     * ever undeleted, where an absent row tells them nothing at all.
+     *
+     * @return array `action`, `model`
+     */
+    private static function historyVocab()
+    {
+        return array(
+            'action' => AuditActionMeta::actions(),
+            'model' => array(
+                'Attribute', 'Event', 'Object', 'ShadowAttribute',
+                'EventReport',
+            ),
+        );
+    }
+
     /**
      * The value's audit history: the rows about the objects this viewer
      * may already see, scoped by id.
@@ -9092,10 +9774,134 @@ class ValueProfile extends AppModel
             $params['limit'] = (int)$cap;
         }
         $rows = array();
+        $actorScope = array_key_exists('actor_scope', $options)
+            ? $options['actor_scope']
+            : null;
         foreach ($audit->find('all', $params) as $row) {
-            $rows[] = $this->auditRow($row);
+            $rows[] = $this->auditRow($row, $actorScope);
         }
         return $rows;
+    }
+
+    /**
+     * The diff, in the field/was/is shape the History tab renders.
+     *
+     * **The row carries it and no second request fetches it.**
+     * `07-history.md` §10 nominated `AuditLogsController::fullChange`
+     * for this, and that endpoint cannot serve this panel: its first
+     * line is `__applyAuditAcl`, which restricts a non-site-admin to
+     * their own `user_id`, so against an instance where one
+     * organisation wrote 98% of the audit log it answers 404 for almost
+     * every diff the panel has just rendered. `27-history.md` §9.
+     *
+     * `AuditLog::afterFind` has already decompressed and JSON-decoded
+     * the blob into `field => values`, where `values` is `[was, is]` on
+     * an edit and a bare value on an add or a removal. It answers the
+     * literal string `Compressed` where the row was brotli-compressed
+     * and the extension is absent — 11.8% of this instance's rows are
+     * above `AuditLog::COMPRESS_MIN_LENGTH`, so that is a real branch
+     * and not a defensive one.
+     *
+     * @param array $log One `AuditLog` row, `change` decoded
+     * @return array|null
+     */
+    private static function auditChangeRows(array $log)
+    {
+        $change = $log['change'];
+        if (empty($change) || !is_array($change)) {
+            return null;
+        }
+        $removes = in_array($log['action'], self::AUDIT_REMOVES, true);
+        $rows = array();
+        foreach ($change as $field => $values) {
+            if (is_array($values)) {
+                $was = isset($values[0]) ? $values[0] : '';
+                $is = isset($values[1]) ? $values[1] : '';
+            } elseif ($removes) {
+                $was = $values;
+                $is = '';
+            } else {
+                $was = '';
+                $is = $values;
+            }
+            $rows[] = array(
+                'field' => (string)$field,
+                'was' => self::auditChangeValue($field, $was),
+                'is' => self::auditChangeValue($field, $is),
+            );
+        }
+        return empty($rows) ? null : $rows;
+    }
+
+    /**
+     * One side of a diff, rendered the way MISP's own change element
+     * renders it — so the same edit reads the same on both pages.
+     *
+     * @param string $field
+     * @param mixed $value
+     * @return string
+     */
+    private static function auditChangeValue($field, $value)
+    {
+        if ($value === '' || $value === null) {
+            return '';
+        }
+        if (is_array($value)) {
+            return JsonTool::encode($value);
+        }
+        if (is_numeric($value)
+            && (strpos($field, 'timestamp') !== false
+                || in_array($field, self::AUDIT_DATE_FIELDS, true))
+        ) {
+            $at = date('Y-m-d H:i:s', (int)$value);
+            return $at === false ? (string)$value : $at;
+        }
+        if (is_numeric($value)
+            && ($field === 'first_seen' || $field === 'last_seen')
+        ) {
+            // Microsecond epochs, the same arithmetic
+            // `Elements/AuditLog/change.ctp` does.
+            return gmdate('Y-m-d\TH:i:s', (int)((int)$value / 1000000))
+                . '.' . str_pad((string)((int)$value % 1000000), 6, '0',
+                    STR_PAD_LEFT);
+        }
+        return (string)$value;
+    }
+
+    /**
+     * Which actors this reader may be named to, as a set of user ids.
+     *
+     * **Null means every actor**, which is what a site admin gets and
+     * what `AuditLogsController::eventIndex` gives them by skipping its
+     * own redaction entirely. For everyone else it is the ids of the
+     * users in their own organisation — the same
+     * `User.find('column')` that controller runs, hoisted so a
+     * multi-scope read pays for it once instead of once per statement.
+     *
+     * A row whose actor is not in the set keeps its organisation and
+     * loses its address, which is the shape `auditRow`'s null path and
+     * both panels' *`<org> (unnamed)`* wording already handle — chosen
+     * in phase 25 for the deleted-account case, and the same answer for
+     * the same reason: which organisation acted is the part that
+     * survives.
+     *
+     * @param array $user
+     * @return array|null id => true, or null for no redaction
+     */
+    private function auditActorScope(array $user)
+    {
+        if (!empty($user['Role']['perm_site_admin'])) {
+            return null;
+        }
+        $ids = $this->model('User')->find('column', array(
+            'conditions' => array('User.org_id' => $user['org_id']),
+            'fields' => array('User.id'),
+        ));
+        $scope = array();
+        foreach ($ids as $id) {
+            $scope[(int)$id] = true;
+        }
+        return $scope;
     }
 
     /**
@@ -9264,6 +10070,24 @@ class ValueProfile extends AppModel
             'Event' => isset($scope['events'])
                 ? $scope['events']
                 : array(),
+            /*
+             * The two the coverage survey owes the History tab, and
+             * absent from every Timeline call — that tab reaches
+             * proposals and reports as their own dated lanes and needs
+             * no audit row for either. A caller that passes neither key
+             * gets exactly the three statements phase 25 measured.
+             *
+             * Both are gated before they arrive: the proposal ids come
+             * from `Value::proposalsFor`, which applies
+             * `ShadowAttribute::buildConditions`, and the report ids
+             * from `EventReport::fetchReports`. `27-history.md` §13.
+             */
+            'ShadowAttribute' => isset($scope['proposals'])
+                ? $scope['proposals']
+                : array(),
+            'EventReport' => isset($scope['reports'])
+                ? $scope['reports']
+                : array(),
         );
         $queries = array();
         foreach ($byModel as $model => $ids) {
@@ -9293,9 +10117,13 @@ class ValueProfile extends AppModel
      * with.
      *
      * @param array $row From `AuditLog::find`
+     * @param array|null $actorScope From `auditActorScope`: null where
+     *                               every actor may be named, otherwise
+     *                               a set of user ids that may be,
+     *                               keyed by id
      * @return array
      */
-    private function auditRow(array $row)
+    private function auditRow(array $row, $actorScope = null)
     {
         $log = $row['AuditLog'];
         $org = isset($row['Organisation']['name'])
@@ -9304,6 +10132,27 @@ class ValueProfile extends AppModel
         $actor = isset($row['User']['email'])
             ? $row['User']['email']
             : null;
+        /*
+         * The redaction `AuditLogsController::eventIndex` applies, and
+         * the reason it has to be applied here too. That controller
+         * strips `User` from every row whose actor is outside the
+         * viewer's organisation, for any non-site-admin — after
+         * `paginate()`, in the controller, and **not** in
+         * `__createEventIndexConditions`. So a reader that inherits
+         * that model's *conditions* inherits none of its redaction, and
+         * phase 25's subset claim — which is a claim about which rows —
+         * does not cover what each row carries. Measured on this
+         * instance: three ADMIN users wrote 9,325,454 of 9,512,515
+         * rows, so without this a CIRCL org admin reads
+         * `admin@admin.test` on rows MISP's own audit index shows them
+         * no actor for at all. `27-history.md` §8.
+         */
+        if ($actorScope !== null
+            && $actor !== null
+            && !isset($actorScope[(int)$log['user_id']])
+        ) {
+            $actor = null;
+        }
         return array(
             /*
              * Carried, and not only for completeness: the three-scope
@@ -9327,7 +10176,7 @@ class ValueProfile extends AppModel
             'org' => $org,
             'request_type' => (int)$log['request_type'],
             'change' => array_key_exists('change', $log)
-                ? $log['change']
+                ? self::auditChangeRows($log)
                 : null,
             'renamed' => false,
             'subject' => in_array($log['action'], self::AUDIT_SUBJECT, true)
