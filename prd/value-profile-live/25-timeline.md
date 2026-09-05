@@ -55,7 +55,7 @@ to `done` only when §14's verification has run against it.
 
 **Where the phase stands. Every row is done and the phase is closed
 (2026-09-05).** The tab reads the database: the endpoint is wired,
-**eight** dated lanes and the off-axis strip are live, and the panel
+**nine** dated lanes and the off-axis strip are live, and the panel
 renders with no fixture behind it for either reader class and with the
 audit log on or off. §16 is the build log; §17 to §22 are what the first
 reader of the built tab asked for over six rounds, and T15 to T25 are
@@ -126,12 +126,15 @@ decision in passing would be the wrong way to take it.
 
 ### 1.2 Starting from cold
 
-**Nothing is built.** `ValuesController::viewTimeline` still calls
-`profileFor()`, which is `ValueProfileFixture`. What already exists and is
-*not* the work: the endpoint, its `ACLComponent` entry
-(`ACLComponent.php:1083`, `theming_enabled`), the skeleton descriptor in
-`Values/view.ctp`, and `value_timeline.ctp` itself — 1,255 lines that
-render the whole tab against the fixture's array.
+**It is built; this section orients a reader picking the closed phase
+up, and is no longer a plan.** `ValuesController::viewTimeline`
+(`ValuesController.php:600`) calls `ValueProfile::forTimeline`
+(`ValueProfile.php:6364`), and nothing in that path reads
+`ValueProfileFixture`. What the phase did not have to build: the
+endpoint, its `ACLComponent` entry (`ACLComponent.php:1083`,
+`theming_enabled`), and the skeleton descriptor in `Values/view.ctp`.
+`value_timeline.ctp` was 1,255 lines rendering the fixture's array when
+the phase opened; it is 3,040 rendering the database now.
 
 **Where.** The corpus and the code are both in the
 `attribute-value-page-brief` worktree, branch
