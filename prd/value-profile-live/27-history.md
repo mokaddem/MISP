@@ -1308,3 +1308,25 @@ SQL error**, which is what says the shared reader still serves the four
 panels it served before. Browser pass re-run: diff opens with zero
 requests, facets narrow to `n of m`, an emptied section greys rather
 than vanishes, both themes, no console error.
+
+### 18.9 The maintainer's reading
+
+**Confirmed 2026-09-05**, over the built and reviewed tab, with no
+change asked for and none made.
+
+Recorded because this document distinguishes the two kinds of reading
+and the distinction earned its keep here. §18 is the author re-reading
+their own work, which is worth exactly one pass: five of its six
+findings were second-order effects of this phase's own additions, and
+that category empties. The rounds that kept paying in phases 25 and 26
+were the maintainer's — `25-timeline.md` §26 and `26-analyst.md`
+§18–§20 — because a reader who did not write the code notices different
+things. A second self-review round was considered and declined on that
+argument rather than on time.
+
+**So the phase closes here**, and what is still open is §14 and §17
+unchanged: four priced deferrals, one item owed to
+`Logs/timeline.ctp`'s other callers, and two things — the `silent`
+merge's limitation and state 3's missing demo — that need an instance
+which enabled its audit log after ingestion rather than before it. None
+of the three is reachable by reading this tab again.
