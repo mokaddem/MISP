@@ -5908,6 +5908,18 @@
         var starts = {};
         var last = null;
         tl.data.bins.forEach(function (bin, index) {
+            /*
+             * The elided bin opens no year. It stands for a span that
+             * may cross several, and its `to` is the far end of that
+             * span — so writing a year under it would date the break
+             * to the year it ends in and leave the bin *after* it,
+             * the first one drawn to scale again, unlabelled. Passed
+             * over entirely, `last` is unchanged and the next real
+             * bin takes the year if it differs.
+             */
+            if (bin.elided) {
+                return;
+            }
             var year = String(bin.to).slice(0, 4);
             if (year !== last) {
                 starts[index] = year;
@@ -5972,6 +5984,50 @@
                         Math.round(chart.height - chart.chartArea.bottom)
                             + 'px'
                     );
+                },
+            }, {
+                /*
+                 * The empty end of the axis, and the break across it.
+                 *
+                 * The band goes in `beforeDraw`, under the grid lines
+                 * rather than over them. Those lines are what say the
+                 * stretch is *zero* rather than *not plotted*, and a
+                 * tint painted over them would take away the one cue
+                 * that tells the two apart — which is the whole thing
+                 * this band exists to be clear about.
+                 *
+                 * The break goes in `afterDatasetsDraw`, over
+                 * everything, because it is a statement about the axis
+                 * and not a layer of it.
+                 */
+                id: 'vpTlDormancy',
+                beforeDraw: function (chart, args, opts) {
+                    var box = tlTailBox(chart);
+                    if (!box) {
+                        return;
+                    }
+                    var ctx = chart.ctx;
+                    ctx.save();
+                    ctx.fillStyle = opts.band;
+                    ctx.fillRect(
+                        box.from,
+                        box.top,
+                        box.right - box.from,
+                        box.bottom - box.top
+                    );
+                    ctx.restore();
+                },
+                afterDatasetsDraw: function (chart, args, opts) {
+                    var box = tlTailBox(chart);
+                    if (!box) {
+                        return;
+                    }
+                    chart.ctx.save();
+                    if (box.cut) {
+                        tlDrawCut(chart, box, opts);
+                    }
+                    tlDrawToday(chart, box, opts);
+                    chart.ctx.restore();
                 },
             }],
             data: {
@@ -6045,6 +6101,24 @@
                 },
                 plugins: {
                     legend: { display: false },
+                    /*
+                     * Four tokens rather than four literals, so the
+                     * band follows the theme the way every other
+                     * colour on this canvas does — `resolve()` walks
+                     * plugin options with the rest of the config and
+                     * `boot()` re-resolves them on a theme flip.
+                     *
+                     * `ground` is the canvas's own background and is
+                     * what the break is cut out of: a gap has to be
+                     * the colour of the paper, not a colour of its
+                     * own, or it reads as a bar.
+                     */
+                    vpTlDormancy: {
+                        band: 'var(--bs-secondary-bg)',
+                        ground: 'var(--bs-body-bg)',
+                        rule: 'var(--bs-secondary-color)',
+                        label: 'var(--bs-secondary-color)',
+                    },
                     tooltip: {
                         callbacks: {
                             title: function (items) {
@@ -6056,6 +6130,114 @@
             },
         }, canvas);
         return new Chart(canvas, config);
+    }
+
+    /**
+     * Where the value stops and the wait begins, in canvas pixels.
+     *
+     * The bins are equal-width categories and their date spans are
+     * not, so the geometry is bin arithmetic over the plot area and
+     * never date arithmetic: one slot is `chartArea.width / bins`, and
+     * the tail starts at the left edge of slot `tail.at`.
+     *
+     * @param {Chart} chart
+     * @return {Object|null} `from`, `right`, `top`, `bottom`, `slot`,
+     *     and `cut` — the elided slot's edges, or null where the tail
+     *     is short enough to be drawn whole.
+     */
+    function tlTailBox(chart) {
+        var tail = tl.data && tl.data.tail;
+        var area = chart.chartArea;
+        if (!tail || !area || !tl.data.bins.length) {
+            return null;
+        }
+        var slot = area.width / tl.data.bins.length;
+        return {
+            from: area.left + slot * tail.at,
+            right: area.right,
+            top: area.top,
+            bottom: area.bottom,
+            slot: slot,
+            cut: tail.elided > 0
+                ? {
+                    from: area.left + slot * tail.at,
+                    to: area.left + slot * (tail.at + 1),
+                }
+                : null,
+        };
+    }
+
+    /**
+     * The break in the axis: a gap cut out of the plot, edged by two
+     * leaning rules.
+     *
+     * The printed convention, and it is the convention because it says
+     * the one thing a reader has to know here — *the distance across
+     * this is not the distance it looks like*. A texture would not:
+     * this panel already spends 135° on *MISP cannot date this* and
+     * 45° on *this was not fetched* (§19.3), and a third hatch would
+     * be a third thing to learn where the fourth reading is that they
+     * are all the same thing.
+     *
+     * @param {Chart} chart
+     * @param {Object} box From `tlTailBox()`
+     * @param {Object} opts The plugin's resolved colours
+     */
+    function tlDrawCut(chart, box, opts) {
+        var ctx = chart.ctx;
+        var mid = (box.cut.from + box.cut.to) / 2;
+        var half = Math.max(3, Math.min(7, box.slot * 0.3));
+        var lean = 5;
+        ctx.fillStyle = opts.ground;
+        ctx.fillRect(
+            mid - half,
+            box.top,
+            half * 2,
+            box.bottom - box.top
+        );
+        ctx.strokeStyle = opts.rule;
+        ctx.lineWidth = 1;
+        [mid - half, mid + half].forEach(function (x) {
+            ctx.beginPath();
+            ctx.moveTo(x + lean, box.top);
+            ctx.lineTo(x - lean, box.bottom);
+            ctx.stroke();
+        });
+    }
+
+    /**
+     * *today*, at the right-hand end of the band.
+     *
+     * The axis genuinely ends there — `series()` clamps its last bin
+     * to the current day — so this names an edge rather than marking
+     * a position, which is why it is a word at the end and not a rule
+     * somewhere in the middle.
+     *
+     * Dropped where the band is too narrow to hold it. A caption wider
+     * than the empty stretch would print over the bars it exists to be
+     * to the right of, and a value quiet for one bin does not need
+     * telling that its axis reaches today.
+     *
+     * @param {Chart} chart
+     * @param {Object} box From `tlTailBox()`
+     * @param {Object} opts The plugin's resolved colours
+     */
+    function tlDrawToday(chart, box, opts) {
+        var text = tl.data.labels && tl.data.labels.today;
+        if (!text) {
+            return;
+        }
+        var ctx = chart.ctx;
+        ctx.font = '10px ' + (
+            getComputedStyle(chart.canvas).fontFamily || 'sans-serif'
+        );
+        if (ctx.measureText(text).width + 10 > box.right - box.from) {
+            return;
+        }
+        ctx.fillStyle = opts.label;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(text, box.right - 4, box.top + 3);
     }
 
     /**

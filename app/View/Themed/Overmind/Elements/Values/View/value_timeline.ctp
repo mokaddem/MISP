@@ -351,11 +351,28 @@ foreach ($windowed as $entry) {
  * nothing older than it to count. The branch is kept because a future
  * ceiling on the axis would need it back, and removing it would take
  * the wording with it.
+ *
+ * **The axis ends at today and not at the value's last entry.** It
+ * used to end where the value did, which made a value that went quiet
+ * two months ago and one seen this morning the same picture — the
+ * difference between them was in the tick labels, which is the half of
+ * a chart a reader skims. Running the series on to today puts *how
+ * long since* back into the shape, and §27 has why that is worth the
+ * empty space it costs.
+ *
+ * **The grain is still chosen from `$rangeDays`, which is the data's
+ * own span**, and that is deliberate rather than incidental. Choosing
+ * it from the drawn range would let the emptiness after a value decide
+ * how finely the value itself is drawn: `yovtube.co` has one dated
+ * day, and measured against the range now drawn it would fall from
+ * days to weeks — its whole record redrawn as a week, *because of the
+ * eleven months of silence that followed it*.
  */
 $bins = array();
 $before = 0;
 $earliest = null;
 $spineUnit = ValueProfileBuckets::MONTH;
+$today = (new DateTimeImmutable('now', $utc))->format('Y-m-d');
 $rangeFrom = $counts['first'] === null
     ? null
     : substr($counts['first'], 0, 10);
@@ -367,7 +384,11 @@ if ($window !== null && $rangeFrom !== null) {
         ->diff(new DateTimeImmutable($rangeTo, $utc))
         ->days;
     $spineUnit = ValueProfileBuckets::unitForSpan($rangeDays, $spineRule);
-    $bins = ValueProfileBuckets::series($rangeFrom, $rangeTo, $spineUnit);
+    $bins = ValueProfileBuckets::series(
+        $rangeFrom,
+        max($rangeTo, $today),
+        $spineUnit
+    );
     foreach ($bins as $i => $bin) {
         $bins[$i]['counts'] = array();
         $bins[$i]['total'] = 0;
@@ -385,6 +406,92 @@ if ($window !== null && $rangeFrom !== null) {
             $bins[$at]['counts'][$source] += $n;
             $bins[$at]['total'] += $n;
         }
+    }
+}
+
+/*
+ * ------------------------------------------------------------------
+ * The cap on the empty end
+ * ------------------------------------------------------------------
+ * The bins above already run to today, so a dormant value has empty
+ * ones after its last entry. Left alone that is the whole of the
+ * change and it is wrong for the values it matters most to: one busy
+ * through 2016 and dead since would spend nine tenths of its axis on
+ * nothing and draw its actual history as a sliver.
+ *
+ * So **the empty end may take half the width of the data and no
+ * more**, which is a third of the drawn axis. Past that the bins
+ * nearest today are the ones kept and the rest fold into a single
+ * elided bin — a real date range like any other, so `locate()` still
+ * covers the axis and a reader can brush it and get the empty window
+ * it honestly describes. What it is not is to scale, and the axis
+ * says so with a break rather than with a texture (§27.4).
+ *
+ * Its title is written and currently unreadable: the brush overlay
+ * takes the pointer before the canvas does, so this chart's tooltip
+ * has never fired. §27.8 has why that is left alone and why the span
+ * the break stands for is in the sentence under the chart instead.
+ *
+ * The floor of two is for the values with almost no width to halve.
+ * A value whose whole history is one bin has no resolution inside it
+ * to protect, so the fraction has nothing to say and the tail gets
+ * the break and the one bin holding today.
+ */
+$tail = null;
+if ($bins !== array() && $rangeTo !== null && isset($index[$rangeTo])) {
+    $tailAt = $index[$rangeTo] + 1;
+    $tailOf = count($bins) - $tailAt;
+    if ($tailOf > 0) {
+        $tailCap = max(2, (int)ceil($tailAt / 2));
+        $fold = $tailOf - ($tailCap - 1);
+        if ($fold > 1) {
+            $foldFrom = $bins[$tailAt];
+            $foldTo = $bins[$tailAt + $fold - 1];
+            array_splice($bins, $tailAt, $fold, array(array(
+                'key' => 'elided',
+                'label' => '⋯',
+                'title' => '',
+                'from' => $foldFrom['from'],
+                'to' => $foldTo['to'],
+                'elided' => $fold,
+                'counts' => array(),
+                'total' => 0,
+            )));
+        } else {
+            $fold = 0;
+        }
+        /*
+         * Whether the silence is worth a sentence.
+         *
+         * The band is drawn for any tail at all, because the axis
+         * reaching today is now simply true and needs no excuse.
+         * *Quiet for n* is a claim, and a claim needs a floor:
+         * `193.161.193.99` was last seen four days ago and was
+         * getting a box telling the reader it had gone quiet.
+         *
+         * The floor is one bin of the spine's own grain, which makes
+         * it proportionate rather than absolute. The grain is chosen
+         * from the value's range, so a value with five years behind
+         * it has to go a month silent before the panel says so and
+         * one with three weeks has to go two days — where a flat
+         * thirty days would call the first quiet at a fraction of
+         * its own rhythm and never say anything about the second.
+         */
+        $grainDays = array(
+            ValueProfileBuckets::DAY => 1,
+            ValueProfileBuckets::WEEK => 7,
+            ValueProfileBuckets::MONTH => 30,
+        );
+        $tailDays = (int)(new DateTimeImmutable($rangeTo, $utc))
+            ->diff(new DateTimeImmutable($today, $utc))
+            ->days;
+        $tail = array(
+            'at' => $tailAt,
+            'elided' => $fold,
+            'since' => $rangeTo,
+            'days' => $tailDays,
+            'quiet' => $tailDays > $grainDays[$spineUnit],
+        );
     }
 }
 
@@ -748,6 +855,23 @@ foreach ($laneBins as $i => $bin) {
     $laneBins[$i]['title'] = $binTitle($bin);
 }
 
+/*
+ * The elided bin's title, written here because it is written out of
+ * `$binTitle` — the twelve names the ruler and the lanes already use,
+ * rather than `describe()`'s, for §16's reason: two spellings of one
+ * month is two vocabularies.
+ *
+ * It says the span and it says the axis is not to scale across it,
+ * because those are the two things a reader cannot get from a bin
+ * with no bar in it.
+ */
+if ($tail !== null && $tail['elided'] > 0) {
+    $bins[$tail['at']]['title'] = sprintf(
+        __('%s — nothing recorded, and not drawn to scale'),
+        $binTitle($bins[$tail['at']])
+    );
+}
+
 /**
  * One ruler label: the day, plus whatever the tick before it has not
  * already said.
@@ -1099,9 +1223,25 @@ if ($window !== null) {
                 'title' => $bin['title'],
                 'from' => $bin['from'],
                 'to' => $bin['to'],
+                /*
+                 * How many bins this one stands in for. Zero on every
+                 * bin but the elided one, and the script reads it for
+                 * two things: where to draw the break, and which bin
+                 * to keep out of the year ticks — a `⋯` under a year
+                 * would date the break to its far end.
+                 */
+                'elided' => isset($bin['elided']) ? $bin['elided'] : 0,
             );
         }, $bins),
         'datasets' => $datasets,
+        /*
+         * Where the value stops and the wait begins, or null for a
+         * value that has not stopped. The script needs the index
+         * rather than a date: the tail is a band over whole bin
+         * slots, and the bins are equal-width categories whose date
+         * spans are not.
+         */
+        'tail' => $tail,
         /*
          * The day map travels with the chart, so a brushed window is
          * counted the same way the default one was: summed over every
@@ -1170,6 +1310,13 @@ if ($window !== null) {
             'entries' => __('entries'),
             'cut' => $cutTitle,
             'axis' => __('Dated entries per month, stacked by source'),
+            /*
+             * Printed at the right-hand end of the empty band, where
+             * there is room for it. The axis already ends at today —
+             * `series()` clamps its last bin there — so this names an
+             * edge the reader can otherwise only infer from a tick.
+             */
+            'today' => __('today'),
             /*
              * The note over the chronology names the filter either way
              * round, because shift-clicking a key drops one source and
@@ -1371,7 +1518,16 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                                     ? $grainWord[$spineUnit]
                                     : __('by month'),
                                 $rangeFrom === null ? '-' : $rangeFrom,
-                                $rangeTo === null ? '-' : $rangeTo
+                                /*
+                                 * The drawn end and not the value's,
+                                 * because those are two dates now and
+                                 * a label naming the wrong one would
+                                 * tell a screen reader the axis stops
+                                 * where the bars do.
+                                 */
+                                $bins === array()
+                                    ? '-'
+                                    : $bins[count($bins) - 1]['to']
                             )) ?>"></canvas>
                     <?php
                     /*
@@ -1390,6 +1546,86 @@ $timelineBase = $baseurl . '/values/viewTimeline/' . $valueB64;
                         </div>
                     </div>
                 </div>
+
+                <?php if ($tail !== null && $tail['quiet']): ?>
+                    <?php
+                    /*
+                     * The wait, in words, under the chart that draws
+                     * it as a length.
+                     *
+                     * Both, and not one or the other. The empty band
+                     * is what a reader sees without looking — it is
+                     * the thing that makes a dormant value and a live
+                     * one different pictures — and a length read off
+                     * an axis is an estimate. The sentence is the
+                     * number, and it is also the only form the wait
+                     * takes for a reader on a screen reader or with
+                     * no script at all.
+                     */
+                    $sinceWord = function ($days) {
+                        if ($days < 31) {
+                            return sprintf(
+                                __n('%d day', '%d days', $days),
+                                $days
+                            );
+                        }
+                        if ($days < 730) {
+                            $n = max(1, (int)round($days / 30.44));
+                            return sprintf(
+                                __n('%d month', '%d months', $n),
+                                $n
+                            );
+                        }
+                        $n = max(2, (int)round($days / 365.25));
+                        return sprintf(
+                            __n('%d year', '%d years', $n),
+                            $n
+                        );
+                    };
+                    ?>
+                    <div class="vp-tl-quiet">
+                        <i class="fas fa-hourglass-end"></i>
+                        <div class="vp-min-w-0">
+                            <div class="fw-semibold">
+                                <?= h(sprintf(
+                                    __('Quiet for %s'),
+                                    $sinceWord($tail['days'])
+                                )) ?>
+                            </div>
+                            <div class="vp-tl-why">
+                                <?= h(sprintf(
+                                    __(
+                                        'Nothing dated against this'
+                                        . ' value since %s. The axis'
+                                        . ' runs to today, so the'
+                                        . ' empty stretch at its'
+                                        . ' right-hand end is that'
+                                        . ' silence.'
+                                    ),
+                                    $binTitle(array(
+                                        'from' => $tail['since'],
+                                        'to' => $tail['since'],
+                                    ))
+                                )) ?>
+                            </div>
+                            <?php if ($tail['elided'] > 0): ?>
+                                <div class="vp-tl-why">
+                                    <?= h(sprintf(
+                                        __(
+                                            'The break in the axis'
+                                            . ' stands for %s. The'
+                                            . ' chart is to scale on'
+                                            . ' either side of the'
+                                            . ' break and not across'
+                                            . ' it.'
+                                        ),
+                                        $binTitle($bins[$tail['at']])
+                                    )) ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <noscript>
                     <?php

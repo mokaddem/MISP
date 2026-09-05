@@ -8205,6 +8205,33 @@ th.vp-rel-num {
     font-size: 0.72rem;
 }
 
+/*
+ * The dormancy note, under the spine.
+ *
+ * Same block as `.vp-tl-firsthere` and deliberately in the secondary
+ * tone rather than in an accent or a warning: what it reports is an
+ * absence, and this panel already spends its warning colour on the
+ * cut band — where the meaning is *fetched short*, which a reader
+ * must not confuse with *nothing happened*. Grey is the register for
+ * a fact about nothing.
+ */
+.vp-tl-quiet {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    font-size: 0.78rem;
+    margin-top: 10px;
+    padding: 5px 10px;
+    border-left: 3px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    border-radius: 0 6px 6px 0;
+}
+
+.vp-tl-quiet > i {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+}
+
 .vp-tl-firsthere .vp-tl-why {
     display: inline;
 }

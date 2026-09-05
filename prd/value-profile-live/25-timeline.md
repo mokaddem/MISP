@@ -576,6 +576,11 @@ this belongs on §14.7's report-do-not-fix list rather than in this phase.
 > **Built.** §16.2 has what shipped, the grain table it shipped with, and
 > why it reuses `unitForSpan()` and `series()` rather than `plan()` —
 > which is D5's stated reopening condition met rather than ignored.
+>
+> **Extended in §27.** The bins still *begin* at the range and the grain
+> is still chosen from it, but the axis now ends at today rather than at
+> the value's last entry. The two numbers came apart there and everything
+> below that says "the range" means the first of them.
 
 `06-timeline.md` §12 lists this as live-data work the fixture pins:
 *"twelve monthly bins because the range is a year. A value first seen last
@@ -2488,3 +2493,177 @@ twenty-four spans on one instant gets one label and always will; that is
 the point rather than a shortfall, and §23.4's *packed spans* — giving
 overlapping spans their own rows — is still the change that would let
 the lane name more of them.
+
+---
+
+## 27. The axis runs to today, and the wait is part of the picture
+
+From the reader of the built tab: *wouldn't it be better if the right
+side was set to the current time instead of the last time the value had
+activity? It would give a sense of how long compared to now.*
+
+Yes — and not by doing only that, because doing only that costs the
+chart something it cannot afford.
+
+### 27.1 The right edge was the last thing that happened
+
+`§9` put the spine over the value's whole dated range, and the range
+ends at `counts['last']`. So on `143.14.244.37` the axis stopped on
+**1 July 2026** while the panel was being read on **5 September**, and
+the eight weekly bars filled the plot exactly as they would have if the
+value had been seen that morning. Sixty-six days of silence were on the
+page in one place only: the last tick label, which is the half of a
+chart a reader skims.
+
+That is the defect. Two values in two tabs, one live and one dead ten
+weeks, drew **the same picture** and differed in a date the reader had
+to subtract from today in their head.
+
+### 27.2 The naive fix is worse, and the reason is not the obvious one
+
+The obvious cost of `series($rangeFrom, $today)` is compression: a value
+busy through 2016 and quiet since spends nine tenths of its axis on
+nothing and draws its actual history as a sliver — and it does that
+worst for the values whose history is most worth reading, the long-lived
+ones.
+
+The cost that is not obvious is **the grain**. §16.2's rule reads the
+range: 45 days or fewer bins by day, 400 or fewer by week, more by
+month. Widen the range with emptiness and the rule answers for the
+emptiness. `yovtube.co` has one dated day; measured against the range
+this section now draws — 339 days — it falls from days to weeks, and its
+entire record is redrawn as a week-wide bar *because of the eleven
+months of silence that came after it*. Emptiness would be deciding how
+finely the data is drawn.
+
+So the grain still comes from `$rangeDays`, which is the data's own
+span, and the drawn range is a separate number arrived at afterwards.
+One line apart in the template and the whole of why this is not a
+one-line change.
+
+### 27.3 Half the width of the data, and no more
+
+The axis is `series($rangeFrom, max($rangeTo, $today))` — one series and
+not a spliced-on tail, which matters for a reason worth writing down: at
+month grain the last data bin is a *clipped* month (`443` ended
+`2026-09-03`, not the 30th), so appending a second series starting the
+next day would have produced two adjacent bins both labelled `Sep`.
+Running one series to today extends that bin instead, and `443` keeps
+its 80 bins with the last one now ending on the 5th.
+
+The bins after the one holding `counts['last']` are the tail. **It may
+take half the width of the data and no more** — a third of the drawn
+axis — and past that the bins nearest today are kept and the rest fold
+into a single elided bin.
+
+The floor is two bins, for the values with no width to halve. A value
+whose whole dated record is one bin has no resolution inside it to
+protect, so the fraction has nothing to say and the tail gets the break
+plus the bin holding today. That is why the share measured below is 33%
+on the values with a history and 67% on the ones with a single day: the
+first number is the rule and the second is the floor, and the floor
+costs nothing because there is nothing behind it to squash.
+
+The elided bin is **a real bin**. It carries a date span, a title, and
+its own slot in `locate()`, so `tlBins()` and `tlWindow()` need no
+special case, the axis stays contiguous, and a reader can brush it and
+get the honest empty window it describes. What it is not is to scale.
+
+### 27.4 The empty end is not hatched, and that is the point
+
+This panel already spends two hatches: `.vp-lane-fill`, grey at 135°,
+for *MISP cannot date this*, and §19.3's band, warning-toned at 45°, for
+*this is dated and was not fetched*. Both mean **the record is missing
+here**. The tail means the opposite — the record is complete and says
+nothing happened — and a third texture would have made three things to
+learn where the likely fourth reading is that they are all one thing.
+
+So the tail is drawn the way an empty month has always been drawn on
+this chart: with nothing in it. What marks it is a flat tint behind the
+plot, painted in `beforeDraw` so the **grid lines stay on top of it** —
+those lines are what say *zero* rather than *not plotted*, and a tint
+over them would take away the one cue that separates the two.
+
+The break is the printed convention: a gap cut out of the plot in the
+canvas's own background colour, edged by two leaning rules. It is a
+statement about the axis rather than a layer of it, so it goes in
+`afterDatasetsDraw`, over everything.
+
+And *today* is a word at the right-hand end rather than a rule somewhere
+in the middle, because `series()` clamps its last bin to the current day
+— the axis genuinely ends there. It is dropped where the band is too
+narrow to hold the word, which is the 2%-tail case below.
+
+### 27.5 *Quiet for n* is a claim, and claims get a floor
+
+The band is drawn for any tail at all; the axis reaching today needs no
+excuse. The sentence under the chart is different — it asserts that the
+value has gone quiet — and the first cut of it said so about
+`193.161.193.99`, last seen **four days** before. That is not a quiet
+value; it is a value.
+
+The floor is **one bin of the spine's own grain**, which makes it
+proportionate rather than absolute. The grain already follows the
+value's range, so a value with five years behind it has to go a month
+silent before the panel says anything and one with three weeks has to go
+two days. A flat thirty days would have called the first quiet at a
+fraction of its own rhythm and never said a word about the second.
+
+The sentence and the band are both shipped, not one or the other. The
+band is what a reader sees without looking — it is the thing that makes
+a dormant value and a live one different *pictures* — and a length read
+off an axis is an estimate. The sentence is the number, it names the
+date, and it is the only form the wait takes for a reader on a screen
+reader or with no script at all. Where the axis is broken it says so and
+names the span the break stands for, which is the one fact the break
+itself cannot carry.
+
+### 27.6 What does not move
+
+- **The default window.** Still `TIMELINE_WINDOW_DAYS` back from the
+  newest entry, clamped. Anchoring it to today instead would have opened
+  every dormant value on an empty window with a blank chronology under
+  it — the lesson `ValueProfile.php:443` already records against taking
+  the calendar month of the newest entry.
+- **The longest-gap notice.** Its loop never commits a *trailing* run,
+  because §16's wording is that a trailing gap "is not a gap either; it
+  is the present". Written before there was a tail and exactly right
+  once there is one.
+- **The lanes, the ruler and the chronology.** All three read the
+  window, and the window has not moved.
+- **The year ticks**, except that the elided bin is passed over. Its
+  `to` is the far end of a span that may cross several years, so a year
+  written under a `⋯` would date the break to the year it ends in and
+  leave the first bin drawn to scale again unlabelled.
+
+### 27.7 Verified
+
+Eleven values through the fragment, four through a real browser in both
+themes and at two viewports.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `php -l`, `node --check`, 80 columns over the diff | clean |
+| 2 | **The cap holds** | tail share 33% on `143.14.244.37` and `45.178.180.13` (12 bins, 8 data), 2% on `193.161.193.99` (41 bins), 67% on the four one-bin values — the rule and then the floor |
+| 3 | **Exactly one elided bin, and the axis stays contiguous** | 11 values, 0 bin overlaps, `elided` set on the tail's first bin and nowhere else |
+| 4 | **A live value is untouched** | `443` 80 bins and `8.8.8.8` 23 bins, before and after, no tail and no note — their last entry falls in the bin that holds today |
+| 5 | **The extreme case** | `yovtube.co`: 337 day-bins folded into one, a 3-bin axis reading *bar, break, today*, note *Quiet for 11 months*. It drew a single full-width bar before, indistinguishable from a value seen this morning |
+| 6 | **Painted, not just computed** | band `233,236,239` against a `255,255,255` cut in light and `52,58,64` against `33,37,41` in dark, sampled off the canvas; band left edge at 970px of a 1,417px plot = the 33% the server said |
+| 7 | **The break survives a narrow plot** | 992px viewport: band, break, `today` and all twelve tick labels still drawn |
+| 8 | **Brushing the tail** | `143.14.244.37` dragged across the whole empty stretch → window `2026-07-04 → 2026-09-05`, *0 entries*, every lane 0, `Reset window` offered, no console error |
+| 9 | **The claim has a floor** | `193.161.193.99`, quiet four days at week grain, draws the band and no sentence |
+| 10 | Console | no page error and no console error on any run |
+
+### 27.8 One thing found on the way, and deliberately left alone
+
+**The spine's tooltip is unreachable, and has been since the brush
+shipped.** `.vp-brush` covers the plot with `pointer-events: auto` —
+`elementFromPoint` over the middle of the chart returns the brush, never
+the canvas — so `tooltip.callbacks.title` has never fired on this chart.
+The elided bin's title is therefore written and not readable.
+
+It is left as it is here. Forwarding hover through the overlay to the
+chart is a change to the brush rather than to this section, and the one
+thing the tooltip would have said that a reader cannot get elsewhere —
+the span the break stands for — is in the sentence under the chart for
+exactly that reason. The title stays on the bin, correct and waiting.
