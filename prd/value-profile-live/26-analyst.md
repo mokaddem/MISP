@@ -129,12 +129,14 @@ exceptions, each argued where it is made: the ledger's row identity
 (§6.3), two new attachment chips for the cluster and unresolved anchors
 (§5.4), the proposal kind (§9.1), and the two removals T10 required.
 
-**`viewAnalystPreview` is still the fixture's, and that is now a
-deliberate lie rather than an inherited one.** It is the Overview's card
-(`ACLComponent.php:1054`, `value_analyst_preview.ctp`, 155 lines), it
-reads the same union, and it sits one tab away from three panels that no
-longer agree with it. §11's second call is where that was decided and
-by whom.
+**`viewAnalystPreview` went live too, and it is this phase's fourth
+endpoint.** It is the Overview's card (`ACLComponent.php:1054`,
+`value_analyst_preview.ctp`), and §11's second call first left it on the
+fixture as a deliberate lie — a card one tab away from three panels that
+no longer agreed with it. The maintainer reversed that after §19, so
+`forAnalystPreview` now runs the tab's own `analystContext` and the two
+readings cannot drift. **§20 is the conversion**; §11 is still where the
+original call and its reasoning live.
 
 **Where.** The corpus and the code are both in the
 `attribute-value-page-brief` worktree, branch

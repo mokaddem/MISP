@@ -522,7 +522,7 @@ document that filled it.
 | — | `view` | `Values/view.ctp` (full page) | — | — | — | — |
 | Overview | `viewOccurrences` | `value_occurrences` | — | — | — | — |
 | Overview | `viewContext` | `value_context` | — | — | — | — |
-| Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | — |
+| Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |
 | Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
@@ -555,6 +555,14 @@ Eighteen rows are filled; the rest are `—` because nothing else is wired, or b
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
+**Three endpoints read the database with a blank `Q`, and the blank is
+the honest cell rather than a missing one.** `viewRelationReferences`
+and `viewRelationExternal` were built in phase 24 and never measured;
+`viewAnalystPreview` was converted by phase 26 §20 *after* that phase's
+own board pass (§12.4) had run and concluded the Overview's row was
+untouched, so the row it should have filled was never revisited. All
+three are one measuring pass, together with the two below.
+
 **Relationships closed with four of its own rows imperfect, and they are
 named rather than quietly filled.** `viewRelationReferences` and
 `viewRelationExternal` were built in phase 24 and their numbers were
@@ -565,7 +573,8 @@ the timings there are recorded, the query counts were not re-taken. All
 four are one measuring pass, and they are the phase's only outstanding
 bookkeeping (§20 of that document).
 
-**Two of the thirteen are on a tab whose phase has not run.** `viewSightings` is
+**Three of the twenty-one converted endpoints are on a tab whose phase has not
+run, and all three are the Overview's.** `viewSightings` is
 the Overview's sightings card, converted after phase 23 because it is made of
 that phase's `sightingContext` and because leaving it meant a card and a tab on
 one page that could disagree about the same value. It is filled against **23**,
@@ -575,9 +584,12 @@ section lists, one `forExternal` behind both (`tabs/03-relationships.md` §20.1)
 — but this board never recorded it; the 2026-09-01 subphase-B review
 ([`24b-relationships.md`](24b-relationships.md) §2.1) found the gap. **B3
 touched `forExternal` and so filled the row**, which is what the blank was
-waiting for. The Overview's other rows stay `—`, and whichever phase converts
-them inherits two rows already done rather than a tab half-owned — which is the
-note below about a tab not being indivisible, used in earnest.
+waiting for. `viewAnalystPreview` is the third and the same argument a third
+time: phase 26 decided in §12.4 to leave the Overview's row alone, then
+converted it in §20 rather than ship a card disagreeing with the tab beside it.
+The Overview's four remaining rows stay `—`, and whichever phase converts them
+inherits three already done rather than a tab half-owned — which is the note
+below about a tab not being indivisible, used in earnest.
 
 `viewRelationCooccurrence`'s `Q` **is two numbers because the endpoint has
 two paths**, and the row carried only the first. A cold request re-reads the
@@ -713,7 +725,7 @@ its decisions and deferrals live; this is only the map.
 | 24 | Relationships — all five panels, and the rail's graph | [`24-relationships.md`](24-relationships.md) | **closed 2026-09-04** |
 | 24B | Relationships — the insight pass over the built tab; converts nothing, re-ranks and adds two evidence reads | [`24b-relationships.md`](24b-relationships.md) | **closed 2026-09-04** — B1–B16 done, its §1 is the task board and §20 is what the phase carries forward |
 | 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **closed 2026-09-05** — T1–T30 done; §1 is the board, §1.1 its twelve decisions, §16 the build log, and §26–§29 four rounds of reader feedback taken over the closed phase |
-| 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list. **The tab is renamed *Collaboration*** | [`26-analyst.md`](26-analyst.md) | **built 2026-09-05** — T1–T12 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, §16 the build log, and §17 the rename and one ledger bug found after it |
+| 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list. **The tab is renamed *Collaboration*** | [`26-analyst.md`](26-analyst.md) | **closed 2026-09-05** — T1–T16 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, §16 the build log. **Four readings followed the build**: §17 the rename and a ledger bug, §18 links on every chip that names a record, §19 the report badge's inherited audience, §20 the Overview's `value_analyst_preview` — which reverses §11's second call and makes this phase's fourth endpoint. **§21 re-ran the verification against all four**, and §21.2 is what the phase hands on |
 | — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
