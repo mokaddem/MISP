@@ -71,7 +71,19 @@ report.panels = await page.evaluate(() => ({
     caveat: !!Array.from(
         document.querySelectorAll('[data-vp-analyst-standing] .vp-acl-note')
     ).length,
+    /*
+     * §19: every report row names the audience it inherits. A badge
+     * still reading `Inherit event` is the defect that section closed —
+     * the report's own column, printed instead of resolved — so the
+     * check is that none of them says it, not that some of them do not.
+     */
+    reportAudiences: Array.from(
+        document.querySelectorAll('.vpa-report .badge')
+    ).map((b) => b.textContent.replace(/\s+/g, ' ').trim()),
 }));
+
+report.panels.audienceUnresolved = report.panels.reportAudiences
+    .filter((a) => /Inherit event/i.test(a));
 
 /* --- the filter pills, clicked --- */
 const visible = () => page.evaluate(() =>
@@ -102,6 +114,76 @@ await page.waitForTimeout(250);
 report.filter.oldest = await dates();
 await page.click('[data-vp-a-sort="newest"]');
 await page.waitForTimeout(250);
+
+/* --- §20: the Overview's preview card, and whether it agrees ---
+ *
+ * The card and the tab read one union, so their counts cannot drift —
+ * that is the claim the conversion rests on, and the only way to check
+ * it is to read both off one page. The tab's counts come from its own
+ * items rather than from its subtitle, so this compares the card's
+ * printed number against the DOM the tab actually rendered.
+ */
+await page.click('.nav-link[href="#tab-general"]');
+for (let i = 0; i < 20; i++) {
+    const there = await page.$('[data-vp-analyst-preview]');
+    if (there) break;
+    await page.waitForTimeout(300);
+}
+await page.waitForTimeout(800);
+
+report.preview = await page.evaluate(() => {
+    const card = document.querySelector('[data-vp-analyst-preview]');
+    if (!card) return 'absent';
+    const sub = card.querySelector('.small.text-muted');
+    const num = (word) => {
+        const m = (sub ? sub.textContent : '')
+            .match(new RegExp('(\\d+)\\s+' + word));
+        return m ? +m[1] : null;
+    };
+    return {
+        subtitle: sub ? sub.textContent.replace(/\s+/g, ' ').trim() : null,
+        notes: num('notes?'),
+        opinions: num('opinions?'),
+        proposals: num('proposals?'),
+        shown: card.querySelectorAll('.vp-analyst').length,
+        openThread: !!card.querySelector('a[href="#tab-analyst"]'),
+        empty: !!card.querySelector('.vp-empty'),
+        /*
+         * §20.3: coloured by the score against 50, never by the band
+         * word. `agree` above it, `dispute` below it, `neither` at
+         * exactly 50 — MISP's own `opinion_scale.ctp` rule.
+         */
+        readings: Array.from(card.querySelectorAll('.vpa-reading'))
+            .map((r) => {
+                const score = (r.textContent.match(/(\d+)\/100/) || [])[1];
+                const side = /vpa-s-(\w+)/.exec(r.className);
+                return { score: score ? +score : null,
+                    side: side ? side[1] : null };
+            }),
+        // Every organisation named is an organisation that opens.
+        inertOrgs: Array.from(card.querySelectorAll('.vp-analyst-meta'))
+            .filter((m) => !m.querySelector('.vpa-orglink')).length,
+    };
+});
+
+if (report.preview !== 'absent') {
+    const tally = { note: 0, opinion: 0, proposal: 0 };
+    for (const k of report.filter.all) {
+        tally[k] = (tally[k] || 0) + 1;
+    }
+    report.preview.threadTally = tally;
+    report.preview.agrees =
+        report.preview.notes === tally.note
+        && report.preview.opinions === tally.opinion
+        && (report.preview.proposals || 0) === tally.proposal;
+    report.preview.pivotHolds = report.preview.readings.every((r) =>
+        r.score === null
+        || (r.score > 50 && r.side === 'agree')
+        || (r.score < 50 && r.side === 'dispute')
+        || (r.score === 50 && r.side === 'neither')
+        // An opinion rating another item takes no side on the value.
+        || r.side === 'neither');
+}
 
 /* --- both themes --- */
 const probe = async () => page.evaluate(() => {
@@ -149,6 +231,9 @@ const probe = async () => page.evaluate(() => {
         orgLink: '.vpa-orglink',
         reportExtract: '.vpa-report-extract',
         reportName: '.vpa-report-name',
+        // §19's audience badge, and §20.3's coloured opinion reading.
+        reportAudience: '.vpa-report .badge',
+        previewReading: '[data-vp-analyst-preview] .vpa-reading',
         caveat: '[data-vp-analyst-standing] .vp-acl-note',
         chip: '.vpa-chip',
     };

@@ -108,7 +108,8 @@ $headerExtra = !$hasTab ? null : '<a href="#tab-analyst"'
     . h(__('Open thread')) . '<i class="fas fa-arrow-right"></i></a>';
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
-     style="--vp-panel-color: var(--analystData);">
+     style="--vp-panel-color: var(--analystData);"
+     data-vp-analyst-preview>
 
     <?= $this->element('Values/View/value_panel_header', array(
         'panelTitle' => __('Analyst data'),

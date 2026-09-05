@@ -55,12 +55,21 @@ to `done` only when §12's verification has run against it.
 | T10 | §14.6: the ACL band removed, the standing panel's permanent caveat added, both rows written into the table | §10.1 | **done** |
 | T11 | The tab badge, which is a fixture literal today | §10.2 | **done** — dropped |
 | T12 | The board rows: §14.12's two `—` cells, and this document's numbers | §12.4 | **done** — three cells, not two |
+| T13 | Every chip that names a record opens it; a proposal drawn as a change | §18 | **done** — after the build, from a second reading |
+| T14 | A report's badge names the audience it inherits, not its own column | §19 | **done** — and §30 of `25-timeline.md` for the same records on the Timeline |
+| T15 | The Overview's preview card off the fixture — §11 call 2's price, paid | §20 | **done** — one union, two readings |
+| T16 | The opinion colour question, settled against MISP's own element | §20.3 | **done** — by the score, not the band |
 
-**Where the phase stands. Built 2026-09-05, in four commits.** Both
-endpoints read the database, a third endpoint was added for the report
-list, and the numbers are in §16. What is *not* done and was never this
-phase's: the Overview's analyst preview card, which §11's second call
-left on the fixture deliberately.
+**Where the phase stands. Built 2026-09-05 in four commits, and closed
+the same day after four more readings.** Both endpoints read the
+database, a third was added for the report list, a fourth converted the
+Overview's card, and the numbers are in §16 and §21.
+
+§11's second call — *leave the preview card on the fixture and record
+that it lies* — was answered by paying its price rather than carrying
+it: T15. The three items this phase leaves behind are named in §13 as
+deferrals with their cost, in §16.2 as findings for other model owners,
+and in §21.2 as the one question it hands on.
 
 ### 1.1 The decisions this phase has taken
 
@@ -1441,3 +1450,80 @@ which is a claim about what an opinion is *for*, not about what MISP
 records. It is fixture-backed and unbuilt, so it is left to whoever
 converts the Verdict tab, with the finding recorded rather than the
 CSS quietly flipped underneath a panel nobody has wired yet.
+
+---
+
+## 21. Closing the phase — the verification re-run against what changed
+
+§12's pass ran against the phase as built. Four readings changed it
+afterwards (§17–§20), three of them touching panels §12 had already
+signed off, so the board's own rule — *a row moves to `done` only when
+§12's verification has run against it* — needed the pass run again
+rather than assumed to still hold.
+
+### 21.1 What was re-run, and what it says
+
+**`26a-analyst-check.mjs`, extended.** It covered the tab's three panels,
+both themes and the filter and sort controls; it predated §19's audience
+badge and knew nothing about the Overview's card. Both are in it now, so
+the two claims those sections rest on are checked by the harness rather
+than by a screenshot:
+
+- `panels.reportAudiences` collects every report row's badge and
+  `audienceUnresolved` is the subset still reading *Inherit event* —
+  **8 rows, 0 unresolved** on `8.8.8.8`. The assertion is that none says
+  it, not that some do not.
+- `preview.agrees` compares the card's printed counts against the kinds
+  the *tab* rendered into the DOM — not against its subtitle, which
+  would be one string checked against another. **`true`: 2 notes, 4
+  opinions, 1 proposal on both sides.**
+- `preview.pivotHolds` checks every reading against MISP's rule: above
+  50 `agree`, below 50 `dispute`, exactly 50 `neither`. **`true`.**
+- `preview.inertOrgs` is **0** — every organisation the card names is
+  one the reader can open, §18.1's rule reaching the last panel that
+  could not follow it.
+
+**The rest of the pass, unchanged and re-run:** three panels resolve, 4
+ledger lanes, 7 thread items of which 1 is a proposal, 8 report rows;
+the `Notes` / `Opinions` / `Proposals` / `All` pills and both sort
+buttons behave; **no page error and no console error**. Contrast over
+every measured node, now thirteen of them: **6.02–15.43 in light,
+6.39–11.85 in dark**. The two new nodes sit at 14.63 / 6.02 and 10.23 /
+8.63.
+
+**`parallel-lint` still has no `app/Vendor/` to run from**, which §12.5
+row 1 recorded as the one check that did not run. Its job was done
+without it: `php -l` over **75 files** — every `.ctp` under the Value
+Profile's element tree, every `Value*` tool, and the three models and
+controllers behind them, not only the files this phase touched.
+**0 failures.**
+
+### 21.2 What the phase hands on
+
+Three kinds of leftover, and only the last is a question.
+
+**Deferrals, priced in §13 and unchanged:** the hand-rolled markdown
+subset rather than `markdown-it` (no per-note markup flag exists);
+no grouping below organisation, because `authors` is free text;
+`A2`'s element reuse, which gets cheaper when the Verdict tab is live;
+and no pagination across the union, which is correct rather than
+missing.
+
+**Findings for the models' owners, in §16.2 and unchanged:**
+`AnalystData::$fetchedUUIDFromRecursion` is never cleared within a
+request; eleven `notes` rows name an organisation that no longer exists;
+and `EventReport::attachReportCountsToEvents` ANDs where an `OR` was
+intended, which five surfaces now route around.
+
+**One open question, and it is not this phase's to answer.** The Verdict
+tab's histogram paints an above-50 opinion as the malicious case, which
+inverts MISP's own `opinion_scale.ctp` — §20.3 has the evidence. Every
+other surface on this page now agrees with MISP. That tab is
+fixture-backed and unbuilt, so the flip belongs to whoever converts it,
+together with the assumption its comment states out loud.
+
+**Not this phase's, and worth writing down where the next reader will
+find it:** the Overview tab still draws four fixture panels — the
+occurrence, context, verdict and lifecycle cards — and the page frame's
+fact strip and tab counts are the fixture's too, corrected only for the
+two badges `forTabCounts` can tell truly. §14.12 owns those.
