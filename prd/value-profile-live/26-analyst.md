@@ -911,15 +911,17 @@ stated remainder — phase 25's D2 pattern — and not a page parameter.
 
 ## 16. The build log
 
-Four commits on `worktree-attribute-value-page-brief`, in the order they
-landed.
+Six commits on `worktree-attribute-value-page-brief`, in the order they
+landed. Three of code, three of record.
 
 | Commit | What |
 |---|---|
 | `c8685de2a` | the union, the level read, the aggregate, the ledger, T10's two halves — T1–T7 and T10 |
 | `6198ba359` | proposals in the thread, and the tab badge dropped — T8 and T11 |
 | `471938122` | the report panel and its endpoint, plus the occurrence-cap notes on all three — T9 |
-| this one | the documents: §14.6, §14.12, §14.13 and §14.11's badge note in the contract, and this section — T12 |
+| `3d11ae64c` | the documents: §14.6, §14.12, §14.13 and §14.11's badge note in the contract, this board and this section — T12 |
+| `74c673e5b` | the browser pass, closing the two checks §12.5 had left owed |
+| `30128e63c` | `value-profile-page.md` §1.4, the tab-level half of T12 |
 
 **What was touched outside this tab**, since each is a shared surface:
 
