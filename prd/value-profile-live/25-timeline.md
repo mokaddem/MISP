@@ -9,7 +9,7 @@ tab's fixture-era design is
 cannot date for it is `value-profile-page.md` §8.2, and this phase is the
 one §8.2 named as having to close its open choice.
 
-**Opened 2026-09-04.** Nothing is built yet. §1 is the task board, §1.1
+**Opened 2026-09-04, closed 2026-09-05.** §1 is the task board, §1.1
 the eight decisions the phase took before building anything, and §1.2 what
 a session picking this up cold needs to know before it writes a line.
 
@@ -48,6 +48,7 @@ to `done` only when §14's verification has run against it.
 | T24 | The tab says when the instance first held the value | §22.3 | **done** |
 | T25 | The tag set is placed at each tag's first attach | §22.7 | **done** |
 | T26 | The seen lane's span labels stop overlapping | §26 | **done** |
+| T27 | The axis runs to today, and the empty end is drawn as a wait | §27 | **done** |
 
 **Where the phase stands. Every row is done and the phase is closed
 (2026-09-05).** The tab reads the database: the endpoint is wired,
@@ -60,7 +61,9 @@ and it closes `value-profile-coverage.md` §2.4 — the one item in that
 survey with a cost per live phase deferred — by giving
 `Value::conditionsFor()` the `alias` option a second value table needs.
 **§26 is T26**, one round of reader feedback over the closed phase: the
-seen lane was printing its span labels on top of each other.
+seen lane was printing its span labels on top of each other. **§27 is
+T27**, a second such round: the axis stopped at the value's last activity,
+so a value dead ten weeks drew the same picture as a live one.
 
 Two rows are deliberately not here. The passive-dns lane
 (`06-timeline.md` §16) is §15, deferred with its reason. And the tab
