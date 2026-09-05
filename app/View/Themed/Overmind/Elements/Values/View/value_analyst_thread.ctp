@@ -201,15 +201,67 @@ $attachChip = function ($target) {
             . '</span>';
     }
 
-    if ($target['kind'] === 'note') {
+    if ($target['kind'] === 'note' || $target['kind'] === 'reply') {
+        /*
+         * `reply` carries which kind it answers, because a reply to an
+         * opinion is not a reply to a note and the chip is the one
+         * place that says what the row hangs off. `note` is the
+         * fixture's spelling of the same thing and keeps working.
+         */
+        $to = isset($target['to']) && $target['to'] === 'opinion'
+            ? __('the opinion above')
+            : __('the note above');
         return '<span class="vpa-chip" title="'
             . h(__(
-                'Attached to the note above, which is what makes it an'
-                . ' opinion about that note rather than about the value'
+                'Attached to the item above, which is what makes it a'
+                . ' statement about that item rather than about the'
+                . ' value'
             )) . '">'
             . '<span class="misp-icon misp-icon-analyst-note'
             . ' misp-simple"></span>'
-            . h(__('the note above'))
+            . h($to)
+            . '</span>';
+    }
+
+    /*
+     * A galaxy cluster the value is classified under. Analyst data
+     * attaches to a cluster's uuid like anything else, and phase 24's
+     * claim reader already counts a plain galaxy *tag* on the same
+     * events — so counting the tag and dropping an authored statement
+     * about the cluster was the omission `26-analyst.md` D1 closes.
+     */
+    if ($target['kind'] === 'cluster') {
+        return '<span class="vpa-chip" title="'
+            . h(__(
+                'Attached to a galaxy cluster this value is classified'
+                . ' under, so it is inherited by everything else'
+                . ' carrying that cluster'
+            )) . '">'
+            . '<span class="misp-icon misp-icon-galaxy misp-simple">'
+            . '</span>'
+            . h($target['name'])
+            . '<span class="vpa-chip-sep">' . h(__('cluster'))
+            . '</span></span>';
+    }
+
+    /*
+     * The row is drawn anyway. One `notes` row on the verification
+     * instance carries an `object_type` that is not a type and an
+     * `object_uuid` that resolves to nothing — MISP's own UI wrote it —
+     * and dropping such a row would let a write the instance accepted
+     * vanish from the one page whose subject is who said what.
+     * `26-analyst.md` D5.
+     */
+    if ($target['kind'] === 'unresolved') {
+        return '<span class="vpa-chip vpa-chip-unresolved" title="'
+            . h(__(
+                'This item names a target that no longer resolves to an'
+                . ' attribute, event, object or cluster. It is shown'
+                . ' because somebody wrote it, not because it still'
+                . ' points anywhere.'
+            )) . '">'
+            . '<i class="fas fa-link-slash"></i>'
+            . h(__('target does not resolve'))
             . '</span>';
     }
 
@@ -339,12 +391,18 @@ $renderItem = function ($item, $depth) use (
             . h(__('rendered from markdown')) . '</span>';
     }
     if ($ratesNote) {
+        $unresolved = $item['attached_to']['kind'] === 'unresolved';
         $out .= '<span class="vpa-notcounted">'
             . '<i class="fas fa-circle-info"></i>'
-            . h(__(
-                'about the note above, not about the value — not in the'
-                . ' aggregate'
-            )) . '</span>';
+            . h($unresolved
+                ? __(
+                    'the row this hangs off does not resolve — not in'
+                    . ' the aggregate'
+                )
+                : __(
+                    'about the item above, not about the value — not in'
+                    . ' the aggregate'
+                )) . '</span>';
     }
     $out .= '<span class="ms-auto">' . $attachChip($item['attached_to'])
         . '</span>';
@@ -625,11 +683,23 @@ if (!empty($thread)) {
         </div>
     </div>
 
-    <?php if (!empty($analyst['acl_note'])): ?>
-        <div class="vp-acl-note">
-            <i class="fas fa-eye-slash"></i>
-            <span><?= h($analyst['acl_note']) ?></span>
-        </div>
-    <?php endif; ?>
-
+    <?php
+    /*
+     * **No withheld-items band, and it was removed rather than
+     * reworded.** `05-analyst.md` §11 recorded that the count is not
+     * obtainable — `buildConditions` scopes the fetch and there is no
+     * unscoped count to subtract — and concluded the tab should
+     * therefore say that items exist without saying how many. §14.6
+     * does not survive that: a panel must not be usable as an
+     * existence oracle, and *analyst data exists here that you cannot
+     * see* is one with the number filed off, which is worse than a
+     * count rather than milder — the same disclosure with no way to
+     * gauge it. Removed as it was from Occurrences and from the
+     * Timeline. `26-analyst.md` D7.
+     *
+     * The standing panel beside this one carries §14.6's permanent
+     * caveat instead, because it computes a judgement; this one renders
+     * rows and gets nothing.
+     */
+    ?>
 </div>

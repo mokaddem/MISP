@@ -9,13 +9,23 @@
  *
  * Two objects, in the order a card is scanned (`05-analyst.md` §16.3):
  *
- * 1. The tug-bar — one stacked bar sized by *headcount*, with the
- *    split stated beside it in words. It answers "is this set divided,
- *    and how lopsided" before the reader looks at a single row.
- * 2. The ledger — one row per organisation on a shared 0-100 lane. A
- *    bar grows from the 50 pivot to that organisation's score, so
- *    direction is the side and length is the conviction, and the empty
- *    middle is a shaded column crossing every lane.
+ * 1. The tug-bar — one stacked bar sized by *how many opinions fall
+ *    each way*, with the split stated beside it in words. It answers
+ *    "is this set divided, and how lopsided" before the reader looks
+ *    at a single row.
+ * 2. The ledger — one row per opinion on a shared 0-100 lane, an
+ *    organisation's rows together. A bar grows from the 50 pivot to
+ *    that opinion's score, so direction is the side and length is the
+ *    conviction, and the empty middle is a shaded column crossing
+ *    every lane.
+ *
+ * **A row is an opinion, and phase 26 changed it from an
+ * organisation.** The lane-per-organisation shape assumed an
+ * organisation holds one position; the campaign's own default value
+ * carries four opinions and all four are ADMIN's — 100, 100, 80, then
+ * 10. Collapsed to one lane that value drew a single disputing
+ * organisation over a set that is three-quarters agreement.
+ * `26-analyst.md` §6.3.
  *
  * The two are deliberately not the same width. The tug-bar spans the
  * panel's whole padded width while the ruler and lanes stay inset in
@@ -246,9 +256,9 @@ $headerExtra = $aggregate === null ? null
          * taken in neither the bar nor the lanes still has the answer.
          */
         if ($bySide['dispute'] === 0) {
-            $verdict = __('every organisation agrees');
+            $verdict = __('every opinion agrees');
         } elseif ($bySide['agree'] === 0) {
-            $verdict = __('every organisation disputes');
+            $verdict = __('every opinion disputes');
         } elseif ($bySide['agree'] === $bySide['dispute']) {
             $verdict = sprintf(
                 __('an even split, %s each way'),
@@ -259,13 +269,13 @@ $headerExtra = $aggregate === null ? null
             $verdict = sprintf(
                 $bySide['agree'] > $bySide['dispute']
                     ? __n(
-                        'most agree; %d of %d does not',
-                        'most agree; %d of %d do not',
+                        'most agree; %d opinion of %d does not',
+                        'most agree; %d opinions of %d do not',
                         $minor
                     )
                     : __n(
-                        'most dispute; %d of %d does not',
-                        'most dispute; %d of %d do not',
+                        'most dispute; %d opinion of %d does not',
+                        'most dispute; %d opinions of %d do not',
                         $minor
                     ),
                 $minor,
@@ -311,8 +321,8 @@ $headerExtra = $aggregate === null ? null
                              style="width: <?= $width ?>%;"
                              title="<?= h(sprintf(
                                  __n(
-                                     '%1$d organisation %2$s',
-                                     '%1$d organisations %2$s',
+                                     '%1$d opinion %2$s',
+                                     '%1$d opinions %2$s',
                                      $segment[1]
                                  ),
                                  $segment[1],
@@ -335,7 +345,9 @@ $headerExtra = $aggregate === null ? null
 
                 <div class="vpa-tug-cap">
                     <span><?= __('disputes') ?></span>
-                    <span><?= __('sized by headcount, not by score') ?></span>
+                    <span><?=
+                        __('sized by number of opinions, not by score')
+                    ?></span>
                     <span><?= __('agrees') ?></span>
                 </div>
             </div>
@@ -346,7 +358,7 @@ $headerExtra = $aggregate === null ? null
              * The ledger
              * --------------------------------------------------------
              * A flat grid: five cells in the header row and five per
-             * organisation, with the void, the pivot and the mean
+             * opinion, with the void, the pivot and the mean
              * drawn inside each lane. They are per-lane rather than
              * one element spanning the rows because an explicitly
              * placed child in an otherwise auto-placed grid displaces
@@ -367,8 +379,8 @@ $headerExtra = $aggregate === null ? null
                      data-vp-a-ledger
                      role="group"
                      aria-label="<?= h(sprintf(
-                         __('Each organisation\'s opinion on the 0 to 100'
-                             . ' scale: %s.'),
+                         __('Every opinion on the 0 to 100 scale, with'
+                             . ' the organisation that wrote it: %s.'),
                          implode(__(', '), $aria)
                      )) ?>">
 
@@ -576,14 +588,14 @@ $headerExtra = $aggregate === null ? null
                           )
                           : __(
                               'Shown because the aggregate is specified.'
-                              . ' On this value an organisation does hold'
-                              . ' a position within half a band of it.'
+                              . ' On this value an opinion does sit'
+                              . ' within half a band of it.'
                           )) ?>">
                     <span class="vpa-mean-value"><?=
                         h($aggregate['mean_label'])
                     ?></span>
                     <span><?= h($aggregate['mean_orphan']
-                        ? __('mean — no organisation holds it')
+                        ? __('mean — nobody holds it')
                         : __('mean')) ?></span>
                 </span>
             </div>
@@ -601,5 +613,36 @@ $headerExtra = $aggregate === null ? null
 
         </div>
     <?php endif; ?>
+
+    <?php
+    /*
+     * §14.6's third computed-judgement panel.
+     *
+     * The rule, after phase 23 found the second: a panel that renders a
+     * *computed judgement* carries a permanent caveat; a panel that
+     * renders a count does not — and the contract predicted that a
+     * later phase computing rather than counting would add the third.
+     * This is it. The mean, the buckets, the empty band and every lane
+     * above are derived from the opinions **this** reader may see, and
+     * `AnalystData::buildConditions` scopes that set per reader, so two
+     * colleagues can read different means off the same value on the
+     * same afternoon.
+     *
+     * Always shown, on every value, identical for every reader —
+     * including values with nothing hidden. A line that never varies
+     * carries no information about what any particular reader cannot
+     * see, which is exactly what separates it from the withheld-count
+     * band §14.6 forbids. `26-analyst.md` D7.
+     */
+    ?>
+    <p class="vp-acl-note">
+        <i class="fas fa-user-shield"></i>
+        <span><?= h(__(
+            'Every number here is computed over the opinions you can'
+            . ' see. Two readers whose analyst-data visibility differs'
+            . ' can honestly read different positions for this value on'
+            . ' the same afternoon.'
+        )) ?></span>
+    </p>
 
 </div>

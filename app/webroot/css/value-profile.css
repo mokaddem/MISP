@@ -7858,6 +7858,14 @@ th.vp-rel-num {
     font-style: italic;
 }
 
+/* An item whose target no longer resolves. Drawn, because somebody
+   wrote it; marked, because it points nowhere. */
+.vpa-chip-unresolved {
+    border-style: dashed;
+    color: var(--bs-secondary-color);
+    opacity: 0.85;
+}
+
 /* An opinion written on a note is an opinion about that note. It is
    not a reading of the value and must never reach the aggregate. */
 .vpa-notcounted {

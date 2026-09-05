@@ -11,9 +11,10 @@ App::uses('ValueProfileFixture', 'Tools');
  * attribute rows across many events, and this controller aggregates them.
  *
  * Read-only: nothing here writes. Every number is fixture data except on
- * the Occurrences tab, which phase 22 took live, and the Sightings tab,
- * which phase 23 did — the live campaign converts one panel at a time,
- * so the two regimes sit side by side until it finishes.
+ * the tabs the live campaign has converted — Occurrences (phase 22),
+ * Sightings (23), Relationships (24), Timeline (25) and Analyst data
+ * (26) — which it does one panel at a time, so the two regimes sit side
+ * by side until it finishes.
  * `prd/value-profile-live/00-contract.md` §14.12 is the record of which
  * panels have moved.
  */
@@ -201,7 +202,7 @@ class ValuesController extends AppController
      */
     public function viewExternal($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forExternal',
             'value_external'
@@ -345,7 +346,7 @@ class ValuesController extends AppController
      */
     public function viewRelationCooccurrence($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationCooccurrence',
             'value_relation_cooccurrence',
@@ -360,7 +361,7 @@ class ValuesController extends AppController
 
     public function viewRelationNearMatch($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationNearMatch',
             'value_relation_near_match'
@@ -369,7 +370,7 @@ class ValuesController extends AppController
 
     public function viewRelationAsserted($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationAsserted',
             'value_relation_asserted'
@@ -385,7 +386,7 @@ class ValuesController extends AppController
      */
     public function viewRelationDated($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationDated',
             'value_relation_dated'
@@ -403,7 +404,7 @@ class ValuesController extends AppController
      */
     public function viewRelationReferences($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationReferences',
             'value_relation_references'
@@ -412,7 +413,7 @@ class ValuesController extends AppController
 
     public function viewRelationExternal($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationExternal',
             'value_relation_external'
@@ -421,7 +422,7 @@ class ValuesController extends AppController
 
     public function viewRelationGraph($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationGraph',
             'value_relation_graph'
@@ -430,7 +431,7 @@ class ValuesController extends AppController
 
     public function viewRelationSettings($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationSettings',
             'value_relation_settings'
@@ -452,7 +453,7 @@ class ValuesController extends AppController
      */
     public function viewRelationThreats($b64value = null)
     {
-        $this->renderRelationPanel(
+        $this->renderLivePanel(
             $b64value,
             'forRelationThreats',
             'value_relation_threats'
@@ -460,15 +461,16 @@ class ValuesController extends AppController
     }
 
     /**
-     * One line per Relationships endpoint, as the Sightings tab's
-     * five already have.
+     * One line per live endpoint, as the Sightings tab's five already
+     * have. Named for the Relationships tab until phase 26, which is
+     * the third tab to reach for it.
      *
      * @param string $b64value
      * @param string $method A public ValueProfile facade method
      * @param string $element Name under Elements/Values/View
      * @return void
      */
-    private function renderRelationPanel($b64value, $method, $element,
+    private function renderLivePanel($b64value, $method, $element,
         array $options = array()
     ) {
         $this->loadModel('ValueProfile');
@@ -532,36 +534,41 @@ class ValuesController extends AppController
      * The Analyst data tab: where the organisations stand, and the
      * thread underneath it.
      *
-     * Two endpoints for what is one fetch live, which is the opposite
-     * of the Occurrences tab's reasoning and for a compatible one.
-     * There the rail counts the rows beside it, so a split could let
-     * the two disagree. Here the aggregate is a rollup of the same
-     * items the thread lists — the numbers cannot drift because
-     * neither panel is authoritative for the other's rows — while the
-     * thread is the part that grows without limit and, when this goes
-     * live, the part that has no single query behind it: analyst data
-     * hangs off an object UUID, so the union over a value's
-     * occurrences and their events is assembled per occurrence.
+     * Two endpoints for what is one fetch, which is the opposite of
+     * the Occurrences tab's reasoning and for a compatible one. There
+     * the rail counts the rows beside it, so a split could let the two
+     * disagree. Here both panels are two readings of one union — the
+     * numbers cannot drift because neither is authoritative for the
+     * other's rows — while the thread is the part that grows without
+     * limit and the part that has no single query behind it: analyst
+     * data hangs off an object UUID, so the union over a value's
+     * occurrences, their events and their objects is assembled here.
      *
-     * The standing panel is four numbers over a set that is bounded by
-     * the number of organisations on the instance. It should not wait
-     * for the union.
+     * **Live since phase 26**, and the split stands for a different
+     * reason than it was made for. The standing panel was expected to
+     * be the cheap one — four numbers over a set bounded by the
+     * organisations on the instance — and it is not: two of its
+     * columns count the thread. Both endpoints now read the same
+     * union, and the split survives because the two panels still
+     * resolve independently in the page.
      *
      * @param string $b64value
      * @return void
      */
     public function viewAnalystStanding($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderLivePanel(
+            $b64value,
+            'forAnalystStanding',
             'value_analyst_standing'
         );
     }
 
     public function viewAnalystThread($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderLivePanel(
+            $b64value,
+            'forAnalystThread',
             'value_analyst_thread'
         );
     }

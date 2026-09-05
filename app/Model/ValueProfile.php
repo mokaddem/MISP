@@ -473,6 +473,40 @@ class ValueProfile extends AppModel
     const TIMELINE_ANALYST_CAP = 300;
 
     /**
+     * Occurrence UUIDs the Analyst tab's own union looks up against.
+     *
+     * `TIMELINE_ANALYST_CAP`'s argument, on the tab that owns the
+     * union rather than draws a lane of it. Kept the same number
+     * deliberately: the Timeline's note lane and this tab read the
+     * same rows, and two caps would let one of them show a note the
+     * other had never heard of.
+     */
+    const ANALYST_OCCURRENCE_CAP = 300;
+
+    /**
+     * How many levels of reply the thread renders.
+     *
+     * Two, which is what MISP's own thread view returns, and the
+     * template already prints *anything written below this one is
+     * flagged but not fetched* at the bottom level. The reader below
+     * the last rendered one is issued anyway — it is what makes that
+     * sentence true rather than assumed — and its rows are counted and
+     * discarded.
+     */
+    const ANALYST_THREAD_DEPTH = 2;
+
+    /**
+     * Galaxy tag names resolved to clusters for the union's fifth
+     * anchor kind.
+     *
+     * A bound rather than a limit anybody is expected to hit: the cap
+     * exists because the names come from every tag on every event the
+     * value appears in, and `fetchGalaxyClusters` is an ACL'd read
+     * whose cost is per row returned.
+     */
+    const ANALYST_GALAXY_TAG_CAP = 100;
+
+    /**
      * Days the brush's default window covers.
      *
      * The fixture pinned a window per value — a fixed date to its own
@@ -9187,6 +9221,908 @@ class ValueProfile extends AppModel
                 ? (int)$log['model_id']
                 : null,
         );
+    }
+
+    /* ==================================================================
+     * Analyst data
+     * ==================================================================
+     * Notes and opinions hang off an `object_uuid` and an
+     * `object_type`, and no value has a uuid — so **a value is not a
+     * valid analyst-data target**. Both panels are therefore a union
+     * assembled here over the things the value is *in*, there is no
+     * single query behind either of them, and there is no pagination
+     * across them. `26-analyst.md` §5.
+     */
+
+    /**
+     * Where the organisations stand on this value.
+     *
+     * **Reads the whole thread, not only the opinions.** Two of the
+     * ledger's columns are properties of the thread rather than of the
+     * opinion — how many notes an organisation wrote, and when it was
+     * last heard from — so an endpoint that read opinions alone would
+     * ship a *Notes* column counting nothing. The note above these two
+     * actions in `ValuesController` expected this panel to be the cheap
+     * one; live, it is the same union as the thread's.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forAnalystStanding(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'analyst' => $this->analystContext($user, $value, $options),
+        );
+    }
+
+    /**
+     * The argument, in the order it happened.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forAnalystThread(array $user, $value,
+        array $options = array()
+    ) {
+        $context = $this->analystContext($user, $value, $options);
+        return array(
+            'value' => $value,
+            'analyst' => $context,
+            /*
+             * The composer's disabled *Attach to* picker states how
+             * many occurrences it would offer. Counted off the union
+             * this request already read rather than fetched again, so
+             * the number the picker names and the set the notes were
+             * looked up against cannot disagree.
+             */
+            'occurrence_stats' => array(
+                'shown' => $context['occurrences'],
+            ),
+        );
+    }
+
+    /**
+     * The union, the thread over it, and the two readings of it.
+     *
+     * One method for both endpoints because they are two readings of
+     * one set: a standing panel assembled from a different union than
+     * the thread beside it would be a panel a reader could catch out by
+     * counting.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function analystContext(array $user, $value,
+        array $options = array()
+    ) {
+        $anchors = $this->analystAnchors($user, $value, $options);
+        $thread = $this->analystThreadItems($user, $anchors['targets']);
+        return array(
+            'occurrences' => $anchors['occurrences'],
+            'counts' => $this->analystCounts($thread),
+            'standing' => $this->analystStanding($thread),
+            'thread' => $thread,
+        );
+    }
+
+    /**
+     * Everything a note or an opinion about this value can hang off.
+     *
+     * Phase 24's triple — the occurrence, the event it is in, the
+     * object it sits in — widened by the value's galaxy clusters.
+     * `26-analyst.md` D1. The triple costs no query beyond the
+     * occurrence read: `occurrenceUuidsFor` already joins `Event` and
+     * `Object` to satisfy the ACL, so their uuids come back with it.
+     *
+     * **Keyed by uuid and never by `object_type`.** One `notes` row on
+     * the verification instance carries `object_type = 'Event1556'`, a
+     * type that is not a type, and its `object_uuid` resolves to no
+     * event, attribute or object at all — MISP's own UI wrote it. Any
+     * reader that switched on the type would have to treat that set as
+     * closed, and it is not.
+     *
+     * **Relationships are deliberately not an anchor.** Two opinions on
+     * this instance rate a `Relationship`, and neither is reachable
+     * from here: D1's set is the triple plus clusters, and a claim
+     * about the value is phase 24's panel rather than this tab's. The
+     * cost is those two rows, and it is named in `26-analyst.md` §5.1
+     * rather than absorbed.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array targets => uuid => attachment, occurrences => int
+     */
+    private function analystAnchors(array $user, $value,
+        array $options = array()
+    ) {
+        $occurrences = $this->model('Value')->occurrenceUuidsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::ANALYST_OCCURRENCE_CAP,
+                'order' => self::OCCURRENCE_ORDER,
+            ))
+        );
+        $targets = array();
+        $attributeIds = array();
+        $eventIds = array();
+        foreach ($occurrences as $uuid => $occurrence) {
+            $targets[$uuid] = array(
+                'kind' => 'attribute',
+                'type' => $occurrence['type'],
+                'event' => $occurrence['event_id'],
+            );
+            $attributeIds[$occurrence['id']] = true;
+            $eventIds[$occurrence['event_id']] = true;
+            if (!empty($occurrence['event_uuid'])
+                && !isset($targets[$occurrence['event_uuid']])
+            ) {
+                $targets[$occurrence['event_uuid']] = array(
+                    'kind' => 'event',
+                    'event' => $occurrence['event_id'],
+                );
+            }
+            if (!empty($occurrence['object_uuid'])
+                && !isset($targets[$occurrence['object_uuid']])
+            ) {
+                $targets[$occurrence['object_uuid']] = array(
+                    'kind' => 'object',
+                    'name' => $occurrence['object_name'],
+                    'event' => $occurrence['event_id'],
+                );
+            }
+        }
+        return array(
+            'targets' => $targets + $this->analystClusterAnchors(
+                $user,
+                array_keys($attributeIds),
+                array_keys($eventIds)
+            ),
+            'occurrences' => count($occurrences),
+        );
+    }
+
+    /**
+     * The value's galaxy clusters, as anchors.
+     *
+     * Six notes and opinions on the verification instance are written
+     * about a `GalaxyCluster`, and phase 24's claim reader already
+     * counts a plain galaxy *tag* on the value's events — so counting
+     * the tag while dropping an authored statement about the cluster it
+     * names was the omission this closes.
+     *
+     * Both levels of tag, because both are the value's: a galaxy tag on
+     * the occurrence classifies the value itself, and one on its event
+     * classifies the neighbourhood the value is part of, which is the
+     * same argument that admits event-level notes at all.
+     *
+     * `fetchGalaxyClusters` rather than a `galaxy_clusters` read,
+     * because a cluster has its own distribution and this is the reader
+     * that applies it.
+     *
+     * @param array $user
+     * @param array $attributeIds
+     * @param array $eventIds
+     * @return array uuid => attachment
+     */
+    private function analystClusterAnchors(array $user,
+        array $attributeIds, array $eventIds
+    ) {
+        $names = array();
+        $collect = function ($rows) use (&$names) {
+            foreach ($rows as $row) {
+                if (!empty($row['Tag']['is_galaxy'])
+                    && !empty($row['Tag']['name'])
+                ) {
+                    $names[$row['Tag']['name']] = true;
+                }
+            }
+        };
+        $tagFields = array(
+            'Tag' => array('fields' => array('Tag.name', 'Tag.is_galaxy')),
+        );
+        if (!empty($attributeIds)) {
+            $collect($this->model('AttributeTag')->find('all', array(
+                'conditions' => array(
+                    'AttributeTag.attribute_id' => $attributeIds,
+                ),
+                'recursive' => -1,
+                'contain' => $tagFields,
+            )));
+        }
+        if (!empty($eventIds)) {
+            $collect($this->model('EventTag')->find('all', array(
+                'conditions' => array('EventTag.event_id' => $eventIds),
+                'recursive' => -1,
+                'contain' => $tagFields,
+            )));
+        }
+        if (empty($names)) {
+            return array();
+        }
+        $rows = $this->model('GalaxyCluster')->fetchGalaxyClusters(
+            $user,
+            array('conditions' => array(
+                'GalaxyCluster.tag_name' => array_slice(
+                    array_keys($names),
+                    0,
+                    self::ANALYST_GALAXY_TAG_CAP
+                ),
+            ))
+        );
+        $targets = array();
+        foreach ($rows as $row) {
+            $cluster = $row['GalaxyCluster'];
+            if (empty($cluster['uuid'])) {
+                continue;
+            }
+            $targets[$cluster['uuid']] = array(
+                'kind' => 'cluster',
+                'name' => empty($cluster['value'])
+                    ? $cluster['tag_name']
+                    : $cluster['value'],
+                'event' => null,
+            );
+        }
+        return $targets;
+    }
+
+    /**
+     * The thread, read one level at a time.
+     *
+     * **Never `AnalystData::fetchChildNotesAndOpinions`**, and the
+     * second reason is the one that matters. It is two finds per item
+     * per level, which is the cost phase 24 already recorded on
+     * `Relationship`; and `$fetchedUUIDFromRecursion`
+     * (`AnalystData.php:65`) is instance state that nothing clears
+     * within a request, so a second walk over a uuid already seen
+     * returns no children. For MISP's own view, which walks one root,
+     * that is a correct cycle guard. For a union over many anchors it
+     * means the replies a page draws depend on the order it happened to
+     * iterate — an output that changes for a reason the reader cannot
+     * see. Routed around here and reported rather than patched:
+     * `26-analyst.md` §7.2.
+     *
+     * One read per level over the whole frontier, plus one past the
+     * last rendered level — which is what makes the template's *anything
+     * written below this one is flagged but not fetched* a measurement
+     * rather than an assumption.
+     *
+     * @param array $user
+     * @param array $targets From `analystAnchors`
+     * @return array Root items, newest first, children nested
+     */
+    private function analystThreadItems(array $user, array $targets)
+    {
+        if (empty($targets)) {
+            return array();
+        }
+        $items = array();
+        $roots = array();
+        $children = array();
+        $frontier = array_keys($targets);
+        for ($depth = 0; $depth <= self::ANALYST_THREAD_DEPTH; $depth++) {
+            $next = array();
+            foreach ($this->analystRowsFor($user, $frontier) as
+                $parent => $byType
+            ) {
+                foreach ($byType as $type => $rows) {
+                    foreach ($rows as $row) {
+                        if (empty($row['uuid'])
+                            || isset($items[$row['uuid']])
+                        ) {
+                            continue;
+                        }
+                        $items[$row['uuid']] = $this->analystItemFrom(
+                            $type,
+                            $row,
+                            $depth === 0
+                                ? (isset($targets[$parent])
+                                    ? $targets[$parent]
+                                    : null)
+                                : array(
+                                    'kind' => 'reply',
+                                    'to' => isset($items[$parent])
+                                        ? $items[$parent]['kind']
+                                        : 'note',
+                                )
+                        );
+                        if ($depth === 0) {
+                            $roots[] = $row['uuid'];
+                        } else {
+                            $children[$parent][] = $row['uuid'];
+                        }
+                        $next[] = $row['uuid'];
+                    }
+                }
+            }
+            $frontier = $next;
+            if (empty($frontier)) {
+                return $this->analystNest($items, $roots, $children);
+            }
+        }
+        foreach ($this->analystRowsFor($user, $frontier) as
+            $parent => $ignored
+        ) {
+            if (isset($items[$parent])) {
+                $items[$parent]['max_depth_reached'] = true;
+            }
+        }
+        return $this->analystNest($items, $roots, $children);
+    }
+
+    /**
+     * Every note and opinion written on any of these uuids.
+     *
+     * Two queries whatever the frontier's width, which is the whole
+     * point of reading per level.
+     *
+     * @param array $user
+     * @param array $uuids
+     * @return array parent uuid => type => rows
+     */
+    private function analystRowsFor(array $user, array $uuids)
+    {
+        $found = array();
+        foreach (array('Note', 'Opinion') as $type) {
+            $rows = $this->model($type)->fetchForUuids($uuids, $user);
+            foreach ($rows as $parent => $byType) {
+                if (empty($byType[$type])) {
+                    continue;
+                }
+                $found[$parent][$type] = $byType[$type];
+            }
+        }
+        return $found;
+    }
+
+    /**
+     * One `notes` or `opinions` row as a thread item.
+     *
+     * **What an opinion rates is decided here** (`26-analyst.md` D4):
+     * an opinion written on a note, or on another opinion, rates *that
+     * row*. It is drawn, because a disagreement about a disagreement is
+     * part of who says what; and it is kept out of the aggregate,
+     * because the aggregate answers the narrower question of where
+     * organisations stand on the value. The standing panel says so, so
+     * that a reader counting opinions in the thread finds the
+     * difference explained rather than apparent.
+     *
+     * `$target` is null only where an anchor resolved to nothing. The
+     * row is still drawn, with an unresolved target — D5. Dropping it
+     * would let a write the instance accepted vanish from the one page
+     * whose subject is who said what.
+     *
+     * @param string $type `Note` or `Opinion`
+     * @param array $row One `fetchForUuids` record
+     * @param array|null $target The attachment, or null if unresolved
+     * @return array
+     */
+    private function analystItemFrom($type, array $row, $target)
+    {
+        $isOpinion = $type === 'Opinion';
+        $score = $isOpinion ? (int)$row['opinion'] : null;
+        $ratesValue = $target !== null && $target['kind'] !== 'reply';
+        /*
+         * **Named from the row, grouped by the uuid.** Eleven of this
+         * instance's 75 notes carry an `orgc_uuid` that matches no
+         * organisation — the org was deleted, and the contained
+         * association comes back empty — so *Unknown organisation* is
+         * a path live data takes rather than a defensive branch. Two
+         * such organisations must not merge into one lane on the
+         * ledger merely because neither has a name left to tell them
+         * apart, so the grouping key is the uuid and the label is only
+         * what gets printed.
+         */
+        $org = __('Unknown organisation');
+        foreach (array('Orgc', 'Org') as $which) {
+            if (!empty($row[$which]['name'])) {
+                $org = $row[$which]['name'];
+                break;
+            }
+        }
+        $key = __('Unknown organisation');
+        foreach (array('orgc_uuid', 'org_uuid') as $which) {
+            if (!empty($row[$which])) {
+                $key = $row[$which];
+                break;
+            }
+        }
+        return array(
+            'kind' => $isOpinion ? 'opinion' : 'note',
+            'org' => $org,
+            'org_key' => $key,
+            'author' => empty($row['authors'])
+                ? __('unattributed')
+                : $row['authors'],
+            'date' => substr($row['created'], 0, 10),
+            'distribution' => (int)$row['distribution'],
+            'sharing_group' => empty($row['SharingGroup']['name'])
+                ? null
+                : $row['SharingGroup']['name'],
+            /*
+             * `language` defaults to `en` in the schema and is a
+             * natural-language code, not a markup flag — the chip only
+             * earns its place when the author changed it.
+             */
+            'language' => $isOpinion || empty($row['language'])
+                || $row['language'] === 'en'
+                    ? null
+                    : $row['language'],
+            'score' => $score,
+            'rates' => $ratesValue ? 'value' : 'note',
+            'body' => $isOpinion
+                ? (string)$row['comment']
+                : (string)$row['note'],
+            'attached_to' => $target === null
+                ? array('kind' => 'unresolved', 'event' => null)
+                : $target,
+            'children' => array(),
+            'max_depth_reached' => false,
+            'label' => $isOpinion ? self::opinionBandFor($score) : null,
+            'reads' => $isOpinion && $ratesValue
+                ? self::opinionReadsFor($score)
+                : 'none',
+        );
+    }
+
+    /**
+     * The flat set, nested and ordered newest first at every level.
+     *
+     * @param array $items uuid => item
+     * @param array $roots
+     * @param array $children parent uuid => child uuids
+     * @return array
+     */
+    private function analystNest(array $items, array $roots,
+        array $children
+    ) {
+        $build = function ($uuid) use (&$build, $items, $children) {
+            $item = $items[$uuid];
+            if (!empty($children[$uuid])) {
+                foreach ($children[$uuid] as $child) {
+                    $item['children'][] = $build($child);
+                }
+                $item['children'] = self::analystNewestFirst(
+                    $item['children']
+                );
+            }
+            return $item;
+        };
+        $out = array();
+        foreach ($roots as $uuid) {
+            $out[] = $build($uuid);
+        }
+        return self::analystNewestFirst($out);
+    }
+
+    /**
+     * @param array $items
+     * @return array
+     */
+    private static function analystNewestFirst(array $items)
+    {
+        usort($items, function ($a, $b) {
+            return strcmp($b['date'], $a['date']);
+        });
+        return $items;
+    }
+
+    /**
+     * What the thread contains, counted rather than declared.
+     *
+     * Top-level items are what the tab counts, because a reply is
+     * written on an item and not on the value.
+     *
+     * @param array $thread
+     * @return array
+     */
+    private function analystCounts(array $thread)
+    {
+        $counts = array(
+            'items' => count($thread),
+            'opinions' => 0,
+            'notes' => 0,
+            'replies' => 0,
+        );
+        foreach ($thread as $item) {
+            if ($item['kind'] === 'opinion') {
+                $counts['opinions']++;
+            } else {
+                $counts['notes']++;
+            }
+        }
+        self::analystWalk($thread, function ($item) use (&$counts) {
+            $counts['replies'] += count($item['children']);
+        });
+        return $counts;
+    }
+
+    /**
+     * @param array $thread
+     * @param callable $fn Called with every item at every depth
+     * @return void
+     */
+    private static function analystWalk(array $thread, $fn)
+    {
+        foreach ($thread as $item) {
+            $fn($item);
+            if (!empty($item['children'])) {
+                self::analystWalk($item['children'], $fn);
+            }
+        }
+    }
+
+    /**
+     * The ledger and the aggregate over it.
+     *
+     * **A row is an opinion, not an organisation**, and that is a
+     * finding rather than a preference. The built ledger
+     * (`05-analyst.md` §16.3) draws one lane per organisation, which
+     * assumes an organisation holds one position; on this instance the
+     * campaign's own default value carries four opinions and all four
+     * are ADMIN's — 100, 100, 80, then 10. Rolled up to one lane that
+     * value would draw a single disputing organisation over a set that
+     * is three-quarters agreement, and the tug-bar's clause would read
+     * *every organisation disputes*. So every opinion gets its lane,
+     * an organisation's lanes sit together, and the sub-line's *N
+     * opinions from M organisations* is what tells the reader the two
+     * counts differ.
+     *
+     * Groups are ordered by their strongest opinion and the rows inside
+     * a group by score, so the panel still reads highest-first as a
+     * scale — which is what the third sort click restores.
+     *
+     * @param array $thread
+     * @return array orgs => rows, aggregate => array|null
+     */
+    private function analystStanding(array $thread)
+    {
+        $notes = array();
+        $last = array();
+        $opinions = array();
+        self::analystWalk($thread, function ($item) use (
+            &$notes,
+            &$last,
+            &$opinions
+        ) {
+            $org = self::analystOrgKey($item);
+            if (!isset($notes[$org])) {
+                $notes[$org] = 0;
+                $last[$org] = $item['date'];
+            }
+            if ($item['kind'] === 'note') {
+                $notes[$org]++;
+            } elseif ($item['rates'] === 'value') {
+                $opinions[] = $item;
+            }
+            if ($item['date'] > $last[$org]) {
+                $last[$org] = $item['date'];
+            }
+        });
+        if (empty($opinions)) {
+            return array('orgs' => array(), 'aggregate' => null);
+        }
+
+        $byOrg = array();
+        foreach ($opinions as $item) {
+            $byOrg[self::analystOrgKey($item)][] = $item;
+        }
+        $strongest = array();
+        foreach ($byOrg as $org => $held) {
+            usort($held, function ($a, $b) {
+                $byScore = $b['score'] - $a['score'];
+                return $byScore !== 0
+                    ? $byScore
+                    : strcmp($b['date'], $a['date']);
+            });
+            $byOrg[$org] = $held;
+            $strongest[$org] = $held[0]['score'];
+        }
+        arsort($strongest);
+
+        $rows = array();
+        $scores = array();
+        foreach (array_keys($strongest) as $org) {
+            foreach ($byOrg[$org] as $item) {
+                $scores[] = $item['score'];
+                $rows[] = array(
+                    'org' => $item['org'],
+                    'score' => $item['score'],
+                    'label' => $item['label'],
+                    'reads' => $item['reads'],
+                    'date' => $item['date'],
+                    'notes' => $notes[$org],
+                    'last' => $last[$org],
+                    'days' => self::analystDaysSince($last[$org]),
+                );
+            }
+        }
+        return array(
+            'orgs' => $rows,
+            'aggregate' => $this->analystAggregate(
+                $scores,
+                count($byOrg)
+            ),
+        );
+    }
+
+    /**
+     * What the ledger groups an item under.
+     *
+     * The organisation's uuid where the row has one, so two
+     * organisations that no longer resolve to a name cannot merge into
+     * one lane group. Falls back to the printed label, which is the
+     * fixture's only key.
+     *
+     * @param array $item
+     * @return string
+     */
+    private static function analystOrgKey(array $item)
+    {
+        return isset($item['org_key']) ? $item['org_key'] : $item['org'];
+    }
+
+    /**
+     * Whole days between a date and today, on the real clock.
+     *
+     * The fixture measured against its own `TODAY` because an artboard
+     * has no clock. Live, the clock is the point: an opinion held for
+     * three months and one written yesterday are different evidence.
+     *
+     * @param string $date `Y-m-d`
+     * @return int
+     */
+    private static function analystDaysSince($date)
+    {
+        $at = strtotime($date);
+        if ($at === false) {
+            return 0;
+        }
+        return (int)floor((strtotime('today') - $at) / 86400);
+    }
+
+    /**
+     * Everything the standing panel states about the set as a whole.
+     *
+     * **Nothing in MISP computes any of this** — no mean, no buckets,
+     * no per-organisation rollup, anywhere — which is why the panel
+     * carries a `computed at render` chip rather than presenting these
+     * as figures it looked up. `26-analyst.md` D3.
+     *
+     * The gap is *measured*, never assumed. The instance-wide
+     * distribution has nothing between 30 and 70, and the fixture was
+     * drawn around exactly that shape before anyone counted; a value
+     * with three opinions has whatever shape three opinions have, up to
+     * and including no empty band at all.
+     *
+     * @param array $scores Every admitted opinion, unsorted
+     * @param int $orgs Distinct organisations behind them
+     * @return array
+     */
+    private function analystAggregate(array $scores, $orgs)
+    {
+        sort($scores);
+        $n = count($scores);
+
+        $buckets = array();
+        foreach (self::opinionBucketLabels() as $label) {
+            $buckets[] = array('label' => $label, 'count' => 0);
+        }
+        foreach ($scores as $score) {
+            $buckets[self::opinionBucketFor($score)]['count']++;
+        }
+        $empty = 0;
+        foreach ($buckets as $bucket) {
+            if ($bucket['count'] === 0) {
+                $empty++;
+            }
+        }
+
+        $mean = array_sum($scores) / $n;
+        /*
+         * One decimal only when the mean is not a whole number. `62.5`
+         * is a fact about four opinions; `63` would be a rounding this
+         * panel has no reason to perform on the one number it is
+         * already asking the reader to distrust.
+         */
+        $meanLabel = $mean == (int)$mean
+            ? (string)(int)$mean
+            : (string)round($mean, 1);
+
+        $gap = null;
+        for ($i = 1; $i < $n; $i++) {
+            $span = $scores[$i] - $scores[$i - 1];
+            if ($gap === null || $span > $gap['points']) {
+                $gap = array(
+                    'from' => $scores[$i - 1],
+                    'to' => $scores[$i],
+                    'points' => $span,
+                );
+            }
+        }
+
+        $nearest = null;
+        foreach ($scores as $score) {
+            $distance = abs($mean - $score);
+            if ($nearest === null || $distance < $nearest) {
+                $nearest = $distance;
+            }
+        }
+
+        $clusters = self::opinionClustersFor($scores, $gap);
+        return array(
+            'n' => $n,
+            'orgs' => $orgs,
+            'mean' => $mean,
+            'mean_label' => $meanLabel,
+            'mean_nearest' => $nearest,
+            /*
+             * Whether the mean describes a reading nobody holds. Five
+             * points is half a band: closer than that and striking the
+             * number through would be theatre, further and it is the
+             * panel's whole point.
+             */
+            'mean_orphan' => $nearest !== null && $nearest >= 5,
+            'buckets' => $buckets,
+            'empty_bands' => $empty,
+            'gap' => $gap,
+            'clusters' => $clusters,
+            'note' => self::opinionNoteFor($clusters, $gap, $n, $orgs),
+        );
+    }
+
+    /**
+     * The five bands MISP itself uses for an opinion, so the word on
+     * this page is the word the product uses.
+     *
+     * @param int $score
+     * @return string
+     */
+    private static function opinionBandFor($score)
+    {
+        if ($score >= 81) {
+            return __('Strongly agree');
+        }
+        if ($score >= 61) {
+            return __('Agree');
+        }
+        if ($score >= 41) {
+            return __('Neutral');
+        }
+        if ($score >= 21) {
+            return __('Disagree');
+        }
+        return __('Strongly disagree');
+    }
+
+    /**
+     * Which way an opinion argues about the value.
+     *
+     * The band word and the reading are two different things: MISP
+     * calls 61-80 *Agree*, and what it agrees with is the claim that
+     * the value is hostile. The Verdict tab's histogram already reads
+     * the axis this way and this tab follows it.
+     *
+     * @param int $score
+     * @return string malicious | benign | none
+     */
+    private static function opinionReadsFor($score)
+    {
+        if ($score > 50) {
+            return 'malicious';
+        }
+        if ($score < 50) {
+            return 'benign';
+        }
+        // Exactly 50 argues neither way, and inventing a side for it
+        // would be the page's own claim rather than the analyst's.
+        return 'none';
+    }
+
+    /**
+     * Which of the ten bands a score falls in. 0-10 is the first and
+     * every band after it is ten wide, which is what makes 100 the
+     * last band rather than an eleventh.
+     *
+     * @param int $score
+     * @return int 0-9
+     */
+    private static function opinionBucketFor($score)
+    {
+        $score = max(0, min(100, (int)$score));
+        return $score <= 10 ? 0 : (int)ceil($score / 10) - 1;
+    }
+
+    /**
+     * @return array The ten band labels, in the Verdict tab's spelling
+     *               so the two histograms read as one object.
+     */
+    private static function opinionBucketLabels()
+    {
+        return array(
+            '0–10', '11–20', '21–30', '31–40', '41–50',
+            '51–60', '61–70', '71–80', '81–90', '91–100',
+        );
+    }
+
+    /**
+     * The two positions, or the one.
+     *
+     * Split at the widest gap and nowhere else. Splitting at every gap
+     * over some width turns four opinions into four clusters and says
+     * nothing; the reader's question is where the set divides, and a
+     * set divides in one place.
+     *
+     * @param array $scores Sorted ascending
+     * @param array|null $gap
+     * @return array
+     */
+    private static function opinionClustersFor(array $scores, $gap)
+    {
+        if ($gap === null || $gap['points'] < 20) {
+            return array($scores);
+        }
+        $low = array();
+        $high = array();
+        foreach ($scores as $score) {
+            if ($score <= $gap['from']) {
+                $low[] = $score;
+            } else {
+                $high[] = $score;
+            }
+        }
+        return array($low, $high);
+    }
+
+    /**
+     * The sub-line under the panel title, shaped by what the numbers
+     * turned out to be rather than written once and left to go stale.
+     *
+     * @param array $clusters
+     * @param array|null $gap
+     * @param int $n
+     * @param int $orgs
+     * @return string
+     */
+    private static function opinionNoteFor(array $clusters, $gap, $n,
+        $orgs
+    ) {
+        $bits = array();
+        $bits[] = sprintf(
+            __('%1$s from %2$s'),
+            sprintf(__n('%s opinion', '%s opinions', $n), $n),
+            sprintf(
+                __n('%s organisation', '%s organisations', $orgs),
+                $orgs
+            )
+        );
+        if (count($clusters) < 2 || $gap === null) {
+            $bits[] = __('one position, no disagreement to read');
+            return implode(' · ', $bits);
+        }
+        $bits[] = sprintf(
+            __('two positions %s apart'),
+            sprintf(
+                __n('%s point', '%s points', $gap['points']),
+                $gap['points']
+            )
+        );
+        $bits[] = sprintf(
+            __('nothing between %1$s and %2$s'),
+            $gap['from'],
+            $gap['to']
+        );
+        return implode(' · ', $bits);
     }
 
     private function ssdeepThreshold()

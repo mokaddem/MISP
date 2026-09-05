@@ -1361,6 +1361,15 @@ class Value extends AppModel
                  */
                 'Event.uuid',
                 'Object.uuid',
+                /*
+                 * The object's name, for the one caller that has to
+                 * print what the occurrence sits in rather than only
+                 * match against it: the Analyst tab's attachment chip
+                 * says *network-connection in #1284*, and a uuid is
+                 * not a thing to show a reader. Free — the join is
+                 * already here for the uuid beside it.
+                 */
+                'Object.name',
             ),
             'contain' => array('Event', 'Object'),
         );
@@ -1397,6 +1406,10 @@ class Value extends AppModel
                     || empty($row['Object']['uuid'])
                         ? null
                         : $row['Object']['uuid'],
+                'object_name' => empty($row['Attribute']['object_id'])
+                    || empty($row['Object']['name'])
+                        ? null
+                        : $row['Object']['name'],
             );
         }
         return $set;
