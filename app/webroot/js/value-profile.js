@@ -4287,7 +4287,7 @@
     }
 
     /**
-     * Run one module, and put its answer where its brief was.
+     * Ask one module, and put its answer where its brief was.
      *
      * **The only request this page makes that changes anything outside
      * the browser.** It writes nothing to MISP — the endpoint behind it
@@ -4296,42 +4296,28 @@
      * somebody is looking at this value. So it is a POST, it carries a
      * CSRF token, and it happens on a press and on nothing else.
      *
-     * The token is use-once, and the answer carries the next one: a
-     * reader runs several modules and each run spends one.
+     * The answer carries the token the next run will spend.
      *
-     * @param {Element} button
+     * @param {Element} panel
+     * @param {string} name
+     * @param {string} type
+     * @return {Promise} Resolves when the pane holds the answer
      */
-    function runEnrichModule(button) {
-        var panel = button.closest('[data-vp-enrich]');
-        if (!panel || button.disabled) {
-            return;
-        }
-        var name = button.dataset.vpERun;
+    function enrichAsk(panel, name, type) {
         var slot = panel.querySelector(
             '[data-vp-e-pane="' + cssEscape(name) + '"] [data-vp-e-slot]'
         );
         if (!slot) {
-            return;
-        }
-
-        var label = button.querySelector('[data-vp-e-label]');
-        var icon = button.querySelector('[data-vp-e-icon]');
-        var was = label ? label.textContent : '';
-        button.disabled = true;
-        if (icon) {
-            icon.className = 'fas fa-circle-notch fa-spin';
-        }
-        if (label) {
-            label.textContent = 'Running…';
+            return Promise.resolve(false);
         }
         setEnrichState(panel, name, 'running');
 
         var body = new URLSearchParams();
         body.set('data[_Token][key]', panel.dataset.vpEToken || '');
         body.set('data[module]', name);
-        body.set('data[type]', button.dataset.vpEType || '');
+        body.set('data[type]', type || '');
 
-        fetch(panel.dataset.vpEUrl, {
+        return fetch(panel.dataset.vpEUrl, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -4349,14 +4335,16 @@
             .then(function (markup) {
                 slot.innerHTML = markup;
                 var result = slot.querySelector('[data-vp-e-result]');
-                var state = result
-                    ? result.dataset.vpEStateIs
-                    : 'ok';
-                setEnrichState(panel, name, state);
-                // The next run's token rode in with this answer.
+                setEnrichState(
+                    panel,
+                    name,
+                    result ? result.dataset.vpEStateIs : 'ok'
+                );
                 if (result && result.dataset.vpEToken) {
                     panel.dataset.vpEToken = result.dataset.vpEToken;
                 }
+                rebuildEnrichAll(panel);
+                return true;
             })
             .catch(function () {
                 /*
@@ -4366,28 +4354,262 @@
                  * than blaming the module.
                  */
                 setEnrichState(panel, name, 'unreachable');
-                button.disabled = false;
-                if (icon) {
-                    icon.className = 'fas fa-play';
-                }
-                if (label) {
-                    label.textContent = was;
+                return false;
+            });
+    }
+
+    /**
+     * Put a button into its running state, and hand back the undo.
+     *
+     * @param {Element} button
+     * @return {Function}
+     */
+    function enrichBusy(button) {
+        var label = button.querySelector('[data-vp-e-label]');
+        var icon = button.querySelector('[data-vp-e-icon]');
+        var was = label ? label.innerHTML : '';
+        var wasDisabled = button.disabled;
+        button.disabled = true;
+        if (icon) {
+            icon.className = 'fas fa-circle-notch fa-spin';
+        }
+        return function (text) {
+            button.disabled = wasDisabled;
+            if (icon) {
+                icon.className = 'fas fa-play';
+            }
+            if (label) {
+                label.innerHTML = text === undefined ? was : text;
+            }
+        };
+    }
+
+    /**
+     * One module, from its own row.
+     *
+     * @param {Element} button
+     */
+    function runEnrichModule(button) {
+        var panel = button.closest('[data-vp-enrich]');
+        if (!panel || button.disabled) {
+            return;
+        }
+        var done = enrichBusy(button);
+        var label = button.querySelector('[data-vp-e-label]');
+        if (label) {
+            label.textContent = 'Running…';
+        }
+        enrichAsk(panel, button.dataset.vpERun, button.dataset.vpEType)
+            .then(function (ok) {
+                // A filled pane replaced this button along with the
+                // brief around it; only a failure has one to restore.
+                if (!ok) {
+                    done();
                 }
             });
     }
 
     /**
-     * Nothing to initialise.
+     * Every selected module, one after another.
      *
-     * The tab arrives at rest: every pane is rendered, every row says
-     * *Not asked*, and no state is derived from the markup. Kept as
-     * the hook the page's panel-loaded event calls, so a future state
-     * that does need setting up has somewhere to go.
+     * **Sequential, and that is the whole design.** A run is one
+     * module per request — the queued path that would make a single
+     * batched call safe is `POST /attributes/enrich`, which writes —
+     * so `Run 3 selected` is three requests. Firing them together
+     * would put three simultaneous outbound queries on the instance's
+     * quota and give the reader no way to stop after the first
+     * answer; one at a time keeps the press honest about what it is
+     * doing, and the rail shows it happening row by row.
+     *
+     * @param {Element} button
+     */
+    function runEnrichSelected(button) {
+        var panel = button.closest('[data-vp-enrich]');
+        if (!panel || button.disabled) {
+            return;
+        }
+        var picked = [...panel.querySelectorAll('[data-vp-e-select]')]
+            .filter(function (box) { return box.checked; })
+            .map(function (box) {
+                return {
+                    name: box.dataset.vpESelect,
+                    type: box.dataset.vpESeltype
+                };
+            });
+        if (!picked.length) {
+            return;
+        }
+        var done = enrichBusy(button);
+        var label = button.querySelector('[data-vp-e-label]');
+
+        picked.reduce(function (chain, one, i) {
+            return chain.then(function () {
+                if (label) {
+                    label.textContent = 'Running ' + (i + 1)
+                        + ' of ' + picked.length + '…';
+                }
+                return enrichAsk(panel, one.name, one.type);
+            });
+        }, Promise.resolve()).then(function () {
+            done('Run <span data-vp-e-runcount>0</span> selected');
+            panel.querySelectorAll('[data-vp-e-select]')
+                .forEach(function (box) { box.checked = false; });
+            refreshEnrichTray(panel);
+            // The merged pane is the point of running several.
+            pickEnrichModule(panel, '__all');
+        });
+    }
+
+    /**
+     * What the current selection commits to.
+     *
+     * Phase 12 priced it in quota and third-party exposure; **neither
+     * has any source** — module introspection carries a name, its
+     * accepted types, a description, its kinds and its config keys,
+     * and nothing about money or rate limits. So the tray states the
+     * one cost that is knowable and is the same thing the reader is
+     * agreeing to: how many separate queries leave the building.
+     *
+     * @param {Element} panel
+     */
+    function refreshEnrichTray(panel) {
+        var boxes = panel.querySelectorAll('[data-vp-e-select]');
+        var picked = 0;
+        boxes.forEach(function (box) {
+            if (box.checked) {
+                picked++;
+            }
+        });
+
+        setText(panel, '[data-vp-e-picked]', picked);
+        setText(panel, '[data-vp-e-runcount]', picked);
+        setText(panel, '[data-vp-e-ext-n]', picked);
+        showEnrich(panel, '[data-vp-e-cost-out]', picked > 0);
+        showEnrich(panel, '[data-vp-e-cost-none]', picked === 0);
+
+        var run = panel.querySelector('[data-vp-e-run-selected]');
+        if (run) {
+            run.disabled = picked === 0
+                || panel.dataset.vpECanrun !== '1';
+        }
+
+        var all = panel.querySelector('[data-vp-e-select-all]');
+        if (all) {
+            all.checked = picked > 0 && picked === boxes.length;
+            // Some but not all is its own state, and a box that reads
+            // "unchecked" over six ticked rows is a lie about them.
+            all.indeterminate = picked > 0 && picked < boxes.length;
+        }
+    }
+
+    /**
+     * @param {Element} root
+     * @param {string} selector
+     * @param {boolean} visible
+     */
+    function showEnrich(root, selector, visible) {
+        var target = root.querySelector(selector);
+        if (target) {
+            target.classList.toggle('d-none', !visible);
+        }
+    }
+
+    /**
+     * Rebuild the merged pane from the answers already on the page.
+     *
+     * `E2`'s one addition to the direction it came from: the rail
+     * costs the reader cross-module reading and this buys it back. It
+     * clones what the module panes hold rather than asking for
+     * anything, so it costs no request and **cannot disagree with the
+     * panes it merges** — and it merges this visit only, which is the
+     * one span a page with no memory has.
+     *
+     * @param {Element} panel
+     */
+    function rebuildEnrichAll(panel) {
+        var body = panel.querySelector('[data-vp-e-allbody]');
+        if (!body) {
+            return;
+        }
+        var answered = [...panel.querySelectorAll('[data-vp-e-result]')]
+            .filter(function (r) {
+                return r.dataset.vpEStateIs === 'ok';
+            });
+        var ran = panel.querySelectorAll('[data-vp-e-result]').length;
+
+        body.innerHTML = '';
+        var elements = 0;
+        answered.forEach(function (result) {
+            var name = result.dataset.vpEResult;
+            var head = document.createElement('div');
+            head.className = 'vp-e-railgroup mt-3';
+            head.textContent = name;
+            body.appendChild(head);
+            result.querySelectorAll('[data-vp-e-item]')
+                .forEach(function (item) {
+                    elements++;
+                    var copy = item.cloneNode(true);
+                    body.appendChild(copy);
+                });
+        });
+
+        var sub = panel.querySelector('[data-vp-e-allsub]');
+        var head = panel.querySelector('[data-vp-e-allhead]');
+        if (ran === 0) {
+            if (sub) { sub.textContent = 'Nothing run yet'; }
+            if (head) {
+                head.textContent = 'Nothing has been run this visit.';
+            }
+            return;
+        }
+        var summary = elements + (elements === 1
+            ? ' element across ' : ' elements across ')
+            + answered.length + (answered.length === 1
+                ? ' module' : ' modules');
+        if (sub) {
+            sub.textContent = summary;
+        }
+        if (head) {
+            head.textContent = summary + ', this visit.';
+        }
+    }
+
+    /**
+     * Fold an object's attributes away.
+     *
+     * A long answer arrives folded — `circl_passivedns` returns two
+     * hundred objects and a pane that opens with two hundred tables is
+     * not one a reader finds anything in.
+     *
+     * @param {Element} button
+     */
+    function toggleEnrichDisc(button) {
+        var item = button.closest('[data-vp-e-item]');
+        if (!item) {
+            return;
+        }
+        var fold = item.querySelector('[data-vp-e-fold]');
+        if (!fold) {
+            return;
+        }
+        var open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        fold.classList.toggle('d-none', !open);
+    }
+
+    /**
+     * The tab arrives at rest: every pane rendered, every row *Not
+     * asked*, nothing selected. This settles the tray to match.
      *
      * @param {Element} root
      */
     function initEnrichment(root) {
-        return root;
+        var panels = root.querySelectorAll
+            ? root.querySelectorAll('[data-vp-enrich]')
+            : [];
+        panels.forEach(function (panel) {
+            refreshEnrichTray(panel);
+        });
     }
 
     /**
@@ -4399,9 +4621,21 @@
          * Run before pick, because the button sits inside the pane and
          * not inside the row: a press must ask, not merely select.
          */
+        var runAll = event.target.closest('[data-vp-e-run-selected]');
+        if (runAll) {
+            runEnrichSelected(runAll);
+            return true;
+        }
+
         var run = event.target.closest('[data-vp-e-run]');
         if (run) {
             runEnrichModule(run);
+            return true;
+        }
+
+        var disc = event.target.closest('[data-vp-e-disc]');
+        if (disc) {
+            toggleEnrichDisc(disc);
             return true;
         }
 
@@ -7940,11 +8174,30 @@
                 refreshOccurrences();
             }
 
-            // The Enrichment tab's per-module checkboxes and its
-            // `Select all` went with phase 28: a multi-module run is a
-            // request per module, and the queued path that would make
-            // one press safe is the one that writes. A run is one
-            // module, from its own row.
+            if (event.target.matches
+                && event.target.matches('[data-vp-e-select-all]')) {
+                var allPanel = event.target.closest('[data-vp-enrich]');
+                if (allPanel) {
+                    allPanel
+                        .querySelectorAll('[data-vp-e-select]')
+                        .forEach(function (box) {
+                            if (!box.disabled) {
+                                box.checked = event.target.checked;
+                            }
+                        });
+                    refreshEnrichTray(allPanel);
+                }
+                return;
+            }
+
+            if (event.target.matches
+                && event.target.matches('[data-vp-e-select]')) {
+                var enrichPanel = event.target.closest('[data-vp-enrich]');
+                if (enrichPanel) {
+                    refreshEnrichTray(enrichPanel);
+                }
+                return;
+            }
 
             if (event.target.matches && event.target.matches('[data-vp-col]')) {
                 toggleColumn(event.target);

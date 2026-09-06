@@ -273,6 +273,15 @@ Auditable list, so the removal can be checked rather than inferred.
 `enrichModuleRow` in `ValueProfileFixture` builds twelve columns; these are
 the ones with no live source.
 
+> **This list is complete for what persistence killed, and it was
+> mistaken for the whole of what the build removed.** It is not: the
+> first build also dropped seven features that have nothing to do with
+> a store — select-all and the batch run, the merged `All results` row,
+> `Already in MISP`, the disabled write controls, *timed out* as its
+> own state, the object fold, and half the provenance line. §8 is that
+> sweep and they are all built now. A removal list covering only the
+> justified removals reads as an audit and is worse than none.
+
 | Key | What it drew | Why it goes |
 |---|---|---|
 | `ran_at` | "ran at, in the last run" | no run store |
@@ -464,8 +473,104 @@ The `values` entries it does return are the controller's private
 helpers — `renderPanel`, `decodeValue`, `renderLivePanel` and the new
 `runParam` — which is the check's standing noise rather than a gap.
 
-### 7.5 Nothing wrote
+### 7.5 The restored features (§8)
+
+```
+select all -> picked=3 count=3 ext=3 run_enabled=true cost=true requests=0
+run 2 selected -> 2 requests (want 2), results=2 merged_items=4
+                  all_pane_shown=true selection_cleared=true
+  All results sub: "4 elements across 1 module"
+furniture: known=20 action_groups=8 enabled_write_buttons=0 (want 0)
+           folds=6 states=ok,error
+fold toggles: false -> true
+```
+
+`Select all` makes **zero** requests, `Run 2 selected` makes **exactly
+two** — the sequence, not a batch — and **no write button is ever
+enabled**. The merged pane counts one module rather than two because
+`whois` errored, which is the right answer and not a miscount.
+
+### 7.6 Nothing wrote
 
 Six real module queries in `28-enrichment-probe.php`, with `attributes`,
 `objects` and `events` counted either side of each: **`wrote: NOTHING`
 on all six.** §2.4.
+
+---
+
+## 8. The sweep — what the first build dropped that it should not have
+
+Maintainer review, 2026-09-06, immediately after §6: *"you're missing
+some features that were part of the mockup"*, naming select-all/run-all.
+A sweep of `../value-profile-tabs/04-enrichment.md` §5–§10 against the
+built tab found **seven**, not one.
+
+**The error §5 hides.** That section lists nine fixture keys with no
+live source and reads as though it were the whole of what came out. It
+is not. Those nine are the ones persistence killed; the seven below had
+nothing to do with persistence and were dropped on reasoning that does
+not survive being written down. A removal list that only covers the
+justified removals is worse than none, because it reads as an audit.
+
+| # | Feature | Spec | Why it was dropped | Why that was wrong |
+|---|---|---|---|---|
+| A | `Select all`, `n of m selected`, `Run n selected` | §7, §10 | "a multi-module run is a request per module, and the queued path that would make one press safe is the one that writes" | **Conflates one module per *request* with one module per *press*.** The constraint is on the server; n sequential POSTs from the client honour it exactly and keep the feature |
+| B | The `All results` merged row | §7 | dropped silently with the grouping | The grouping needed history; **merging does not**. §7 calls this "the one addition `E2` makes to the direction it came from" — the rail costs cross-module reading and this buys it back |
+| C | `Already in MISP` | §8.3 | dropped with the `New since …` delta beside it | The delta needs a previous run; **this needs only the database now**. §8.3 calls it "what stops an analyst adding a duplicate", and §2 of this document had already identified it as live-able — then the build did not build it |
+| D | `Add to event`, `New event`, `Dismiss`, `Add all` | §8, §10 | writes, so omitted | The page's rule is that a control which would write renders **visibly disabled**, never absent — "not implemented", "nothing to show" and "you may not" are three different things and a missing button says none of them |
+| E | *Timed out* as a state | §9 | collapsed into *unreachable* | Two different facts. One is worth pressing again, the other is worth telling an admin. `queryModuleServer`'s `$throwException` recovers the distinction |
+| F | Per-object expansion | §10 | dropped with the fixture pane | Nothing to do with persistence, and it matters **more** live: `circl_passivedns` returns 200 objects |
+| G | The provenance line's kind and format | §8 | thinned to "asked as … · ms" | Both are known at run time and both were in the spec |
+
+All seven are now built. What stays gone is exactly the nine of §5, and
+§10 of the tab document is now accurate about which of its controls are
+disabled rather than missing.
+
+### 8.1 Three things the restore had to decide for itself
+
+**`Run n selected` is sequential, and that is the design.** Firing the
+selection in parallel would put n simultaneous outbound queries on the
+instance's quota and leave the reader no way to stop after the first
+answer. One at a time keeps the press honest about what it is doing,
+and the rail shows it happening row by row. The button counts down —
+`Running 2 of 3…` — and the tab lands on `All results` when it finishes,
+because comparing them is why anybody ran several.
+
+**The tray prices the selection in queries, not in quota.** Phase 12's
+two chips were *n spend quota* and *n query a third party*, and neither
+has any source: module introspection carries a name, accepted types, a
+description, kinds and config keys, and nothing about money or rate
+limits. What is knowable is how many separate queries leave the
+building, which is the same thing the reader is agreeing to. One chip,
+true.
+
+**The probe's cost, measured.** `forEnrichment` stays at **Q=1**.
+`forEnrichmentRun` goes from 3 to **4**, and to **5** on a capped
+answer — `PREVALENCE_CHUNK` is 250, so 200 rendered objects carrying
+~1,400 distinct values take two statements where four elements take
+one. A run whose module errored costs 3 and a refused one costs 1. The
+growth is in the *answer*, never in the value: `443` costs what
+`8.8.8.8` costs, because neither number reaches this endpoint.
+Re-measured by [`28-enrichment-count.php`](28-enrichment-count.php),
+which now carries the capped case for exactly this reason.
+
+**`Already in MISP` is a claim about the value string, not about the
+value under its type.** One probe for the whole result keeps this to a
+single query; a per-type probe would be one query per distinct type.
+`Value::prevalenceFor` is the instrument — built for another panel,
+already ACL-scoped, already capped, and its 1,500-value probe cap is
+well above this tab's 200-element render cap. Checked against the
+instance rather than assumed: `mmdb_lookup`'s `United States` matches
+`text` rows and its `38` matches `float` rows, so the untyped probe is
+not in practice matching across types. The chip's title says *holds
+this value*, which is the claim the code makes and the one §8.3 makes.
+
+### 8.2 What the sweep confirms is correctly gone
+
+Unchanged from §5, and all six are persistence: the staleness chips and
+their `Never` variant, the three group headers, the delta band and its
+`Show only new` toggle, the `Review all n` header action, the dismissed
+footer and its `Restore`, and the awaiting-review count. Cortex as a
+second rail is deferred rather than dead — it is a second service on a
+second port with a second timeout, and §11 of the tab document already
+called merging it "not free".

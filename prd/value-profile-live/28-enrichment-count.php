@@ -36,6 +36,12 @@ class ValueEnrichCountShell extends AppShell
         array('f1d3ff8443297732862df21dc4e57262', 'hashlookup', 'md5'),
         array('45.155.205.233', 'mmdb_lookup', 'ip-dst|port'),
         array('no-such-value-anywhere.invalid', 'mmdb_lookup', 'ip-dst'),
+        /*
+         * The capped case, and the one that decides whether the
+         * prevalence probe behind `Already in MISP` scales with what
+         * the module returned. 1,374 objects in, 200 rendered.
+         */
+        array('8.8.8.8', 'circl_passivedns', 'ip-dst'),
     );
 
     /**

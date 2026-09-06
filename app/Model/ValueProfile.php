@@ -12128,6 +12128,7 @@ class ValueProfile extends AppModel
             'module' => $name,
             'type' => $type,
             'format' => null,
+            'kinds' => array(),
             'state' => 'ineligible',
             'message' => null,
             'took' => 0,
@@ -12167,6 +12168,7 @@ class ValueProfile extends AppModel
         }
         $run['type'] = $type;
         $run['format'] = $row['format'];
+        $run['kinds'] = $row['kinds'];
 
         /*
          * D3: the run is backed by one of the reader's own
@@ -12187,16 +12189,65 @@ class ValueProfile extends AppModel
 
         $moduleModel = $this->model('Module');
         $started = microtime(true);
-        $result = $moduleModel->queryModuleServer(
-            $this->enrichmentPayload($row, $type, $value, $occurrence),
-            false,
-            'Enrichment',
-            false,
-            $occurrence
-        );
+
+        /*
+         * **`$throwException` is on so a timeout can keep its name.**
+         * `queryModuleServer` otherwise swallows every exception into
+         * one `false`, which would collapse two states the tab draws
+         * differently: *gave up at 30 s*, where the module was asked
+         * and did not finish, and *no service*, where nothing was
+         * asked at all. Phase 12 §9 lists them as separate rows for
+         * that reason, and a reader acts on them differently — one is
+         * worth pressing again, the other is worth telling an admin.
+         *
+         * The cost of asking for the exception is that this has to do
+         * the logging the model would have done.
+         */
+        try {
+            $result = $moduleModel->queryModuleServer(
+                $this->enrichmentPayload($row, $type, $value, $occurrence),
+                false,
+                'Enrichment',
+                true,
+                $occurrence
+            );
+        } catch (Exception $e) {
+            $this->logException('Failed to query enrichment module', $e);
+            $run['took'] = (int)round((microtime(true) - $started) * 1000);
+            return $this->enrichmentFailure($run, $e);
+        }
         $run['took'] = (int)round((microtime(true) - $started) * 1000);
 
-        return $this->enrichmentShape($run, $result);
+        return $this->enrichmentShape(
+            $run,
+            $result,
+            $user,
+            $value
+        );
+    }
+
+    /**
+     * Which of the two transport failures this was.
+     *
+     * `CurlClient` raises `SocketException("curl error 28 …")` when it
+     * gives up, 28 being `CURLE_OPERATION_TIMEDOUT`. That number is
+     * the only thing separating *the module was asked and ran out of
+     * time* from *nothing answered at the address*, and the two get
+     * different wording, a different dot and different advice.
+     *
+     * @param array $run
+     * @param Exception $e
+     * @return array
+     */
+    private function enrichmentFailure(array $run, Exception $e)
+    {
+        $message = $e->getMessage();
+        $timedOut = strpos($message, 'curl error 28') !== false
+            || stripos($message, 'timed out') !== false
+            || stripos($message, 'timeout') !== false;
+        $run['state'] = $timedOut ? 'timeout' : 'unreachable';
+        $run['message'] = $message;
+        return $run;
     }
 
     /**
@@ -12278,8 +12329,9 @@ class ValueProfile extends AppModel
      * @param array|string|false $result
      * @return array
      */
-    private function enrichmentShape(array $run, $result)
-    {
+    private function enrichmentShape(array $run, $result, array $user,
+        $subject
+    ) {
         if ($result === false) {
             $run['state'] = 'unreachable';
             $run['message'] = __(
@@ -12351,6 +12403,7 @@ class ValueProfile extends AppModel
                         'value' => is_array($one)
                             ? JsonTool::encode($one)
                             : (string)$one,
+                        'known' => false,
                     );
                 }
             }
@@ -12362,6 +12415,87 @@ class ValueProfile extends AppModel
         $run['capped'] = $run['total'] > $run['shown'];
         if ($run['total'] === 0) {
             $run['state'] = 'silent';
+        }
+        return $this->enrichmentKnown($run, $user, $subject);
+    }
+
+    /**
+     * Mark the returned values MISP already holds.
+     *
+     * **The one piece of phase 12's provenance that survives having no
+     * store**, and the one that does the most work: §8.3 calls
+     * *Already in MISP* "what stops an analyst adding a duplicate".
+     * `New since <date>` is a delta against a previous run and is
+     * gone; this is a question about the database right now, so it
+     * needs no memory at all.
+     *
+     * `Value::prevalenceFor` is the right instrument and was built for
+     * a different panel: it probes many values at once as separate
+     * indexed equality lookups, caps each one, and applies the
+     * reader's ACL — so the chip means *already in MISP **and** you
+     * can see it*, which is the only version of the claim this page
+     * may make. Its probe cap is 1,500 against this tab's 200-element
+     * render cap, so nothing here can reach it.
+     *
+     * **One query for the whole result**, whatever the module
+     * returned, and the value the page is about is excluded: every
+     * module echoes the subject back, and telling a reader that
+     * `8.8.8.8` is already in MISP on the page for `8.8.8.8` is noise.
+     *
+     * @param array $run
+     * @param array $user
+     * @param string $subject The value the page is about
+     * @return array
+     */
+    private function enrichmentKnown(array $run, array $user, $subject)
+    {
+        $wanted = array();
+        foreach ($run['attributes'] as $attribute) {
+            if ($attribute['value'] !== null) {
+                $wanted[] = (string)$attribute['value'];
+            }
+        }
+        foreach ($run['elements'] as $element) {
+            $wanted[] = $element['value'];
+        }
+        foreach ($run['objects'] as $object) {
+            foreach ($object['attributes'] as $attribute) {
+                if ($attribute['value'] !== null) {
+                    $wanted[] = (string)$attribute['value'];
+                }
+            }
+        }
+        $wanted = array_values(array_unique(array_filter(
+            $wanted,
+            function ($one) use ($subject) {
+                return $one !== '' && $one !== (string)$subject;
+            }
+        )));
+        if (empty($wanted)) {
+            return $run;
+        }
+
+        $prevalence = $this->model('Value')
+            ->prevalenceFor($user, $wanted);
+        $counts = $prevalence['counts'];
+        $capped = $prevalence['capped'];
+        $known = function ($value) use ($counts, $capped) {
+            $value = (string)$value;
+            return isset($counts[$value]) || isset($capped[$value]);
+        };
+
+        foreach ($run['attributes'] as $i => $attribute) {
+            $run['attributes'][$i]['known'] =
+                $known($attribute['value']);
+        }
+        foreach ($run['elements'] as $i => $element) {
+            $run['elements'][$i]['known'] = $known($element['value']);
+        }
+        foreach ($run['objects'] as $i => $object) {
+            foreach ($object['attributes'] as $j => $attribute) {
+                $run['objects'][$i]['attributes'][$j]['known'] =
+                    $known($attribute['value']);
+            }
         }
         return $run;
     }
@@ -12382,6 +12516,8 @@ class ValueProfile extends AppModel
             'comment' => isset($attribute['comment'])
                 ? $attribute['comment'] : null,
             'to_ids' => !empty($attribute['to_ids']),
+            // Filled by enrichmentKnown; false where it never asked.
+            'known' => false,
         );
     }
 
@@ -12401,6 +12537,7 @@ class ValueProfile extends AppModel
                         ? $attribute['type'] : null,
                     'value' => isset($attribute['value'])
                         ? $attribute['value'] : null,
+                    'known' => false,
                 );
             }
         }

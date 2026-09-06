@@ -4,13 +4,25 @@
 > ([`../value-profile-live/28-enrichment.md`](../value-profile-live/28-enrichment.md)),
 > which took this tab live on 2026-09-06. §11 below listed eight things
 > live data would hit and **six of them were persistence**; that phase
-> drops the store rather than building it, so the staleness chips, the
-> group headers, the delta band, dismissals, the awaiting-review count
-> and the cost chips described here **are no longer rendered**. Its §5
-> is the auditable list. What survives is the choice this document
-> made — `E2`, the module as navigation, every state a rail row — and
-> §9's rule that nothing auto-runs, which is now enforced against a
-> real query rather than a fixture.
+> drops the store rather than building it, so six things described here
+> **are no longer rendered**: the staleness chips, the three group
+> headers, the delta band and `Show only new`, `Review all n`, the
+> dismissed footer and `Restore`, and the two cost chips — those last
+> because no cost metadata exists anywhere, not because of the store.
+> Its §5 is the auditable list.
+>
+> **Everything else in §7–§10 is built**, including the parts a first
+> pass dropped and a review put back: `Select all` and `Run n
+> selected` (n sequential requests, never a batch), the `All results`
+> merged row, `Already in MISP`, the per-element `Add to event` / `New
+> event` / `Dismiss` and the header's `Add all` — all four rendering
+> *visibly disabled*, as §10 says — the object fold, and *timed out* as
+> a state distinct from the service being down. That sweep is §8 there.
+>
+> `E2` itself survives intact: the module is the navigation, every
+> state is a rail row, and §9's rule that nothing auto-runs is now
+> enforced against a real query rather than a fixture — walking the
+> whole rail makes zero requests, checked in a browser.
 
 **Phase 12.** Implements candidate **`E2`**, chosen 2026-08-25.
 Artifact: <https://claude.ai/code/artifact/ee197bd7-e9ec-46f3-9b51-c3797236a4ee>

@@ -139,6 +139,94 @@ console.log(`ran ${target}: ${requests - runBefore} request(s), ` +
     `state=${ran.state} row="${ran.label}" dot=${ran.dot} ` +
     `capped=${ran.capped} results_on_page=${ran.strays}`);
 
+/* 5. `Select all` counts without running anything. */
+const beforeSelect = requests;
+await page.click('[data-vp-e-select-all]');
+const selected = await page.evaluate(() => {
+    const panel = document.querySelector('[data-vp-enrich]');
+    const run = panel.querySelector('[data-vp-e-run-selected]');
+    return {
+        picked: panel.querySelector('[data-vp-e-picked]').textContent,
+        count: panel.querySelector('[data-vp-e-runcount]').textContent,
+        ext: panel.querySelector('[data-vp-e-ext-n]').textContent,
+        runEnabled: !run.disabled,
+        costShown: !panel.querySelector('[data-vp-e-cost-out]')
+            .classList.contains('d-none'),
+    };
+});
+console.log(`\nselect all -> picked=${selected.picked} ` +
+    `count=${selected.count} ext=${selected.ext} ` +
+    `run_enabled=${selected.runEnabled} cost=${selected.costShown} ` +
+    `requests=${requests - beforeSelect} (want 0)`);
+
+/* Untick, then hand-pick the fast local modules and run the batch.
+ * Not `Select all` here: that would drag in the passive-DNS module on
+ * every re-run of this harness, which is the thing 3's comment says
+ * not to do. */
+await page.click('[data-vp-e-select-all]');
+const batch = names.filter((n) => preferred.includes(n) || n === 'whois');
+for (const name of batch) {
+    await page.check(`[data-vp-e-select="${name}"]`);
+}
+const batchBefore = requests;
+await page.click('[data-vp-e-run-selected]');
+await page.waitForFunction((n) => {
+    const panel = document.querySelector('[data-vp-enrich]');
+    return panel.querySelectorAll('[data-vp-e-result]').length >= n;
+}, batch.length, { timeout: 120000 });
+await page.waitForTimeout(300);
+
+const merged = await page.evaluate(() => {
+    const panel = document.querySelector('[data-vp-enrich]');
+    const all = panel.querySelector('[data-vp-e-pane="__all"]');
+    return {
+        results: panel.querySelectorAll('[data-vp-e-result]').length,
+        sub: panel.querySelector('[data-vp-e-allsub]').textContent.trim(),
+        head: panel.querySelector('[data-vp-e-allhead]').textContent.trim(),
+        mergedItems: all.querySelectorAll('[data-vp-e-item]').length,
+        allVisible: !all.classList.contains('d-none'),
+        cleared: [...panel.querySelectorAll('[data-vp-e-select]')]
+            .every((b) => !b.checked),
+    };
+});
+console.log(`run ${batch.length} selected -> ` +
+    `${requests - batchBefore} requests (want ${batch.length}), ` +
+    `results=${merged.results} merged_items=${merged.mergedItems} ` +
+    `all_pane_shown=${merged.allVisible} selection_cleared=${merged.cleared}`);
+console.log(`  All results sub: "${merged.sub}"`);
+
+/* 6. The mockup's per-element furniture. */
+const furniture = await page.evaluate(() => {
+    const panel = document.querySelector('[data-vp-enrich]');
+    const res = [...panel.querySelectorAll('[data-vp-e-result]')];
+    const disc = panel.querySelector('[data-vp-e-disc]');
+    return {
+        known: panel.querySelectorAll('.vp-e-known').length,
+        actions: panel.querySelectorAll('.vp-e-el-acts').length,
+        enabledWrites: [...panel.querySelectorAll('.vp-e-el-acts .btn')]
+            .filter((b) => !b.disabled).length,
+        addAll: panel.querySelectorAll(
+            '[data-vp-e-result] .btn[title]').length,
+        folds: panel.querySelectorAll('[data-vp-e-fold]').length,
+        discOpen: disc ? disc.getAttribute('aria-expanded') : 'none',
+        states: res.map((r) => r.dataset.vpEStateIs).join(','),
+    };
+});
+console.log(`furniture: known=${furniture.known} ` +
+    `action_groups=${furniture.actions} ` +
+    `enabled_write_buttons=${furniture.enabledWrites} (want 0) ` +
+    `folds=${furniture.folds} states=${furniture.states}`);
+
+/* The fold actually folds. */
+if (furniture.folds) {
+    const was = await page.$eval('[data-vp-e-fold]',
+        (f) => f.classList.contains('d-none'));
+    await page.click('[data-vp-e-disc]');
+    const now = await page.$eval('[data-vp-e-fold]',
+        (f) => f.classList.contains('d-none'));
+    console.log(`fold toggles: ${was} -> ${now}`);
+}
+
 await page.screenshot({
     path: '/home/sami/.claude/jobs/fdd384a2/tmp/28-enrichment.png',
     fullPage: false,

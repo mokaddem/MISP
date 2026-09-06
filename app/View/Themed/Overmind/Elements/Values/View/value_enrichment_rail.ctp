@@ -1,6 +1,7 @@
 <?php
 /**
- * The rail: one row per module eligible for this value.
+ * The rail: one row per module eligible for this value, plus the
+ * merged row above them and the tray below.
  *
  * **A module is one row however many of the value's types put it
  * there.** `8.8.8.8` is four types and `circl_passivedns` accepts
@@ -14,8 +15,8 @@
  * rather than one that reshuffles as they work.
  *
  * The state a row *does* carry is this visit's: not asked, asking,
- * answered, answered with nothing, refused, errored. All six are set
- * by the run, on the client, against markup this element sent.
+ * answered, answered with nothing, timed out, errored, refused. Set by
+ * the run, on the client, against markup this element sent.
  *
  * A plain partial, not an endpoint.
  *
@@ -28,7 +29,56 @@ $service = $enrichment['service'];
 ?>
 <div class="vp-e-rail">
 
+    <?php
+    /*
+     * Select all, and the count beside it. Phase 12 put this here to
+     * price a batch before committing to it; the price it quoted was
+     * quota and third-party exposure, and neither has a source. What
+     * a selection can still be honestly told is **how many modules it
+     * is**, which is also how many separate queries the press makes —
+     * a run is one module, so `Run 3 selected` is three requests, one
+     * after another.
+     */
+    ?>
+    <div class="vp-e-railhead">
+        <label class="vp-e-selall">
+            <input type="checkbox" class="form-check-input"
+                   data-vp-e-select-all
+                   <?= $canRun ? '' : 'disabled' ?>>
+            <span><?= h(__('Select all')) ?></span>
+        </label>
+        <span class="vp-e-railhead-n">
+            <span data-vp-e-picked>0</span>
+            <?= h(sprintf(__('of %d selected'), count($modules))) ?>
+        </span>
+    </div>
+
     <div class="vp-e-railscroll">
+
+        <?php
+        /*
+         * `All results` — the one addition `E2` makes to the direction
+         * it came from. The rail costs the reader cross-module
+         * reading, and this row buys it back by putting every answer
+         * in one pane. It is filled on the client from the runs made
+         * this visit, because that is the only span a page with no
+         * memory can merge over.
+         */
+        ?>
+        <div class="vp-e-railrow vp-e-railrow-all"
+             data-vp-e-row="__all">
+            <button type="button"
+                    class="vp-e-railbody"
+                    data-vp-e-pick="__all"
+                    aria-pressed="false">
+                <span class="vp-e-railrow-name">
+                    <?= h(__('All results')) ?>
+                </span>
+                <span class="vp-e-railrow-sub" data-vp-e-allsub>
+                    <?= h(__('Nothing run yet')) ?>
+                </span>
+            </button>
+        </div>
 
         <div class="vp-e-railgroup">
             <?= h(sprintf(
@@ -49,6 +99,17 @@ $service = $enrichment['service'];
             $extra = count($types) - 1;
             ?>
             <div class="vp-e-railrow" data-vp-e-row="<?= h($module['name']) ?>">
+
+                <label class="vp-e-selbox">
+                    <input type="checkbox" class="form-check-input"
+                           data-vp-e-select="<?= h($module['name']) ?>"
+                           data-vp-e-seltype="<?= h($module['type']) ?>"
+                           <?= $canRun ? '' : 'disabled' ?>
+                           aria-label="<?= h(sprintf(
+                                __('Select %s'),
+                                $module['name']
+                           )) ?>">
+                </label>
 
                 <button type="button"
                         class="vp-e-railbody"
@@ -91,17 +152,52 @@ $service = $enrichment['service'];
     </div>
 
     <div class="vp-e-tray">
+
         <?php
         /*
-         * The tray states the service rather than a selection's price.
-         * Phase 12 put two cost chips and a *Run n selected* button
-         * here; there is no cost metadata to fill the chips, and a
-         * multi-module run is a request per module — the queued path
-         * that would make one press safe is `POST /attributes/enrich`,
-         * which writes. So a run is one module, from its own row.
+         * The run button for the selection. Phase 12 put two cost
+         * chips beside it — quota and third-party — and neither has
+         * any source in module introspection, so what stands here
+         * instead is the one cost that is knowable and is the same
+         * thing the reader is agreeing to: how many separate queries
+         * leave the building.
          */
         ?>
-        <div class="vp-e-svc">
+        <div class="vp-e-tray-cost" data-vp-e-cost-none>
+            <?= h(__('Nothing selected.')) ?>
+        </div>
+        <div class="vp-e-tray-cost d-none" data-vp-e-cost-out>
+            <i class="fas fa-arrow-up-right-from-square"></i>
+            <span data-vp-e-ext-n>0</span>
+            <?= h(__('queries leave this instance, one at a time')) ?>
+        </div>
+
+<?php
+        /*
+         * Disabled on arrival whoever is reading, because nothing is
+         * selected yet. The client re-enables it when a selection
+         * exists *and* the reader may run — a reader without
+         * `perm_add` finds it disabled with the reason, which is this
+         * page's standing treatment for a control they may not press.
+         */
+        ?>
+        <button type="button"
+                class="btn btn-sm mt-2 d-inline-flex align-items-center
+                       gap-1 <?= $canRun
+                    ? 'btn-outline-primary'
+                    : 'disabled btn-outline-secondary' ?>"
+                disabled
+                <?= $canRun ? '' : 'title="' . h($noRun) . '"' ?>
+                data-vp-e-run-selected>
+            <i class="fas fa-play" data-vp-e-icon></i>
+            <span data-vp-e-label>
+                <?= h(__('Run')) ?>
+                <span data-vp-e-runcount>0</span>
+                <?= h(__('selected')) ?>
+            </span>
+        </button>
+
+        <div class="vp-e-svc mt-2">
             <i class="fas fa-plug"></i>
             <?= h(sprintf(
                 __('Service answered in %d ms'),
@@ -116,6 +212,7 @@ $service = $enrichment['service'];
         <div class="small text-muted mt-1">
             <?= h(__('Nothing runs until you press Run.')) ?>
         </div>
+
     </div>
 
 </div>

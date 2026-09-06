@@ -85,6 +85,7 @@ if ($service['reachable']) {
      data-vp-enrich
      data-vp-e-value="<?= h($valueB64) ?>"
      data-vp-e-token="<?= h($token) ?>"
+     data-vp-e-canrun="<?= $canRun ? '1' : '0' ?>"
      data-vp-e-url="<?= h($baseurl . '/values/viewEnrichmentRun/'
         . $valueB64) ?>">
 
@@ -216,6 +217,35 @@ if ($service['reachable']) {
                             )) ?>
                         </div>
                     </div>
+                </div>
+
+                <?php
+                /*
+                 * The merged pane — `E2`'s one addition to the
+                 * direction it came from. The rail costs the reader
+                 * cross-module reading and this buys it back.
+                 *
+                 * Filled on the client by cloning what the answered
+                 * panes already hold, so it costs no request and
+                 * cannot disagree with them. It merges **this
+                 * visit's** runs, which is the only span a page with
+                 * no memory can merge over — and it says so, rather
+                 * than implying it has read everything.
+                 */
+                ?>
+                <div class="d-none" data-vp-e-pane="__all">
+                    <div class="vp-e-cold-title" data-vp-e-allhead>
+                        <?= h(__('Nothing has been run this visit.')) ?>
+                    </div>
+                    <div class="vp-e-cold-prose mb-3">
+                        <?= h(__(
+                            'This merges the answers from modules run'
+                            . ' on this page, in this visit. Nothing'
+                            . ' is stored, so there is nothing here'
+                            . ' from last time.'
+                        )) ?>
+                    </div>
+                    <div data-vp-e-allbody></div>
                 </div>
 
                 <?php

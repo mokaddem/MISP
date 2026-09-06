@@ -6397,6 +6397,50 @@ th.vp-rel-num {
  * says when it was last true.
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------
+ * Staging a run
+ * ------------------------------------------------------------------
+ * The select-all bar above the rows and the checkbox beside each one.
+ * Separate from the row's own button, because staging a module to run
+ * and reading what it already said are different decisions — which is
+ * also why the checkbox is not inside the button.
+ * ------------------------------------------------------------------ */
+
+.vp-e-railhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 9px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    font-size: 0.72rem;
+}
+
+.vp-e-selall {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    cursor: pointer;
+}
+
+.vp-e-selall input:disabled {
+    cursor: not-allowed;
+}
+
+.vp-e-railhead-n {
+    color: var(--bs-secondary-color);
+}
+
+.vp-e-selbox {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    margin: 0;
+    cursor: pointer;
+}
+
 .vp-e-railrow {
     display: flex;
     align-items: center;

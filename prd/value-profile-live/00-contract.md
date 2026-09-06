@@ -545,7 +545,7 @@ document that filled it.
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Relationships | `viewRelationSettings` | `value_relation_settings` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Enrichment | `viewEnrichment` | `value_enrichment` | 1 | nothing — flat in the value's size | 1 for the type read; the catalogue is none of the three | **28** |
-| Enrichment | `viewEnrichmentRun` | `value_enrichment_result` | 3, **1 refused** | nothing — one occurrence, whatever the value's size | 1 for the occurrence; the query is none of the three | **28** |
+| Enrichment | `viewEnrichmentRun` | `value_enrichment_result` | 4, **5 capped**, 3 errored, **1 refused** | the *answer's* distinct values in steps of 250, never the value's own size | 1 for the occurrence, 2 for the prevalence probe; the query is none of the three | **28** |
 | Collaboration | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
@@ -567,15 +567,25 @@ its query count; this is the same shape one step further out, because that one
 at least stayed inside the building. Measured 2026-09-06 by
 [`28-enrichment-count.php`](28-enrichment-count.php).
 
-The run's **three** queries are `typesFor`, then `Value::occurrencesFor` and
-the `AttributeTag` half of its contain. The tags are fetched and not rendered,
-and that is deliberate rather than slack: the occurrence is what reaches the
+The run's queries are `typesFor`, then `Value::occurrencesFor` and the
+`AttributeTag` half of its contain, then the prevalence probe behind
+*Already in MISP*. The tags are fetched and not rendered, and that is
+deliberate rather than slack: the occurrence is what reaches the
 `enrichment-before-query` workflow as trigger data, and a workflow deciding
 whether a value may leave the building is exactly the thing that would filter
 on an attribute's tags. `AttributesController::hoverEnrichment` passes the same
-shape, with `includeEventTags` set for the same reason. A **refused** run costs
-`Q=1`, because the catalogue check short-circuits before any occurrence is
-read.
+shape, with `includeEventTags` set for the same reason.
+
+**Only the probe varies, and it varies with the answer rather than with the
+value.** `Value::prevalenceFor` chunks at `PREVALENCE_CHUNK` = 250, so a
+four-element answer costs one statement and a capped 200-element one — 1,375
+objects in, 200 rendered, ~1,400 distinct values — cost two. The ceiling is the
+render cap times the attributes an object carries, which is why this row's
+`Scales` cell names the *answer* and not the value: `443` with tens of
+thousands of occurrences costs exactly what `8.8.8.8` does, because neither
+number reaches this endpoint. A run whose module **errored** costs 3 (nothing
+to probe) and a **refused** one costs 1, because the catalogue check
+short-circuits before any occurrence is read.
 
 **Three endpoints read the database with a blank `Q`, and the blank is
 the honest cell rather than a missing one.** `viewRelationReferences`
