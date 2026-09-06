@@ -139,6 +139,17 @@ $service = $enrichment['service'];
                             '+',
                             $module['kinds']
                         )) ?></span>
+                        <?php
+                        /*
+                         * How much came back, once something has.
+                         * `Answered` is the same word for two
+                         * elements and for two hundred, and comparing
+                         * modules at a glance is the rail's whole
+                         * job.
+                         */
+                        ?>
+                        <span class="vp-e-railrow-n d-none"
+                              data-vp-e-count></span>
                     </span>
 
                     <span class="vp-e-status vp-e-status-none"

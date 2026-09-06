@@ -266,6 +266,8 @@ $manyObjects = count($run['objects']) > 1;
 <div class="vp-e-res"
      data-vp-e-result="<?= h($run['module']) ?>"
      data-vp-e-state-is="<?= h($state) ?>"
+     data-vp-e-shown="<?= h($run['shown']) ?>"
+     data-vp-e-total="<?= h($run['total']) ?>"
      data-vp-e-token="<?= h($token) ?>">
 
     <div class="vp-e-res-head">
@@ -421,14 +423,14 @@ $manyObjects = count($run['objects']) > 1;
         <div class="vp-e-group">
             <span class="misp-icon misp-icon-attribute misp-hexagone"
                   aria-hidden="true"></span>
-            <?= h(sprintf(
+            <span data-vp-e-group-n><?= h(sprintf(
                 __n(
                     '%d attribute',
                     '%d attributes',
                     count($run['attributes'])
                 ),
                 count($run['attributes'])
-            )) ?>
+            )) ?></span>
         </div>
         <div class="vp-e-list">
             <?php foreach ($run['attributes'] as $attribute): ?>
@@ -487,10 +489,10 @@ $manyObjects = count($run['objects']) > 1;
         <div class="vp-e-group">
             <span class="misp-icon misp-icon-object misp-hexagone"
                   aria-hidden="true"></span>
-            <?= h(sprintf(
+            <span data-vp-e-group-n><?= h(sprintf(
                 __n('%d object', '%d objects', count($run['objects'])),
                 count($run['objects'])
-            )) ?>
+            )) ?></span>
             <?php if (count($run['objects']) > 1): ?>
                 <?php
                 /*
@@ -752,14 +754,14 @@ $manyObjects = count($run['objects']) > 1;
         <div data-vp-e-section>
         <div class="vp-e-group">
             <i class="fas fa-list" aria-hidden="true"></i>
-            <?= h(sprintf(
+            <span data-vp-e-group-n><?= h(sprintf(
                 __n(
                     '%d element',
                     '%d elements',
                     count($run['elements'])
                 ),
                 count($run['elements'])
-            )) ?>
+            )) ?></span>
         </div>
         <div class="vp-e-list">
             <?php foreach ($run['elements'] as $element): ?>

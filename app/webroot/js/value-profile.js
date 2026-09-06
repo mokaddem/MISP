@@ -4226,6 +4226,8 @@
             label: 'Nothing back'},
         error: {dot: 'vp-e-dot-err', cls: 'vp-e-status-timeout',
             label: 'Module error'},
+        timeout: {dot: 'vp-e-dot-timeout', cls: 'vp-e-status-timeout',
+            label: 'Timed out'},
         refused: {dot: 'vp-e-dot-err', cls: 'vp-e-status-timeout',
             label: 'Not sent'},
         unreachable: {dot: 'vp-e-dot-err', cls: 'vp-e-status-timeout',
@@ -4236,10 +4238,62 @@
             label: 'Asking…'}
     };
 
+    /*
+     * What a row says about a state this script does not know.
+     *
+     * **Not `ok`.** It was, and that is how a timed-out module came to
+     * paint a green dot and the word *Answered* on its row while the
+     * pane beside it said the module had run out of time — the one
+     * distinction the state list exists to keep. A row that cannot
+     * name what happened must not claim the best of the seven things
+     * it might have been.
+     */
+    var ENRICH_UNKNOWN = {dot: 'vp-e-dot-none', cls: 'vp-e-status-none',
+        label: 'Unknown'};
+
     var ENRICH_DOTS = 'vp-e-dot-ok vp-e-dot-err vp-e-dot-run '
         + 'vp-e-dot-none vp-e-dot-timeout';
     var ENRICH_CLS = 'vp-e-status-ok vp-e-status-none '
         + 'vp-e-status-timeout';
+
+    /**
+     * How much a module sent back, said on its own row.
+     *
+     * `Answered` is the same word for two elements and for two
+     * hundred, and reading the modules against each other is what the
+     * rail is for. A capped answer says both numbers, because the one
+     * that is rendered is not the one that came back.
+     *
+     * @param {Element} panel
+     * @param {Element} row
+     * @param {string} state
+     * @param {Element} result The answer, where there is one
+     */
+    function setEnrichCount(panel, row, state, result) {
+        var out = row.querySelector('[data-vp-e-count]');
+        if (!out) {
+            return;
+        }
+        var shown = result ? Number(result.dataset.vpEShown) : 0;
+        var total = result ? Number(result.dataset.vpETotal) : 0;
+        if (state !== 'ok' || !shown) {
+            out.textContent = '';
+            out.classList.add('d-none');
+            return;
+        }
+        var data = panel.dataset;
+        if (total > shown) {
+            out.textContent = (data.vpENCapped || '%1$s of %2$s')
+                .replace('%1$s', shown)
+                .replace('%2$s', total);
+        } else {
+            out.textContent = (shown === 1
+                ? (data.vpENOne || '%s element')
+                : (data.vpENMany || '%s elements')
+            ).replace('%s', shown);
+        }
+        out.classList.remove('d-none');
+    }
 
     /**
      * Paint one rail row with what happened to it.
@@ -4247,15 +4301,17 @@
      * @param {Element} panel
      * @param {string} name Module name
      * @param {string} state
+     * @param {Element} result The answer, where there is one
      */
-    function setEnrichState(panel, name, state) {
+    function setEnrichState(panel, name, state, result) {
         var row = panel.querySelector(
             '[data-vp-e-row="' + cssEscape(name) + '"]'
         );
         if (!row) {
             return;
         }
-        var spec = ENRICH_STATES[state] || ENRICH_STATES.ok;
+        var spec = ENRICH_STATES[state] || ENRICH_UNKNOWN;
+        setEnrichCount(panel, row, state, result);
 
         var dot = row.querySelector('[data-vp-e-dot]');
         if (dot) {
@@ -4338,7 +4394,8 @@
                 setEnrichState(
                     panel,
                     name,
-                    result ? result.dataset.vpEStateIs : 'ok'
+                    result ? result.dataset.vpEStateIs : 'unknown',
+                    result
                 );
                 if (result && result.dataset.vpEToken) {
                     panel.dataset.vpEToken = result.dataset.vpEToken;
@@ -4692,15 +4749,31 @@
         /*
          * A heading counting three objects over none of them is a
          * worse lie than no heading, so a section with nothing left
-         * in it goes with its rows.
+         * in it goes with its rows — and one that keeps some of them
+         * counts what it is showing rather than what it was sent.
          */
+        var panel = scope.closest('[data-vp-enrich]');
+        var ofFmt = (panel && panel.dataset.vpEOf) || '%1$s of %2$s';
         scope.querySelectorAll('[data-vp-e-section]')
             .forEach(function (section) {
-                var live = [...section.querySelectorAll('[data-vp-e-item]')]
-                    .some(function (item) {
-                        return !item.classList.contains('d-none');
-                    });
-                section.classList.toggle('d-none', !live);
+                var items = [...section.querySelectorAll('[data-vp-e-item]')];
+                var live = items.filter(function (item) {
+                    return !item.classList.contains('d-none');
+                }).length;
+                section.classList.toggle('d-none', live === 0);
+
+                var head = section.querySelector('[data-vp-e-group-n]');
+                if (!head) {
+                    return;
+                }
+                if (head.dataset.vpEGroupAll === undefined) {
+                    head.dataset.vpEGroupAll = head.textContent.trim();
+                }
+                head.textContent = (query === '' || live === items.length)
+                    ? head.dataset.vpEGroupAll
+                    : ofFmt
+                        .replace('%1$s', live)
+                        .replace('%2$s', head.dataset.vpEGroupAll);
             });
 
         var out = scope.querySelector('[data-vp-e-filter-n]');

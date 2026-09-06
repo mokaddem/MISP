@@ -6530,6 +6530,16 @@ th.vp-rel-num {
     color: var(--bs-secondary-color);
 }
 
+/* How much a module sent back, on its own row. Weighted over the type
+   and the kind beside it: after a run it is the thing the reader is
+   comparing across the rail. */
+.vp-e-railrow-n {
+    flex: 0 0 auto;
+    color: var(--bs-body-color);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
 .vp-e-railgroup {
     padding: 9px 12px 5px;
     font-size: 0.62rem;

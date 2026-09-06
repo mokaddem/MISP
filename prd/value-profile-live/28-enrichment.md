@@ -663,7 +663,39 @@ the instance: the head went from `1 · https://www.circl.lu/pdns/ · A` to
   `.vp-e-disc`. All of them styled §5's fixture keys or §8.2's
   persistence features and none had a selector left in any view or script.
 
-### 9.4 Verification
+### 9.4 Three the status review turned up
+
+Maintainer question after §9.3: *"what's still open for the enrichment
+phase? Are we done?"* A read of `../value-profile-tabs/04-enrichment.md`
+§7–§11 against the built tab found one defect and two gaps.
+
+**A timed-out module said `Answered`, in green.** `ENRICH_STATES` in
+`value-profile.js` carried six outcomes and `running`, and **not
+`timeout`**; the lookup fell back to `ENRICH_STATES.ok`. So the row
+claimed the best of the seven things it might have been while the pane
+beside it correctly said the module had run out of time — undoing §8
+item E, the restore whose whole point was that *worth pressing again*
+and *worth telling an admin* are different facts. The fallback is now a
+neutral `Unknown` rather than `ok`, for the same reason: a row that
+cannot name what happened must not claim success. `28-enrichment-check`
+did not catch it because it only ever reaches `ok` and `error`.
+
+**The rail never said how much came back.** Spec §7's answered sub-line
+is `6 elements`; the row carried the type, the kinds and the word
+`Answered`, which is the same word for two elements and for two hundred
+— on a rail built for reading modules against each other. The row now
+carries the count, and a capped answer carries both numbers
+(`200 of 1375`), because the one rendered is not the one that came back.
+The result fragment ships `data-vp-e-shown` / `data-vp-e-total`, and the
+wordings are declared once on the panel so the client is not inventing
+English.
+
+**A filtered section counted what it was sent.** `199 objects` stood
+over twelve visible cards. A narrowed section now reads
+`12 of 199 objects` and goes back to `199 objects` when the box is
+cleared.
+
+### 9.5 Verification
 
 Against the dev instance as `admin@admin.test`, 2026-09-06, both themes:
 
@@ -677,6 +709,18 @@ Against the dev instance as `admin@admin.test`, 2026-09-06, both themes:
 | `Expand all` / `Collapse all` | 199 open, label flips, 199 shut |
 | `whois` on `8.8.8.8` | `error`, module's own message, `Run again` offered |
 | [`28-enrichment-check.mjs`](28-enrichment-check.mjs) | unchanged: 0 requests on a 5-row walk, 2 requests for 2 selected, 0 enabled write buttons, folds toggle |
+
+§9.4's three, verified by rewriting the real fragment on the wire so the
+whole `enrichAsk` → `setEnrichState` path runs as it would:
+
+| Case | Rail row |
+|---|---|
+| `mmdb_lookup`, `ok` | `Answered`, dot ok, **`4 elements`** |
+| `circl_passivedns`, capped | `Answered`, dot ok, **`200 of 1375`** |
+| `whois`, `error` | `Module error`, dot err, no count |
+| state rewritten to `timeout` | **`Timed out`**, dot timeout — was `Answered`, dot ok |
+| fragment with no result element | **`Unknown`**, dot none — was `Answered`, dot ok |
+| filter `51cie.com` over 200 | headings `0 of 1 attribute`, `1 of 199 objects`; cleared, back to `1 attribute`, `199 objects` |
 
 The `elements` branch — a `simplified` module answering with bare
 `types`/`values` — is markup-identical to the attributes branch and was

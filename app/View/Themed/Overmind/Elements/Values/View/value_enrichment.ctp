@@ -86,6 +86,10 @@ if ($service['reachable']) {
      data-vp-e-value="<?= h($valueB64) ?>"
      data-vp-e-token="<?= h($token) ?>"
      data-vp-e-canrun="<?= $canRun ? '1' : '0' ?>"
+     data-vp-e-n-one="<?= h(__('%s element')) ?>"
+     data-vp-e-n-many="<?= h(__('%s elements')) ?>"
+     data-vp-e-n-capped="<?= h(__('%1$s of %2$s')) ?>"
+     data-vp-e-of="<?= h(__('%1$s of %2$s')) ?>"
      data-vp-e-url="<?= h($baseurl . '/values/viewEnrichmentRun/'
         . $valueB64) ?>">
 
