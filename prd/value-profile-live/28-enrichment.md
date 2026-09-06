@@ -4,6 +4,16 @@
 2026-09-06. Inherits [`00-contract.md`](00-contract.md) (§14) and rebuilds
 the tab phase 12 shipped, [`../value-profile-tabs/04-enrichment.md`](../value-profile-tabs/04-enrichment.md).
 
+**See also** [`../enrichment-tip-comparison.md`](../enrichment-tip-comparison.md)
+— this tab measured against Cortex, OpenCTI, XSOAR, ThreatConnect,
+EclecticIQ, Recorded Future and Maltego, 2026-09-06. It answers a
+question this phase could not ask from inside MISP: of the six features
+§5 removed for want of a store, which are table stakes elsewhere. Two
+are, and it also found that **MISP has no enrichment result cache
+anywhere** — `Module.php` and `hoverEnrichment` both have none, so the
+hover popover re-queries on every mouseover. The tab is not uniquely
+stateless.
+
 ---
 
 ## 1. Why this phase exists, and why it is not the phase §1.4 predicted
