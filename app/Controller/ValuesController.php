@@ -12,11 +12,16 @@ App::uses('ValueProfileFixture', 'Tools');
  *
  * Read-only: nothing here writes. Every number is fixture data except on
  * the tabs the live campaign has converted — Occurrences (phase 22),
- * Sightings (23), Relationships (24), Timeline (25) and Analyst data
- * (26) — which it does one panel at a time, so the two regimes sit side
- * by side until it finishes.
+ * Sightings (23), Relationships (24), Timeline (25), Collaboration (26),
+ * History (27) and Enrichment (28) — which it does one panel at a time,
+ * so the two regimes sit side by side until it finishes.
  * `prd/value-profile-live/00-contract.md` §14.12 is the record of which
  * panels have moved.
+ *
+ * **One action leaves the building**, and it is the only one:
+ * `viewEnrichmentRun` queries a third-party module. It still writes
+ * nothing to MISP — see its docblock for what that costs instead, and
+ * why it is the page's only POST.
  */
 class ValuesController extends AppController
 {
@@ -58,6 +63,48 @@ class ValuesController extends AppController
         $this->rejectNonHtmlExtension(
             $this->request->params['ext'] ?? null
         );
+        /*
+         * The run endpoint posts two scalars and no form, so the
+         * form-tampering hash has nothing to check and its absence
+         * would blackhole every run. The CSRF check stays on —
+         * `viewEnrichmentRun` says why that half is worth keeping
+         * where MISP's usual ajax treatment drops both.
+         */
+        if (($this->request->params['action'] ?? null)
+            === 'viewEnrichmentRun'
+        ) {
+            $this->Security->validatePost = false;
+        }
+
+        /*
+         * **A use-once CSRF token cannot survive this page.**
+         *
+         * `SecurityComponent::generateToken()` is a read-modify-write
+         * on one session key: it reads `_Token.csrfTokens`, adds the
+         * nonce it just minted, and writes the map back. This page
+         * loads its panels lazily and in parallel — around twenty
+         * requests land together — so two that overlap both read the
+         * same map and the later write drops the earlier one's nonce.
+         * Whichever request the Enrichment panel was is as likely as
+         * any other to be the one dropped, and the run it embedded a
+         * token for then blackholes at 400.
+         *
+         * Measured before this line existed: **two of five** browser
+         * runs failed that way, against six of six over plain HTTP,
+         * where nothing is concurrent. That gap is the whole tell —
+         * the defect is in the page's concurrency, not the endpoint.
+         *
+         * A stable per-session token is the fix and not a weakening:
+         * it is the synchroniser-token pattern every later CakePHP
+         * uses, and CSRF turns on an attacker being unable to *read*
+         * the token cross-origin, never on its being fresh. Every
+         * concurrent write now writes the same key, so the lost
+         * update stops mattering, and a reader can run several
+         * modules without each press spending the next one's token.
+         *
+         * Scoped to this controller, which posts exactly one thing.
+         */
+        $this->Security->csrfUseOnce = false;
     }
 
     /**
@@ -523,28 +570,99 @@ class ValuesController extends AppController
     }
 
     /**
-     * The Enrichment tab: one endpoint for the whole tab.
+     * The Enrichment tab: the modules this value could be sent to.
      *
-     * The rail's state chips and the pane's contents are the same
-     * data read two ways, so splitting them would let a rail row
-     * claim six elements over a pane that had none. Switching modules
-     * is client-side against markup already here, which is also why
-     * every module's pane is rendered up front and one of them shown:
-     * a request per module would be a request this tab must not make.
+     * **Live since phase 28, and stateless.** Nothing records that a
+     * module ran, because there is nowhere for that to live — `Module`
+     * is `useTable = false` and no per-value per-module store exists.
+     * So this tab has no memory: it lists what could be asked, a press
+     * asks one thing, and the answer lives in the response.
+     * `28-enrichment.md` §1 is why that is the phase rather than the
+     * store it would have needed.
      *
-     * Nothing runs a module. Not on load, not on tab switch, not on
-     * selecting one — a run spends quota and tells an adversary you
-     * are looking, so it needs a press nobody made by arriving.
+     * **Two endpoints now, where phase 12 had one.** The rail and the
+     * pane were one fixture read and are no longer: the rail is cheap
+     * and local, a run costs an outbound query and up to five seconds.
+     * So they resolve separately, which is the per-panel ajax pattern
+     * this page already uses, one level further down.
+     *
+     * Nothing here runs a module. Not on load, not on tab switch, not
+     * on selecting one — a run spends quota and tells a third party
+     * you are looking, so it needs a press nobody made by arriving.
      *
      * @param string $b64value
      * @return void
      */
     public function viewEnrichment($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->renderLivePanel(
+            $b64value,
+            'forEnrichment',
             'value_enrichment'
         );
+    }
+
+    /**
+     * Run one module against this value and render what came back.
+     *
+     * **The only action on this page that causes anything to leave the
+     * instance**, and the only one that is a POST. It writes nothing
+     * to MISP — `Module::queryModuleServer()` is the non-writing call,
+     * and `Event::enrichment()`, which turns a response into
+     * attributes, is never reached from here — but it spends the
+     * instance's quota and announces interest in the value to a third
+     * party. A GET carrying that is prefetchable, replayable and
+     * crawlable, so it is a POST with a CSRF token.
+     *
+     * **`validatePost` is off and the CSRF check is not.** Form
+     * tampering is what `validatePost` defends and there is no form:
+     * two scalars arrive, and neither is trusted anyway — the module
+     * name and type are checked against the catalogue this reader
+     * would have been shown, in `ValueProfile::forEnrichmentRun`.
+     * MISP's usual ajax treatment is `unlockedActions`, which would
+     * drop both; this endpoint keeps the half that matters.
+     *
+     * @param string $b64value
+     * @return void
+     * @throws MethodNotAllowedException
+     */
+    public function viewEnrichmentRun($b64value = null)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Running a module queries a third party, so it is a'
+                . ' POST.'
+            ));
+        }
+        $this->renderLivePanel(
+            $b64value,
+            'forEnrichmentRun',
+            'value_enrichment_result',
+            array(
+                'module' => $this->runParam('module'),
+                'type' => $this->runParam('type'),
+            )
+        );
+    }
+
+    /**
+     * One posted scalar, or null.
+     *
+     * Nothing here validates: the catalogue does, because a check
+     * written beside the request would be a second opinion about what
+     * this reader may ask, and two of those is how the looser one
+     * becomes the answer.
+     *
+     * @param string $key
+     * @return string|null
+     */
+    private function runParam($key)
+    {
+        $data = $this->request->data;
+        if (!isset($data[$key]) || !is_string($data[$key])) {
+            return null;
+        }
+        return $data[$key];
     }
 
     /**

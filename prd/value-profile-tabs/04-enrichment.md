@@ -1,5 +1,17 @@
 # PRD: Value Profile — Enrichment tab
 
+> **Superseded in part by phase 28**
+> ([`../value-profile-live/28-enrichment.md`](../value-profile-live/28-enrichment.md)),
+> which took this tab live on 2026-09-06. §11 below listed eight things
+> live data would hit and **six of them were persistence**; that phase
+> drops the store rather than building it, so the staleness chips, the
+> group headers, the delta band, dismissals, the awaiting-review count
+> and the cost chips described here **are no longer rendered**. Its §5
+> is the auditable list. What survives is the choice this document
+> made — `E2`, the module as navigation, every state a rail row — and
+> §9's rule that nothing auto-runs, which is now enforced against a
+> real query rather than a fixture.
+
 **Phase 12.** Implements candidate **`E2`**, chosen 2026-08-25.
 Artifact: <https://claude.ai/code/artifact/ee197bd7-e9ec-46f3-9b51-c3797236a4ee>
 Depends on `00-shared.md`.

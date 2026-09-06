@@ -621,7 +621,24 @@ $tabRegistry = array(
         'id' => 'enrichment',
         'title' => __('Enrichment'),
         'icon' => 'fas fa-wand-magic-sparkles',
-        'count' => $counts['enrichment'],
+        /*
+         * No count, dropped by phase 28 — and this was the last
+         * fixture number left in the page frame, the one §1.4
+         * predicted would start lying the day this tab converted.
+         *
+         * The honest number is the eligible-module count and it is
+         * cheap: 9 ms for the catalogue plus 2–26 ms for `typesFor`.
+         * It is still dropped, because computing it would make **every
+         * page load, on every tab, depend on an external HTTP
+         * service** — and pay that service's 1 s timeout whenever it
+         * is down, for a number on a tab most readers never open. The
+         * Relationships and Collaboration tabs dropped theirs for
+         * their own reasons; this one is the first dropped because the
+         * number is not MISP's to state.
+         *
+         * After this the tab bar carries exactly two numbers, both the
+         * viewer's, both read live.
+         */
         /*
          * One full-width slot, and the panel owns its own split: the
          * module rail at ~40% and one module's results beside it. Not

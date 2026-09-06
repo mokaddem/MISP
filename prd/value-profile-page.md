@@ -45,7 +45,7 @@ here exists to make each of those a local change.
 ### 1.4 Where this stands
 
 **Read this first.** §1.2 describes the original skeleton pass; the document has
-since grown to twenty-seven built phases and this subsection is the current
+since grown to twenty-eight built phases and this subsection is the current
 state.
 
 Phases 1–21 were **fixture-first**: real routing, real templates, real ajax
@@ -84,16 +84,56 @@ subset claim was about which rows, not about what each row carries.
 Fixed in `auditRow`, so both tabs take it, and verified by reading the
 same value as a site admin and as an org admin.
 
-**The Overview's last four fixture panels and the page frame are now the
-only fixture-backed things left that are not blocked.**
+**Phase 28 took Enrichment the next day, and it is the first phase
+that converted a tab by deciding not to build what the tab needed.**
+The blocker was never the data — it was the *store*. Phase 12 §11
+listed eight things live data would hit and six were persistence: a
+last-run timestamp, staleness, the delta band, dismissals, the
+awaiting-review count, and cost metadata that has no source anywhere.
+The 2026-09-06 decision drops all of it rather than designing a
+schema, and the tab becomes what it can be without one — a catalogue
+of the modules eligible for this value, one run on demand, and the
+answer rendered and not stored. `live/28-enrichment.md` §5 is the
+auditable list of the nine fixture keys that stopped being rendered,
+because the important half of that phase is what it *removed*: a rail
+carrying fixture staleness chips beside a live result is the same
+hazard this section names one level up about the page frame.
 
-The Occurrences, Sightings, Relationships, Timeline, Collaboration and
-History tabs now read the database; the other three still read the fixture —
-Overview in part, Verdict and Enrichment whole — so the two regimes sit side
-by side until the campaign finishes. **Nothing
-writes**, on either side. `live/00-contract.md` §14.12 is the
-panel-level record — **twenty-two of thirty-one endpoints now read the
-database, and nineteen of those carry their numbers.** The three without
+**It is also the page's first POST, and its first outbound request.**
+Nothing writes — verified rather than restated, by counting
+`attributes`, `objects` and `events` either side of six real module
+queries (§2.4 there). But a run spends the instance's quota and tells a
+third party somebody is looking at this value, so it is a press and
+never a page load: walking every rail row makes **zero** requests, and
+that is checked in a browser rather than asserted. Three of the
+design's assumptions died against the instance — `meta.config` cannot
+predict failure (`whois` fails without two keys, `mmdb_lookup` works
+without three), result *size* rather than time is what bites
+(`circl_passivedns` returns 1,374 objects on `8.8.8.8`), and an empty
+trigger payload would have had `Module` report every module blocked on
+any instance binding `enrichment-before-query`.
+
+**And it found a page-wide defect that only a POST could surface.**
+`SecurityComponent::generateToken()` is a read-modify-write on one
+session key, and this page loads ~20 panels in parallel, so a
+concurrent panel request drops the token the Enrichment panel
+embedded — **two of five browser runs blackholed at 400, against six
+of six over plain HTTP where nothing is concurrent.** Fixed with a
+stable per-session token scoped to this controller (§6.3 there).
+Anything that ever posts from this page inherits the fix.
+
+**The Overview's last four fixture panels and the page frame are now the
+only fixture-backed things left that are not blocked**, and the Verdict
+tab is the only blocked one.
+
+The Occurrences, Sightings, Relationships, Timeline, Collaboration,
+History and Enrichment tabs are now live; only Overview — in part — and
+Verdict still read the fixture, so the two regimes sit side by side
+until the campaign finishes. **Nothing
+writes**, on either side, and that now includes a tab that executes
+third-party code. `live/00-contract.md` §14.12 is the
+panel-level record — **twenty-four of thirty-two endpoints now read
+live data, and twenty-one of those carry their numbers.** The three without
 them are `viewRelationReferences` and `viewRelationExternal`, built by
 phase 24 and never recorded, and `viewAnalystPreview`, converted by
 phase 26 §20 after that phase's own board pass had already run. Add the
@@ -153,10 +193,17 @@ widening it to the other notions, and says what that would need.
 Relationships first did — none at all, this time because the count is
 the viewer's and a badge that agreed with the panel would have to run
 the panel's five-anchor union at page load (`live/26-analyst.md` §10.2).
-**Enrichment's is the last one left**, and it becomes wrong the day that
-tab is converted: after phase 26 the tab bar carries exactly three
-numbers, and two of them — Occurrences' count and Relationships'
-objects — are the viewer's, read live.
+**Enrichment's was the last one left**, and phase 28 dropped it on the
+day it converted that tab — the third answer again, and for a reason
+none of the others had. The honest number is the eligible-module count
+and it is *cheap*: 9 ms for the catalogue plus 2–26 ms for `typesFor`.
+It was still dropped, because computing it would make every page load,
+on every tab, depend on an external HTTP service, and pay that
+service's 1 s timeout whenever it is down — for a number on a tab most
+readers never open. It is the first badge dropped because the number
+is **not MISP's to state**. The tab bar now carries exactly two
+numbers, Occurrences' count and Relationships' objects, and both are
+the viewer's, read live.
 
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
@@ -191,6 +238,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 24B | Relationships, the insight pass over the built tab — sixteen tasks, converts nothing | `live/24b-relationships.md` | **closed 2026-09-04** (§20 carries it forward) |
 | 26 | Analyst data goes live and the tab is renamed Collaboration — two endpoints converted, a third built, the Overview's preview card taken with it | `live/26-analyst.md` | **closed 2026-09-05** — all 16 tasks done, §21 the re-run |
 | 27 | History goes live — the last unblocked tab, against the reader phase 25 built for it | `live/27-history.md` | **closed 2026-09-05** — T1–T16 done, §16 the build log, §18 the review round |
+| 28 | Enrichment goes live, stateless — the store dropped rather than built | `live/28-enrichment.md` | **built 2026-09-06** — §2 the probe that scoped it, §5 the nine keys removed, §6.3 the CSRF race it found |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **not designed — a scope note only.** Blocks the Verdict tab; needs its own PRD and grilling session |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
@@ -207,7 +255,7 @@ goes first argues why in its own document.
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | **23** | **Sightings** | [`live/23-sightings.md`](value-profile-live/23-sightings.md) | **built** — all five panels, plus the Overview's `value_sightings` card. Closed the decay aggregation rule §14.5 had left open (§5) and found §14.6's exception has a second member (§7). **A clean `no` on all three concepts**, argued in §11.5 |
 | **24** | **Relationships** | [`live/24-relationships.md`](value-profile-live/24-relationships.md) | **CLOSED 2026-09-04** — all five panels, and the rail's graph is now real (§10). Found that **the correlation engine has nothing to say about a value** and that section one has to be an event join (§3). All three concepts **deferred with reasons** (§14); feed co-occurrence is the one piece of real upside left. **Subphase B shipped sixteen tasks** over the built tab and the phase **closed 2026-09-04** — [`live/24b-relationships.md`](value-profile-live/24b-relationships.md), whose §20 lists what it hands on: five items waiting on somebody else, a promote list that should be **measured before it is built** (§20.3), and four unrecorded board rows (§20.4) |
-| 22+ | Enrichment | — | not started — blocked on the persistence §7.9 found missing. **Re-checked 2026-09-04** and still true in all three parts: `Module` is `useTable = false`, no per-value/per-module run store or dismissal store exists among the instance's 106 tables, and `Event::enrichmentRouter()` returns at `Event.php:7998` above its own `MISP.background_jobs` branch, so the interactive path is synchronous whatever the setting says. It is a schema phase, not a conversion phase — `live/25-timeline.md` §2 |
+| **28** | **Enrichment** | [`live/28-enrichment.md`](value-profile-live/28-enrichment.md) | **BUILT 2026-09-06 — stateless.** Was carried as blocked on the persistence §7.9 found missing, and all three parts of that blocker are still true: `Module` is `useTable = false`, no per-value/per-module run or dismissal store exists, and `Event::enrichmentRouter()` returns at `Event.php:7997` above its own `MISP.background_jobs` branch. **The phase drops the store rather than building it** — the tab lists the modules eligible for this value, runs one on demand, and renders the answer without keeping it. §5 is the auditable list of the **nine fixture keys that stopped being rendered**, which is the important half: staleness, the delta band, dismissals and the cost chips came *out* rather than staying as fixture decoration beside live results. **The page's first POST and first outbound request** — nothing writes, verified by counting three tables either side of six real queries (§2.4). Three design assumptions died against the instance (§2.3, §2.5, §2.6): `meta.config` cannot predict failure, result *size* rather than time is the cost, and an empty trigger payload would report every module blocked wherever `enrichment-before-query` is bound. **§6.3 is a page-wide defect only a POST could surface** — parallel panel loads race `generateToken`'s read-modify-write and drop the token, 2 of 5 browser runs against 0 of 6 over plain HTTP. A clean `no` on all three concepts (D9). Persistence remains a later phase, and it is a schema phase |
 | **26** | **Analyst data → Collaboration** | [`live/26-analyst.md`](value-profile-live/26-analyst.md) | **CLOSED 2026-09-05 — all 16 tasks done.** Converted `viewAnalystStanding` and `viewAnalystThread`, and **built a third panel the campaign had never had an endpoint for** — the coverage survey's narrative report list, owed to this tab since §4.5 (§9.2). **A clean answer on all three concepts**: proposals are *in* the thread and labelled (§9.1), event reports became that third panel, feeds are not this tab's. The thread reads **per level, not per item**, because `fetchChildNotesAndOpinions` is two queries per node with a memo that is never cleared (§7). Dropped the tab badge rather than correct it, because an honest count means running the panel's five-anchor union at page load (§10.2). **Four readings followed the build** — §17 the rename and a lane bug, §18 links on every chip that names a record and a proposal drawn as a change, §19 the report badge naming the audience it inherits, §20 the Overview's `value_analyst_preview` off the fixture, which reverses §11's second call and settles the opinion-colour question on MISP's own `opinion_scale.ctp` (§20.3). **§21 re-ran the verification against all four.** §21.2 hands on three model findings and one open question that belongs to whoever converts the Verdict tab: its histogram paints an above-50 opinion as malicious, which inverts `opinion_scale.ctp` and is now the only surface on this page that disagrees with MISP |
 | **25** | **Timeline** | [`live/25-timeline.md`](value-profile-live/25-timeline.md) | **CLOSED 2026-09-05 — all 25 rows built.** Closes §8.2's open audit-ACL choice (§5), splits counts from rows because one value's history is 162,539 entries (§6), and found §14.6's required-changes table missing this tab's own ACL band (§12). Six review rounds over the built tab are §17–§22, and §23–§24 replaced the mark lanes with density profiles. **§25 is the last two rows**: the proposals and event-report lanes the coverage survey owed, which also close that survey's §2.4 — the `alias` option on `Value::conditionsFor()`. Found that a proposals lane needs **two** scopes, not one (§25.2), that `deleted = 1` on a proposal means *resolved* and cannot say whether it was accepted (§25.3), and two pre-existing defects neither lane introduced (§25.5, §25.6). **§26** is one round of reader feedback after closure: the seen lane was printing eight span labels on one pixel, and fixing it turned up two more ways the two renderers disagreed. **§31 is a second round**, and it **reverses §28.4**: window membership was tested on a span's start day in five places, so brushing the five years a `passive-dns` bar runs through emptied every lane and the empty-run scan called the covered stretch empty — the rule is overlap. And an object's `datetime` field is a claim about the world, not a trace of this instance: §28.4's own example was filed in 2021 and says 2017, so *on this instance by* was overstating custody by four years there and nine on `8.8.8.8`. `TIMELINE_CLAIM_SOURCES` makes executable a distinction the docblock had only ever stated in prose **§1.1 is the decision register and §1.2 the cold start**; [`25-timeline-probe.sql`](value-profile-live/25-timeline-probe.sql) re-derives every instance number in it |
 | **27** | **History** | [`live/27-history.md`](value-profile-live/27-history.md) | **CLOSED 2026-09-05 — all 16 tasks done.** The last unblocked tab, converted against the reader phase 25 built for it: §2 lists the four things it inherits rather than builds. **§3 falsified three of the design's assumptions against the instance** — no occurrence is silent, so phase 19's server-side reduction returns nothing and the window is the only bound; the default 30-day window renders 8 rows of 353 on `8.8.8.8` and 8 of 162,539 on `443`, so the empty-window state is the common landing rather than the edge case; and the tab is built around diffs where `edit` is 0.3% of a log that is 54% `tag`. **§8 is a disclosure phase 25 shipped and this phase fixed in both tabs**: `AuditLogsController::eventIndex` strips a foreign-org actor's email for every non-site-admin, after `paginate()` and not in the conditions, so `ValueProfile::auditRow` inherited the rows and none of the redaction — verified by reading the same value as a site admin and as a CIRCL org admin. **§9** rejected `fullChange` as the diff source, because its `__applyAuditAcl` would 404 on rows the panel had just rendered; the diff now opens from the row with **zero network requests**. §10 applied §14.6's two standing History rows — three bands, not two — and reworded a third invariant rather than withdrawing it. **§16 is the build log**: §5.2's own claim was wrong and is corrected in place, `silent` and `outside` merged into one number that costs no query, and the all-time window turned up a crash the merge had made reachable. **§18 is one review round over the built tab**, six findings and all fixed: the event-level section had stopped being what its heading called it once two more models landed in it; a comment still nominated the endpoint §9 had rejected; the row cap could make the elided line's claim *false* rather than merely unhelpful, which is §16.2's defect one step further in; **no row linked to the record it named**, phase 26 §18.1's rule never having reached a tab built two phases before it — 431 of 431 rows link now; three keys nothing read; and the plural §16.3 had deferred, whose deferral §18.6 argues was the wrong call |
@@ -215,6 +263,13 @@ goes first argues why in its own document.
 #### What a fresh session must not break
 
 - **Nothing writes.** Every control that would write renders visibly disabled.
+  **One control is enabled and it is not an exception**: phase 28's *Run*
+  on the Enrichment tab writes nothing to MISP either — it queries a
+  third-party module through the same non-writing call
+  `AttributesController::hoverEnrichment` uses. What it does spend is the
+  instance's quota and the disclosure that somebody is looking at this
+  value, which is why it is a press, a POST, and gated on `perm_add`.
+  Nothing on the page runs it by arriving.
 - **Fixture-first, except where a live phase says otherwise.** Panels read
   `ValueProfileFixture` unless §14.12's board records them converted. §14 is the
   contract for changing that, and a change is a phase with a document.

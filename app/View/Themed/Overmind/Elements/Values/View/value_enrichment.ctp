@@ -1,21 +1,24 @@
 <?php
 /**
- * The Enrichment tab: a rail of every module valid for this value's
- * type, and one module's results beside it.
+ * The Enrichment tab: every module this value could be sent to, and
+ * one module's answer beside it.
  *
- * The module is the navigation. This tab has six states and most
- * visits find several at once — never run, staged, running, answered,
- * silent, timed out — and a rail row is the one object all six fit
- * into. "Nothing queried yet" is then a full column of dashed rows
- * rather than an empty page, and a module that timed out is one row
- * wearing a clock while the others are untouched: a timeout is
- * structurally incapable of reading as total failure.
+ * **Live since phase 28, and the tab has no memory.** Nothing records
+ * that a module ran, so there is no staleness, no delta against a
+ * previous run and no dismissal — those were phase 12's, they needed a
+ * store MISP does not have, and `28-enrichment.md` §5 is the list of
+ * what came out rather than a diff to reconstruct.
  *
- * One endpoint for the whole tab. The rail's state chips and the
- * pane's contents are the same data read two ways, and every module's
- * pane is rendered up front so switching between them is a class
- * change rather than a request. Nothing here queries anything: not on
- * load, not on tab switch, not on picking a module.
+ * What survives is the reason `E2` was chosen: the module is the
+ * navigation, and every state the tab can be in is the same object — a
+ * rail row. Not asked, asking, answered, answered with nothing, refused
+ * and errored are six rows and one pane.
+ *
+ * **Nothing runs on arrival.** Not on load, not on tab switch, not on
+ * selecting a row. Running a module spends the instance's quota and
+ * tells whoever operates it that somebody is looking at this value, so
+ * it takes a press. Every module's pane is rendered up front — that is
+ * what makes picking one to read incapable of querying anything.
  *
  * Lazily loaded from ValuesController::viewEnrichment.
  *
@@ -24,123 +27,147 @@
  */
 $profile = $valueProfile;
 $enrichment = $profile['enrichment'];
+$service = $enrichment['service'];
 $modules = $enrichment['modules'];
-$merged = $enrichment['merged'];
+$types = $enrichment['types'];
+$canRun = !empty($enrichment['can_run']);
 
 /*
- * The tab opens on the first module that has something to read, and
- * on the whole-rail brief when none has. Landing on a module nobody
- * has run would put a cost estimate where the reader expects results.
+ * The CSRF token the run posts back. A fresh one per fragment: tokens
+ * are use-once, and the reader may run several modules.
  */
-$selected = '__all';
-foreach ($modules as $module) {
-    if ($module['elements'] > 0) {
-        $selected = $module['name'];
-        break;
-    }
-}
+$token = isset($this->request->params['_Token']['key'])
+    ? $this->request->params['_Token']['key']
+    : '';
 
 $noRun = __(
-    'Disabled in this pass — running a module spends quota and'
-    . ' queries a third party.'
-);
-$noWrite = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
+    'Running a module requires the add permission — the same one MISP'
+    . ' asks for on every other enrichment surface.'
 );
 
 /*
- * The sub-line names the type because module validity is scoped to
- * one: this value carries three, and a reader has to know which of
- * them the rail was matched against.
+ * The sub-line names the types because eligibility is matched on one:
+ * a value is several, and a reader has to know which of them put a
+ * module on the rail.
  */
 $bits = array();
-if ($enrichment['type'] === null) {
-    $bits[] = h(__(
-        'No module is valid — MISP cannot tell what this value is'
-    ));
+if (empty($types)) {
+    $bits[] = h(__('No occurrence you can see'));
 } else {
-    $bits[] = sprintf(
-        __n(
-            '%1$s module valid for %2$s',
-            '%1$s modules valid for %2$s',
-            count($modules)
-        ),
-        h(count($modules)),
-        '<span class="font-monospace">' . h($enrichment['type'])
-            . '</span>'
-    );
-    if (!empty($enrichment['type_inferred'])) {
-        $bits[] = '<span title="' . h(__(
-            'This value has no occurrence, so there is no attribute row'
-            . ' to read a type from. MISP classified the string itself.'
-        )) . '">' . h(__('type inferred from the value')) . '</span>';
+    $names = array();
+    foreach ($types as $row) {
+        $names[] = '<span class="font-monospace">'
+            . h($row['type']) . '</span>';
     }
+    $bits[] = sprintf(
+        __n('%1$s type: %2$s', '%1$s types: %2$s', count($types)),
+        h(count($types)),
+        implode(', ', $names)
+    );
 }
-$bits[] = $enrichment['last_run'] === null
-    ? h(__('never run'))
-    : h(sprintf(__('last run %s'), $enrichment['last_run']));
-if ($enrichment['pending'] > 0) {
+if ($service['reachable']) {
     $bits[] = h(sprintf(
         __n(
-            '%d element awaiting review',
-            '%d elements awaiting review',
-            $enrichment['pending']
+            '%d module eligible',
+            '%d modules eligible',
+            count($modules)
         ),
-        $enrichment['pending']
+        count($modules)
+    ));
+    $bits[] = h(sprintf(
+        __('%d enabled on this instance'),
+        $enrichment['enabled']
     ));
 }
-
-ob_start();
-?>
-    <?php if ($enrichment['pending'] > 0): ?>
-        <button type="button"
-                class="btn btn-sm btn-outline-secondary disabled
-                       d-inline-flex align-items-center gap-1"
-                disabled title="<?= h($noWrite) ?>">
-            <i class="fas fa-list-check"></i>
-            <?= h(sprintf(
-                __('Review all %d'),
-                $enrichment['pending']
-            )) ?>
-        </button>
-    <?php endif; ?>
-<?php
-$panelExtra = trim(ob_get_clean());
 ?>
 <div class="card shadow-sm mb-3 vp-panel vp-e"
      style="--vp-panel-color: var(--vp-e-accent);"
-     data-vp-enrich>
+     data-vp-enrich
+     data-vp-e-value="<?= h($valueB64) ?>"
+     data-vp-e-token="<?= h($token) ?>"
+     data-vp-e-url="<?= h($baseurl . '/values/viewEnrichmentRun/'
+        . $valueB64) ?>">
 
     <?= $this->element('Values/View/value_panel_header', array(
         'panelTitle' => __('Enrichment'),
         'panelIcon' => 'fas fa-wand-magic-sparkles',
         'panelColor' => 'var(--vp-e-accent)',
         'panelSub' => implode(' &middot; ', $bits),
-        'panelExtra' => $panelExtra === '' ? null : $panelExtra,
     )) ?>
 
-    <?php if (empty($modules)): ?>
+    <?php if (!$service['reachable']): ?>
 
         <?php
         /*
-         * No rail at all, and it is a state rather than a failure:
-         * modules are matched on a type, this value has none that MISP
-         * can name, and so there is nothing to offer to run. Drawn as
-         * one empty block instead of an empty rail beside an empty
-         * pane, which would be the same nothing said twice.
+         * The service, not the modules. A reader who is told "no
+         * modules" when the truth is "nobody answered the door" will
+         * conclude this instance enriches nothing, which is a
+         * different and wrong fact about their own deployment.
          */
         ?>
         <div class="vp-empty p-4">
             <div class="fw-semibold mb-1">
-                <?= h(__('No module is valid for this value.')) ?>
+                <?= h(__('The enrichment service did not answer.')) ?>
             </div>
             <div class="small text-muted">
                 <?= h(__(
-                    'Enrichment modules declare the attribute types'
-                    . ' they accept, and MISP could not classify this'
-                    . ' value as any of them. Nothing has been sent'
-                    . ' anywhere.'
+                    'This says nothing about which modules exist or'
+                    . ' whether they would have anything to report —'
+                    . ' the list itself is what could not be read.'
+                    . ' Nothing has been sent anywhere.'
+                )) ?>
+            </div>
+            <?php if (!empty($service['error'])): ?>
+                <div class="small text-muted mt-2 font-monospace">
+                    <?= h($service['error']) ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+    <?php elseif (empty($types)): ?>
+
+        <?php
+        /*
+         * No type, and the reason is this reader's rather than the
+         * value's: modules are matched on the type an occurrence
+         * carries, and a reader who may see none has nothing to match
+         * against. Deliberately not phrased as "MISP cannot classify
+         * this value" — that was the fixture's answer and it is a
+         * claim about the string, which is not what is missing.
+         */
+        ?>
+        <div class="vp-empty p-4">
+            <div class="fw-semibold mb-1">
+                <?= h(__('Nothing to enrich here.')) ?>
+            </div>
+            <div class="small text-muted">
+                <?= h(__(
+                    'Enrichment modules accept attribute types, and'
+                    . ' you hold no occurrence of this value to take a'
+                    . ' type from. Nothing has been sent anywhere.'
+                )) ?>
+            </div>
+        </div>
+
+    <?php elseif (empty($modules)): ?>
+
+        <div class="vp-empty p-4">
+            <div class="fw-semibold mb-1">
+                <?= h(__(
+                    'No enabled module accepts any of this value\'s'
+                    . ' types.'
+                )) ?>
+            </div>
+            <div class="small text-muted">
+                <?= h(sprintf(
+                    __n(
+                        'One module is enabled on this instance and it'
+                        . ' does not take these types.',
+                        '%d modules are enabled on this instance and'
+                        . ' none of them takes these types.',
+                        $enrichment['enabled']
+                    ),
+                    $enrichment['enabled']
                 )) ?>
             </div>
         </div>
@@ -151,7 +178,7 @@ $panelExtra = trim(ob_get_clean());
 
             <?= $this->element('Values/View/value_enrichment_rail', array(
                 'enrichment' => $enrichment,
-                'selected' => $selected,
+                'canRun' => $canRun,
                 'noRun' => $noRun,
             )) ?>
 
@@ -159,31 +186,61 @@ $panelExtra = trim(ob_get_clean());
 
                 <?php
                 /*
-                 * Every pane, one shown. A request per module would be
-                 * a request this tab must not make — and the reader
-                 * comparing two modules should not pay a round trip
-                 * for each glance.
+                 * The resting pane, shown until a row is picked. It is
+                 * the tab's opening claim and the reason nothing has
+                 * been queried is stated here rather than implied by
+                 * an empty column.
                  */
                 ?>
-                <?= $this->element('Values/View/value_enrichment_pane', array(
-                    'enrichment' => $enrichment,
-                    'moduleName' => null,
-                    'selected' => $selected === '__all',
-                    'noRun' => $noRun,
-                    'noWrite' => $noWrite,
-                )) ?>
+                <div data-vp-e-pane="__none">
+                    <div class="vp-e-cold">
+                        <div class="vp-e-cold-title">
+                            <?= h(__('Nothing has been queried.')) ?>
+                        </div>
+                        <div class="vp-e-cold-prose">
+                            <?= h(__(
+                                'This page has sent nothing to any'
+                                . ' module. Picking one below shows'
+                                . ' what it would be asked; running it'
+                                . ' sends this value to whoever'
+                                . ' operates it, which spends the'
+                                . ' instance\'s quota and tells them'
+                                . ' somebody is looking.'
+                            )) ?>
+                        </div>
+                        <div class="vp-e-cold-prose mt-2">
+                            <?= h(__(
+                                'Nothing a module returns is stored.'
+                                . ' The answer lives on this page'
+                                . ' until you leave it.'
+                            )) ?>
+                        </div>
+                    </div>
+                </div>
 
+                <?php
+                /*
+                 * One pane per module, rendered up front and empty.
+                 * The run fills it in place; picking between them is a
+                 * class change and never a request, which is the
+                 * promise the tab is built to keep.
+                 */
+                ?>
                 <?php foreach ($modules as $module): ?>
-                    <?= $this->element(
-                        'Values/View/value_enrichment_pane',
-                        array(
-                            'enrichment' => $enrichment,
-                            'moduleName' => $module['name'],
-                            'selected' => $selected === $module['name'],
-                            'noRun' => $noRun,
-                            'noWrite' => $noWrite,
-                        )
-                    ) ?>
+                    <div class="d-none"
+                         data-vp-e-pane="<?= h($module['name']) ?>">
+                        <div data-vp-e-slot>
+                            <?= $this->element(
+                                'Values/View/value_enrichment_brief',
+                                array(
+                                    'module' => $module,
+                                    'service' => $service,
+                                    'canRun' => $canRun,
+                                    'noRun' => $noRun,
+                                )
+                            ) ?>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
 
             </div>

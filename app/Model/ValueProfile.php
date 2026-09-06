@@ -818,7 +818,11 @@ class ValueProfile extends AppModel
             ->occurrenceCountFor($user, $value);
         $counts['relationship_objects'] = $valueModel
             ->objectCountFor($user, $value);
-        unset($counts['sightings'], $counts['relationships']);
+        unset(
+            $counts['sightings'],
+            $counts['relationships'],
+            $counts['enrichment']
+        );
         return $counts;
     }
 
@@ -11855,5 +11859,589 @@ class ValueProfile extends AppModel
             'MISP.ssdeep_correlation_threshold'
         );
         return empty($threshold) ? 40 : (int)$threshold;
+    }
+
+    /* ==================================================================
+     * Enrichment
+     * ==================================================================
+     * **The only tab that reads nothing.** Every other panel on this
+     * page answers from the database; this one answers from an HTTP
+     * service that is not MISP, and its whole content is what a third
+     * party said when asked. So the tier vocabulary of §14.4 does not
+     * apply here any more than it did to `viewExternal`, and the
+     * question a reviewer should ask of this section is not how many
+     * queries it issues but *what leaves the building, on whose press.*
+     *
+     * **Stateless, by the 2026-09-06 decision.** Nothing stores that a
+     * module ran. `Module` is `useTable = false` and there is no
+     * per-value per-module store anywhere, so this section has no
+     * memory: a run is a request and its result lives in the response.
+     * Everything phase 12 drew that depended on remembering — the
+     * staleness chips, the group headers, the delta band, dismissals,
+     * the awaiting-review count — is not implemented here rather than
+     * implemented against a fixture. `28-enrichment.md` §5 is the
+     * auditable list of what came out.
+     *
+     * **Nothing here writes, and that is verified rather than
+     * asserted.** `Module::queryModuleServer()` is the non-writing
+     * call — the one `AttributesController::hoverEnrichment` uses. The
+     * writing wrapper is `Event::enrichment()`, which turns a module
+     * response into attributes, and this file never calls it.
+     * `28-enrichment-probe.php` counts `attributes`, `objects` and
+     * `events` either side of every query it makes.
+     */
+
+    /**
+     * The most elements one run will render.
+     *
+     * **200.** A cap on result size, and the first one on this page
+     * whose pressure comes from outside MISP entirely: the module
+     * decides how much to say, and one of them says a great deal.
+     * `circl_passivedns` on `8.8.8.8` returns **1,374 objects in
+     * 4.9 s** — measured 2026-09-06 by `28-enrichment-probe.php` — and
+     * an object rendered with its attributes is roughly a kilobyte of
+     * markup, so the uncapped fragment is well over a megabyte for one
+     * press of one button.
+     *
+     * Phase 12 §11 predicted the cost of this tab as *time* and got a
+     * conservative answer right for the wrong quantity: one
+     * `POST /query` under `Plugin.Enrichment_timeout`, no progress
+     * inside a module. Time turned out to be fine — 98 ms to 4.9 s
+     * across six real runs. Size is what bites.
+     *
+     * When the cap bites the panel says so, and says it against the
+     * total rather than instead of it (§14.6): a cap is not a
+     * permission, and a reader who cannot see 1,174 of 1,374 rows must
+     * not be left thinking there were 200.
+     */
+    const ENRICHMENT_ELEMENT_CAP = 200;
+
+    /**
+     * The Enrichment tab: which modules this value could be sent to,
+     * and nothing that has been sent.
+     *
+     * **This endpoint runs no module.** Not on load, not on tab
+     * switch, not on selecting a row — carried unchanged from phase 12
+     * §9 and with more force now that the query is real. A run spends
+     * the instance's quota and announces interest in the value to a
+     * third party, so it needs a press nobody made by arriving.
+     *
+     * Its cost is one outbound `GET /modules` (9 ms on the dev
+     * instance, under a 1 s timeout) plus one `typesFor` (2–26 ms).
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options Reserved
+     * @return array
+     */
+    public function forEnrichment(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'enrichment' => $this->enrichmentCatalogue($user, $value),
+        );
+    }
+
+    /**
+     * One module, one value, one answer — the only method on this page
+     * that causes anything to leave the instance.
+     *
+     * `$options['module']` and `$options['type']` arrive from the
+     * reader and **neither is trusted**: both are checked against the
+     * catalogue this reader would have been shown, so a posted module
+     * name can only ever name something `getEnabledModules` already
+     * returned for a type `typesFor` already granted. That check is
+     * this panel's ACL band (§14.6) and it is the reason the run is
+     * built from the catalogue rather than from the request.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `module`, `type`
+     * @return array
+     */
+    public function forEnrichmentRun(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'run' => $this->enrichmentRun(
+                $user,
+                $value,
+                isset($options['module']) ? $options['module'] : null,
+                isset($options['type']) ? $options['type'] : null
+            ),
+        );
+    }
+
+    /**
+     * What this reader could ask about this value.
+     *
+     * **One outbound call on the happy path, two only on failure.**
+     * `getEnabledModules()` calls `getModules()` itself and throws the
+     * reason away — every failure comes back as the same sentence, so
+     * *the service is down* and *nothing is enabled* are one string.
+     * Those are different states with different wording (phase 12 §9),
+     * so when it fails this asks `getModules()` directly to find out
+     * which. A working instance never pays for that.
+     *
+     * @param array $user
+     * @param string $value
+     * @return array
+     */
+    private function enrichmentCatalogue(array $user, $value)
+    {
+        $moduleModel = $this->model('Module');
+        $types = $this->model('Value')->typesFor($user, $value);
+
+        $started = microtime(true);
+        $enabled = $moduleModel->getEnabledModules($user);
+        $took = (int)round((microtime(true) - $started) * 1000);
+
+        $service = array(
+            'reachable' => true,
+            'error' => null,
+            'took' => $took,
+            'timeout' => $this->enrichmentTimeout(),
+        );
+        if (!is_array($enabled)) {
+            $probe = $moduleModel->getModules('Enrichment');
+            $service['reachable'] = is_array($probe);
+            $service['error'] = is_array($probe) ? null : (string)$probe;
+        }
+        $modules = (is_array($enabled) && !empty($enabled['modules']))
+            ? $enabled['modules']
+            : array();
+
+        return array(
+            'service' => $service,
+            'types' => $types,
+            'enabled' => count($modules),
+            /*
+             * MISP gates `hoverEnrichment` and `queryEnrichment` on
+             * `perm_add`, and this page is never looser than a surface
+             * MISP already ships. A reader without it still sees the
+             * rail — what *could* be asked is not a secret — and the
+             * run control renders visibly disabled, which is this
+             * page's standing treatment for a control the reader may
+             * not press.
+             */
+            'can_run' => !empty($user['Role']['perm_add']),
+            'modules' => $this->enrichmentEligible($enabled, $types),
+        );
+    }
+
+    /**
+     * The union over the value's types, one row per module.
+     *
+     * **A value is several types and the fixture models one.**
+     * `8.8.8.8` is four — `ip-dst` 17, `ip-src` 5, `text` 2,
+     * `ip-dst|port` 2 — and three enabled modules accept some of them.
+     * A module eligible through three of those types is *one* rail row
+     * carrying three, not three rows; and `text`, which no enabled
+     * module declares, contributes nothing and is not an error.
+     *
+     * `types` is `getEnabledModules`' expansion map and `hover_type`
+     * its hover one. A module in both is one row whose kind is a
+     * property rather than a duplicate.
+     *
+     * The default run type is the **first** the module accepts, which
+     * is the value's most common because `typesFor` orders by
+     * occurrence count descending and this walks it in that order.
+     *
+     * @param array|string $enabled `getEnabledModules` output
+     * @param array $types `typesFor` output
+     * @return array
+     */
+    private function enrichmentEligible($enabled, array $types)
+    {
+        if (!is_array($enabled) || empty($enabled['modules'])) {
+            return array();
+        }
+        $maps = array('types' => 'expansion', 'hover_type' => 'hover');
+        $eligible = array();
+        foreach ($types as $row) {
+            $type = $row['type'];
+            foreach ($maps as $map => $kind) {
+                if (empty($enabled[$map][$type])) {
+                    continue;
+                }
+                foreach ($enabled[$map][$type] as $name) {
+                    if (!isset($eligible[$name])) {
+                        $eligible[$name] = array(
+                            'kinds' => array(),
+                            'types' => array(),
+                        );
+                    }
+                    $eligible[$name]['kinds'][$kind] = true;
+                    $eligible[$name]['types'][$type] = $row['count'];
+                }
+            }
+        }
+        $rows = array();
+        foreach ($eligible as $name => $meta) {
+            $module = $this->enrichmentModule($enabled, $name);
+            if ($module === null) {
+                continue;
+            }
+            $rows[] = array(
+                'name' => $name,
+                'kinds' => array_keys($meta['kinds']),
+                'types' => $meta['types'],
+                'type' => key($meta['types']),
+                'format' => $this->enrichmentFormat($module),
+                'description' => isset($module['meta']['description'])
+                    ? $module['meta']['description']
+                    : null,
+                /*
+                 * The keys, not a verdict on them. Nothing tells a
+                 * required key from an optional override, so the row
+                 * states what the module declares and the run finds
+                 * out — §2.3 of the phase document, where `whois`
+                 * fails for want of two and `mmdb_lookup` works
+                 * without three.
+                 */
+                'config' => empty($module['meta']['config'])
+                    ? array()
+                    : array_values($module['meta']['config']),
+            );
+        }
+        usort($rows, function ($a, $b) {
+            return strcmp($a['name'], $b['name']);
+        });
+        return $rows;
+    }
+
+    /**
+     * Run one module and shape what came back.
+     *
+     * @param array $user
+     * @param string $value
+     * @param string|null $name
+     * @param string|null $type
+     * @return array
+     */
+    private function enrichmentRun(array $user, $value, $name, $type)
+    {
+        $catalogue = $this->enrichmentCatalogue($user, $value);
+        $run = array(
+            'module' => $name,
+            'type' => $type,
+            'format' => null,
+            'state' => 'ineligible',
+            'message' => null,
+            'took' => 0,
+            'attributes' => array(),
+            'objects' => array(),
+            'elements' => array(),
+            'total' => 0,
+            'shown' => 0,
+            'capped' => false,
+            'cap' => self::ENRICHMENT_ELEMENT_CAP,
+            'timeout' => $catalogue['service']['timeout'],
+        );
+        if (!$catalogue['service']['reachable']) {
+            $run['state'] = 'unreachable';
+            $run['message'] = $catalogue['service']['error'];
+            return $run;
+        }
+
+        /*
+         * The ACL band. A run may only ever name a module this reader
+         * would have been offered, for a type this reader holds an
+         * occurrence of — both taken from the catalogue rather than
+         * from the request.
+         */
+        $row = null;
+        foreach ($catalogue['modules'] as $candidate) {
+            if ($candidate['name'] === $name) {
+                $row = $candidate;
+                break;
+            }
+        }
+        if ($row === null) {
+            return $run;
+        }
+        if ($type === null || !isset($row['types'][$type])) {
+            $type = $row['type'];
+        }
+        $run['type'] = $type;
+        $run['format'] = $row['format'];
+
+        /*
+         * D3: the run is backed by one of the reader's own
+         * occurrences, and both formats need it. `misp_standard` sends
+         * the attribute itself; every format sends it as trigger data,
+         * so that an instance's `enrichment-before-query` workflow can
+         * still refuse the query. Passing `$skipTrigger` instead would
+         * be quietly disabling a control somebody configured on
+         * purpose — and passing nothing is worse, because
+         * `Module::__prepareAndExecuteTrigger()` returns false on empty
+         * trigger data and the tab would report every module blocked.
+         */
+        $occurrence = $this->enrichmentOccurrence($user, $value, $type);
+        if (empty($occurrence['Attribute'])) {
+            $run['state'] = 'ineligible';
+            return $run;
+        }
+
+        $moduleModel = $this->model('Module');
+        $started = microtime(true);
+        $result = $moduleModel->queryModuleServer(
+            $this->enrichmentPayload($row, $type, $value, $occurrence),
+            false,
+            'Enrichment',
+            false,
+            $occurrence
+        );
+        $run['took'] = (int)round((microtime(true) - $started) * 1000);
+
+        return $this->enrichmentShape($run, $result);
+    }
+
+    /**
+     * The reader's first visible occurrence of this value under this
+     * type, as `fetchAttributesSimple` shapes it.
+     *
+     * Through `Value` and never through conditions written here:
+     * §14.2 makes that file the only one that knows how a value
+     * resolves to rows, and §14.3 is the promise that when the value
+     * table lands, one file changes.
+     *
+     * @param array $user
+     * @param string $value
+     * @param string $type
+     * @return array
+     */
+    private function enrichmentOccurrence(array $user, $value, $type)
+    {
+        $rows = $this->model('Value')->occurrencesFor($user, $value, array(
+            'types' => array($type),
+            'limit' => 1,
+            'order' => array('Attribute.id ASC'),
+        ));
+        return empty($rows) ? array() : $rows[0];
+    }
+
+    /**
+     * What goes on the wire.
+     *
+     * The two formats differ in what they are asked about: a
+     * `misp_standard` module wants the attribute row, a `simplified`
+     * one wants `{type: value}`. Config is read per declared key and
+     * sent as given — **never judged**, because nothing distinguishes
+     * a required key from an optional override and guessing gets it
+     * wrong in both directions (§2.3 of the phase document).
+     *
+     * @param array $row A catalogue row
+     * @param string $type
+     * @param string $value
+     * @param array $occurrence
+     * @return array
+     */
+    private function enrichmentPayload(array $row, $type, $value,
+        array $occurrence
+    ) {
+        $postData = array('module' => $row['name']);
+        if (!empty($row['config'])) {
+            $config = array();
+            foreach ($row['config'] as $key) {
+                $config[$key] = Configure::read(
+                    'Plugin.Enrichment_' . $row['name'] . '_' . $key
+                );
+            }
+            $postData['config'] = $config;
+        }
+        if ($row['format'] === 'misp_standard') {
+            $postData['attribute'] = $occurrence['Attribute'];
+        } else {
+            $postData[$type] = $value;
+        }
+        return $postData;
+    }
+
+    /**
+     * Normalise a module response into the shape the pane reads, and
+     * cap it.
+     *
+     * Five outcomes, and they are deliberately not interchangeable.
+     * `false` is the transport failing — unreachable, or an exception
+     * the model logged. A **string** is MISP's own refusal, and the
+     * one that matters is the workflow trigger declining the query. An
+     * `error` key is the module answering that it cannot do the job,
+     * which is what a missing required config key looks like and comes
+     * back in 7 ms. **Silent** is a module that answered with nothing,
+     * which is a finding rather than a failure. Anything else is an
+     * answer.
+     *
+     * @param array $run
+     * @param array|string|false $result
+     * @return array
+     */
+    private function enrichmentShape(array $run, $result)
+    {
+        if ($result === false) {
+            $run['state'] = 'unreachable';
+            $run['message'] = __(
+                'The enrichment service did not answer.'
+            );
+            return $run;
+        }
+        if (!is_array($result)) {
+            $run['state'] = 'refused';
+            $run['message'] = (string)$result;
+            return $run;
+        }
+        if (!empty($result['error'])) {
+            $run['state'] = 'error';
+            $run['message'] = is_string($result['error'])
+                ? $result['error']
+                : JsonTool::encode($result['error']);
+            return $run;
+        }
+        if (empty($result['results'])) {
+            $run['state'] = 'silent';
+            return $run;
+        }
+
+        $results = $result['results'];
+        $run['state'] = 'ok';
+        $budget = self::ENRICHMENT_ELEMENT_CAP;
+
+        if (isset($results['Attribute']) || isset($results['Object'])) {
+            $attributes = isset($results['Attribute'])
+                ? $results['Attribute'] : array();
+            $objects = isset($results['Object'])
+                ? $results['Object'] : array();
+            $run['total'] = count($attributes) + count($objects);
+            foreach ($attributes as $attribute) {
+                if ($budget < 1) {
+                    break;
+                }
+                $budget--;
+                $run['attributes'][] = $this->enrichmentAttribute(
+                    $attribute
+                );
+            }
+            foreach ($objects as $object) {
+                if ($budget < 1) {
+                    break;
+                }
+                $budget--;
+                $run['objects'][] = $this->enrichmentObject($object);
+            }
+        } else {
+            foreach ($results as $entry) {
+                if (!isset($entry['values'])) {
+                    continue;
+                }
+                $values = is_array($entry['values'])
+                    ? $entry['values']
+                    : array($entry['values']);
+                foreach ($values as $one) {
+                    $run['total']++;
+                    if ($budget < 1) {
+                        continue;
+                    }
+                    $budget--;
+                    $run['elements'][] = array(
+                        'types' => isset($entry['types'])
+                            ? (array)$entry['types']
+                            : array(),
+                        'value' => is_array($one)
+                            ? JsonTool::encode($one)
+                            : (string)$one,
+                    );
+                }
+            }
+        }
+
+        $run['shown'] = count($run['attributes'])
+            + count($run['objects'])
+            + count($run['elements']);
+        $run['capped'] = $run['total'] > $run['shown'];
+        if ($run['total'] === 0) {
+            $run['state'] = 'silent';
+        }
+        return $run;
+    }
+
+    /**
+     * @param array $attribute
+     * @return array
+     */
+    private function enrichmentAttribute(array $attribute)
+    {
+        return array(
+            'type' => isset($attribute['type'])
+                ? $attribute['type'] : null,
+            'value' => isset($attribute['value'])
+                ? $attribute['value'] : null,
+            'category' => isset($attribute['category'])
+                ? $attribute['category'] : null,
+            'comment' => isset($attribute['comment'])
+                ? $attribute['comment'] : null,
+            'to_ids' => !empty($attribute['to_ids']),
+        );
+    }
+
+    /**
+     * @param array $object
+     * @return array
+     */
+    private function enrichmentObject(array $object)
+    {
+        $attributes = array();
+        if (!empty($object['Attribute'])) {
+            foreach ($object['Attribute'] as $attribute) {
+                $attributes[] = array(
+                    'relation' => isset($attribute['object_relation'])
+                        ? $attribute['object_relation'] : null,
+                    'type' => isset($attribute['type'])
+                        ? $attribute['type'] : null,
+                    'value' => isset($attribute['value'])
+                        ? $attribute['value'] : null,
+                );
+            }
+        }
+        return array(
+            'name' => isset($object['name']) ? $object['name'] : null,
+            'attributes' => $attributes,
+        );
+    }
+
+    /**
+     * @param array|string $enabled
+     * @param string $name
+     * @return array|null
+     */
+    private function enrichmentModule($enabled, $name)
+    {
+        foreach ($enabled['modules'] as $module) {
+            if ($module['name'] === $name) {
+                return $module;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param array $module
+     * @return string
+     */
+    private function enrichmentFormat(array $module)
+    {
+        return isset($module['mispattributes']['format'])
+            ? $module['mispattributes']['format']
+            : 'simplified';
+    }
+
+    /**
+     * @return int Seconds a module is given to answer
+     */
+    private function enrichmentTimeout()
+    {
+        $timeout = Configure::read('Plugin.Enrichment_timeout');
+        return empty($timeout) ? 10 : (int)$timeout;
     }
 }

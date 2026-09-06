@@ -508,7 +508,7 @@ account for.
 
 ### 14.12 The conversion board
 
-Thirty-one endpoints, each rendering one element — twenty-seven until 2026-09-02, when three Relationships rows turned out to be missing rather than absent, and thirty until 2026-09-05, when phase 26 added the Analyst tab's report list. This is the fine-grained
+Thirty-two endpoints, each rendering one element — twenty-seven until 2026-09-02, when three Relationships rows turned out to be missing rather than absent, thirty until 2026-09-05, when phase 26 added the Analyst tab's report list, and thirty-one until 2026-09-06, when phase 28 split the Enrichment tab in two: a catalogue that runs nothing and a run that is the page's only POST. This is the fine-grained
 record of the campaign: a live phase fills in its rows and nothing else claims
 to know which elements are still fixture-backed. Tab-level status lives in
 `value-profile-page.md` §1.4 — **§1.4 says whether, this table says what.**
@@ -544,16 +544,38 @@ document that filled it.
 | Relationships | `viewRelationExternal` | `value_relation_external` | — | — | — | **24**, never recorded |
 | Relationships | `viewRelationGraph` | `value_relation_graph` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
 | Relationships | `viewRelationSettings` | `value_relation_settings` | 37 **pre-B15** | all three sections at once | 1, four aggregates at 2 | **24**; **not re-measured after 24b** §18 |
-| Enrichment | `viewEnrichment` | `value_enrichment` | — | — | — | — |
+| Enrichment | `viewEnrichment` | `value_enrichment` | 1 | nothing — flat in the value's size | 1 for the type read; the catalogue is none of the three | **28** |
+| Enrichment | `viewEnrichmentRun` | `value_enrichment_result` | 3, **1 refused** | nothing — one occurrence, whatever the value's size | 1 for the occurrence; the query is none of the three | **28** |
 | Collaboration | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Nineteen rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Twenty-one rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
+
+**The Enrichment rows are the first whose `Q` is the smaller half of the
+cost**, and the column cannot say so. Both endpoints make an outbound HTTP
+call no datasource log sees: one `GET /modules` for the catalogue, and the
+run's `POST /query` on top of it. The SQL is flat and trivial — one query for
+the value's types, two more to fetch the single occurrence a run is backed by
+— while the wall time is 98 ms to 4.9 s and belongs entirely to somebody
+else's service. `viewExternal` set the precedent for a row whose cost is not
+its query count; this is the same shape one step further out, because that one
+at least stayed inside the building. Measured 2026-09-06 by
+[`28-enrichment-count.php`](28-enrichment-count.php).
+
+The run's **three** queries are `typesFor`, then `Value::occurrencesFor` and
+the `AttributeTag` half of its contain. The tags are fetched and not rendered,
+and that is deliberate rather than slack: the occurrence is what reaches the
+`enrichment-before-query` workflow as trigger data, and a workflow deciding
+whether a value may leave the building is exactly the thing that would filter
+on an attribute's tags. `AttributesController::hoverEnrichment` passes the same
+shape, with `includeEventTags` set for the same reason. A **refused** run costs
+`Q=1`, because the catalogue check short-circuits before any occurrence is
+read.
 
 **Three endpoints read the database with a blank `Q`, and the blank is
 the honest cell rather than a missing one.** `viewRelationReferences`

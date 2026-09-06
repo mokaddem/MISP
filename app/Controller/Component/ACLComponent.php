@@ -1078,6 +1078,15 @@ class ACLComponent extends Component
             'viewRelationThreats' => array('theming_enabled'),
             'viewRelationSettings' => array('theming_enabled'),
             'viewEnrichment' => array('theming_enabled'),
+            // Running a module is the one action on this page that
+            // leaves the building, and MISP's own bar for querying one
+            // at all is `perm_add` — both `attributes/hoverEnrichment`
+            // and `events/queryEnrichment` carry it. The catalogue
+            // above it stays readable to everyone: what *could* be
+            // asked is not a secret, and the control renders disabled.
+            'viewEnrichmentRun' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
             'viewAnalystStanding' => array('theming_enabled'),
             'viewAnalystThread' => array('theming_enabled'),
             'viewAnalystReports' => array('theming_enabled'),

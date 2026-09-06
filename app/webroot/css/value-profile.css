@@ -6822,25 +6822,27 @@ th.vp-rel-num {
  * rather than plain grey so it reads as deliberately held back and
  * not as a row still loading.
  */
+/* A value a module returned.
+ *
+ * **This was a hatched bar until phase 28**, and the bar was right for
+ * the tab it was drawn for: nothing had queried a third party, so the
+ * fixture rendered a type and a shape and refused to invent the value
+ * — "the one thing this tab must not do". Live, the value is the
+ * answer, and a placeholder over real content is no longer a scruple
+ * but an obstruction.
+ *
+ * It wraps and breaks anywhere. A returned value is arbitrary text
+ * from somebody else's service — a URL, a long TXT record, a base64
+ * blob — and the pane must absorb it rather than let it push the
+ * panel into horizontal overflow. */
 .vp-e-val {
-    display: inline-block;
-    flex: 0 0 auto;
-    width: var(--vp-e-val-w, 6rem);
-    height: 0.8em;
-    /* The fill alone is 1.12:1 on the light ground and the default
-       border only 1.24:1 — the bar has to have an edge a reader can
-       actually find, or they cannot see where the withheld value
-       starts and stops. */
-    border: 1px solid color-mix(in srgb, var(--bs-secondary-color) 55%,
-        var(--bs-border-color));
-    border-radius: 0.2rem;
-    background-color: var(--bs-secondary-bg);
-    background-image: repeating-linear-gradient(-45deg,
-        transparent 0 3px,
-        color-mix(in srgb, var(--bs-secondary-color) 45%, transparent)
-            3px 4px);
-    cursor: help;
-    vertical-align: middle;
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.78rem;
+    color: var(--bs-body-color);
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .vp-e-meta {
