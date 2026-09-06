@@ -764,7 +764,43 @@ seven MISP does not correlate on leaves ~800, and re-measured with
 goes **Q=5 → Q=4**. Every other case is unchanged: `ok` 4, `error` 3,
 `ineligible` 1, `forEnrichment` 1.
 
-### 9.6 Verification
+### 9.6 No module offers a per-query option, and why that is upstream
+
+Maintainer question: whether any enrichment module declares options
+meant for the *query* — a date range, say — as distinct from the API
+keys that belong in the instance's settings.
+
+**The mechanism exists and no expansion module uses it.**
+`mispattributes.userConfig` is a typed, validated, per-run form
+(`Module::CONFIG_TYPES`), and MISP merges it into the same `config`
+dict the instance settings go into. Of the 146 modules the service
+reports, 11 declare one and **all 11 are import modules** — `taxii21`
+even has the date range, `added_after`, on the wrong side of the line.
+Expansion or hover modules with a `userConfig`: none.
+
+Nine expansion modules do carry query-shaping options, declared as
+instance settings indistinguishable from credentials: `abuseipdb`'s
+`max_age_in_days`, `virustotal`'s `event_limit`, `farsight_passivedns`'s
+`limit`, `mmdb_lookup`'s `db_source_filter`, and so on.
+
+**Exposing `meta.config` to the reader instead was considered and
+rejected.** Several of those keys are URLs and hosts — `custom_API`,
+`server`, `mwdb_url`, `api_url`, the `proxy_*` family — and MISP sends
+the whole merged dict, so a reader who overrode `server` while `apikey`
+kept its stored value would have the modules container post the
+instance's credential to a host they chose. Not disclosing the stored
+value does not help; the attack never reads it. Inferring which keys
+are safe from the shape of the stored value does not work either:
+**nine** `Enrichment_*` settings are set on this instance and not one is
+a per-module query key, because unset is the normal state.
+
+So the fix is a declaration upstream, and it is written up as
+[`../misp-modules-query-options.md`](../misp-modules-query-options.md).
+Nothing is built here: MISP's enrichment path does not read
+`userConfig` either, and teaching it to is worth doing once something
+declares one to render.
+
+### 9.7 Verification
 
 Against the dev instance as `admin@admin.test`, 2026-09-06, both themes:
 
