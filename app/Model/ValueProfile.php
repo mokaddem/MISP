@@ -12522,6 +12522,17 @@ class ValueProfile extends AppModel
     }
 
     /**
+     * A returned object, carrying what MISP's own object render shows.
+     *
+     * The pane draws these the way `Objects/index.ctp` draws a stored
+     * object, so it needs the same fields: the template's
+     * meta-category and description name what kind of thing this is,
+     * and the attribute rows carry the category and the IDS flag that
+     * every other object table in MISP has a column for. A module is
+     * free to omit any of them — `mmdb_lookup` sends no comment,
+     * `hashlookup` no description — so each is null rather than
+     * assumed, and the view draws only what arrived.
+     *
      * @param array $object
      * @return array
      */
@@ -12537,12 +12548,23 @@ class ValueProfile extends AppModel
                         ? $attribute['type'] : null,
                     'value' => isset($attribute['value'])
                         ? $attribute['value'] : null,
+                    'category' => isset($attribute['category'])
+                        ? $attribute['category'] : null,
+                    'comment' => isset($attribute['comment'])
+                        ? $attribute['comment'] : null,
+                    'to_ids' => !empty($attribute['to_ids']),
                     'known' => false,
                 );
             }
         }
         return array(
             'name' => isset($object['name']) ? $object['name'] : null,
+            'meta_category' => isset($object['meta-category'])
+                ? $object['meta-category'] : null,
+            'description' => isset($object['description'])
+                ? $object['description'] : null,
+            'comment' => isset($object['comment'])
+                ? $object['comment'] : null,
             'attributes' => $attributes,
         );
     }

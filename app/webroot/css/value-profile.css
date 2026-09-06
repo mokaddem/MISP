@@ -6568,80 +6568,6 @@ th.vp-rel-num {
     background: color-mix(in srgb, var(--galaxy) 34%, var(--bs-body-bg));
 }
 
-/* ------------------------------------------------------------------
- * Staleness
- * ------------------------------------------------------------------
- * A module nobody has ever run is not stale, it is unused, and the
- * chip says so rather than printing a number it does not have.
- * ------------------------------------------------------------------ */
-
-.vp-e-stale {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 5px;
-    padding: 0 8px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    color: var(--bs-secondary-color);
-    font-size: 0.63rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.45;
-}
-
-.vp-e-stale::before {
-    content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-}
-
-.vp-e-stale-fresh {
-    border-color: color-mix(in srgb, var(--vp-e-ok) 45%,
-        var(--bs-border-color));
-    color: var(--vp-e-ok-ink);
-}
-
-.vp-e-stale-stale {
-    border-color: var(--bs-warning);
-    color: var(--bs-warning-text-emphasis);
-}
-
-.vp-e-stale-never {
-    border-style: dashed;
-}
-
-.vp-e-stale-never::before {
-    background: none;
-    border: 1px dashed currentColor;
-}
-
-/* ------------------------------------------------------------------
- * What a run costs
- * ------------------------------------------------------------------
- * The only argument the untouched state has to make. Quota is money
- * and third party is disclosure, and they are different costs, so
- * they are two chips rather than one.
- * ------------------------------------------------------------------ */
-
-.vp-e-cost {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--bs-secondary-color);
-    font-size: 0.66rem;
-}
-
-.vp-e-cost-quota {
-    color: var(--bs-warning-text-emphasis);
-}
-
-.vp-e-cost-out {
-    color: var(--vp-e-accent);
-}
-
 .vp-e-tray {
     display: flex;
     flex-direction: column;
@@ -6750,61 +6676,187 @@ th.vp-rel-num {
 }
 
 /* ------------------------------------------------------------------
- * The delta band
+ * The answer's head
+ * ------------------------------------------------------------------
+ * Seven outcomes share one head: a mark, the claim, and the chips
+ * that say what the press cost. Chips rather than a middot-run,
+ * because they are five unrelated facts and a reader wants one of
+ * them at a time — how long it took, what it was asked as, how much
+ * came back.
  * ------------------------------------------------------------------ */
 
-.vp-e-delta {
+.vp-e-res-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 18px 20px 12px;
+}
+
+.vp-e-res-headtext {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-e-mark {
+    flex: 0 0 auto;
+    margin-top: 4px;
+    font-size: 1rem;
+}
+
+.vp-e-mark-ok { color: var(--vp-e-ok-ink); }
+.vp-e-mark-warn { color: var(--bs-warning-text-emphasis); }
+.vp-e-mark-bad { color: var(--bs-danger-text-emphasis); }
+.vp-e-mark-quiet { color: var(--bs-secondary-color); }
+
+.vp-e-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.vp-e-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    color: var(--bs-secondary-color);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.vp-e-chip > i {
+    font-size: 0.6rem;
+}
+
+/* How much came back is the one chip that is about the answer rather
+   than about the asking, so it takes the panel's own accent. */
+.vp-e-chip-n {
+    border-color: color-mix(in srgb, var(--vp-e-accent) 45%,
+        var(--bs-border-color));
+    color: var(--bs-body-color);
+}
+
+/* `nothing stored` is a promise the page makes, not a reading it
+   took. Dashed, so it does not sit among the measurements as if it
+   were another one. */
+.vp-e-chip-quiet {
+    border-style: dashed;
+}
+
+/* Everything between the head and the rows shares the head's gutter:
+   the rows themselves are full-bleed, and prose that lined up with a
+   row's padding rather than the heading's would read as a row. */
+.vp-e-res-prose {
+    padding: 0 20px 12px;
+}
+
+.vp-e-res-foot {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    padding: 9px 14px;
-    border: 1px solid color-mix(in srgb, var(--vp-e-new-c) 50%,
-        var(--bs-border-color));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--vp-e-new-c) 11%,
-        var(--bs-body-bg));
-    font-size: 0.82rem;
+    padding: 16px 20px 18px;
 }
 
-[data-bs-theme="dark"] .vp-e-delta {
-    background: color-mix(in srgb, var(--vp-e-new-c) 15%,
-        var(--bs-body-bg));
-}
+/* ------------------------------------------------------------------
+ * Filtering what is already here
+ * ------------------------------------------------------------------
+ * A capped answer is 200 elements and the reader is hunting one
+ * string in it. This hides rows that are already on the page and
+ * asks nobody anything, which is the promise the whole tab keeps.
+ * ------------------------------------------------------------------ */
 
-.vp-e-delta > i {
-    color: var(--vp-e-new-c);
-}
-
-.vp-e-delta-text {
-    flex: 1 1 18rem;
-    min-width: 0;
-}
-
-/* A run with nothing new is still a reading, so the band stays and
-   goes quiet rather than disappearing. */
-.vp-e-delta-quiet {
-    border-color: var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-}
-
-[data-bs-theme="dark"] .vp-e-delta-quiet {
-    background: var(--bs-tertiary-bg);
-}
-
-.vp-e-delta-quiet > i {
+.vp-e-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px 6px;
     color: var(--bs-secondary-color);
+}
+
+.vp-e-filter > i {
+    font-size: 0.7rem;
+}
+
+.vp-e-filter input {
+    max-width: 24rem;
+    font-size: 0.78rem;
+}
+
+.vp-e-filter-n {
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+ * What kind of thing follows
+ * ------------------------------------------------------------------
+ * An answer is attributes, objects and bare elements in that order,
+ * and which of the three a row is decides what can be done with it.
+ * The heading carries MISP's own glyph for the kind rather than a
+ * word the reader has to map back to one.
+ * ------------------------------------------------------------------ */
+
+.vp-e-group {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 16px 20px 6px;
+    color: var(--bs-secondary-color);
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.vp-e-group > .misp-icon {
+    font-size: 0.9rem;
+}
+
+.vp-e-allfold {
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-secondary-color);
+    font: inherit;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.vp-e-allfold:hover {
+    color: var(--bs-body-color);
+}
+
+.vp-e-allfold > i {
+    margin-right: 4px;
+    font-size: 0.6rem;
+}
+
+.vp-e-list {
+    border-top: 1px solid var(--bs-border-color);
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
 /* ------------------------------------------------------------------
  * A returned element
+ * ------------------------------------------------------------------
+ * Two lines, not one that wraps. The value is what the reader came
+ * for and takes the first line whole; the type, the category and the
+ * IDS flag go under it in a fixed order, so on a two-hundred-row
+ * answer the same fact is in the same place on every row.
  * ------------------------------------------------------------------ */
 
 .vp-e-el {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 7px 14px;
+    padding: 8px 20px;
     border-top: 1px solid var(--bs-border-color);
 }
 
@@ -6812,23 +6864,33 @@ th.vp-rel-num {
     border-top: 0;
 }
 
-.vp-e-el-new {
-    background: color-mix(in srgb, var(--vp-e-new-c) 9%,
-        var(--bs-body-bg));
-}
-
-[data-bs-theme="dark"] .vp-e-el-new {
-    background: color-mix(in srgb, var(--vp-e-new-c) 12%,
-        var(--bs-body-bg));
+.vp-e-el:hover {
+    background: var(--bs-tertiary-bg);
 }
 
 .vp-e-el-body {
-    display: flex;
     flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-e-el-top {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.vp-e-el-sub {
+    display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px 9px;
+    gap: 4px 8px;
+    margin-top: 3px;
+}
+
+.vp-e-el-note {
     min-width: 0;
+    font-style: italic;
 }
 
 .vp-e-el-acts {
@@ -6841,6 +6903,9 @@ th.vp-rel-num {
     --bs-btn-padding-y: 0.05rem;
     --bs-btn-padding-x: 0.45rem;
     --bs-btn-font-size: 0.68rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 /*
@@ -6856,16 +6921,11 @@ th.vp-rel-num {
     font-family: var(--bs-font-monospace);
     font-size: 0.68rem;
     line-height: 1.5;
+    /* `size-in-bytes` is a type, not a sentence: it broke over two
+       lines and took the row's height with it. */
+    white-space: nowrap;
 }
 
-/*
- * The value a module returned, withheld.
- *
- * Nothing on this page was produced by querying anybody, so printing
- * a hostname here would be inventing intelligence. The bar is hatched
- * rather than plain grey so it reads as deliberately held back and
- * not as a row still loading.
- */
 /* A value a module returned.
  *
  * **This was a hatched bar until phase 28**, and the bar was right for
@@ -6880,7 +6940,6 @@ th.vp-rel-num {
  * blob — and the pane must absorb it rather than let it push the
  * panel into horizontal overflow. */
 .vp-e-val {
-    flex: 1 1 auto;
     min-width: 0;
     font-family: var(--bs-font-monospace);
     font-size: 0.78rem;
@@ -6897,13 +6956,17 @@ th.vp-rel-num {
     font-size: 0.67rem;
 }
 
-.vp-e-new {
+/* The module's own detection call, which MISP gives a column of its
+   own everywhere else it is shown. It takes the settled-fact green
+   rather than a warning tone: a module saying "this one is
+   actionable" is a claim, not an alarm. */
+.vp-e-ids {
     flex: 0 0 auto;
-    padding: 0 7px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--vp-e-new-c) 26%,
-        var(--bs-body-bg));
-    color: var(--bs-body-color);
+    padding: 0 6px;
+    border: 1px solid color-mix(in srgb, var(--vp-e-ok) 45%,
+        var(--bs-border-color));
+    border-radius: 4px;
+    color: var(--vp-e-ok-ink);
     font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 0.04em;
@@ -6922,118 +6985,36 @@ th.vp-rel-num {
     line-height: 1.6;
 }
 
-/* ------------------------------------------------------------------
- * Where an element came from
- * ------------------------------------------------------------------
- * The rail costs the reader cross-module reading; this is the half of
- * buying it back that the `All results` row cannot do on its own.
- * Two modules returning the same *type* is not corroboration, so the
- * note is only drawn where the fixture records the same *value*.
- * ------------------------------------------------------------------ */
-
-.vp-e-provs {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-}
-
-.vp-e-prov-lbl {
-    color: var(--bs-secondary-color);
-    font-size: 0.62rem;
-}
-
-.vp-e-prov {
-    padding: 0 6px;
+/* Inside an object's table the chip shares its cell with the value,
+   and the phrase there wraps every row that carries one. */
+.vp-e-known-mark {
+    display: inline-block;
+    padding: 0 5px;
     border: 1px solid var(--bs-border-color);
     border-radius: 4px;
-    color: var(--bs-secondary-color);
-    font-family: var(--bs-font-monospace);
-    font-size: 0.63rem;
-    line-height: 1.5;
-}
-
-.vp-e-prov-note {
-    padding: 0 7px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--vp-e-accent) 18%,
-        var(--bs-body-bg));
-    color: var(--bs-body-color);
-    font-size: 0.62rem;
-    font-weight: 700;
-    line-height: 1.6;
-}
-
-[data-bs-theme="dark"] .vp-e-prov-note {
-    background: color-mix(in srgb, var(--vp-e-accent) 30%,
-        var(--bs-body-bg));
-}
-
-/* ------------------------------------------------------------------
- * The disclosure, and what it discloses
- * ------------------------------------------------------------------ */
-
-.vp-e-disc {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    justify-content: center;
-    width: 1.15rem;
-    height: 1.15rem;
-    margin-top: 1px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
     background: none;
-    color: var(--bs-secondary-color);
-    font-size: 0.62rem;
-}
-
-.vp-e-disc:hover {
-    background: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
-}
-
-.vp-e-disc > i {
-    transition: transform 0.12s ease;
-}
-
-.vp-e-disc[aria-expanded="true"] > i {
-    transform: rotate(90deg);
-}
-
-.vp-e-why {
-    flex: 1 1 100%;
-    margin-top: 5px;
-    padding: 6px 10px;
-    border-left: 2px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-secondary-color);
-    font-size: 0.68rem;
-    line-height: 1.55;
-}
-
-.vp-e-why dl {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: 1px 10px;
-    margin: 0;
-}
-
-.vp-e-why dt {
+    font-size: 0.58rem;
     font-weight: 600;
-}
-
-.vp-e-why dd {
-    margin: 0;
-    min-width: 0;
+    letter-spacing: 0.02em;
+    vertical-align: 1px;
+    white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------
  * A returned object
+ * ------------------------------------------------------------------
+ * Drawn the way `Objects/index.ctp` draws a stored one — the
+ * hexagon, the name, the meta-category, the template's description,
+ * and the attributes in a table under a head that is itself the
+ * control. What differs is what a returned object has not got: no
+ * id, no uuid, no tags, no sightings, no distribution. Those columns
+ * are absent rather than drawn empty, because an empty Sightings
+ * column on an answer nobody has stored is a question about MISP the
+ * object cannot have an answer to.
  * ------------------------------------------------------------------ */
 
 .vp-e-obj {
+    margin: 0 20px 8px;
     border: 1px solid var(--bs-border-color);
     border-radius: 8px;
     overflow: hidden;
@@ -7041,55 +7022,193 @@ th.vp-rel-num {
 
 .vp-e-obj-head {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
+    width: 100%;
     padding: 7px 12px;
-    border-bottom: 1px solid var(--bs-border-color);
+    border: 0;
     background: color-mix(in srgb, var(--object) 10%, var(--bs-body-bg));
+    text-align: left;
 }
 
 [data-bs-theme="dark"] .vp-e-obj-head {
     background: color-mix(in srgb, var(--object) 42%, var(--bs-body-bg));
 }
 
+.vp-e-obj-head:hover {
+    background: color-mix(in srgb, var(--object) 18%, var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-obj-head:hover {
+    background: color-mix(in srgb, var(--object) 55%, var(--bs-body-bg));
+}
+
+.vp-e-obj-head:focus-visible {
+    outline: 2px solid var(--vp-e-accent);
+    outline-offset: -2px;
+}
+
+.vp-e-obj-head[aria-expanded="true"] {
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.vp-e-obj-chev {
+    flex: 0 0 auto;
+    width: 0.7rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
+    transition: transform 0.12s ease;
+}
+
+.vp-e-obj-head[aria-expanded="true"] .vp-e-obj-chev {
+    transform: rotate(90deg);
+}
+
+.vp-e-obj-icon {
+    flex: 0 0 auto;
+    color: var(--bs-secondary-color);
+    font-size: 0.9rem;
+}
+
 .vp-e-obj-name {
+    flex: 0 0 auto;
     font-family: var(--bs-font-monospace);
     font-size: 0.76rem;
     font-weight: 700;
 }
 
-.vp-e-obj-count {
+.vp-e-obj-cat {
+    flex: 0 0 auto;
+    padding: 0 7px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
     color: var(--bs-secondary-color);
-    font-size: 0.66rem;
+    font-size: 0.62rem;
+    line-height: 1.6;
 }
 
-.vp-e-obj-new {
-    border-color: color-mix(in srgb, var(--vp-e-new-c) 50%,
-        var(--bs-border-color));
+.vp-e-obj-note {
+    flex: 0 1 auto;
+    overflow: hidden;
+    color: var(--bs-secondary-color);
+    font-size: 0.67rem;
+    font-style: italic;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.vp-e-rel {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 4px 12px 4px 28px;
-    border-top: 1px solid var(--bs-border-color);
-    font-size: 0.72rem;
-}
-
-.vp-e-rel:first-of-type {
-    border-top: 0;
-}
-
-.vp-e-rel-name {
-    flex: 0 0 11rem;
+/* What a shut card holds, so nothing here is a shell somebody has to
+   open to find out whether it is worth opening. Gone the moment the
+   card is open, where the table says it properly. */
+.vp-e-obj-peek {
+    flex: 1 1 6rem;
     overflow: hidden;
     color: var(--bs-secondary-color);
     font-family: var(--bs-font-monospace);
     font-size: 0.67rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.vp-e-obj-head[aria-expanded="true"] .vp-e-obj-peek {
+    display: none;
+}
+
+.vp-e-obj-count {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--bs-secondary-color);
+    font-size: 0.66rem;
+    white-space: nowrap;
+}
+
+.vp-e-obj-desc {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+    line-height: 1.5;
+}
+
+.vp-e-otable-wrap {
+    overflow-x: auto;
+}
+
+.vp-e-otable {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    font-size: 0.74rem;
+}
+
+.vp-e-otable > thead > tr > th {
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-secondary-color);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.vp-e-otable > tbody > tr > td {
+    padding: 4px 10px;
+    border-top: 1px solid var(--bs-border-color);
+    vertical-align: top;
+}
+
+.vp-e-otable > tbody > tr:first-child > td {
+    border-top: 0;
+}
+
+.vp-e-otable > tbody > tr:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+/* The value column takes whatever is left over; every other column
+   sizes to its content. A 200-character TXT record then wraps inside
+   its own cell instead of pushing the type and the category off the
+   card. */
+.vp-e-otable > tbody > tr > td:nth-child(2) {
+    width: 100%;
+}
+
+/* `Network activity` wrapping to two lines makes every row it appears
+   on a row and a half. The value column absorbs the width instead. */
+.vp-e-otable > tbody > tr > td.vp-e-meta {
+    white-space: nowrap;
+}
+
+.vp-e-rel-name {
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace);
+    font-size: 0.67rem;
+    white-space: nowrap;
+}
+
+/* MISP adds an object whole, so the three controls sit under the
+   table rather than on its rows — which is also the only place they
+   could sit without implying an attribute could be taken out of the
+   object it came in. */
+.vp-e-obj-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+}
+
+.vp-e-obj-footnote {
+    color: var(--bs-secondary-color);
+    font-size: 0.67rem;
+}
+
+.vp-e-obj-foot .vp-e-el-acts {
+    margin-left: auto;
 }
 
 /* ------------------------------------------------------------------
@@ -7105,6 +7224,22 @@ th.vp-rel-num {
     grid-template-columns: minmax(0, 1fr) 21rem;
     gap: 28px;
     padding: 24px 26px;
+}
+
+/* Two children and only two — the argument, and the ledger beside it.
+   A grid handed five flows them alternately into both columns, which
+   is what put a module's description opposite its title. */
+.vp-e-cold-main {
+    min-width: 0;
+}
+
+/* The resting pane has no ledger, and a 21rem column of nothing beside
+   its prose is 21rem of nothing. One column means its children are
+   rows, so the 28px meant to separate two columns has to go — it was
+   opening a hand's width between a heading and its own first line. */
+.vp-e-cold-solo {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
 }
 
 @media (max-width: 1199.98px) {
@@ -7136,13 +7271,16 @@ th.vp-rel-num {
     background: var(--bs-tertiary-bg);
 }
 
+/* Label over value, not label opposite value. In a 21rem aside the
+   opposed pair leaves the long ones — what a module sends, what its
+   settings mean — as two or three words a line down a ragged gutter. */
 .vp-e-ledger-row {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 4px 0;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px 0;
     font-size: 0.76rem;
+    line-height: 1.45;
 }
 
 .vp-e-ledger-row + .vp-e-ledger-row {
@@ -7150,8 +7288,12 @@ th.vp-rel-num {
 }
 
 .vp-e-ledger-n {
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 /* ------------------------------------------------------------------
@@ -7186,32 +7328,8 @@ th.vp-rel-num {
     color: var(--bs-warning-text-emphasis);
 }
 
-.vp-e-quiet {
-    border-style: dashed;
-    border-color: var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-}
-
-[data-bs-theme="dark"] .vp-e-quiet {
-    background: var(--bs-tertiary-bg);
-}
-
-.vp-e-quiet > i {
-    color: var(--bs-secondary-color);
-}
-
 .vp-e-num {
     font-variant-numeric: tabular-nums;
-}
-
-/* The note that says why every value on this tab is a bar. Stated
-   once per pane, at the foot, where it explains what was read above
-   it rather than delaying it. */
-.vp-e-withheld {
-    padding: 10px 14px 14px;
-    color: var(--bs-secondary-color);
-    font-size: 0.7rem;
-    line-height: 1.55;
 }
 
 /* ==================================================================

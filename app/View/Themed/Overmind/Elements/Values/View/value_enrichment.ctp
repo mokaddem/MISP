@@ -194,7 +194,7 @@ if ($service['reachable']) {
                  */
                 ?>
                 <div data-vp-e-pane="__none">
-                    <div class="vp-e-cold">
+                    <div class="vp-e-cold vp-e-cold-solo">
                         <div class="vp-e-cold-title">
                             <?= h(__('Nothing has been queried.')) ?>
                         </div>
@@ -234,16 +234,33 @@ if ($service['reachable']) {
                  */
                 ?>
                 <div class="d-none" data-vp-e-pane="__all">
-                    <div class="vp-e-cold-title" data-vp-e-allhead>
-                        <?= h(__('Nothing has been run this visit.')) ?>
-                    </div>
-                    <div class="vp-e-cold-prose mb-3">
-                        <?= h(__(
-                            'This merges the answers from modules run'
-                            . ' on this page, in this visit. Nothing'
-                            . ' is stored, so there is nothing here'
-                            . ' from last time.'
-                        )) ?>
+                    <?php
+                    /*
+                     * The merged pane wears a result's head, because
+                     * that is what it is: the same rows under one
+                     * claim. Anything else would have the reader
+                     * learning a second layout for the same content.
+                     */
+                    ?>
+                    <div class="vp-e-res-head">
+                        <i class="fas fa-layer-group vp-e-mark
+                                  vp-e-mark-quiet" aria-hidden="true"></i>
+                        <div class="vp-e-res-headtext">
+                            <div class="vp-e-cold-title" data-vp-e-allhead>
+                                <?= h(__(
+                                    'Nothing has been run this visit.'
+                                )) ?>
+                            </div>
+                            <div class="vp-e-cold-prose mb-0">
+                                <?= h(__(
+                                    'This merges the answers from'
+                                    . ' modules run on this page, in'
+                                    . ' this visit. Nothing is stored,'
+                                    . ' so there is nothing here from'
+                                    . ' last time.'
+                                )) ?>
+                            </div>
+                        </div>
                     </div>
                     <div data-vp-e-allbody></div>
                 </div>

@@ -574,3 +574,112 @@ footer and its `Restore`, and the awaiting-review count. Cortex as a
 second rail is deferred rather than dead — it is a second service on a
 second port with a second timeout, and §11 of the tab document already
 called merging it "not free".
+
+---
+
+## 9. The result pane, drawn the way MISP draws an object
+
+Maintainer review, 2026-09-06, after §8: *"use how we currently render an
+object, but make sure its attributes are visible since they're important
+part of the enrichment result"*, and then a polish pass over the panel.
+
+**The finding.** §8's item F restored per-object *expansion* but not the
+object. A returned object was a name, a count, a disclosure and a list of
+`relation — value — type` lines, which is less than MISP shows for an
+object anywhere else and less than the answer contains. And the reason
+the analyst pressed Run is inside the object, never on its shell:
+`mmdb_lookup` returns three objects, `hashlookup` one of eight rows,
+`circl_passivedns` two hundred — and in every case the finding is an
+attribute.
+
+### 9.1 What the card now carries, and where it came from
+
+`Objects/index.ctp` — MISP's own object accordion — is the source. The
+head is the control, as it is there: the hexagon glyph, the template
+name, the meta-category pill, the comment, the attribute count. The body
+is the same attribute table: **Relation, Value, Type, Category, IDS**.
+
+Three of those columns did not exist in the model's shape.
+`enrichmentObject()` carried `name` and `relation/type/value` only, so
+`meta-category`, `description`, `comment` and the attributes' `category`,
+`comment` and `to_ids` are now carried too. Every one is null where the
+module omitted it and the view draws only what arrived —
+`mmdb_lookup` sends no comment, `hashlookup` no object comment.
+
+**What a returned object has not got is absent, not blank.** No id, no
+uuid, no tags, no galaxies, no sightings, no distribution, no related
+events: those are `Objects/index.ctp` columns about a *stored* object,
+and an empty Sightings column over an answer nobody has stored is a
+question the object cannot have. The same rule runs per card: a Category
+or IDS column no attribute in that object fills is dropped rather than
+drawn over ten blanks, because ten blanks read as ten negatives.
+
+### 9.2 The attributes are visible, and the budget is rows
+
+Folding was decided on the object count (`<= 5` open). It is now decided
+on **attribute rows**, budget 60, first object always open. `mmdb_lookup`
+opens all three; `circl_passivedns` opens the first eight of 199, which
+is where the reader is looking. Two controls cover the rest:
+
+- **`Expand all` / `Collapse all`** on the objects heading, one press for
+  the whole answer in both directions.
+- **A folded head says what it holds** — its first three values, so no
+  card is a shell somebody has to open to find out whether it is worth
+  opening.
+
+**The peek skips what cannot distinguish one card from another.** All 199
+passive-DNS records say `origin: https://www.circl.lu/pdns/`; a relation
+with one value across the whole answer is not offered to the peek, and a
+value under three characters (`count: 1`, `rrtype: A`) is held back and
+used only to top up a card that would otherwise have nothing. Measured on
+the instance: the head went from `1 · https://www.circl.lu/pdns/ · A` to
+`51cie.com · 2023-10-24T13:04:21 · …`.
+
+### 9.3 The polish pass
+
+- **A filter over the answer**, offered from 12 elements up. It hides rows
+  already on the page and **asks nobody anything** — the tab's standing
+  promise. A hit inside a folded object opens it; clearing the box puts
+  every card back the way the reader left it, not the way the server sent
+  it. A section whose rows are all hidden goes with them.
+- **The head is a head.** Mark, claim, and the provenance line as separate
+  chips rather than a middot-run: they are five unrelated facts and a
+  reader wants one at a time. Four marks over seven states, and the mark
+  never carries a claim the wording does not.
+- **An element is two lines, not one that wraps** — the value at full
+  width, then type, category, IDS and comment in a fixed order, so on a
+  200-row answer the same fact is in the same place on every row.
+- **Group headings** carry MISP's own glyph for the kind.
+- **`.vp-e-cold` was scattering its children.** It is a `1fr 21rem` grid
+  and the brief handed it five, so a module's description sat opposite its
+  title and the ledger opposite the "nothing is written" note. Two
+  children now, and the ledger's rows stack label over value — an opposed
+  pair in a 21rem aside left the long ones as two words a line down a
+  ragged gutter. The resting pane takes a one-column variant.
+- **The merged pane wears a result's head**, because that is what it is.
+- **Ten dead rule sets removed** from `value-profile.css` — `.vp-e-stale*`,
+  `.vp-e-delta*`, `.vp-e-prov*`, `.vp-e-cost*`, `.vp-e-new`,
+  `.vp-e-el-new`, `.vp-e-obj-new`, `.vp-e-quiet`, `.vp-e-withheld`,
+  `.vp-e-disc`. All of them styled §5's fixture keys or §8.2's
+  persistence features and none had a selector left in any view or script.
+
+### 9.4 Verification
+
+Against the dev instance as `admin@admin.test`, 2026-09-06, both themes:
+
+| Case | Result |
+|---|---|
+| `mmdb_lookup` on `8.8.8.8` | 3 objects, 12 rows, all open, no panel overflow |
+| `hashlookup` on an md5 | 1 object of 8 rows, IDS column drawn, uniform row heights |
+| `circl_passivedns` on `8.8.8.8` | 199 objects + 1 attribute, capped 200 of 1,375, 8 open |
+| Filter `circl.lu` | 199 of 200 shown, matches opened, attribute section hidden |
+| Filter cleared | back to 8 open — the state the reader left, not the served one |
+| `Expand all` / `Collapse all` | 199 open, label flips, 199 shut |
+| `whois` on `8.8.8.8` | `error`, module's own message, `Run again` offered |
+| [`28-enrichment-check.mjs`](28-enrichment-check.mjs) | unchanged: 0 requests on a 5-row walk, 2 requests for 2 selected, 0 enabled write buttons, folds toggle |
+
+The `elements` branch — a `simplified` module answering with bare
+`types`/`values` — is markup-identical to the attributes branch and was
+not exercised live: no module eligible for the probe values both uses
+that format and succeeds on this instance (`whois` is `simplified` and
+errors for want of its `server` setting).

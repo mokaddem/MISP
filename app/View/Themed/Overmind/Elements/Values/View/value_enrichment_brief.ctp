@@ -22,6 +22,16 @@ $kinds = implode(', ', $module['kinds']);
 ?>
 <div class="vp-e-cold">
 
+    <?php
+    /*
+     * Two children and only two: `.vp-e-cold` is a main column and an
+     * aside, and a grid handed five children flows them alternately
+     * into both — which put the description opposite the title and
+     * the ledger opposite the note.
+     */
+    ?>
+    <div class="vp-e-cold-main">
+
     <div class="vp-e-cold-title">
         <?= h(sprintf(
             __('%s has not been asked.'),
@@ -34,6 +44,24 @@ $kinds = implode(', ', $module['kinds']);
             <?= h($module['description']) ?>
         </div>
     <?php endif; ?>
+
+    <div class="vp-e-cold-prose mt-3">
+        <?= h(__(
+            'Nothing is written to MISP. The answer is rendered here'
+            . ' and not stored, so leaving the page loses it.'
+        )) ?>
+    </div>
+
+    <div class="mt-3">
+        <?= $this->element('Values/View/value_enrichment_button', array(
+            'module' => $module,
+            'canRun' => $canRun,
+            'noRun' => $noRun,
+            'label' => sprintf(__('Run %s'), $module['name']),
+        )) ?>
+    </div>
+
+    </div>
 
     <div class="vp-e-cold-ledger">
 
@@ -115,22 +143,6 @@ $kinds = implode(', ', $module['kinds']);
             )) ?></span>
         </div>
 
-    </div>
-
-    <div class="vp-e-cold-prose mt-3">
-        <?= h(__(
-            'Nothing is written to MISP. The answer is rendered here'
-            . ' and not stored, so leaving the page loses it.'
-        )) ?>
-    </div>
-
-    <div class="mt-3">
-        <?= $this->element('Values/View/value_enrichment_button', array(
-            'module' => $module,
-            'canRun' => $canRun,
-            'noRun' => $noRun,
-            'label' => sprintf(__('Run %s'), $module['name']),
-        )) ?>
     </div>
 
 </div>

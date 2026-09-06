@@ -4542,7 +4542,7 @@
         answered.forEach(function (result) {
             var name = result.dataset.vpEResult;
             var head = document.createElement('div');
-            head.className = 'vp-e-railgroup mt-3';
+            head.className = 'vp-e-group';
             head.textContent = name;
             body.appendChild(head);
             result.querySelectorAll('[data-vp-e-item]')
@@ -4575,11 +4575,30 @@
     }
 
     /**
+     * Open or shut one object's attribute table.
+     *
+     * @param {Element} item An object card
+     * @param {boolean} open
+     */
+    function setEnrichFold(item, open) {
+        var head = item.querySelector('[data-vp-e-disc]');
+        var fold = item.querySelector('[data-vp-e-fold]');
+        if (!head || !fold) {
+            return;
+        }
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        fold.classList.toggle('d-none', !open);
+    }
+
+    /**
      * Fold an object's attributes away.
      *
-     * A long answer arrives folded — `circl_passivedns` returns two
-     * hundred objects and a pane that opens with two hundred tables is
-     * not one a reader finds anything in.
+     * A long answer arrives with its later objects folded —
+     * `circl_passivedns` returns two hundred and a pane that opens
+     * with two hundred tables is not one a reader finds anything in.
+     * What the reader does from there is remembered, so that filtering
+     * and then clearing the filter gives them back the pane they had
+     * rather than the one the server sent.
      *
      * @param {Element} button
      */
@@ -4588,13 +4607,110 @@
         if (!item) {
             return;
         }
-        var fold = item.querySelector('[data-vp-e-fold]');
-        if (!fold) {
+        var open = button.getAttribute('aria-expanded') !== 'true';
+        setEnrichFold(item, open);
+        item.dataset.vpEWas = open ? 'true' : 'false';
+    }
+
+    /**
+     * Open or shut every object in one answer.
+     *
+     * @param {Element} button
+     */
+    function toggleEnrichFoldAll(button) {
+        var scope = button.closest('[data-vp-e-result]');
+        if (!scope) {
             return;
         }
-        var open = button.getAttribute('aria-expanded') !== 'true';
-        button.setAttribute('aria-expanded', open ? 'true' : 'false');
-        fold.classList.toggle('d-none', !open);
+        var open = button.dataset.vpEFoldAll !== 'close';
+        scope.querySelectorAll('[data-vp-e-obj]').forEach(function (obj) {
+            setEnrichFold(obj, open);
+            obj.dataset.vpEWas = open ? 'true' : 'false';
+        });
+        button.dataset.vpEFoldAll = open ? 'close' : 'open';
+
+        var label = button.querySelector('[data-vp-e-fold-label]');
+        if (label) {
+            label.textContent = open
+                ? (button.dataset.vpECloseLabel || 'Collapse all')
+                : (button.dataset.vpEOpenLabel || 'Expand all');
+        }
+        var icon = button.querySelector('[data-vp-e-fold-icon]');
+        if (icon) {
+            icon.classList.toggle('fa-chevron-down', !open);
+            icon.classList.toggle('fa-chevron-up', open);
+        }
+    }
+
+    /**
+     * Narrow one answer to the rows that carry a string.
+     *
+     * **It asks nobody anything.** A capped answer is two hundred
+     * elements and the reader is hunting one of them; this hides rows
+     * that are already on the page, which is the only kind of
+     * narrowing this tab is allowed to do.
+     *
+     * A match inside a folded object opens it, because a hit the
+     * reader cannot see is not a hit they can act on — and clearing
+     * the box puts every card back the way they left it rather than
+     * the way it arrived.
+     *
+     * @param {Element} input
+     */
+    function filterEnrichResult(input) {
+        var scope = input.closest('[data-vp-e-result]');
+        if (!scope) {
+            return;
+        }
+        var query = input.value.trim().toLowerCase();
+        var shown = 0;
+        var total = 0;
+
+        scope.querySelectorAll('[data-vp-e-item]').forEach(function (item) {
+            total++;
+            var hit = query === ''
+                || item.textContent.toLowerCase().indexOf(query) !== -1;
+            item.classList.toggle('d-none', !hit);
+            if (hit) {
+                shown++;
+            }
+            if (item.hasAttribute('data-vp-e-obj')) {
+                if (item.dataset.vpEWas === undefined) {
+                    var head = item.querySelector('[data-vp-e-disc]');
+                    item.dataset.vpEWas = head
+                        && head.getAttribute('aria-expanded') === 'true'
+                        ? 'true'
+                        : 'false';
+                }
+                setEnrichFold(
+                    item,
+                    query === '' ? item.dataset.vpEWas === 'true' : hit
+                );
+            }
+        });
+
+        /*
+         * A heading counting three objects over none of them is a
+         * worse lie than no heading, so a section with nothing left
+         * in it goes with its rows.
+         */
+        scope.querySelectorAll('[data-vp-e-section]')
+            .forEach(function (section) {
+                var live = [...section.querySelectorAll('[data-vp-e-item]')]
+                    .some(function (item) {
+                        return !item.classList.contains('d-none');
+                    });
+                section.classList.toggle('d-none', !live);
+            });
+
+        var out = scope.querySelector('[data-vp-e-filter-n]');
+        if (out) {
+            out.textContent = query === ''
+                ? ''
+                : (out.dataset.vpEFilterFmt || '%1$s of %2$s shown')
+                    .replace('%1$s', shown)
+                    .replace('%2$s', total);
+        }
     }
 
     /**
@@ -4630,6 +4746,12 @@
         var run = event.target.closest('[data-vp-e-run]');
         if (run) {
             runEnrichModule(run);
+            return true;
+        }
+
+        var foldAll = event.target.closest('[data-vp-e-fold-all]');
+        if (foldAll) {
+            toggleEnrichFoldAll(foldAll);
             return true;
         }
 
@@ -8275,6 +8397,10 @@
             }
             if (event.target.matches('[data-vp-facet-search]')) {
                 filterFacetGroup(event.target);
+                return;
+            }
+            if (event.target.matches('[data-vp-e-filter]')) {
+                filterEnrichResult(event.target);
                 return;
             }
             if (event.target.matches(
