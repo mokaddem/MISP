@@ -10,6 +10,11 @@ App::uses('DomainPermutationTool', 'Tools');
 App::uses('AuditActionMeta', 'Tools');
 App::uses('ValueProfileBuckets', 'Tools');
 App::uses('JsonTool', 'Tools');
+/*
+ * For `NON_CORRELATING_TYPES` — the constant, not the model, so the
+ * class has to be loaded rather than instantiated through `model()`.
+ */
+App::uses('MispAttribute', 'Model');
 
 /**
  * The Value Profile page's per-panel facade.
@@ -12434,8 +12439,30 @@ class ValueProfile extends AppModel
      * indexed equality lookups, caps each one, and applies the
      * reader's ACL — so the chip means *already in MISP **and** you
      * can see it*, which is the only version of the claim this page
-     * may make. Its probe cap is 1,500 against this tab's 200-element
-     * render cap, so nothing here can reach it.
+     * may make.
+     *
+     * **Only values MISP would correlate on are asked about**, per
+     * `enrichmentCorrelates`. A row the probe is not asked about is
+     * `known => false` and wears no chip, which is the honest state:
+     * the page did not look, because there was nothing worth looking
+     * for. This is what stops `count: 1` and `rrtype: A` from wearing
+     * a duplicate warning.
+     *
+     * **Type-scoping the probe is not the fix, and was measured
+     * before being rejected.** `28b-known-probe.php` compared an
+     * untyped probe against one statement per distinct type over all
+     * three modules: not one of the objectionable chips went away,
+     * because MISP genuinely holds a `counter` with value 1 and a
+     * `text` equal to `A`. The claim was true and useless, so the cure
+     * is asking about fewer values rather than asking more precisely
+     * — and it costs one statement fewer rather than six more.
+     *
+     * That filtering is also what keeps this under
+     * `PREVALENCE_PROBE_CAP`. 200 rendered `passive-dns` objects carry
+     * 1,400 attribute values against a 1,500 cap; dropping the three
+     * relations of seven that MISP does not correlate on leaves ~800,
+     * where the old code ran up against the cap and silently probed a
+     * prefix.
      *
      * **One query for the whole result**, whatever the module
      * returned, and the value the page is about is excluded: every
@@ -12451,16 +12478,22 @@ class ValueProfile extends AppModel
     {
         $wanted = array();
         foreach ($run['attributes'] as $attribute) {
-            if ($attribute['value'] !== null) {
+            if ($attribute['value'] !== null
+                && $attribute['correlates']
+            ) {
                 $wanted[] = (string)$attribute['value'];
             }
         }
         foreach ($run['elements'] as $element) {
-            $wanted[] = $element['value'];
+            if ($this->enrichmentElementCorrelates($element)) {
+                $wanted[] = $element['value'];
+            }
         }
         foreach ($run['objects'] as $object) {
             foreach ($object['attributes'] as $attribute) {
-                if ($attribute['value'] !== null) {
+                if ($attribute['value'] !== null
+                    && $attribute['correlates']
+                ) {
                     $wanted[] = (string)$attribute['value'];
                 }
             }
@@ -12485,19 +12518,49 @@ class ValueProfile extends AppModel
         };
 
         foreach ($run['attributes'] as $i => $attribute) {
-            $run['attributes'][$i]['known'] =
-                $known($attribute['value']);
+            $run['attributes'][$i]['known'] = $attribute['correlates']
+                && $known($attribute['value']);
         }
         foreach ($run['elements'] as $i => $element) {
-            $run['elements'][$i]['known'] = $known($element['value']);
+            $run['elements'][$i]['known'] =
+                $this->enrichmentElementCorrelates($element)
+                && $known($element['value']);
         }
         foreach ($run['objects'] as $i => $object) {
             foreach ($object['attributes'] as $j => $attribute) {
                 $run['objects'][$i]['attributes'][$j]['known'] =
-                    $known($attribute['value']);
+                    $attribute['correlates']
+                    && $known($attribute['value']);
             }
         }
         return $run;
+    }
+
+    /**
+     * The same question for a `simplified` module's bare element.
+     *
+     * There is no attribute row here and so no `disable_correlation` —
+     * only the types the module says the value could be taken as. If
+     * none of them is one MISP correlates on, neither is the value.
+     *
+     * @param array $element
+     * @return bool
+     */
+    private function enrichmentElementCorrelates(array $element)
+    {
+        if (empty($element['types'])) {
+            return true;
+        }
+        foreach ($element['types'] as $type) {
+            if (!in_array(
+                $type,
+                MispAttribute::NON_CORRELATING_TYPES,
+                true
+            )) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -12516,8 +12579,46 @@ class ValueProfile extends AppModel
             'comment' => isset($attribute['comment'])
                 ? $attribute['comment'] : null,
             'to_ids' => !empty($attribute['to_ids']),
+            'correlates' => $this->enrichmentCorrelates($attribute),
             // Filled by enrichmentKnown; false where it never asked.
             'known' => false,
+        );
+    }
+
+    /**
+     * Whether this value is an identity, by MISP's own reckoning.
+     *
+     * **`Already in MISP` is a claim about a duplicate**, and a
+     * duplicate is only a thing for a value that identifies something.
+     * MISP answers that question twice over and both answers are on
+     * the wire: the module sends `disable_correlation` per attribute —
+     * set from the object template — and `NON_CORRELATING_TYPES` names
+     * the types whose values are never identities whatever a template
+     * says. The flag alone does the work in practice; the type list is
+     * here because a hand-built module may omit the flag, and a
+     * `counter` must not carry the chip on anybody's say-so.
+     *
+     * Measured on the instance rather than reasoned about: this drops
+     * every chip the maintainer objected to — `count: 1`, `rrtype: A`,
+     * `origin`, `FileSize: 4`, `latitude: 38` — and keeps every one
+     * that was doing the job: the MD5, the SHA-1, the SHA-256, the
+     * SSDEEP, `country` and `countrycode`.
+     *
+     * @param array $attribute As the module sent it
+     * @return bool
+     */
+    private function enrichmentCorrelates(array $attribute)
+    {
+        if (!empty($attribute['disable_correlation'])) {
+            return false;
+        }
+        if (empty($attribute['type'])) {
+            return true;
+        }
+        return !in_array(
+            $attribute['type'],
+            MispAttribute::NON_CORRELATING_TYPES,
+            true
         );
     }
 
@@ -12553,6 +12654,9 @@ class ValueProfile extends AppModel
                     'comment' => isset($attribute['comment'])
                         ? $attribute['comment'] : null,
                     'to_ids' => !empty($attribute['to_ids']),
+                    'correlates' => $this->enrichmentCorrelates(
+                        $attribute
+                    ),
                     'known' => false,
                 );
             }

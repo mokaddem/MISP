@@ -178,11 +178,13 @@ $knownChip = function (array $element, $short = false) {
      * The claim is about the **value string**, not about the value
      * under this type — which is the claim §8.3 makes too. One probe
      * for the whole result is what keeps this to a single query, and
-     * a per-type probe would be one query per distinct type for a
-     * chip whose job is to make somebody look before they add.
-     * Verified against the instance: `mmdb_lookup`'s `United States`
-     * matches `text` rows and its `38` matches `float` rows, so the
-     * untyped probe is not, in practice, matching across types.
+     * a per-type probe was measured and removes nothing: MISP really
+     * does hold a `counter` with value 1.
+     *
+     * What the chip is not drawn on is a value MISP would not
+     * correlate on — the model asks about those and only those, so a
+     * row without a chip either is not in MISP or was never a
+     * duplicate anybody could make.
      */
     $title = __(
         'MISP already holds this value somewhere you can see it.'

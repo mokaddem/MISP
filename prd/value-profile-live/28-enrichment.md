@@ -554,6 +554,13 @@ growth is in the *answer*, never in the value: `443` costs what
 Re-measured by [`28-enrichment-count.php`](28-enrichment-count.php),
 which now carries the capped case for exactly this reason.
 
+> **§9.5 corrects the two paragraphs below.** The cap claim is wrong —
+> a capped answer probes ~1,400 values against a 1,500 cap, not
+> comfortably under it — and the defence of the untyped probe answers a
+> question nobody was asking. The chip's real fault was probing values
+> that are not identities at all, and the cost figures moved when that
+> was fixed.
+
 **`Already in MISP` is a claim about the value string, not about the
 value under its type.** One probe for the whole result keeps this to a
 single query; a per-type probe would be one query per distinct type.
@@ -695,7 +702,69 @@ over twelve visible cards. A narrowed section now reads
 `12 of 199 objects` and goes back to `199 objects` when the box is
 cleared.
 
-### 9.5 Verification
+### 9.5 `Already in MISP` was crying wolf
+
+Maintainer instruction after §9.4's list: *"fix the 'Already in MISP'
+chip firing on trivial values"* — `count: 1`, `rrtype: A`,
+`SSDEEP 3::`, `FileSize 4`.
+
+**§8.1 defended the wrong thing.** It checked that the untyped probe was
+not matching *across* types and concluded the chip was sound.
+[`28b-known-probe.php`](28b-known-probe.php) put that to the test by
+running an untyped probe beside one statement per distinct type, over
+all three runnable modules:
+
+| Module | distinct (type, value) | types | chips a typed probe would remove |
+|---|---|---|---|
+| `mmdb_lookup` | 8 | 2 | **0** |
+| `hashlookup` | 8 | 7 | **0** |
+| `circl_passivedns` | 3,181 | 3 | **0** |
+
+**Not one.** MISP genuinely holds a `counter` with value 1 and a `text`
+equal to `A`; the claim was true and useless. So type-scoping is not the
+fix — it would have cost six statements more on `hashlookup` and removed
+nothing.
+
+**The fix is to ask about fewer values, and MISP already says which.**
+The probe found `disable_correlation` on the wire for every module, set
+from the object template, and the templates are a curated answer to
+exactly this question:
+
+```
+passive-dns   count, origin, rrtype, time_first, time_last  -> disable_correlation
+              rdata, rrname                                 -> correlating
+file          size-in-bytes, filename, path, entropy        -> disable_correlation
+              md5, sha1, sha256, ssdeep                     -> correlating
+```
+
+`enrichmentCorrelates()` reads that flag, and falls back to
+`MispAttribute::NON_CORRELATING_TYPES` where a hand-built module omits
+it, so a `counter` never wears the chip on anybody's say-so. A value
+that fails the test is never probed and is `known => false`: the page
+did not look, because there was nothing worth looking for.
+
+Measured on the instance, chips per module before and after:
+
+| Module | Rows | Chipped before | Chipped after | Kept |
+|---|---|---|---|---|
+| `mmdb_lookup` | 12 | 8 | **4** | `country`, `countrycode` |
+| `hashlookup` | 8 | 6 | **4** | MD5, SHA-1, SHA-256, SSDEEP |
+| `circl_passivedns` | 1,393 | ~600 | **0** | — |
+
+The zero is honest rather than a silent loss: `rrname` and `rdata` are
+correlating and still probed, and none of those domains is in this
+instance. The four that survive on `hashlookup` are precisely the hashes
+an analyst would be about to duplicate.
+
+**It also costs less.** `PREVALENCE_CHUNK` is 250 and the cap is 1,500;
+200 rendered `passive-dns` objects carried ~1,400 values, near enough
+the cap to silently probe a prefix. Dropping the three relations of
+seven MISP does not correlate on leaves ~800, and re-measured with
+[`28-enrichment-count.php`](28-enrichment-count.php) the capped run
+goes **Q=5 → Q=4**. Every other case is unchanged: `ok` 4, `error` 3,
+`ineligible` 1, `forEnrichment` 1.
+
+### 9.6 Verification
 
 Against the dev instance as `admin@admin.test`, 2026-09-06, both themes:
 
@@ -721,6 +790,18 @@ whole `enrichAsk` → `setEnrichState` path runs as it would:
 | state rewritten to `timeout` | **`Timed out`**, dot timeout — was `Answered`, dot ok |
 | fragment with no result element | **`Unknown`**, dot none — was `Answered`, dot ok |
 | filter `51cie.com` over 200 | headings `0 of 1 attribute`, `1 of 199 objects`; cleared, back to `1 attribute`, `199 objects` |
+
+§9.5's chips, counted off the rendered object tables:
+
+| Module | Object rows | Chipped | On what |
+|---|---|---|---|
+| `mmdb_lookup` | 12 | 4 | `country`, `countrycode` — not `latitude`, `longitude`, `text` |
+| `hashlookup` | 8 | 4 | MD5, SHA-1, SHA-256, SSDEEP — not `FileSize`, `source` |
+| `circl_passivedns` | 1,393 | 0 | nothing — `count`, `origin`, `rrtype` no longer asked about |
+
+Query cost re-measured with the same script §8.1 used: the capped run
+`8.8.8.8` / `circl_passivedns` goes **Q=5 → Q=4**, everything else
+unchanged.
 
 The `elements` branch — a `simplified` module answering with bare
 `types`/`values` — is markup-identical to the attributes branch and was
