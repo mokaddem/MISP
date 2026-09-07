@@ -148,6 +148,25 @@ is new and is rule 3's guard: when a false_positive-category list *and* a
 supermajority of orgs disagree, silently letting either win would discard a
 deliberate judgement; the contradiction is the honest answer.
 
+**The first rule could not fire when this phase shipped it**, and phase 6 is
+why it can now: `warninglist_category: known` had no source, because nothing
+in MISP sets that column — `0` of `89` upstream lists carry the field and
+core's import drops it — so the rule was a specification with a precondition
+no instance could meet. `WarninglistCategory`'s shipped map supplies it
+(`07-reference.md` §3.3), and the rule fires on the dev instance's own rows
+as of 2026-09-07.
+
+Phase 6 also found something about the **pair** of them that this section
+does not say. On a value whose organisations assert it, rule 2 has *already*
+made the value contested — so setting a list to `known` does not change the
+lean at all. It hands the contradiction from `conflict:listed-vs-asserted` to
+`conflict:known-infrastructure-vs-reporting`, and what a reader sees change is
+the rule and its prose: *"the page will not pick one"* becomes *"neither
+discounts the other"*. Which is both rules working as specified, and worth
+stating, because the two are not alternatives on a disjoint set of values —
+they are two readings of the same value, and the category is what decides
+which one it is in (`07-reference.md` §7.5).
+
 When one fires: the lean is `contested`, `rule` carries the id and its
 prose, rendered by `value_verdict_meta.ctp:47`, and the ledger is **not**
 discarded — its threat-signed rows are what the tug is built from (§5).

@@ -55,12 +55,30 @@ function __($string)
     return $args ? vsprintf($string, $args) : $string;
 }
 
+function __n($singular, $plural, $count)
+{
+    return $count === 1 ? $singular : $plural;
+}
+
 require_once APP . 'Model/ValueSignals/ValueSignalBase.php';
 require_once APP . 'Model/ValueEscalations/ValueEscalationBase.php';
 require_once APP . 'Lib/Tools/ValueStatsTool.php';
+/*
+ * Loaded because the three trust-weighted signals read it
+ * (phase 6). Without it they throw and land in `not_counted`,
+ * which is the engine's guard working and every number in this
+ * file moving.
+ */
+require_once APP . 'Lib/Tools/ValueTrustTool.php';
+
 require_once APP . 'Lib/Tools/ValueSignalLoader.php';
 require_once APP . 'Lib/Tools/ValueLeanTool.php';
 require_once APP . 'Lib/Tools/ValueChangersTool.php';
+/*
+ * Loaded because `ValueVerdictTool::verdict()` assembles the relevance
+ * axis (phase 5), which every earlier phase's engine call now reaches.
+ */
+require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
 
 $GLOBALS['checks'] = 0;

@@ -411,6 +411,24 @@ about real evidence. It is also a skewed one: all four are outliers, which is
 "empty means as before" — the feature ships changing nothing until an analyst
 grades an org.
 
+**Honoured 2026-09-07, and still inert by default.** Phase 6 made the flag
+mean something: the three signals declaring it replace their organisation and
+row counts with weighted ones (`07-reference.md` §2.4), reading
+`ValueTrustTool` rather than implementing the arithmetic each, so a drop-in
+signal declaring `trust_weighted` gets it too. The default is unchanged
+because an empty `org_trust` map takes the mechanism out of the path entirely
+rather than weighting everything at `1.0` — which makes this paragraph
+structural instead of arithmetic (§7.6 there).
+
+One thing that follows for this document: **the three signals now read a tool
+the loader does not provide.** A signal file is discovered and `require`d, so
+it carries no `App::uses` of its own and its dependencies are the engine's to
+declare — `ValueVerdictTool` does. A dropped-in signal reaching for something
+the engine has not loaded lands in `not_counted` with the class name on the
+page, which is §8.5's guard doing its job; it is also how three of this
+corpus's own harnesses spent an afternoon printing `ok` against every
+assertion that did not name those signals (`07-reference.md` §7.7).
+
 ### 7.3 Exact reproduction is not achievable, and must not be the test
 
 **The fixture is not internally consistent, and this phase should say so rather

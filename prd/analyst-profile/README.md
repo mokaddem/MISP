@@ -16,11 +16,12 @@ document holding every judgement the scoring engine needs — signal weights, th
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phases 1 to 5 — the store, the engine that
+viewer (nearest owner wins). **Phases 1 to 6 — the store, the engine that
 reads it, the lean and bands that turn its ledger into an assessment, the
-exclusions that decide what the ledger may see, and the relevance axis that
-says whether any of it still matters — are built as of 2026-09-07**, which
-is every phase the Assessment tab depends on; the other five phases are
+exclusions that decide what the ledger may see, the relevance axis that
+says whether any of it still matters, and the reference data that says what
+the analyst believes about their sources — are built as of 2026-09-07**,
+which is every phase that can change a number; the other four phases are
 specifications. The corpus is fifteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
@@ -91,7 +92,10 @@ design:
   verified: 0 of 89 upstream lists, and `Warninglist::__updateList()` drops
   the field. V1 ships a hardcoded name→`known` map
   (`WarninglistCategory.php`); V2 is the upstream PR plus a one-line core
-  fix, with a mechanical retirement criterion.
+  fix, with a mechanical retirement criterion. **Shipped 2026-09-07 in phase
+  6** — 25 lists, all present on the dev instance, none of them carrying the
+  category in the database, so `WarninglistCategory::retirable()` says V1
+  stays (`07-reference.md` §7.9).
 - **The trust scale misread its own authority** — the shipped taxonomy says
   `f = 50 = c` (neutral) and has a seventh grade `g` (deliberately
   deceptive, = 0). The scale now follows it.
@@ -102,11 +106,11 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 5 are built;
-6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 6 are built;
+8–10 are specifications; 7 (enrichment) is a scope note blocked on a
 store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
-(the tab goes live) → 10. **Phase 9 now has every phase it needs**, and 6
-and 8 are independent of it.
+(the tab goes live) → 10. **Phase 9 now has every phase it needs**, and 8 is
+independent of it.
 
 **Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
 table, `app/Model/AnalystProfile.php`, and the shipped
@@ -220,10 +224,52 @@ grep — a grep cannot say that no query reaches a table, and the probe's
 first run reported *"0 queries, 0 touching decaying_models"* because the
 datasource log had stopped recording (§7.5).
 
-Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
-phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus one
-phase-9 item — the hero's three-axis composition. **Nothing gating
-phases 1–5 is open any more, and phase 5 opened nothing.**
+**Phase 6, built 2026-09-07.** The two reference maps — `ValueTrustTool`
+(admiralty grades A–G keyed by `organisations.uuid`, the editable
+grade→multiplier scale, and the weighted counts the three `trust_weighted`
+signals read) and `WarninglistCategory` (V1's shipped 25-list map, the
+four-step category resolution, and a mechanical criterion for retiring
+itself) — plus the uuid→id join in `ValueProfile::verdictTrust()` and
+per-organisation sighting tallies. Verified by 114 checks with no database
+and 84 against the dev instance. **The escalation phase 3 shipped can now
+reach its own precondition**: `conflict:known-infrastructure-vs-reporting`
+requires `warninglist_category: known` on a platform where nothing sets that
+column — `0` of `89` upstream lists carry the field, re-confirmed, and core's
+`__updateList()` drops it — so the knowledge ships as code and the rule fires
+on the instance's own rows. Nine findings are in `07-reference.md` §7; four
+are worth knowing about from here:
+
+- **A weighting is invisible where a signal is saturated.**
+  `reporting.independent_orgs` caps at four weighted voices, so grading
+  `8.8.8.8`'s eight reporters `D` moves the row by nothing — and §5's own
+  items 2, 3 and 5 could not be observed as written. Recorded rather than
+  fixed, because the cap is the analyst's number and weighting before it is
+  what the design requires; what changed is that the tests now assert the
+  mechanism — `min(per_org × Σ factor, cap)` — and make directional claims
+  only off the cap (§7.1).
+- **A grade nearly turned a false positive into corroboration.** The
+  extra-organisation term pays `per_extra_org × (orgs − 1)`, and a single
+  `E`-graded filer sums to `0.25` voices — so `Σ − 1` is `−0.75` and the
+  product is `+3`. Clamped at zero. Found by writing the arithmetic out, not
+  by reading a page: the row would have been small and positive, and nothing
+  says which sign a row is supposed to have (§7.2).
+- **A category override does not always change the lean.** On `8.8.8.8` the
+  value was already contested by `conflict:listed-vs-asserted`, so the
+  `known` override handed the contradiction to the other rule and changed the
+  prose rather than the word. *"The value goes CONFLICTED"* is the wrong
+  thing to look for on most values an override will touch (§7.5).
+- **Three earlier harnesses had been dead since phase 5** — it added a
+  relevance call to the engine without adding the `require_once` — and phase
+  6 would have hidden it, because its new dependency lands the three heaviest
+  signals in `not_counted` while every other assertion still prints `ok`.
+  Fixed: all six harnesses run, 493 checks, and the five live probes with
+  them (§7.7).
+
+Open questions: Q9 (per-viewer caveat, phase 9 — **half-answered**, since
+phase 4 removed the ACL half and phase 6 made the profile half real), Q10
+(enrichment scope, phase 7), Q13 (`includeAssessment` exposure gate, phase
+10), plus one phase-9 item — the hero's three-axis composition. **Nothing
+gating phases 1–6 is open any more, and phase 6 opened nothing.**
 
 Three questions closed in three days, and two closed against this corpus's
 own recorded recommendation:

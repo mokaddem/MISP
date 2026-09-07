@@ -96,11 +96,12 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Phases 1 to 5 are built as of 2026-09-07**; phases 6 and 8–10 are
+**Phases 1 to 6 are built as of 2026-09-07**; phases 8–10 are
 specifications; phase 7 is blocked on a store that does not exist. Phase 10
 was a recorded direction until 2026-09-03, when D10 settled its design and it
 became specifiable. **Phase 9 — the tab going live — now has every phase it
-depends on.**
+depends on**, and phase 6 was the last one that could still change a number
+under it.
 
 Phase 2 built the accumulator, the eleven-signal catalogue and D12's
 filesystem loader, and its exit criterion holds against real rows: the
@@ -149,9 +150,30 @@ the relevance block, not the two axes touching one date. Proving it needs
 a relevance-only knob, and both the harness and the probe now use the TTL
 (§7.2).
 
+**Phase 6 gives the profile the last thing it can say about a score.** Both
+maps ship empty and both stay override sets, so the shipped default scores
+exactly as it did before the section existed — asserted in the strong form,
+with the *scale* edited and the map left empty, on every demo value
+([`07-reference.md`](07-reference.md) §7.6). What it unblocks is phase 3's
+one shipped escalation, which required `warninglist_category: known` in a
+platform where **nothing sets that column** — `0` of `89` upstream lists
+carry the field and `Warninglist::__updateList()` drops it on import — so V1
+ships the knowledge as code and the escalation fires on the instance's own
+rows for the first time (§3.3, §7.9).
+
+Two findings there change how the feature should be read. **A weighting is
+invisible where a signal is saturated**: `reporting.independent_orgs` caps at
+four weighted voices, so grading eight reporters `D` moves the row by nothing
+at all, and §5's own items 2, 3 and 5 could not be observed as written
+(§7.1). And **a category override does not always change the lean** — on
+`8.8.8.8` the value was already contested, so the override handed the
+contradiction from one rule to the other and changed the prose rather than
+the word (§7.5).
+
 **What remains before the tab can go live is nothing in this feature's
-dependency chain.** Phase 9 is next in build order; phase 6 (reference)
-and phase 8 (the editor) are independent of it.
+dependency chain.** Phase 9 is next in build order; phase 8 (the editor) is
+independent of it, and is where phase 6's `unknown` and `invalid` grade lists
+get drawn.
 
 Building phase 1 closed **Q7 as D13** and, alongside it, **Q5 as D14** —
 the two questions that gated phases 1 and 2; building phase 2 left every
@@ -167,7 +189,8 @@ still phase 9's.
 The order below is a dependency order, not a schedule. Phase 1 gates
 everything. Phases 2–6 are the profile's six sections and can proceed
 independently once phase 1 lands. Phase 9 is the payoff — the Verdict tab goes
-live — and needs 1–5, **all of which are now built**.
+live — and needs 1–5, **all of which are now built**, with 6 built beside
+them.
 
 | Phase | What | Written up in | Status |
 |---|---|---|---|
@@ -176,7 +199,7 @@ live — and needs 1–5, **all of which are now built**.
 | 3 | **The lean and the bands** — the lean derivation, `thresholds` and `escalations`, the quality bands, derived `changers` | [`04-dispositions.md`](04-dispositions.md) | **built 2026-09-07** — `ValueLeanTool`, `ValueChangersTool`, the `escalation` loader subject with two shipped rules, rule 7 and the tug, `thin_record_clamp`, `isDefinite()` wired. 100 harness checks and 52 live; six findings in §11. Closes phase 2's §11.1 and §11.2 |
 | 4 | **Exclusions** — the `exclusions` section, and splitting policy from ACL in `not_counted` | [`05-exclusions.md`](05-exclusions.md) | **built 2026-09-07** — `ValueExclusionTool`, `orgs.own` as a query predicate, `sightings.self`, `feeds.mirrored`, the `reason` key. 44 harness checks and 18 live; five findings in §7, and `acl` is retired before it shipped (§7.2) |
 | 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | **built 2026-09-07** — `ValueRelevanceTool`, the completed `relevance` section, `value_relevance.ctp` and the TTL runway overlay; `ValueDecayTool` and the decay path deleted. 106 harness checks and 58 live; six findings in §7 |
-| 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | specification |
+| 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | **built 2026-09-07** — `ValueTrustTool`, `WarninglistCategory` (V1's shipped map and the four-step resolution), `org_trust_scale`, the uuid→id join, trust weighting in the three signals §2.4 names. 114 harness checks and 84 live; nine findings in §7, and phase 3's one shipped escalation can finally reach its own precondition |
 | 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **scope note — blocked.** Needs the per-value/per-module last-run store, which does not exist |
 | 8 | **The editor** — index, view, edit, fork, and the profile simulator | [`09-editor.md`](09-editor.md) | specification |
 | 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification |
@@ -217,7 +240,11 @@ the reasoning and the rejected alternatives; D10 and D11 were taken
 
 Still open: Q9, Q10 and Q13 — the `includeVerdict` exposure gate — see §8.
 **Q11 closed 2026-09-07 as D12, Q7 as D13 and Q5 as D14**, so nothing gating
-phases 1–5 remains open.
+phases 1–6 remains open. Phase 6 opened none of its own: the two maps are D6
+and its shape questions were settled in the review, and the one thing it had
+to decide for itself — what an empty map means when the *scale* is also data
+— is recorded as a property rather than a question
+([`07-reference.md`](07-reference.md) §7.6).
 
 ## 3. What a profile contains
 
@@ -500,7 +527,7 @@ is whether it is enabled.
 
 | Q | Question | Lands in |
 |---|---|---|
-| Q9 | Must the standing per-viewer caveat now state **both** reasons two readers differ, ACL and profile? | phase 9 |
+| Q9 | Must the standing per-viewer caveat now state **both** reasons two readers differ, ACL and profile? **Half-answered, 2026-09-07:** phase 4 removed the ACL half from the page entirely (`05-exclusions.md` §7.2), and phase 6 made the profile half real — an org's grades now move a row for a reason invisible in the rows, which is why the *ledger row* names the weighting (`07-reference.md` §2.5). What is left for phase 9 is whether the hero needs to say it too | phase 9 |
 | Q10 | How much of the enrichment plumbing is in scope — the last-run store and the queued path both block the badge | phase 7 |
 | Q13 | What may `includeVerdict` attach, and to whom? Per-caller computation is ruled out; the gate is a role, the host org, fully-public evidence, or a composition of the three | phase 10 |
 

@@ -6,6 +6,8 @@ App::uses('ValueExclusionTool', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
+App::uses('ValueTrustTool', 'Tools');
+App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
 App::uses('DomainPermutationTool', 'Tools');
 App::uses('AuditActionMeta', 'Tools');
@@ -12629,6 +12631,14 @@ class ValueProfile extends AppModel
                 'max_lag_days' => $record['max_lag_days'],
             ),
             'orgs' => $this->verdictOrgs($user, $value, $options),
+            /*
+             * What the analyst believes about their sources (phase 6).
+             * Resolved before any signal runs, because three of them
+             * weight against it and a context that carried the grades
+             * per signal would let the ledger's own rows disagree about
+             * who counts (`07-reference.md` §2.4).
+             */
+            'trust' => $this->verdictTrust($profile),
             'activity' => $this->verdictActivity(
                 $valueModel->activityMonthsFor($user, $value, $options)
             ),
@@ -12792,14 +12802,24 @@ class ValueProfile extends AppModel
     {
         $rows = $this->model('Value')
             ->orgStanceFor($user, $value, $options);
-        $names = $this->organisationNames($rows);
+        $names = $this->organisationIdentities($rows);
         $orgs = array();
         foreach ($rows as $row) {
             $id = (int)$row['Event']['orgc_id'];
             $orgs[] = array(
                 'id' => $id,
-                'name' => isset($names[$id])
-                    ? $names[$id]
+                /*
+                 * The stable key a shared profile grades by, carried
+                 * beside the local id for the reason `ValueTrustTool`
+                 * gives: an id is local, a uuid is the organisation
+                 * (`07-reference.md` §2.2). Nothing on the page prints
+                 * it; the lean and the trust join both need it.
+                 */
+                'uuid' => isset($names[$id]['uuid'])
+                    ? $names[$id]['uuid']
+                    : null,
+                'name' => isset($names[$id]['name'])
+                    ? $names[$id]['name']
                     : __('Unknown organisation'),
                 'occurrences' => (int)$row[0]['occurrences'],
                 'to_ids_yes' => (int)$row[0]['to_ids_yes'],
@@ -12811,6 +12831,117 @@ class ValueProfile extends AppModel
             );
         }
         return $orgs;
+    }
+
+    /**
+     * The organisations behind a set of stance rows, name **and** uuid.
+     *
+     * `organisationNames()`'s two-column sibling rather than a second
+     * column on it: that method answers a `find('list')` and eleven
+     * callers read it as `id => name`, so widening it would be a
+     * refactor of the whole file to serve one phase.
+     *
+     * @param array $rows Rows carrying `Event.orgc_id`
+     * @return array id => `name` and `uuid`
+     */
+    private function organisationIdentities(array $rows)
+    {
+        $ids = array();
+        foreach ($rows as $row) {
+            if (!empty($row['Event']['orgc_id'])) {
+                $ids[(int)$row['Event']['orgc_id']] = true;
+            }
+        }
+        if (empty($ids)) {
+            return array();
+        }
+        $found = $this->model('Organisation')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Organisation.id', 'Organisation.name',
+                'Organisation.uuid'),
+            'conditions' => array(
+                'Organisation.id' => array_keys($ids),
+            ),
+        ));
+        $out = array();
+        foreach ($found as $org) {
+            $out[(int)$org['Organisation']['id']] = array(
+                'name' => $org['Organisation']['name'],
+                'uuid' => strtolower(
+                    (string)$org['Organisation']['uuid']
+                ),
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * `id` and `name` pairs, in the order the ids arrived.
+     *
+     * @param array $ids
+     * @param array $names id => name
+     * @return array
+     */
+    private function orgPairs(array $ids, array $names)
+    {
+        $pairs = array();
+        foreach ($ids as $id) {
+            $pairs[] = array(
+                'id' => (int)$id,
+                'name' => isset($names[$id]) ? $names[$id] : null,
+            );
+        }
+        return $pairs;
+    }
+
+    /**
+     * The profile's source-trust grades, joined to this instance.
+     *
+     * The uuid→id resolution `ValueTrustTool` cannot do: the profile
+     * grades `organisations.uuid` because that is the organisation, and
+     * every row downstream — the stance rows, the sighting rows —
+     * carries the local id. Resolved **once**, here, so the two
+     * sightings signals and the reporting signal all weight against the
+     * same join rather than three.
+     *
+     * **One query, and only when the map has something in it.** An
+     * empty map takes the mechanism out of the path entirely
+     * (`ValueTrustTool::planFor`), so the default profile costs nothing
+     * — which is the property that lets §5 item 1 be *the same ledger
+     * to the unit* rather than *the same ledger and one more query*.
+     *
+     * The lookup is over the graded uuids and not over the value's own
+     * organisations, because §4's first row needs the difference: a
+     * grade whose uuid is on this instance but not on this value is
+     * silent and uninteresting, while a grade whose uuid is on no
+     * organisation at all is *kept, ignored and reported*. Only a
+     * lookup keyed by the map can tell those apart.
+     *
+     * @param array|null $profile
+     * @return array The context's `trust` block
+     */
+    private function verdictTrust($profile)
+    {
+        $plan = ValueTrustTool::planFor($profile);
+        if (empty($plan['in_force'])) {
+            return ValueTrustTool::contextFrom($plan, array());
+        }
+        $uuids = array_keys($plan['grades']);
+        $found = $this->model('Organisation')->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Organisation.id', 'Organisation.name',
+                'Organisation.uuid'),
+            'conditions' => array('Organisation.uuid' => $uuids),
+        ));
+        $present = array();
+        foreach ($found as $org) {
+            $key = strtolower((string)$org['Organisation']['uuid']);
+            $present[$key] = array(
+                'id' => (int)$org['Organisation']['id'],
+                'name' => $org['Organisation']['name'],
+            );
+        }
+        return ValueTrustTool::contextFrom($plan, $present);
     }
 
     /**
@@ -12883,9 +13014,12 @@ class ValueProfile extends AppModel
      * verified that no shipped list sets one and that
      * `Warninglist::__updateList()` drops the field on import, so the
      * order is: the profile's override map by exact list name, then
-     * the database column, then `false_positive` — the column's own
-     * default and what MISP's warning banner has always meant by a
-     * hit. Phase 6 inserts the shipped name map as the second step.
+     * the shipped name map, then the database column, then
+     * `false_positive` — the column's own default and what MISP's
+     * warning banner has always meant by a hit. `WarninglistCategory`
+     * owns the whole order, including why the shipped map sits *above*
+     * the column, and every hit carries the `source` that answered it
+     * so the panel can name it (§3.2, §5 item 12).
      *
      * **A refuting hit outranks a contextualising one.** Where a value
      * hits both a `false_positive` list and a `known` one, the
@@ -12915,25 +13049,33 @@ class ValueProfile extends AppModel
             : array();
         $resolved = array();
         $rows = array();
+        $sources = array();
         foreach ($lists as $hit) {
             $name = $hit['name'];
-            if (isset($map[$name])) {
-                $category = $map[$name];
-            } elseif (!empty($hit['category'])) {
-                $category = $hit['category'];
-            } else {
-                $category = 'false_positive';
-            }
-            $resolved[$category] = true;
+            $answer = WarninglistCategory::resolve(
+                $name,
+                isset($hit['category']) ? $hit['category'] : null,
+                $map
+            );
+            $resolved[$answer['category']] = true;
+            $sources[$answer['source']] = true;
             $rows[] = array(
                 'name' => $name,
-                'category' => $category,
+                'category' => $answer['category'],
+                /*
+                 * Which of the four steps answered, per hit. The
+                 * standing requirement §3.2 puts against name-keying:
+                 * an override that stopped matching because a list was
+                 * renamed upstream is then visible on the page rather
+                 * than silent.
+                 */
+                'category_source' => $answer['source'],
                 'matched' => $hit['matched'] ?? null,
             );
         }
         $category = null;
-        if (isset($resolved['false_positive'])) {
-            $category = 'false_positive';
+        if (isset($resolved[WarninglistCategory::FALSE_POSITIVE])) {
+            $category = WarninglistCategory::FALSE_POSITIVE;
         } elseif (!empty($resolved)) {
             $category = array_keys($resolved)[0];
         }
@@ -12943,6 +13085,12 @@ class ValueProfile extends AppModel
                 $warninglist
             ),
             'category' => $category,
+            /*
+             * Every source that answered anything, so a reader of the
+             * aggregate can tell *the instance decided this* from
+             * *I decided this* without walking the hits.
+             */
+            'category_sources' => array_keys($sources),
         );
     }
 
@@ -13073,6 +13221,15 @@ class ValueProfile extends AppModel
             $now,
             self::VERDICT_RECENT_DAYS
         );
+        /*
+         * The same rows a third time, tallied by organisation id, which
+         * is the only key a trust grade can land on (`07-reference.md`
+         * §2.4). Folded off the rows already in hand rather than
+         * queried: it is the same set the two tallies above read, so a
+         * weighted count and an unweighted one cannot disagree about
+         * how many sightings there are.
+         */
+        $attributed = ValueStatsTool::sightingsByOrg($rows);
         return array(
             'facts' => array(
                 'total' => $totals['total'],
@@ -13083,6 +13240,19 @@ class ValueProfile extends AppModel
                 'orgs' => $signals['orgs'],
                 'fp_orgs' => $signals['fp_orgs'],
                 'fp_org_names' => $signals['fp_org_names'],
+                /*
+                 * `id` and `name` together, so a signal weighting the
+                 * filers can name the ones it weighted without pairing
+                 * `fp_org_names` against an id list by position.
+                 */
+                'fp_org_list' => $this->orgPairs(
+                    array_keys($attributed['by_org_fp']),
+                    $attributed['names']
+                ),
+                'by_org' => $attributed['by_org'],
+                'by_org_fp' => $attributed['by_org_fp'],
+                'anonymous' => $attributed['anonymous'],
+                'anonymous_fp' => $attributed['anonymous_fp'],
                 'recent' => $signals['recent'],
                 'recent_days' => $signals['recent_days'],
                 'first_stamp' => $signals['first_stamp'],

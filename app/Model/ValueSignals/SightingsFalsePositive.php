@@ -20,6 +20,16 @@
  * so on all of them is noise that would drown the rows that mean
  * something. The catalogue's *fires on absence: no* (§6) is this
  * decision.
+ *
+ * **Trust-weighted** (`07-reference.md` §2.4) — a false positive from
+ * a `D`-graded source is weaker evidence, and the weighting reaches
+ * both halves of the arithmetic: the filings become a weighted count of
+ * filings, and the extra-organisation term becomes `Σ factor − 1`,
+ * which is `orgs − 1` exactly when nobody is graded. That second half
+ * is what makes a `G` grade mean what §2.3 says it means — an
+ * organisation whose evidence counts for nothing contributes no
+ * filings *and* does not count as another voice, so it cannot
+ * whitewash a value it controls by filing from one desk.
  */
 class SightingsFalsePositive extends ValueSignalBase
 {
@@ -80,15 +90,35 @@ class SightingsFalsePositive extends ValueSignalBase
             return null;
         }
         $orgs = max(1, (int)($sightings['fp_orgs'] ?? 1));
+        $weighted = ValueTrustTool::inForce($context, $config);
+        $tallies = $this->tallies($sightings, $fp);
+        $filings = $weighted
+            ? ValueTrustTool::weigh($context, $tallies)
+            : $fp;
+        $voices = $weighted
+            ? ValueTrustTool::weighOrgs($context, array_keys($tallies))
+            : $orgs;
         $points = $this->capped(
-            $this->points($config, 'per') * $fp
-                + $this->points($config, 'per_extra_org') * ($orgs - 1),
+            $this->points($config, 'per') * $filings
+                + $this->points($config, 'per_extra_org')
+                    * max(0, $voices - 1),
             $this->points($config, 'cap')
         );
 
-        $names = isset($sightings['fp_org_names'])
-            ? $sightings['fp_org_names']
+        $names = $weighted
+            ? ValueTrustTool::annotate(
+                $context,
+                isset($sightings['fp_org_list'])
+                    && is_array($sightings['fp_org_list'])
+                    ? $sightings['fp_org_list']
+                    : array()
+            )
             : array();
+        if (empty($names)) {
+            $names = isset($sightings['fp_org_names'])
+                ? $sightings['fp_org_names']
+                : array();
+        }
         if ($fp === 1) {
             $signal = empty($names)
                 ? __('1 false-positive sighting')
@@ -106,17 +136,56 @@ class SightingsFalsePositive extends ValueSignalBase
             );
         }
 
+        $evidence = empty($names)
+            ? __('Filed by organisations that are not named to you')
+            : implode(', ', $names);
+        if ($weighted) {
+            $evidence = ValueTrustTool::appendClause(
+                $context,
+                $evidence,
+                array_keys($tallies)
+            );
+        }
+
         return $this->row(
             $points,
             $signal,
-            empty($names)
-                ? __('Filed by organisations that are not named to you')
-                : implode(', ', $names),
+            $evidence,
             $context,
             $this->stampAsOf(
                 $sightings['fp_last_stamp'] ?? null,
                 $context
             )
         );
+    }
+
+    /**
+     * False positives per organisation, with the ones this viewer
+     * cannot attribute under id `0` — read as `unrated`, so they weigh
+     * what they weighed before anybody was graded.
+     *
+     * A context built before phase 6 has no map, and falls back to the
+     * whole count as one unattributed block: the same number the
+     * unweighted path computes, so an old context cannot change a
+     * score by being old.
+     *
+     * @param array $sightings The context's sightings block
+     * @param int $fp The total, for the fallback
+     * @return array orgId => count
+     */
+    private function tallies(array $sightings, $fp)
+    {
+        $byOrg = isset($sightings['by_org_fp'])
+            && is_array($sightings['by_org_fp'])
+            ? $sightings['by_org_fp']
+            : array();
+        $anonymous = (int)($sightings['anonymous_fp'] ?? 0);
+        if (empty($byOrg) && $anonymous === 0) {
+            return array(0 => (int)$fp);
+        }
+        if ($anonymous > 0) {
+            $byOrg[0] = ($byOrg[0] ?? 0) + $anonymous;
+        }
+        return $byOrg;
     }
 }

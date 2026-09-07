@@ -18,6 +18,13 @@
  * median value's own row, and it is worth `per_org` rather than
  * nothing — what makes the median record thin is the rest of the
  * ledger, not a signal refusing to speak (§7.4).
+ *
+ * **Trust-weighted** (`07-reference.md` §2.4), and the heaviest row on
+ * the page is the reason: the count of organisations becomes a *sum of
+ * their grades*, so four organisations graded `B/B/C/D` contribute
+ * `7 × (1.10 + 1.10 + 1.00 + 0.75)` rather than `7 × 4`. Capped after
+ * the weighting and rounded once, at the end. With no grade in force
+ * every factor is `1.0` and the sum is the count, to the unit.
  */
 class ReportingIndependentOrgs extends ValueSignalBase
 {
@@ -45,6 +52,16 @@ class ReportingIndependentOrgs extends ValueSignalBase
                 'label' => __('Most this signal may contribute'),
             ),
         );
+        /*
+         * The unit stays `per_org` under trust weighting, which is the
+         * honest reading rather than an oversight: the next
+         * organisation to report a value is one nobody has graded yet,
+         * so `unrated` — `1.00` by default — is what it is worth. An
+         * analyst who has moved `unrated` off `1.00` has moved this
+         * falsifier's arithmetic with it, and the alternative is a
+         * falsifiability line that guesses at a grade for an
+         * organisation that has not spoken.
+         */
         $this->unit = array(
             'points' => 'per_org',
             'cap' => 'cap',
@@ -66,15 +83,35 @@ class ReportingIndependentOrgs extends ValueSignalBase
         if (empty($orgs)) {
             return null;
         }
-        $names = array();
+        $weighted = ValueTrustTool::inForce($context, $config);
+        $ids = array();
         foreach ($orgs as $org) {
-            if (!empty($org['name'])) {
-                $names[] = $org['name'];
+            if (isset($org['id'])) {
+                $ids[] = (int)$org['id'];
+            }
+        }
+        $names = $weighted
+            ? ValueTrustTool::annotate($context, $orgs)
+            : array();
+        if (!$weighted) {
+            foreach ($orgs as $org) {
+                if (!empty($org['name'])) {
+                    $names[] = $org['name'];
+                }
             }
         }
         $count = count($orgs);
+        /*
+         * The whole of the weighting: a headcount becomes a sum of
+         * grades. `weighOrgs` returns the count itself when nothing is
+         * graded, so this line is the same arithmetic in both states
+         * rather than a branch that has to be kept in step.
+         */
+        $voices = $weighted
+            ? ValueTrustTool::weighOrgs($context, $ids)
+            : $count;
         $points = $this->capped(
-            $this->points($config, 'per_org') * $count,
+            $this->points($config, 'per_org') * $voices,
             $this->points($config, 'cap')
         );
         $named = (int)$this->setting($config, 'named');
@@ -84,6 +121,13 @@ class ReportingIndependentOrgs extends ValueSignalBase
             $evidence .= sprintf(
                 __(' and %d more'),
                 count($names) - count($shown)
+            );
+        }
+        if ($weighted) {
+            $evidence = ValueTrustTool::appendClause(
+                $context,
+                $evidence,
+                $ids
             );
         }
         return $this->row(

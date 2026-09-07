@@ -1,8 +1,8 @@
 {
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
-    "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. See prd/analyst-profile/03-signals.md section 7 and 06-staleness.md section 3.",
-    "version": 3,
+    "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. Phase 6 added reference.org_trust_scale, the admiralty grade multipliers, with both override maps still empty: an empty org_trust map switches trust weighting off entirely, so this profile scores exactly as it did before the section existed. See prd/analyst-profile/03-signals.md section 7, 06-staleness.md section 3 and 07-reference.md section 2.3.",
+    "version": 4,
     "parameters": {
         "format": 1,
         "signals": [
@@ -162,6 +162,11 @@
         },
         "reference": {
             "org_trust": {},
+            "org_trust_scale": {
+                "A": 1.25, "B": 1.1, "C": 1.0, "D": 0.75, "E": 0.25,
+                "F": 1.0, "G": 0.0,
+                "unrated": 1.0
+            },
             "warninglist_category": {}
         },
         "enrichment": {

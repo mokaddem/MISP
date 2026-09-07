@@ -936,6 +936,68 @@ class ValueStatsTool
     }
 
     /**
+     * The same rows tallied by **organisation id** rather than by name,
+     * which is what trust weighting needs (`07-reference.md` §2.4).
+     *
+     * `sightingTotals` keys its stack by name, because that is what the
+     * reporters card prints and because two organisations may not share
+     * one. Nothing can be *graded* by name, though: the profile keys
+     * grades by `organisations.uuid` and the join lands on the local id
+     * (`ValueTrustTool`), so the weighted counts have to be read off
+     * the id column.
+     *
+     * **An organisation this viewer cannot name is filed as
+     * ungradeable, not as its id.** Anonymisation already zeroes
+     * `org_id`, so the case that remains is a row carrying an id with
+     * no disclosed name — and weighting *that* would move the number
+     * for a reason the reader cannot see anywhere on the page, which is
+     * exactly what §2.5 forbids. `sightingHasOrg()` is the same
+     * both-or-neither test the rest of this class uses, so the two
+     * tallies always agree about which rows are attributable.
+     *
+     * `names` comes back keyed by the same ids, so a caller that needs
+     * to *print* the organisations it just weighted does not have to
+     * pair two independently-built lists by position — which is how
+     * a grade ends up printed against the wrong organisation.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @return array `by_org` and `by_org_fp` (orgId => count), `names`
+     *               (orgId => name), plus `anonymous` and
+     *               `anonymous_fp` for the rest
+     */
+    public static function sightingsByOrg(array $rows)
+    {
+        $byOrg = array();
+        $byOrgFp = array();
+        $names = array();
+        $anonymous = 0;
+        $anonymousFp = 0;
+        foreach ($rows as $row) {
+            $isFp = ((int)$row['Sighting']['type'] === 1);
+            if (!self::sightingHasOrg($row)) {
+                $anonymous++;
+                if ($isFp) {
+                    $anonymousFp++;
+                }
+                continue;
+            }
+            $id = (int)$row['Sighting']['org_id'];
+            $byOrg[$id] = ($byOrg[$id] ?? 0) + 1;
+            $names[$id] = $row['Organisation']['name'];
+            if ($isFp) {
+                $byOrgFp[$id] = ($byOrgFp[$id] ?? 0) + 1;
+            }
+        }
+        return array(
+            'by_org' => $byOrg,
+            'by_org_fp' => $byOrgFp,
+            'names' => $names,
+            'anonymous' => $anonymous,
+            'anonymous_fp' => $anonymousFp,
+        );
+    }
+
+    /**
      * The individual-sightings table, oldest first.
      *
      * Oldest first because `value_sighting_list` reverses what it is

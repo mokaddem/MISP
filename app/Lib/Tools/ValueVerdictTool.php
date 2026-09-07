@@ -2,6 +2,13 @@
 
 App::uses('ValueSignalLoader', 'Tools');
 App::uses('ValueStatsTool', 'Tools');
+/*
+ * Loaded here rather than by the three signals that use it: a signal
+ * file is discovered from the filesystem and required by the loader,
+ * which is not a place `App::uses` has run — and the engine is the one
+ * thing guaranteed to be in memory before any signal evaluates.
+ */
+App::uses('ValueTrustTool', 'Tools');
 App::uses('ValueLeanTool', 'Tools');
 App::uses('ValueChangersTool', 'Tools');
 App::uses('ValueRelevanceTool', 'Tools');

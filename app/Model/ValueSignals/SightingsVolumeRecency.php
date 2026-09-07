@@ -24,6 +24,17 @@
  * Absence fires as `none_recent`, and only on genuine absence — a
  * sighting set an exclusion emptied is not a value nobody sighted, and
  * `ValueSignalBase::absenceFires()` is where that rule lives (§4.2).
+ *
+ * **Trust-weighted** (`07-reference.md` §2.4) — a sighting is
+ * attributable to an organisation, so the count that feeds the
+ * saturation curve becomes a *weighted* count of sightings. It goes in
+ * before the logarithm rather than after it, because a factor applied
+ * to the finished points would discount a `D`-graded organisation's
+ * four hundred sightings by a quarter, where discounting the *count*
+ * puts them where four hundred quarter-weight sightings belong on the
+ * curve: the whole judgement in this signal is that volume saturates,
+ * and a weighting that skipped the curve would not be weighting
+ * volume.
  */
 class SightingsVolumeRecency extends ValueSignalBase
 {
@@ -91,7 +102,14 @@ class SightingsVolumeRecency extends ValueSignalBase
         }
 
         $saturation = max(1, (int)$this->setting($config, 'saturation'));
-        $volume = min(1.0, log(1 + $total) / log(1 + $saturation));
+        $weighted = ValueTrustTool::inForce($context, $config);
+        $counted = $weighted
+            ? ValueTrustTool::weigh(
+                $context,
+                $this->tallies($sightings)
+            )
+            : $total;
+        $volume = min(1.0, log(1 + $counted) / log(1 + $saturation));
         $last = (int)($sightings['last_stamp'] ?? 0);
         $ageDays = $last > 0
             ? (int)floor((($context['now'] ?? time()) - $last) / 86400)
@@ -134,6 +152,27 @@ class SightingsVolumeRecency extends ValueSignalBase
                 (int)round($factor * 100)
             );
         }
+        /*
+         * §2.5, and the reason this row names a *quantity* where
+         * `reporting.independent_orgs` names grades: the count that
+         * fed the curve is not on the page anywhere else, so a reader
+         * comparing *"47 sightings"* against the points has no way to
+         * find the 31 the grades left. The clause is appended over the
+         * top, so a `G`-graded filer is still named.
+         */
+        if ($weighted && (int)round($counted) !== $total) {
+            $evidence .= sprintf(
+                __('; weighted to %d by your reliability grades'),
+                (int)round($counted)
+            );
+        }
+        if ($weighted) {
+            $evidence = ValueTrustTool::appendClause(
+                $context,
+                $evidence,
+                array_keys($this->tallies($sightings))
+            );
+        }
 
         return $this->row(
             $points,
@@ -142,5 +181,34 @@ class SightingsVolumeRecency extends ValueSignalBase
             $context,
             $this->stampAsOf($last, $context)
         );
+    }
+
+    /**
+     * Sightings per organisation, with the ones this viewer cannot
+     * attribute filed under id `0` — which `ValueTrustTool::factor()`
+     * reads as `unrated`, so they weigh exactly what they weighed
+     * before anybody was graded.
+     *
+     * A context built before phase 6 carries no `by_org` map at all; it
+     * falls back to the whole total as one unattributed block, which
+     * is the same number the unweighted path computes.
+     *
+     * @param array $sightings The context's sightings block
+     * @return array orgId => count
+     */
+    private function tallies(array $sightings)
+    {
+        $byOrg = isset($sightings['by_org'])
+            && is_array($sightings['by_org'])
+            ? $sightings['by_org']
+            : array();
+        $anonymous = (int)($sightings['anonymous'] ?? 0);
+        if (empty($byOrg) && $anonymous === 0) {
+            return array(0 => (int)($sightings['total'] ?? 0));
+        }
+        if ($anonymous > 0) {
+            $byOrg[0] = ($byOrg[0] ?? 0) + $anonymous;
+        }
+        return $byOrg;
     }
 }
