@@ -245,7 +245,7 @@ class ValueVerdictTool
             $counts['fired']++;
         }
 
-        foreach ($this->budgetNotes($context) as $note) {
+        foreach ($this->setAside($context) as $note) {
             $notCounted[] = $note;
         }
 
@@ -464,6 +464,7 @@ class ValueVerdictTool
                 : (isset($profile['revision'])
                     ? (int)$profile['revision']
                     : null),
+            'acl_note' => $this->aclNote(),
             'computed_at' => isset($context['now'])
                 ? (int)$context['now']
                 : time(),
@@ -686,11 +687,15 @@ class ValueVerdictTool
                 'title' => $id,
                 'note' => $reason,
                 /*
-                 * Phase 4 splits `not_counted` into profile policy and
-                 * facts about the data; these two keys are that split,
-                 * carried from here so the phase has something to read
-                 * rather than a string to parse.
+                 * `reason` is the render-level grouping — what a reader
+                 * can do about the entry — and `kind` with `source` are
+                 * the diagnostic detail behind it. A signal that could
+                 * not run is always `nodata` however it failed: the
+                 * three ways it can fail matter to whoever fixes it,
+                 * and to a reader they are one statement, *this was not
+                 * counted and not by anybody's choice*.
                  */
+                'reason' => 'nodata',
                 'kind' => $kind,
                 'source' => 'signal',
                 'id' => $id,
@@ -705,12 +710,25 @@ class ValueVerdictTool
      * @param array $context
      * @return array
      */
-    private function budgetNotes(array $context)
+    private function setAside(array $context)
     {
+        $notes = array();
+        /*
+         * The profile's own exclusions, computed where the filtering
+         * happened. They lead the block because they are the analyst's
+         * decisions rather than the engine's, and so the only rows a
+         * reader can do anything about.
+         */
+        if (!empty($context['exclusions'])
+            && is_array($context['exclusions'])
+        ) {
+            foreach ($context['exclusions'] as $note) {
+                $notes[] = $note;
+            }
+        }
         $budget = isset($context['budget'])
             ? $context['budget']
             : array();
-        $notes = array();
         if (!empty($budget['window_days'])) {
             $notes[] = array(
                 'title' => __('Long history'),
@@ -719,6 +737,7 @@ class ValueVerdictTool
                         . ' Counts and dates are whole-history.'),
                     (int)$budget['window_days']
                 ),
+                'reason' => 'policy',
                 'kind' => 'policy',
                 'source' => 'exclusion',
                 'id' => 'evidence.window',
@@ -730,12 +749,48 @@ class ValueVerdictTool
                 'note' => __('MISP has flagged this value as too'
                     . ' common to correlate, so the signals that read'
                     . ' individual rows were not evaluated.'),
+                'reason' => 'nodata',
                 'kind' => 'nodata',
                 'source' => 'budget',
                 'id' => 'over_correlating_values',
             );
         }
         return $notes;
+    }
+
+    /**
+     * The permissions caveat — a scope statement, not a set-aside row,
+     * and deliberately without a number.
+     *
+     * The fixture counts: *"4 occurrences — outside your ACL."* **That
+     * cannot be built.** Knowing how many occurrences a viewer may
+     * *not* see requires a count computed without their ACL, and this
+     * page takes any value a reader types into the URL — so
+     * *"4 occurrences you cannot see"* would confirm the presence and
+     * the volume of any indicator on the instance to anybody who
+     * guessed it. Every other count here is the viewer's own precisely
+     * to avoid that, and one exception would undo all of them.
+     *
+     * With the number gone it stops being an entry in a list of
+     * evidence set aside — there is no evidence named and nothing a
+     * reader could do — and becomes what it always was: the caveat that
+     * an assessment computed from a subset should say which subset. So
+     * it goes to the provenance band beside *computed at render* and
+     * *weighting profile*, where the template has had a slot for it
+     * since the skeleton pass.
+     *
+     * Unconditional, because the alternative leaks by omission: a
+     * caveat that appeared only when rows were hidden would itself be
+     * the oracle, one bit at a time.
+     *
+     * @return string
+     */
+    private function aclNote()
+    {
+        return __('Computed from the occurrences, sightings and'
+            . ' sources your permissions allow — another reader may'
+            . ' see a different assessment of the same value, and'
+            . ' neither is wrong.');
     }
 
     /**

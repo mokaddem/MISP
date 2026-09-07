@@ -2345,6 +2345,11 @@ class ValueProfile extends AppModel
                 'id' => $source['id'],
                 'name' => $source['name'],
                 'url' => isset($source['url']) ? $source['url'] : null,
+                // The only column MISP has that hints at what a feed
+                // mirrors, which is what `feeds.mirrored` folds by.
+                'provider' => isset($source['provider'])
+                    ? $source['provider']
+                    : null,
                 'kind' => $source['type'],
                 'scope' => $isServer ? 'server' : 'feed',
                 'events' => array_slice($events, 0, self::EXTERNAL_EVENT_CAP),
@@ -12792,6 +12797,19 @@ class ValueProfile extends AppModel
         $this->forget($value);
         $now = isset($options['now']) ? (int)$options['now'] : time();
         $valueModel = $this->model('Value');
+        /*
+         * The exclusions, resolved before anything is read. The
+         * condition-class ones ride in `$options` from here on, so
+         * every aggregate below is computed over the same set — which
+         * is the property that stops reporting breadth and the
+         * occurrence tally disagreeing about whose rows count.
+         */
+        $exclusions = new ValueExclusionTool();
+        $plan = $exclusions->planFor($profile, $user);
+        $options = array_merge(
+            $options,
+            $exclusions->conditionOptions($plan)
+        );
         $record = $valueModel->recordSummaryFor($user, $value, $options);
         $types = $valueModel->typesFor($user, $value, $options);
         $budget = $this->verdictBudget($value, $record, $profile);
@@ -12840,11 +12858,15 @@ class ValueProfile extends AppModel
             'missing' => array(),
         );
 
-        $feeds = $this->verdictFeeds($user, $value);
+        $feeds = $this->verdictFeeds($user, $value, $exclusions, $plan);
         $context['feeds'] = $feeds['facts'];
         if ($feeds['missing'] !== null) {
             $context['missing']['feeds'] = $feeds['missing'];
         }
+        if ($feeds['excluded'] > 0) {
+            $context['excluded']['feeds'] = $feeds['excluded'];
+        }
+        $tallies = array('sources' => $feeds['excluded']);
 
         /*
          * The row evidence, and the tier that skips it. A value MISP
@@ -12859,9 +12881,26 @@ class ValueProfile extends AppModel
                 $value,
                 $options,
                 $now,
-                $budget
+                $budget,
+                $exclusions,
+                $plan
             );
             $context['sightings'] = $sightings['facts'];
+            $tallies['sightings'] = $sightings['excluded'];
+            $tallies['sightings_undecidable'] =
+                $sightings['undecidable'];
+            if ($sightings['excluded'] > 0) {
+                /*
+                 * Absent because excluded is not absent: without this
+                 * the sightings signals' absence keys would fire on a
+                 * value whose every sighting the profile removed,
+                 * which is the profile's own decision being scored as
+                 * evidence about the value.
+                 */
+                $context['excluded']['sightings'] =
+                    ($context['excluded']['sightings'] ?? 0)
+                    + $sightings['excluded'];
+            }
             if ($sightings['windowed'] > 0) {
                 /*
                  * §4.2: absent because windowed is not absent. Without
@@ -12870,7 +12909,8 @@ class ValueProfile extends AppModel
                  * which is not a value nobody has sighted.
                  */
                 $context['excluded']['sightings'] =
-                    $sightings['windowed'];
+                    ($context['excluded']['sightings'] ?? 0)
+                    + $sightings['windowed'];
             }
             $context['galaxies'] = $this->verdictGalaxies(
                 $user,
@@ -12880,6 +12920,14 @@ class ValueProfile extends AppModel
                 $now
             );
         }
+
+        /*
+         * What the profile left out, in the shape the ledger's own
+         * `not_counted` entries use. It travels on the context rather
+         * than being fetched by the accumulator, because the counts are
+         * only knowable where the filtering happened.
+         */
+        $context['exclusions'] = $exclusions->notes($plan, $tallies);
 
         return $context;
     }
@@ -13113,20 +13161,29 @@ class ValueProfile extends AppModel
      * @param string $value
      * @return array `facts` and `missing`
      */
-    private function verdictFeeds(array $user, $value)
-    {
+    private function verdictFeeds(array $user, $value,
+        $exclusions = null, array $plan = array()
+    ) {
         $presence = $this->externalPresence($user, $value);
         $cached = isset($presence['cached'])
             ? $presence['cached']
             : array();
         $anyCache = !empty($cached['feeds']) || !empty($cached['servers']);
+        $sources = $presence['sources'];
+        $excluded = 0;
+        if ($exclusions !== null) {
+            $folded = $exclusions->applyToSources($sources, $plan);
+            $sources = $folded['sources'];
+            $excluded = $folded['excluded'];
+        }
         $names = array();
-        foreach ($presence['sources'] as $source) {
+        foreach ($sources as $source) {
             $names[] = $source['name'];
         }
         return array(
+            'excluded' => $excluded,
             'facts' => array(
-                'count' => count($presence['sources']),
+                'count' => count($sources),
                 'names' => $names,
                 'checked' => (int)($cached['feeds'] ?? 0)
                     + (int)($cached['servers'] ?? 0),
@@ -13156,10 +13213,29 @@ class ValueProfile extends AppModel
      * @return array `facts` and `windowed`, the rows the window cut
      */
     private function verdictSightings(array $user, $value,
-        array $options, $now, array $budget
+        array $options, $now, array $budget, $exclusions = null,
+        array $plan = array()
     ) {
         $context = $this->sightingContext($user, $value, $options);
         $rows = $context['sightings'];
+        /*
+         * The self-sighting filter runs on the rows, before anything is
+         * tallied, for the same reason the window below does: two
+         * signals reading the sightings have to read the same set or
+         * the ledger's own rows disagree about how many there are.
+         */
+        $selfExcluded = 0;
+        $undecidable = 0;
+        if ($exclusions !== null) {
+            $filtered = $exclusions->applyToSightings(
+                $rows,
+                $context['sighted'],
+                $plan
+            );
+            $rows = $filtered['rows'];
+            $selfExcluded = $filtered['excluded'];
+            $undecidable = $filtered['undecidable'];
+        }
         $windowed = 0;
         if (!empty($budget['window_days'])) {
             $cut = $now - (int)$budget['window_days'] * 86400;
@@ -13194,6 +13270,8 @@ class ValueProfile extends AppModel
                 'first_stamp' => $signals['first_stamp'],
             ),
             'windowed' => $windowed,
+            'excluded' => $selfExcluded,
+            'undecidable' => $undecidable,
         );
     }
 

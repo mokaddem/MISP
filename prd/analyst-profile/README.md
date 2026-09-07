@@ -16,10 +16,11 @@ document holding every judgement the scoring engine needs — signal weights, th
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phases 1, 2 and 3 — the store, the engine that
-reads it, and the lean and bands that turn its ledger into an assessment — are
-built as of 2026-09-07**; the other seven phases are specifications. The
-corpus is fifteen documents, phase by phase.
+viewer (nearest owner wins). **Phases 1 to 4 — the store, the engine that
+reads it, the lean and bands that turn its ledger into an assessment, and the
+exclusions that decide what the ledger may see — are built as of
+2026-09-07**; the other six phases are specifications. The corpus is fifteen
+documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -100,10 +101,10 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1, 2 and 3 are built;
-4–6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 4 are built;
+5, 6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
 store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
-(the tab goes live) → 10.
+(the tab goes live) → 10. **Phase 5 is the last one phase 9 needs.**
 
 **Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
 table, `app/Model/AnalystProfile.php`, and the shipped
@@ -148,6 +149,34 @@ in `04-dispositions.md` §11; three are worth knowing about from here:
 - **`8.8.8.8` closes as a contested value with a name on it** — eight of eight
   organisations against the public-resolver list, tug at 74 against 77 — which
   is the reading phase 2 predicted and could not reach (§11.5).
+
+**Phase 4, built 2026-09-07.** `ValueExclusionTool` and the `exclusions`
+section: `sightings.self` (a row filter with a window, because a
+self-sighting a year later is news rather than self-confirmation),
+`feeds.mirrored` (a provider fold, with the imprecision named on the page),
+`orgs.own` (a query predicate — see below), and the `reason` key that finally
+tells a reader which rows of *not counted* they could change. Verified by 44
+checks with no database and 18 against the dev instance. Five findings are in
+`05-exclusions.md` §7; three are worth knowing about from here:
+
+- **An exclusion is not one mechanism.** Half a value's evidence is a
+  `COUNT DISTINCT` and never exists as rows, so `orgs.own` had to become a
+  predicate in `Value::conditionsFor()` — the one place all fourteen
+  value-scoped aggregates build their predicate. Filtering after the fact
+  would have left the reporting breadth naming 7 organisations while the
+  occurrence tally still counted 8 (§7.1).
+- **The fixture's ACL row cannot be built.** *"4 occurrences outside your
+  ACL"* needs a count taken without the viewer's ACL, and this page accepts
+  any value a reader types — so the number is a membership oracle for the
+  whole instance. The caveat moved to the provenance band without it, shown
+  unconditionally because one that appeared only when rows were hidden is the
+  same oracle a bit at a time (§7.2).
+- **44 harness checks passed against a context shape that does not exist.**
+  The occurrence map is flat; the implementation and its harness fixture both
+  read it as nested, so the self-sighting rule declared every row undecidable,
+  excluded nothing, and looked exactly like a rule with nothing to do. The
+  live probe caught it by asserting the rule's *inputs*; the same value then
+  excluded 30 (§7.3).
 
 Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
 phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus two

@@ -193,9 +193,22 @@ class Value extends AppModel
      * question too and `shadow_attributes.value1` is a column that
      * migration must either move or leave behind.
      *
+     * **`exclude_orgs` is here rather than in each caller**, and that is
+     * the point of it. An assessment that leaves out an organisation
+     * has to leave it out of *every* count or the ledger contradicts
+     * itself — reporting breadth dropping an organisation while the
+     * occurrence tally still holds its rows is two numbers on one page
+     * that cannot both be right. Every value-scoped aggregate in this
+     * class builds its predicate here, so one key reaches all of them.
+     * No caller passes it unless a profile asked for it, so nothing
+     * outside the assessment changes. It names an `Event` column, which
+     * every caller in this class already contains for the ACL's sake —
+     * a future one that does not must not pass the key.
+     *
      * @param string $value
      * @param array $options `types` narrows to a set of MISP types;
-     *                       `alias` names the model the columns are on
+     *                       `alias` names the model the columns are on;
+     *                       `exclude_orgs` drops those creating orgs
      * @return array
      */
     public function conditionsFor($value, array $options = array())
@@ -207,13 +220,19 @@ class Value extends AppModel
                 $alias . '.value2' => $value,
             ),
         );
+        $parts = array($conditions);
         if (!empty($options['types'])) {
-            return array(
-                $conditions,
-                $alias . '.type' => $options['types'],
+            $parts[] = array($alias . '.type' => $options['types']);
+        }
+        if (!empty($options['exclude_orgs'])) {
+            $parts[] = array(
+                'Event.orgc_id NOT IN' => array_map(
+                    'intval',
+                    (array)$options['exclude_orgs']
+                ),
             );
         }
-        return $conditions;
+        return count($parts) === 1 ? $conditions : $parts;
     }
 
     /**
@@ -831,6 +850,12 @@ class Value extends AppModel
                 'Attribute.first_seen',
                 'Attribute.last_seen',
                 'Attribute.deleted',
+                // Who filed it, for the self-sighting exclusion: a
+                // sighting is only self-confirmation if it came from
+                // the organisation that reported the occurrence, and
+                // the join this already makes for the ACL has the
+                // column.
+                'Event.orgc_id',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -961,6 +986,16 @@ class Value extends AppModel
                     : 0,
                 'object_first_seen' => $row['Object']['first_seen'] ?? null,
                 'object_last_seen' => $row['Object']['last_seen'] ?? null,
+                /*
+                 * Who reported it, for the self-sighting exclusion, and
+                 * guarded under the same rule as the object columns
+                 * above: only `sightedOccurrenceIdsFor` asks the query
+                 * for it, so zero here means *not asked for* and the
+                 * exclusion treats it as a comparison it cannot make.
+                 */
+                'orgc_id' => isset($row['Event']['orgc_id'])
+                    ? (int)$row['Event']['orgc_id']
+                    : 0,
             );
         }
         return $set;

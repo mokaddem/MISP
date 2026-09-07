@@ -1,10 +1,20 @@
 # PRD: Analyst Profile — phase 4, exclusions
 
-**Specification. Nothing built.** Depends on phase 2
+**Built 2026-09-07.** Depends on phase 2
 ([`03-signals.md`](03-signals.md)). Small phase, one structural fix.
 
 Covers the `exclusions` section, and the split of `not_counted` into the two
 different things it currently carries.
+
+What shipped: `ValueExclusionTool`, `orgs.own` as a predicate in
+`Value::conditionsFor()`, `sightings.self` as a row filter inside the sighting
+build, `feeds.mirrored` as a provider fold, the `reason` key on every
+`not_counted` entry, and the permissions caveat moved to the verdict's
+`acl_note`. Verified by **44 harness checks with no database and 18 against
+the dev instance**. Five findings are in §7, and three of them changed the
+design: the section needs three mechanisms rather than one (§7.1), the
+fixture's counted ACL row cannot be built at all (§7.2), and the harness spent
+its first run validating a context shape that does not exist (§7.3).
 
 ## 1. What ships
 
@@ -46,9 +56,11 @@ question the block exists to answer once profiles are real.
 )
 ```
 
-- **`acl`** — the viewer's permissions. Leads the block, as it does today: *"a
-  score computed from a subset should say which subset."* Not configurable, and
-  the profile is not named next to it.
+- **`acl`** — **retired before it shipped (§7.2).** The row needs a count of
+  what the viewer cannot see, and that count is a membership oracle for any
+  value a reader types into the URL. The caveat it was carrying moved to the
+  verdict's `acl_note` and the provenance band, where it needs no arithmetic;
+  `reason` therefore has two values in practice, not three.
 - **`policy`** — an exclusion the profile applied. Carries `exclusion_id`, which
   makes it **linkable to the profile's own editor** (phase 8). This is the
   payoff: *"why doesn't this count?"* becomes a click.
@@ -72,12 +84,19 @@ rows carry a link, the others do not.
 ]
 ```
 
-Each id resolves to an implementation that filters `$context` before signals
-run — the same class-per-id pattern as signals and escalations.
+**Applied once, during the build, not per signal.** Two signals reading
+sightings must see the same filtered set or the ledger's rows disagree about
+how many sightings exist, and a reader summing them by hand would be right to
+complain. That property holds; the *mechanism* is three, not one, and §7.1 is
+why — the aggregate half of a value's evidence never exists as rows for a
+filter to walk, so `orgs.own` is a query predicate rather than a pass over
+`$context`.
 
-**Applied to `$context`, once, not per signal.** Two signals reading sightings
-must see the same filtered set or the ledger's rows disagree about how many
-sightings exist, and a reader summing them by hand would be right to complain.
+**Not class-per-id.** The four ids operate at three layers and could not share
+an interface without one of them pretending: one contributes SQL, one filters
+rows, one folds a list. §6 already rules out the discovery a class-per-id shape
+would exist to serve, so the set is closed and `ValueExclusionTool` holds all
+of it.
 
 ### 3.1 The four in v1
 
@@ -148,6 +167,14 @@ numbers that are wrong.
 
 ## 5. Verification
 
+**Where each item is asserted.** Items 1, 2, 4 and 5 are
+`05-exclusions-harness.php`, 44 checks with no database. Item 3 is
+`05-exclusions-live-probe.php`, 18 checks against the dev instance, because a
+condition-class exclusion's entire mechanism is SQL. Item 4 changed shape with
+§7.2: there is no `acl` row to render beside a `policy` one, so what is
+asserted is that no row claims to be about the ACL and the caveat is on the
+verdict instead.
+
 1. Each exclusion toggled on and off on the same value: the ledger row's number
    changes, the sum still equals the score, and a `policy` entry appears and
    disappears from `not_counted`.
@@ -172,3 +199,127 @@ numbers that are wrong.
   engine applies directly (`03-signals.md` §10). A custom exclusion would need
   either a loader of its own or the expression language D12 rejected; neither
   is v1.
+
+## 7. What building it changed
+
+### 7.1 One sentence, three mechanisms
+
+§3 says exclusions are *"applied to `$context`, once, not per signal"*, and
+that describes one property correctly and the implementation not at all —
+because **half a value's evidence never exists as rows**. The occurrence
+tally, the reporting breadth, the publication split and the monthly activity
+are `COUNT DISTINCT` aggregates computed in SQL, so there is no set of
+organisations sitting in the context for a filter to walk.
+
+So the section is three mechanisms, chosen by the layer the evidence lives at:
+
+| Rule | Mechanism | Why it cannot be the others |
+|---|---|---|
+| `orgs.own` | a predicate in `Value::conditionsFor()` | the counts are aggregates; filtering after the fact would leave the tally and the breadth naming different sets |
+| `sightings.self` | a row filter, before the rows are tallied | the rows exist, and `evidence.window` already filters them there |
+| `feeds.mirrored` | a fold over one fetched list | there is nothing to filter, only duplicates to merge |
+
+**`conditionsFor` is what makes the first one honest.** It is the single place
+every value-scoped aggregate in `Value.php` builds its value predicate — all
+fourteen of them — so one `exclude_orgs` key reaches the tally, the stance
+table, the types, the monthly activity and the sighted-occurrence set at once.
+The live probe asserts the agreement that follows and it is the phase's
+load-bearing check: with the rule on, `8.8.8.8` goes from 26 occurrences in 8
+organisations to 14 in 7, and the stance table's row count still equals the
+tally's org count. A post-filter would have produced 7 stance rows against a
+tally still reading 8, which is two numbers on one page that cannot both be
+right and neither of which looks wrong.
+
+What survives from the one-sentence version is the property that mattered:
+every signal sees the same evidence, because the filtering happens once,
+during the build, and nothing downstream can opt out.
+
+### 7.2 The fixture's ACL row cannot be built, and should not be
+
+§2.1 gives `not_counted` three reasons and puts `acl` first: *"4 occurrences —
+outside your ACL. Excluded, not hidden."* **That number is not computable
+without breaking the page's own security model.** Knowing how many
+occurrences a viewer may *not* see requires a count taken without their ACL,
+and this page accepts any value a reader types into the URL — so *"4
+occurrences you cannot see"* confirms both the presence and the volume of any
+indicator on the instance to anybody who guesses it. Every other count here is
+the viewer's own precisely to prevent that, and one exception would undo all
+of them.
+
+With the count gone, the row stops being an entry in a list of set-aside
+evidence — it names no evidence and offers nothing to act on — and becomes
+what it always was: the caveat that an assessment computed from a subset
+should say which subset. So it moved to the provenance band, beside *computed
+at render* and *weighting profile*, where `value_verdict_meta.ctp` has had an
+`acl_note` slot since the skeleton pass and the fixture already fills it on two
+values.
+
+**Unconditional, and that is the security property rather than a style
+choice.** A caveat shown only when rows were actually hidden would be the same
+oracle at one bit per page load.
+
+Consequence for §2.1: `reason` has **two** values in practice, `policy` and
+`nodata`. `acl` is retired before it shipped, and the block's rule becomes
+simpler than the specification's — every row in it is either something the
+analyst chose (`policy`, carrying the `exclusion_id` that makes it a link) or
+something the data refused (`nodata`).
+
+### 7.3 The harness validated a context shape that does not exist
+
+**Found by the live probe, and only because it checked the rule's inputs
+rather than its output.** `sightings.self` compares a sighting's org against
+the organisation that reported the occurrence, which it looks up in the map
+from `Value::sightedOccurrenceIdsFor()`. That accessor does not return
+CakePHP's nested result — `keyById()` folds each row into a flat
+`id => array('timestamp', 'type', …)` — and both the implementation and the
+harness's fixture read it as `['Attribute']['timestamp']` and
+`['Event']['orgc_id']`.
+
+The failure mode is the dangerous kind. An occurrence the rule cannot resolve
+makes its sightings **undecidable**, which is the correct conservative answer
+— keep the sighting, and say how many could not be checked. So the rule
+excluded nothing, reported nothing, and looked exactly like a rule with
+nothing to do. 44 harness checks passed against the invented shape, and the
+first probe run reported *"0 self-sightings excluded"* as a clean result.
+
+What caught it was an assertion about the inputs: *every sighted occurrence
+names the organisation that reported it*. It read 0 of 8. With the shape fixed
+— and `orgc_id` added to `keyById()` under the same *absent means not asked
+for* guard the object columns already use — the same value excludes **30**
+self-sightings over a ten-year window.
+
+Two rules for this corpus come out of it, and both are cheap:
+
+- **A filter's tally is not evidence that the filter ran.** Zero removed and
+  zero decidable are the same number. Assert the inputs.
+- **A harness fixture that the implementation's author also wrote proves
+  agreement, not correctness.** The two agreed perfectly about a shape neither
+  had checked.
+
+### 7.4 The shipped window excludes nothing on this instance, and that is fine
+
+At `within_hours: 1` the rule removes **0** sightings from every value on the
+dev instance; at ten years it removes 30 from `8.8.8.8`. So every
+self-sighting in this data was filed well after the report it confirms —
+which under §3.1's own argument is information (*we still see this*) rather
+than self-confirmation, and is exactly what the window exists to distinguish.
+
+Recorded because the probe now says which of *"the rule removed nothing"* and
+*"the rule could not run"* happened. Before §7.3 it could not, and the
+difference was the whole bug.
+
+### 7.5 A server is not a mirror
+
+`feeds.mirrored` folds by `provider`, and `externalPresence` returns MISP
+servers in the same `sources` list as feeds. A server sharing a provider
+string with a feed is not a copy of it — it is another instance's own holding
+of the value, which is a second opinion and the most valuable kind of external
+corroboration the page has. Servers are therefore never folded, and the fold
+is scoped to `scope === 'feed'`.
+
+Also: `provider` was not on the assembled source array at all — `externalPresence`
+selected `id`, `name`, `url`, `kind` and `scope` — so the dedupe key the
+specification recommended did not reach the tool. It is one field, added.
+A feed naming no provider folds under its own name, so it is never merged with
+anything, which keeps the imprecision §3.1 admits to from growing a second
+head.

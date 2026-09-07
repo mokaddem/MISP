@@ -132,9 +132,12 @@
             }
         ],
         "exclusions": [
-            { "id": "sightings.self", "within_hours": 1 },
-            { "id": "feeds.mirrored", "dedupe_by": "provider" },
-            { "id": "evidence.window", "days": 90, "min_occurrences": 10000 }
+            { "id": "sightings.self", "enabled": true, "within_hours": 1 },
+            { "id": "feeds.mirrored", "enabled": true,
+              "dedupe_by": "provider" },
+            { "id": "orgs.own", "enabled": false },
+            { "id": "evidence.window", "enabled": true, "days": 90,
+              "min_occurrences": 10000 }
         ],
         "relevance": {
             "clock": "last_independent_corroboration",

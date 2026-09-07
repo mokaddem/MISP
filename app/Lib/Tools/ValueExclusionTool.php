@@ -1,0 +1,467 @@
+<?php
+
+/**
+ * Evidence the analyst has decided not to count.
+ *
+ * The `exclusions` section of a profile: filters that run over a value's
+ * evidence **before any signal sees it**, so that two signals reading
+ * the same fact read the same filtered set. A ledger whose sightings
+ * row says 47 next to a false-positive row computed from 44 is a ledger
+ * a reader summing it by hand would be right to complain about.
+ *
+ * ## Three mechanisms, because the evidence has two classes
+ *
+ * The specification for this section says exclusions are *"applied to
+ * `$context`, once"*, and that turns out to be one sentence describing
+ * three different things — because half a value's evidence is computed
+ * in SQL and never exists as rows at all.
+ *
+ * - **A condition** (`orgs.own`). The occurrence tally, the reporting
+ *   breadth, the publication split and the monthly activity are
+ *   `COUNT DISTINCT` aggregates over the attribute table. Excluding an
+ *   organisation from them means excluding it *in the query*, or the
+ *   ledger contradicts itself: reporting breadth would drop an
+ *   organisation while the occurrence count still included its rows.
+ *   So this class of exclusion contributes to `Value::conditionsFor()`,
+ *   which is the single place every value-scoped aggregate builds its
+ *   predicate, and it therefore reaches all of them at once.
+ * - **A row filter** (`sightings.self`). Sighting rows do exist, and
+ *   are filtered where they exist — before they are tallied, exactly
+ *   as the evidence window already filters them.
+ * - **A list fold** (`feeds.mirrored`). One already-fetched list,
+ *   deduplicated.
+ *
+ * What survives from the one-sentence version is the property that
+ * mattered: every signal sees the same evidence, because the filtering
+ * happens once, during the build, and nothing downstream can opt out.
+ *
+ * ## `evidence.window` is not here
+ *
+ * It is an exclusion, it is in the section, and it is applied by the
+ * context builder's budget instead — because it decides what is
+ * *fetched*, and the others filter what arrived. It also filters row
+ * evidence only, where these filter whatever they are pointed at. Its
+ * `not_counted` entry comes from the accumulator's budget notes, in the
+ * same shape as the ones this file produces.
+ *
+ * ## No class per id, and no drop-in directory
+ *
+ * Signals and conflict rules resolve to discovered classes because an
+ * instance admin may want ones nobody shipped. An exclusion is
+ * configuration the engine applies directly: the four shipped ids
+ * operate at three different layers and could not honestly share an
+ * interface — one contributes SQL, one filters rows, one folds a list.
+ * A custom exclusion would need the expression language the design
+ * rejected, so the set is closed and the methods below are it.
+ */
+class ValueExclusionTool
+{
+    /** The four ids a v1 profile may carry. */
+    const SIGHTINGS_SELF = 'sightings.self';
+    const FEEDS_MIRRORED = 'feeds.mirrored';
+    const ORGS_OWN = 'orgs.own';
+    const EVIDENCE_WINDOW = 'evidence.window';
+
+    /** Hours after an occurrence's own timestamp that a sighting from
+     *  its author counts as self-confirmation rather than as news. */
+    const DEFAULT_WITHIN_HOURS = 1;
+
+    /**
+     * What the profile in force asks to be left out, resolved against
+     * this viewer.
+     *
+     * Built once and handed around, so that the decision *whether* a
+     * rule applies is made in one place and the three application
+     * points only ever ask what it decided.
+     *
+     * @param array|null $profile An `AnalystProfile` row, unwrapped
+     * @param array $user The viewer, for `orgs.own`
+     * @return array
+     */
+    public function planFor($profile, array $user)
+    {
+        $rules = array();
+        foreach ($this->entries($profile) as $entry) {
+            $rules[$entry['id']] = $entry;
+        }
+        $excludeOrgs = array();
+        if (isset($rules[self::ORGS_OWN]) && !empty($user['org_id'])) {
+            $excludeOrgs[] = (int)$user['org_id'];
+        }
+        return array(
+            'rules' => $rules,
+            'exclude_orgs' => $excludeOrgs,
+            'org_name' => isset($user['Organisation']['name'])
+                ? $user['Organisation']['name']
+                : null,
+        );
+    }
+
+    /**
+     * The `$options` additions that carry a plan into the query layer.
+     *
+     * Merged into whatever options an aggregate was going to be called
+     * with, so `orgs.own` needs no caller to know it exists.
+     *
+     * @param array $plan
+     * @return array
+     */
+    public function conditionOptions(array $plan)
+    {
+        if (empty($plan['exclude_orgs'])) {
+            return array();
+        }
+        return array('exclude_orgs' => $plan['exclude_orgs']);
+    }
+
+    /**
+     * `sightings.self` — an organisation confirming its own fresh
+     * report is not corroboration.
+     *
+     * **The window is the whole rule.** A self-sighting a year after
+     * the report is real information — *we still see this* — so a
+     * blanket "never count the author's sightings" would throw away the
+     * one thing an author is best placed to say. Inside
+     * `within_hours` of the occurrence's own timestamp it is the author
+     * agreeing with themselves.
+     *
+     * Two imprecisions, both stated rather than papered over:
+     *
+     * - **The occurrence's timestamp is its last change, not its
+     *   creation.** MISP keeps no created column on an attribute, so an
+     *   attribute edited later has a timestamp later than the report
+     *   it describes, and a self-sighting filed in between stops
+     *   looking self-adjacent. The error is in the safe direction — it
+     *   counts a sighting that might not deserve it, rather than
+     *   discarding one that does.
+     * - **An anonymised sighting cannot be tested.** Under a
+     *   restrictive sighting policy the org is stripped from the row,
+     *   and a rule that treated a missing org as *not the author*
+     *   would silently apply to a subset. Those rows are kept and
+     *   counted, so the note can say how many the rule could not
+     *   decide about.
+     *
+     * @param array $rows From `Sighting::listSightings`
+     * @param array $occurrences Attribute id => occurrence, from
+     *                           `Value::sightedOccurrenceIdsFor`
+     * @param array $plan
+     * @return array `rows`, `excluded`, `undecidable`
+     */
+    public function applyToSightings(array $rows, array $occurrences,
+        array $plan
+    ) {
+        if (!isset($plan['rules'][self::SIGHTINGS_SELF])) {
+            return array('rows' => $rows, 'excluded' => 0,
+                'undecidable' => 0);
+        }
+        $entry = $plan['rules'][self::SIGHTINGS_SELF];
+        $window = (isset($entry['within_hours'])
+            && is_numeric($entry['within_hours'])
+            ? (float)$entry['within_hours']
+            : self::DEFAULT_WITHIN_HOURS) * 3600;
+        $kept = array();
+        $excluded = 0;
+        $undecidable = 0;
+        foreach ($rows as $row) {
+            $orgId = (int)($row['Sighting']['org_id'] ?? 0);
+            if ($orgId === 0) {
+                $undecidable++;
+                $kept[] = $row;
+                continue;
+            }
+            $author = $this->authorOf($row, $occurrences);
+            if ($author === null) {
+                $undecidable++;
+                $kept[] = $row;
+                continue;
+            }
+            $age = (int)($row['Sighting']['date_sighting'] ?? 0)
+                - $author['at'];
+            if ($orgId === $author['org_id'] && $age >= 0
+                && $age <= $window
+            ) {
+                $excluded++;
+                continue;
+            }
+            $kept[] = $row;
+        }
+        return array('rows' => $kept, 'excluded' => $excluded,
+            'undecidable' => $undecidable);
+    }
+
+    /**
+     * Who filed the occurrence a sighting is attached to, and when.
+     *
+     * The occurrence map is **flat** — `Value::sightedOccurrenceIdsFor`
+     * folds each row into `id => array('timestamp', 'orgc_id', …)`
+     * rather than handing back CakePHP's nested result. Reading it as
+     * though it were nested finds nothing, and finding nothing here is
+     * indistinguishable from a value with no self-sightings: the rule
+     * declares every row undecidable and excludes none of them, which
+     * looks exactly like the rule correctly having nothing to do.
+     *
+     * @param array $row
+     * @param array $occurrences
+     * @return array|null `org_id` and `at`, or null when unknowable
+     */
+    private function authorOf(array $row, array $occurrences)
+    {
+        $id = (int)($row['Sighting']['attribute_id'] ?? 0);
+        if ($id === 0 || !isset($occurrences[$id])) {
+            return null;
+        }
+        $occurrence = $occurrences[$id];
+        $orgId = (int)($occurrence['orgc_id'] ?? 0);
+        $at = (int)($occurrence['timestamp'] ?? 0);
+        if ($orgId === 0 || $at === 0) {
+            return null;
+        }
+        return array('org_id' => $orgId, 'at' => $at);
+    }
+
+    /**
+     * `feeds.mirrored` — feeds carrying the same upstream content
+     * counted once.
+     *
+     * Three feeds mirroring one OSINT source are one piece of external
+     * corroboration, not three, and counting them separately is the
+     * cheapest way for a value's quality to look better than its
+     * evidence.
+     *
+     * **MISP does not record what a feed mirrors.** The `feeds` table
+     * has `provider`, `url` and `source_format` and nothing that says
+     * *this derives from CIRCL OSINT*, so the dedupe key is the
+     * provider: cheap, and wrong in the specific case of one provider
+     * running genuinely unrelated feeds. A feed naming no provider
+     * folds under its own name, so it is never merged with anything.
+     * The note says which key was used, because implying an exactness
+     * that is not there is worse than the imprecision.
+     *
+     * @param array $sources From `externalPresence`
+     * @param array $plan
+     * @return array `sources` and `excluded`
+     */
+    public function applyToSources(array $sources, array $plan)
+    {
+        if (!isset($plan['rules'][self::FEEDS_MIRRORED])) {
+            return array('sources' => $sources, 'excluded' => 0);
+        }
+        $entry = $plan['rules'][self::FEEDS_MIRRORED];
+        $by = !empty($entry['dedupe_by']) && is_string($entry['dedupe_by'])
+            ? $entry['dedupe_by']
+            : 'provider';
+        $seen = array();
+        $kept = array();
+        $excluded = 0;
+        foreach ($sources as $source) {
+            /*
+             * A MISP server is not a feed and does not mirror one; it
+             * is another instance's own holding of the value, and
+             * folding two servers together because they share a
+             * provider string would discard a genuine second opinion.
+             */
+            if (($source['scope'] ?? 'feed') !== 'feed') {
+                $kept[] = $source;
+                continue;
+            }
+            $key = !empty($source[$by])
+                ? $by . ':' . $source[$by]
+                : 'name:' . ($source['name'] ?? count($kept));
+            if (isset($seen[$key])) {
+                $excluded++;
+                continue;
+            }
+            $seen[$key] = true;
+            $kept[] = $source;
+        }
+        return array('sources' => $kept, 'excluded' => $excluded);
+    }
+
+    /**
+     * The `not_counted` entries for what the profile left out.
+     *
+     * One per rule that actually removed something. A rule that is
+     * enabled and excluded nothing says nothing — the block answers
+     * *"why doesn't this count?"*, and a list of rules that did not
+     * apply is noise in front of the ones that did.
+     *
+     * @param array $plan
+     * @param array $tallies `sightings`, `sightings_undecidable`,
+     *                       `sources`, from the application above
+     * @return array
+     */
+    public function notes(array $plan, array $tallies)
+    {
+        $notes = array();
+        $excluded = (int)($tallies['sightings'] ?? 0);
+        $undecidable = (int)($tallies['sightings_undecidable'] ?? 0);
+        if ($excluded > 0) {
+            $entry = $plan['rules'][self::SIGHTINGS_SELF];
+            $hours = isset($entry['within_hours'])
+                ? (float)$entry['within_hours']
+                : self::DEFAULT_WITHIN_HOURS;
+            $note = sprintf(
+                __('%1$d %2$s from the organisation that reported the'
+                    . ' occurrence, within %3$s of it. An organisation'
+                    . ' confirming its own fresh report is not'
+                    . ' corroboration.'),
+                $excluded,
+                $excluded === 1
+                    ? __('sighting')
+                    : __('sightings'),
+                $this->hoursPhrase($hours)
+            );
+            if ($undecidable > 0) {
+                $note .= ' ' . sprintf(
+                    __('%d more could not be checked, because this'
+                        . ' instance does not name the organisation'
+                        . ' that filed them.'),
+                    $undecidable
+                );
+            }
+            $notes[] = $this->note(
+                self::SIGHTINGS_SELF,
+                __('Self-sightings'),
+                $note
+            );
+        }
+        $sources = (int)($tallies['sources'] ?? 0);
+        if ($sources > 0) {
+            $entry = $plan['rules'][self::FEEDS_MIRRORED];
+            $notes[] = $this->note(
+                self::FEEDS_MIRRORED,
+                __('Mirrored feeds'),
+                sprintf(
+                    __('%1$d %2$s sharing another\'s %3$s counted once'
+                        . ' rather than separately. MISP does not'
+                        . ' record what a feed mirrors, so this folds'
+                        . ' by %3$s — which is wrong where one'
+                        . ' %3$s runs unrelated feeds.'),
+                    $sources,
+                    $sources === 1 ? __('feed') : __('feeds'),
+                    !empty($entry['dedupe_by'])
+                        ? $entry['dedupe_by']
+                        : 'provider'
+                )
+            );
+        }
+        if (!empty($plan['exclude_orgs'])) {
+            $notes[] = $this->note(
+                self::ORGS_OWN,
+                __('Your own organisation'),
+                sprintf(
+                    __('Occurrences and sightings from %s are left out'
+                        . ' of every count, so the assessment says'
+                        . ' what everyone else reports.'),
+                    empty($plan['org_name'])
+                        ? __('your organisation')
+                        : $plan['org_name']
+                )
+            );
+        }
+        return $notes;
+    }
+
+    /**
+     * One entry, in the shape the accumulator's own `not_counted`
+     * entries use.
+     *
+     * `reason` is the render-level grouping and `policy` is what makes
+     * a row actionable: it is the analyst's decision, so it is the one
+     * kind of entry that can carry a link to the profile that made it.
+     *
+     * @param string $id
+     * @param string $title
+     * @param string $note
+     * @return array
+     */
+    private function note($id, $title, $note)
+    {
+        return array(
+            'title' => $title,
+            'note' => $note,
+            'reason' => 'policy',
+            'kind' => 'policy',
+            'source' => 'exclusion',
+            'id' => $id,
+        );
+    }
+
+    /**
+     * A window as a sentence, so the note states the rule rather than
+     * a number of hours nobody set.
+     *
+     * @param float $hours
+     * @return string
+     */
+    private function hoursPhrase($hours)
+    {
+        if ($hours < 1) {
+            return sprintf(
+                __('%d minutes'),
+                (int)round($hours * 60)
+            );
+        }
+        if ($hours == 1) {
+            return __('an hour');
+        }
+        if ($hours < 48) {
+            return sprintf(__('%d hours'), (int)round($hours));
+        }
+        return sprintf(__('%d days'), (int)round($hours / 24));
+    }
+
+    /**
+     * The profile's enabled `exclusions` entries.
+     *
+     * An entry with no `enabled` key is on, which is how the shipped
+     * default expresses itself and how phase 2's budget already reads
+     * the window. `evidence.window` is dropped here: it is applied by
+     * the context builder, and a plan carrying it would invite a second
+     * application.
+     *
+     * @param array|null $profile
+     * @return array
+     */
+    private function entries($profile)
+    {
+        $section = $this->section($profile, 'exclusions');
+        $entries = array();
+        foreach ($section as $entry) {
+            if (!is_array($entry) || empty($entry['id'])) {
+                continue;
+            }
+            if (array_key_exists('enabled', $entry)
+                && empty($entry['enabled'])
+            ) {
+                continue;
+            }
+            if ($entry['id'] === self::EVIDENCE_WINDOW) {
+                continue;
+            }
+            $entries[] = $entry;
+        }
+        return $entries;
+    }
+
+    /**
+     * @param array|null $profile
+     * @param string $name
+     * @return array
+     */
+    private function section($profile, $name)
+    {
+        if (!is_array($profile)) {
+            return array();
+        }
+        if (isset($profile['parameters'][$name])
+            && is_array($profile['parameters'][$name])
+        ) {
+            return $profile['parameters'][$name];
+        }
+        if (isset($profile[$name]) && is_array($profile[$name])) {
+            return $profile[$name];
+        }
+        return array();
+    }
+}
