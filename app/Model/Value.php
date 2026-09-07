@@ -470,7 +470,8 @@ class Value extends AppModel
      * @param string $value
      * @param array $options As conditionsFor
      * @return array Rows of `Event.orgc_id` and, under `0`,
-     *               `occurrences`, `to_ids_yes`, `to_ids_no`, `newest`
+     *               `occurrences`, `to_ids_yes`, `to_ids_no`, `newest`,
+     *               `oldest`
      */
     public function orgStanceFor(array $user, $value,
         array $options = array()
@@ -488,6 +489,16 @@ class Value extends AppModel
                 'SUM(CASE WHEN Attribute.to_ids = 0 THEN 1 ELSE 0 END)'
                     . ' AS to_ids_no',
                 'MAX(Attribute.timestamp) AS newest',
+                /*
+                 * When this organisation first held the value, which is
+                 * the relevance clock's occurrence half: the most
+                 * recent of these across organisations is the last time
+                 * somebody new corroborated the record
+                 * (`06-staleness.md` §3.3). One more aggregate on a
+                 * query that is already grouped by organisation, so it
+                 * costs nothing the stances did not already cost.
+                 */
+                'MIN(Attribute.timestamp) AS oldest',
             ),
             'conditions' => $conditions,
             'recursive' => -1,

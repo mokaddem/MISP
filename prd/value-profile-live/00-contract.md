@@ -528,15 +528,15 @@ document that filled it.
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |
 | Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
-| Overview | `viewLifecycle` | `value_lifecycle` | — | — | — | — |
+| Overview | `viewLifecycle` | `value_lifecycle` | 10 — the `forRelevance` call, nothing else | organisations, not occurrences | 1, one aggregate at 2 | **partly — analyst-profile phase 5**: the freshness third only, see below |
 | Overview | `viewExternal` | `value_external` | 4 | nothing — flat in cached sources; 2 on a miss | none of the three, see below | **24**, Q by **24b** |
 | Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
 | Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
 | Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
 | Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
-| Sightings | `viewSightingChart` | `value_sighting_chart` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
+| Sightings | `viewSightingChart` | `value_sighting_chart` | **11** | organisations, not occurrences | 1, three aggregates at 2 | **23**, Q re-measured by **analyst-profile phase 5** |
 | Sightings | `viewSightingList` | `value_sighting_list` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
-| Sightings | `viewSightingDecay` | `value_sighting_decay` | 21 | organisations, not occurrences | 1, three aggregates at 2 | **23** |
+| Sightings | `viewRelevance` | `value_relevance` | **10** | organisations, not occurrences | 1, one aggregate at 2 | **23** as `viewSightingDecay`, rebuilt by **analyst-profile phase 5** |
 | Sightings | `viewSightingReporters` | `value_sighting_reporters` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Sightings | `viewSightingAdd` | `value_sighting_add` | 1 | nothing | 2 | **23** |
 | Relationships | `viewRelationCooccurrence` | `value_relation_cooccurrence` | 19 cold, 3 warm | decorations, not the value's size | 1, four aggregates at 2 | **24**, Q by **24b** |
@@ -555,9 +555,34 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Twenty-one rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Twenty-two rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
+
+**Two rows got cheaper rather than newer, and one row is the board's
+first partial.** `prd/analyst-profile/06-staleness.md` retired the page's
+reading of MISP's decaying models, which is what the two Sightings
+endpoints spent most of their queries on: `viewSightingDecay` became
+`viewRelevance` and **21 → 10**, and `viewSightingChart` **21 → 11**,
+because the decay envelope needed the occurrence rows, their attribute
+tags, the event tags over every event, and two queries for the enabled
+models, where the relevance axis needs a record summary, the type list
+and one grouped stance aggregate. Measured from the datasource log by
+that phase's live probe (§6 item 2 there), which also asserts that
+neither endpoint issues a `decaying_models` query at all.
+
+`viewLifecycle` is **partly** live and the cell says so rather than
+rounding either way. Its `Q` is derived rather than separately measured,
+and the cell says which: the endpoint makes exactly one facade call —
+`forRelevance`, measured at 10 — and its other two lines read fixture
+literals, which cost nothing. Its Lifecycle card asks three questions; the
+freshness one is that phase's subject, so the endpoint computes the
+relevance axis live and merges it into the fixture profile the card still
+serves for its warninglist and correlation lines. Leaving that third on
+the fixture would have shipped a card asserting a decay score nothing
+computes. §14.12's note about a tab not being indivisible, used at card
+scale — and the row moves to a plain **built** when the Overview's own
+phase converts the other two lines.
 
 **The Enrichment rows are the first whose `Q` is the smaller half of the
 cost**, and the column cannot say so. Both endpoints make an outbound HTTP

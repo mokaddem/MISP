@@ -1,7 +1,8 @@
 <?php
 App::uses('AppModel', 'Model');
 App::uses('ValueStatsTool', 'Tools');
-App::uses('ValueDecayTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueExclusionTool', 'Tools');
 App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
@@ -907,13 +908,23 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The Sightings tab's chart: the reports as a stacked histogram and
-     * every applicable model's score drawn through it.
+     * The Sightings tab's chart: the reports as a stacked histogram,
+     * with the value's remaining shelf life drawn through it.
      *
-     * The slow panel of the five, and the reason the tab is split into
-     * five endpoints rather than one — see `ValuesController`. The decay
-     * envelope is what costs: it is the only thing on this page that
-     * evaluates a formula per occurrence per day.
+     * **The overlay changed subject in phase 5** and it is a better
+     * chart for it (`06-staleness.md` §4.2). It used to draw one decay
+     * score per applicable model — two estimates of one quantity, on a
+     * page whose ledger already answers *how bad is this* from more
+     * evidence — where it now plots **evidence against remaining shelf
+     * life**, which is two different quantities and a question an
+     * analyst actually has.
+     *
+     * It also stopped being the slow panel. The decay envelope
+     * evaluated MISP's polynomial per occurrence per day per model and
+     * was the only thing on this page doing work proportional to that
+     * product; the runway is one expression per day. The five-endpoint
+     * split stays, because the reasons for it in `ValuesController` were
+     * never only the envelope.
      *
      * @param array $user
      * @param string $value
@@ -925,7 +936,12 @@ class ValueProfile extends AppModel
     ) {
         $context = $this->sightingContext($user, $value, $options);
         $span = $this->spanFor($user, $value, $context, $options);
-        $decay = $this->decayFor($user, $value, $context, $span, $options);
+        $relevance = $this->relevanceFor(
+            $user,
+            $value,
+            $context,
+            $options
+        );
         return array(
             'value' => $value,
             'sightings' => $this->sightingHeader($context),
@@ -935,13 +951,61 @@ class ValueProfile extends AppModel
                     $context['sightings'],
                     $span,
                     $context['totals'],
-                    $decay['curves']
+                    $this->runwayCurve($relevance, $span)
                 ),
             'sighting_notes' => ValueStatsTool::sightingNotes(
                 $context['totals']
             ),
-            'decay' => $decay['models'],
+            'relevance' => $relevance,
         );
+    }
+
+    /**
+     * The runway as the chart's one overlay series.
+     *
+     * The series shape is the one the browser already reads — a label,
+     * a threshold and one point per day — because the payload, the
+     * hover readout and the legend were all written against it and none
+     * of them cares what the line means. What changes is the scale: a
+     * runway is a fraction, and the chart's right axis is 0–100, so it
+     * goes over as a percentage of shelf life.
+     *
+     * `threshold` is null rather than a number. A decay model's
+     * threshold was a constant the rail drew as a tick; expiry is the
+     * axis reaching zero, which the axis already shows.
+     *
+     * @param array $relevance From relevanceFor
+     * @param array|null $span From `ValueStatsTool::sightingSpan`
+     * @return array One curve, or none when there is nothing to draw
+     */
+    private function runwayCurve(array $relevance, $span)
+    {
+        if ($span === null || $relevance['state'] === null) {
+            return array();
+        }
+        $points = ValueRelevanceTool::runwaySeries(
+            $relevance,
+            $this->dayGrid($span),
+            /*
+             * `first` is the value's own earliest evidence and `from`
+             * is where the span was clipped to, so a value first seen in
+             * 2015 draws from the clip rather than from a day the chart
+             * does not show. Before that day the series draws nothing,
+             * which is the gap the retired code also drew and for the
+             * same reason: zero is a score, absence is not.
+             */
+            strtotime($span['first'] . ' 00:00:00')
+        );
+        foreach ($points as $i => $point) {
+            $points[$i] = $point === null
+                ? null
+                : (int)round($point * 100);
+        }
+        return array(array(
+            'model' => __('Shelf life left'),
+            'threshold' => null,
+            'points' => $points,
+        ));
     }
 
     /**
@@ -963,8 +1027,9 @@ class ValueProfile extends AppModel
      * claims nothing about the rest, which is what §14.12's note about
      * not treating a tab as indivisible asks for.
      *
-     * No decay work, like the list: a card above the fold should not
-     * wait for a curve.
+     * No relevance work, like the list: a card above the fold should
+     * not wait for the axis, and the three counts it shows are not part
+     * of it.
      *
      * @param array $user
      * @param string $value
@@ -1002,9 +1067,9 @@ class ValueProfile extends AppModel
     /**
      * The individual sightings, and the range note the brush drives.
      *
-     * No decay work at all, which is the point of it being its own
+     * No relevance work at all, which is the point of it being its own
      * endpoint: the table is the part of the tab a reader can act on and
-     * it should not wait for a curve.
+     * it should not wait for the overlay beside it.
      *
      * @param array $user
      * @param string $value
@@ -1028,35 +1093,40 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The rail's decay card.
+     * The rail's relevance card: how fresh this value is, and what
+     * made it so.
      *
-     * It pays the envelope's cost a second time rather than sharing the
-     * chart's, because the two panels are two requests and this page has
-     * no cache — §14.4 leaves caching out deliberately. What it buys is
-     * that the number in the rail is the last point of the curve in the
-     * chart by construction rather than by coincidence, which is the
-     * sentence the card closes with.
+     * The decay card's replacement, at panel scale
+     * (`06-staleness.md` §4). It computes the axis a second time rather
+     * than sharing the chart's, because the two panels are two requests
+     * and this page has no cache — §14.4 leaves caching out
+     * deliberately. What that buys is the same thing it bought before:
+     * the state in the rail is the last point of the curve in the chart
+     * by construction rather than by coincidence, which is the sentence
+     * the card closes with. It is now cheap enough that the argument
+     * barely needs making.
      *
      * @param array $user
      * @param string $value
      * @param array $options
      * @return array
      */
-    public function forSightingDecay(array $user, $value,
+    public function forRelevance(array $user, $value,
         array $options = array()
     ) {
         $context = $this->sightingContext($user, $value, $options);
-        $decay = $this->decayFor(
-            $user,
-            $value,
-            $context,
-            $this->spanFor($user, $value, $context, $options),
-            $options
-        );
         return array(
             'value' => $value,
             'sightings' => $this->sightingHeader($context),
-            'decay' => $decay['models'],
+            'relevance' => $this->relevanceFor(
+                $user,
+                $value,
+                $context,
+                $options
+            ),
+            'sighting_notes' => ValueStatsTool::sightingNotes(
+                $context['totals']
+            ),
         );
     }
 
@@ -1255,383 +1325,101 @@ class ValueProfile extends AppModel
     }
 
     /**
-     * The models that score this value, their current scores, and one
-     * curve each.
+     * The relevance axis for one value, and the facts the two panels
+     * that render it read.
      *
-     * The aggregation rule is `ValueDecayTool`'s and is stated there:
-     * the per-day maximum across occurrences, labelled with the
-     * occurrence holding it. What lives here is everything that needs a
-     * model or a query — which models apply, each occurrence's base
-     * score, and MISP's own formula object — because a tool under
-     * `app/Lib/Tools/Value*` may not fetch anything (§14.5).
+     * **This is what replaced 338 lines of decay envelope**
+     * (`06-staleness.md` §4). The old path evaluated MISP's polynomial
+     * once per occurrence per day per model — around 200,000 calls on
+     * the busiest value, which is why the Sightings tab was split into
+     * five endpoints in the first place. The relevance axis is
+     * arithmetic over a handful of dates, so this method issues **no
+     * query of its own**: the clock's occurrence half rides on the
+     * stance aggregate the assessment already reads, and its sighting
+     * half is folded from the rows `sightingContext` has in hand.
      *
-     * Queries, none of them per occurrence:
-     *
-     *   4. the occurrence rows with their attribute tags
-     *   5. the tag records behind them
-     *   6. the event tags over every event the occurrences sit on
-     *   7. every enabled model this viewer may use, and their
-     *      attribute-type mappings — two queries, flat
-     *
-     * @param array $user
-     * @param array $context From sightingContext
-     * @return array `models` and `curves`
-     */
-    private function decayFor(array $user, $value, array $context,
-        $span, array $options = array()
-    ) {
-        if ($span === null) {
-            return array('models' => array(), 'curves' => array());
-        }
-        $resets = ValueDecayTool::resetStamps($context['sightings']);
-        $capped = $this->decaySet($user, $value, $context, $options);
-        $models = $this->modelsFor($user, $capped);
-        if (empty($models)) {
-            return array('models' => array(), 'curves' => array());
-        }
-        $tagged = $this->taggedOccurrences($user, $capped);
-        $grid = $this->dayGrid($span);
-        $decayModel = $this->model('DecayingModel');
-
-        /*
-         * Elapsed time is a property of the occurrence and the day, not
-         * of the model, so it is computed once and read by every model.
-         * Inside the loop below it was the same walk twice — measured at
-         * 208 ms for two models over 23 occurrences and 1,095 days,
-         * against 120 ms hoisted.
-         */
-        $elapsedFor = array();
-        foreach ($capped as $id => $occurrence) {
-            $elapsedFor[$id] = ValueDecayTool::elapsed(
-                isset($resets[$id]) ? $resets[$id] : array(),
-                ValueStatsTool::anchorStamp($occurrence),
-                $grid
-            );
-        }
-
-        $out = array('models' => array(), 'curves' => array());
-        foreach ($models as $model) {
-            $formula = $decayModel->getModelClass($model);
-            $parameters = $model['DecayingModel']['parameters'];
-            $threshold = (int)$parameters['threshold'];
-            /*
-             * `Polynomial`'s score depends on the base and the elapsed
-             * time and on nothing else about the attribute, so
-             * occurrences sharing a base can be collapsed to the one
-             * with the least elapsed time — exactly, not approximately.
-             * `PolynomialExtended` reads the attribute's `retention`
-             * tags and `Sightings` ignores elapsed time, so both take
-             * the per-occurrence path. `ValueDecayTool::groupByBase`
-             * carries the argument.
-             */
-            $groupable = get_class($formula) === 'Polynomial';
-            $bases = array();
-            $bestBase = null;
-            foreach ($capped as $id => $occurrence) {
-                if (!isset($tagged[$id])
-                    || !in_array(
-                        $occurrence['type'],
-                        $model['DecayingModel']['attribute_types'],
-                        true
-                    )
-                ) {
-                    continue;
-                }
-                $base = (float)$formula->computeBasescore(
-                    $model,
-                    $tagged[$id]
-                )['base_score'];
-                if ($bestBase === null || $base > $bestBase) {
-                    $bestBase = $base;
-                }
-                $bases[$id] = array(
-                    'base' => $base,
-                    'event_id' => $occurrence['event_id'],
-                );
-            }
-            if (empty($bases)) {
-                continue;
-            }
-            $scored = count($bases);
-            $candidates = array();
-            if ($groupable) {
-                $groups = ValueDecayTool::groupByBase($bases, $elapsedFor);
-                foreach ($groups as $group) {
-                    $points = array();
-                    foreach ($group['elapsed'] as $seconds) {
-                        $points[] = $seconds === null
-                            ? null
-                            : (int)round($formula->computeScore(
-                                $model,
-                                array(),
-                                $group['base'],
-                                $seconds
-                            ));
-                    }
-                    $candidates[] = array(
-                        'owner' => $group['owner'],
-                        'event_id' => $group['event'],
-                        'points' => $points,
-                    );
-                }
-            } else {
-                foreach ($bases as $id => $meta) {
-                    $points = array();
-                    foreach ($elapsedFor[$id] as $seconds) {
-                        $points[] = $seconds === null
-                            ? null
-                            : (int)round($formula->computeScore(
-                                $model,
-                                $tagged[$id],
-                                $meta['base'],
-                                $seconds
-                            ));
-                    }
-                    $candidates[] = array(
-                        'owner' => $id,
-                        'event_id' => $meta['event_id'],
-                        'points' => $points,
-                    );
-                }
-            }
-            $envelope = ValueDecayTool::envelope($candidates);
-            $last = count($envelope['points']) - 1;
-            $score = $envelope['points'][$last];
-            if ($score === null) {
-                continue;
-            }
-            $reset = ValueDecayTool::lastReset($resets, $capped);
-            $out['models'][] = array(
-                'model' => $model['DecayingModel']['name'],
-                'score' => (int)$score,
-                'threshold' => $threshold,
-                'base' => (int)round($bestBase),
-                'lifetime' => (int)$parameters['lifetime'],
-                'decayed' => $score < $threshold,
-                'permanently_under' => $bestBase < $threshold,
-                'reset_on' => $reset === null
-                    ? date('Y-m-d', ValueStatsTool::anchorStamp(
-                        $capped[$envelope['owner'][$last]]
-                    ))
-                    : date('Y-m-d', $reset['at']),
-                'reset_by' => $reset === null
-                    ? null
-                    : $this->reporterAt($context['sightings'], $reset),
-                /*
-                 * Which occurrence holds the number, which is half of
-                 * the aggregation rule rather than a decoration on it.
-                 */
-                'held_by' => array(
-                    'attribute_id' => $envelope['owner'][$last],
-                    'event_id' => $envelope['event'][$last],
-                ),
-                'over' => $scored,
-                'of' => $this->summaryFor(
-                    $user,
-                    $value,
-                    $options
-                )['occurrences'],
-            );
-            $out['curves'][] = array(
-                'model' => $model['DecayingModel']['name'],
-                'threshold' => $threshold,
-                'points' => $envelope['points'],
-            );
-        }
-        return $out;
-    }
-
-    /**
-     * The occurrences the envelope is computed over: every occurrence
-     * that has been reported, plus the most recently updated of the
-     * rest, up to the cap.
-     *
-     * **The cap's ordering is the answer rather than a guess about it.**
-     * A score falls as elapsed time grows, and for an occurrence nobody
-     * has reported the clock runs from its own date — so among
-     * un-reported occurrences the newest is the highest-scoring, for any
-     * two that share a base score. `ORDER BY Attribute.timestamp DESC`
-     * therefore puts the candidates that could hold the maximum first,
-     * and the reported ones are added unconditionally because a report
-     * can lift an old occurrence above a new one.
-     *
-     * The envelope over a subset is a lower bound on the envelope over
-     * the whole set, and the rail card prints `N of M occurrences
-     * scored` when the two differ. `ValueDecayTool::OCCURRENCE_CAP`
-     * carries the number and the reason.
+     * The aggregation decision phase 23 recorded transfers intact
+     * (§4.1). Its problem was *"turn per-attribute time facts into one
+     * value-level statement"* and its answer was *"take the maximum and
+     * label it with the occurrence holding it"* —
+     * `last_independent_corroboration` has exactly that problem and
+     * exactly that answer, so the clock names what supplied it.
      *
      * @param array $user
      * @param string $value
      * @param array $context From sightingContext
-     * @param array $options
-     * @return array As `Value::occurrenceIdsFor` returns
+     * @param array $options As conditionsFor, plus `profile` to score
+     *                       against one other than the viewer's — the
+     *                       seam a profile simulator needs and the only
+     *                       way to check that a relevance setting moves
+     *                       the axis and nothing else
+     * @return array The `relevance` block, plus the profile that
+     *               produced it
      */
-    private function decaySet(array $user, $value, array $context,
-        array $options
+    private function relevanceFor(array $user, $value, array $context,
+        array $options = array()
     ) {
-        $newest = $this->model('Value')->occurrenceIdsFor(
-            $user,
-            $value,
-            array_merge($options, array(
-                'limit' => ValueDecayTool::OCCURRENCE_CAP,
-                'order' => self::OCCURRENCE_ORDER,
-            ))
+        $profile = array_key_exists('profile', $options)
+            ? $options['profile']
+            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        // Not a query option, and `conditionsFor` is handed the rest.
+        unset($options['profile']);
+        $exclusions = new ValueExclusionTool();
+        $plan = $exclusions->planFor($profile, $user);
+        $options = array_merge(
+            $options,
+            $exclusions->conditionOptions($plan)
         );
-        return $context['sighted'] + $newest;
-    }
-
-    /**
-     * Who filed the report that last reset the clock.
-     *
-     * Read off the rows already fetched rather than queried again: the
-     * sighting set is in hand and a second lookup could disagree with
-     * it.
-     *
-     * @param array $sightings Rows as `Sighting::listSightings` returns
-     * @param array $reset From `ValueDecayTool::lastReset`
-     * @return string|null
-     */
-    private function reporterAt(array $sightings, array $reset)
-    {
-        foreach ($sightings as $sighting) {
-            if ((int)$sighting['Sighting']['attribute_id']
-                    === $reset['attribute_id']
-                && (int)$sighting['Sighting']['date_sighting']
-                    === $reset['at']
-            ) {
-                $name = $sighting['Organisation']['name'] ?? '';
-                return $name === '' ? __('Others') : $name;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * The decaying models that apply to any of this value's types.
-     *
-     * `fetchAllAllowedModels` is MISP's own ACL'd fetcher — a model is
-     * visible to its owning organisation or to everyone — and with
-     * `$full` it resolves each model's applicable types as the union of
-     * the list a default model ships with and the mappings an
-     * administrator added. So it answers *which models may this viewer
-     * use and what do they cover* in one call, and the value's types are
-     * matched against that in PHP.
-     *
-     * `DecayingModelMapping::getAssociatedModels($user, $type)` is the
-     * route `attachScoresToAttribute` takes and it was tried first. It
-     * asks per type and re-reads every default model each time, which
-     * measured at thirteen queries for a value with three types where
-     * this is two. The two answer the same question — the union
-     * `getAssociatedModels` builds with `array_merge_recursive` is the
-     * union `$full` builds with `Hash::extract` — and this one does not
-     * grow with the number of types a value has.
-     *
-     * @param array $user
-     * @param array $occurrences As `Value::occurrenceIdsFor` returns
-     * @return array
-     */
-    private function modelsFor(array $user, array $occurrences)
-    {
-        $types = array();
-        foreach ($occurrences as $occurrence) {
-            $types[$occurrence['type']] = true;
-        }
-        $models = $this->model('DecayingModel')->fetchAllAllowedModels(
-            $user,
-            true,
-            array(),
-            array('DecayingModel.enabled' => true)
+        $rows = $exclusions->applyToSightings(
+            $context['sightings'],
+            $context['sighted'],
+            $plan
         );
-        $applicable = array();
-        foreach ($models as $model) {
-            $covered = array_intersect_key(
-                $types,
-                array_flip($model['DecayingModel']['attribute_types'])
-            );
-            if (!empty($covered)) {
-                $applicable[] = $model;
-            }
-        }
-        return $applicable;
-    }
-
-    /**
-     * The occurrence rows a base score is computed from, carrying the
-     * attribute's own tags and its event's.
-     *
-     * `computeBasescore` reads `AttributeTag` and `EventTag` and
-     * prioritises the former over the latter, so both are needed or
-     * every score is the model's `default_base_score`.
-     * `getScoreOvertime` fetches the event tags one attribute at a
-     * time; this is one query for every event the value sits in.
-     *
-     * @param array $user
-     * @param array $occurrences As `Value::occurrenceIdsFor` returns
-     * @return array attribute id => an array shaped for computeBasescore
-     */
-    private function taggedOccurrences(array $user, array $occurrences)
-    {
-        if (empty($occurrences)) {
-            return array();
-        }
-        $rows = $this->model('MispAttribute')->fetchAttributesSimple(
-            $user,
-            array(
-                'conditions' => array(
-                    'Attribute.id' => array_keys($occurrences),
-                ),
-                'contain' => array('Event', 'Object', 'AttributeTag'),
-            )
-        );
-        if (empty($rows)) {
-            return array();
-        }
-        $this->model('MispAttribute')->attachTagsToAttributes(
-            $rows,
-            array('includeAllTags' => true)
-        );
-        $eventIds = array();
-        foreach ($rows as $row) {
-            $eventIds[$row['Event']['id']] = true;
-        }
-        $eventTags = $this->model('Event')->EventTag->find('all', array(
-            'recursive' => -1,
-            'contain' => array('Tag'),
-            'conditions' => array(
-                'EventTag.event_id' => array_keys($eventIds),
+        $summary = $this->model('Value')
+            ->recordSummaryFor($user, $value, $options);
+        $facts = array(
+            'value' => $value,
+            'now' => time(),
+            'as_of' => date('Y-m-d'),
+            'types' => $this->model('Value')
+                ->typesFor($user, $value, $options),
+            'occurrences' => array(
+                'total' => $summary['occurrences'],
+                'events' => $summary['events'],
+                'orgs' => $summary['orgs'],
+                'oldest' => $summary['oldest'],
+                'newest' => $summary['newest'],
             ),
-        ));
-        $byEvent = array();
-        foreach ($eventTags as $eventTag) {
-            $eventTag['EventTag']['Tag'] = $eventTag['Tag'];
-            $byEvent[$eventTag['EventTag']['event_id']][] =
-                $eventTag['EventTag'];
-        }
-        $tagged = array();
-        foreach ($rows as $row) {
-            $id = (int)$row['Attribute']['id'];
-            $attribute = $row['Attribute'];
-            $attribute['AttributeTag'] = isset($row['AttributeTag'])
-                ? $row['AttributeTag']
-                : array();
-            $attribute['EventTag'] = isset($byEvent[$row['Event']['id']])
-                ? $byEvent[$row['Event']['id']]
-                : array();
-            $tagged[$id] = $attribute;
-        }
-        return $tagged;
+            'temporal' => array(
+                'occurrences' => $summary['occurrences'],
+                'with_first_seen' => $summary['dated'],
+                'max_lag_days' => $summary['max_lag_days'],
+            ),
+            'orgs' => $this->verdictOrgs($user, $value, $options),
+            'corroboration' => ValueRelevanceTool::corroborationFrom(
+                $rows['rows'],
+                $context['sighted']
+            ),
+            'budget' => array('hot' => false),
+            'missing' => array(),
+        );
+        $relevance = ValueRelevanceTool::relevanceFor($facts, $profile);
+        $relevance['profile'] = $profile === null
+            ? null
+            : (isset($profile['name']) ? $profile['name'] : null);
+        $relevance['sightings_excluded'] = $rows['excluded'];
+        return $relevance;
     }
 
     /**
-     * The day grid the curves are sampled on: one point per day of the
+     * The day grid the runway is sampled on: one point per day of the
      * span, at the end of each day, and `now` for the last one.
      *
      * End of day rather than start, so a report filed this morning has
      * already moved today's point. And `now` rather than the end of
-     * today, so the curve's last point is the number
-     * `DecayingModelBase::computeCurrentScore` would compute — which is
-     * what makes the rail card's closing sentence true rather than
-     * approximately true.
+     * today, so the series' last point is the runway the rail card
+     * prints — which is what makes the card's closing sentence true
+     * rather than approximately true.
      *
      * @param array $span From `ValueStatsTool::sightingSpan`
      * @return array Ascending unix timestamps
@@ -6846,8 +6634,9 @@ class ValueProfile extends AppModel
         );
         $notes = array(
             1 => __(
-                'Type 1. Moves no decay score: MISP resets the clock on'
-                . ' type-0 sightings only.'
+                'Type 1. Corroborates nothing: the relevance clock'
+                . ' counts type-0 reports only, so a contradiction'
+                . ' cannot extend the value\'s shelf life.'
             ),
             2 => __(
                 'Type 2. An organisation retiring the value, not'
@@ -12849,6 +12638,17 @@ class ValueProfile extends AppModel
                 $profile
             ),
             'sightings' => array('total' => 0, 'fp' => 0),
+            /*
+             * The relevance clock's sighting half. Empty here and
+             * filled by the row read below, so a value whose rows were
+             * not fetched has a clock that says which half it is
+             * missing rather than one that quietly runs off the
+             * occurrences alone.
+             */
+            'corroboration' => ValueRelevanceTool::corroborationFrom(
+                array(),
+                array()
+            ),
             'galaxies' => array(
                 'clusters' => array(),
                 'techniques' => array(),
@@ -12886,6 +12686,7 @@ class ValueProfile extends AppModel
                 $plan
             );
             $context['sightings'] = $sightings['facts'];
+            $context['corroboration'] = $sightings['corroboration'];
             $tallies['sightings'] = $sightings['excluded'];
             $tallies['sightings_undecidable'] =
                 $sightings['undecidable'];
@@ -13004,6 +12805,9 @@ class ValueProfile extends AppModel
                 'to_ids_yes' => (int)$row[0]['to_ids_yes'],
                 'to_ids_no' => (int)$row[0]['to_ids_no'],
                 'newest' => (int)$row[0]['newest'],
+                // When this organisation joined — the relevance clock's
+                // occurrence half (`06-staleness.md` §3.3).
+                'oldest' => (int)$row[0]['oldest'],
             );
         }
         return $orgs;
@@ -13236,6 +13040,20 @@ class ValueProfile extends AppModel
             $selfExcluded = $filtered['excluded'];
             $undecidable = $filtered['undecidable'];
         }
+        /*
+         * The relevance clock, folded here and not below, because it is
+         * a whole-history aggregate by declaration and the window is
+         * the one exclusion it does not see (`06-staleness.md` §3.3).
+         * A windowed clock could not tell stale-since-91-days from
+         * stale-since-three-years while `ttl_days` reaches 730 — and
+         * this line's position in the method is the whole of that
+         * property, so it sits between the two filters on purpose:
+         * after `sightings.self`, before `evidence.window`.
+         */
+        $corroboration = ValueRelevanceTool::corroborationFrom(
+            $rows,
+            $context['sighted']
+        );
         $windowed = 0;
         if (!empty($budget['window_days'])) {
             $cut = $now - (int)$budget['window_days'] * 86400;
@@ -13269,6 +13087,7 @@ class ValueProfile extends AppModel
                 'recent_days' => $signals['recent_days'],
                 'first_stamp' => $signals['first_stamp'],
             ),
+            'corroboration' => $corroboration,
             'windowed' => $windowed,
             'excluded' => $selfExcluded,
             'undecidable' => $undecidable,

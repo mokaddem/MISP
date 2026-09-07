@@ -248,9 +248,32 @@ class ValuesController extends AppController
         );
     }
 
+    /**
+     * The Overview rail's Lifecycle card — three questions that all
+     * bear on *is this still worth acting on*.
+     *
+     * **One of the three went live in phase 5 and the other two did
+     * not**, which is deliberate and the narrower reading of
+     * `00-contract.md` §14.12's note about a tab not being
+     * indivisible. This phase owns the freshness question and retires
+     * the decay bars that used to answer it, so leaving the card
+     * rendering a fixture literal in their place would ship a panel
+     * saying something no query supports. The warninglist and
+     * correlation lines are the Overview's own phase to convert and
+     * are untouched.
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewLifecycle($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_lifecycle');
+        $this->loadModel('ValueProfile');
+        $profile = $this->profileFor($b64value);
+        $profile['relevance'] = $this->ValueProfile->forRelevance(
+            $this->Auth->user(),
+            $profile['value']
+        )['relevance'];
+        $this->renderPanel($profile, 'value_lifecycle');
     }
 
     /**
@@ -309,12 +332,16 @@ class ValuesController extends AppController
      * opposite reason. There the rail counts the rows beside it, so one
      * fetch is the only honest shape; here the chart, the list and the
      * three rail cards are five readings of the same rows that resolve
-     * at their own speed, and the overlay is the slow one.
+     * at their own speed, and the overlay is the widest.
      *
-     * **Live since phase 23**, and the split earned its keep: the two
-     * panels that draw a decay curve each spend around 200,000 formula
-     * evaluations on it, and the three that do not spend none.
-     * prd/value-profile-live/23-sightings.md.
+     * **Live since phase 23.** The split earned its keep on the decay
+     * envelope — the two panels that drew a curve each spent around
+     * 200,000 formula evaluations on it — and phase 5 retired the
+     * envelope without collapsing the split: five readings that resolve
+     * at their own speed is still the right shape for a tab whose table
+     * is the part a reader acts on.
+     * prd/value-profile-live/23-sightings.md,
+     * prd/analyst-profile/06-staleness.md §4.
      *
      * @param string $b64value
      * @return void
@@ -337,12 +364,27 @@ class ValuesController extends AppController
         );
     }
 
-    public function viewSightingDecay($b64value = null)
+    /**
+     * The rail's relevance card, which until phase 5 was the decay card.
+     *
+     * `prd/analyst-profile/06-staleness.md` §4 is the retirement and its
+     * reason: MISP's decay score is largely a restatement of the value's
+     * tags multiplied by a time factor, and the assessment's quality
+     * ledger already scores those tags directly with a per-row audit
+     * trail. So the page takes the time factor and leaves the base
+     * score. `decaying_models` itself is untouched — the decaying tool,
+     * `excludeDecayed`, `includeDecayScore` and every non-Value-Profile
+     * caller keep working exactly as they do.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewRelevance($b64value = null)
     {
         $this->renderSightingPanel(
             $b64value,
-            'forSightingDecay',
-            'value_sighting_decay'
+            'forRelevance',
+            'value_relevance'
         );
     }
 

@@ -16,11 +16,12 @@ document holding every judgement the scoring engine needs — signal weights, th
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phases 1 to 4 — the store, the engine that
-reads it, the lean and bands that turn its ledger into an assessment, and the
-exclusions that decide what the ledger may see — are built as of
-2026-09-07**; the other six phases are specifications. The corpus is fifteen
-documents, phase by phase.
+viewer (nearest owner wins). **Phases 1 to 5 — the store, the engine that
+reads it, the lean and bands that turn its ledger into an assessment, the
+exclusions that decide what the ledger may see, and the relevance axis that
+says whether any of it still matters — are built as of 2026-09-07**, which
+is every phase the Assessment tab depends on; the other five phases are
+specifications. The corpus is fifteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -32,7 +33,7 @@ claimed more. It is an **Assessment** on three axes
 | Axis | The question | Sourced from |
 |---|---|---|
 | **Lean** | what does the record assert this is? — `threat` / `benign` / `contested` / `none` | `to_ids` stance per org, warninglist categories |
-| **Relevance** | does it still matter today? — `current` / `aging` / `expired` / `timeline uncertain` | per-type TTL against last independent corroboration, temporal precision |
+| **Relevance** | does it still matter today? — `current` / `aging` / `expired` / `timeline uncertain`, with uncertainty also carried as a flag | per-type TTL against last independent corroboration, temporal precision |
 | **Quality** | how much can the record be trusted? — the number, with a ledger | the scored signals: corroboration, trust, attribution |
 
 A late-encoded phishing URL reads *"asserted threat · thin record · likely
@@ -101,10 +102,11 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 4 are built;
-5, 6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 5 are built;
+6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
 store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
-(the tab goes live) → 10. **Phase 5 is the last one phase 9 needs.**
+(the tab goes live) → 10. **Phase 9 now has every phase it needs**, and 6
+and 8 are independent of it.
 
 **Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
 table, `app/Model/AnalystProfile.php`, and the shipped
@@ -181,10 +183,47 @@ checks with no database and 18 against the dev instance. Five findings are in
   live probe caught it by asserting the rule's *inputs*; the same value then
   excluded 30 (§7.3).
 
+**Phase 5, built 2026-09-07.** The relevance axis
+(`ValueRelevanceTool`) — the clock, the curve at `decay_speed` 1, the
+per-type TTL and the four states — plus the retirement D7 promised: the
+page reads MISP's decaying models **nowhere**. `ValueDecayTool`, the decay
+panel and `ValueProfile`'s decay path are deleted, the rail card is
+`value_relevance.ctp`, and the sightings overlay plots the TTL runway
+against the report bars, which is two quantities where it used to be two
+estimates of one. Verified by 106 checks with no database and 58 against
+the dev instance. Six findings are in `06-staleness.md` §7; three are
+worth knowing about from here:
+
+- **The four states are not four.** `12-assessment.md` §3 reads the
+  late-encoded phishing URL as *"expired · timeline uncertain"* — two of
+  them at once. So the state is one word and the uncertainty is also a
+  flag, and expiry outranks uncertainty for a reason rather than by
+  preference: an encoding date is later than the observation it stands
+  for, so elapsed time measured from it is a **lower bound**, and a bound
+  already past the TTL is past it on any honest reading (§7.1).
+- **D11's invariant is directional.** The harness's first attempt at
+  *"the quality is byte-identical across the boundary"* failed by two
+  points, correctly — `occurrences.newest` is the fallback clock *and*
+  `lifecycle.recency`'s evidence. D11 forbids anything *reading* the
+  relevance block, not the two axes sharing a date; proving it needs a
+  relevance-only knob, and the TTL is one (§7.2).
+- **`timeline uncertain` is the common state, not the exotic one.**
+  `8.8.8.8` has 0 of 26 occurrences carrying `first_seen` and a 302-day
+  encoding lag. The shipped default will call most real values' timelines
+  uncertain, which is the honest reading of MISP data rather than a
+  calibration error — and it is why relevance asks *can this be dated at
+  all* while `record.temporal_precision` grades *how well* (§7.3).
+
+Also measured: the two rebuilt endpoints went from 21 queries each to 10
+and 11, and the retirement is asserted from the query log rather than by
+grep — a grep cannot say that no query reaches a table, and the probe's
+first run reported *"0 queries, 0 touching decaying_models"* because the
+datasource log had stopped recording (§7.5).
+
 Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
-phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus two
-phase-9 items — the curves' historical derivation and the hero's three-axis
-composition. **Nothing gating phases 1–5 is open any more.**
+phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus one
+phase-9 item — the hero's three-axis composition. **Nothing gating
+phases 1–5 is open any more, and phase 5 opened nothing.**
 
 Three questions closed in three days, and two closed against this corpus's
 own recorded recommendation:

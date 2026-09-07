@@ -1,20 +1,29 @@
 <?php
 /**
- * The overlay: what was reported, and what it did to the score.
+ * The overlay: what was reported, and what it did to the value's shelf
+ * life.
  *
- * MISP has computed a decay curve per attribute for years and has never
- * had anywhere to draw it against the sightings that move it. That is
- * the whole argument for this panel, and it is why the curve is not in
- * a card of its own: on one axis pair the reader can see a burst of
- * reports lift a line, and — the harder thing — see a false positive
- * land and lift nothing.
+ * The reader can see a burst of reports lift the line, and — the harder
+ * thing — see a false positive land and lift nothing. That is the whole
+ * argument for this panel and it is why the curve is not in a card of
+ * its own.
  *
- * The thresholds are not drawn. Two dotted lines, two labels chipped
- * over the plot and two more legend keys were four marks per model
- * saying one number that does not move, and they were in the readout
- * at every hovered column as well. The number lives in the rail
- * beside the chart, as the tick across each model's bar, which is
- * where a reader asking `is it under?` is already looking.
+ * **The line changed subject in phase 5** and the panel is better for
+ * it (`prd/analyst-profile/06-staleness.md` §4.2). It used to be one
+ * decay score per applicable model: a second opinion about *how bad is
+ * this*, on a page whose ledger answers that from more evidence, drawn
+ * against a count of reports. It is now the **TTL runway** — the share
+ * of the value's shelf life still left — so the two axes carry two
+ * different quantities rather than two estimates of one, and the
+ * question they answer together is one an analyst actually has.
+ *
+ * One line rather than two, for the same reason: a value has one shelf
+ * life however many models MISP would have scored it under.
+ *
+ * No threshold is drawn, and now there is none to draw. A decay model's
+ * threshold was a constant chipped over the plot and repeated in the
+ * readout at every column; expiry is the line reaching the axis, which
+ * the axis already shows.
  *
  * All three kinds of report are stacked by organisation. Sightings
  * alone used to be, with false positives and expirations pooled into a
@@ -62,7 +71,7 @@ App::uses('ValueProfileBuckets', 'Tools');
 
 $series = $valueProfile['sighting_series'];
 $sightings = $valueProfile['sightings'];
-$decay = $valueProfile['decay'];
+$relevance = $valueProfile['relevance'];
 $notes = $valueProfile['sighting_notes'];
 $positive = $sightings['total'] - $sightings['fp'] - $sightings['expiration'];
 
@@ -173,9 +182,9 @@ $subtitle = $sightings['total'] === 0
  * of these per drawn bar, so a zoom step and a preset switch are the
  * same arithmetic rather than a re-fetch or a re-derive (§13.1).
  *
- * The decay curve is one sample a day rather than one a bucket, and
- * the browser reads the sample at each bar's last day. A count sums
- * when bars are merged; a score does not.
+ * The runway is one sample a day rather than one a bucket, and the
+ * browser reads the sample at each bar's last day. A count sums when
+ * bars are merged; a share of remaining shelf life does not.
  */
 $payload = null;
 if ($series !== null) {
@@ -186,7 +195,6 @@ if ($series !== null) {
         'curves' => $series['curves'],
         'spans' => $series['spans'],
         'default' => $series['default_span'],
-        'models' => $decay,
         'labels' => array(
             /*
              * The readout's headings. One per kind of report and one
@@ -217,7 +225,7 @@ if ($series !== null) {
                     __('expirations'),
                 ),
             ),
-            'score' => __('Decay score'),
+            'score' => __('Shelf life'),
             /*
              * The axis now has two halves and the caption is the only
              * place that says which is which before the reader hovers
@@ -282,7 +290,7 @@ if ($series !== null) {
                         . ' · sightings up, contradictions down') ?>
                 </span>
                 <span class="vp-subhead vp-sight-axis-right">
-                    <?= __('Decay score · 0–100') ?>
+                    <?= __('Shelf life left · % of the TTL') ?>
                 </span>
             </div>
 
@@ -291,16 +299,17 @@ if ($series !== null) {
                         aria-label="<?= h(__(
                             'Reports per organisation over time — sightings'
                             . ' above the axis, false positives and'
-                            . ' expirations below it — with each decaying'
-                            . ' model\'s score overlaid'
+                            . ' expirations below it — with the share of'
+                            . ' the value\'s shelf life still left'
+                            . ' overlaid'
                         )) ?>"></canvas>
                 <?php if ($sightings['total'] === 0): ?>
                     <?php
                     /*
-                     * The axes stay. "No sightings" and "no score" are
-                     * different claims, and the rail beside this still
-                     * carries a score — MISP decays an un-sighted
-                     * attribute from its own first-seen date.
+                     * The axes stay. "No sightings" and "no shelf life"
+                     * are different claims, and the rail beside this
+                     * still carries a runway — a value nobody has
+                     * reported still ages, from its own encoding date.
                      */
                     ?>
                     <div class="vp-sight-overlay">
@@ -355,7 +364,7 @@ if ($series !== null) {
              * Three groups, each behind its own heading and separated
              * by a rule, matching the readout: who reported, which of
              * those reports argue against the value, and what the
-             * models make of it. One run of keys made a decay score
+             * the shelf life is. One run of keys made the overlay
              * look like a seventh reporter — and it filed `False
              * positive` among the organisations, as though a
              * contradiction were somebody's name.
@@ -444,22 +453,25 @@ if ($series !== null) {
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
-                <?php if (!empty($decay)): ?>
+                <?php if ($relevance['state'] !== null): ?>
                     <div class="vp-sight-legend-group">
                         <span class="vp-sight-legend-head">
-                            <?= __('Decay score') ?>
+                            <?= __('Shelf life') ?>
                         </span>
-                        <?php foreach ($decay as $i => $model): ?>
-                            <span class="vp-sight-key">
-                                <span class="vp-sight-swatch
-                                             vp-sight-swatch-line"
-                                      style="--vp-sight-hue:
-                                          var(--vp-sight-curve-<?=
-                                          (int)($i % 2) + 1 ?>);"></span>
-                                <?= h($model['model']) ?>
-                                <b><?= h($model['score']) ?></b>
-                            </span>
-                        <?php endforeach; ?>
+                        <span class="vp-sight-key">
+                            <span class="vp-sight-swatch
+                                         vp-sight-swatch-line"
+                                  style="--vp-sight-hue:
+                                      var(--vp-sight-curve-1);"></span>
+                            <?= h(sprintf(
+                                __('%s days of TTL'),
+                                $relevance['ttl']['days']
+                            )) ?>
+                            <b><?= h(sprintf(
+                                '%d%%',
+                                (int)round($relevance['runway'] * 100)
+                            )) ?></b>
+                        </span>
                     </div>
                 <?php endif; ?>
             </div>
@@ -519,9 +531,9 @@ if ($series !== null) {
                 /*
                  * A cap, not a permission — §14.6 keeps cap notices for
                  * exactly this reason. `All time` on a value first seen
-                 * in 2015 would be 3,948 daily curve samples per model,
-                 * so the span is bounded and the label says which
-                 * question it is answering.
+                 * in 2015 would be 3,948 daily samples, so the span is
+                 * bounded and the label says which question it is
+                 * answering.
                  */
                 ?>
                 <p class="vp-sight-note">
@@ -529,8 +541,8 @@ if ($series !== null) {
                     <span><?= h(sprintf(
                         __('Charted from %1$s. This value was first'
                             . ' recorded on %2$s; the chart bounds its'
-                            . ' span so the decay curve stays one'
-                            . ' sample a day.'),
+                            . ' span so the runway stays one sample a'
+                            . ' day.'),
                         $series['from'],
                         $series['first']
                     )) ?></span>

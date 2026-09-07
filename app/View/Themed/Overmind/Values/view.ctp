@@ -280,8 +280,8 @@ $panelChrome = array(
         $await(__('Individual sightings'), $icoSight, 'var(--sighting)',
             6),
     ),
-    'viewSightingDecay' => array(
-        $await(__('Decay models'), 'fas fa-hourglass-half',
+    'viewRelevance' => array(
+        $await(__('Shelf life'), 'fas fa-hourglass-half',
             'var(--correlation)', 3, $aside),
     ),
     'viewSightingReporters' => array(
@@ -416,7 +416,8 @@ $verdictBadge = array(
 
 /*
  * An UNKNOWN value has nothing for the Verdict rail — no score to
- * compose, no model to decay, no warninglist hit to explain — so that
+ * compose, no shelf life to run down, no warninglist hit to explain —
+ * so that
  * tab keeps the full width rather than reserving a column for cards
  * that would each render their own nothing. `value_verdict_aside`
  * holds the matching decision about which cards apply.
@@ -543,16 +544,16 @@ $tabRegistry = array(
          * condition for putting a number back.
          *
          * The page's usual 9/3 split. The overlay is the tab, and it
-         * needs the width: bars stacked by organisation under two decay
-         * curves on their own axis is not a chart that survives being
-         * put in a card beside something else.
+         * needs the width: bars stacked by organisation under the shelf
+         * life on its own axis is not a chart that survives being put in
+         * a card beside something else.
          */
         'left' => array(
             $panel('viewSightingChart'),
             $panel('viewSightingList'),
         ),
         'right' => array(
-            $panel('viewSightingDecay'),
+            $panel('viewRelevance'),
             $panel('viewSightingReporters'),
             $panel('viewSightingAdd'),
         ),

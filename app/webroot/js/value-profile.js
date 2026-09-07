@@ -3058,8 +3058,8 @@
      * between them — by summing a slice of the daily tally per bar.
      *
      * The curves are sampled, not summed. A count is additive and a
-     * decay score is not: it is the value as of a date, so a bar that
-     * covers a week takes the score at the end of that week, which is
+     * a shelf life is not: it is the value as of a date, so a bar that
+     * covers a week takes the sample at the end of that week, which is
      * where the per-range curves used to be sampled.
      *
      * @return {Object|null}
@@ -3454,18 +3454,19 @@
         });
         /*
          * At least one unit of headroom above the line even when
-         * nothing supports the value, because the decay curve is drawn
-         * in that band and a value nobody has ever sighted still has a
-         * score. Without it, `45.155.205.233` — three false positives
-         * and no sighting — would give the curve no height to live in.
+         * nothing supports the value, because the overlay is drawn in
+         * that band and a value nobody has ever sighted still has a
+         * shelf life. Without it, `45.155.205.233` — three false
+         * positives and no sighting — would give the line no height to
+         * live in.
          */
         return { up: Math.max(1, up), down: down };
     }
 
     /**
      * The overlay itself: one stacked bar dataset per organisation per
-     * kind of report on the count axis, and one line per decaying model
-     * on the score axis.
+     * kind of report on the count axis, and the value's remaining shelf
+     * life on the right-hand axis.
      *
      * Three datasets per organisation rather than one each plus two
      * pooled ones. Pooling meant a sighting had a reporter and a
@@ -3482,9 +3483,10 @@
      *
      * The thresholds used to be here too, as a dotted dataset each plus
      * an inline plugin that chipped their value over the plot. They are
-     * gone: a threshold is a constant, it was drawn per model and
-     * listed again in the readout at every column, and the rail beside
-     * the chart already carries it as the tick across each model's bar.
+     * gone twice over: a threshold was a constant drawn per model and
+     * listed again in the readout at every column, and since phase 5
+     * there is no model and no threshold — expiry is the line reaching
+     * the axis.
      *
      * An organisation the legend has switched off is skipped rather
      * than emptied, and the colour still comes from its position in

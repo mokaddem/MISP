@@ -61,7 +61,7 @@
  * types        [['type','count'], …]                     aggregate
  * occurrences  ['total','events','orgs','oldest','newest']  aggregate
  * orgs         [['id','name','occurrences','to_ids_yes',
- *                'to_ids_no'], …]                        aggregate
+ *                'to_ids_no','newest','oldest'], …]       aggregate
  * publication  ['events','published','unpublished']       aggregate
  * activity     ['months' => ['2025-07' => 3, …], 'active_months',
  *               'span_months','longest_run','gaps']       aggregate
@@ -74,6 +74,8 @@
  * warninglist  ['hits' => [['name','category'], …],
  *               'lists_checked','category']              aggregate
  * feeds        ['count','names']                          aggregate
+ * corroboration ['sightings_days','foreign_days','last_sightings',
+ *                'last_foreign','undecidable']            aggregate
  * budget       ['window_days','hot','occurrences','threshold']
  * excluded     ['sightings' => int, …]  what exclusions removed
  * missing      ['sightings' => 'reason', …]  facts that could not be read
@@ -84,6 +86,13 @@
  * nobody sighted (§4.2, `05-exclusions.md` §2.1). `missing` is how a
  * fact that could not be read reaches `not_counted` instead of being
  * scored as absent — the engine reads it against `$reads`.
+ *
+ * `corroboration` is the relevance axis's, and it is classed
+ * **aggregate** although it is folded from rows — because the clock is
+ * whole-history by declaration and does not see `evidence.window`
+ * (`06-staleness.md` §3.3). No signal here reads it: relevance is its
+ * own axis and emits no ledger row (D11), so it is documented for the
+ * shape rather than offered as evidence.
  */
 abstract class ValueSignalBase
 {

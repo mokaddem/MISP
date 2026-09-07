@@ -3,36 +3,52 @@
  * Whether this value is still worth acting on.
  *
  * Three questions that all bear on the same thing and answer it
- * differently: has the score decayed past its model's threshold, does
- * the value hit a warninglist, and does it correlate with so much that
- * the correlations mean nothing.
+ * differently: is the record still current, does the value hit a
+ * warninglist, and does it correlate with so much that the
+ * correlations mean nothing.
  *
  * A warninglist miss is as informative as a hit, so the number of lists
  * checked is stated: "no hit" and "not checked" are not the same claim.
+ *
+ * **The first question changed in phase 5.** It used to be *has the
+ * score decayed past its model's threshold*, drawn as one bar per
+ * decaying model — a score MISP computes largely from the value's own
+ * tags multiplied by a time factor, which the assessment's quality
+ * ledger now scores directly and without the double counting
+ * (`prd/analyst-profile/06-staleness.md` §4). What is here instead is
+ * the relevance axis at card scale: the state, the runway, and the date
+ * the clock last moved. The rail card on the Sightings tab
+ * (`value_relevance`) is the same statement at panel scale, with the
+ * provenance and the corroboration timeline this card has no room for.
+ *
+ * **The relevance block is live and the other two lines are not.** The
+ * card is not indivisible either — see `ValuesController::viewLifecycle`
+ * for why this phase converted its own third of it and left the rest.
  *
  * Lazily loaded into `.ajax-card` from ValuesController::viewLifecycle.
  *
  * @var array $valueProfile
  * @var string $valueB64
  */
-$decay = $valueProfile['decay'];
+$relevance = $valueProfile['relevance'];
 $warninglists = $valueProfile['warninglists'];
 $checked = $valueProfile['warninglists_checked'];
 $correlations = $valueProfile['correlations'];
 
-$decayed = 0;
-foreach ($decay as $model) {
-    if (!empty($model['decayed'])) {
-        $decayed++;
-    }
-}
+$stateLabels = array(
+    'current' => __('current'),
+    'aging' => __('aging'),
+    'expired' => __('expired'),
+    'uncertain' => __('timeline uncertain'),
+);
+$state = $relevance['state'];
 
-$subtitle = empty($decay)
-    ? h(__('No decaying model applies'))
+$subtitle = $state === null
+    ? h(__('Nothing recorded to age'))
     : h(sprintf(
-        __('%1$s of %2$s models still above threshold'),
-        count($decay) - $decayed,
-        count($decay)
+        __('%1$s of %2$s days of shelf life left'),
+        max(0, $relevance['runway_days']),
+        $relevance['ttl']['days']
     ));
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
@@ -47,53 +63,83 @@ $subtitle = empty($decay)
 
     <div class="p-3 d-flex flex-column gap-3">
 
-        <?php if (!empty($decay)): ?>
-            <div class="d-flex flex-column gap-2">
-                <?php foreach ($decay as $model): ?>
-                    <div class="vp-decay<?= !empty($model['decayed'])
-                        ? ' vp-decay-expired'
-                        : '' ?>">
-                        <div class="vp-decay-head">
-                            <span class="vp-decay-model"
-                                  title="<?= h($model['model']) ?>">
-                                <?= h($model['model']) ?>
-                            </span>
-                            <?php if (!empty($model['decayed'])): ?>
-                                <span class="vp-decay-flag">
-                                    <?= __('decayed') ?>
-                                </span>
-                            <?php endif; ?>
-                            <span class="vp-decay-score">
-                                <?= h($model['score']) ?>
-                            </span>
-                        </div>
-                        <div class="vp-decay-track"
-                             title="<?= h(sprintf(
-                                 __('Score %1$s, threshold %2$s'),
-                                 $model['score'],
-                                 $model['threshold']
-                             )) ?>">
-                            <span class="vp-decay-fill"
-                                  style="width: <?=
-                                      (int)$model['score'] ?>%;"></span>
-                            <span class="vp-decay-threshold"
-                                  style="left: <?=
-                                      (int)$model['threshold'] ?>%;"></span>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+        <?php if ($state !== null): ?>
+            <div class="vp-shelf vp-shelf-<?= h($state) ?>">
+                <div class="vp-shelf-head">
+                    <span class="vp-shelf-state">
+                        <?= h($stateLabels[$state]) ?>
+                    </span>
+                    <span class="vp-shelf-days">
+                        <?= h(sprintf(
+                            __('%1$s of %2$s days elapsed'),
+                            $relevance['elapsed_days'],
+                            $relevance['ttl']['days']
+                        )) ?>
+                    </span>
+                </div>
+                <div class="vp-shelf-track"
+                     title="<?= h(sprintf(
+                         __('%1$s days elapsed of a %2$s day TTL'),
+                         $relevance['elapsed_days'],
+                         $relevance['ttl']['days']
+                     )) ?>">
+                    <span class="vp-shelf-fill"
+                          style="width: <?= (int)round(
+                              $relevance['runway'] * 100
+                          ) ?>%;"></span>
+                    <span class="vp-shelf-mark"
+                          style="left: <?= (int)round(
+                              $relevance['aging_fraction'] * 100
+                          ) ?>%;"></span>
+                </div>
+                <div class="vp-shelf-prov">
+                    <?php if (!empty($relevance['uncertain'])): ?>
+                        <?php
+                        /*
+                         * The measurement, at card scale. §3.6 requires
+                         * the number wherever the state is shown — a
+                         * bare `timeline uncertain` is the same silent
+                         * guess it exists to replace.
+                         */
+                        ?>
+                        <?= h($relevance['uncertain_note']) ?>
+                    <?php elseif (!empty($relevance['clock']['fallback'])): ?>
+                        <?= h(sprintf(
+                            __('Never independently corroborated —'
+                                . ' encoded %s'),
+                            date('Y-m-d', $relevance['clock']['at'])
+                        )) ?>
+                    <?php else: ?>
+                        <?= h(sprintf(
+                            __('Last corroborated %1$s by %2$s'),
+                            date('Y-m-d', $relevance['clock']['at']),
+                            $relevance['clock']['by'] === null
+                                ? __('an unnamed organisation')
+                                : $relevance['clock']['by']
+                        )) ?>
+                    <?php endif; ?>
+                    ·
+                    <?= h($relevance['ttl']['type'] === null
+                        ? __('default TTL')
+                        : sprintf(
+                            __('TTL from %s'),
+                            $relevance['ttl']['type']
+                        )) ?>
+                </div>
             </div>
         <?php else: ?>
             <?php
             /*
              * The other two lines below answer even when the answer is
-             * "nothing", so a silently absent decay section would read as
-             * a rendering gap rather than as a value no model scores.
+             * "nothing", so a silently absent freshness section would
+             * read as a rendering gap rather than as a value this
+             * reader holds nothing about.
              */
             ?>
             <div class="vp-empty vp-empty-inline">
                 <i class="fas fa-hourglass-half"></i>
-                <span><?= __('No decaying model scores this value.') ?></span>
+                <span><?= __('Nothing is recorded for this value, so'
+                    . ' there is no clock to run.') ?></span>
             </div>
         <?php endif; ?>
 

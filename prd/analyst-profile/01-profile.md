@@ -96,10 +96,11 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Phases 1 to 4 are built as of 2026-09-07**; phases 5, 6 and 8–10 are
+**Phases 1 to 5 are built as of 2026-09-07**; phases 6 and 8–10 are
 specifications; phase 7 is blocked on a store that does not exist. Phase 10
 was a recorded direction until 2026-09-03, when D10 settled its design and it
-became specifiable.
+became specifiable. **Phase 9 — the tab going live — now has every phase it
+depends on.**
 
 Phase 2 built the accumulator, the eleven-signal catalogue and D12's
 filesystem loader, and its exit criterion holds against real rows: the
@@ -125,20 +126,48 @@ de-numbered, and `reason` carries two values rather than three
 the query layer rather than over the context, because half a value's evidence
 is an aggregate and never exists as rows (§7.1 there).
 
-**What remains before the tab can go live is relevance — phase 5, the last of
-the five phase 9 needs.**
+**Phase 5 completes the assessment's remaining axis and retires live
+code.**
+The page no longer reads MISP's decaying models anywhere:
+`ValueDecayTool` and the decay panel are deleted and `ValueProfile` lost
+392 lines, replaced by an axis computed from a handful of dates — and the
+two endpoints that drew a curve went from 21 queries each to 10 and 11.
+The new tool is *longer* than what it replaced while the machinery is
+smaller, which §7.6 states rather than hides. The retirement is asserted from the query log rather than
+by grep, because a grep cannot say that no query reaches a table
+([`06-staleness.md`](06-staleness.md) §7.5).
+
+Two findings there are worth knowing from here. **The four states are not
+four**: the late-encoded phishing URL is *"expired · timeline uncertain"*
+in `12-assessment.md` §3, so the state is one word and the uncertainty is
+also a flag — and expiry outranks uncertainty because an encoding date is
+later than what it stands for, making elapsed time measured from it a
+lower bound (§7.1). And **D11's invariant is directional**: relevance and
+quality share inputs — `occurrences.newest` is the fallback clock *and*
+`lifecycle.recency`'s evidence — so what D11 forbids is anything reading
+the relevance block, not the two axes touching one date. Proving it needs
+a relevance-only knob, and both the harness and the probe now use the TTL
+(§7.2).
+
+**What remains before the tab can go live is nothing in this feature's
+dependency chain.** Phase 9 is next in build order; phase 6 (reference)
+and phase 8 (the editor) are independent of it.
 
 Building phase 1 closed **Q7 as D13** and, alongside it, **Q5 as D14** —
 the two questions that gated phases 1 and 2; building phase 2 left every
 remaining question where it was, and added one item to phase 3's list, which
 phase 3 closed. Q11 had closed two days earlier
 as D12. **Every question gating the next phase is now answered**; Q9, Q10 and
-Q13 land in phases 9, 7 and 10 and block nothing before them.
+Q13 land in phases 9, 7 and 10 and block nothing before them. Phase 5
+opened none: it settled the state-versus-flag question in
+[`12-assessment.md`](12-assessment.md) §7's remaining list only insofar as
+the axis itself is concerned, and the hero's three-axis composition is
+still phase 9's.
 
 The order below is a dependency order, not a schedule. Phase 1 gates
 everything. Phases 2–6 are the profile's six sections and can proceed
 independently once phase 1 lands. Phase 9 is the payoff — the Verdict tab goes
-live — and needs 1–5.
+live — and needs 1–5, **all of which are now built**.
 
 | Phase | What | Written up in | Status |
 |---|---|---|---|
@@ -146,7 +175,7 @@ live — and needs 1–5.
 | 2 | **Signals and the engine** — the `signals` section, the mechanism that turns it into a ledger and a score, and the loader that discovers signal implementations from the filesystem | [`03-signals.md`](03-signals.md) | **built 2026-09-07** — `ValueVerdictTool`, `ValueSignalLoader`, eleven signal files, the context builder, the eleven-signal default. 96 harness checks and 36 live; eight findings in §11, one of them phase 3's to close |
 | 3 | **The lean and the bands** — the lean derivation, `thresholds` and `escalations`, the quality bands, derived `changers` | [`04-dispositions.md`](04-dispositions.md) | **built 2026-09-07** — `ValueLeanTool`, `ValueChangersTool`, the `escalation` loader subject with two shipped rules, rule 7 and the tug, `thin_record_clamp`, `isDefinite()` wired. 100 harness checks and 52 live; six findings in §11. Closes phase 2's §11.1 and §11.2 |
 | 4 | **Exclusions** — the `exclusions` section, and splitting policy from ACL in `not_counted` | [`05-exclusions.md`](05-exclusions.md) | **built 2026-09-07** — `ValueExclusionTool`, `orgs.own` as a query predicate, `sightings.self`, `feeds.mirrored`, the `reason` key. 44 harness checks and 18 live; five findings in §7, and `acl` is retired before it shipped (§7.2) |
-| 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | specification — reworked 2026-09-03 as the **relevance** axis (D11) |
+| 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | **built 2026-09-07** — `ValueRelevanceTool`, the completed `relevance` section, `value_relevance.ctp` and the TTL runway overlay; `ValueDecayTool` and the decay path deleted. 106 harness checks and 58 live; six findings in §7 |
 | 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | specification |
 | 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **scope note — blocked.** Needs the per-value/per-module last-run store, which does not exist |
 | 8 | **The editor** — index, view, edit, fork, and the profile simulator | [`09-editor.md`](09-editor.md) | specification |

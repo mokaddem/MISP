@@ -1,6 +1,6 @@
 <?php
 App::uses('ValueProfileBuckets', 'Tools');
-App::uses('ValueDecayTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools');
 
 /**
  * The cross-cutting aggregates the Value Profile page's panels share:
@@ -1004,14 +1004,14 @@ class ValueStatsTool
      * From the value's oldest evidence — the earliest occurrence date or
      * the earliest report, whichever is older, since a report can
      * predate the attribute row that now carries the value — to today.
-     * Bounded by `ValueDecayTool::SPAN_CAP_DAYS`, and `clipped` says so
-     * when it was, because a cap is not a permission (§14.6).
+     * Bounded by `ValueRelevanceTool::SPAN_CAP_DAYS`, and `clipped` says
+     * so when it was, because a cap is not a permission (§14.6).
      *
      * The oldest occurrence date arrives as one number from
      * `Value::occurrenceSummaryFor` rather than being scanned out of a
      * row set. It has to be the oldest of *every* occurrence — the
-     * chart's span is a claim about the value, not about the hundred
-     * occurrences the decay envelope happened to score.
+     * chart's span is a claim about the value, not about whichever
+     * occurrences the overlay happens to read.
      *
      * @param array $summary From `Value::occurrenceSummaryFor`
      * @param array $rows Rows as `Sighting::listSightings` returns
@@ -1041,7 +1041,7 @@ class ValueStatsTool
         }
         $floor = date(
             'Y-m-d',
-            strtotime($today) - (ValueDecayTool::SPAN_CAP_DAYS - 1) * 86400
+            strtotime($today) - (ValueRelevanceTool::SPAN_CAP_DAYS - 1) * 86400
         );
         return array(
             'from' => max($oldest, $floor),
@@ -1069,7 +1069,9 @@ class ValueStatsTool
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @param array $span From sightingSpan
      * @param array $totals From sightingTotals
-     * @param array $curves One per model: `model`, `threshold`, `points`
+     * @param array $curves The overlay series: `model`, `threshold`,
+     *                      `points` — one entry since phase 5, the TTL
+     *                      runway
      * @return array
      */
     public static function sightingSeries(array $rows, array $span,
@@ -1289,14 +1291,15 @@ class ValueStatsTool
         if ($totals['fp'] > 0) {
             $fp = sprintf(
                 __n(
-                    'The false positive on %1$s leaves every curve flat.'
-                        . ' MISP resets the decay clock on sightings'
-                        . ' alone, so a contradiction is visible on the'
-                        . ' axis but moves no score.',
+                    'The false positive on %1$s leaves the runway flat.'
+                        . ' The relevance clock counts type-0 reports'
+                        . ' only, so a contradiction is visible on the'
+                        . ' axis and extends nothing.',
                     'The %2$s false positives, the last of them on %1$s,'
-                        . ' leave every curve flat. MISP resets the decay'
-                        . ' clock on sightings alone, so a contradiction'
-                        . ' is visible on the axis but moves no score.',
+                        . ' leave the runway flat. The relevance clock'
+                        . ' counts type-0 reports only, so a'
+                        . ' contradiction is visible on the axis and'
+                        . ' extends nothing.',
                     $totals['fp']
                 ),
                 date('Y-m-d', $totals['last_fp_stamp']),
@@ -1305,9 +1308,9 @@ class ValueStatsTool
         } else {
             $fp = __(
                 'Nobody has contradicted this value. A false positive'
-                . ' would be drawn on this axis and would move no'
-                . ' curve — MISP resets the decay clock on sightings'
-                . ' alone.'
+                . ' would be drawn on this axis and would extend'
+                . ' nothing — the relevance clock counts type-0 reports'
+                . ' only.'
             );
         }
         return array(
@@ -1382,21 +1385,6 @@ class ValueStatsTool
     {
         return ($row['Organisation']['name'] ?? '') !== ''
             && !empty($row['Sighting']['org_id']);
-    }
-
-    /**
-     * The date MISP decays an occurrence from when nobody has reported
-     * it: `last_seen` if it has one, else the attribute's own timestamp.
-     * `DecayingModelBase::computeCurrentScore` picks the same pair in
-     * the same order.
-     *
-     * @param array $occurrence One `Value::occurrenceIdsFor` entry
-     * @return int Unix timestamp
-     */
-    public static function anchorStamp(array $occurrence)
-    {
-        $seen = self::stamp($occurrence['last_seen'] ?? null);
-        return $seen === null ? (int)$occurrence['timestamp'] : $seen;
     }
 
     /**

@@ -3,6 +3,7 @@
 App::uses('ValueLeanTool', 'Tools');
 App::uses('ValueSignalLoader', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools');
 
 /**
  * What would change this — derived, one line per axis.
@@ -80,6 +81,22 @@ class ValueChangersTool
         $lean = $this->leanChanger($verdict, $context, $profile);
         if ($lean !== null) {
             $changers[] = $lean;
+        }
+        /*
+         * The relevance line, in axis order and derived where the axis
+         * is rather than here. It is the one falsifier that can be
+         * solved rather than probed — the boundary is `elapsed = ttl`,
+         * so the answer is arithmetic on the runway and re-running the
+         * derivation would tell nobody anything the subtraction does
+         * not. `ValueRelevanceTool::changerFor` owns it for the same
+         * reason `qualityChanger` asks the banding: the sentence must
+         * come from whatever would have to honour it.
+         */
+        $relevance = isset($verdict['relevance'])
+            ? ValueRelevanceTool::changerFor($verdict['relevance'])
+            : null;
+        if ($relevance !== null) {
+            $changers[] = $relevance;
         }
         $quality = $this->qualityChanger($verdict, $context, $profile);
         if ($quality !== null) {

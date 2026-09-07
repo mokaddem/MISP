@@ -11,7 +11,7 @@ App::uses('ValueFieldKind', 'Tools');
  * this file can widen what a viewer sees.
  *
  * It exists rather than growing `ValueStatsTool` for the same reason
- * `ValueDecayTool` did in phase 23: one tab's notion of *related* is a
+ * `ValueRelevanceTool` does: one tab's notion of *related* is a
  * self-contained argument, and the folding rules below — how a value
  * with two types gets one badge, which audiences a group of
  * occurrences reports, how a sibling seen five hundred times becomes

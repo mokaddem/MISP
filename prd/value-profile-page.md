@@ -193,14 +193,23 @@ instance admin drops in `app/Lib/ValueSignals/`, discovered the way
 signals. And **D7 stops the page reading `decaying_models` entirely**, which
 is the one that reaches back into built work.
 
-**So `value_lifecycle` should not be converted before that corpus's phase 5.**
-It is per-model decay bars, and D7 deletes them; its live design is
-`analyst-profile/06-staleness.md`, which replaces the bars with a per-value
-relevance statement and a TTL runway. The same decision takes the decay
-overlay off the sightings chart and rewrites `value_sighting_decay` — two
-panels this campaign has already converted. Of the three unblocked fixture
-panels, occurrence and context are free of it; lifecycle is not, and wiring it
-against `decaying_models` first would be building what phase 5 removes.
+**`value_lifecycle` was not to be converted before that corpus's phase
+5, and phase 5 ran on 2026-09-07.** It was per-model decay bars, and D7
+deleted them: the design was `analyst-profile/06-staleness.md` and what
+shipped is a per-value relevance statement — state, runway, clock and the
+type that supplied the TTL — in their place. The same decision took the
+decay overlay off the sightings chart, where the line is now the TTL
+runway, and replaced `value_sighting_decay` with `value_relevance`.
+
+Two consequences for this document. The Lifecycle card is now **a third
+live**: its freshness line is computed and its warninglist and
+correlation lines are still the fixture's, so whichever phase converts
+the Overview inherits two questions rather than three
+(`live/00-contract.md` §14.12 carries the partial row). And the decay
+work this campaign had already converted is the only work it has
+retired, with the phase 23 aggregation *decision* carried across intact
+even though its code was not
+(`analyst-profile/06-staleness.md` §4.1, §7.6).
 
 **The page frame is the fixture's too**, and that is the same hazard one level
 up: the tab badges, the fact strip and the banner chips are built in one
@@ -282,7 +291,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 28 | Enrichment goes live, stateless — the store dropped rather than built | `live/28-enrichment.md` | **built 2026-09-06** — §2 the probe that scoped it, §5 the nine keys removed, §6.3 the CSRF race it found, §8 the review sweep that put seven features back |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **superseded 2026-09-03** by the design below. Kept for §3's record of what the templates assert, and for the two items of §4 that came back to it |
-| — | The Analyst Profile, and the Assessment that replaces the verdict — what configures the engine, plus the enrichment defaults | [`analyst-profile/README.md`](analyst-profile/README.md) | **designed; phase 1 built 2026-09-07.** Unblocks the Verdict tab. Fifteen documents, fourteen decisions, ten phases — the store is built (migration 160, `AnalystProfile.php`, `default-v1.json`), the other nine are specifications. `analyst-profile/01-profile.md` §1.4 is the phase table, §2 the decisions, `12-assessment.md` the D11 reframe and `review-2026-09-02.md` the adversarial pass |
+| — | The Analyst Profile, and the Assessment that replaces the verdict — what configures the engine, plus the enrichment defaults | [`analyst-profile/README.md`](analyst-profile/README.md) | **designed; phases 1–5 built 2026-09-07** — the store, the engine, the lean and bands, the exclusions and the relevance axis, which is every phase the Assessment tab depends on. Fifteen documents, fourteen decisions, ten phases; the other five are specifications. `analyst-profile/01-profile.md` §1.4 is the phase table, §2 the decisions, `12-assessment.md` the D11 reframe and `review-2026-09-02.md` the adversarial pass |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
 
 Then the live campaign, one phase per tab. **This is the table to update as each
@@ -293,7 +302,7 @@ goes first argues why in its own document.
 | Phase | Converts | Document | Status |
 |---|---|---|---|
 | 22+ | Overview | — | not started — **partially blocked**, its verdict card needs the engine. **Three of its cards are already done**, each taken by the phase that converted the tab it mirrors: `value_sightings` with phase 23's follow-ups, `value_external` with phase 24's fourth section, and `value_analyst_preview` with phase 26 §20. The other four — occurrence, context, verdict and lifecycle — still read the fixture, and so do the page frame's fact strip and tab counts |
-| — | Verdict | [`analyst-profile/10-wiring.md`](analyst-profile/10-wiring.md) | **BLOCKED on an implementation, no longer on a design.** Nothing computes a verdict yet, but the engine that will is specified: it is the Analyst Profile corpus's **phase 9**, which needs its phases 1–5. Under **D11** the tab is renamed **Assessment** and the hero reads *lean · relevance · quality*; the four blocked panels are wired by that phase and the shipped copy this makes wrong is retracted with it (`analyst-profile/01-profile.md` §6) |
+| — | Verdict | [`analyst-profile/10-wiring.md`](analyst-profile/10-wiring.md) | **BLOCKED on one phase, no longer on five.** The engine exists: the Analyst Profile corpus's phases 1–5 are built as of 2026-09-07, so lean, relevance and quality all compute against real rows — what is missing is **phase 9**, the pass that makes the tab read them. Under **D11** the tab is renamed **Assessment** and the hero reads *lean · relevance · quality*; the four blocked panels are wired by that phase and the shipped copy this makes wrong is retracted with it (`analyst-profile/01-profile.md` §6) |
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | **23** | **Sightings** | [`live/23-sightings.md`](value-profile-live/23-sightings.md) | **built** — all five panels, plus the Overview's `value_sightings` card. Closed the decay aggregation rule §14.5 had left open (§5) and found §14.6's exception has a second member (§7). **A clean `no` on all three concepts**, argued in §11.5 |
 | **24** | **Relationships** | [`live/24-relationships.md`](value-profile-live/24-relationships.md) | **CLOSED 2026-09-04** — all five panels, and the rail's graph is now real (§10). Found that **the correlation engine has nothing to say about a value** and that section one has to be an event join (§3). All three concepts **deferred with reasons** (§14); feed co-occurrence is the one piece of real upside left. **Subphase B shipped sixteen tasks** over the built tab and the phase **closed 2026-09-04** — [`live/24b-relationships.md`](value-profile-live/24b-relationships.md), whose §20 lists what it hands on: five items waiting on somebody else, a promote list that should be **measured before it is built** (§20.3), and four unrecorded board rows (§20.4) |
@@ -345,7 +354,7 @@ so it need not be reassembled from fourteen sections.
 |---|---|---|
 | §14.6's nine required changes | §14.6 | **four applied by phase 22** (the Occurrences tab's ACL band, its facet-vs-banner sentence, its ACL-hidden state, its counts). Five remain, each owned by the phase that converts its panel |
 | The page control cannot draw a large table | `live/22-occurrences.md` §12.1, §14.2 | one page button per page, inline: past ~20 the panel header collapses and overflows horizontally. Predates phase 22 — `45.155.205.233` shows it today. A larger page size buys room rather than fixing it, so it still bounds both the 300-row cap and which page sizes may be offered |
-| The decay aggregation rule | §14.5, `tabs/02-sightings.md` §11/§16 | ten per-attribute curves into one per-value score. Undecided; owner is `ValueDecayTool` |
+| The decay aggregation rule | §14.5, `tabs/02-sightings.md` §11/§16 | ten per-attribute curves into one per-value score. Decided by phase 23 — the per-day maximum, labelled with the occurrence holding it — and then **retired with the code that needed it** by analyst-profile phase 5. The decision survives as the relevance clock's *name what supplied it* rule (`analyst-profile/06-staleness.md` §4.1) |
 | Opinion colour contradiction | `tabs/05-analyst.md` §11/§15 | the Overview preview paints "Agree" green, the Verdict histogram paints >50 red. The Overview card is the one that should change |
 | Markdown in notes | `tabs/05-analyst.md` §11 | stored, never rendered; no per-note flag, so enabling it is instance-wide |
 | A `known`-category warninglist | §14.10 | §2.6's shared-infrastructure argument may have no shipped list behind it |

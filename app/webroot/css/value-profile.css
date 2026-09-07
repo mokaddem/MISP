@@ -1294,106 +1294,203 @@ tr.vp-occ-deleted td {
 }
 
 /* ==================================================================
- * Lifecycle card
+ * Relevance — the shelf life card, and the chip that names its state
  * ================================================================== */
 
-.vp-decay-head {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 4px;
-    font-size: 0.75rem;
+/*
+ * Four states, four marks. The palette is its own rather than borrowed
+ * from the lean's, and that is not fussiness: `06-staleness.md` §5 puts
+ * the relevance chip **beside** the lean chip, where the benign green
+ * already means *known infrastructure* — so a green `current` next to a
+ * lean chip would read as a second, contradicting opinion about what
+ * the value is. Teal says nothing about the record's assertion, which
+ * is exactly what this axis says nothing about.
+ *
+ * `expired` is grey and not red for the same reason from the other
+ * side. Red on this page means the record asserts a threat; expiry
+ * means *stop spending attention on this*, which is a statement about
+ * the reader's time rather than about the value.
+ *
+ * And `uncertain` is separated from `expired` by a dashed edge rather
+ * than by a hue, so the distinction survives greyscale and both
+ * themes — the same rule the sightings overlay follows when it puts
+ * direction in the geometry.
+ */
+:root {
+    --vp-rel-current: #0e7490;
+    --vp-rel-aging: var(--vp-conflict);
+    --vp-rel-expired: var(--bs-secondary-color);
+    --vp-rel-uncertain: var(--vp-unknown);
 }
 
-.vp-decay-model {
-    overflow: hidden;
-    flex: 1 1 auto;
-    text-overflow: ellipsis;
+[data-bs-theme="dark"] {
+    --vp-rel-current: #67e8f9;
+    --vp-rel-expired: var(--bs-secondary-color);
+}
+
+.vp-shelf {
+    --vp-shelf-colour: var(--vp-rel-current);
+}
+
+.vp-shelf-aging {
+    --vp-shelf-colour: var(--vp-rel-aging);
+}
+
+.vp-shelf-expired {
+    --vp-shelf-colour: var(--vp-rel-expired);
+}
+
+.vp-shelf-uncertain {
+    --vp-shelf-colour: var(--vp-rel-uncertain);
+}
+
+.vp-shelf-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.vp-shelf-state {
+    padding: 2px 9px;
+    border: 1px solid var(--vp-shelf-colour);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--vp-shelf-colour) 14%,
+        transparent);
+    color: var(--vp-shelf-colour);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
-/*
- * The model's line on the chart, restated as a stroke beside its name.
- * A rectangle here would key a filled mark, and there is no filled mark
- * for a decay model anywhere on the tab — the chart draws a line and
- * this card draws a bar of the same colour, which is why the bar below
- * takes `--vp-decay-colour` too.
- */
-.vp-decay-key {
-    flex: 0 0 auto;
-    align-self: center;
-    width: 12px;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--vp-decay-colour, var(--correlation));
+.vp-shelf-uncertain .vp-shelf-state {
+    border-style: dashed;
 }
 
-.vp-decay-score {
-    font-weight: 700;
+.vp-shelf-days {
+    flex: 1 1 auto;
+    font-size: 0.72rem;
+    text-align: right;
+    color: var(--bs-secondary-color);
     font-variant-numeric: tabular-nums;
 }
 
-.vp-decay-flag {
-    padding: 1px 7px;
-    border-radius: 999px;
-    background: var(--bs-secondary-bg);
-    background: color-mix(in srgb, var(--bs-warning) 22%,
-        var(--bs-body-bg));
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.vp-decay-track {
+/*
+ * The runway. One bar and one tick, where the decay card had one bar
+ * per model: a value has one shelf life, however many models MISP
+ * would have scored it under.
+ */
+.vp-shelf-track {
     position: relative;
     height: 8px;
     border-radius: 4px;
     background: var(--bs-secondary-bg);
 }
 
-.vp-decay-fill {
+.vp-shelf-fill {
     display: block;
     height: 100%;
     border-radius: 4px;
-    background: var(--correlation);
+    background: var(--vp-shelf-colour);
 }
 
-.vp-decay-expired .vp-decay-fill {
-    background: var(--bs-secondary-color);
-}
-
-/*
- * A keyed model bar: the same card, drawn in the colour of the line
- * this model has on a chart next to it. Only the Sightings rail has
- * such a chart, which is why this is a modifier rather than the rule —
- * the Lifecycle card's copy of this bar has nothing to agree with and
- * keeps the card's own hue.
- *
- * Decayed, it desaturates instead of going grey. The grey was chrome
- * and would have thrown away the identity the modifier exists to
- * carry; `under its threshold` is already said by the flag beside the
- * name and by the tick across the track.
- */
-.vp-decay-keyed .vp-decay-fill {
-    background: var(--vp-decay-colour);
-}
-
-.vp-decay-keyed.vp-decay-expired .vp-decay-fill {
-    background: color-mix(in srgb, var(--vp-decay-colour) 40%,
-        var(--bs-secondary-bg));
+.vp-shelf-uncertain .vp-shelf-fill {
+    /* Striped, because the length itself is what is not trustworthy. */
+    background: repeating-linear-gradient(
+        135deg,
+        var(--vp-shelf-colour) 0 3px,
+        transparent 3px 6px
+    );
 }
 
 /*
- * The threshold is the whole point of the bar: a score means nothing
- * without the line it is above or below.
+ * Where `aging` begins. A runway with no mark on it is a bar the reader
+ * cannot read a state off, and the state is the thing the card is for —
+ * the same argument the retired decay track made for its threshold
+ * tick, which is the one part of that card worth keeping.
  */
-.vp-decay-threshold {
+.vp-shelf-mark {
     position: absolute;
     top: -2px;
     width: 2px;
     height: 12px;
     background: var(--bs-body-color);
+    opacity: 0.55;
+}
+
+.vp-shelf-why {
+    margin-top: 6px;
+    padding: 5px 8px;
+    border-left: 2px solid var(--vp-shelf-colour);
+    background: color-mix(in srgb, var(--vp-shelf-colour) 8%,
+        transparent);
+    font-size: 0.7rem;
+    line-height: 1.4;
+    color: var(--bs-body-color);
+}
+
+.vp-shelf-prov {
+    margin-top: 5px;
+    font-size: 0.68rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The corroboration timeline: what reset this clock, most recent
+ * first. §4.1 — the aggregation rule's second half is naming what
+ * holds the number, and a value whose clock has moved four times is
+ * one where the reader wants the four dates rather than the newest.
+ */
+.vp-shelf-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vp-shelf-event {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-shelf-event-date {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color);
+}
+
+.vp-shelf-event-who {
+    overflow: hidden;
+    flex: 1 1 auto;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-shelf-event-kind {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+/*
+ * The newest one is the clock. It is drawn as the emphasis rather than
+ * with a second label, because the statement above the list has already
+ * said the date — this is the list saying which of its rows that was.
+ */
+.vp-shelf-event-held .vp-shelf-event-date,
+.vp-shelf-event-held .vp-shelf-event-who {
+    font-weight: 600;
+    color: var(--bs-body-color);
 }
 
 /* ==================================================================
@@ -4100,32 +4197,6 @@ th[aria-sort="descending"] .sort-icon::before,
 .vp-sight-foot strong {
     font-variant-numeric: tabular-nums;
     color: var(--bs-body-color);
-}
-
-/* ------------------------------------------------------------------
- * The decay rail card
- * ------------------------------------------------------------------ */
-
-/*
- * Why this model is under its threshold, when the reason is structural
- * rather than temporal. It sits above the provenance line because it
- * changes what that line means: "last reset by CIRCL" is encouraging
- * until you know the reset lands below the threshold anyway.
- */
-.vp-decay-why {
-    margin-top: 5px;
-    padding: 5px 8px;
-    border-left: 2px solid var(--vp-conflict);
-    background: color-mix(in srgb, var(--vp-conflict) 8%, transparent);
-    font-size: 0.7rem;
-    line-height: 1.4;
-    color: var(--bs-body-color);
-}
-
-.vp-decay-prov {
-    margin-top: 5px;
-    font-size: 0.68rem;
-    color: var(--bs-secondary-color);
 }
 
 .vp-sight-legend-note {

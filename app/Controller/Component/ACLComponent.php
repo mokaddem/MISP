@@ -1065,7 +1065,7 @@ class ACLComponent extends Component
             'viewOccurrenceTable' => array('theming_enabled'),
             'viewSightingChart' => array('theming_enabled'),
             'viewSightingList' => array('theming_enabled'),
-            'viewSightingDecay' => array('theming_enabled'),
+            'viewRelevance' => array('theming_enabled'),
             'viewSightingReporters' => array('theming_enabled'),
             'viewSightingAdd' => array('theming_enabled'),
             'viewRelationCooccurrence' => array('theming_enabled'),

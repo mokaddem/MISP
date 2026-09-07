@@ -1,8 +1,14 @@
 # PRD: Analyst Profile — phase 5, staleness
 
-**Specification. Nothing built.** Depends on phase 2
-([`03-signals.md`](03-signals.md)). Implements **D7** and **D8** — the page
-stops reading `decaying_models` and the profile owns a per-type TTL.
+**Built 2026-09-07.** `ValueRelevanceTool`, the completed `relevance`
+section, and the retirement of every decay read on the page. Depends on
+phase 2 ([`03-signals.md`](03-signals.md)). Implements **D7** and **D8** —
+the page stops reading `decaying_models` and the profile owns a per-type
+TTL. Verified by 106 checks with no database
+([`06-relevance-harness.php`](06-relevance-harness.php)) and 58 against
+the dev instance ([`06-relevance-live-probe.php`](06-relevance-live-probe.php));
+six findings are in §7, and the one that changed the design is that the
+four states are not four (§7.1).
 
 This is the phase that **retires live code**. Two panels and a chart overlay
 currently read MISP's decaying models through `ValueDecayTool`, and all of it
@@ -25,7 +31,8 @@ own axis (D11), never points.
 
 Exit criterion: **`decaying_models` is not read anywhere under
 `ValuesController`, and every value page states how fresh its value is and what
-made it so.**
+made it so.** Met, and checked from the query log rather than by grep —
+§7.5 says why that distinction mattered.
 
 ## 2. Why the page stops reading `decaying_models`
 
@@ -211,7 +218,20 @@ uncertainty finally has somewhere to go.
 
 Under D11's rename map the replacement names read `forRelevance()`,
 `ValueRelevanceTool` and `viewRelevance()`; the table keeps the draft names
-it was written with.
+it was written with, and **those are the names that shipped**. Two rows
+resolved differently from the plan:
+
+- the rail card is `value_relevance.ctp` and the endpoint
+  `viewRelevance`, with the panel registered as *Shelf life* rather than
+  *Decay models*;
+- the verdict `curves` and `curves_note` did **not** move here. They
+  exist only in `ValueProfileFixture`, which phase 9 replaces wholesale,
+  so rewriting the sentence now would be writing it twice — see §7.7 for
+  what phase 9 owes.
+
+The Lifecycle card is the one row that changed shape rather than
+contents: it is a fixture-backed panel, so this phase made its freshness
+third live and left the other two lines alone (§7.7).
 
 ### 4.1 The aggregation decision transfers intact
 
@@ -277,39 +297,238 @@ lean; the machinery does not.
 
 ## 6. Verification
 
-1. `parallel-lint` over the new tool, model method, controller action and
-   templates.
-2. `grep -rn "DecayingModel\|decay" app/Controller/ValuesController.php
-   app/Model/ValueProfile.php app/View/Themed/Overmind/Elements/Values/` —
-   no live reads remain. This is the exit criterion, mechanically checkable.
-3. The state at `elapsed = 0`, `ttl × 0.5`, `ttl × 0.8`, `ttl`, `ttl + 1 day`
-   with `aging_fraction: 0.33`: `current`, `current`, `aging`, `expired`,
-   `expired` — the discontinuity asserted, and **no ledger row at any of
-   them**. The lean and the quality sum are byte-identical with the axis at
-   `current` and at `expired`; only the chip, the runway and the relevance
-   `changers` row move.
-3b. Temporal precision (§3.6): a value with no `first_seen` and a 61-day
-   created-to-published lag renders `timeline uncertain` with the lag named,
-   and `record.temporal_precision` deducts in the quality ledger — the
-   D11-forcing phishing example, asserted end to end.
-4. `decay_speed` at `0.5` and `2` on the same value — three distinct curves,
-   all reaching 0 at the TTL.
-5. All three `clock` settings on the malicious value: three different
-   corroboration dates, each naming the occurrence or sighting that supplied
-   it.
-6. A value occurring as two types with different TTLs, under all three
-   `type_rule` settings; the panel names the type in force each time.
-7. A value with **one** occurrence and no sightings: nothing has independently
-   corroborated it, ever. The clock falls back to the occurrence's own date and
-   the panel says so — this is the majority case in production and must not
-   render as an error or a blank.
-8. An instance with no enabled decaying models at all: the page is unchanged by
-   this phase, because it no longer reads them. Confirms the retirement is
-   total.
-9. The TTL runway overlay on the sightings chart and in the verdict curves, in
-   both themes, with `curves_note` rewritten.
+**Run 2026-09-07. All nine items pass**, item 2 rewritten because the
+grep it names cannot answer the question it is asked (§7.5). The harness
+is [`06-relevance-harness.php`](06-relevance-harness.php), 106 checks
+with no database; the probe is
+[`06-relevance-live-probe.php`](06-relevance-live-probe.php), 58 checks
+against the dev instance.
 
-## 7. Out of scope
+1. `parallel-lint` over the new tool, model method, controller action and
+   templates. **Clean**, plus `node --check` over `value-profile.js`.
+2. **The exit criterion, from the query log rather than from a grep.**
+   `grep -rn "DecayingModel"` over the page's controller, model, tools and
+   elements matches only prose about the retirement — but a grep cannot
+   say that no *query* reaches `decaying_models`, which is what the
+   criterion claims. The probe counts queries per endpoint and asserts
+   both halves: **`forRelevance` 10 queries and `forSightingChart` 11,
+   neither touching `decaying_models`**, and the log grew, so the zero is
+   a measurement (§7.5). Both endpoints were 21 under the decay envelope.
+3. The state at `elapsed = 0`, `ttl × 0.5`, `ttl × 0.8`, `ttl`,
+   `ttl + 1 day` with `aging_fraction: 0.33`: **`current`, `current`,
+   `aging`, `expired`, `expired`** — asserted, with the runway at 1.0,
+   0.5 and 0.0 respectively and `runway_days` closing at exactly 0 on the
+   boundary and −1 past it. **No ledger row at any of them**: the lean,
+   the quality, the band, the tug, the composition and every ledger row
+   are byte-identical across the boundary. §7.2 records why that had to
+   be proved off a profile knob rather than off the value's dates.
+4. `decay_speed` at `0.5`, `1` and `2` — three distinct curves, all
+   starting at a full runway and all reaching 0 at the TTL; below 1 the
+   value is held then falls off a cliff, above 1 it drops fast and
+   lingers.
+5. All three `clock` settings, on the harness's synthetic value and on
+   the instance's busiest real one. On `8.8.8.8`: **2026-08-23**
+   (independent sighting, CthulhuSPRL.be), **2026-08-25** (last sighting),
+   **2026-09-01** (last occurrence) — three dates, each named, and the
+   independent clock is never newer than the other two, which is §3.3's
+   argument holding on real rows.
+6. A value occurring as two types with different TTLs, under all three
+   `type_rule` settings: `shortest` 60 (url), `longest` 90 (ip-src),
+   `most_common` 60 — each naming the type in force and carrying both
+   candidates. Real data adds a case the spec did not: `8.8.8.8` occurs
+   as `ip-dst`, `ip-src`, `ip-dst|port` and `text`, so the panel reads
+   *"TTL 90 days from ip-dst · shortest rule, over ip-src 90,
+   ip-dst|port 180, text 180"*. The two composite types fall to the
+   default, which the panel says.
+7. A value with one occurrence and no sightings. Found on the instance
+   rather than invented: **`circl.lu`** — one organisation, clock falls
+   back to 2025-12-01, state `expired`, and the panel says *"Nothing has
+   independently corroborated this value — one organisation reporting it
+   is the claim, not its confirmation."* Not an error, not a blank.
+8. The retirement is total — item 2's query-log assertion is this item's
+   evidence too. An instance with no enabled decaying models is now
+   indistinguishable from one with a dozen, because nothing on the page
+   asks.
+9. The runway overlay on the sightings chart, in both themes, driven by
+   the real `value-profile.js` against a real fragment: **one line
+   dataset labelled *Shelf life left*, 157 points spanning 0–100 on a
+   pinned 0–100 axis, eleven bar datasets beside it, no JS errors.** The
+   rail card and the two card-scale states were measured rather than
+   eyeballed — chip colour, border style, fill width against track width
+   and the aging tick's offset, in both themes, with no horizontal
+   overflow. The verdict curves are phase 9's (§7.7).
+
+3b. Temporal precision (§3.6): asserted end to end. A value with no
+   `first_seen` and a 61-day lag renders `timeline uncertain` with the
+   lag named, and `record.temporal_precision` deducts in the quality
+   ledger. On real rows it is `8.8.8.8` — 0 of 26 occurrences dated, a
+   302-day lag — which turned out to be the common case rather than the
+   exotic one (§7.3).
+
+## 7. What building it changed
+
+Six findings, built 2026-09-07. The first three changed the design; the
+last three are the retirement's own accounting.
+
+### 7.1 The four states are not four, and expiry outranks uncertainty
+
+§3.2 lists four states as though they were exclusive, and
+[`12-assessment.md`](12-assessment.md) §3 reads the late-encoded phishing
+URL as *"expired / timeline uncertain"* — two of them at once. Both are
+right about something and the implementation had to reconcile them.
+
+**The state is one word and the uncertainty is also a flag**, and the
+order they resolve in is an argument rather than a preference between
+labels. An encoding date is *later* than the observation it stands for,
+so elapsed time measured from it is a **lower bound** on the true
+elapsed time. A lower bound already past the TTL is past it on any
+honest reading — so `expired` survives an untrustworthy clock, while
+`current` and `aging` do not and degrade to `timeline uncertain`. The
+page reads *"expired · timeline uncertain"* because both facts travel.
+
+Measured on the dev instance: `45.155.205.233` is 1,728 days past a
+180-day TTL with no `first_seen` anywhere, and reads `expired` with the
+missing field named underneath. The same value inside its TTL would read
+`uncertain`.
+
+### 7.2 The axes share inputs — D11's invariant is *directional*
+
+The harness's first attempt at *"the lean and the quality are
+byte-identical with the axis at `current` and at `expired`"* moved the
+value's dates and **failed by two points**. It was right to. Relevance's
+fallback clock is `occurrences.newest`, and `lifecycle.recency` reads
+that same key as evidence about the record — so moving it moves the
+quality, legitimately.
+
+So D11 does not say relevance and quality are functions of disjoint
+data. It says **nothing downstream reads the relevance block**: the
+ledger, the band, the tug and the composition are all computed before
+the axis is assembled, and the axis emits no row. Proving *that* needs a
+relevance-only knob, and `ttl_days` is one — the same context under a
+90-day TTL and a 5-day TTL moves the axis with no input to any other
+axis touched.
+
+Both the harness and the live probe now prove it that way. Against real
+rows, on three values: moving the TTL alone flips the state and leaves
+the quality, the lean, the band and the whole ledger byte-identical.
+`8.8.8.8` holds at −3, `45.155.205.233` at 4, `2.2.2.2` at 55.
+
+### 7.3 `timeline uncertain` is the common state, not the exotic one
+
+§3.6 introduces temporal precision through one pathological example.
+Measured, it is the norm: **`8.8.8.8` has 0 of 26 occurrences carrying
+`first_seen`, and a 302-day created-to-published lag.**
+`45.155.205.233` has 0 of 2. Only `2.2.2.2` escapes — and it escapes on
+*one* dated occurrence out of thirteen, because §3.6's rule is
+`first_seen` absent on **every** occurrence.
+
+That flip-on-one-row rule is kept, and the reason is the division of
+labour D11 set up. Relevance asks *can this record date its observations
+at all* — a yes/no about whether the clock means anything.
+`record.temporal_precision` asks *how well*, grades the ratio, and
+deducts proportionally in the quality ledger. An axis that degraded on a
+*fraction* of undated occurrences would be scoring the record, which is
+the other axis's job.
+
+The consequence is worth stating rather than discovering: **the shipped
+default will call most real values' timelines uncertain.** That is the
+honest reading of MISP data — encoding dates are what MISP mostly
+records — and not a calibration error. `lag_uncertain_days` is the knob
+for an instance that disagrees, and a value whose org sets `first_seen`
+gets a definite state immediately.
+
+### 7.4 A fold that keeps dates and drops names reads as a data gap
+
+The clock's sighting half is folded to one entry a day, because the
+runway samples a day at a time and a second report on a day that already
+has one cannot move the curve. The first version folded to bare
+timestamps and labelled only the newest of them, on the reasoning that
+nothing reads a name off a point on a curve.
+
+Rendered, that put **`unnamed` on five of the six rows** of the
+corroboration timeline — and §4.1's whole point is that naming what
+supplied the clock is half the aggregation rule, not a decoration on it.
+A name per distinct day costs 39 strings on this instance's busiest
+value, so the thrift was about nothing. The fold now keeps the day's
+newest report whole.
+
+It also removed a latent bug rather than only bad copy. A folded day
+stamp is midnight and a labelled entry kept its exact time, so the two
+tied on a report filed at exactly 00:00 — and the unlabelled one won the
+maximum, leaving the panel with a clock and nothing to name as its
+source. With whole entries there is no duplicate to tie with.
+
+### 7.5 A probe that measures nothing passes
+
+§6 item 8 asks whether the retirement is total. A grep proves no source
+line names `DecayingModel`; only a query log can prove no query reaches
+`decaying_models`, so the probe counts queries. Its first run reported
+**"forRelevance — 0 queries, 0 touching decaying_models"** and passed.
+
+`DboSource` keeps 200 log entries and this page had already spent them,
+so the log was not growing. Zero found and zero looked at are the same
+number — which is phase 4's own §7.3 rule, reproduced inside the probe
+written to honour it. Fixed by lifting `_queriesLogMax` and, more
+usefully, by asserting that the log grew at all: a measurement now has
+to be a measurement before its result counts.
+
+With the cap off: **`forRelevance` 10 queries, `forSightingChart` 11,
+neither touching `decaying_models`.** Both endpoints were 21 under the
+decay envelope.
+
+### 7.6 What the retirement cost, and the cap that did not survive
+
+`ValueDecayTool` (338 lines) is deleted, `value_sighting_decay.ctp` (259)
+with it, and `ValueProfile` lost 392 lines against 211 added — five
+private methods gone, replaced by the facade and the runway curve.
+`ValueStatsTool::anchorStamp` went too: MISP's *"`last_seen` if it has
+one, else the timestamp"* rule has no caller left.
+
+**The replacement is bigger than what it replaced and the machinery is
+smaller**, which is worth stating rather than hiding.
+`ValueRelevanceTool` is 1,039 lines and `value_relevance.ctp` 399, so
+this is not a line-count win — it is a corpus whose files carry their own
+arguments, and that tool holds the whole definition of an axis where the
+deleted one held a sampling rule. What actually shrank is the shape of
+the work: no per-occurrence envelope, no cap and no argument about which
+occurrences could hold a maximum, no coupling to a formula class, and the
+two endpoints that ran it went from 21 queries each to 10 and 11.
+
+`SPAN_CAP_DAYS` moved across intact, argument unchanged: the runway is
+still the only dense series in the sightings payload, because a count
+can be sparse and a shelf life cannot.
+
+**`OCCURRENCE_CAP` did not move, and its absence is the real
+simplification.**
+The decay curve was an envelope over one curve per occurrence, so it
+needed a cap of 100 and the cap needed an argument about which
+occurrences could hold the maximum — plus `groupByBase`, an exactness
+proof for collapsing equal base scores, and a *"N of M occurrences
+scored"* line for when the bound bit. A runway is computed from
+aggregates and a list of dates, so **its cost does not track the
+occurrence count at all** and there is nothing to cap. That is the sense in which
+this retirement costs less than it looks: it did not reimplement the
+envelope more cheaply, it removed the problem the envelope existed for.
+
+### 7.7 Two things this phase did not do, and where they went
+
+- **The Lifecycle card went a third live** rather than being left
+  rendering a fixture literal in the retired bars' place. Its freshness
+  line is this phase's subject, so `ValuesController::viewLifecycle`
+  computes the axis and merges it into the fixture profile the card
+  still serves for its warninglist and correlation lines. A card is not
+  indivisible either, which is `00-contract.md` §14.12's note used at
+  card scale rather than tab scale.
+- **`curves_note` and the verdict's dashed NIDS line are phase 9's**,
+  against §4.2's expectation that this phase would rewrite them. They
+  exist only in `ValueProfileFixture` — four sites — which the wiring
+  phase replaces wholesale, so rewriting the sentence here would be
+  writing it twice. What phase 9 owes is recorded: the second curve
+  becomes the TTL runway plotted against the quality, and the note says
+  the dips are the shelf life running down between corroborations
+  rather than *"the dips between are decay"*.
+
+## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
   `01-profile.md` §3.1 because "per-type TTL" reads like an export feature.

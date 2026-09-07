@@ -4,6 +4,7 @@ App::uses('ValueSignalLoader', 'Tools');
 App::uses('ValueStatsTool', 'Tools');
 App::uses('ValueLeanTool', 'Tools');
 App::uses('ValueChangersTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools');
 
 /**
  * The accumulator: a profile plus a value's facts, in; a ledger that
@@ -450,6 +451,26 @@ class ValueVerdictTool
             'polarity' => $parts['polarity'],
             'quality' => $quality,
             'band' => $parts['band'],
+            /*
+             * The second axis, assembled beside the quality and not out
+             * of it. It reads the same context and the same profile,
+             * emits no ledger row, and is computed here rather than by
+             * the caller so that one `assess()` returns the whole
+             * assessment — the page, the simulator and phase 10's
+             * worker cannot then disagree about a value's relevance
+             * while agreeing about its quality.
+             *
+             * **Nothing below reads it**, which is D11 held to
+             * mechanically: the ledger, the band, the tug and the
+             * composition are all computed already, so an axis added
+             * here cannot alter any of them. §6 item 3 asserts exactly
+             * that — the lean and the quality are byte-identical with
+             * relevance at `current` and at `expired`.
+             */
+            'relevance' => ValueRelevanceTool::relevanceFor(
+                $context,
+                $profile
+            ),
             'ledger' => $ledger,
             'tug' => $parts['tug'],
             'composition' => ValueStatsTool::verdictComposition($ledger),
