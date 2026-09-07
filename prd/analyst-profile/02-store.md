@@ -359,14 +359,24 @@ instance and are owed; 7 moved to phase 8 with the controller (§6).
 | # | What | Status |
 |---|---|---|
 | 1 | Lint over the new model | **pass** — `php -l` on `AnalystProfile.php` and `AppModel.php`. `parallel-lint` is not installed in this worktree (`app/Vendor` absent), so the project's usual command could not run |
-| 2 | `Admin runUpdates`, then `Admin schemaDiagnostics` — no diff | **owed.** Needs an instance serving this tree. The three schema sources were written to agree by construction and `db_version` moved to `160` |
+| 2a | `Admin runUpdates` applies migration 160 | **owed, and ready.** The dev instance serves this worktree and `case 160` is confirmed present in the container's `AppModel.php`; the command mutates, so it needs a hand on it |
+| 2b | `Admin schemaDiagnostics` — no diff | **not runnable through this instance, and the reason is worth keeping.** The dev mount covers `app/` only, so the container compares the live schema against **its image's** `db_schema.json` — `db_version 143`, not this tree's 160 — and root-level files never reach it. Two consequences: the check would report nothing about `analyst_profiles` however correct the table was, and it is *silent* rather than wrong, because `schemaDiagnostics` prints only tables it finds in the expected schema. A missing table *is* a critical diagnostic (`Server.php:3676`, `error_type => missing_table`); it just cannot fire for a table the expected schema has never heard of. Whoever runs this properly should also know the instance carries four unrelated diffs already (`bookmarks.url`, `galaxy_clusters.description`, `roles.perm_sync_authoritative`, `taxii_servers.skip_proxy`), so the assertion is *no new diff*, never *no diff* |
 | 3 | `resolveFor()` for four user shapes | **pass** — harness, and one statement each rather than the four the item assumed |
 | 4 | The default disabled with nothing else: `null`, no throw | **pass** — harness |
-| 5 | Fork the default as a non-admin; the copy is editable, the original is not | **owed** — `forkProfile()` writes, so it wants a database. The permission half is asserted in the harness |
-| 6 | `updateDefaults()` twice is a no-op; a version bump applies and leaves `enabled` alone | **owed** — reads the filesystem and writes rows |
+| 5 | Fork the default as a non-admin; the copy is editable, the original is not | **owed, blocked on 2a** — `forkProfile()` writes, so it wants the table. The permission half is asserted in the harness |
+| 6 | `updateDefaults()` twice is a no-op; a version bump applies and leaves `enabled` alone | **owed, blocked on 2a** — reads the filesystem and writes rows. `default-v1.json` is under `app/files/`, so it does reach the container |
 | 7 | `queryACL/findMissingFunctionNames` | **moved to phase 8** — no controller shipped |
 | 8 | Two of three ownership columns set: rejected | **pass** — harness, all six combinations including none |
-| 9 | Rename leaves `revision`; editing `parameters` bumps it; a shipped update over a local edit names the overwrite | **owed** for the round trip. `bumpRevision()` and `updateDefaults()`'s `overwrote_edits` outcome are the halves that implement it |
+| 9 | Rename leaves `revision`; editing `parameters` bumps it; a shipped update over a local edit names the overwrite | **owed, blocked on 2a** for the round trip. `bumpRevision()` and `updateDefaults()`'s `overwrote_edits` outcome are the halves that implement it |
+
+**One measurement to keep: `app/` is the whole of the dev mount.** The
+Value Profile campaign has never needed anything outside it — every phase so
+far touched controllers, models, elements and webroot assets — and this is
+the first phase to ship a root-level file, three of them counting
+`INSTALL/MYSQL.sql` and `db_schema.json`. A migration is therefore the first
+kind of change this project's dev loop cannot fully see, and the gap is
+silent rather than loud. Any later phase adding a table inherits it; phase 10
+adds one (`11-restsearch.md` §4).
 
 Two things the harness checks that the list did not ask for, both because
 they are cheap to break later: **the per-request cache** — 27 panel calls
