@@ -9,12 +9,12 @@ different things it currently carries.
 What shipped: `ValueExclusionTool`, `orgs.own` as a predicate in
 `Value::conditionsFor()`, `sightings.self` as a row filter inside the sighting
 build, `feeds.mirrored` as a provider fold, the `reason` key on every
-`not_counted` entry, and the permissions caveat moved to the verdict's
-`acl_note`. Verified by **44 harness checks with no database and 18 against
-the dev instance**. Five findings are in §7, and three of them changed the
-design: the section needs three mechanisms rather than one (§7.1), the
-fixture's counted ACL row cannot be built at all (§7.2), and the harness spent
-its first run validating a context shape that does not exist (§7.3).
+`not_counted` entry, and the removal of every per-value statement about the
+reader's permissions. Verified by **42 harness checks with no database and 18
+against the dev instance**. Five findings are in §7, and three of them changed
+the design: the section needs three mechanisms rather than one (§7.1), the
+ACL row is gone rather than rebuilt (§7.2), and the harness spent its first
+run validating a context shape that does not exist (§7.3).
 
 ## 1. What ships
 
@@ -30,7 +30,7 @@ malicious value are:
 
 | Entry | What it really is |
 |---|---|
-| *"4 occurrences — outside your ACL. Excluded, not hidden. The score you see is the score for your permissions."* | **The viewer's permissions.** Not a profile decision, and must never become one |
+| *"4 occurrences — outside your ACL. Excluded, not hidden. The score you see is the score for your permissions."* | **The viewer's permissions** — and not something the page should say at all (§7.2) |
 | *"Feed presence alone — feeds that merely mirror CIRCL OSINT are not independent corroboration and score once, not three times"* | **Profile policy.** A de-duplication rule |
 | *"Self-sightings — 3 sightings from the same org that created the attribute, within an hour of creation"* | **Profile policy.** An exclusion with a time window |
 
@@ -56,11 +56,9 @@ question the block exists to answer once profiles are real.
 )
 ```
 
-- **`acl`** — **retired before it shipped (§7.2).** The row needs a count of
-  what the viewer cannot see, and that count is a membership oracle for any
-  value a reader types into the URL. The caveat it was carrying moved to the
-  verdict's `acl_note` and the provenance band, where it needs no arithmetic;
-  `reason` therefore has two values in practice, not three.
+- **`acl`** — **dropped, and so is the row (§7.2).** The page says nothing
+  about the reader's permissions, on any value. `reason` therefore has two
+  values in practice, not three.
 - **`policy`** — an exclusion the profile applied. Carries `exclusion_id`, which
   makes it **linkable to the profile's own editor** (phase 8). This is the
   payoff: *"why doesn't this count?"* becomes a click.
@@ -69,7 +67,7 @@ question the block exists to answer once profiles are real.
   while this means *could not evaluate*.
 
 The visual treatment stays one list; the difference is that a `policy` entry is
-actionable and the other two are statements. Minimum viable version: `policy`
+actionable and a `nodata` one is a statement. Minimum viable version: `policy`
 rows carry a link, the others do not.
 
 ## 3. The `exclusions` contract
@@ -172,8 +170,8 @@ numbers that are wrong.
 `05-exclusions-live-probe.php`, 18 checks against the dev instance, because a
 condition-class exclusion's entire mechanism is SQL. Item 4 changed shape with
 §7.2: there is no `acl` row to render beside a `policy` one, so what is
-asserted is that no row claims to be about the ACL and the caveat is on the
-verdict instead.
+asserted is that no row claims to be about the ACL and the assessment carries
+no permissions caveat either.
 
 1. Each exclusion toggled on and off on the same value: the ledger row's number
    changes, the sum still equals the score, and a `policy` entry appears and
@@ -234,35 +232,56 @@ What survives from the one-sentence version is the property that mattered:
 every signal sees the same evidence, because the filtering happens once,
 during the build, and nothing downstream can opt out.
 
-### 7.2 The fixture's ACL row cannot be built, and should not be
+### 7.2 The page says nothing about the reader's permissions
 
-§2.1 gives `not_counted` three reasons and puts `acl` first: *"4 occurrences —
-outside your ACL. Excluded, not hidden."* **That number is not computable
-without breaking the page's own security model.** Knowing how many
-occurrences a viewer may *not* see requires a count taken without their ACL,
-and this page accepts any value a reader types into the URL — so *"4
-occurrences you cannot see"* confirms both the presence and the volume of any
-indicator on the instance to anybody who guesses it. Every other count here is
-the viewer's own precisely to prevent that, and one exception would undo all
-of them.
+**Decided 2026-09-07, and it removes a specified feature rather than
+rebuilding it.** §2.1 gives `not_counted` three reasons and puts `acl` first:
+*"4 occurrences — outside your ACL. Excluded, not hidden."*
 
-With the count gone, the row stops being an entry in a list of set-aside
-evidence — it names no evidence and offers nothing to act on — and becomes
-what it always was: the caveat that an assessment computed from a subset
-should say which subset. So it moved to the provenance band, beside *computed
-at render* and *weighting profile*, where `value_verdict_meta.ctp` has had an
-`acl_note` slot since the skeleton pass and the fixture already fills it on two
-values.
+The rule is simpler than the design had it: **MISP discloses what a reader is
+allowed to see. That is how the platform works, the people using it know it,
+and the page does not remind them.** A per-value line about permissions tells
+a reader nothing they had not already assumed, and it hints at the existence
+of records they have no business knowing about — on a page that accepts any
+value typed into the URL, that hint is available for every indicator on the
+instance.
 
-**Unconditional, and that is the security property rather than a style
-choice.** A caveat shown only when rows were actually hidden would be the same
-oracle at one bit per page load.
+Two things follow, and the second is the one this document got wrong first
+time round:
 
-Consequence for §2.1: `reason` has **two** values in practice, `policy` and
-`nodata`. `acl` is retired before it shipped, and the block's rule becomes
-simpler than the specification's — every row in it is either something the
-analyst chose (`policy`, carrying the `exclusion_id` that makes it a link) or
-something the data refused (`nodata`).
+- **The count cannot be computed anyway.** Knowing how many occurrences a
+  viewer may *not* see requires a count taken without their ACL. Every other
+  count on this page is the viewer's own precisely so the page is not an
+  oracle, and one exception would undo all of them.
+- **Removing the count is not enough.** The first implementation kept the
+  caveat and dropped the number — an unconditional *"computed from what your
+  permissions allow"* in the provenance band. That is still the page
+  volunteering that something might be missing, on every value, forever; it
+  is the same hint at one bit per page load, plus a line of noise on the
+  values where nothing is hidden at all. It is gone.
+
+So `reason` has **two** values, `policy` and `nodata`, and every row in the
+block is either something the analyst chose or something the data refused.
+`ValueVerdictTool` emits no `acl_note`, `value_verdict_meta.ctp` no longer has
+a slot for one, and the occurrences panel's own
+`Showing 6 of 10 — 4 are hidden by distribution rules` band is gone with it.
+
+**What is not affected**, because it is not a per-value statement: a panel
+saying what *the instance's policy* or *the reader's role* does on every
+value. *"Sync server hits require site admin, so they are not counted here, on
+any value"* reveals nothing about the value on screen and explains why a panel
+is empty; the same goes for the sighting-policy note and the history panel's
+scope line. The distinction is per-value versus per-instance, and it is the
+line to hold when phase 9 rewrites this copy.
+
+**One place for phase 9 to keep honest.** The Occurrences panel's subhead
+reads *"Showing 6 of 10 occurrences"* from `$stats['shown']` and
+`$stats['total']`. As pagination that is fine — *six rows rendered of your
+ten* — and it is what the template will mean once `total` is the viewer's own
+count, which §14.6 requires of every count on the page. The fixture authors it
+as 6 of 10 *with four hidden by ACL*, which is the retired leak wearing a
+pagination label. The rule: `total` is what this reader can see, never what
+exists.
 
 ### 7.3 The harness validated a context shape that does not exist
 

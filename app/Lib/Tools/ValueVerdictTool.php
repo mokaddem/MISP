@@ -464,7 +464,6 @@ class ValueVerdictTool
                 : (isset($profile['revision'])
                     ? (int)$profile['revision']
                     : null),
-            'acl_note' => $this->aclNote(),
             'computed_at' => isset($context['now'])
                 ? (int)$context['now']
                 : time(),
@@ -756,41 +755,6 @@ class ValueVerdictTool
             );
         }
         return $notes;
-    }
-
-    /**
-     * The permissions caveat — a scope statement, not a set-aside row,
-     * and deliberately without a number.
-     *
-     * The fixture counts: *"4 occurrences — outside your ACL."* **That
-     * cannot be built.** Knowing how many occurrences a viewer may
-     * *not* see requires a count computed without their ACL, and this
-     * page takes any value a reader types into the URL — so
-     * *"4 occurrences you cannot see"* would confirm the presence and
-     * the volume of any indicator on the instance to anybody who
-     * guessed it. Every other count here is the viewer's own precisely
-     * to avoid that, and one exception would undo all of them.
-     *
-     * With the number gone it stops being an entry in a list of
-     * evidence set aside — there is no evidence named and nothing a
-     * reader could do — and becomes what it always was: the caveat that
-     * an assessment computed from a subset should say which subset. So
-     * it goes to the provenance band beside *computed at render* and
-     * *weighting profile*, where the template has had a slot for it
-     * since the skeleton pass.
-     *
-     * Unconditional, because the alternative leaks by omission: a
-     * caveat that appeared only when rows were hidden would itself be
-     * the oracle, one bit at a time.
-     *
-     * @return string
-     */
-    private function aclNote()
-    {
-        return __('Computed from the occurrences, sightings and'
-            . ' sources your permissions allow — another reader may'
-            . ' see a different assessment of the same value, and'
-            . ' neither is wrong.');
     }
 
     /**

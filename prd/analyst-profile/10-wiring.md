@@ -97,15 +97,30 @@ already correct about a thing that did not exist yet.
 
 ## 4. Q9 — does the standing caveat now state both reasons?
 
-**Open, and this phase has to close it.**
+**Half of it was answered by phase 4, and against the direction recorded
+here.** The half that remains is genuinely open.
 
 `../value-profile-live/00-contract.md` §14.6 established that every count on the
 page is the viewer's, and that the verdict is therefore never *"the community's
-view"*, only *"the view available to you"*. The `acl_note` says it per value:
-*"4 occurrences you cannot see were excluded from this assessment."*
+view"*, only *"the view available to you"*. This section assumed the page
+should *say* so, and pointed at the `acl_note`: *"4 occurrences you cannot see
+were excluded from this assessment."*
 
-Under D3, per-user profiles add a **second, independent** reason two readers
-differ about the same value. Today's caveat explains one.
+**That caveat no longer exists** ([`05-exclusions.md`](05-exclusions.md) §7.2).
+MISP discloses what a reader is allowed to see; the people using it know it,
+and a per-value line about permissions tells them nothing while hinting at
+records they have no business knowing about. Both the counted version and the
+de-numbered version that briefly replaced it are gone. §14.6 remains true of
+the *computation* — every count is the viewer's — and stops being something
+the page narrates.
+
+So the ACL half of Q9 is closed by deletion. What is left is the profile half,
+and it is a different question with a different answer available: under D3,
+per-user profiles are a **second, independent** reason two readers differ about
+the same value, and unlike permissions that one is worth stating — the hero
+already names the profile in force, which is the caveat in its most useful
+form. Q9 becomes: *is naming the profile enough, or does the difference need a
+sentence?*
 
 Three options:
 
@@ -138,8 +153,9 @@ phase, plus:
 4. A value with no occurrences: sparse page, UNKNOWN, no ledger, **no profile
    name** (§3.1).
 5. A value visible to one user and not another: two different scores, each
-   internally consistent, each with its own `acl_note`. This is §14.6 made
-   real and is the first time the page has been able to demonstrate it.
+   internally consistent, **and neither page saying why**. This is §14.6 made
+   real — the computation is per-viewer and the page does not narrate the
+   reason (`05-exclusions.md` §7.2).
 6. Two users with different profiles on the same value: two scores, both
    ledgers summing, both heroes naming their own profile. This is the feature's
    headline claim (`01-profile.md` §1.1) and it has never been demonstrable.

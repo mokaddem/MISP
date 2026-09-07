@@ -114,11 +114,13 @@ which phase 2 measured at −3 and could not name — reaches a contested lean
 through `conflict:listed-vs-asserted` on the instance's own rows (§11.5
 there).
 
-**Phase 4 closed the `not_counted` block's own ambiguity**, and cost the
-design one specified feature: the fixture's *"4 occurrences outside your ACL"*
-cannot be computed without turning the page into a membership oracle for any
-value a reader types, so the caveat moved to the provenance band with no
-number and `reason` carries two values rather than three
+**Phase 4 closed the `not_counted` block's own ambiguity**, and removed a
+specified feature rather than rebuilding it: the page now says **nothing about
+the reader's permissions, on any value**. MISP discloses what a reader may
+see, the people using it know it, and a per-value caveat both tells them
+nothing and hints at records they have no business knowing exist — so the
+fixture's *"4 occurrences outside your ACL"* is gone rather than
+de-numbered, and `reason` carries two values rather than three
 ([`05-exclusions.md`](05-exclusions.md) §7.2). It also put an exclusion into
 the query layer rather than over the context, because half a value's evidence
 is an aggregate and never exists as rows (§7.1 there).

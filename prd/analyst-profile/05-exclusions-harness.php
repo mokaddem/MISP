@@ -578,15 +578,13 @@ is_true(
     isset($reasons['policy']),
     'the profile\'s own exclusion is in the block as policy'
 );
-is_true(
-    !empty($verdict['acl_note']),
-    'and the permissions caveat is on the verdict rather than in the'
-        . ' block, because with no count it names no evidence'
-);
-is_true(
-    strpos($verdict['acl_note'], 'permissions allow') !== false,
-    'saying what it can say without counting what it must not'
-);
+/*
+ * And the assessment says nothing about permissions at all — no row,
+ * no key, no caveat. MISP discloses what a reader may see; that is how
+ * the platform works and the people using it know it, so a page
+ * repeating it per value is telling them nothing while hinting at
+ * records they have no business knowing exist.
+ */
 $aclRows = 0;
 foreach ($verdict['not_counted'] as $entry) {
     if ($entry['reason'] === 'acl') {
@@ -596,7 +594,12 @@ foreach ($verdict['not_counted'] as $entry) {
 is_same(
     0,
     $aclRows,
-    'so no row in the block claims to be about the ACL'
+    'no row in the block is about the ACL'
+);
+is_same(
+    false,
+    array_key_exists('acl_note', $verdict),
+    'and the assessment carries no permissions caveat either'
 );
 
 /*
@@ -651,12 +654,6 @@ is_same(
     0,
     count($plain['not_counted']),
     'with nothing excluded, the block is empty'
-);
-is_true(
-    !empty($plain['acl_note']),
-    'the permissions caveat is there regardless — a caveat that'
-        . ' appeared only when rows were hidden would itself be the'
-        . ' oracle, one bit at a time'
 );
 is_true(
     $plain['quality'] !== $verdict['quality'],

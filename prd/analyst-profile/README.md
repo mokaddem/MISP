@@ -155,7 +155,7 @@ section: `sightings.self` (a row filter with a window, because a
 self-sighting a year later is news rather than self-confirmation),
 `feeds.mirrored` (a provider fold, with the imprecision named on the page),
 `orgs.own` (a query predicate — see below), and the `reason` key that finally
-tells a reader which rows of *not counted* they could change. Verified by 44
+tells a reader which rows of *not counted* they could change. Verified by 42
 checks with no database and 18 against the dev instance. Five findings are in
 `05-exclusions.md` §7; three are worth knowing about from here:
 
@@ -165,12 +165,15 @@ checks with no database and 18 against the dev instance. Five findings are in
   value-scoped aggregates build their predicate. Filtering after the fact
   would have left the reporting breadth naming 7 organisations while the
   occurrence tally still counted 8 (§7.1).
-- **The fixture's ACL row cannot be built.** *"4 occurrences outside your
-  ACL"* needs a count taken without the viewer's ACL, and this page accepts
-  any value a reader types — so the number is a membership oracle for the
-  whole instance. The caveat moved to the provenance band without it, shown
-  unconditionally because one that appeared only when rows were hidden is the
-  same oracle a bit at a time (§7.2).
+- **The page says nothing about the reader's permissions.** MISP discloses
+  what a reader may see, the people using it know it, and a per-value caveat
+  tells them nothing while hinting at records they have no business knowing
+  exist. So the fixture's *"4 occurrences outside your ACL"* is gone, and so
+  is the de-numbered caveat the first implementation put in its place — an
+  unconditional *"computed from what your permissions allow"* is the same hint
+  at one bit per page load. A note about the *instance's* policy or the
+  reader's *role* is untouched: it explains an empty panel and reveals
+  nothing about the value (§7.2).
 - **44 harness checks passed against a context shape that does not exist.**
   The occurrence map is flat; the implementation and its harness fixture both
   read it as nested, so the self-sighting rule declared every row undecidable,

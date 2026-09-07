@@ -787,21 +787,6 @@ tr.vp-occ-deleted td {
  * The count the table cannot show. Sits in the card footer rather than
  * in the table, because it is a statement about the query, not a row.
  */
-.vp-acl-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 10px 16px;
-    border-top: 1px solid var(--bs-border-color);
-    background: var(--bs-secondary-bg);
-    font-size: 0.76rem;
-    color: var(--bs-secondary-color);
-}
-
-.vp-acl-note > i {
-    margin-top: 2px;
-}
-
 /* ==================================================================
  * Tags and galaxies
  * ================================================================== */
@@ -1918,6 +1903,28 @@ tr.vp-occ-deleted td {
 
 .vp-meta-strong {
     color: var(--bs-body-color);
+}
+
+/*
+ * A quiet band explaining a panel's own scope — an instance policy, a
+ * role capability, a row cap. Never a per-value statement about what
+ * this reader cannot see: MISP shows a reader what they are allowed to
+ * see, and a page that says so per value is hinting at records the
+ * reader has no business knowing exist.
+ */
+.vp-acl-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    font-size: 0.76rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-acl-note > i {
+    margin-top: 2px;
 }
 
 .vp-acl-note-band {

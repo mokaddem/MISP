@@ -242,11 +242,4 @@ $headerExtra = ob_get_clean();
         </div>
     <?php endif; ?>
 
-    <?php if (!empty($profile['occurrence_acl_note'])): ?>
-        <div class="vp-acl-note">
-            <i class="fas fa-eye-slash"></i>
-            <span><?= h($profile['occurrence_acl_note']) ?></span>
-        </div>
-    <?php endif; ?>
-
 </div>

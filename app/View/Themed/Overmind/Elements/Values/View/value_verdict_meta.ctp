@@ -7,17 +7,22 @@
  * One quiet line rather than a row of chips. It is the small print of
  * the card above it and should read that way.
  *
- * Shared by both verdict layouts, because the caveats do not depend on
- * which way the evidence fell. A verdict that stated a disposition
- * without saying it was computed from the viewing user's own
- * visibility would be claiming more than it knows.
+ * Shared by both verdict layouts, because the provenance does not
+ * depend on which way the evidence fell.
+ *
+ * **It says nothing about permissions, and that is deliberate.** MISP
+ * shows a reader what they are allowed to see; that is how the platform
+ * works and the people using it know it. A line volunteering that
+ * something might be missing tells a reader nothing they did not
+ * already assume, and on a page that accepts any value typed into the
+ * URL it hints at the presence of records the reader has no business
+ * knowing about.
  *
  * @var array $verdict
  * @var string $metaRule Optional — the rule that produced the state,
  *                       shown in place of the storage note
  */
 $metaRule = $metaRule ?? null;
-$aclNote = $verdict['acl_note'] ?? null;
 
 /*
  * Literally true: there is no stored verdict, so the timestamp is this
@@ -38,10 +43,6 @@ $parts = array(
 if (!empty($verdict['ledger'])) {
     $parts[] = h(__('Weighting profile')) . ' <span class="font-monospace'
         . ' vp-meta-strong">' . h($verdict['profile']) . '</span>';
-}
-
-if (!empty($aclNote)) {
-    $parts[] = '<i class="fas fa-eye-slash me-1"></i>' . h($aclNote);
 }
 
 $parts[] = $metaRule === null

@@ -254,10 +254,16 @@ class AnalystExclusionProbeShell extends AppShell
                 );
             }
         }
+        /*
+         * MISP discloses what a reader may see; the page never says so.
+         * A per-value caveat would tell a reader nothing they did not
+         * assume while hinting at records they have no business
+         * knowing exist.
+         */
         $this->__is(
-            true,
-            !empty($verdict['acl_note']),
-            'the permissions caveat is on the verdict'
+            false,
+            array_key_exists('acl_note', $verdict),
+            'the assessment says nothing about permissions'
         );
     }
 
