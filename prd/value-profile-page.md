@@ -205,6 +205,20 @@ is **not MISP's to state**. The tab bar now carries exactly two
 numbers, Occurrences' count and Relationships' objects, and both are
 the viewer's, read live.
 
+**Both are drawn as pills from 2026-09-07.** Occurrences moved off the
+generic layout's parenthesised `count`, so every number on this bar is
+now the same object in the same place — measured identical to the two
+beside it at 20.8 px tall on one baseline. It carries no unit where
+Relationships carries *objects*, because *Occurrences* is already the
+noun the panel uses (`value_occurrence_table`: *Showing 50 of 1,231
+occurrences*), so a unit would only say it twice. The hue follows the
+relation notions' rule and borrows `--attribute`, which needs
+darkening to 5.56:1 for the light bar and none at all for the dark one
+(8.05:1 as MISP ships it) — `--vp-occ-attribute`. Null at zero, as
+`!empty($tab['count'])` already was. `view_layout`'s `count` branch
+stays where it is: `Servers/server_settings` draws its per-tab error
+counts through it.
+
 **Phase numbers and section numbers are not aligned.** Phase 10 is the Sightings
 tab, written up in `value-profile-tabs/02-sightings.md`; §10 is phase 18. Always
 follow the "Written up in" column rather than assuming §N is phase N.

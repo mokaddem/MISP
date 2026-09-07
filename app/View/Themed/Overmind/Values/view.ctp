@@ -447,6 +447,29 @@ $relationshipBadge = $relationshipObjects === 0 ? null : array(
     'color' => 'var(--vp-rel-object)',
 );
 
+/*
+ * The Occurrences pill: the number, and only the number.
+ *
+ * A pill rather than the parenthesised `(17)` the generic layout draws
+ * from `count`, so that every number on this bar is the same object in
+ * the same place. That branch stays where it is — `Servers/
+ * server_settings` renders its per-tab error counts through it.
+ *
+ * No unit, which is where this parts from the Relationships pill above.
+ * That one has to say *15 objects* because `(15)` on that tab would
+ * read as fifteen relationships. Here the tab title is already the noun
+ * the panel uses — `value_occurrence_table` reads *Showing 50 of 1,231
+ * occurrences* — so a unit on the pill would only say it twice.
+ *
+ * Null at zero, which is what `!empty($tab['count'])` already did: it
+ * never drew `(0)`, and this change is a rendering and not a new claim.
+ */
+$occurrences = (int)($counts['occurrences'] ?? 0);
+$occurrenceBadge = $occurrences === 0 ? null : array(
+    'label' => number_format($occurrences),
+    'color' => 'var(--vp-occ-attribute)',
+);
+
 $tabRegistry = array(
     array(
         'id' => 'general',
@@ -489,10 +512,9 @@ $tabRegistry = array(
         /*
          * The viewer's own count, off the same aggregate the tab's
          * header uses, so the badge and the panel cannot disagree —
-         * `ValueProfile::forTabCounts`. Every other badge on this bar
-         * is still the fixture's.
+         * `ValueProfile::forTabCounts`.
          */
-        'count' => $counts['occurrences'],
+        'badge' => $occurrenceBadge,
         /*
          * One full-width slot, and the panel lays out its own internal
          * row: the rail on the left at col-lg-3, the table at col-lg-9,

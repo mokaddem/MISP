@@ -4134,6 +4134,24 @@ th[aria-sort="descending"] .sort-icon::before,
     --vp-rel-reference: #b79dfa;
 }
 
+/*
+ * The Occurrences tab badge, which counts attributes and so borrows
+ * --attribute, the same rule the relation notions above follow.
+ *
+ * The raw hue is #97CC04 and it is 1.82:1 on the tab bar's light
+ * ground — unusable for a pill that draws its border and its text in
+ * one colour. Darkened to 5.56:1 for the light theme, which is the
+ * band --vp-rel-event already sits in at 5.09:1. On the dark bar the
+ * hue needs no help: 8.05:1 as MISP ships it.
+ */
+:root {
+    --vp-occ-attribute: #516e02;  /* --attribute #97CC04, darkened */
+}
+
+[data-bs-theme="dark"] {
+    --vp-occ-attribute: #97CC04;  /* --attribute, legible as it comes */
+}
+
 .vp-rel-k-co { --vp-rel-color: var(--vp-rel-co); }
 .vp-rel-k-near { --vp-rel-color: var(--vp-rel-near); }
 .vp-rel-k-human { --vp-rel-color: var(--vp-rel-human); }
