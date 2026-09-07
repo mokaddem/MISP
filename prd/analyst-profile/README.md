@@ -1,6 +1,6 @@
 # Analyst Profile — executive summary
 
-**Snapshot, 2026-09-03.** This file is the entry point for someone who has
+**Snapshot, 2026-09-07.** This file is the entry point for someone who has
 not followed the corpus. It summarises; it decides nothing. The living state
 table is [`01-profile.md`](01-profile.md) §1.4, the decisions index is
 §2 there, and every claim below carries a pointer to the document that owns
@@ -10,15 +10,15 @@ it.
 
 MISP's Value Profile page displays an assessment of a value — what the
 record asserts it is, whether that still matters, how much the record can be
-trusted — and **nothing computes any of it yet**. The **Analyst Profile** is
-the configuration object that will: a forkable JSON document holding every
-judgement the scoring engine needs — signal weights, thresholds, exclusions,
+trusted — and until 2026-09-07 **nothing computed any of it**. The **Analyst
+Profile** is the configuration object the engine reads: a forkable JSON
+document holding every judgement the scoring engine needs — signal weights, thresholds, exclusions,
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phase 1 — the store — is built as of
-2026-09-07**; the other nine phases are specifications. The corpus is fifteen
-documents, phase by phase.
+viewer (nearest owner wins). **Phases 1 and 2 — the store, and the engine
+that reads it — are built as of 2026-09-07**; the other eight phases are
+specifications. The corpus is fifteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -73,6 +73,11 @@ design:
 - **The median value is the corpus** — most real values are one org, no
   sightings. The regression set gained that case and the default carries a
   calibration rule: a single-org record never leaves the `low` quality band.
+  **Measured 2026-09-07 and half true**: the median *shape* lands in `low`
+  under the shipped weights, but a single organisation reporting the same
+  value for fourteen months reaches `medium`, and no weighting closes that
+  gap. The rule becomes a clamp in phase 3's banding
+  (`03-signals.md` §11.1).
 - **The engine got a budget** — an evidence-time window (90 days of row
   evidence on long-history values; whole-history aggregates always), with
   `over_correlating_values` as the hot-value give-up. Deterministic by
@@ -92,10 +97,10 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phase 1 is built; 2–6 and
-8–10 are specifications; 7 (enrichment) is a scope note blocked on a store
-that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9 (the
-tab goes live) → 10.
+Phases (living table: `01-profile.md` §1.4): **phases 1 and 2 are built;
+3–6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
+store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
+(the tab goes live) → 10.
 
 **Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
 table, `app/Model/AnalystProfile.php`, and the shipped
@@ -104,6 +109,20 @@ table, `app/Model/AnalystProfile.php`, and the shipped
 `02-store-resolve-harness.php`, 33 checks with no database. The controller
 moved to phase 8, and four of the nine verification items need a live
 instance (`02-store.md` §7 says which).
+
+**Phase 2, built 2026-09-07.** The accumulator
+(`app/Lib/Tools/ValueVerdictTool.php`), D12's filesystem loader
+(`ValueSignalLoader`), the eleven signals as eleven files under
+`app/Model/ValueSignals/`, the one-build context
+(`ValueProfile::verdictContextFor()` and three new aggregates on `Value`),
+and the eleven-signal default profile. Verified by 96 checks with no database
+and 36 against the dev instance: the ledger sums to the quality to the unit
+on every value scored, a dropped file no profile enables leaves every number
+byte-identical, and a signal that throws or returns a float lands in
+`not_counted` with the rest of the ledger still summing exactly. Eight findings
+are recorded in `03-signals.md` §11 — the load-bearing one is that §7.4's
+calibration rule needs a clamp in phase 3's banding rather than a weighting,
+measured rather than assumed.
 
 Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
 phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus two

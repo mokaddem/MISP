@@ -476,10 +476,14 @@ for it; this is the assertion.
   validates only that it parses.
 - Syncing profiles between instances. The uuid exists for export/import and
   for matching a shipped default, not for a sync channel.
-- **The default's weights.** `default-v1.json` ships the six signals the design
-  authored against the regression set, not §6's eleven — phase 2 authors the
-  catalogue and its calibration, and inventing five sets of numbers here would
-  have shipped guesses that read as decisions (§4.1).
+- **The default's weights.** `default-v1.json` shipped the six signals the
+  design authored against the regression set, not §6's eleven — phase 2
+  authors the catalogue and its calibration, and inventing five sets of
+  numbers here would have shipped guesses that read as decisions (§4.1).
+  **Superseded 2026-09-07:** phase 2 replaced the file with the eleven and
+  bumped `version` to 2, so `updateDefaults()` carries the catalogue onto
+  instances that already loaded the provisional one
+  ([`03-signals.md`](03-signals.md) §7.5).
 
 ## 9. What phase 1 hands on
 

@@ -1,0 +1,99 @@
+<?php
+
+/**
+ * Whether anybody outside this instance is publishing the value too.
+ *
+ * Feed presence is corroboration from a source that never saw the
+ * instance's own events, which is why it belongs in the ledger at all.
+ * It is also the signal most easily double-counted: a feed that mirrors
+ * the same OSINT the instance already ingested is not an independent
+ * voice, and the fixture's `not_counted` says so in as many words —
+ * *"feeds that merely mirror CIRCL OSINT are not independent
+ * corroboration and score once, not three times"*.
+ *
+ * That dedupe is the `feeds.mirrored` exclusion's job (phase 4), and
+ * this signal reads whatever survives it. What it owns is the cap: two
+ * feeds is corroboration, twelve feeds is a popular blocklist entry,
+ * and the difference between those two is not five times as much
+ * evidence.
+ *
+ * Absence fires as `no_feed`, weakly. A value nobody else publishes is
+ * mildly thinner than one several do, and the row keeps the reader from
+ * wondering whether the feeds were checked.
+ */
+class LifecycleFeeds extends ValueSignalBase
+{
+    public $id = 'lifecycle.feeds';
+    public $group = 'Lifecycle';
+    public $default_band = 'moderate';
+    public $evidence_class = self::EVIDENCE_AGGREGATE;
+    public $reads = array('feeds');
+    public $absence_key = 'no_feed';
+    public $source = 'External';
+
+    public function __construct()
+    {
+        $this->description = __(
+            'Presence in the enabled feeds and servers this instance'
+            . ' caches.'
+        );
+        $this->points_schema = array(
+            'per_feed' => array(
+                'type' => 'int',
+                'default' => 4,
+                'label' => __('Points per feed carrying the value'),
+            ),
+            'cap' => array(
+                'type' => 'int',
+                'default' => 8,
+                'label' => __('Most this signal may contribute'),
+            ),
+            'no_feed' => array(
+                'type' => 'int',
+                'default' => -2,
+                'label' => __('Points when no feed carries it'),
+            ),
+        );
+    }
+
+    public function evaluate(array $context, array $config)
+    {
+        $feeds = isset($context['feeds']) ? $context['feeds'] : array();
+        $count = (int)($feeds['count'] ?? 0);
+        if ($count === 0) {
+            if (!$this->absenceFires($config, $context, 'feeds')) {
+                return null;
+            }
+            return $this->row(
+                $this->points($config, 'no_feed'),
+                __('No enabled feed carries it'),
+                (int)($feeds['checked'] ?? 0) > 0
+                    ? sprintf(
+                        __('%d cached sources checked'),
+                        (int)$feeds['checked']
+                    )
+                    : __('Checked against the cached sources you may'
+                        . ' see'),
+                $context
+            );
+        }
+        $points = $this->capped(
+            $this->points($config, 'per_feed') * $count,
+            $this->points($config, 'cap')
+        );
+        $names = isset($feeds['names']) ? $feeds['names'] : array();
+        return $this->row(
+            $points,
+            sprintf(
+                $count === 1
+                    ? __('Present in %d enabled feed')
+                    : __('Present in %d enabled feeds'),
+                $count
+            ),
+            empty($names)
+                ? __('Cached feed content')
+                : implode(', ', array_slice($names, 0, 4)),
+            $context
+        );
+    }
+}

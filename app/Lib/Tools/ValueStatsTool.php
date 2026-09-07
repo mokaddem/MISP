@@ -1414,4 +1414,146 @@ class ValueStatsTool
         $stamp = strtotime($value);
         return $stamp === false ? null : $stamp;
     }
+
+    /**
+     * The sighting facts a ledger row quotes, beside the ones
+     * `sightingTotals` already counts.
+     *
+     * Organisation spread, recency and who filed the false positives —
+     * the three things `sightings.volume_recency` and
+     * `sightings.false_positive` say in prose and that the totals do
+     * not carry. Folded here rather than in the signals, so that two
+     * implementations reading the same rows cannot disagree about what
+     * *recent* meant.
+     *
+     * **Anonymised reports count and are not named.** `listSightings`
+     * has already applied the instance's sighting policy, so a row with
+     * no organisation is one this reader may count but not attribute;
+     * it joins the spread under one *Others* key — one key rather than
+     * one per hidden org, for the reason `sightingTotals` gives — and
+     * never reaches an evidence line.
+     *
+     * @param array $rows Rows as `Sighting::listSightings` returns
+     * @param int $now
+     * @param int $recentDays What the row calls recent
+     * @return array
+     */
+    public static function sightingSignals(array $rows, $now,
+        $recentDays
+    ) {
+        $cut = (int)$now - (int)$recentDays * 86400;
+        $orgs = array();
+        $fpOrgs = array();
+        $recent = 0;
+        $first = null;
+        foreach ($rows as $row) {
+            $at = (int)$row['Sighting']['date_sighting'];
+            $named = self::sightingHasOrg($row);
+            $name = $named ? $row['Organisation']['name'] : null;
+            $orgs[$named ? $name : '_others'] = true;
+            if ($at >= $cut) {
+                $recent++;
+            }
+            if ($first === null || $at < $first) {
+                $first = $at;
+            }
+            if ((int)$row['Sighting']['type'] === 1) {
+                $fpOrgs[$named ? $name : '_others'] = $named;
+            }
+        }
+        $fpNames = array();
+        foreach ($fpOrgs as $name => $named) {
+            if ($named) {
+                $fpNames[] = $name;
+            }
+        }
+        return array(
+            'orgs' => count($orgs),
+            'fp_orgs' => count($fpOrgs),
+            'fp_org_names' => $fpNames,
+            'recent' => $recent,
+            'recent_days' => (int)$recentDays,
+            'first_stamp' => $first,
+        );
+    }
+
+    /**
+     * The composition card's segments, from the ledger the accumulator
+     * just built.
+     *
+     * §14.5 of the live contract gave this class *"the verdict's
+     * composition segments"* before there was a ledger to derive them
+     * from; phase 2 built the ledger, so here they are.
+     *
+     * The rule is the fixture's own arithmetic, checked against its
+     * malicious value in `10-wiring.md` §2.1: group the fired rows by
+     * kind, sum the **positives** into a segment per group, and collect
+     * every **negative** across all groups into one final segment. So
+     * `Reporting 37, Sightings 24, Attribution 19, Lifecycle 18,
+     * Signals against -14` sums to 84 — the ledger's own total, by a
+     * second route that cannot disagree with it.
+     *
+     * **One collected negative rather than a hatched deduction per
+     * group**, because the fixture's own comment says why: the segment
+     * is *"the two downward signals, collected"* and explicitly not the
+     * contradictions, since labelling the line after those *"would send
+     * a reader tracing -14 to the wrong rows"*.
+     *
+     * @param array $ledger Grouped rows, as `ValueVerdictTool` emits
+     * @return array Segments of `label`, `points`, `colour`
+     */
+    public static function verdictComposition(array $ledger)
+    {
+        $segments = array();
+        $against = 0;
+        foreach ($ledger as $group) {
+            $earned = 0;
+            foreach ($group['signals'] as $signal) {
+                $points = (int)$signal['contribution'];
+                if ($points < 0) {
+                    $against += $points;
+                } else {
+                    $earned += $points;
+                }
+            }
+            if ($earned > 0) {
+                $segments[] = array(
+                    'label' => $group['kind'],
+                    'points' => $earned,
+                    'colour' => self::compositionColour($group['kind']),
+                );
+            }
+        }
+        if ($against < 0) {
+            $segments[] = array(
+                'label' => __('Signals against'),
+                'points' => $against,
+                'colour' => 'var(--bs-danger)',
+            );
+        }
+        return $segments;
+    }
+
+    /**
+     * The colour token a ledger group is drawn in — the page's own
+     * per-domain variables, so a segment matches the tab its evidence
+     * came from rather than a palette invented for this card.
+     *
+     * @param string $kind
+     * @return string A CSS variable reference, never a raw hex
+     */
+    private static function compositionColour($kind)
+    {
+        switch ($kind) {
+            case 'Reporting':
+                return 'var(--event)';
+            case 'Sightings':
+                return 'var(--sighting)';
+            case 'Attribution':
+                return 'var(--galaxy)';
+            case 'Lifecycle':
+                return 'var(--correlation)';
+        }
+        return 'var(--vp-unknown)';
+    }
 }

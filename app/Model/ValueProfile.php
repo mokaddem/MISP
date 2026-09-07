@@ -90,6 +90,19 @@ class ValueProfile extends AppModel
     const OCCURRENCE_ORDER = 'Attribute.timestamp DESC';
 
     /**
+     * What a ledger row means by *recent* when it counts sightings.
+     *
+     * Not a profile setting, deliberately: it is the denominator in a
+     * sentence — *"12 sightings in the last 30 days"* — rather than a
+     * judgement about what evidence is worth, and the fixture's own
+     * evidence line has printed 30 since the skeleton pass. A signal
+     * that wants to weight recency does it with points
+     * (`sightings.volume_recency`'s `stale_days`), which is where the
+     * analyst's opinion belongs.
+     */
+    const VERDICT_RECENT_DAYS = 30;
+
+    /**
      * How many of the value's events the co-occurrence section will
      * even look at before it starts choosing.
      *
@@ -12706,5 +12719,612 @@ class ValueProfile extends AppModel
     {
         $timeout = Configure::read('Plugin.Enrichment_timeout');
         return empty($timeout) ? 10 : (int)$timeout;
+    }
+
+    /*
+     * ------------------------------------------------------------------
+     * The assessment's context.
+     *
+     * One build, every signal. `03-signals.md` §2.2 makes the aggregate
+     * shared rather than per signal, and the reason is arithmetic: the
+     * eleven shipped signals between them read the occurrence tally,
+     * the per-org stance, the publication split, the monthly activity,
+     * the sighting rows, the tag and galaxy sets, the warninglist
+     * result and the feed caches — twelve reads if each asked for its
+     * own, seven queries if they share one context.
+     *
+     * It lives here rather than in the tool because §14.5 is explicit
+     * that a `Value*` tool computes over data handed to it: the queries
+     * and the ACL are the model's, the arithmetic is the tool's. Phase
+     * 9 wraps this in `forVerdict()` and shares one build across the
+     * tab's seven panels; phase 10 swaps in a batch builder behind the
+     * same seam.
+     * ------------------------------------------------------------------
+     */
+
+    /**
+     * Every fact the quality ledger reads, for one value and one
+     * viewer.
+     *
+     * The contract — every key, and which evidence class it belongs to
+     * — is documented on `ValueSignalBase`, because that is the file a
+     * signal author reads.
+     *
+     * **Two evidence classes, and the budget only bounds one**
+     * (`03-signals.md` §2.3). Index aggregates — the tally, the org
+     * count, the monthly buckets, the warninglist result — are
+     * computed whole-history, always: a window would blind the
+     * freshness clock and undercount a long-history value's reporting
+     * breadth. Row evidence is the sighting rows and the per-occurrence
+     * tag detail, and that is what the window cuts, because rows were
+     * the cost.
+     *
+     * **Deterministic by design.** No row caps and no stopwatch: the
+     * page, the profile simulator and phase 10's worker all compute
+     * this and they have to agree, so what the context contains is
+     * decided by the profile's own policy rather than by server load.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array|null $profile The profile in force; its
+     *                            `exclusions` set the budget and its
+     *                            `reference` map resolves warninglist
+     *                            categories
+     * @param array $options `now` fixes the clock for a test; the rest
+     *                       as conditionsFor
+     * @return array
+     */
+    public function verdictContextFor(array $user, $value,
+        $profile = null, array $options = array()
+    ) {
+        /*
+         * **A string, whatever the caller had.** PHP turns a numeric
+         * array key into an integer, so a caller iterating a map of
+         * values hands `1` over as `int 1` — and an integer compared
+         * against a `varchar` column makes MariaDB convert the column
+         * rather than use its index. Measured on this instance's
+         * largest value: 31 ms as a string, 9.4 seconds as an integer,
+         * same rows either way. `Value::prevalenceFor` records the same
+         * trap from the other direction, and the phase 2 probe walked
+         * straight into it.
+         */
+        $value = (string)$value;
+        $this->forget($value);
+        $now = isset($options['now']) ? (int)$options['now'] : time();
+        $valueModel = $this->model('Value');
+        $record = $valueModel->recordSummaryFor($user, $value, $options);
+        $types = $valueModel->typesFor($user, $value, $options);
+        $budget = $this->verdictBudget($value, $record, $profile);
+
+        $context = array(
+            'value' => $value,
+            'now' => $now,
+            'as_of' => date('Y-m-d', $now),
+            'types' => $types,
+            'occurrences' => array(
+                'total' => $record['occurrences'],
+                'events' => $record['events'],
+                'orgs' => $record['orgs'],
+                'oldest' => $record['oldest'],
+                'newest' => $record['newest'],
+            ),
+            'publication' => array(
+                'events' => $record['events'],
+                'published' => $record['published'],
+                'unpublished' => max(
+                    0,
+                    $record['events'] - $record['published']
+                ),
+            ),
+            'temporal' => array(
+                'occurrences' => $record['occurrences'],
+                'with_first_seen' => $record['dated'],
+                'max_lag_days' => $record['max_lag_days'],
+            ),
+            'orgs' => $this->verdictOrgs($user, $value, $options),
+            'activity' => $this->verdictActivity(
+                $valueModel->activityMonthsFor($user, $value, $options)
+            ),
+            'warninglist' => $this->verdictWarninglist(
+                $value,
+                $types,
+                $profile
+            ),
+            'sightings' => array('total' => 0, 'fp' => 0),
+            'galaxies' => array(
+                'clusters' => array(),
+                'techniques' => array(),
+            ),
+            'budget' => $budget,
+            'excluded' => array(),
+            'missing' => array(),
+        );
+
+        $feeds = $this->verdictFeeds($user, $value);
+        $context['feeds'] = $feeds['facts'];
+        if ($feeds['missing'] !== null) {
+            $context['missing']['feeds'] = $feeds['missing'];
+        }
+
+        /*
+         * The row evidence, and the tier that skips it. A value MISP
+         * flagged as over-correlating is one a window cannot bound —
+         * a live campaign puts everything inside 90 days — so the
+         * rows are not fetched at all and the engine puts the signals
+         * that read them in `not_counted`.
+         */
+        if (empty($budget['hot'])) {
+            $sightings = $this->verdictSightings(
+                $user,
+                $value,
+                $options,
+                $now,
+                $budget
+            );
+            $context['sightings'] = $sightings['facts'];
+            if ($sightings['windowed'] > 0) {
+                /*
+                 * §4.2: absent because windowed is not absent. Without
+                 * this the absence key would fire on a value with a
+                 * decade of sightings and none in the last 90 days,
+                 * which is not a value nobody has sighted.
+                 */
+                $context['excluded']['sightings'] =
+                    $sightings['windowed'];
+            }
+            $context['galaxies'] = $this->verdictGalaxies(
+                $user,
+                $value,
+                $options,
+                $budget,
+                $now
+            );
+        }
+
+        return $context;
+    }
+
+    /**
+     * The evidence budget in force for this value.
+     *
+     * Three tiers, expressed in evidence time rather than in rows:
+     * normal values are scored from everything and say nothing; past
+     * `min_occurrences` the row evidence is cut to the window and the
+     * cut is stated as the profile policy it is; a value in
+     * `over_correlating_values` — MISP's own *too hot* mechanism — has
+     * its row-hungry signals bow out.
+     *
+     * The window comes from the `evidence.window` exclusion, so it is
+     * the analyst's policy and not a constant in this file.
+     *
+     * @param string $value
+     * @param array $record From `Value::recordSummaryFor`
+     * @param array|null $profile
+     * @return array
+     */
+    private function verdictBudget($value, array $record, $profile)
+    {
+        $window = null;
+        $threshold = null;
+        foreach ($this->verdictSection($profile, 'exclusions') as $rule) {
+            if (($rule['id'] ?? null) !== 'evidence.window') {
+                continue;
+            }
+            $window = isset($rule['days']) ? (int)$rule['days'] : null;
+            $threshold = isset($rule['min_occurrences'])
+                ? (int)$rule['min_occurrences']
+                : null;
+        }
+        $occurrences = (int)$record['occurrences'];
+        $inForce = ($window !== null && $threshold !== null
+            && $occurrences >= $threshold);
+        return array(
+            'window_days' => $inForce ? $window : null,
+            'hot' => $this->model('OverCorrelatingValue')
+                ->isBlocked($value),
+            'occurrences' => $occurrences,
+            'threshold' => $threshold,
+        );
+    }
+
+    /**
+     * Each organisation's stake in the value, with a name on it.
+     *
+     * The stance columns ride along unread by this phase: the lean
+     * derivation (phase 3) counts them per organisation, and it will
+     * find them here rather than issuing the query again.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    private function verdictOrgs(array $user, $value, array $options)
+    {
+        $rows = $this->model('Value')
+            ->orgStanceFor($user, $value, $options);
+        $names = $this->organisationNames($rows);
+        $orgs = array();
+        foreach ($rows as $row) {
+            $id = (int)$row['Event']['orgc_id'];
+            $orgs[] = array(
+                'id' => $id,
+                'name' => isset($names[$id])
+                    ? $names[$id]
+                    : __('Unknown organisation'),
+                'occurrences' => (int)$row[0]['occurrences'],
+                'to_ids_yes' => (int)$row[0]['to_ids_yes'],
+                'to_ids_no' => (int)$row[0]['to_ids_no'],
+                'newest' => (int)$row[0]['newest'],
+            );
+        }
+        return $orgs;
+    }
+
+    /**
+     * The monthly activity, read for continuity.
+     *
+     * `longest_run` is the longest unbroken sequence of calendar
+     * months with at least one occurrence — the number
+     * `lifecycle.continuity` states — against `active_months`, which
+     * counts them however they are scattered, and `span_months`, the
+     * distance from the first to the last.
+     *
+     * @param array $months `YYYY-MM` => occurrences, oldest first
+     * @return array
+     */
+    private function verdictActivity(array $months)
+    {
+        $keys = array_keys($months);
+        $run = 0;
+        $longest = 0;
+        $previous = null;
+        foreach ($keys as $key) {
+            $index = $this->monthIndex($key);
+            if ($index === null) {
+                continue;
+            }
+            $run = ($previous !== null && $index === $previous + 1)
+                ? $run + 1
+                : 1;
+            $longest = max($longest, $run);
+            $previous = $index;
+        }
+        $first = empty($keys) ? null : $this->monthIndex($keys[0]);
+        $last = empty($keys)
+            ? null
+            : $this->monthIndex($keys[count($keys) - 1]);
+        return array(
+            'months' => $months,
+            'active_months' => count($months),
+            'span_months' => ($first === null || $last === null)
+                ? 0
+                : ($last - $first + 1),
+            'longest_run' => $longest,
+        );
+    }
+
+    /**
+     * A `YYYY-MM` key as a month counter, so consecutive months are
+     * consecutive integers across a year boundary.
+     *
+     * @param string $key
+     * @return int|null
+     */
+    private function monthIndex($key)
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})$/', (string)$key, $parts)) {
+            return null;
+        }
+        return (int)$parts[1] * 12 + ((int)$parts[2] - 1);
+    }
+
+    /**
+     * The warninglist result, and the category it resolves to.
+     *
+     * `ValueWarninglistTool` is the page's one warninglist read — the
+     * event view's own Redis-backed check — and it is asked about every
+     * type the value is stored under, because a `sha1` seen once as an
+     * `md5` would otherwise escape the list it is on.
+     *
+     * **The category is resolved, not read.** `07-reference.md` §3.1
+     * verified that no shipped list sets one and that
+     * `Warninglist::__updateList()` drops the field on import, so the
+     * order is: the profile's override map by exact list name, then
+     * the database column, then `false_positive` — the column's own
+     * default and what MISP's warning banner has always meant by a
+     * hit. Phase 6 inserts the shipped name map as the second step.
+     *
+     * **A refuting hit outranks a contextualising one.** Where a value
+     * hits both a `false_positive` list and a `known` one, the
+     * resolution is `false_positive`: the first says *this is not an
+     * indicator*, the second only says *this cannot be attributed to
+     * one tenant*, and the clash between the second and wide reporting
+     * is what phase 3's escalation names.
+     *
+     * @param string $value
+     * @param array $types From `Value::typesFor`
+     * @param array|null $profile
+     * @return array
+     */
+    private function verdictWarninglist($value, array $types, $profile)
+    {
+        $warninglist = $this->model('Warninglist');
+        $pairs = array();
+        foreach ($types as $type) {
+            $pairs[] = array('type' => $type['type'], 'value' => $value);
+        }
+        $hits = ValueWarninglistTool::hitsFor($warninglist, $pairs);
+        $lists = isset($hits[$value]) ? $hits[$value] : array();
+        $overrides = $this->verdictSection($profile, 'reference');
+        $map = isset($overrides['warninglist_category'])
+            && is_array($overrides['warninglist_category'])
+            ? $overrides['warninglist_category']
+            : array();
+        $resolved = array();
+        $rows = array();
+        foreach ($lists as $hit) {
+            $name = $hit['name'];
+            if (isset($map[$name])) {
+                $category = $map[$name];
+            } elseif (!empty($hit['category'])) {
+                $category = $hit['category'];
+            } else {
+                $category = 'false_positive';
+            }
+            $resolved[$category] = true;
+            $rows[] = array(
+                'name' => $name,
+                'category' => $category,
+                'matched' => $hit['matched'] ?? null,
+            );
+        }
+        $category = null;
+        if (isset($resolved['false_positive'])) {
+            $category = 'false_positive';
+        } elseif (!empty($resolved)) {
+            $category = array_keys($resolved)[0];
+        }
+        return array(
+            'hits' => $rows,
+            'lists_checked' => ValueWarninglistTool::enabledCount(
+                $warninglist
+            ),
+            'category' => $category,
+        );
+    }
+
+    /**
+     * External corroboration: the cached feeds and MISP servers
+     * carrying this value.
+     *
+     * `externalPresence` is the External tab's own read, reused rather
+     * than a second regime — and it already applies the two ACL rules
+     * that matter here: a feed the viewer may not see is not counted,
+     * and server hits are site-admin only.
+     *
+     * **Nothing cached is a gap, not an answer.** An instance that has
+     * never populated a feed cache would otherwise have every value
+     * score *"no enabled feed carries it"*, which is the engine reading
+     * its own blindness as evidence. It goes to `missing`, and the
+     * signal lands in `not_counted` (§4.3).
+     *
+     * @param array $user
+     * @param string $value
+     * @return array `facts` and `missing`
+     */
+    private function verdictFeeds(array $user, $value)
+    {
+        $presence = $this->externalPresence($user, $value);
+        $cached = isset($presence['cached'])
+            ? $presence['cached']
+            : array();
+        $anyCache = !empty($cached['feeds']) || !empty($cached['servers']);
+        $names = array();
+        foreach ($presence['sources'] as $source) {
+            $names[] = $source['name'];
+        }
+        return array(
+            'facts' => array(
+                'count' => count($presence['sources']),
+                'names' => $names,
+                'checked' => (int)($cached['feeds'] ?? 0)
+                    + (int)($cached['servers'] ?? 0),
+            ),
+            'missing' => $anyCache
+                ? null
+                : __('No feed or server cache has been populated on'
+                    . ' this instance, so external presence could not'
+                    . ' be checked.'),
+        );
+    }
+
+    /**
+     * The sighting facts, windowed where the budget says so.
+     *
+     * The rows come from `Sighting::listSightings` through the same
+     * path the Sightings tab uses, so the instance's sighting policy
+     * and anonymisation are applied before anything is counted — which
+     * is what makes §14.6's *every count is the viewer's* true of the
+     * ledger too.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param int $now
+     * @param array $budget
+     * @return array `facts` and `windowed`, the rows the window cut
+     */
+    private function verdictSightings(array $user, $value,
+        array $options, $now, array $budget
+    ) {
+        $context = $this->sightingContext($user, $value, $options);
+        $rows = $context['sightings'];
+        $windowed = 0;
+        if (!empty($budget['window_days'])) {
+            $cut = $now - (int)$budget['window_days'] * 86400;
+            $kept = array();
+            foreach ($rows as $row) {
+                if ((int)$row['Sighting']['date_sighting'] >= $cut) {
+                    $kept[] = $row;
+                } else {
+                    $windowed++;
+                }
+            }
+            $rows = $kept;
+        }
+        $totals = ValueStatsTool::sightingTotals($rows);
+        $signals = ValueStatsTool::sightingSignals(
+            $rows,
+            $now,
+            self::VERDICT_RECENT_DAYS
+        );
+        return array(
+            'facts' => array(
+                'total' => $totals['total'],
+                'fp' => $totals['fp'],
+                'expiration' => $totals['expiration'],
+                'last_stamp' => $totals['last_stamp'],
+                'fp_last_stamp' => $totals['last_fp_stamp'],
+                'orgs' => $signals['orgs'],
+                'fp_orgs' => $signals['fp_orgs'],
+                'fp_org_names' => $signals['fp_org_names'],
+                'recent' => $signals['recent'],
+                'recent_days' => $signals['recent_days'],
+                'first_stamp' => $signals['first_stamp'],
+            ),
+            'windowed' => $windowed,
+        );
+    }
+
+    /**
+     * What the value's own occurrences are attributed to.
+     *
+     * `ownTagsFor` is the tightest reading MISP holds — not *an event
+     * mentioning APT28 contained this address* but *this address, in
+     * this event, is marked APT28* — and it answers with one grouped
+     * query however many occurrences there are.
+     *
+     * Techniques are split from clusters by `GalaxyCategory`, which
+     * already knows which galaxies are ATT&CK-shaped, and the
+     * technique id is lifted out of the cluster name where it carries
+     * one: a ledger row reading `T1071.001` is one an analyst can look
+     * up, where the full cluster title is a sentence.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @param array $budget
+     * @param int $now
+     * @return array
+     */
+    private function verdictGalaxies(array $user, $value,
+        array $options, array $budget, $now
+    ) {
+        $events = $this->model('Value')
+            ->occurrenceEventsFor($user, $value, $options);
+        if (!empty($budget['window_days'])) {
+            $cut = $now - (int)$budget['window_days'] * 86400;
+            foreach ($events as $id => $event) {
+                if ((int)$event['last'] < $cut) {
+                    unset($events[$id]);
+                }
+            }
+        }
+        $clusters = array();
+        $techniques = array();
+        if (empty($events)) {
+            return array(
+                'clusters' => $clusters,
+                'techniques' => $techniques,
+            );
+        }
+        $tags = $this->model('Value')->ownTagsFor(
+            $user,
+            $value,
+            array_keys($events),
+            $options
+        );
+        foreach ($tags as $name => $tag) {
+            if (empty($tag['tag']['is_galaxy'])) {
+                continue;
+            }
+            $parsed = $this->galaxyTagParts($name);
+            if ($parsed === null) {
+                continue;
+            }
+            $occurrences = 0;
+            foreach ($tag['events'] as $event) {
+                $occurrences += (int)$event['occurrences'];
+            }
+            if (GalaxyCategory::isAttackPattern($parsed['type'])) {
+                $key = $parsed['technique'] === null
+                    ? $parsed['cluster']
+                    : $parsed['technique'];
+                $techniques[$key] = ($techniques[$key] ?? 0)
+                    + $occurrences;
+            } else {
+                $key = $parsed['cluster'];
+                $clusters[$key] = ($clusters[$key] ?? 0) + $occurrences;
+            }
+        }
+        return array(
+            'clusters' => $clusters,
+            'techniques' => $techniques,
+        );
+    }
+
+    /**
+     * A galaxy tag pulled apart: `misp-galaxy:threat-actor="Sofacy"`
+     * into its galaxy type and its cluster, plus the ATT&CK id where
+     * the cluster name carries one.
+     *
+     * @param string $name
+     * @return array|null Null when the tag is not galaxy-shaped
+     */
+    private function galaxyTagParts($name)
+    {
+        if (!preg_match(
+            '/^misp-galaxy:([^=]+)="?(.*?)"?$/',
+            (string)$name,
+            $parts
+        )) {
+            return null;
+        }
+        $cluster = $parts[2];
+        $technique = null;
+        if (preg_match('/\bT\d{4}(?:\.\d{3})?\b/', $cluster, $id)) {
+            $technique = $id[0];
+        }
+        return array(
+            'type' => $parts[1],
+            'cluster' => $cluster,
+            'technique' => $technique,
+        );
+    }
+
+    /**
+     * One `parameters` section of the profile in force, whichever
+     * shape it arrived in — the model decodes `parameters` on find,
+     * and a caller may hand over the parameters alone.
+     *
+     * @param array|null $profile
+     * @param string $name
+     * @return array
+     */
+    private function verdictSection($profile, $name)
+    {
+        if (!is_array($profile)) {
+            return array();
+        }
+        if (isset($profile['parameters'][$name])
+            && is_array($profile['parameters'][$name])
+        ) {
+            return $profile['parameters'][$name];
+        }
+        if (isset($profile[$name]) && is_array($profile[$name])) {
+            return $profile[$name];
+        }
+        return array();
     }
 }

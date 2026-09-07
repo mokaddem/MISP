@@ -1,0 +1,159 @@
+{
+    "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
+    "name": "default-v1",
+    "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. See prd/analyst-profile/03-signals.md section 7.",
+    "version": 2,
+    "parameters": {
+        "format": 1,
+        "signals": [
+            {
+                "id": "reporting.independent_orgs",
+                "group": "Reporting",
+                "enabled": true,
+                "band": "strong",
+                "trust_weighted": true,
+                "points": { "per_org": 7, "cap": 28 },
+                "config": { "named": 4 }
+            },
+            {
+                "id": "reporting.published_ratio",
+                "group": "Reporting",
+                "enabled": true,
+                "band": "moderate",
+                "points": { "scale": 9, "none": -2 },
+                "config": { "min_events": 1 }
+            },
+            {
+                "id": "record.temporal_precision",
+                "group": "Lifecycle",
+                "enabled": true,
+                "band": "weak",
+                "points": { "dated": 4, "undated": -6, "lagged": -6 },
+                "config": { "lag_days": 30 }
+            },
+            {
+                "id": "sightings.volume_recency",
+                "group": "Sightings",
+                "enabled": true,
+                "band": "strong",
+                "trust_weighted": true,
+                "points": { "cap": 24, "none_recent": -4 },
+                "config": {
+                    "saturation": 50,
+                    "stale_days": 90,
+                    "stale_factor": 0.5
+                }
+            },
+            {
+                "id": "sightings.false_positive",
+                "group": "Sightings",
+                "enabled": true,
+                "band": "moderate",
+                "trust_weighted": true,
+                "points": { "per": -3, "per_extra_org": -4, "cap": -26 }
+            },
+            {
+                "id": "attribution.galaxy",
+                "group": "Attribution",
+                "enabled": true,
+                "band": "strong",
+                "points": { "per_cluster": 7, "cap": 21, "absent": -7 }
+            },
+            {
+                "id": "attribution.technique",
+                "group": "Attribution",
+                "enabled": true,
+                "band": "weak",
+                "points": { "per_technique": 3, "cap": 9 }
+            },
+            {
+                "id": "lifecycle.warninglist",
+                "group": "Lifecycle",
+                "enabled": true,
+                "band": "weak",
+                "points": {
+                    "no_hit": 6,
+                    "false_positive_hit": -38,
+                    "known_hit": 0
+                }
+            },
+            {
+                "id": "lifecycle.feeds",
+                "group": "Lifecycle",
+                "enabled": true,
+                "band": "moderate",
+                "points": { "per_feed": 4, "cap": 8, "no_feed": -2 }
+            },
+            {
+                "id": "lifecycle.continuity",
+                "group": "Lifecycle",
+                "enabled": true,
+                "band": "moderate",
+                "points": { "per_month": 1, "cap": 12 },
+                "config": { "min_months": 3 }
+            },
+            {
+                "id": "lifecycle.recency",
+                "group": "Lifecycle",
+                "enabled": true,
+                "band": "moderate",
+                "points": { "recent": 8, "old": -4 },
+                "config": { "recent_days": 30, "old_days": 365 }
+            }
+        ],
+        "thresholds": {
+            "lean_supermajority": 0.66,
+            "quality_bands": { "high": 60, "medium": 30 },
+            "quality_high_min_signals": 4
+        },
+        "escalations": [
+            {
+                "id": "conflict:known-infrastructure-vs-reporting",
+                "enabled": true,
+                "emits": "contested",
+                "when": {
+                    "warninglist_category": "known",
+                    "min_independent_reports": 3
+                }
+            },
+            {
+                "id": "conflict:listed-vs-asserted",
+                "enabled": true,
+                "emits": "contested",
+                "when": {
+                    "warninglist_category": "false_positive",
+                    "threat_share_at_least": "supermajority"
+                }
+            }
+        ],
+        "exclusions": [
+            { "id": "sightings.self", "within_hours": 1 },
+            { "id": "feeds.mirrored", "dedupe_by": "provider" },
+            { "id": "evidence.window", "days": 90, "min_occurrences": 10000 }
+        ],
+        "relevance": {
+            "clock": "last_independent_corroboration",
+            "type_rule": "shortest",
+            "aging_fraction": 0.33,
+            "lag_uncertain_days": 30,
+            "ttl_days": {
+                "default": 180,
+                "ip-dst": 90,
+                "ip-src": 90,
+                "domain": 120,
+                "url": 60,
+                "md5": 730,
+                "sha256": 730
+            }
+        },
+        "reference": {
+            "org_trust": {},
+            "warninglist_category": {}
+        },
+        "enrichment": {
+            "auto_run": {},
+            "cost_posture": "local_only",
+            "max_age_hours": 24
+        }
+    }
+}

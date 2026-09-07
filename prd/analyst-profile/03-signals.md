@@ -1,8 +1,9 @@
 # PRD: Analyst Profile — phase 2, signals and the engine
 
-**Specification. Nothing built.** Depends on phase 1
-([`02-store.md`](02-store.md)). This is the phase the Verdict tab has been
-blocked on since the skeleton pass.
+**Built 2026-09-07.** Depends on phase 1
+([`02-store.md`](02-store.md)). This was the phase the Verdict tab had been
+blocked on since the skeleton pass; §9 carries the verification results and
+§11 what building it changed.
 
 **Re-scoped by D11 (2026-09-03):** the accumulator this phase builds produces
 the **quality** axis of the assessment ([`12-assessment.md`](12-assessment.md));
@@ -29,6 +30,34 @@ signal is dropping a file rather than editing MISP.
 `185.234.219.24` on the dev instance, produces a ledger whose contributions
 sum to its score, and that score lands in the MALICIOUS band. Not "84" — see
 §7.3 for why exact reproduction is not achievable and should not be the test.
+
+### 1.1 What landed, 2026-09-07
+
+| File | What |
+|---|---|
+| `app/Model/ValueSignals/ValueSignalBase.php` | the contract, the identity the loader reads, and the `$context` documentation every signal author reads |
+| `app/Model/ValueSignals/*.php` | §6's eleven, one file each |
+| `app/Lib/Tools/ValueSignalLoader.php` | D12's directory read: two roots, memoised per request, collisions refused, failures logged and kept |
+| `app/Lib/Tools/ValueVerdictTool.php` | the accumulator — outcomes, anchoring, row validation, `not_counted`, the budget's two tiers, grouping, banding |
+| `app/Lib/Tools/ValueStatsTool.php` | `verdictComposition()` and `sightingSignals()` — the composition card §14.5 always said belonged here, now that there is a ledger to derive it from |
+| `app/Model/Value.php` | `recordSummaryFor()`, `orgStanceFor()`, `activityMonthsFor()` — three aggregates over value storage, which is this file's seam |
+| `app/Model/ValueProfile.php` | `verdictContextFor()` and its helpers: one context build, seven queries |
+| `app/files/analyst-profiles/default-v1.json` | the eleven-signal catalogue and its weights, `version` 2 so `updateDefaults()` replaces phase 1's provisional six |
+| `03-signals-engine-harness.php` | 96 checks, no database |
+| `03-signals-live-probe.php` | 36 checks against the dev instance |
+
+**The name stays `ValueVerdictTool`.** D11's rename map makes it
+`ValueAssessmentTool` *"at implementation time"*, and this implementation
+declines — for the same reason the map exempts `ValueDisposition` and the
+`value_verdict_*.ctp` templates until phase 9. The output feeds those
+fifteen templates today; a tool called `ValueAssessmentTool` filling an array
+called `verdict` for `value_verdict_ledger.ctp` would leave the codebase
+half-renamed for four phases. Phase 9's copy pass renames the templates, the
+constants and this class in one commit, and until then the vocabulary is
+consistent: verdict in the code, assessment in the design. The array it
+returns already carries the axis keys (`lean`, `quality`, `band`) with
+`disposition`, `score` and `confidence` as aliases beside them, so phase 9's
+rename is a deletion rather than a translation.
 
 ## 2. The mechanism
 
@@ -118,6 +147,16 @@ The base class §8.2 specifies wraps this interface with the identity the
 loader reads — `id`, `group`, `description`, `default_band` and
 `points_schema` — so that a signal the editor has never seen still renders a
 configuration form.
+
+**Built with four fields §8.2 did not name**, each because the mechanism
+around it needs one:
+
+| Field | Why |
+|---|---|
+| `config_schema` | `points_schema`'s sibling. §3 splits *what evidence is worth* from *the implementation's thresholds*, and the editor has to render both or a signal whose threshold lives in `config` is configurable only by hand-edited JSON — the half-usable drop-in `points_schema` exists to prevent |
+| `absence_key` | which `points` key fires on absence, so §4.2's rule is declared rather than re-implemented per signal. `absenceFires()` on the base carries the exclusion guard with it |
+| `reads` | which `$context` keys the signal needs, checked against `$context['missing']`. Without it a fact that could not be read would be scored as absent, which is §4.2's error in a different coat |
+| `evidence_class` | `aggregate` or `row`, so §2.3's budget is enforceable rather than aspirational. It is the field the hot tier reads |
 
 `$context` is built once per verdict and shared by every signal — the
 occurrence tally, the sighting rows, the tag and galaxy sets, the warninglist
@@ -421,6 +460,73 @@ leaves the `low` quality band under the shipped default**
 trusted source to scream is one fork away from it; the default must not ship
 it.
 
+### 7.5 The weights as shipped, and what they produce
+
+Authored 2026-09-07. The shape of each is the implementation's; the numbers
+are this table, and every one of them is a judgement an analyst can fork.
+
+| id | `points` | `config` | Band |
+|---|---|---|---|
+| `reporting.independent_orgs` | `per_org 7`, `cap 28` | `named 4` | strong |
+| `reporting.published_ratio` | `scale 9`, `none -2` | `min_events 1` | moderate |
+| `record.temporal_precision` | `dated 4`, `undated -6`, `lagged -6` | `lag_days 30` | weak |
+| `sightings.volume_recency` | `cap 24`, `none_recent -4` | `saturation 50`, `stale_days 90`, `stale_factor 0.5` | strong |
+| `sightings.false_positive` | `per -3`, `per_extra_org -4`, `cap -26` | — | moderate |
+| `attribution.galaxy` | `per_cluster 7`, `cap 21`, `absent -7` | — | strong |
+| `attribution.technique` | `per_technique 3`, `cap 9` | — | weak |
+| `lifecycle.warninglist` | `no_hit 6`, `false_positive_hit -38`, `known_hit 0` | — | weak |
+| `lifecycle.feeds` | `per_feed 4`, `cap 8`, `no_feed -2` | — | moderate |
+| `lifecycle.continuity` | `per_month 1`, `cap 12` | `min_months 3` | moderate |
+| `lifecycle.recency` | `recent 8`, `old -4` | `recent_days 30`, `old_days 365` | moderate |
+
+Four of them carry a judgement worth reading twice, because the number alone
+does not show it:
+
+- **`lifecycle.warninglist`'s `known_hit` is zero**, and that is the design
+  rather than an unset field. A `known`-category hit says *this is shared
+  infrastructure*, not *this is harmless*: the row belongs on the page,
+  counted for neither side, and the contradiction with wide reporting is
+  named by an escalation instead of netted off in arithmetic
+  (`04-dispositions.md` §4). Until phase 6 ships the name map, an
+  unresolved hit reads as `false_positive` — the column's own default, and
+  what MISP's warning banner has always meant by a hit.
+- **`sightings.volume_recency` saturates logarithmically.** `cap 24` with
+  `saturation 50` puts 47 sightings at +24 and 418 at +24, which is what the
+  fixture authored for both — the step from 1 to 10 says far more than the
+  step from 400 to 410, and recency multiplies the whole row rather than
+  subtracting from it, so a stale history cannot be rescued by volume.
+- **`attribution.galaxy` pays per cluster, not per occurrence.** The flux
+  value's *"QakBot, on 107 occurrences"* is one judgement repeated; a
+  per-occurrence weight would have paid for it 107 times. The count belongs
+  in the prose, where it is context rather than arithmetic.
+- **`reporting.published_ratio` is a ratio, so a small record can outscore a
+  large one on it.** One published event out of one is +9; five out of seven
+  is +6. That reads oddly until you notice the fixture does the same thing in
+  the same direction — *"5 of 7"* is +9 there and *"121 of 137"* is +7 —
+  because breadth is `reporting.independent_orgs`' question and this one is
+  only *did they stand behind it*. The floor keeps a single published event
+  from being worth nothing.
+
+### 7.6 What they produce, measured
+
+Synthetic contexts built from the page's own claims about the demo values
+(harness), and real rows (probe). §7.3 said exact reproduction is neither
+achievable nor the test; these are the numbers it is:
+
+| Case | Quality | Band | Against |
+|---|---|---|---|
+| the malicious demo value's facts | **98** | high | the fixture's 84, also high |
+| the same facts under a benign lean | −98 | low | the anchoring, checked by negation |
+| the median shape (§7.4) | **21** | low | the rule §7.4 states |
+| the instance's own median value | 0 | low | — |
+| `8.8.8.8` on the dev instance | −3 | low | the fixture's BENIGN 91 — §11.2 |
+| the instance's hot value | 45 | medium | seven signals of eleven |
+
+The malicious value's +14 over the fixture is the sum of rows the fixture
+does not carry — continuity, recency, feed presence and temporal precision
+are four signals the artboard's nine rows never had — and its `high` band is
+the assertion that matters.
+
 ## 8. Q11 — the extension point: **decided 2026-09-07, D12**
 
 **Signals are discovered from the filesystem, not registered in code.** An
@@ -594,6 +700,33 @@ under every rule above. One loader, two subject directories, and the
 
 ## 9. Verification
 
+**Results, 2026-09-07.** The harness is `03-signals-engine-harness.php` (96
+checks, no database, run with `php`); the probe is
+`03-signals-live-probe.php` (36 checks, copied into
+`app/Console/Command/AnalystSignalProbeShell.php` and run through `cake`).
+
+| Item | Where | Outcome |
+|---|---|---|
+| 1 | container's `parallel-lint` | 17 files, no syntax error; nothing over 80 columns |
+| 2 | harness | **84, 93 and 91** from the fixture's own rows, every row's authored direction kept, and the composition card summing to the same number by its own route |
+| 3 | harness | a negative sum stays negative and bands `low`; a sum of exactly `0` is `low`, not `none` — `none` is the empty ledger's band |
+| 4 | probe | the rows sum to the quality **to the unit on every value scored**, five of them. The *rendered* half is phase 9's, and only two of the four demo values exist on this instance — §11.2 records what they score |
+| 5 | harness | the assessment computes, the id is in `not_counted` as `unavailable`, the hero still names the profile |
+| 6 | harness | empty ledger, no quality, band `none`, and no note — a disabled signal is silent by design |
+| 7 | harness | a null profile is the same and raises nothing |
+| 8 | — | **phase 9.** Nothing renders a computed ledger yet |
+| 9 | harness + probe | the median shape lands in `low` — 21 synthetic, 0 on the instance's own median value. The rule's universal form does not hold on weights alone: §11.1 |
+| 10 | probe | deterministic across two runs; every aggregate-class row identical with the window on and off; the `policy` note appears only in force |
+| 11 | probe | the instance's hot value (24,407 occurrences): the four row-class signals in `not_counted` as `nodata`, seven signals still fired, the sum exact, 10 queries |
+| 12 | — | **phase 8.** There is no palette to appear in; the loader half is item 13 |
+| 13 | harness | a dropped file no profile enables leaves the verdict **byte-identical** — asserted by comparing the whole array, not by reading the code |
+| 14 | harness + probe | a file that will not parse, one with no class, one that is not a signal: each logged, skipped, id unavailable, and the other signals still score |
+| 15 | harness | the collision is refused, the shipped implementation keeps the id and still fires |
+| 16 | harness | `evaluate()` throwing, and a `contribution` that is a float, a string and an array: all four land in `not_counted` as `broken` **and the remaining rows still sum exactly** |
+| 17 | — | **phase 3.** Escalations have no base class yet; the loader takes the subject when they do (§8.8) |
+| 18 | harness + probe | discovery finds the shipped catalogue and says nothing about a directory that is not there |
+
+The items, as specified:
 
 1. `parallel-lint` over the tool and every signal implementation.
 2. Unit: the accumulator against the three fixture ledgers as literal input,
@@ -672,3 +805,142 @@ page down, and that is what most of these assert.
 - Discovery for the other sections. `exclusions` and `relevance` are
   configuration the engine reads directly; only `signals` and `escalations`
   resolve to implementations, and §8.8 covers the second.
+
+## 11. What building it changed
+
+Eight things the specification did not know, each measured rather than
+argued.
+
+### 11.1 §7.4's calibration rule needs a clamp, not weights
+
+**The rule as written does not hold, and cannot.** *"A single-org,
+sighting-free record never leaves the `low` quality band under the shipped
+default"* is satisfied for the median *shape* — one occurrence, one month, 21
+points — but a single organisation reporting the same value every month for
+fourteen months, carried by three feeds, reaches **quality 43, band
+`medium`** under these weights. The harness prints that case rather than
+asserting the rule it fails.
+
+It is not obviously the wrong answer: a fourteen-month record on three feeds
+is not the thin record the rule was written about. But it is not what the
+rule says, and no weighting closes the gap — the positives a record of that
+shape can attain sum past `medium` unless every one of them is shrunk to the
+point of saying nothing about the values that *do* have corroboration.
+
+**So the rule belongs in the banding, as a clamp, and that is phase 3's
+section** (`04-dispositions.md` §6). Phase 2's honest half is asserted: the
+median shape lands in `low` with room to spare, and the three absences that
+put it there — nobody sighted it, nobody attributed it, no feed carries it —
+are asserted individually so a future reweighting cannot quietly remove them.
+
+### 11.2 `8.8.8.8` is a contested value on this instance, not a benign one
+
+The fixture scores it BENIGN 91. The shipped default, over the dev instance's
+own rows, scores it **−3 threat-signed**: eight organisations reporting it
+(+28) against the public-resolver list (−38), four false-positive sightings
+from three orgs (−20), no galaxy (−7), a 302-day encoding lag (−10), three
+feeds (+8), continuity (+4), recency (+8) and 5 of 20 events published (+2).
+
+Two readings, and both are worth having on the record:
+
+- **A quality near zero is the engine saying the record argues with
+  itself**, which is exactly what this value's evidence does. Under a benign
+  lean it is +3 — a thin benign record, not a confident one.
+- **The profile's own escalation is what should decide it.**
+  `conflict:listed-vs-asserted` fires on a `false_positive` category plus a
+  supermajority threat share, and this value has both. So the right answer
+  for it is a **contested lean with a named rule**, which is phase 3's to
+  emit — and it means the fixture's 91 is not a number these weights failed
+  to reach. It is a different data set: nine occurrences authored to make an
+  argument, against twenty-six real ones that disagree with each other.
+
+### 11.3 A numeric value handed over as an integer scans the table twice
+
+Found by the probe walking into it. PHP turns a numeric array key into an
+integer, so iterating a map of values hands the value `1` over as `int 1` —
+and comparing an integer against a `varchar` column makes MariaDB convert
+**the column** rather than use its index. Measured on this instance's largest
+value: **31 ms as a string, 9.4 seconds as an integer**, and worse than slow
+— the loose comparison matched rows the string never would, so the ledger's
+own evidence line quoted an occurrence count that was not the value's.
+
+`ValueProfile::verdictContextFor()` therefore casts, with the measurement in
+the comment; the probe casts too. `Value::prevalenceFor` already documents
+the same trap from the other direction, which is the second time this feature
+has paid for it.
+
+### 11.4 The context is a fixed handful of queries, and the largest value is the cheapest
+
+Measured on the dev instance, warm, under a load average of 3–8 — indicative
+rather than a benchmark:
+
+| Value | Occurrences | Queries | Context build |
+|---|---|---|---|
+| the instance's median value | 1 | 11 | 3 ms |
+| `45.155.205.233` | 2 | 17 | 4 ms |
+| `1.1.1.1` | 12 | 19 | 61 ms |
+| `8.8.8.8` | 26 | 26 | 76 ms |
+| the hot value | 24,407 | **10** | 16 ms |
+
+The largest value is the cheapest, which is the budget working as designed:
+the hot tier does not fetch row evidence, so the queries that remain are four
+index aggregates. Each of those four costs 4–35 ms on the 24,407-occurrence
+value, measured directly — so §2.3's *"cheap at any cardinality"* holds for
+the aggregate class on this instance's worst case.
+
+### 11.5 The dev environment cannot serve two of this feature's directories
+
+`misp-track` mounts `app/Model`, `app/Controller`, `app/View`, `app/Console`,
+`app/webroot`, `app/Locale` and six named `app/Lib` subdirectories. Neither
+`app/files` nor `app/Lib/ValueSignals` is among them, so:
+
+- the shipped profile had to be copied into the container by hand for
+  `updateDefaults()` to see the eleven-signal catalogue;
+- **a custom drop-in signal cannot be tested through the mount at all** —
+  which is why §9's item 12 and half of 14 are the harness's rather than the
+  probe's.
+
+Two mount lines fix both, and phases 6, 8 and 9 will want them. Not this
+phase's to change: the dev server's mounts are the user's.
+
+### 11.6 The shipped default profile was never committed
+
+`.gitignore` line 36 is `/app/files/*`, so phase 1's
+`app/files/analyst-profiles/default-v1.json` — the file `updateDefaults()`
+reads and the only source of an instance's default profile — existed in the
+working tree and in nobody's clone. Phase 1's commit carries the migration,
+the model and five documents, and not the profile.
+
+The consequence is not cosmetic: a fresh clone has no default profile, so
+`resolveFor()` returns `null` for every user and the whole feature is inert
+with no error anywhere — phase 1's own §9 hands `null` on as *"not an error
+path"*, which is exactly what would have hidden it.
+
+Fixed here the way the other shipped data under `app/files` is tracked —
+`git add -f`, as `dashboard-templates/`, `feed-metadata/` and
+`community-metadata/` all are. Gitignore does not affect a tracked file, so
+the next edit to the profile shows up normally.
+
+### 11.7 A value with no occurrence had a ledger
+
+Found in self-review, before the guard existed. §2 says *"a `none` lean has
+no ledger"*, and the accumulator honoured that only if the caller passed the
+lean — which phase 2 cannot, because the derivation is phase 3's. So a value
+with no occurrence this viewer can see scored **no warninglist hit (+6), no
+galaxy (−7), nobody has sighted it (−4)**: three absence keys, all of them
+true, none of them about the value.
+
+The rule is therefore stated as a fact about the *context* rather than about
+the lean — no occurrence, no ledger — which is phase 3's rule 1 arriving
+early because the alternative is an engine that reads its own blindness as
+evidence. It is the same mistake as §4.2's excluded-versus-absent and §4.3's
+unreadable fact, in the one place the specification had not looked for it.
+
+### 11.8 `record.temporal_precision` is aggregate evidence
+
+The specification listed it as a quality signal without saying which evidence
+class it reads, and the implementation makes it `aggregate`: both facts — the
+`first_seen` count and the worst encoding lag — arrive as a `SUM` and a `MAX`
+in the same single-row aggregate the tally comes from. So it survives the hot
+tier, which is the right way round: how honest a record's dates are is
+exactly the sort of thing worth knowing about a value too big to read.

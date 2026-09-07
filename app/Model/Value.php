@@ -345,6 +345,187 @@ class Value extends AppModel
     }
 
     /**
+     * Everything the assessment's aggregate class needs about the
+     * record, in one query.
+     *
+     * `occurrenceSummaryFor`'s five numbers plus the three the quality
+     * ledger reads — how much of the reporting is published, how many
+     * occurrences date their own observation, and the worst
+     * encoding-against-event lag — because they are all single-row
+     * aggregates over the same join and a second query for them would
+     * buy nothing. The summary keeps its own contract; five panels
+     * already read it and none of them wants these three.
+     *
+     * **Soft-deleted occurrences are excluded, and that is a
+     * judgement rather than tidying.** A withdrawn attribute is a
+     * claim its organisation took back; scoring it would let a
+     * retracted report keep arguing. `occurrenceSummaryFor` counts
+     * them because the Occurrences tab *shows* them — a row a reader
+     * can see has to be in the total above it (§14.6) — and an
+     * assessment has the opposite obligation.
+     *
+     * The lag is `Event.date` against the attribute's own timestamp:
+     * the encoding date against the date the event says the thing
+     * happened. `06-staleness.md` §3.6 makes it one of the two inputs
+     * that put the relevance axis into *timeline uncertain*, and
+     * `record.temporal_precision` reads the same fact as a quality
+     * signal.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function recordSummaryFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'COUNT(DISTINCT Event.id) AS events',
+                'COUNT(DISTINCT Event.orgc_id) AS orgs',
+                'MIN(Attribute.timestamp) AS oldest',
+                'MAX(Attribute.timestamp) AS newest',
+                'COUNT(DISTINCT CASE WHEN Event.published = 1'
+                    . ' THEN Event.id END) AS published',
+                'SUM(CASE WHEN Attribute.first_seen IS NOT NULL'
+                    . ' THEN 1 ELSE 0 END) AS dated',
+                'MAX(TIMESTAMPDIFF(DAY, Event.date,'
+                    . ' FROM_UNIXTIME(Attribute.timestamp)))'
+                    . ' AS max_lag_days',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+        ));
+        $found = empty($row[0]) ? array() : $row[0];
+        return array(
+            'occurrences' => (int)($found['occurrences'] ?? 0),
+            'events' => (int)($found['events'] ?? 0),
+            'orgs' => (int)($found['orgs'] ?? 0),
+            'published' => (int)($found['published'] ?? 0),
+            'dated' => (int)($found['dated'] ?? 0),
+            'oldest' => empty($found['oldest'])
+                ? null
+                : (int)$found['oldest'],
+            'newest' => empty($found['newest'])
+                ? null
+                : (int)$found['newest'],
+            /*
+             * Null rather than zero when there is nothing to measure:
+             * a value with no occurrence has no lag, and a lag of zero
+             * is a real and different answer.
+             */
+            'max_lag_days' => isset($found['max_lag_days'])
+                    && $found['max_lag_days'] !== null
+                ? (int)$found['max_lag_days']
+                : null,
+        );
+    }
+
+    /**
+     * Each organisation's stake in this value: how many occurrences it
+     * holds, and how its occurrences set `to_ids`.
+     *
+     * Two readers, one query. `reporting.independent_orgs` counts the
+     * rows; the lean derivation (`04-dispositions.md` §3) reads the
+     * stances, and counts them **per organisation rather than per
+     * occurrence** — one org putting forty `to_ids = 1` events on a
+     * value is one voice, which is the same independence argument the
+     * reporting signal makes.
+     *
+     * Grouped in SQL rather than folded in PHP for the reason
+     * `ownTagsFor` gives: a value can occur 48,255 times and the answer
+     * is a handful of rows either way.
+     *
+     * Organisation *names* are not here. This class owns the value's
+     * identity and its occurrence set; who an `orgc_id` belongs to is
+     * the Organisation model's, and the caller resolves it in one
+     * lookup.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array Rows of `Event.orgc_id` and, under `0`,
+     *               `occurrences`, `to_ids_yes`, `to_ids_no`, `newest`
+     */
+    public function orgStanceFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        return $attributes->find('all', array(
+            'fields' => array(
+                'Event.orgc_id',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'SUM(CASE WHEN Attribute.to_ids = 1 THEN 1 ELSE 0 END)'
+                    . ' AS to_ids_yes',
+                'SUM(CASE WHEN Attribute.to_ids = 0 THEN 1 ELSE 0 END)'
+                    . ' AS to_ids_no',
+                'MAX(Attribute.timestamp) AS newest',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'group' => array('Event.orgc_id'),
+            'order' => array('occurrences DESC'),
+        ));
+    }
+
+    /**
+     * Which months this value was reported in, and how often.
+     *
+     * `lifecycle.continuity` asks whether the reporting is continuous
+     * or one burst, and the answer is the longest unbroken run of
+     * months — which needs the months, not the span.
+     *
+     * **An index aggregate, so it is never windowed** (`03-signals.md`
+     * §2.3): the row count is the value's age in months, whatever its
+     * occurrence count, and bounding it to 90 days would cap every
+     * long-lived value's continuity at three months — turning the
+     * signal's own subject into an artefact of the budget.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `YYYY-MM` => occurrences, oldest month first
+     */
+    public function activityMonthsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $rows = $attributes->find('all', array(
+            'fields' => array(
+                "DATE_FORMAT(FROM_UNIXTIME(Attribute.timestamp),"
+                    . " '%Y-%m') AS month",
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'group' => array('month'),
+            'order' => array('month ASC'),
+        ));
+        $months = array();
+        foreach ($rows as $row) {
+            if (empty($row[0]['month'])) {
+                continue;
+            }
+            $months[$row[0]['month']] = (int)$row[0]['occurrences'];
+        }
+        return $months;
+    }
+
+    /**
      * How widely each of many values is spread, for this viewer.
      *
      * `occurrenceSummaryFor`'s `events` count, plural — the denominator
