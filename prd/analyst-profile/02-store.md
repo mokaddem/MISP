@@ -1,8 +1,21 @@
 # PRD: Analyst Profile — phase 1, the store
 
-**Specification. Nothing built.** Depends on nothing; gates every other phase.
-The picture is [`01-profile.md`](01-profile.md); decisions D1–D5 are what this
-phase implements.
+**Built 2026-09-07.** Depends on nothing; gates every other phase. The
+picture is [`01-profile.md`](01-profile.md); decisions D1–D5 are what this
+phase implements, and it closed **Q7 as D13** (§3.3).
+
+What shipped: migration 160 and the table in all three places
+(`AppModel::DB_CHANGES`, `INSTALL/MYSQL.sql`, `db_schema.json`),
+`app/Model/AnalystProfile.php`, and the shipped default at
+`app/files/analyst-profiles/default-v1.json`. **The controller did not** —
+see §6, amended.
+
+The exit criterion is met and checked:
+[`02-store-resolve-harness.php`](02-store-resolve-harness.php) runs 33
+assertions with no database — the resolution order, the disabled-default
+`null`, the per-request cache, the ownership triple, D13's permission matrix,
+and the shipped default's inertness. §7 records what still needs a live
+instance.
 
 ## 1. What ships
 
@@ -133,6 +146,17 @@ One query, one row, no application-side fallback chain. The `ORDER BY` encodes
 D3's nearest-owner-wins: a user-owned row sorts first, then org-owned, then the
 default.
 
+**Built with the tie-break in PHP instead, 2026-09-07.** At most three rows
+can match — one per scope, because §3.1's one-enabled-profile-per-owner rule
+caps each — so the implementation reads them and ranks them rather than
+ordering in SQL. CakePHP 2 quotes identifiers inside an `order` string, so
+`(user_id IS NOT NULL) DESC` there is a quoting hazard rather than a readable
+expression, and it is the kind that fails at runtime on a page nobody tests
+twice. **What this section actually forbids is preserved**: it is still one
+statement, not three sequential ones walking the scopes. Asserted as such —
+the harness counts the statements resolveFor() issues, including across 27
+panel calls.
+
 **It must never return nothing.** Three ways it could, each handled here rather
 than by every caller:
 
@@ -165,9 +189,44 @@ an org profile, and the user is in that org         → per Q7
 the user's own profile                              → the user
 ```
 
-### 3.3 Q7 — which permission gates ownership
+### 3.3 Q7 — which permission gates ownership: **decided 2026-09-07, D13**
 
-**Open.** Three candidates:
+**No new permission flag.** A user profile needs no grant, an organisation
+profile needs `perm_admin`, and the shipped default stays site-admin only —
+the third candidate below, as recommended.
+
+Two reasons, and the second is the one that settled it:
+
+- **The common case needs no grant.** An analyst tuning their own weights
+  changes only their own page, which is the same reasoning that leaves
+  `user_settings` ungated. A feature that requires an admin action before
+  anyone can try it does not get tried.
+- **It is the reversible direction.** Adding `perm_analyst_profile` later is
+  additive — a column, a role-seed default of `0`, an ACL entry. Shipping the
+  flag and then withdrawing it is a migration plus a role-seed change plus an
+  instance's granted roles to unpick. When two options differ mainly in
+  confidence, take the one whose reversal is cheap.
+
+The counter-argument stands and is not dismissed: MISP's convention is a
+`perm_*` flag per capability, and `perm_analyst_data` (2.5) shows the
+convention is live rather than legacy. But D13 does not break it for a new
+capability — it declines to *invent* a capability for something that already
+maps onto org admin, which is how MISP gates most other configure-for-my-org
+actions.
+
+`perm_decaying` was the third option and is rejected outright: riding it would
+silently widen every existing grant of it, and an instance that gave it out
+narrowly for decay models never consented to profile ownership. Worth noting
+it is `'readonlyenabled' => true` (`Role.php:323`), so it is considered safe
+for read-only roles — which would have made it a *good* home if it were not
+already spoken for.
+
+Implemented in `AnalystProfile::isEditableByCurrentUser()`, with the matrix
+asserted in the harness. `isReadableByCurrentUser()` is its companion and was
+not in the spec: `fetchProfile()` needs it, because a profile is readable by
+its owner, its org and everyone (the default) but editable by fewer.
+
+**The three candidates, as they were weighed:**
 
 - **Ride `perm_decaying`.** No schema change, and it is semantically the
   closest flag MISP has — it already means *"may own a scoring model"*. Risk:
@@ -181,15 +240,9 @@ the user's own profile                              → the user
   affects only its owner's page, so arguably needs no permission at all; an org
   profile affects colleagues, so it is an org-admin action.
 
-**Recommendation: the third**, with `perm_admin` for org profiles. It is the
-only one where the common case — an analyst tuning their own weights — needs no
-grant, which matters because a feature that requires an admin action before
-anyone can try it will not get tried. The counter-argument is that MISP's
-convention is a `perm_*` flag per capability, and this breaks it.
-
-**Not decided here.** Whichever is chosen, run
-`queryACL/findMissingFunctionNames` afterwards — it reports any new controller
-action with no ACL entry.
+**Chosen: the third**, for the reasons above. `queryACL/findMissingFunctionNames`
+is still owed, and it is owed by **phase 8** rather than here, because this
+phase shipped no controller for it to check.
 
 ## 4. The shipped default
 
@@ -269,8 +322,16 @@ the message.
 
 ## 6. REST and export/import
 
-`AnalystProfilesController` (phase 8 builds the views; the actions are listed
-here because their ACL entries land with this phase):
+**Amended 2026-09-07: the controller and its ACL entries moved to phase 8.**
+This section had the views land in phase 8 while the ACL entries landed here,
+so that phase 8 would not open with an ACL gap. Built, that inverts: MISP's
+ACL is a whitelist keyed by controller and action, so entries added now would
+name actions that do not exist — dead rows that `findMissingFunctionNames`
+does not catch, because it reports the opposite direction. The gap this was
+guarding against is one `queryACL` run at the top of phase 8.
+
+`AnalystProfilesController` (**phase 8**; the actions are listed here because
+the model exposes exactly what they need):
 
 | Action | Method | Notes |
 |---|---|---|
@@ -292,30 +353,59 @@ the hero has been naming.
 
 ## 7. Verification
 
-1. `parallel-lint` over the new model and controller.
-2. `Admin runUpdates`, then `Admin schemaDiagnostics` — no diff.
-3. `resolveFor()` for four users: one with a personal profile, one whose org
-   has one, one with neither, and a site admin. Four single queries, four
-   distinct expected rows.
-4. Disable the default with no other profile present; `resolveFor()` returns
-   `null` and does not throw.
-5. Fork the default as a non-admin; confirm the copy is editable and the
-   original is not.
-6. `updateDefaults($force = false)` twice in a row — the second is a no-op.
-   Bump the shipped file's version and confirm the third run updates it and
-   leaves `enabled` alone.
-7. `queryACL/findMissingFunctionNames` — no missing entries.
-8. Insert a row with two of the three ownership columns set; validation
-   rejects it.
-9. Rename a profile: `revision` unchanged. Edit `parameters`: it increments.
-   Apply a shipped update over a locally edited default: `version` follows
-   the file, `revision` bumps, and the update log names the overwrite.
+**Run 2026-09-07.** Items 1, 3, 4 and 8 pass; 2, 5, 6 and 9 need a live
+instance and are owed; 7 moved to phase 8 with the controller (§6).
+
+| # | What | Status |
+|---|---|---|
+| 1 | Lint over the new model | **pass** — `php -l` on `AnalystProfile.php` and `AppModel.php`. `parallel-lint` is not installed in this worktree (`app/Vendor` absent), so the project's usual command could not run |
+| 2 | `Admin runUpdates`, then `Admin schemaDiagnostics` — no diff | **owed.** Needs an instance serving this tree. The three schema sources were written to agree by construction and `db_version` moved to `160` |
+| 3 | `resolveFor()` for four user shapes | **pass** — harness, and one statement each rather than the four the item assumed |
+| 4 | The default disabled with nothing else: `null`, no throw | **pass** — harness |
+| 5 | Fork the default as a non-admin; the copy is editable, the original is not | **owed** — `forkProfile()` writes, so it wants a database. The permission half is asserted in the harness |
+| 6 | `updateDefaults()` twice is a no-op; a version bump applies and leaves `enabled` alone | **owed** — reads the filesystem and writes rows |
+| 7 | `queryACL/findMissingFunctionNames` | **moved to phase 8** — no controller shipped |
+| 8 | Two of three ownership columns set: rejected | **pass** — harness, all six combinations including none |
+| 9 | Rename leaves `revision`; editing `parameters` bumps it; a shipped update over a local edit names the overwrite | **owed** for the round trip. `bumpRevision()` and `updateDefaults()`'s `overwrote_edits` outcome are the halves that implement it |
+
+Two things the harness checks that the list did not ask for, both because
+they are cheap to break later: **the per-request cache** — 27 panel calls
+cost one statement, which is what §3.1 asks for in prose and nothing else
+asserts — and **the shipped default's inertness**, that its `auto_run` is
+empty and its `cost_posture` is `local_only`. The second matters more than it
+looks: a default shipping modules in `auto_run` would make opening a value
+page contact third parties, and phase 28 established that an enrichment run
+is a press and never a page load. `08-enrichment.md` §2 had already called
+for it; this is the assertion.
 
 ## 8. Out of scope
 
 - Any UI (phase 8).
+- **The controller and its ACL entries**, moved to phase 8 (§6, amended).
 - Any use of `parameters` (phases 2–7). This phase treats it as opaque JSON and
   validates only that it parses.
 - Syncing profiles between instances. The uuid exists for export/import and
   for matching a shipped default, not for a sync channel.
-- Q7, recommended but not decided.
+- **The default's weights.** `default-v1.json` ships the six signals the design
+  authored against the regression set, not §6's eleven — phase 2 authors the
+  catalogue and its calibration, and inventing five sets of numbers here would
+  have shipped guesses that read as decisions (§4.1).
+
+## 9. What phase 1 hands on
+
+- **`resolveFor()` may return `null`, and it is not an error path.** Every
+  caller from phase 2 onward handles it. It means a site admin disabled the
+  instance default, which is how assessment scoring is switched off.
+- **A row can carry `parameters_unparseable`.** `afterFind` deliberately does
+  *not* copy `DecayingModel::afterFind`, which substitutes an empty array for
+  unparseable JSON — that would score the value under a profile the hero is
+  not naming. The flag is there so phase 2 can degrade visibly.
+- **`revision`, not `version`, is the edit counter.** Phase 10's materialised
+  assessments key on it; `bumpRevision()` is the only thing that should move
+  it, and a rename must not.
+- **`isReadableByCurrentUser()` exists alongside `isEditableByCurrentUser()`**
+  and they are not the same test. The default is readable by everyone and
+  editable by a site admin.
+- **`updateDefaults()` returns a per-uuid outcome map**, including
+  `overwrote_edits` when it discarded local changes to the default. Whatever
+  calls it from `Admin runUpdates` should log that rather than drop it.

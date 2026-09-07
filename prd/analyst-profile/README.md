@@ -16,8 +16,9 @@ judgement the scoring engine needs — signal weights, thresholds, exclusions,
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Nothing is built.** The corpus is thirteen
-documents specifying it, phase by phase.
+viewer (nearest owner wins). **Phase 1 — the store — is built as of
+2026-09-07**; the other nine phases are specifications. The corpus is fifteen
+documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -44,7 +45,7 @@ is the page that explains the gates. The framing is deliberately
 admiralty-shaped: org trust grades (source reliability) go in, the assessment
 (information credibility) comes out.
 
-## The design in twelve decisions
+## The design in fourteen decisions
 
 | # | Decision | Owner |
 |---|---|---|
@@ -59,6 +60,8 @@ admiralty-shaped: org trust grades (source reliability) go in, the assessment
 | D9→D10 | The export gate is a **materialised instance assessment** — a background worker stores one row per value under the instance default profile; `restSearch` filters the row; the page stays render-time. Matches the industry's status-flip model; per-analyst feeds rejected | `11-restsearch.md` |
 | D11 | The verdict becomes the **Assessment**: lean · relevance · quality. Dissolves SUSPICIOUS, the UNKNOWN conflation, the underived confidence bar, the disposition floors | `12-assessment.md` |
 | D12 | **Signals and escalations are discovered from the filesystem** — an admin drops a PHP file in `app/Lib/ValueSignals/` and it is picked up; nothing in code holds a list. Two roots after `Workflow`, shipped and custom. Closes Q11: a signal is a class, discovery makes it available, a profile makes it active | `03-signals.md` §8 |
+| D13 | **No new permission flag gates ownership.** A user profile needs no grant, an org profile needs `perm_admin`, the default is site-admin only. `perm_decaying` rejected — riding it silently widens every existing grant. Also the reversible direction: adding a flag later is additive. Closes Q7 | `02-store.md` §3.3 |
+| D14 | **A weight band is editorial, not derived from the contribution.** The fixture forecloses "derived" — `7` is both `moderate` and `weak` in it. The band says what this kind of evidence is worth in principle; the contribution says what it produced here. Closes Q5 | `03-signals.md` §5 |
 
 ## Stress-tested
 
@@ -89,21 +92,37 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **1–6 and 8–10 are
-specifications; 7 (enrichment) is a scope note blocked on a store that does
-not exist; nothing is implemented.** Build order: 1 (store) gates all → 2–6
-→ 8 → 9 (the tab goes live) → 10.
+Phases (living table: `01-profile.md` §1.4): **phase 1 is built; 2–6 and
+8–10 are specifications; 7 (enrichment) is a scope note blocked on a store
+that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9 (the
+tab goes live) → 10.
 
-Open questions, most carrying a recorded recommendation awaiting confirm:
-Q5 (band semantics, phase 2), Q7 (permission, phase 1), Q9 (per-viewer
-caveat, phase 9), Q10 (enrichment scope, phase 7), Q13
-(`includeAssessment` exposure gate, phase 10), plus two phase-9 items — the
-curves' historical derivation and the hero's three-axis composition.
+**Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
+table, `app/Model/AnalystProfile.php`, and the shipped
+`app/files/analyst-profiles/default-v1.json`. Its exit criterion —
+`resolveFor()` returns exactly one profile for every user — is asserted by
+`02-store-resolve-harness.php`, 33 checks with no database. The controller
+moved to phase 8, and four of the nine verification items need a live
+instance (`02-store.md` §7 says which).
 
-**Q11 closed 2026-09-07 as D12**, and it closed the other way from this
-document's own recommendation: the extension point ships in v1, because the
-loader it needs already exists in MISP twice and the expensive half of the
-question — an expression language — is not what was being asked for.
+Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
+phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus two
+phase-9 items — the curves' historical derivation and the hero's three-axis
+composition. **Nothing gating phases 1–5 is open any more.**
+
+Three questions closed in three days, and two closed against this corpus's
+own recorded recommendation:
+
+- **Q11 → D12** (2026-09-07). The extension point ships in v1 after all,
+  because the loader it needs already exists in MISP twice and the expensive
+  half of the question — an expression language — was not what was being
+  asked for.
+- **Q7 → D13** (2026-09-07). No new `perm_*` flag; `perm_admin` for an org
+  profile, nothing for a user's own. The recommendation held, and the
+  deciding argument was reversibility rather than the design merit.
+- **Q5 → D14** (2026-09-07). The band is editorial. Decided on the fixture's
+  own numbers rather than on preference — `7` appears in two bands, so
+  "derived" was never available.
 
 External prerequisites: the `misp-warninglists` category PR and the MISP
 core import fix (V2 above).

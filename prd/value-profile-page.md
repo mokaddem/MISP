@@ -175,8 +175,11 @@ live phase takes the Overview card that mirrors its tab. **Four Overview
 panels still read the fixture** — occurrence, context, lifecycle, and
 `value_verdict_card`, which is blocked on the verdict engine.
 
-**The verdict engine is designed as of 2026-09-03, and nothing is built.**
-It got the dedicated PRD and the grilling session the scope note asked for:
+**The verdict engine is designed as of 2026-09-03, and its store is built as
+of 2026-09-07** — migration 160, the `analyst_profiles` table and the model
+that resolves exactly one profile per viewer. Nothing on the page reads it
+yet; that is the corpus's phase 9. It got the dedicated PRD and the grilling
+session the scope note asked for:
 [`analyst-profile/`](analyst-profile/), fifteen documents, twelve decisions,
 ten implementation phases. Three things in it change what the rest of this
 document says it is waiting for. **D11 dissolves the verdict itself** — a
@@ -279,7 +282,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 28 | Enrichment goes live, stateless — the store dropped rather than built | `live/28-enrichment.md` | **built 2026-09-06** — §2 the probe that scoped it, §5 the nine keys removed, §6.3 the CSRF race it found, §8 the review sweep that put seven features back |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **superseded 2026-09-03** by the design below. Kept for §3's record of what the templates assert, and for the two items of §4 that came back to it |
-| — | The Analyst Profile, and the Assessment that replaces the verdict — what configures the engine, plus the enrichment defaults | [`analyst-profile/README.md`](analyst-profile/README.md) | **designed, nothing built.** Unblocks the Verdict tab. Fifteen documents, twelve decisions, ten phases; `analyst-profile/01-profile.md` §1.4 is the phase table, §2 the decisions, `12-assessment.md` the D11 reframe and `review-2026-09-02.md` the adversarial pass |
+| — | The Analyst Profile, and the Assessment that replaces the verdict — what configures the engine, plus the enrichment defaults | [`analyst-profile/README.md`](analyst-profile/README.md) | **designed; phase 1 built 2026-09-07.** Unblocks the Verdict tab. Fifteen documents, fourteen decisions, ten phases — the store is built (migration 160, `AnalystProfile.php`, `default-v1.json`), the other nine are specifications. `analyst-profile/01-profile.md` §1.4 is the phase table, §2 the decisions, `12-assessment.md` the D11 reframe and `review-2026-09-02.md` the adversarial pass |
 | — | Three concepts the campaign owes: proposals, feeds/servers, event reports | [`value-profile-coverage.md`](value-profile-coverage.md) | **the survey and a per-phase obligation.** Blocks nothing; `live/00-contract.md` §14.9 row 9 makes every remaining live phase assess all three, and §5 there is the starting verdict |
 
 Then the live campaign, one phase per tab. **This is the table to update as each

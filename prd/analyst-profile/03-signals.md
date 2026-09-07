@@ -265,10 +265,11 @@ weighted the verdict, imperfectly.
 an id the instance *has* but could not load, or one whose `evaluate()` threw.
 Same treatment, different reason string — §8.5.
 
-## 5. Q5 — is the band derived or editorial?
+## 5. Q5 — is the band derived or editorial? **Decided 2026-09-07, D14**
 
-**The corpus rules out "derived", decisively.** Tabulating all 24 rows by
-absolute contribution:
+**Editorial: the band is declared per signal in the profile.** Not a
+preference — the fixture forecloses the alternative, and the table below is
+the evidence rather than an illustration of it.
 
 | Band | Absolute contributions in the fixture |
 |---|---|
@@ -297,8 +298,21 @@ APT28 (2 events)"*, +14) and `strong` on the flux value (*"QakBot, on 107
 occurrences"*, +17). Under a per-signal band those must agree. Phase 9 changes
 the fixture; this is one of the rows it changes.
 
-**Not formally decided** — it is Q5 and it is the phase's to close, but the
-"derived" option is off the table on evidence rather than preference.
+**Decided as D14** on the evidence above rather than on preference: no
+threshold on `contribution` can reproduce the fixture's own labelling, so
+"derived" was never available. The band answers a different question from the
+contribution — *how much this kind of evidence matters in principle* against
+*how much it produced here* — so two rows with the same number and different
+bands is not an inconsistency to fix.
+
+**One consequence for the schema, and it is already there.** `band` is a
+profile field (§3) while `direction` is not (§2): the band is the author's
+judgement and has nowhere else to live, the direction is the sign of a number
+and would have to be kept in step if it were stored. The two look alike on
+screen and are opposites in the data model.
+
+`attribution.galaxy`'s fixture inconsistency above is still owed, and it is
+phase 9's — one of the rows it changes.
 
 ## 6. The catalogue
 

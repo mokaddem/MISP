@@ -98,7 +98,8 @@ class AppModel extends Model
         135 => false, 136 => true, 137 => false, 138 => false, 139 => false, 140 => false,
         141 => false, 142 => false, 143 => false, 144 => false, 145 => false, 146 => false,
         147 => false, 148 => false, 149 => false, 150 => false, 151 => false, 152 => false,
-        153 => false, 154 => false, 157 => false, 158 => false, 159 => false
+        153 => false, 154 => false, 157 => false, 158 => false, 159 => false,
+        160 => false
     );
 
     const ADVANCED_UPDATES_DESCRIPTION = array(
@@ -2725,6 +2726,31 @@ class AppModel extends Model
                 // Collection sync per-server toggles (T1.2).
                 $sqlArray[] = "ALTER TABLE `servers` ADD `push_collections` tinyint(1) NOT NULL DEFAULT 0 AFTER `pull_galaxy_clusters`;";
                 $sqlArray[] = "ALTER TABLE `servers` ADD `pull_collections` tinyint(1) NOT NULL DEFAULT 0 AFTER `push_collections`;";
+                break;
+            case 160:
+                // The Analyst Profile store (prd/analyst-profile/02-store.md).
+                $sqlArray[] = "CREATE TABLE IF NOT EXISTS `analyst_profiles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uuid` varchar(40) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  `name` varchar(191) NOT NULL,
+  `description` text DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `org_id` int(11) DEFAULT NULL,
+  `default` tinyint(1) NOT NULL DEFAULT 0,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `version` int(11) NOT NULL DEFAULT 1,
+  `revision` int(11) NOT NULL DEFAULT 1,
+  `parameters` longtext DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `modified` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uuid` (`uuid`),
+  KEY `name` (`name`),
+  KEY `user_id` (`user_id`),
+  KEY `org_id` (`org_id`),
+  KEY `default` (`default`),
+  KEY `enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
                 break;
             case 'fixNonEmptySharingGroupID':
                 $sqlArray[] = 'UPDATE `events` SET `sharing_group_id` = 0 WHERE `distribution` != 4;';

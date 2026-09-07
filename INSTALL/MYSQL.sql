@@ -52,6 +52,31 @@ CREATE TABLE `allowedlist` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `analyst_profiles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uuid` varchar(40) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  `name` varchar(191) NOT NULL,
+  `description` text DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `org_id` int(11) DEFAULT NULL,
+  `default` tinyint(1) NOT NULL DEFAULT 0,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `version` int(11) NOT NULL DEFAULT 1,
+  `revision` int(11) NOT NULL DEFAULT 1,
+  `parameters` longtext DEFAULT NULL,
+  `created` datetime NOT NULL,
+  `modified` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uuid` (`uuid`),
+  KEY `name` (`name`),
+  KEY `user_id` (`user_id`),
+  KEY `org_id` (`org_id`),
+  KEY `default` (`default`),
+  KEY `enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `analyst_data_blocklists` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `analyst_data_uuid` varchar(40) NOT NULL,

@@ -96,9 +96,15 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Nothing is built.** Phases 1–6 and 8–10 are specifications; phase 7 is
-blocked on a store that does not exist. Phase 10 was a recorded direction
-until 2026-09-03, when D10 settled its design and it became specifiable.
+**Phase 1 is built as of 2026-09-07**; phases 2–6 and 8–10 are
+specifications; phase 7 is blocked on a store that does not exist. Phase 10
+was a recorded direction until 2026-09-03, when D10 settled its design and it
+became specifiable.
+
+Building phase 1 closed **Q7 as D13** and, alongside it, **Q5 as D14** —
+the two questions that gated phases 1 and 2. Q11 had closed two days earlier
+as D12. **Every question gating the next phase is now answered**; Q9, Q10 and
+Q13 land in phases 9, 7 and 10 and block nothing before them.
 
 The order below is a dependency order, not a schedule. Phase 1 gates
 everything. Phases 2–6 are the profile's six sections and can proceed
@@ -107,7 +113,7 @@ live — and needs 1–5.
 
 | Phase | What | Written up in | Status |
 |---|---|---|---|
-| 1 | **The store** — the table, the model, ownership and resolution, the shipped default, fork, permissions | [`02-store.md`](02-store.md) | specification |
+| 1 | **The store** — the table, the model, ownership and resolution, the shipped default, fork, permissions | [`02-store.md`](02-store.md) | **built 2026-09-07** — migration 160, `AnalystProfile.php`, `default-v1.json`; closed Q7 as D13. The controller moved to phase 8 (§6 there), and four of nine verification items need a live instance (§7) |
 | 2 | **Signals and the engine** — the `signals` section, the mechanism that turns it into a ledger and a score, and the loader that discovers signal implementations from the filesystem | [`03-signals.md`](03-signals.md) | specification — re-scoped by D11: the accumulator produces the **quality** axis. **§8 rewritten 2026-09-07 (D12)**: drop-in signals |
 | 3 | **The lean and the bands** — the lean derivation, `thresholds` and `escalations`, the quality bands, derived `changers` | [`04-dispositions.md`](04-dispositions.md) | specification — rewritten 2026-09-03 under D11 |
 | 4 | **Exclusions** — the `exclusions` section, and splitting policy from ACL in `not_counted` | [`05-exclusions.md`](05-exclusions.md) | specification |
@@ -148,8 +154,12 @@ the reasoning and the rejected alternatives; D10 and D11 were taken
 
 | D12 | **Signals and escalations are discovered from the filesystem.** An instance admin drops a PHP file in `app/Lib/ValueSignals/` and the engine picks it up; the shipped catalogue is `app/Model/ValueSignals/` and nothing anywhere holds a list of signals. Follows `Workflow`'s two module roots and `DecayingModel::listAvailableFormulas()`. Closes Q11 — a signal is a class, not an expression language; discovery makes it available, a profile makes it active | `03-signals.md` §8 |
 
-Still open: Q5, Q7, Q9, Q10 and Q13 — the `includeVerdict` exposure gate —
-see §8. **Q11 closed 2026-09-07 as D12.**
+| D13 | **No new permission flag gates profile ownership.** A user profile needs no grant — it changes only its owner's page, the reasoning that leaves `user_settings` ungated; an org profile needs `perm_admin`; the default stays site-admin only. `perm_decaying` rejected because riding it silently widens every existing grant. Chosen partly as the reversible direction: adding a flag later is additive, withdrawing one is a migration. Closes Q7 | `02-store.md` §3.3 |
+| D14 | **A signal's weight band is editorial, declared per signal — not derived from its contribution.** The fixture forecloses "derived": `7` appears in both `moderate` and `weak`, and `17` (strong) sits above `16` (moderate), so no threshold reproduces the labelling. The band says how much this *kind* of evidence matters in principle; the contribution says what it produced here. Closes Q5 | `03-signals.md` §5 |
+
+Still open: Q9, Q10 and Q13 — the `includeVerdict` exposure gate — see §8.
+**Q11 closed 2026-09-07 as D12, Q7 as D13 and Q5 as D14**, so nothing gating
+phases 1–5 remains open.
 
 ## 3. What a profile contains
 
@@ -417,6 +427,12 @@ Carried from [`00-discovery.md`](00-discovery.md) §10 — except Q13, raised
 2026-09-03 in [`11-restsearch.md`](11-restsearch.md) §7 — each against the
 phase that has to answer it.
 
+**Q5 and Q7 are no longer here either**, both closed 2026-09-07 when phase 1
+was built. Q7 became **D13** — no new permission flag, `perm_admin` for an org
+profile, nothing for a user's own. Q5 became **D14** — the band is editorial
+and declared per signal, which the fixture had already forced by putting `7` in
+two different bands.
+
 **Q11 is no longer here.** It asked whether an extension point ships in v1 and
 whether analyst-authored signals are visible to others; both halves were
 answered 2026-09-07 as D12 (`03-signals.md` §8). A signal is a class
@@ -426,8 +442,6 @@ is whether it is enabled.
 
 | Q | Question | Lands in |
 |---|---|---|
-| Q5 | Is a weight **band** derived from the contribution or an independent editorial label? They overlap in the fixture — a `strong` of +17 sits below a `moderate` of +16 | phase 2 |
-| Q7 | Which permission gates ownership — ride `perm_decaying`, add a flag, or `perm_admin` for org-scoped and nothing for user-scoped? | phase 1 |
 | Q9 | Must the standing per-viewer caveat now state **both** reasons two readers differ, ACL and profile? | phase 9 |
 | Q10 | How much of the enrichment plumbing is in scope — the last-run store and the queued path both block the badge | phase 7 |
 | Q13 | What may `includeVerdict` attach, and to whom? Per-caller computation is ruled out; the gate is a role, the host org, fully-public evidence, or a composition of the three | phase 10 |
