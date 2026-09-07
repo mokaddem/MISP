@@ -100,6 +100,19 @@ if ($service['reachable']) {
         'panelSub' => implode(' &middot; ', $bits),
     )) ?>
 
+    <?php
+    /*
+     * Above the branch on purpose. A profile naming a module this
+     * instance has turned off is precisely the case with no rail to
+     * hang the condition on, and a reader told "no enabled module
+     * accepts this value's types" while their own profile names one
+     * has been quietly lied to.
+     */
+    ?>
+    <?= $this->element('Values/View/value_enrichment_profile', array(
+        'enrichment' => $enrichment,
+    )) ?>
+
     <?php if (!$service['reachable']): ?>
 
         <?php

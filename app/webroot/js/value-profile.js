@@ -4529,22 +4529,41 @@
      * one cost that is knowable and is the same thing the reader is
      * agreeing to: how many separate queries leave the building.
      *
+     * **Phase 7 made that number per module rather than per
+     * selection.** `ModuleLocality` says which modules answer without
+     * anything leaving the instance, so three local selections no
+     * longer claim three outbound queries. A box reads `0` only for a
+     * module known to answer from inside: everything else is presumed
+     * to leave, which is what an enrichment module does unless
+     * somebody has established otherwise.
+     *
      * @param {Element} panel
      */
     function refreshEnrichTray(panel) {
         var boxes = panel.querySelectorAll('[data-vp-e-select]');
         var picked = 0;
+        var leaving = 0;
         boxes.forEach(function (box) {
-            if (box.checked) {
-                picked++;
+            if (!box.checked) {
+                return;
+            }
+            picked++;
+            if (box.dataset.vpEExternal !== '0') {
+                leaving++;
             }
         });
 
         setText(panel, '[data-vp-e-picked]', picked);
         setText(panel, '[data-vp-e-runcount]', picked);
-        setText(panel, '[data-vp-e-ext-n]', picked);
-        showEnrich(panel, '[data-vp-e-cost-out]', picked > 0);
+        setText(panel, '[data-vp-e-ext-n]', leaving);
+        setText(panel, '[data-vp-e-loc-n]', picked);
         showEnrich(panel, '[data-vp-e-cost-none]', picked === 0);
+        showEnrich(
+            panel,
+            '[data-vp-e-cost-local]',
+            picked > 0 && leaving === 0
+        );
+        showEnrich(panel, '[data-vp-e-cost-out]', leaving > 0);
 
         var run = panel.querySelector('[data-vp-e-run-selected]');
         if (run) {
@@ -4790,7 +4809,10 @@
 
     /**
      * The tab arrives at rest: every pane rendered, every row *Not
-     * asked*, nothing selected. This settles the tray to match.
+     * asked*, and — since phase 7 — whatever the reader's Analyst
+     * Profile named for this value's types already ticked. This
+     * settles the tray to match, which on a profile that declares
+     * nothing is the same "nothing selected" it always was.
      *
      * @param {Element} root
      */

@@ -253,6 +253,12 @@ Disabled with a `title`: `Run n selected`, `Re-run`, `Add all`, every
   nothing about rate limits, credits, or whether a module leaves the building.
   The cost chips need a curated map, and it should live next to the module list,
   not in this page.
+  **Half-answered 2026-09-07** by the Analyst Profile's phase 7
+  (`../analyst-profile/08-enrichment.md` §3): the *leaves the building* half is
+  now `app/Lib/Tools/ModuleLocality.php` — a curated map, keyed by module name,
+  next to the module list and not in this page, exactly as this bullet asked —
+  so the tray's outbound count is per module rather than per selection. Rate
+  limits and credits are untouched, and the cost chips stay out.
 - **There is no progress inside a module.** One `POST /query` under
   `Plugin.Enrichment_timeout` (10 s; Cortex 120 s). Progress can only ever be
   *n of m modules*, which is what the running state draws.

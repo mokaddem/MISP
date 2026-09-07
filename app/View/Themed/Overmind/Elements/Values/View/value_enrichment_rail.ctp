@@ -18,6 +18,12 @@
  * answered, answered with nothing, timed out, errored, refused. Set by
  * the run, on the client, against markup this element sent.
  *
+ * **Since phase 7 the boxes can arrive ticked.** The reader's Analyst
+ * Profile names modules per attribute type, and the ones it names for
+ * this value's types are selected on arrival — selected, not run.
+ * Everything a press does is unchanged; what changes is that the press
+ * defaults to the analyst's own list instead of to nothing.
+ *
  * A plain partial, not an endpoint.
  *
  * @var array $enrichment
@@ -26,6 +32,43 @@
  */
 $modules = $enrichment['modules'];
 $service = $enrichment['service'];
+
+/*
+ * The profile's selection, as a lookup: module name => the type a run
+ * would use. The type is the profile's rather than the row's default
+ * wherever the module accepts it, because filing `virustotal` under
+ * `ip-dst` is a statement about which question to ask.
+ */
+$picked = array();
+if (!empty($enrichment['profile']['selected'])) {
+    foreach ($enrichment['profile']['selected'] as $entry) {
+        $picked[$entry['name']] = $entry['type'];
+    }
+}
+
+/*
+ * What a selection costs, in the one currency that has a source.
+ *
+ * **Two states here, though `ModuleLocality` has three.** Its third —
+ * *nobody has classified this module* — is a real distinction and the
+ * posture states it, but the tray cannot: an *at least 0 of 3* line
+ * understates the presumption the whole design runs on, which is that
+ * an enrichment module enriches from somewhere else unless it is
+ * known not to. So a box reads `0` only for a module known to answer
+ * from inside, and the sentence a reader gets is the one that was
+ * already true of every module before this map existed.
+ */
+$flags = array();
+$leaving = 0;
+foreach ($modules as $module) {
+    $local = isset($module['locality'])
+        && $module['locality'] === 'local';
+    $flags[$module['name']] = $local ? '0' : '1';
+    if (!$local && isset($picked[$module['name']])) {
+        $leaving++;
+    }
+}
+$chosen = count($picked);
 ?>
 <div class="vp-e-rail">
 
@@ -44,11 +87,13 @@ $service = $enrichment['service'];
         <label class="vp-e-selall">
             <input type="checkbox" class="form-check-input"
                    data-vp-e-select-all
+                   <?= $chosen > 0 && $chosen === count($modules)
+                        ? 'checked' : '' ?>
                    <?= $canRun ? '' : 'disabled' ?>>
             <span><?= h(__('Select all')) ?></span>
         </label>
         <span class="vp-e-railhead-n">
-            <span data-vp-e-picked>0</span>
+            <span data-vp-e-picked><?= h($chosen) ?></span>
             <?= h(sprintf(__('of %d selected'), count($modules))) ?>
         </span>
     </div>
@@ -97,13 +142,20 @@ $service = $enrichment['service'];
              */
             $types = array_keys($module['types']);
             $extra = count($types) - 1;
+            $mine = isset($picked[$module['name']]);
+            $runType = $mine
+                ? $picked[$module['name']]
+                : $module['type'];
             ?>
             <div class="vp-e-railrow" data-vp-e-row="<?= h($module['name']) ?>">
 
                 <label class="vp-e-selbox">
                     <input type="checkbox" class="form-check-input"
                            data-vp-e-select="<?= h($module['name']) ?>"
-                           data-vp-e-seltype="<?= h($module['type']) ?>"
+                           data-vp-e-seltype="<?= h($runType) ?>"
+                           data-vp-e-external="<?=
+                                h($flags[$module['name']]) ?>"
+                           <?= $mine ? 'checked' : '' ?>
                            <?= $canRun ? '' : 'disabled' ?>
                            aria-label="<?= h(sprintf(
                                 __('Select %s'),
@@ -124,7 +176,7 @@ $service = $enrichment['service'];
 
                     <span class="vp-e-railrow-sub">
                         <span class="font-monospace"><?= h(
-                            $module['type']
+                            $runType
                         ) ?></span>
                         <?php if ($extra > 0): ?>
                             <span class="text-muted"
@@ -139,6 +191,23 @@ $service = $enrichment['service'];
                             '+',
                             $module['kinds']
                         )) ?></span>
+                        <?php
+                        /*
+                         * Why this box is ticked. Without it a reader
+                         * who has never opened the profile editor
+                         * finds a selection they did not make and no
+                         * way to learn where it came from.
+                         */
+                        ?>
+                        <?php if ($mine): ?>
+                            <span class="vp-e-mine"
+                                  title="<?= h(__(
+                                    'Named by your Analyst Profile for'
+                                    . ' this type. Selected, not run.'
+                                  )) ?>">
+                                <?= h(__('profile')) ?>
+                            </span>
+                        <?php endif; ?>
                         <?php
                         /*
                          * How much came back, once something has.
@@ -172,24 +241,37 @@ $service = $enrichment['service'];
          * instead is the one cost that is knowable and is the same
          * thing the reader is agreeing to: how many separate queries
          * leave the building.
+         *
+         * Since phase 7 that number is per module rather than per
+         * selection. `ModuleLocality` knows which modules answer
+         * without anything leaving, so a selection of three local ones
+         * no longer claims three outbound queries.
          */
         ?>
-        <div class="vp-e-tray-cost" data-vp-e-cost-none>
+        <div class="vp-e-tray-cost<?= $chosen > 0 ? ' d-none' : '' ?>"
+             data-vp-e-cost-none>
             <?= h(__('Nothing selected.')) ?>
         </div>
-        <div class="vp-e-tray-cost d-none" data-vp-e-cost-out>
+        <div class="vp-e-tray-cost<?=
+                ($chosen > 0 && $leaving === 0) ? '' : ' d-none' ?>"
+             data-vp-e-cost-local>
+            <i class="fas fa-house-laptop"></i>
+            <span data-vp-e-loc-n><?= h($chosen) ?></span>
+            <?= h(__('queries, none of which leave this instance')) ?>
+        </div>
+        <div class="vp-e-tray-cost<?= $leaving > 0 ? '' : ' d-none' ?>"
+             data-vp-e-cost-out>
             <i class="fas fa-arrow-up-right-from-square"></i>
-            <span data-vp-e-ext-n>0</span>
+            <span data-vp-e-ext-n><?= h($leaving) ?></span>
             <?= h(__('queries leave this instance, one at a time')) ?>
         </div>
 
 <?php
         /*
-         * Disabled on arrival whoever is reading, because nothing is
-         * selected yet. The client re-enables it when a selection
-         * exists *and* the reader may run — a reader without
-         * `perm_add` finds it disabled with the reason, which is this
-         * page's standing treatment for a control they may not press.
+         * Disabled on arrival whoever is reading, unless the reader's
+         * own profile has already selected something and they may run
+         * — which is the one case where a press is meaningful before
+         * any click. The client keeps it in step from there.
          */
         ?>
         <button type="button"
@@ -197,13 +279,13 @@ $service = $enrichment['service'];
                        gap-1 <?= $canRun
                     ? 'btn-outline-primary'
                     : 'disabled btn-outline-secondary' ?>"
-                disabled
+                <?= ($canRun && $chosen > 0) ? '' : 'disabled' ?>
                 <?= $canRun ? '' : 'title="' . h($noRun) . '"' ?>
                 data-vp-e-run-selected>
             <i class="fas fa-play" data-vp-e-icon></i>
             <span data-vp-e-label>
                 <?= h(__('Run')) ?>
-                <span data-vp-e-runcount>0</span>
+                <span data-vp-e-runcount><?= h($chosen) ?></span>
                 <?= h(__('selected')) ?>
             </span>
         </button>

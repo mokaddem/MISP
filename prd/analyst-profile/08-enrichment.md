@@ -1,63 +1,72 @@
 # PRD: Analyst Profile — phase 7, enrichment defaults
 
-**Scope note. Blocked, and honestly so.** Depends on phase 1
-([`02-store.md`](02-store.md)) for the section, and on a store that **does not
-exist** for the behaviour.
+**Built 2026-09-07 under D15 (shape B).** The profile *declares* which
+modules matter for a type; the Enrichment tab arrives with them
+**ticked, not run**; and every place the declaration and the instance
+disagree is a stated condition. The badge the original ask named is
+still blocked, and this document says why in §1 rather than deferring
+the reason.
 
-This is the one part of the ask this feature cannot deliver on its own. The
-section is specifiable; the badge is not, until something records that a module
-ran.
+Depends on phase 1 ([`02-store.md`](02-store.md)) for the section.
 
 ## 1. The ask, and what blocks it
 
-> *A profile also contains default enrichment modules to be run when opening a
-> value profile page (result to be displayed in a badge at the top level).*
+> *A profile also contains default enrichment modules to be run when
+> opening a value profile page (result to be displayed in a badge at
+> the top level).*
 
-Three separate blockers, all pre-existing, all recorded in
-`../value-profile-tabs/04-enrichment.md` §11 as that tab's own deferred items.
+Three blockers, all pre-existing, all recorded in
+`../value-profile-tabs/04-enrichment.md` §11 as that tab's own deferred
+items. **All three still stand**, which is the whole reason D15 chose
+declaration over behaviour.
 
 ### 1.1 Nothing records that a module ran
 
-`Module` is `useTable = false`. There is no per-value, per-module last-run
-timestamp anywhere in MISP. Without it, "run the default modules on page open"
-means **run them on every page open** — nine third-party queries per visit,
-per analyst, forever.
+`Module` is `useTable = false`. There is no per-value, per-module
+last-run timestamp anywhere in MISP. Without it, "run the default
+modules on page open" means **run them on every page open** — nine
+third-party queries per visit, per analyst, forever.
 
-`../value-profile-writes.md` §6.4 proposes the answer: a plain cache table keyed
-by value and module holding last run, by whom, status, and the dismissed
-elements — deliberately kept out of the assertion stores because it is evictable
-and instance-owned rather than org-owned.
+`../value-profile-writes.md` §6.4 proposes the answer: a plain cache
+table keyed by value and module holding last run, by whom, status, and
+the dismissed elements — deliberately kept out of the assertion stores
+because it is evictable and instance-owned rather than org-owned.
 
-**That table is this phase's hard prerequisite.** It is specified there and
-built by nobody.
+**That table is the badge's hard prerequisite.** It is specified there
+and built by nobody.
 
 ### 1.2 The interactive path is synchronous whatever the setting says
 
 `Event::enrichmentRouter()` returns before its own `MISP.background_jobs`
-branch — it returns at `Event.php:7997` and strands the branch at `7998`. Only
-`POST /attributes/enrich` queues a job.
+branch — it returns at `Event.php:7997` and strands the branch at
+`7998`. Only `POST /attributes/enrich` queues a job.
 
-So a page that runs even three modules on load blocks the render on three HTTP
-round trips to third parties, each bounded by `Plugin.Enrichment_timeout`
-(10 s; Cortex 120 s). **The badge needs the queued path**, which means either
-fixing `enrichmentRouter` or routing this page through the queueing endpoint.
+So a page that runs even three modules on load blocks the render on
+three HTTP round trips to third parties, each bounded by
+`Plugin.Enrichment_timeout` (10 s; Cortex 120 s). **The badge needs the
+queued path**, which means either fixing `enrichmentRouter` or routing
+this page through the queueing endpoint.
 
 ### 1.3 No cost or quota metadata exists
 
-Module introspection carries `name`, `mispattributes`, `meta.description`,
-`meta.module-type` and `meta.config` — and nothing about rate limits, credits,
-or whether a module leaves the building. The Enrichment tab's cost chips are
-already fixture-only for this reason, and
-`../value-profile-tabs/04-enrichment.md` §11 says the map *"should live next to
-the module list, not in this page"*.
+Module introspection carries `name`, `type`, `mispattributes` and
+`meta` — and `meta` is `author`, `config`, `description`, `features`,
+`input`, `logo`, `module-type`, `name`, `output`, `references`,
+`require_standard_format`, `requirements` and `version`. **Measured
+2026-09-07 across the dev instance's 146 modules**: not one field says
+anything about money, rate limits, or whether asking the module tells
+anybody outside the instance.
 
-A profile shared to an organisation that auto-runs a paid module spends
-somebody else's quota. Without cost metadata, the profile cannot even warn.
+The cost half stays out of scope and stays where
+`../value-profile-tabs/04-enrichment.md` §11 puts it — *"next to the
+module list, not in this page"*. The **locality** half turned out to be
+this phase's own prerequisite, because a posture that cannot tell a
+local module from an external one is not a posture. §3.1 is what
+shipped for it.
 
-## 2. What is specifiable now
+## 2. What the profile declares
 
-The section itself, and its resolution against instance policy. This can land
-with phase 1 and sit inert.
+The section, and its resolution against instance policy.
 
 ```json
 "enrichment": {
@@ -68,116 +77,362 @@ with phase 1 and sit inert.
     "md5":     []
   },
   "cost_posture": "allow_external",
+  "locality":     { "dns": "local" },
   "max_age_hours": 24
 }
 ```
 
-The example says `allow_external` because its `auto_run` names modules that
-leave the instance — the first draft paired those modules with `local_only`,
-which is this document's own defined conflict state (§5, verification 4)
-presented as the normal shape (`review-2026-09-02.md`, C-series). The
-*shipped default's* section is `local_only` with an empty `auto_run`: nothing
-runs, nothing conflicts, until someone chooses otherwise.
+The example says `allow_external` because its `auto_run` names modules
+that leave the instance — the first draft paired those modules with
+`local_only`, which is this document's own defined conflict state (§5,
+verification 4) presented as the normal shape
+(`review-2026-09-02.md`, C-series). And the reading is now measured
+rather than assumed: **`dns` resolves through Google's `8.8.8.8`**
+unless `Plugin.Enrichment_dns_nameserver` says otherwise
+(`dns.py:55`), so a profile pairing it with `local_only` really is in
+conflict — which is also why `locality` exists.
+
+The *shipped default's* section is `local_only` with an empty
+`auto_run`: nothing is declared, nothing conflicts, and the tab is the
+one phase 28 shipped, until someone chooses otherwise.
 
 **`auto_run` is keyed by attribute type**, because module validity is
 type-scoped — `Module::getEnabledModules($user, $type)` filters on
-`meta.module-type` and the tab's own header names the type for exactly this
-reason (*"9 modules valid for ip-dst"*). A value with several types resolves
-the union, deduplicated.
+`meta.module-type` and the tab's own header names the type for exactly
+this reason (*"9 modules valid for ip-dst"*). A value with several
+types resolves the union, deduplicated, and a module declared under two
+of them is **one** selection carrying both.
+
+The type a selection would run under is the **declared** one wherever
+the module accepts it, not the value's most common: an analyst filing
+`virustotal` under `ip-dst` said which question they wanted asked. It
+falls back to the row's default type when the declaration cannot be
+honoured.
 
 **`cost_posture`** is `local_only` (default) | `allow_external` | `ask`.
-`local_only` auto-runs nothing that leaves the instance, which is the only
-defensible default for a setting that can be set by one person and applied to
-their whole organisation.
+`local_only` auto-selects nothing that leaves the instance, which is
+the only defensible default for a setting that can be set by one person
+and applied to their whole organisation.
 
-**`max_age_hours`** is the reuse window — how stale a cached result may be
-before the page re-runs the module. Meaningless without §1.1's table.
+**`locality`** is the override map §3.1 needs — a module name to
+`local` or `external`, empty by default, deferring to the shipped
+roster. It is the one thing a map shipped in code can never know: an
+operator who pointed `dns` at their own resolver, or `clamav` at
+somebody else's, is the only party who can say so.
 
-### 2.1 A profile can only narrow, never widen
+**`max_age_hours`** is the reuse window — how stale a cached result may
+be before the page re-runs the module. Meaningless without §1.1's
+table, so it is carried with `reuse_inert` beside it and phase 8's
+editor states that it governs nothing yet. Carried rather than dropped,
+so that adding the store later is not a format change to every stored
+profile.
 
-`Module::getEnabledModules()` (`Module.php:111`) filters on three things: the
-instance setting `Plugin.Enrichment_<name>_enabled`, the requested type, and
-`canUse()` (`Module.php:412`) — which is site-admin-always, else
-`Plugin.Enrichment_<name>_restrict` must be empty or equal the user's `org_id`.
+### 2.1 A profile can only ever narrow, never widen
 
-So the instance decides what exists and a profile picks from that set. Two
-honest states follow, and neither may be a silent drop:
+`Module::getEnabledModules()` (`Module.php:111`) filters on three
+things: the instance setting `Plugin.Enrichment_<name>_enabled`, the
+requested type, and `canUse()` (`Module.php:412`) — which is
+site-admin-always, else `Plugin.Enrichment_<name>_restrict` must be
+empty or equal the user's `org_id`.
 
-- **A profile names a module the instance has disabled.** Rendered as a stated
-  condition on the module list, and linkable from the profile editor.
-- **A profile shared to an org names a module restricted to one org.**
-  `_restrict` is a single `org_id`, not a list, so this is reachable in normal
-  use. Same treatment.
+So the instance decides what exists and a profile picks from that set.
+**Four** honest states follow — the specification named two and
+building it found two more — and none may be a silent drop:
 
-Silently dropping either would mean a profile whose stated enrichment policy is
-not the one in effect, which is the class of quiet lie `01-profile.md` §1.3
-forbids.
+| Condition | What it means |
+|---|---|
+| `module.disabled` | the instance has it turned off |
+| `module.restricted` | `_restrict` reserves it for another organisation |
+| `module.not_offered` | no module of that name is in this build |
+| `module.type_mismatch` | it is enabled and usable and does not accept the type it was filed under |
 
-## 3. The badge
+Plus three that are not about a single module: `type.unused` (the
+profile names modules for types this value is not), `posture.external`
+(withheld by `local_only`), and `service.unreachable` (nothing could be
+checked this visit). And `module.unresolved`, which is the honest
+non-answer when a caller did not fetch the facts — see §4.2.
 
-*"Result to be displayed in a badge at the top level"* — the fact strip or the
-banner, above the tabs.
+Silently dropping any of them would mean a profile whose stated
+enrichment policy is not the one in effect, which is the class of quiet
+lie `01-profile.md` §1.3 forbids.
 
-Two properties it must have, both consequences of §1:
+### 2.2 Recovering the reason costs a second call
 
-- **A pending state.** With the queued path, the page cannot promise a result
-  on first paint. The badge renders *queued*, then *n of m answered*, then a
-  result — which is the same progress vocabulary the Enrichment tab's running
-  state already draws (*n of m modules*, because there is no progress inside a
-  module: one `POST /query` per module and nothing streams).
-- **It must not become the frame hazard again.** `../value-profile-page.md`
-  §1.4 records this: the tab badges, the fact strip and the banner chips are
-  built in one fixture call, and every panel conversion has left a number in
-  the frame contradicting the panel it names. Two badges were corrected in
-  phase 23 and a third dropped its number entirely in phase 24. **A new badge
-  in the frame, fed by a different code path from the Enrichment tab it
-  summarises, is that hazard by construction.** It reads from the same
-  aggregate as the tab or it does not ship.
+By the time the tab has a catalogue, `getEnabledModules()` has already
+discarded *why* a module is not in it. Recovering the difference means
+one more `GET /modules` — 1–2 ms on the dev instance — and
+`ValueEnrichmentTool::needsFacts()` exists so that it is paid **only
+when a declared module is missing from the eligible set**. A
+declaration that resolves cleanly pays nothing, and the shipped default,
+which declares nothing, can never pay it. Measured in §6.
 
-## 4. Q10 — how much is in scope
+## 3. Locality: which modules answer from inside
 
-**Open.** Three shapes:
+### 3.1 The knowledge ships as code, and cannot be derived
 
-- **A.** This phase builds `../value-profile-writes.md` §6.4's cache table and
-  fixes the queued path, then the badge. Largest, and it makes a profile
-  feature responsible for enrichment plumbing two other documents already own.
-- **B.** The section ships inert with phase 1; the badge waits for the cache
-  table to be built by whoever owns `value-profile-writes.md`. The profile
-  *declares* its module list, the editor lets you set it, and nothing auto-runs.
-- **C.** Drop `auto_run` from v1 entirely; the profile holds no enrichment
-  config.
+`ModuleLocality` (`app/Lib/Tools/ModuleLocality.php`) is V1: a static
+roster of the modules that answer without anything leaving the
+instance, following `WarninglistCategory`'s V1 and `GalaxyColour`
+before it — canonical knowledge shipped as code, deterministic, no
+migration, no store.
 
-**Recommendation: B.** The declaration is genuinely useful before the
-behaviour — it is the only place an analyst can record which modules they care
-about for a type, and the Enrichment tab could pre-select them without running
-anything. It also means the profile's shape is complete on day one, so adding
-the behaviour later is not a format change to every stored profile.
+**The obvious heuristic is wrong in both directions**, and that is
+measured rather than argued:
 
-C is wrong because the ask names enrichment explicitly and a profile without it
-answers a smaller question than the one asked. A is wrong because it makes this
-feature's schedule depend on fixing `enrichmentRouter`, which is a bug in event
-enrichment with its own blast radius.
+- **`countrycode`** declares `config: []` and `requirements: []` and
+  fetches `http://www.geognos.com/api/en/countries/info/all.json` over
+  plain HTTP to expand a ccTLD.
+- **`clamav`** takes one config key and reaches nothing but the `clamd`
+  socket the operator pointed it at.
 
-## 5. Verification, for the part that can ship under B
+So the same introspection shape says both things, exactly as phase 6's
+fixture put `7` in two weight bands and thereby foreclosed a derived
+band (**D14**).
 
-1. `auto_run` set for three types; the profile round-trips through save,
-   export and import unchanged.
-2. A module named that the instance has disabled: stated condition in the
-   editor, no error, and the Enrichment tab's rail is unaffected.
-3. A module named that `_restrict` reserves for another org, viewed as a member
-   of neither: stated condition.
-4. `cost_posture: local_only` with an external module in `auto_run`: the
-   editor states the conflict rather than silently ignoring one of the two.
-5. Nothing runs. No third-party request is made by any page load. Asserted with
-   the modules service unreachable — the page must be indistinguishable from
-   the same load with it reachable.
+### 3.2 The test that decides membership
 
-## 6. Out of scope
+**Does anything about this value reach a party the instance operator
+does not control?**
+
+- **No → local.** Pure computation (`extract_url_components`), a local
+  file (`geoip_*` read Maxmind's database off disk), or an endpoint
+  that can only ever be the operator's own — `clamav` has no default
+  connection string at all.
+- **Yes → external**, and *configurable* is not *local*:
+  `mmdb_lookup` defaults to CIRCL's `ip.circl.lu` and `dns` to
+  `8.8.8.8`, so both leave the building on a deployment nobody has
+  configured. An operator who has repointed one says so in
+  `enrichment.locality`.
+
+The roster is 22 modules: the parsing and syntax ones, the attachment
+readers, the three `geoip_*`, and `clamav`. It is short because most
+enrichment *is* a lookup against somebody else's data — that is what
+enrichment is for — and the asymmetry is the honest shape of the
+platform rather than a gap in the reading. §7.4 is what it costs.
+
+### 3.3 An omission is the safe direction, and there are omissions
+
+A module the roster does not name resolves `unknown`, and `local_only`
+treats `unknown` exactly as `external`. So the failure mode of an
+incomplete map is *a local module that does not auto-select*, never *a
+value quietly sent somewhere*.
+
+That the map is incomplete is measured, not hoped: the roster is the
+modules whose source was read, and **reading source is not proof
+either** — `socialscan` shows no outbound call in its own file because
+the library it wraps makes them. The map carries what it can defend.
+
+### 3.4 Retirement
+
+`ModuleLocality::retirable()` is the mechanical criterion, in code so
+that *"can this file go?"* is answered by an instance rather than by
+reading a roadmap. It is satisfied when **every module the instance
+offers** declares its own locality in introspection — not merely the
+ones this map names, because a field that exists for 22 modules and not
+the other 124 leaves `unknown` meaning two different things, which is
+the state this file exists to avoid. Upstream would be a `meta` field
+in `misp-modules`; nobody has proposed one.
+
+## 4. What it looks like
+
+### 4.1 The rail arrives ticked
+
+The declared modules are pre-selected checkboxes, each carrying the
+declared run type, with a `profile` chip on the row so that a reader
+who has never opened the editor can see where the selection came from.
+The press is unchanged: **nothing runs on arrival**, and the tray's
+`Run n selected` is the same control it always was, defaulting to the
+analyst's own list instead of to nothing.
+
+The tray's cost line is now honest per module rather than per
+selection. It has said *"n queries leave this instance"* since phase
+28, counting every ticked box, because nothing knew better; a selection
+of local modules now says *"n queries, none of which leave this
+instance"* instead. **Two states, though `ModuleLocality` has three**
+— §7.3 is why.
+
+### 4.2 The strip states the conditions, above every empty state
+
+`value_enrichment_profile.ctp` renders between the panel header and the
+tab's branch, silent when nothing is declared. It is above the branch
+because the condition it most needs to carry is the one with no rail to
+hang it on: a profile naming a module the instance disabled, on a value
+where no other module is eligible, would otherwise leave the reader
+looking at *"no enabled module accepts this value's types"* while their
+own profile names one.
+
+Each condition names the module, and the sentence says what a reader
+can do about it. Two deliberate refusals:
+
+- **A near miss is named, never substituted.**
+  `Plugin.Enrichment_<name>_enabled` is an exact key, so treating
+  `VirusTotal` as `virustotal` would be the page enabling a module the
+  profile did not name. The condition says *"It does offer
+  virustotal"* and leaves the edit to the reader.
+- **`module.unresolved` is a real branch, not a defensive one.** A
+  caller that skips §2.2's second call gets *"not available, and why
+  was not established"* rather than one of the four reasons picked at
+  random.
+
+## 5. Verification
+
+1. `auto_run` set for three types; the profile round-trips through
+   save, export and import unchanged. **Live probe** — the section
+   comes back out of `resolveFor()` with its integer window intact.
+2. A module named that the instance has disabled: stated condition, no
+   error, and the tab's rail is unaffected. **Live probe**, on
+   `virustotal`, which is in the build and off here.
+3. A module named that `_restrict` reserves for another org, viewed as
+   a member of neither: stated condition. **Live probe**, as
+   `orgadmin@circl.lu` with the restriction written in-process — and
+   with the site admin's reading asserted beside it, because `canUse()`
+   passes them through every restriction and telling them the module
+   was reserved away would be false.
+4. `cost_posture: local_only` with an external module in `auto_run`:
+   the condition states the conflict rather than silently ignoring one
+   of the two. **Live probe**, on `circl_passivedns`.
+5. Nothing runs. No third-party request is made by any page load.
+   **Asserted three ways**: the row counts either side of every call,
+   the modules service's own request log read from outside the process
+   (`POST /query` **3 → 3** across 16 catalogue builds), and a run with
+   the service unreachable, which is indistinguishable from a
+   reachable one when nothing is declared.
+
+Plus what the specification did not name and building it required:
+the union over a value's types, the run type, the four-way precedence,
+the near miss, the locality override end to end, and the second call
+being paid only where a condition needs explaining.
+
+## 6. How it is verified
+
+- **`08-enrichment-harness.php`** — 102 checks, no database and no
+  modules service. The resolution arithmetic, every condition id, the
+  normalisation of a hand-edited document, and the two invariants that
+  are structural rather than numeric: an empty declaration produces
+  nothing at all, and `ask` resolves **byte-identically** to
+  `allow_external`.
+- **`08-enrichment-live-probe.php`** — 46 checks under `run` and 9
+  under `unreachable`, against real rows, real settings and the real
+  modules service. Writes no profile: every declaration goes through
+  `forEnrichment()`'s `profile` option, which is the seam phase 8's
+  editor needs.
+- **`08-enrichment-render.php`** — the tab rendered in five states
+  (nothing declared, `local_only`, `allow_external`, a broken
+  declaration, service down), because *"the boxes arrive ticked"* is
+  not a claim an assertion about an array can settle.
+
+## 7. What building it found
+
+### 7.1 The instance's modules port was wrong, and the probe nearly passed anyway
+
+`Plugin.Enrichment_services_port` was `6677` on the dev instance while
+misp-modules listens on `6666`, so every enrichment surface there —
+this tab included — was reporting a dead service. Phase 28 measured the
+same tab at 9 ms a day earlier, so the setting moved in between.
+
+**The first probe run reported 24 failures and 21 passes, and the
+passes were the dangerous half**: with nothing reachable, *"the shipped
+default changes nothing"* and *"nothing is selected"* both hold for the
+wrong reason. So the probe gained a preflight that corrects the port
+**for its own process only** and refuses to continue if that does not
+recover the service. It is phase 5 §7.5's lesson in a new place — there
+the datasource log had stopped recording and the probe cheerfully
+reported *"0 queries, 0 touching decaying_models"*.
+
+### 7.2 One fact, one producer — caught by an assertion about wording
+
+`resolve()`'s first version computed each module's locality itself,
+from the same map and the same overrides the catalogue row already
+carried. The harness's check that *an unclassified module is not told
+it leaks* failed, because the tool called both the external module and
+the unclassified one `unknown` while the row said one of them was
+`external`.
+
+They would have agreed in production — both paths call
+`ModuleLocality` with the same overrides — and *"they agree today"* is
+what `../value-profile-page.md` §1.4's frame hazard sounds like every
+time before it stops being true. The withholding decision now reads the
+row (`localityOf()`), so the chip on the rail, the number in the tray
+and the reason in the strip are literally one value. The harness
+asserts it from both sides: an override reaches the decision through
+the row, and an override the rows did not carry does not sneak in
+afterwards.
+
+### 7.3 The third locality state cannot survive contact with the tray
+
+`ModuleLocality` has three states and the tray was built with three
+sentences, the third being *"at least n of m queries leave this
+instance"* for a selection containing an unclassified module.
+
+Measured on the dev instance, that is **the normal case, not the
+exotic one**: 1 of the 5 modules eligible for `8.8.8.8` is on the local
+roster and the other 4 are unclassified, so the honest-looking line
+reads *"at least 0 of 4"* — which understates the presumption the whole
+design runs on. An enrichment module enriches from somewhere else
+unless it is known not to.
+
+So the tray has two states and rounds `unknown` into *leaves*, while
+the posture keeps all three: its two sentences differ, because *asking
+it tells somebody* and *nobody has established whether asking it tells
+somebody* are different facts and only one of them is a reason to go
+and classify a module. The rounding is in the safe direction and it is
+the claim the tab was already making about every module before this
+map existed.
+
+### 7.4 `local_only` selects almost nothing, and that is the platform
+
+The local roster is dominated by attachment readers and syntax
+validators, which a *value* page rarely has a type for. On `8.8.8.8`,
+with 5 eligible modules, exactly one is local — and it is on the rail
+only because the value happens to carry two `text` occurrences, which
+is what makes `convert_markdown_to_pdf` eligible.
+
+So the shipped posture will select nothing at all on most values. That
+is not a calibration error to tune away: it is `local_only` doing
+precisely what it says on a platform where enrichment means asking
+somebody else. An analyst who wants a default selection sets
+`allow_external` deliberately, which is the point of the setting
+existing.
+
+### 7.5 Under D15 the posture has two values, not three
+
+`ask` means *check with me before spending this*, and a page where
+every run takes a press is already asking. The two are kept as separate
+values because they diverge the moment anything runs without a press —
+which is what §1.1's missing store would unblock — and the identity is
+asserted as byte-equality in both the harness and the live probe, so
+the day that changes, the check fails and the difference has to be
+designed rather than discovered.
+
+### 7.6 A diagnostic that counts prose is worse than none
+
+The render shell reported *"ticked: 1 of 0 checkboxes"* on the
+service-down case. There were no checkboxes and no ticks: it was
+counting the string `checked` in the strip's own sentence, *"none of
+these could be checked against what this instance offers"*. Recorded
+because the same shape — a substring count standing in for a structural
+one — is how a verification tool starts confirming itself.
+
+### 7.7 The tab's own deferred list shrinks by half a bullet
+
+`../value-profile-tabs/04-enrichment.md` §11's cost bullet ends *"the
+map should live next to the module list, not in this page"*. Half of it
+now exists and lives exactly there: `ModuleLocality` is a fact about
+modules, keyed by module name, next to the module list and not in the
+page. The other half — rate limits and credits — is untouched and stays
+out of scope.
+
+## 8. Out of scope
 
 - Building `../value-profile-writes.md` §6.4's cache table.
 - Fixing `Event::enrichmentRouter()`.
-- The cost metadata map (§1.3), which belongs next to the module list.
-- Enrichment *results* becoming occurrences. `../value-profile-writes.md` §6.4
-  has the answer — a new event owned by the analyst's own org — and it is a
-  write, which this feature does not do.
-- The badge, under recommendation B.
+- The cost and quota half of the metadata map (§1.3).
+- Enrichment *results* becoming occurrences. `../value-profile-writes.md`
+  §6.4 has the answer — a new event owned by the analyst's own org —
+  and it is a write, which this feature does not do.
+- **The badge.** Under D15 there is nothing to badge: no run has
+  happened, and a badge saying *"3 modules selected"* in the frame,
+  fed by a different code path from the tab it summarises, is
+  `../value-profile-page.md` §1.4's frame hazard by construction. When
+  §1.1's store lands, the badge reads from the same aggregate as the
+  tab or it does not ship.

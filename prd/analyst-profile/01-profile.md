@@ -96,12 +96,12 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Phases 1 to 6 are built as of 2026-09-07**; phases 8–10 are
-specifications; phase 7 is blocked on a store that does not exist. Phase 10
-was a recorded direction until 2026-09-03, when D10 settled its design and it
-became specifiable. **Phase 9 — the tab going live — now has every phase it
-depends on**, and phase 6 was the last one that could still change a number
-under it.
+**Phases 1 to 7 are built as of 2026-09-07**; phases 8–10 are
+specifications. Phase 10 was a recorded direction until 2026-09-03, when D10
+settled its design and it became specifiable. **Phase 9 — the tab going live —
+now has every phase it depends on**, and phase 6 was the last one that could
+still change a number under it: phase 7 changes no number at all, which is why
+it could land after the axis work rather than before it.
 
 Phase 2 built the accumulator, the eleven-signal catalogue and D12's
 filesystem loader, and its exit criterion holds against real rows: the
@@ -170,6 +170,34 @@ at all, and §5's own items 2, 3 and 5 could not be observed as written
 contradiction from one rule to the other and changed the prose rather than
 the word (§7.5).
 
+**Phase 7 closed the last section, and closed it by not building the
+thing that was asked for.** Q10 became **D15**: the profile *declares*
+enrichment modules per attribute type, the Enrichment tab arrives with
+them **ticked rather than run**, and the badge waits for the per-value
+per-module store that does not exist — because without it, *"run the
+defaults on page open"* means running them on every page open
+([`08-enrichment.md`](08-enrichment.md) §1.1). Building it needed one
+thing the specification had filed under *out of scope*: a posture that
+cannot tell a local module from an external one is not a posture, so
+`ModuleLocality` ships the same way phase 6's warninglist categories
+did — as code, with a mechanical retirement criterion — and for the
+same reason, which is that introspection carries no such field and the
+obvious heuristic is wrong in both directions (§3.1 there).
+
+Three findings there are worth knowing from here. **The instance's
+modules port was wrong and the first probe run nearly passed anyway**:
+21 of its assertions held with nothing reachable, because *"nothing is
+selected"* is true when the service is down too, so the probe gained a
+preflight that refuses to continue (§7.1). **One fact needs one
+producer** — `resolve()`'s first version computed each module's
+locality itself rather than reading the row the rail already carried,
+and a harness check about *wording* caught it (§7.2). And
+**`local_only` selects almost nothing on an ordinary value**: 1 of the
+5 modules eligible for `8.8.8.8` answers from inside, because the local
+roster is attachment readers and syntax validators. That is the
+posture doing exactly what it says on a platform where enrichment means
+asking somebody else, not a calibration error (§7.4).
+
 **What remains before the tab can go live is nothing in this feature's
 dependency chain.** Phase 9 is next in build order; phase 8 (the editor) is
 independent of it, and is where phase 6's `unknown` and `invalid` grade lists
@@ -200,7 +228,7 @@ them.
 | 4 | **Exclusions** — the `exclusions` section, and splitting policy from ACL in `not_counted` | [`05-exclusions.md`](05-exclusions.md) | **built 2026-09-07** — `ValueExclusionTool`, `orgs.own` as a query predicate, `sightings.self`, `feeds.mirrored`, the `reason` key. 44 harness checks and 18 live; five findings in §7, and `acl` is retired before it shipped (§7.2) |
 | 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | **built 2026-09-07** — `ValueRelevanceTool`, the completed `relevance` section, `value_relevance.ctp` and the TTL runway overlay; `ValueDecayTool` and the decay path deleted. 106 harness checks and 58 live; six findings in §7 |
 | 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | **built 2026-09-07** — `ValueTrustTool`, `WarninglistCategory` (V1's shipped map and the four-step resolution), `org_trust_scale`, the uuid→id join, trust weighting in the three signals §2.4 names. 114 harness checks and 84 live; nine findings in §7, and phase 3's one shipped escalation can finally reach its own precondition |
-| 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **scope note — blocked.** Needs the per-value/per-module last-run store, which does not exist |
+| 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **built 2026-09-07** — `ValueEnrichmentTool`, `ModuleLocality` (V1's 22-module roster and its retirement criterion), the `locality` override, the profile strip and a rail that arrives ticked. 102 harness checks, 55 live, five rendered states; seven findings in §7. Closes Q10 as D15; the badge stays blocked on the store §1.1 names |
 | 8 | **The editor** — index, view, edit, fork, and the profile simulator | [`09-editor.md`](09-editor.md) | specification |
 | 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
@@ -235,16 +263,22 @@ the reasoning and the rejected alternatives; D10 and D11 were taken
 
 | D12 | **Signals and escalations are discovered from the filesystem.** An instance admin drops a PHP file in `app/Lib/ValueSignals/` and the engine picks it up; the shipped catalogue is `app/Model/ValueSignals/` and nothing anywhere holds a list of signals. Follows `Workflow`'s two module roots and `DecayingModel::listAvailableFormulas()`. Closes Q11 — a signal is a class, not an expression language; discovery makes it available, a profile makes it active | `03-signals.md` §8 |
 
+
 | D13 | **No new permission flag gates profile ownership.** A user profile needs no grant — it changes only its owner's page, the reasoning that leaves `user_settings` ungated; an org profile needs `perm_admin`; the default stays site-admin only. `perm_decaying` rejected because riding it silently widens every existing grant. Chosen partly as the reversible direction: adding a flag later is additive, withdrawing one is a migration. Closes Q7 | `02-store.md` §3.3 |
 | D14 | **A signal's weight band is editorial, declared per signal — not derived from its contribution.** The fixture forecloses "derived": `7` appears in both `moderate` and `weak`, and `17` (strong) sits above `16` (moderate), so no threshold reproduces the labelling. The band says how much this *kind* of evidence matters in principle; the contribution says what it produced here. Closes Q5 | `03-signals.md` §5 |
+| D15 | **The profile declares enrichment modules; nothing auto-runs.** Q10's shape B: `auto_run` is a per-type declaration, the Enrichment tab pre-selects it, and the badge waits for `../value-profile-writes.md` §6.4's last-run store. Shape A rejected — it makes this feature's schedule depend on fixing `Event::enrichmentRouter()`; shape C rejected — the ask names enrichment explicitly. Two consequences the specification did not carry: locality has to ship as a map (`ModuleLocality`), because a posture needs it and introspection has no such field, and `ask` cannot differ from `allow_external` while every run takes a press | `08-enrichment.md` §1, §3 |
 
-Still open: Q9, Q10 and Q13 — the `includeVerdict` exposure gate — see §8.
-**Q11 closed 2026-09-07 as D12, Q7 as D13 and Q5 as D14**, so nothing gating
-phases 1–6 remains open. Phase 6 opened none of its own: the two maps are D6
-and its shape questions were settled in the review, and the one thing it had
-to decide for itself — what an empty map means when the *scale* is also data
-— is recorded as a property rather than a question
-([`07-reference.md`](07-reference.md) §7.6).
+Still open: Q9 and Q13 — the `includeVerdict` exposure gate — see §8.
+**Q11 closed 2026-09-07 as D12, Q7 as D13, Q5 as D14 and Q10 as D15**, so
+nothing gating phases 1–7 remains open. Phase 6 opened none of its own: the two
+maps are D6 and its shape questions were settled in the review, and the one
+thing it had to decide for itself — what an empty map means when the *scale* is
+also data — is recorded as a property rather than a question
+([`07-reference.md`](07-reference.md) §7.6). Phase 7 opened none either, and
+answered its own question against the specification's recommendation in one
+respect: shape B was recommended and taken, but its *"the section ships inert"*
+turned out to need a locality map to be honest at all
+([`08-enrichment.md`](08-enrichment.md) §3.1).
 
 ## 3. What a profile contains
 
@@ -317,7 +351,8 @@ start and is not part of any of them.
 
   "enrichment": {
     "auto_run":     { "ip-dst": ["virustotal"], "domain": ["dns"] },
-    "cost_posture": "allow_external"
+    "cost_posture": "allow_external",
+    "locality":     { "dns": "local" }
   }
 }
 ```
@@ -356,8 +391,14 @@ per-type TTLs, and the temporal-precision tripwires.
 **`reference`** (phase 6) — what the analyst believes about their sources.
 Override maps, keyed by uuid, empty by default.
 
-**`enrichment`** (phase 7) — which modules run on page open, and whether this
-profile will spend quota or contact third parties to do it.
+**`enrichment`** (phase 7) — which modules this profile cares about for a
+type, and whether it will contact third parties to use them. **Under D15 it
+declares rather than triggers**: the Enrichment tab arrives with the declared
+modules ticked and a run still takes a press, because nothing in MISP records
+that a module ran and *"run them on page open"* therefore means *"run them on
+every page open"*. `locality` is its override map, in the `reference` mould —
+the shipped roster says which modules answer from inside the instance and an
+operator who repointed one says so here.
 
 ### 3.1 Not in a profile
 
@@ -518,6 +559,16 @@ profile, nothing for a user's own. Q5 became **D14** — the band is editorial
 and declared per signal, which the fixture had already forced by putting `7` in
 two different bands.
 
+**And Q10 is gone**, closed 2026-09-07 as **D15** when phase 7 was
+built. It asked how much of the enrichment plumbing was in scope, and the
+answer is the recommendation the phase document had already made: none of it.
+The profile declares, the tab pre-selects, and the badge waits for the
+last-run store — which is still specified by `../value-profile-writes.md` §6.4
+and built by nobody. What the closure added to the recommendation is that
+*inert* was not available: the posture needs to know which modules leave the
+instance, nothing in MISP records that, and so `ModuleLocality` ships the
+knowledge as code ([`08-enrichment.md`](08-enrichment.md) §3).
+
 **Q11 is no longer here.** It asked whether an extension point ships in v1 and
 whether analyst-authored signals are visible to others; both halves were
 answered 2026-09-07 as D12 (`03-signals.md` §8). A signal is a class
@@ -528,7 +579,6 @@ is whether it is enabled.
 | Q | Question | Lands in |
 |---|---|---|
 | Q9 | Must the standing per-viewer caveat now state **both** reasons two readers differ, ACL and profile? **Half-answered, 2026-09-07:** phase 4 removed the ACL half from the page entirely (`05-exclusions.md` §7.2), and phase 6 made the profile half real — an org's grades now move a row for a reason invisible in the rows, which is why the *ledger row* names the weighting (`07-reference.md` §2.5). What is left for phase 9 is whether the hero needs to say it too | phase 9 |
-| Q10 | How much of the enrichment plumbing is in scope — the last-run store and the queued path both block the badge | phase 7 |
 | Q13 | What may `includeVerdict` attach, and to whom? Per-caller computation is ruled out; the gate is a role, the host org, fully-public evidence, or a composition of the three | phase 10 |
 
 Two more the corpus hands to this feature, both from

@@ -6694,6 +6694,104 @@ th.vp-rel-num {
 }
 
 /* ------------------------------------------------------------------
+ * The profile strip
+ * ------------------------------------------------------------------
+ * Phase 7. Above the rail and above every empty state, because the
+ * condition it most needs to carry — a profile naming a module the
+ * instance has turned off — is the case with no rail to hang it on.
+ *
+ * Deliberately quiet: it reports a selection the reader can see for
+ * themselves in the ticked boxes, and its accent is the panel's own
+ * rather than a warning colour. Nothing here is an error; a stated
+ * condition is the design working.
+ * ------------------------------------------------------------------ */
+
+.vp-e-profile {
+    padding: 9px 14px 11px;
+    border-bottom: 1px solid var(--bs-border-color);
+    background: color-mix(in srgb, var(--vp-e-accent) 5%,
+                var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-e-profile {
+    background: color-mix(in srgb, var(--vp-e-accent) 10%,
+                var(--bs-body-bg));
+}
+
+.vp-e-profile-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    color: var(--bs-secondary-color);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.vp-e-profile-posture {
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--bs-secondary-bg);
+    letter-spacing: 0.05em;
+}
+
+.vp-e-profile-line {
+    margin-top: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.vp-e-profile-note {
+    color: var(--bs-secondary-color);
+    font-size: 0.72rem;
+}
+
+.vp-e-profile-conds {
+    margin: 7px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.vp-e-profile-conds li {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    font-size: 0.74rem;
+    line-height: 1.35;
+}
+
+.vp-e-profile-conds i {
+    margin-top: 3px;
+    flex: 0 0 auto;
+    color: var(--bs-secondary-color);
+}
+
+/* The chip on a rail row the profile ticked, so a reader who has
+ * never opened the editor can see where the selection came from. */
+.vp-e-mine {
+    flex: 0 0 auto;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--vp-e-accent) 22%,
+                var(--bs-body-bg));
+    color: var(--bs-body-color);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+[data-bs-theme="dark"] .vp-e-mine {
+    background: color-mix(in srgb, var(--vp-e-accent) 38%,
+                var(--bs-body-bg));
+}
+
+/* ------------------------------------------------------------------
  * The module family chip
  * ------------------------------------------------------------------
  * Cortex is a separate service on a separate port with a separate

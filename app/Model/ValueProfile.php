@@ -7,6 +7,8 @@ App::uses('ValueRelationTool', 'Tools');
 App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
 App::uses('ValueTrustTool', 'Tools');
+App::uses('ValueEnrichmentTool', 'Tools');
+App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
 App::uses('DomainPermutationTool', 'Tools');
@@ -11741,11 +11743,18 @@ class ValueProfile extends AppModel
      * third party, so it needs a press nobody made by arriving.
      *
      * Its cost is one outbound `GET /modules` (9 ms on the dev
-     * instance, under a 1 s timeout) plus one `typesFor` (2–26 ms).
+     * instance, under a 1 s timeout) plus one `typesFor` (2–26 ms) —
+     * and, since phase 7, a **second** `GET /modules` on the one path
+     * that needs it: a profile naming a module the eligible set does
+     * not contain, where saying *why* is the difference between a
+     * stated condition and a silent drop. A profile declaring nothing,
+     * which is the shipped default, never pays it.
      *
      * @param array $user
      * @param string $value
-     * @param array $options Reserved
+     * @param array $options `profile` to resolve the enrichment
+     *                       declaration against one other than the
+     *                       viewer's — the seam phase 8's editor needs
      * @return array
      */
     public function forEnrichment(array $user, $value,
@@ -11753,7 +11762,11 @@ class ValueProfile extends AppModel
     ) {
         return array(
             'value' => $value,
-            'enrichment' => $this->enrichmentCatalogue($user, $value),
+            'enrichment' => $this->enrichmentCatalogue(
+                $user,
+                $value,
+                $options
+            ),
         );
     }
 
@@ -11801,10 +11814,12 @@ class ValueProfile extends AppModel
      *
      * @param array $user
      * @param string $value
+     * @param array $options `profile`
      * @return array
      */
-    private function enrichmentCatalogue(array $user, $value)
-    {
+    private function enrichmentCatalogue(array $user, $value,
+        array $options = array()
+    ) {
         $moduleModel = $this->model('Module');
         $types = $this->model('Value')->typesFor($user, $value);
 
@@ -11827,6 +11842,12 @@ class ValueProfile extends AppModel
             ? $enabled['modules']
             : array();
 
+        $profile = array_key_exists('profile', $options)
+            ? $options['profile']
+            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        $plan = ValueEnrichmentTool::planFor($profile);
+        $rows = $this->enrichmentEligible($enabled, $types, $plan);
+
         return array(
             'service' => $service,
             'types' => $types,
@@ -11841,8 +11862,136 @@ class ValueProfile extends AppModel
              * not press.
              */
             'can_run' => !empty($user['Role']['perm_add']),
-            'modules' => $this->enrichmentEligible($enabled, $types),
+            'modules' => $rows,
+            /*
+             * Phase 7. The block is present whatever the profile says
+             * and `in_force` is false on the shipped default, so a tab
+             * whose reader has declared nothing renders exactly as it
+             * did before this existed.
+             */
+            'profile' => $this->enrichmentDeclaration(
+                $user,
+                $profile,
+                $plan,
+                $types,
+                $rows,
+                $service
+            ),
         );
+    }
+
+    /**
+     * The profile's enrichment declaration, met with this instance.
+     *
+     * **The second `GET /modules` lives here**, and only on the path
+     * that cannot answer without it: a declared module missing from
+     * the eligible set is missing for one of four reasons — turned
+     * off, reserved for another organisation, absent from the build,
+     * or filed under a type it does not accept — and
+     * `getEnabledModules()` has already discarded the difference by
+     * the time this runs. `needsFacts()` decides; a declaration that
+     * resolves cleanly, and the shipped default that declares nothing,
+     * pay nothing.
+     *
+     * @param array $user
+     * @param array|null $profile
+     * @param array $plan From `ValueEnrichmentTool::planFor`
+     * @param array $types `typesFor` output
+     * @param array $rows The eligible catalogue rows
+     * @param array $service The service block
+     * @return array
+     */
+    private function enrichmentDeclaration(array $user, $profile,
+        array $plan, array $types, array $rows, array $service
+    ) {
+        $facts = array(
+            'service' => $service,
+            'types' => $types,
+            'eligible' => $rows,
+        );
+        $missing = ValueEnrichmentTool::needsFacts($plan, $types, $rows);
+        if (!empty($missing) && !empty($service['reachable'])) {
+            $facts = array_merge(
+                $facts,
+                $this->enrichmentModuleFacts($user, $missing)
+            );
+        }
+        $resolved = ValueEnrichmentTool::resolve($plan, $facts);
+        $resolved['name'] = is_array($profile) && isset($profile['name'])
+            ? $profile['name']
+            : null;
+        $resolved['leaving'] = ValueEnrichmentTool::leavingCount(
+            $resolved
+        );
+        return $resolved;
+    }
+
+    /**
+     * The three settings and the one declaration that say why a module
+     * this reader cannot see is not there.
+     *
+     * `canUse()` rather than a second reading of `_restrict`, because
+     * the rule is not *"a restriction exists"* — a site admin passes
+     * every restriction, and telling one that a module is reserved
+     * away from them would be false.
+     *
+     * A second failed call returns nothing rather than a guess: the
+     * conditions then land as `module.unresolved`, which says the
+     * question was not answered instead of picking an answer.
+     *
+     * @param array $user
+     * @param array $names The declared names needing an explanation
+     * @return array `offered` and `modules`, or empty
+     */
+    private function enrichmentModuleFacts(array $user, array $names)
+    {
+        $moduleModel = $this->model('Module');
+        $all = $moduleModel->getModules('Enrichment');
+        if (!is_array($all)) {
+            return array();
+        }
+        $offered = array();
+        $byName = array();
+        foreach ($all as $module) {
+            if (empty($module['name'])) {
+                continue;
+            }
+            $offered[] = $module['name'];
+            $byName[$module['name']] = $module;
+        }
+        $facts = array();
+        foreach ($names as $name) {
+            if (!isset($byName[$name])) {
+                $facts[$name] = array(
+                    'present' => false,
+                    'enabled' => false,
+                    'restricted' => false,
+                    'restrict_org' => null,
+                    'accepts' => array(),
+                );
+                continue;
+            }
+            $module = $byName[$name];
+            $restrict = Configure::read(
+                'Plugin.Enrichment_' . $name . '_restrict'
+            );
+            $facts[$name] = array(
+                'present' => true,
+                'enabled' => (bool)Configure::read(
+                    'Plugin.Enrichment_' . $name . '_enabled'
+                ),
+                'restricted' => !$moduleModel->canUse(
+                    $user,
+                    'Enrichment',
+                    $module
+                ),
+                'restrict_org' => empty($restrict) ? null : $restrict,
+                'accepts' => empty($module['mispattributes']['input'])
+                    ? array()
+                    : array_values($module['mispattributes']['input']),
+            );
+        }
+        return array('offered' => $offered, 'modules' => $facts);
     }
 
     /**
@@ -11863,12 +12012,21 @@ class ValueProfile extends AppModel
      * is the value's most common because `typesFor` orders by
      * occurrence count descending and this walks it in that order.
      *
+     * Since phase 7 each row also carries whether **asking it leaves
+     * the instance** (`ModuleLocality`), which is what lets the tray
+     * price a selection in the only currency that has a source. The
+     * profile's `enrichment.locality` overrides are consulted here for
+     * the same reason they are consulted for the posture: an operator
+     * who repointed their resolver knows something no shipped map can.
+     *
      * @param array|string $enabled `getEnabledModules` output
      * @param array $types `typesFor` output
+     * @param array $plan From `ValueEnrichmentTool::planFor`
      * @return array
      */
-    private function enrichmentEligible($enabled, array $types)
-    {
+    private function enrichmentEligible($enabled, array $types,
+        array $plan = array()
+    ) {
         if (!is_array($enabled) || empty($enabled['modules'])) {
             return array();
         }
@@ -11892,18 +12050,24 @@ class ValueProfile extends AppModel
                 }
             }
         }
+        $overrides = isset($plan['locality']) && is_array($plan['locality'])
+            ? $plan['locality']
+            : array();
         $rows = array();
         foreach ($eligible as $name => $meta) {
             $module = $this->enrichmentModule($enabled, $name);
             if ($module === null) {
                 continue;
             }
+            $locality = ModuleLocality::resolve($name, $overrides);
             $rows[] = array(
                 'name' => $name,
                 'kinds' => array_keys($meta['kinds']),
                 'types' => $meta['types'],
                 'type' => key($meta['types']),
                 'format' => $this->enrichmentFormat($module),
+                'locality' => $locality['locality'],
+                'locality_source' => $locality['source'],
                 'description' => isset($module['meta']['description'])
                     ? $module['meta']['description']
                     : null,
@@ -11937,7 +12101,20 @@ class ValueProfile extends AppModel
      */
     private function enrichmentRun(array $user, $value, $name, $type)
     {
-        $catalogue = $this->enrichmentCatalogue($user, $value);
+        /*
+         * No profile, deliberately. The catalogue is read here as an
+         * ACL band — which modules this reader would have been offered
+         * — and a declaration plays no part in that: a profile can
+         * only ever narrow what the instance allows, so resolving one
+         * could only ever refuse a run the instance permits, on the
+         * strength of a preference. Passing `null` also keeps the run
+         * path free of the profile read and its second `GET /modules`.
+         */
+        $catalogue = $this->enrichmentCatalogue(
+            $user,
+            $value,
+            array('profile' => null)
+        );
         $run = array(
             'module' => $name,
             'type' => $type,

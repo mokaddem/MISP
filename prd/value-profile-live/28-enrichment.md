@@ -854,3 +854,43 @@ The `elements` branch — a `simplified` module answering with bare
 not exercised live: no module eligible for the probe values both uses
 that format and succeeds on this instance (`whois` is `simplified` and
 errors for want of its `server` setting).
+
+---
+
+## 10. What the Analyst Profile's phase 7 added, 2026-09-07
+
+This phase shipped the tab **stateless and unselected**: every box
+unticked on arrival, and a tray whose one honest number was *how many
+separate queries a press would make*. Both statements moved when
+`../analyst-profile/08-enrichment.md` landed, and neither of the
+phase's own rules did.
+
+**The rail can arrive ticked.** The reader's Analyst Profile declares
+modules per attribute type (`enrichment.auto_run`), and the ones it
+names for this value's types are pre-selected, each carrying the
+declared run type and a `profile` chip on the row. **Nothing runs**:
+the press is unchanged, for the reason §3 gives here and §1.1 gives
+there — nothing in MISP records that a module ran, so running on load
+means running on every load.
+
+**A new strip sits between the panel header and the branch**
+(`value_enrichment_profile.ctp`), silent unless the profile declares
+something. It is above the branch deliberately: a profile naming a
+module this instance has disabled, on a value where nothing else is
+eligible, would otherwise leave the reader looking at §5's *"no enabled
+module accepts this value's types"* while their own profile names one.
+
+**The tray's outbound count is now per module.** §11's cost bullet
+asked for a curated map *"next to the module list, not in this page"*,
+and half of it now exists as `ModuleLocality` — 22 modules that answer
+without anything leaving the instance. A selection of those says *"n
+queries, none of which leave this instance"*; everything else is
+presumed to leave, which is what an enrichment module does unless
+somebody has established otherwise. Rate limits and credits are still
+nowhere.
+
+**One measurement from over there worth having here**: of the 5 modules
+eligible for `8.8.8.8` on the dev instance, exactly **1** answers from
+inside — and it is on the rail only because the value carries two
+`text` occurrences, which is §2.2's *"a value is several types"* paying
+off in a place nobody predicted.

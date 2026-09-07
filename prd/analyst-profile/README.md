@@ -16,13 +16,14 @@ document holding every judgement the scoring engine needs — signal weights, th
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phases 1 to 6 — the store, the engine that
+viewer (nearest owner wins). **Phases 1 to 7 — the store, the engine that
 reads it, the lean and bands that turn its ledger into an assessment, the
 exclusions that decide what the ledger may see, the relevance axis that
-says whether any of it still matters, and the reference data that says what
-the analyst believes about their sources — are built as of 2026-09-07**,
-which is every phase that can change a number; the other four phases are
-specifications. The corpus is fifteen documents, phase by phase.
+says whether any of it still matters, the reference data that says what
+the analyst believes about their sources, and the enrichment modules it
+declares — are built as of 2026-09-07**; the other three phases are
+specifications. Phases 1 to 6 are every phase that can change a number;
+phase 7 changes none. The corpus is fifteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -49,7 +50,7 @@ is the page that explains the gates. The framing is deliberately
 admiralty-shaped: org trust grades (source reliability) go in, the assessment
 (information credibility) comes out.
 
-## The design in fourteen decisions
+## The design in fifteen decisions
 
 | # | Decision | Owner |
 |---|---|---|
@@ -66,6 +67,7 @@ admiralty-shaped: org trust grades (source reliability) go in, the assessment
 | D12 | **Signals and escalations are discovered from the filesystem** — an admin drops a PHP file in `app/Lib/ValueSignals/` and it is picked up; nothing in code holds a list. Two roots after `Workflow`, shipped and custom. Closes Q11: a signal is a class, discovery makes it available, a profile makes it active | `03-signals.md` §8 |
 | D13 | **No new permission flag gates ownership.** A user profile needs no grant, an org profile needs `perm_admin`, the default is site-admin only. `perm_decaying` rejected — riding it silently widens every existing grant. Also the reversible direction: adding a flag later is additive. Closes Q7 | `02-store.md` §3.3 |
 | D14 | **A weight band is editorial, not derived from the contribution.** The fixture forecloses "derived" — `7` is both `moderate` and `weak` in it. The band says what this kind of evidence is worth in principle; the contribution says what it produced here. Closes Q5 | `03-signals.md` §5 |
+| D15 | **The profile declares enrichment modules; nothing auto-runs.** The tab arrives with the analyst's modules ticked and a run still takes a press — the badge needs a per-value per-module last-run store that does not exist, and without one "run the defaults on page open" means running them on every page open. Closes Q10 | `08-enrichment.md` §1 |
 
 ## Stress-tested
 
@@ -106,9 +108,8 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 6 are built;
-8–10 are specifications; 7 (enrichment) is a scope note blocked on a
-store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 7 are built;
+8–10 are specifications.** Build order: 1 (store) gates all → 2–7 → 8 → 9
 (the tab goes live) → 10. **Phase 9 now has every phase it needs**, and 8 is
 independent of it.
 
@@ -265,13 +266,45 @@ are worth knowing about from here:
   Fixed: all six harnesses run, 493 checks, and all five live probes pass
   with them (§7.7).
 
-Open questions: Q9 (per-viewer caveat, phase 9 — **half-answered**, since
-phase 4 removed the ACL half and phase 6 made the profile half real), Q10
-(enrichment scope, phase 7), Q13 (`includeAssessment` exposure gate, phase
-10), plus one phase-9 item — the hero's three-axis composition. **Nothing
-gating phases 1–6 is open any more, and phase 6 opened nothing.**
+**Phase 7, built 2026-09-07.** The enrichment declaration
+(`ValueEnrichmentTool`), the locality roster it needs (`ModuleLocality` —
+22 modules, a profile override map, and a mechanical criterion for
+retiring itself), the profile strip above the tab's every empty state, and
+a rail that arrives with the analyst's modules **ticked rather than run**.
+Verified by 102 checks with no database, 55 against the dev instance, and
+five rendered states of the tab. Seven findings are in `08-enrichment.md`
+§7; four are worth knowing about from here:
 
-Three questions closed in three days, and two closed against this corpus's
+- **The badge is still blocked, and this is the phase that says so with
+  receipts.** Nothing in MISP records that a module ran, so *"run the
+  defaults on page open"* means running them on every page open; and the
+  interactive path is synchronous whatever `MISP.background_jobs` says,
+  because `Event::enrichmentRouter()` returns at `Event.php:7997` and
+  strands its own queued branch at `7998` (§1).
+- **Locality cannot be derived, and the receipt is two modules.**
+  `countrycode` declares no config and no requirements and fetches
+  `geognos.com` over plain HTTP; `clamav` takes one config key and reaches
+  nothing but the operator's own `clamd`. The same introspection shape says
+  both things — D14's argument in a new place — so the roster ships as code
+  (§3.1).
+- **The instance's modules port was wrong and the first probe run nearly
+  passed anyway.** 21 of its assertions held with nothing reachable,
+  because *"nothing is selected"* is true when the service is down too. The
+  probe now refuses to continue unless the service answers — phase 5 §7.5's
+  lesson, where a stopped query log reported *"0 queries"* (§7.1).
+- **`local_only` selects almost nothing on an ordinary value**: 1 of the 5
+  modules eligible for `8.8.8.8` answers from inside, because the local
+  roster is attachment readers and syntax validators. That is the posture
+  doing exactly what it says on a platform where enrichment means asking
+  somebody else (§7.4).
+
+Open questions: Q9 (per-viewer caveat, phase 9 — **half-answered**, since
+phase 4 removed the ACL half and phase 6 made the profile half real), Q13
+(`includeAssessment` exposure gate, phase 10), plus one phase-9 item — the
+hero's three-axis composition. **Nothing gating phases 1–7 is open any
+more, and neither phase 6 nor phase 7 opened anything.**
+
+Four questions closed in three days, and two closed against this corpus's
 own recorded recommendation:
 
 - **Q11 → D12** (2026-09-07). The extension point ships in v1 after all,
@@ -284,9 +317,17 @@ own recorded recommendation:
 - **Q5 → D14** (2026-09-07). The band is editorial. Decided on the fixture's
   own numbers rather than on preference — `7` appears in two bands, so
   "derived" was never available.
+- **Q10 → D15** (2026-09-07). The enrichment plumbing stays out of scope and
+  the profile declares rather than triggers — the recommendation held, and
+  building it added the part the recommendation had missed: *inert* was not
+  available, because a cost posture that cannot tell a local module from an
+  external one is not a posture.
 
 External prerequisites: the `misp-warninglists` category PR and the MISP
-core import fix (V2 above).
+core import fix (V2 above). A third would retire `ModuleLocality` the same
+way — a `meta` field in `misp-modules` saying whether asking a module
+leaves the instance — and unlike the warninglist one, nobody has proposed
+it yet (`08-enrichment.md` §3.4).
 
 ## Reading map
 
