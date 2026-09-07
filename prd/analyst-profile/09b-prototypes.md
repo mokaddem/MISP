@@ -270,11 +270,25 @@ against the fixtures and the tooling before being written down.
    has no such assertion — it was introduced in the 8a adaptation, so no
    candidate has ever been checked for the thing it was written to catch.
 
-2. **The frame never reached its own `--vp-page`.** MISP's own CSS sets
-   `body { display: flex }` and `.vp-doc` set only `max-width`, so the page
-   shrink-to-fit to about 1347px in a 1700px window. Every candidate was drawn
-   believing it sat at 1600px, and §7's *does it still work at 1280* was
-   measuring something else. Fixed with `width: 100%`.
+2. **The frame reached its own `--vp-page` only by accident.** MISP's own
+   CSS sets `body { display: flex }` and `.vp-doc` set only `max-width`, so
+   the page shrink-to-fit to its content instead of filling the pinned width.
+   Measured at a 1700px window on the three built candidates:
+
+   | Candidate | `.vp-doc` | `board-edit` |
+   |---|---|---|
+   | ledger sheet | 1600px | 1568px |
+   | workbench | 1600px | 1568px |
+   | stated judgement | **1157px** | **1125px** |
+
+   A and B reach the cap because their wide tables push the flex item into it;
+   B had also found and fixed this in its own copy. C's fixed 68rem centred
+   paper never pushes it, so C alone rendered at 1157px — the defect is
+   invisible in the two candidates whose content happens to be wide, and
+   silently rescales the one whose design cannot self-rescue. That is the
+   worst shape for a defect in a phase whose entire output is a side-by-side
+   comparison. Fixed with `width: 100%` in the frame, and C rebuilt against
+   it so the three are judged at one width.
 
 3. **`.vp-board { overflow: hidden }` disabled `position: sticky`** inside a
    board, because it makes a scroll container. Fixed with `overflow: clip`,
