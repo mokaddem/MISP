@@ -238,3 +238,119 @@ and not an implementation detail.
   the numbers are fixtures.
 - The pages 8a decided against. There is no `add` form (`09-editor.md` §3),
   so no candidate draws one.
+
+## 9. What 8b found in 8a
+
+The three candidates are built and published:
+
+| Direction | Source | Artifact |
+|---|---|---|
+| A — the ledger sheet | `mockups/ledger-sheet.html` | https://claude.ai/code/artifact/d1655add-c6da-420f-ab6c-a25bc05f4720 |
+| B — the workbench | `mockups/workbench.html` | https://claude.ai/code/artifact/be9f9d78-ca7a-4523-80a4-9dd3faa2d8b1 |
+| C — the stated judgement | `mockups/stated-judgement.html` | https://claude.ai/code/artifact/11fd32c3-1e69-4c27-b6c5-c22c00b8377a |
+
+Three agents built them cold and in parallel, none reading another's file.
+Where all three report the same defect they found it separately, which is the
+strongest evidence this corpus produces. Everything below was re-verified
+against the fixtures and the tooling before being written down.
+
+### 9.1 Scaffolding defects, fixed in this pass
+
+1. **The checker's placeholder assertion could never pass.** It read
+   `document.body.textContent` for `Candidate body for the`, and `textContent`
+   includes `<script>` source — so the probe matched its own `indexOf`
+   argument on every candidate, filled or not. A page whose entire content is
+   `<p>hello world</p>` fails it at index 151. Fixed by reading the
+   `.vp-board`s with `script`/`style` stripped, and checked both ways: `clean`
+   on a filled candidate, `a board is still the frame default` on
+   `build/frame.html`.
+
+   §6 of this file and `mockups/README.md` both advertise this as the
+   assertion that catches an unfilled board. It never has. Phase 7's checker
+   has no such assertion — it was introduced in the 8a adaptation, so no
+   candidate has ever been checked for the thing it was written to catch.
+
+2. **The frame never reached its own `--vp-page`.** MISP's own CSS sets
+   `body { display: flex }` and `.vp-doc` set only `max-width`, so the page
+   shrink-to-fit to about 1347px in a 1700px window. Every candidate was drawn
+   believing it sat at 1600px, and §7's *does it still work at 1280* was
+   measuring something else. Fixed with `width: 100%`.
+
+3. **`.vp-board { overflow: hidden }` disabled `position: sticky`** inside a
+   board, because it makes a scroll container. Fixed with `overflow: clip`,
+   which still clips to the radius. Not a neutral fix: a permanently visible
+   pane is exactly what direction B is, so the frame was quietly hostile to
+   one of the three directions it was built to host.
+
+4. **The frame's edit header named a profile no fixture has** — `/edit/29`,
+   `/simulate/29`, and `rev 4`, where `4` is the *version* and the revision is
+   37. Corrected to 23 and revision 37. Two candidates corrected it locally
+   and reported it; the third drew the fixture's numbers without comment.
+
+### 9.2 Fixture drift 8a should settle before 8c
+
+None of these is a drawing problem. Each is a place where the view-model, the
+fixtures and the spec disagree, and the cost lands on 8c.
+
+1. **`palette.json` has no `available` signal.** Eleven `active` and one
+   `missing`, all `in_profile: true`, against a README documenting three
+   states. The add-a-signal affordance has nothing real to offer, so all three
+   candidates drew it empty, disabled, or as a stated absence.
+
+2. **`profile.json` omits the signal §5.2 requires.** Its `sections.signals`
+   holds eleven items and the string `partner_feed` does not occur anywhere in
+   the file; `reporting.partner_feed_agreement` exists only in `palette.json`,
+   marked `missing`. All three candidates reached into the palette to draw it.
+   **If 8c builds the edit page from the profile view-model alone, the
+   not-implemented row cannot appear on any page** — and that row is the one
+   §5.2 exists to force.
+
+3. **One profile, four names, and a diff against itself.** id 23 / uuid
+   `6e2679bc…` / version 4 / revision 37 is *default-v1* in `index.json`,
+   *Weights I actually use* in `profile.json` and in `simulate.json`'s
+   `candidate`, and *Instance default, galaxies off* in `simulate.json`'s
+   `in_force`. Meanwhile `index.json` says the profile in force is id **52**
+   and that 23 is *overridden by* it — so the simulate board's before column
+   draws a profile the index says is not in force. Same id on both sides is
+   defensible if the candidate is "23 with unsaved edits"; one record under
+   two names is not.
+
+4. **`profile.json` records no quality for its own value** — only per-signal
+   contributions, which sum to −6 and match neither side of simulate's 4 → 23.
+   The exact-sum invariant is therefore only provable on `simulate.json`, the
+   one fixture carrying `sums.ok`. Recording the quality on `profile.json`
+   would make the edit board's own foot checkable.
+
+5. **`sightings.false_positive` is −23 in `profile.json` and −20 in
+   `simulate.json`** for the same value. −20 is what the points map yields
+   directly; the difference is trust weighting, applied in one fixture and not
+   the other. Possibly correct, but undocumented — two candidates stopped to
+   derive it, and one of them still calls it suspect.
+
+6. **`simulate.json`'s `detail.not_counted` is `[]` on both sides**, though
+   the fixtures README says a `missing` signal is listed in the assessment as
+   not counted.
+
+7. **`bands.json` carries `narrow_catalogue_note` where its two siblings carry
+   `_errors`** (`inverted_errors`, `beyond_bound_errors`), so a candidate
+   drawing the third band problem has no error sentence to print and has to
+   fall back to `problems[0].message`.
+
+8. **`09-editor.md` §3 names `other_owner` and `unresolved` standings** that
+   `index.json` does not contain. All three left them undrawn rather than
+   inventing them, which is the right call and also means those two states go
+   into 8c never having been designed.
+
+9. **Nothing scores index profiles 52 and 51**, and no fixture gives the
+   assessed value's attribute type — so an index that wants to show what each
+   profile would make of a value, and any board that wants a type chip, have
+   no data to draw.
+
+### 9.3 What this says about the fixtures
+
+Item 2 and item 3 are the same shape of problem: the fixtures were dumped per
+board rather than from one coherent instance state, so they agree
+board-by-board and contradict each other across boards. That is survivable for
+a mockup — each candidate drew each board from one fixture and said so — but
+8c builds one page from one view-model, and there the contradiction has to
+resolve to a single answer.

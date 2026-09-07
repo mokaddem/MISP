@@ -104,8 +104,19 @@ window.addEventListener('load', function () {
 
       // Every figure should come from the fixtures, so a candidate that
       // still carries the frame's own placeholder text is unfinished.
-      var stub = (document.body.textContent || '')
-        .indexOf('Candidate body for the');
+      // textContent includes <script> source, so searching the whole
+      // body finds this probe's own literal and fails on every
+      // candidate, filled or not. Read the boards, scripts stripped.
+      var stub = -1;
+      Array.prototype.forEach.call(boards, function (b) {
+        var c = b.cloneNode(true);
+        Array.prototype.forEach.call(
+          c.querySelectorAll('script, style'),
+          function (n) { n.parentNode.removeChild(n); });
+        if ((c.textContent || '').indexOf('Candidate body for the') !== -1) {
+          stub = 1;
+        }
+      });
       out.push((stub === -1 ? 'ok    ' : 'FAIL  ')
                + 'no frame placeholder ' + (stub === -1 ? 'clean'
                : 'a board is still the frame default'));

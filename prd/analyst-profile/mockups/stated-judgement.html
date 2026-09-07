@@ -1,0 +1,3852 @@
+<title>The Stated Judgement</title>
+
+<!--
+    Phase 8b candidate frame (prd/analyst-profile/09b-prototypes.md).
+
+    Copy this file to prd/analyst-profile/mockups/<your-candidate>.html
+    and draw your three boards into the three .vp-board slots below.
+    Do not paste the kit into this file: the marker is replaced at build
+    time, which is what keeps 812KB of MISP CSS out of committed files.
+
+        python3 prd/phase7/kit/inline-kit.py \
+            prd/analyst-profile/mockups/<your-candidate>.html
+        bash prd/analyst-profile/mockups/check-mockup.sh \
+            prd/analyst-profile/build/<your-candidate>.html
+
+    Every figure comes from prd/analyst-profile/09a-fixtures/. Read that
+    directory's README.md first, and invent nothing.
+-->
+<!-- vp-kit -->
+
+<style>
+/* ==================================================================
+ * The frame. One navbar, three boards, at a pinned page width so a
+ * candidate is judged at the size it would really have.
+ * ================================================================== */
+
+:root {
+    /*
+     * MISP's content is `container-fluid`, so the column is a share of
+     * the window rather than a fixed width. 1600px is where phase 7
+     * measured its geometry; 1280px is the width §7 of the brief asks a
+     * candidate to still work at — switch this and re-read before
+     * publishing.
+     */
+    --vp-page: 1600px;
+    --vp-board-gap: 3.5rem;
+}
+
+body {
+    margin: 0;
+    background: var(--bs-body-bg, #f8f9fa);
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-doc {
+    max-width: var(--vp-page);
+    margin: 0 auto;
+    padding: 0 0 4rem;
+}
+
+/*
+ * The navbar sits back: it is context, not the thing being judged.
+ * Real markup rather than an approximation, so a candidate is read
+ * inside the navigation it would really have.
+ */
+.vp-doc-chrome {
+    opacity: .5;
+    pointer-events: none;
+    filter: saturate(.55);
+}
+
+.vp-doc-chrome .navbar {
+    position: static !important;
+}
+
+.vp-doc-head {
+    padding: 1.5rem 1rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    margin-bottom: var(--vp-board-gap);
+}
+
+.vp-doc-head h1 {
+    font-size: 1.5rem;
+    margin: 0 0 .35rem;
+}
+
+.vp-doc-sub {
+    color: var(--bs-secondary-color, #6c757d);
+    margin: 0;
+    max-width: 62rem;
+}
+
+.vp-doc-jump {
+    margin-top: .75rem;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.vp-doc-jump a {
+    font-size: .8125rem;
+    padding: .15rem .6rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* One board: a labelled slab holding one page of the candidate. */
+.vp-board {
+    margin: 0 1rem var(--vp-board-gap);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .5rem;
+    overflow: hidden;
+    background: var(--bs-body-bg, #fff);
+}
+
+.vp-board-tag {
+    font: 600 .75rem/1.4 var(--bs-font-monospace, ui-monospace, monospace);
+    letter-spacing: .03em;
+    padding: .5rem .85rem;
+    background: var(--bs-tertiary-bg, #f1f3f5);
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    color: var(--bs-secondary-color, #6c757d);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.vp-board-tag b {
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-board-tag .vp-board-q {
+    font-family: var(--bs-font-sans-serif, system-ui);
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Skeleton primitives, for the parts a board legitimately elides. */
+.sk {
+    display: inline-block;
+    width: var(--sk-w, 100%);
+    height: var(--sk-h, .85rem);
+    border-radius: .25rem;
+    background: var(--bs-secondary-bg, #e9ecef);
+}
+
+.sk-dim { opacity: .55; }
+.sk-line { display: block; margin: .3rem 0; }
+.sk-block { --sk-h: 6rem; display: block; }
+</style>
+
+<style>
+/* ==================================================================
+ * Candidate C — "The stated judgement".
+ *
+ * A profile is somebody's stated judgement, so it is drawn as a
+ * document: chapters, numbered clauses, marginal notes, schedules,
+ * errata and an amendment. The numbers inside the sentences are the
+ * form; there is no second form anywhere.
+ *
+ * The risk this direction has to survive is that eleven sentences are
+ * a lot of prose to scan. Four devices answer it and they are the
+ * design: a right-aligned SUBJECT GUTTER so the eye scans subjects and
+ * not sentences; FIGURES as the only monospace thing in a serif page,
+ * so a number is the first thing seen inside a clause; CHANGE BARS in
+ * the margin marking every clause that departs from the shipped
+ * default; and a CONTENTS with dot leaders that carries the figure
+ * each clause produced, so a reader can jump straight at a number.
+ * ================================================================== */
+
+.sj {
+    --sj-serif: Georgia, "Iowan Old Style", "Palatino Linotype",
+        "Book Antiqua", "Times New Roman", serif;
+    --sj-paper: 68rem;
+    --sj-gutter: 9.75rem;
+    --sj-margin: 12.5rem;
+    --sj-rule: color-mix(in srgb, var(--bs-border-color) 70%, transparent);
+    --sj-quiet: var(--bs-secondary-color);
+}
+
+.sj-surround {
+    background: var(--bs-tertiary-bg);
+    border-radius: .5rem;
+    padding: 2rem 1rem 2.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.sj-paper {
+    max-width: var(--sj-paper);
+    margin: 0 auto;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .07), 0 8px 24px rgba(0, 0, 0, .04);
+    padding: 2.75rem 2.5rem 2.25rem;
+}
+
+/* ---- the document's own voice -------------------------------- */
+
+.sj-text {
+    font-family: var(--sj-serif);
+    font-size: 1.0625rem;
+    line-height: 1.72;
+    margin: 0;
+    max-width: 46em;
+}
+
+.sj-lead {
+    font-family: var(--sj-serif);
+    font-size: 1.28rem;
+    line-height: 1.55;
+    margin: 0 0 .5rem;
+}
+
+.sj-note {
+    font-size: .8125rem;
+    line-height: 1.55;
+    color: var(--sj-quiet);
+    margin: .3rem 0 0;
+    max-width: 52em;
+}
+
+.sj-kicker {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--sj-quiet);
+    margin: 0 0 .35rem;
+}
+
+/* ---- preamble ------------------------------------------------- */
+
+.sj-preamble {
+    border-bottom: 2px solid var(--bs-body-color);
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.sj-title {
+    font-family: var(--sj-serif);
+    font-size: 2.1rem;
+    line-height: 1.15;
+    font-weight: 700;
+    margin: 0 0 .5rem;
+}
+
+.sj-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem .85rem;
+    font-size: .78rem;
+    color: var(--sj-quiet);
+    font-family: var(--bs-font-monospace);
+}
+
+.sj-meta b {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+/* ---- contents, with dot leaders -------------------------------- */
+
+.sj-toc {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sj-toc li {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .18rem 0;
+    font-size: .92rem;
+}
+
+.sj-toc .sj-toc-n {
+    font-family: var(--bs-font-monospace);
+    font-size: .78rem;
+    color: var(--sj-quiet);
+    min-width: 2.2rem;
+}
+
+.sj-toc a {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.sj-toc a:hover { text-decoration: underline; }
+
+.sj-toc .sj-dots {
+    flex: 1;
+    border-bottom: 1px dotted
+        color-mix(in srgb, var(--bs-secondary-color) 60%, transparent);
+    transform: translateY(-.3em);
+    min-width: 1.5rem;
+}
+
+.sj-toc .sj-toc-fig {
+    font-family: var(--bs-font-monospace);
+    font-size: .8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sj-toc-cols {
+    columns: 2;
+    column-gap: 2.5rem;
+}
+
+.sj-toc-cols li { break-inside: avoid; }
+
+/* ---- chapters -------------------------------------------------- */
+
+.sj-chapter { margin-top: 2.5rem; }
+
+.sj-chapter-head {
+    border-bottom: 1px solid var(--bs-body-color);
+    padding-bottom: .45rem;
+    margin-bottom: .35rem;
+    display: flex;
+    align-items: baseline;
+    gap: .75rem;
+}
+
+.sj-chapter-n {
+    font-family: var(--bs-font-monospace);
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--sj-quiet);
+    letter-spacing: .04em;
+}
+
+.sj-chapter-t {
+    font-family: var(--sj-serif);
+    font-size: 1.35rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.sj-blurb {
+    font-family: var(--sj-serif);
+    font-size: .96rem;
+    line-height: 1.62;
+    color: var(--bs-body-color);
+    opacity: .85;
+    margin: .6rem 0 1.1rem;
+    max-width: 48em;
+}
+
+/* ---- the clause: gutter · sentence · margin -------------------- */
+
+.sj-clause {
+    display: grid;
+    grid-template-columns:
+        var(--sj-gutter) minmax(0, 1fr) var(--sj-margin);
+    gap: 0 1.5rem;
+    padding: .8rem 0 .85rem;
+    border-top: 1px solid var(--sj-rule);
+    align-items: start;
+}
+
+.sj-clause:first-of-type { border-top: 0; }
+
+.sj-g {
+    text-align: right;
+    padding-top: .15rem;
+    line-height: 1.35;
+}
+
+.sj-num {
+    display: block;
+    font-family: var(--bs-font-monospace);
+    font-size: .72rem;
+    color: var(--sj-quiet);
+    letter-spacing: .03em;
+}
+
+.sj-subject {
+    display: block;
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: .1rem;
+}
+
+/* The machine's name for the clause, under the reader's. An auditor
+ * quoting "clause 1.1" and an engineer grepping for the id are the same
+ * conversation, so the gutter carries both. */
+.sj-g .sj-subject + .sj-num {
+    font-size: .62rem;
+    line-height: 1.35;
+    margin-top: .15rem;
+    overflow-wrap: anywhere;
+}
+
+.sj-tick {
+    margin-top: .3rem;
+    accent-color: var(--primary);
+}
+
+.sj-body { min-width: 0; }
+
+.sj-margin {
+    font-size: .74rem;
+    color: var(--sj-quiet);
+    line-height: 1.5;
+    padding-top: .15rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    align-items: flex-start;
+}
+
+.sj-margin .sj-contrib {
+    font-family: var(--bs-font-monospace);
+    font-size: .95rem;
+    font-weight: 700;
+}
+
+.sj-margin .sj-contrib span {
+    font-family: var(--bs-font-sans-serif);
+    font-size: .68rem;
+    font-weight: 400;
+    color: var(--sj-quiet);
+    margin-left: .3rem;
+}
+
+/* The change bar: a clause that departs from the shipped default is
+ * ruled in the margin, the way an amended paragraph is. Scanning for
+ * "what did this author actually change" is scanning for these. */
+.sj-clause.is-amended .sj-body {
+    border-left: 3px solid var(--vp-conflict);
+    padding-left: .85rem;
+    margin-left: -1.1rem;
+}
+
+.sj-clause.is-off .sj-body { opacity: .55; }
+
+.sj-clause.is-total {
+    border-top: 1px solid var(--bs-body-color);
+    border-bottom: 3px double var(--bs-body-color);
+    padding-bottom: 1rem;
+    margin-bottom: .5rem;
+}
+
+.sj-clause.is-void .sj-body { opacity: .8; }
+
+/* ---- figures inside the prose ---------------------------------- */
+
+.sj-fig {
+    font-family: var(--bs-font-monospace);
+    font-size: .94em;
+    font-weight: 700;
+    color: var(--bs-emphasis-color);
+    text-align: center;
+    padding: .05em .1em;
+    border: 0;
+    border-bottom: 2px solid
+        color-mix(in srgb, var(--primary) 55%, transparent);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-radius: .15rem .15rem 0 0;
+    vertical-align: baseline;
+}
+
+.sj-fig:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.w1 { width: 2.5em; }
+.w2 { width: 3.2em; }
+.w3 { width: 3.9em; }
+.w4 { width: 4.6em; }
+.w5 { width: 5.3em; }
+.w8 { width: 8.5em; }
+.w14 { width: 14em; }
+
+.sj-sel {
+    font-family: var(--bs-font-monospace);
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--bs-emphasis-color);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border: 0;
+    border-bottom: 2px solid
+        color-mix(in srgb, var(--primary) 55%, transparent);
+    border-radius: .15rem .15rem 0 0;
+    padding: .05rem .15rem;
+    max-width: 100%;
+}
+
+.sj-text .sj-sel { font-size: .9em; }
+
+/* Reading is the other half of the bet: an org profile has readers who
+ * did not write it, so view/:id is this same document with the inputs
+ * turned back into what they say. One class does it. */
+.sj.is-reading .sj-fig,
+.sj.is-reading .sj-sel {
+    border-bottom-color: transparent;
+    background: none;
+    pointer-events: none;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* A read figure sits in the sentence rather than in a box, so it hugs
+ * its own digits where the engine can size a field to its content and
+ * keeps the editable width where it cannot. */
+.sj.is-reading .sj-fig {
+    field-sizing: content;
+    width: auto;
+    min-width: 1ch;
+    text-align: left;
+}
+
+.sj.is-reading .sj-sel {
+    appearance: none;
+    -webkit-appearance: none;
+    field-sizing: content;
+}
+
+.sj.is-reading .sj-tick { pointer-events: none; opacity: .75; }
+.sj.is-reading .sj-add { display: none; }
+.sj.is-reading .sj-editing-only { display: none; }
+
+.sj .vp-doc-sub { margin-bottom: .9rem; }
+
+.sj-mode {
+    display: inline-flex;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    overflow: hidden;
+    font-size: .75rem;
+}
+
+.sj-mode button {
+    border: 0;
+    background: none;
+    color: var(--sj-quiet);
+    padding: .2rem .8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sj-mode button.is-on {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ---- badges and small print ------------------------------------ */
+
+.sj-badge {
+    display: inline-block;
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: .1rem .45rem;
+    border-radius: .2rem;
+    border: 1px solid var(--bs-border-color);
+    color: var(--sj-quiet);
+    white-space: nowrap;
+}
+
+.sj-badge.is-custom {
+    border-color: color-mix(in srgb, var(--bs-galaxy) 55%, transparent);
+    color: var(--bs-galaxy);
+    background: color-mix(in srgb, var(--bs-galaxy) 10%, transparent);
+}
+
+.sj-badge.is-missing {
+    border-color: color-mix(in srgb, var(--vp-conflict) 60%, transparent);
+    color: var(--vp-conflict-ink);
+    background: color-mix(in srgb, var(--vp-conflict) 14%, transparent);
+}
+
+.sj-badge.is-id {
+    text-transform: none;
+    font-family: var(--bs-font-monospace);
+    letter-spacing: 0;
+}
+
+.sj-badge.is-inert {
+    border-style: dashed;
+}
+
+.sj-badge.is-force {
+    border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.sj-up { color: var(--vp-dir-with); }
+.sj-down { color: var(--vp-dir-against); }
+.sj-flat { color: var(--sj-quiet); }
+
+.sj-mono {
+    font-family: var(--bs-font-monospace);
+    font-size: .78rem;
+}
+
+/* ---- schedules: a map is an appended table of particulars ------- */
+
+.sj-sched {
+    margin: 1rem 0 .25rem;
+    border-top: 1px solid var(--bs-body-color);
+    padding-top: .6rem;
+}
+
+.sj-sched-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: .1rem;
+}
+
+.sj-sched-t {
+    font-family: var(--sj-serif);
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.sj-rows {
+    list-style: none;
+    margin: .5rem 0 0;
+    padding: 0;
+}
+
+.sj-rows.sj-two { columns: 2; column-gap: 3rem; }
+
+.sj-rows li {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    padding: .22rem 0;
+    break-inside: avoid;
+    font-size: .9rem;
+}
+
+.sj-rows .sj-k {
+    font-family: var(--sj-serif);
+    font-size: 1rem;
+}
+
+.sj-rows .sj-k small {
+    font-family: var(--bs-font-monospace);
+    font-size: .66rem;
+    color: var(--sj-quiet);
+    display: block;
+    line-height: 1.3;
+}
+
+.sj-rows .sj-dots {
+    flex: 1;
+    border-bottom: 1px dotted
+        color-mix(in srgb, var(--bs-secondary-color) 60%, transparent);
+    transform: translateY(-.3em);
+    min-width: 1rem;
+}
+
+.sj-add {
+    margin-top: .6rem;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.sj-add .sj-add-btn {
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .25rem;
+    background: none;
+    color: var(--primary);
+    font-size: .78rem;
+    font-weight: 600;
+    padding: .2rem .6rem;
+    cursor: pointer;
+}
+
+.sj-add .sj-add-hint { color: var(--sj-quiet); font-size: .75rem; }
+
+/* ---- figures (the band strip) ---------------------------------- */
+
+.sj-figure {
+    margin: 1rem 0 1.25rem;
+    padding: 1rem 1.1rem .85rem;
+    border: 1px solid var(--sj-rule);
+    border-radius: .3rem;
+    background: color-mix(in srgb, var(--bs-tertiary-bg) 45%, transparent);
+}
+
+.sj-figure.is-bad {
+    border-color: color-mix(in srgb, var(--vp-mal) 45%, transparent);
+    background: color-mix(in srgb, var(--vp-mal) 6%, transparent);
+}
+
+.sj-track {
+    position: relative;
+    height: 1.6rem;
+    margin: .3rem 0;
+    background: color-mix(in srgb, var(--bs-secondary-color) 8%, transparent);
+    border-radius: .2rem;
+}
+
+.sj-bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: .2rem;
+    display: flex;
+    align-items: center;
+    padding: 0 .45rem;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sj-bar-low {
+    background: color-mix(in srgb, var(--bs-secondary-color) 22%, transparent);
+}
+
+.sj-bar-med {
+    background: color-mix(in srgb, var(--vp-conflict) 30%, transparent);
+}
+
+.sj-bar-high {
+    background: color-mix(in srgb, var(--primary) 32%, transparent);
+}
+
+.sj-bar-bad {
+    background: repeating-linear-gradient(45deg,
+        color-mix(in srgb, var(--vp-mal) 24%, transparent) 0 6px,
+        transparent 6px 12px);
+    border: 1px solid color-mix(in srgb, var(--vp-mal) 55%, transparent);
+    color: var(--vp-mal-ink);
+}
+
+.sj-mark {
+    position: absolute;
+    top: -.15rem;
+    bottom: -.15rem;
+    width: 2px;
+    background: var(--vp-mal);
+}
+
+.sj-scale {
+    position: relative;
+    height: 1.15rem;
+    margin-top: .1rem;
+    font-family: var(--bs-font-monospace);
+    font-size: .68rem;
+    color: var(--sj-quiet);
+}
+
+.sj-scale span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.sj-scale span.sj-s0 { transform: none; }
+.sj-scale span.sj-s1 { transform: translateX(-100%); }
+
+.sj-figcap {
+    font-size: .78rem;
+    color: var(--sj-quiet);
+    margin: .55rem 0 0;
+    line-height: 1.55;
+}
+
+.sj-figcap b { color: var(--bs-body-color); }
+
+.sj-refusal {
+    font-family: var(--sj-serif);
+    font-size: .95rem;
+    line-height: 1.6;
+    color: var(--vp-mal-ink);
+    margin: .5rem 0 0;
+}
+
+/* ---- errata ---------------------------------------------------- */
+
+.sj-errata {
+    margin-top: 1.5rem;
+    border: 1px solid color-mix(in srgb, var(--vp-conflict) 45%, transparent);
+    border-left-width: 4px;
+    border-radius: .3rem;
+    padding: .9rem 1.1rem;
+    background: color-mix(in srgb, var(--vp-conflict) 7%, transparent);
+}
+
+.sj-errata ol {
+    margin: .6rem 0 0;
+    padding-left: 1.2rem;
+    font-size: .875rem;
+    line-height: 1.6;
+}
+
+.sj-errata li { margin-bottom: .35rem; }
+
+.sj-errata code {
+    font-size: .8rem;
+    color: var(--bs-emphasis-color);
+}
+
+/* ---- the index board ------------------------------------------- */
+
+.sj-standing {
+    border: 1px solid var(--bs-border-color);
+    border-left: 4px solid var(--primary);
+    border-radius: .3rem;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 1.5rem;
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+
+.sj-entry {
+    display: grid;
+    grid-template-columns: var(--sj-gutter) minmax(0, 1fr) 13rem;
+    gap: 0 1.5rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--sj-rule);
+    align-items: start;
+}
+
+.sj-entry .sj-g { text-align: right; }
+
+.sj-entry-name {
+    font-family: var(--sj-serif);
+    font-size: 1.12rem;
+    font-weight: 700;
+    margin: 0 0 .15rem;
+}
+
+.sj-actions {
+    display: flex;
+    gap: .4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.sj-btn {
+    font-size: .75rem;
+    font-weight: 600;
+    padding: .18rem .65rem;
+    border-radius: .25rem;
+    border: 1px solid var(--bs-border-color);
+    background: none;
+    color: var(--bs-body-color);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.sj-btn.is-primary {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.sj-alt {
+    margin-top: 2rem;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .3rem;
+    padding: 1.1rem 1.25rem;
+    background: color-mix(in srgb, var(--bs-tertiary-bg) 55%, transparent);
+}
+
+/* ---- the simulate board ---------------------------------------- */
+
+.sj-facing {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin: 1rem 0 .5rem;
+}
+
+.sj-side {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .3rem;
+    padding: 1rem 1.15rem 1.1rem;
+}
+
+.sj-side.is-after {
+    border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+    background: color-mix(in srgb, var(--primary) 4%, transparent);
+}
+
+.sj-quality {
+    font-family: var(--bs-font-monospace);
+    font-size: 2.1rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.sj-axes {
+    list-style: none;
+    margin: .75rem 0 0;
+    padding: 0;
+    font-size: .82rem;
+}
+
+.sj-axes li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .2rem 0;
+    border-top: 1px dotted var(--bs-border-color);
+}
+
+.sj-axes b { font-weight: 600; }
+
+.sj-axes .sj-axis-k { color: var(--sj-quiet); }
+
+/* The redline: entries keep their sentence and gain two figures. */
+.sj-redline {
+    margin-top: .5rem;
+    border-top: 1px solid var(--bs-body-color);
+}
+
+.sj-rl {
+    display: grid;
+    grid-template-columns:
+        1.6rem minmax(0, 1fr) 4.5rem 4.5rem 5rem;
+    gap: 0 .75rem;
+    align-items: baseline;
+    padding: .45rem 0;
+    border-bottom: 1px solid var(--sj-rule);
+}
+
+.sj-rl-h {
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--sj-quiet);
+    border-bottom: 1px solid var(--bs-border-color);
+    padding-bottom: .3rem;
+}
+
+.sj-rl-sentence {
+    font-family: var(--sj-serif);
+    font-size: .95rem;
+    line-height: 1.5;
+}
+
+.sj-rl-sentence small {
+    display: block;
+    font-family: var(--bs-font-sans-serif);
+    font-size: .72rem;
+    color: var(--sj-quiet);
+    line-height: 1.45;
+}
+
+.sj-rl-n {
+    font-family: var(--bs-font-monospace);
+    font-size: .95rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.sj-rl-state {
+    font-family: var(--bs-font-monospace);
+    font-size: .78rem;
+    text-align: center;
+    color: var(--sj-quiet);
+}
+
+.sj-rl.is-vanished .sj-struck { text-decoration: line-through; }
+
+
+.sj-rl.is-appeared .sj-struck {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: .2em;
+}
+
+.sj-rl.is-moved {
+    background: color-mix(in srgb, var(--vp-conflict) 6%, transparent);
+    box-shadow: -3px 0 0 0 var(--vp-conflict);
+}
+
+.sj-rl.is-total {
+    border-bottom: 3px double var(--bs-body-color);
+    border-top: 1px solid var(--bs-body-color);
+    padding: .55rem 0;
+    font-weight: 700;
+}
+
+.sj-rl.is-total .sj-rl-sentence {
+    font-family: var(--bs-font-sans-serif);
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.sj-cmp {
+    display: grid;
+    grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) 8rem;
+    gap: 0 1.25rem;
+    align-items: baseline;
+    padding: .6rem 0;
+    border-top: 1px solid var(--sj-rule);
+}
+
+.sj-cmp-v {
+    font-family: var(--bs-font-monospace);
+    font-size: .92rem;
+    font-weight: 700;
+    word-break: break-all;
+}
+
+.sj-cmp-s {
+    font-family: var(--sj-serif);
+    font-size: .96rem;
+    line-height: 1.55;
+}
+
+.sj-cmp-d {
+    font-family: var(--bs-font-monospace);
+    font-size: .95rem;
+    font-weight: 700;
+    text-align: right;
+}
+
+.sj-pre {
+    font-family: var(--bs-font-monospace);
+    font-size: .72rem;
+    line-height: 1.5;
+    max-height: 16rem;
+    overflow: auto;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--sj-rule);
+    border-radius: .25rem;
+    padding: .75rem .9rem;
+    margin: .6rem 0 0;
+}
+
+/* ---- narrow: the page is container-fluid, so the document, not a
+ * media query, decides. At --vp-page 1280 the paper still holds its
+ * three columns; below its own width the margins fold under. ---- */
+
+@container (max-width: 62rem) {
+    .sj-clause,
+    .sj-entry {
+        grid-template-columns: minmax(0, 1fr);
+        gap: .4rem;
+    }
+    .sj-g { text-align: left; }
+    .sj-margin { flex-direction: row; flex-wrap: wrap; gap: .75rem; }
+    .sj-actions { justify-content: flex-start; }
+    .sj-facing { grid-template-columns: minmax(0, 1fr); }
+    .sj-rows.sj-two { columns: 1; }
+    .sj-toc-cols { columns: 1; }
+}
+
+.sj-surround { container-type: inline-size; }
+</style>
+
+<div class="vp-doc">
+
+  <div class="vp-doc-chrome">
+<header>
+            <nav class="navbar navbar-expand-xl navbar-dark fixed-top shadow-sm" style="background-color: #28191B;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">
+                    </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse justify-content-between" id="mainNavbar">
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-clipboard-list fa-fw"></i>
+        <span>Data points</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-attribute misp-simple fa-fw"></i>
+        <span>Attributes</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-fingerprint fa-fw"></i>
+        <span>Value Profile</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-folder fa-fw"></i>
+        <span>Collections</span>
+</div>                        </a>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-report misp-simple fa-fw"></i>
+        <span>Event Reports</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-scroll fa-fw"></i>
+        <span>Template Variables</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chart-bar fa-fw"></i>
+        <span>Analyst Data</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-comment-dots fa-fw"></i>
+        <span>Proposals</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events with Proposals</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-handshake fa-fw"></i>
+        <span>Delegation Requests</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chalkboard-user fa-fw"></i>
+        <span>Dashboard</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-database fa-fw"></i>
+        <span>Data models</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>Tags &amp; Taxonomies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>List Tags</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tags fa-fw"></i>
+        <span>List Tag Collections</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-taxonomy misp-simple fa-fw"></i>
+        <span>List Taxonomies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>Galaxies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>List Galaxies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>List Galaxy Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-hourglass-half fa-fw"></i>
+        <span>Decaying Models</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-file-code fa-fw"></i>
+        <span>Templates</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>List Event Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-object misp-simple fa-fw"></i>
+        <span>List Object Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cubes fa-fw"></i>
+        <span>List Object Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-list-alt fa-fw"></i>
+        <span>Filters &amp; Lists</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-exclamation-triangle fa-fw"></i>
+        <span>Warninglists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-info-circle fa-fw"></i>
+        <span>Noticelists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>Import Regexp</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-check-circle fa-fw"></i>
+        <span>Signature Allowedlist</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-filter fa-fw"></i>
+        <span>Correlation Exclusions</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-rotate fa-fw"></i>
+        <span>Sync</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Servers &amp; Feeds</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Remote Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-rss fa-fw"></i>
+        <span>Feeds</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-sharing-group misp-simple fa-fw"></i>
+        <span>Sharing Groups</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>List Sharing Groups</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-drafting-compass fa-fw"></i>
+        <span>List Sharing Group Blueprints</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-plug fa-fw"></i>
+        <span>Integrations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users fa-fw"></i>
+        <span>Communities</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-network-wired fa-fw"></i>
+        <span>Cerebrates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cloud fa-fw"></i>
+        <span>TAXII Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-sighting misp-simple fa-fw"></i>
+        <span>Sighting DB</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-exchange-alt fa-fw"></i>
+        <span>Event ID Translator</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-tools fa-fw"></i>
+        <span>Administration</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-gears fa-fw"></i>
+        <span>Server Settings &amp; Maintenance</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-building-user fa-fw"></i>
+        <span>Users &amp; Orgs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-user2 misp-simple fa-fw"></i>
+        <span>List Users</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-sliders fa-fw"></i>
+        <span>User Settings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-organisation misp-simple fa-fw"></i>
+        <span>List Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-user-tag fa-fw"></i>
+        <span>Roles &amp; Permissions</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users-line fa-fw"></i>
+        <span>List Roles</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-key fa-fw"></i>
+        <span>List Auth Keys</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-helmet-safety fa-fw"></i>
+        <span>System jobs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>Workflow</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tasks fa-fw"></i>
+        <span>Jobs</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-clock fa-fw"></i>
+        <span>Scheduled Tasks</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-gauge fa-fw"></i>
+        <span>Benchmarking</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-ban fa-fw"></i>
+        <span>Blocklisting</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-file-circle-exclamation fa-fw"></i>
+        <span>Blocklist Event</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-building-circle-exclamation fa-fw"></i>
+        <span>Blocklists Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-heart-circle-exclamation fa-fw"></i>
+        <span>Blocklists Sightings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-circle-nodes fa-fw"></i>
+        <span>Correlations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-ranking-star fa-fw"></i>
+        <span>Top correlations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-comment-nodes fa-fw"></i>
+        <span>Correlations rules</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-hexagon-nodes-bolt fa-fw"></i>
+        <span>Over-correlating values</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-history fa-fw"></i>
+        <span>Logs</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-alt fa-fw"></i>
+        <span>Application logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-contract fa-fw"></i>
+        <span>Audit logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-pen fa-fw"></i>
+        <span>Access logs</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>API</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-book-open fa-fw"></i>
+        <span>Open API</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-terminal fa-fw"></i>
+        <span>REST Client</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-robot fa-fw"></i>
+        <span>Automation</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-export fa-fw"></i>
+        <span>Export</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-circle-info fa-fw"></i>
+        <span>Resources</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-address-book fa-fw"></i>
+        <span>User Guide</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-table-list fa-fw"></i>
+        <span>Categories &amp; Types</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-palette fa-fw"></i>
+        <span>Themes</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Default">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Default UI                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">The classic MISP interface.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Overmind">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Overmind UI                                                    </div>
+                                                    <span class="badge bg-success ms-2">
+                                                        ON                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">[DEV] Overmind UI is a new user interface for MISP, designed to be more modern and user-friendly. It is currently in development and is not yet ready for production use.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="UiBeta">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Insight UI (beta)                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">Beta UI focusing on context and discovery. Currently reworks Event List, Event View, Event Collections.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-star fa-fw"></i>
+        <span>Bookmarks</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+        <span>Events - MISP</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item set-homepage" href="#">
+                            <div>
+            <i class="fas fa-home fa-fw"></i>
+        <span>Set this page as homepage</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-cog fa-fw"></i>
+        <span>Manage Bookmarks</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+     
+                <span>Admin</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item toggle-dark-mode" href="#">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <div>
+                                    <i class="fas fa-moon fa-fw dark-mode-icon"></i>
+                                    <span>Dark mode</span>
+                                </div>
+                                <span class="badge bg-secondary dark-mode-badge ms-2">OFF</span>
+                            </div>
+                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-user3 misp-simple fa-fw"></i>
+        <span>My Profile</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-right-from-bracket fa-fw"></i>
+        <span>Log out</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+        </div>
+    </div>
+</nav>
+ 
+
+        </header>
+  </div>
+
+  <header class="vp-doc-head">
+    <h1>Analyst Profile — candidate C, <em>the stated judgement</em></h1>
+    <p class="vp-doc-sub">
+      The profile reads as a document rather than a form: each signal is a
+      sentence asserting what a piece of evidence is worth, with the
+      numbers editable in place, sections are chapters, and the simulator
+      is an amendment with a before-and-after of its own. The bet is that
+      an org profile has readers who did not write it — a colleague
+      deciding whether to fork it, an auditor asking why a value scored 84
+      — and that they should be able to read it without knowing the
+      schema. Every figure comes from
+      <code>prd/analyst-profile/09a-fixtures/</code>.
+    </p>
+    <div class="vp-doc-jump">
+      <a href="#board-index">Index</a>
+      <a href="#board-edit">Edit</a>
+      <a href="#board-simulate">Simulate</a>
+    </div>
+  </header>
+
+  <div class="vp-board" id="board-index">
+    <div class="vp-board-tag"><span><b>/analystProfiles/index</b></span><span class="vp-board-q">Which profile is weighting my pages, and why is it not the one I just forked?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Index
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Analyst Profiles
+              </h1>
+              <span class="badge rounded-pill bg-primary fw-semibold px-3">3</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              The judgements the value assessment is computed from. Exactly one is in force for you.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-file-import"></i>Import</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+        <div class="sj sj-surround">
+          <div class="sj-paper">
+
+            <div class="sj-preamble">
+              <p class="sj-kicker">The register</p>
+              <h2 class="sj-title">Which judgement is in force</h2>
+              <p class="sj-text">
+                Every value on this instance is scored by exactly one of the
+                documents below. Three are visible to you; one applies.
+              </p>
+            </div>
+
+            <div class="sj-standing">
+              <p class="sj-kicker">In force for you</p>
+              <p class="sj-lead">
+                <b>Sightings-heavy&nbsp;(experiment)</b> — yours — is the
+                judgement weighting your pages.
+              </p>
+              <p class="sj-text" style="font-size:1rem">
+                Forked from “default-v1” on 2026-09-07. It is enabled, and
+                while it is, the instance default does not apply to you.
+              </p>
+              <div class="sj-meta" style="margin-top:.65rem">
+                <span>revision <b>1</b></span>
+                <span>version <b>1</b></span>
+                <span><b>11</b> signals enabled of <b>11</b> configured</span>
+                <span>saved <b>2026-09-07 18:48:49</b></span>
+                <span>6449f5a4-5950-4115-a4aa-7451fdb99407</span>
+              </div>
+            </div>
+
+            <p class="sj-kicker" style="margin-top:1.75rem">
+              The three documents, and where each one stands
+            </p>
+
+            <div class="sj-entry">
+              <div class="sj-g">
+                <span class="sj-num">#52</span>
+                <span class="sj-subject">Yours</span>
+                <span class="sj-badge is-force" style="margin-top:.35rem">in force</span>
+              </div>
+              <div class="sj-body">
+                <p class="sj-entry-name">Sightings-heavy (experiment)</p>
+                <p class="sj-text" style="font-size:1rem">
+                  <b>In force.</b> This is the one weighting your pages, and
+                  it is the one you may edit.
+                </p>
+                <p class="sj-note">
+                  Forked from “default-v1” on 2026-09-07. · revision 1 ·
+                  version 1 · 11 of 11 signals enabled · saved
+                  2026-09-07 18:48:49
+                </p>
+              </div>
+              <div class="sj-actions">
+                <a href="#board-edit" class="sj-btn is-primary">Edit</a>
+                <a href="#board-simulate" class="sj-btn">Simulate</a>
+                <a href="#" class="sj-btn">Export</a>
+              </div>
+            </div>
+
+            <div class="sj-entry">
+              <div class="sj-g">
+                <span class="sj-num">#51</span>
+                <span class="sj-subject">Yours</span>
+                <span class="sj-badge" style="margin-top:.35rem">disabled</span>
+              </div>
+              <div class="sj-body">
+                <p class="sj-entry-name">My tuned weights</p>
+                <p class="sj-text" style="font-size:1rem">
+                  <b>Switched off.</b> It weights nothing while it is
+                  disabled. You may hold one enabled profile, so enabling
+                  this one disables <i>Sightings-heavy (experiment)</i>; it
+                  is never deleted for you.
+                </p>
+                <p class="sj-note">
+                  Forked from “default-v1” on 2026-09-07. · revision 1 ·
+                  version 1 · 11 of 11 signals enabled · saved
+                  2026-09-07 18:48:49
+                </p>
+              </div>
+              <div class="sj-actions">
+                <a href="#" class="sj-btn">Enable</a>
+                <a href="#board-edit" class="sj-btn">Edit</a>
+                <a href="#" class="sj-btn">Delete</a>
+              </div>
+            </div>
+
+            <div class="sj-entry">
+              <div class="sj-g">
+                <span class="sj-num">#23</span>
+                <span class="sj-subject">Instance default</span>
+                <span class="sj-badge is-missing" style="margin-top:.35rem">overridden</span>
+              </div>
+              <div class="sj-body">
+                <p class="sj-entry-name">default-v1</p>
+                <p class="sj-text" style="font-size:1rem">
+                  <b>Overridden, for you, by <i>Sightings-heavy
+                  (experiment)</i>.</b> It is enabled and it is the
+                  instance default — it still applies to every colleague who
+                  has not forked — but yours wins where both could apply.
+                </p>
+                <p class="sj-note">
+                  The instance default Analyst Profile. · revision 37 ·
+                  version 4 · 11 of 11 signals enabled · saved
+                  2026-09-07 17:45:57
+                </p>
+              </div>
+              <div class="sj-actions">
+                <a href="#" class="sj-btn is-primary">Fork</a>
+                <a href="#board-edit" class="sj-btn">Read</a>
+                <a href="#board-simulate" class="sj-btn">Simulate</a>
+              </div>
+            </div>
+
+            <div class="sj-sched" style="margin-top:2rem">
+              <div class="sj-sched-head">
+                <p class="sj-sched-t">The values you keep an eye on</p>
+                <span class="sj-note" style="margin:0">
+                  Four pinned. The simulator shows each one under both
+                  documents.
+                </span>
+              </div>
+              <ul class="sj-rows sj-two">
+                <li><span class="sj-k sj-mono">8.8.8.8</span>
+                  <span class="sj-dots"></span></li>
+                <li><span class="sj-k sj-mono">185.234.219.24</span>
+                  <span class="sj-dots"></span></li>
+                <li><span class="sj-k sj-mono">45.155.205.233</span>
+                  <span class="sj-dots"></span></li>
+                <li><span class="sj-k sj-mono">1.1.1.1</span>
+                  <span class="sj-dots"></span></li>
+              </ul>
+            </div>
+
+            <div class="sj-alt">
+              <p class="sj-kicker">The other state of this page</p>
+              <p class="sj-lead">No profile is in force.</p>
+              <p class="sj-text" style="font-size:1rem">
+                No value on this instance is scored. The register is empty,
+                nothing is pinned, and the value pages show no lean, no
+                quality and no band until one document is enabled.
+              </p>
+              <p class="sj-note">
+                Drawn from <code>index.json</code>’s
+                <code>scoring_off_variant</code>: no profiles, no profile in
+                force, <code>scoring_off: true</code>, and an empty
+                comparison set. It is a state an instance can really be in,
+                so the page has to say so rather than render three empty
+                columns.
+              </p>
+            </div>
+
+          </div>
+        </div>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-edit">
+    <div class="vp-board-tag"><span><b>/analystProfiles/edit/23</b></span><span class="vp-board-q">What is this profile asserting, and how do I change one number without reading JSON?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Weights I actually use
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Weights I actually use
+              </h1>
+              <span class="badge rounded-pill bg-secondary fw-semibold px-3">rev 37</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              The instance default, revision 37. Seven chapters; nothing is normalised, so the ledger is the number.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-flask"></i>Simulate</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+        <div class="sj sj-surround" id="sj-edit">
+          <div class="sj-paper">
+
+            <div class="sj-preamble">
+              <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                <div>
+                  <p class="sj-kicker">Analyst profile · format 1</p>
+                  <h2 class="sj-title">Weights I actually use</h2>
+                </div>
+                <div class="sj-mode" role="group" aria-label="Mode">
+                  <button type="button" data-sj-mode="read">Reading</button>
+                  <button type="button" data-sj-mode="edit" class="is-on">Editing</button>
+                </div>
+              </div>
+              <p class="sj-text">
+                This document states what one analyst believes each kind of
+                evidence about a value is worth. Nothing in it is
+                normalised: the figures below are added up as they stand,
+                which is why a reader can check the arithmetic and an
+                author can be argued with. It is the <b>instance
+                default</b>, so it applies to everyone who has not forked
+                their own.
+              </p>
+              <div class="sj-meta" style="margin-top:.8rem">
+                <span>revision <b>37</b></span>
+                <span>version <b>4</b></span>
+                <span>saved <b>2026-09-07 17:45:57</b></span>
+                <span>enabled</span>
+                <span>editable by you</span>
+                <span>6e2679bc-ebb0-417f-90d8-16cb1d0144ba</span>
+              </div>
+              <p class="sj-note">
+                Four settings depart from what the code would fall back
+                to — one weight and three exclusions. Each is ruled in the
+                margin like an amended paragraph, so “what did this author
+                actually change” is one scan of the left edge. Nothing else
+                to save: no warnings, no errors.
+              </p>
+            </div>
+
+            <p class="sj-kicker">Contents</p>
+            <ul class="sj-toc sj-toc-cols" style="margin-bottom:1.25rem">
+              <li><span class="sj-toc-n">1</span>
+                <a href="#sj-ch1">Signals</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">12 clauses</span></li>
+              <li><span class="sj-toc-n">2</span>
+                <a href="#sj-ch2">Thresholds</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">3 clauses</span></li>
+              <li><span class="sj-toc-n">3</span>
+                <a href="#sj-ch3">Conflict rules</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">2 clauses</span></li>
+              <li><span class="sj-toc-n">4</span>
+                <a href="#sj-ch4">Exclusions</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">4 clauses</span></li>
+              <li><span class="sj-toc-n">5</span>
+                <a href="#sj-ch5">Relevance</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">4 clauses · schedule A</span></li>
+              <li><span class="sj-toc-n">6</span>
+                <a href="#sj-ch6">Reference data</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">1 clause · schedules B, C</span></li>
+              <li><span class="sj-toc-n">7</span>
+                <a href="#sj-ch7">Enrichment</a>
+                <span class="sj-dots"></span>
+                <span class="sj-toc-fig">2 clauses · schedules D, E</span></li>
+            </ul>
+
+            <!-- ============ Chapter 1 · Signals ================== -->
+            <section class="sj-chapter" id="sj-ch1">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 1</span>
+                <h3 class="sj-chapter-t">Signals</h3>
+              </div>
+              <p class="sj-blurb">
+                What each kind of evidence is worth. The contributions sum
+                to the quality exactly — nothing is normalised, so the
+                ledger is the number.
+              </p>
+
+              <p class="sj-kicker">The twelve clauses, and what each
+                produced on 8.8.8.8</p>
+              <p class="sj-note" style="margin:0 0 .5rem">
+                A figure is coloured by which way it pushed the quality —
+                <span class="sj-up">up</span> or
+                <span class="sj-down">down</span> — never by whether that
+                is good news. Deciding that is the reader’s job, not the
+                page’s.
+              </p>
+              <ul class="sj-toc sj-toc-cols" style="margin-bottom:1.5rem">
+                <li><span class="sj-toc-n">1.1</span><a href="#c1-1">Independent reporting</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+28</span></li>
+                <li><span class="sj-toc-n">1.2</span><a href="#c1-2">Partner feed agreement</a><span class="sj-dots"></span><span class="sj-toc-fig sj-flat">not here</span></li>
+                <li><span class="sj-toc-n">1.3</span><a href="#c1-3">Published share</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+2</span></li>
+                <li><span class="sj-toc-n">1.4</span><a href="#c1-4">False-positive sightings</a><span class="sj-dots"></span><span class="sj-toc-fig sj-down">−23</span></li>
+                <li><span class="sj-toc-n">1.5</span><a href="#c1-5">Sighting volume</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+24</span></li>
+                <li><span class="sj-toc-n">1.6</span><a href="#c1-6">Galaxy attribution</a><span class="sj-dots"></span><span class="sj-toc-fig sj-down">−7</span></li>
+                <li><span class="sj-toc-n">1.7</span><a href="#c1-7">Technique attribution</a><span class="sj-dots"></span><span class="sj-toc-fig sj-flat">no entry</span></li>
+                <li><span class="sj-toc-n">1.8</span><a href="#c1-8">Continuity</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+4</span></li>
+                <li><span class="sj-toc-n">1.9</span><a href="#c1-9">Feed presence</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+8</span></li>
+                <li><span class="sj-toc-n">1.10</span><a href="#c1-10">Recency</a><span class="sj-dots"></span><span class="sj-toc-fig sj-up">+8</span></li>
+                <li><span class="sj-toc-n">1.11</span><a href="#c1-11">Warninglist hit</a><span class="sj-dots"></span><span class="sj-toc-fig sj-down">−38</span></li>
+                <li><span class="sj-toc-n">1.12</span><a href="#c1-12">Temporal precision</a><span class="sj-dots"></span><span class="sj-toc-fig sj-down">−12</span></li>
+              </ul>
+
+              <div class="sj-clause" id="c1-1">
+                <div class="sj-g">
+                  <span class="sj-num">1.1</span>
+                  <span class="sj-subject">Independent reporting</span>
+                  <span class="sj-num">reporting.independent_orgs</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each organisation that reports this value independently
+                    is worth <input class="sj-fig w1" value="7">, up to
+                    <input class="sj-fig w2" value="28"> in all. The
+                    evidence line names the first
+                    <input class="sj-fig w1" value="4">.
+                  </p>
+                  <p class="sj-note">
+                    How many organisations independently report this value.
+                    An aggregate over the occurrences, weighted by the
+                    reporting organisation’s trust grade — schedule B.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option selected>Reporting</option><option>Sightings</option><option>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-up">+28 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause is-void" id="c1-2">
+                <div class="sj-g">
+                  <span class="sj-num">1.2</span>
+                  <span class="sj-subject">Partner feed agreement</span>
+                  <span class="sj-num">reporting.partner_feed_agreement</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A partner feed agreeing is worth
+                    <input class="sj-fig w1" value="6">, up to
+                    <input class="sj-fig w2" value="18"> —
+                    <b>but nothing on this instance implements it.</b>
+                  </p>
+                  <p class="sj-note">
+                    This profile configures a signal this instance does not
+                    have. It contributes nothing and is listed in the
+                    assessment as not counted. The configuration is kept, so
+                    deploying the implementation brings it back — which is
+                    also why this version cannot label
+                    <code>per_partner</code> and <code>cap</code>: it has no
+                    schema to read them against, and keeps them rather than
+                    dropping them.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option selected>Reporting</option><option>Sightings</option><option>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <span class="sj-badge is-missing">not implemented here</span>
+                  <div class="sj-contrib sj-flat">— <span>no contribution</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-3">
+                <div class="sj-g">
+                  <span class="sj-num">1.3</span>
+                  <span class="sj-subject">Published share</span>
+                  <span class="sj-num">reporting.published_ratio</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A value carried entirely by published events is worth
+                    <input class="sj-fig w1" value="9">, in proportion to
+                    the published share; one where nothing is published
+                    costs <input class="sj-fig w2" value="−2">. It does not
+                    fire below <input class="sj-fig w1" value="1"> event.
+                  </p>
+                  <p class="sj-note">
+                    What share of the events carrying this value are
+                    published.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option selected>Reporting</option><option>Sightings</option><option>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-up">+2 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-4">
+                <div class="sj-g">
+                  <span class="sj-num">1.4</span>
+                  <span class="sj-subject">False-positive sightings</span>
+                  <span class="sj-num">sightings.false_positive</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each false-positive sighting costs
+                    <input class="sj-fig w2" value="−3">, and each
+                    organisation beyond the first a further
+                    <input class="sj-fig w2" value="−4">, to a floor of
+                    <input class="sj-fig w3" value="−26">.
+                  </p>
+                  <p class="sj-note">
+                    False-positive sightings, and how many organisations
+                    filed them. Read row by row, and weighted by the filing
+                    organisation’s trust grade.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option selected>Sightings</option><option>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-down">−23 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-5">
+                <div class="sj-g">
+                  <span class="sj-num">1.5</span>
+                  <span class="sj-subject">Sighting volume</span>
+                  <span class="sj-num">sightings.volume_recency</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Sightings are worth up to
+                    <input class="sj-fig w2" value="24">, fully paid at
+                    <input class="sj-fig w2" value="50"> of them; nobody
+                    having sighted it costs
+                    <input class="sj-fig w2" value="−4">. A history with
+                    nothing newer than <input class="sj-fig w2" value="90">
+                    days is worth <input class="sj-fig w3" value="0.5"> of
+                    that.
+                  </p>
+                  <p class="sj-note">
+                    Sighting volume, organisation spread and recency.
+                    Weighted by the sighting organisation’s trust grade.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option selected>Sightings</option><option>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-up">+24 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-6">
+                <div class="sj-g">
+                  <span class="sj-num">1.6</span>
+                  <span class="sj-subject">Galaxy attribution</span>
+                  <span class="sj-num">attribution.galaxy</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each distinct galaxy cluster on its occurrences is worth
+                    <input class="sj-fig w1" value="7">, up to
+                    <input class="sj-fig w2" value="21">; nobody having
+                    attributed it at all costs
+                    <input class="sj-fig w2" value="−7">.
+                  </p>
+                  <p class="sj-note">
+                    Galaxy clusters attached to this value’s own
+                    occurrences.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option selected>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-down">−7 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-7">
+                <div class="sj-g">
+                  <span class="sj-num">1.7</span>
+                  <span class="sj-subject">Technique attribution</span>
+                  <span class="sj-num">attribution.technique</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each distinct ATT&amp;CK technique on its occurrences is
+                    worth <input class="sj-fig w1" value="3">, up to
+                    <input class="sj-fig w1" value="9">.
+                  </p>
+                  <p class="sj-note">
+                    ATT&amp;CK techniques marked on this value’s
+                    occurrences.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option selected>Attribution</option><option>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-flat">— <span>no entry on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-8">
+                <div class="sj-g">
+                  <span class="sj-num">1.8</span>
+                  <span class="sj-subject">Continuity</span>
+                  <span class="sj-num">lifecycle.continuity</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each unbroken month of reporting is worth
+                    <input class="sj-fig w1" value="1">, up to
+                    <input class="sj-fig w2" value="12">; below
+                    <input class="sj-fig w1" value="3"> months of continuity
+                    the clause does not fire.
+                  </p>
+                  <p class="sj-note">
+                    The longest run of consecutive months in which this
+                    value was reported.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option>Attribution</option><option selected>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-up">+4 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-9">
+                <div class="sj-g">
+                  <span class="sj-num">1.9</span>
+                  <span class="sj-subject">Feed presence</span>
+                  <span class="sj-num">lifecycle.feeds</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Each enabled feed carrying the value is worth
+                    <input class="sj-fig w1" value="4">, up to
+                    <input class="sj-fig w1" value="8">; no feed carrying it
+                    costs <input class="sj-fig w2" value="−2">.
+                  </p>
+                  <p class="sj-note">
+                    Presence in the enabled feeds and servers this instance
+                    caches. <b>Dropped into <code>app/Lib/ValueSignals</code>
+                    on this instance.</b> Nothing upstream computes it, so a
+                    colleague reading this profile elsewhere cannot
+                    reproduce the number it contributes.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option>Attribution</option><option selected>Lifecycle</option></select>
+                  </div>
+                  <span class="sj-badge is-custom">custom</span>
+                  <div class="sj-contrib sj-up">+8 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-10">
+                <div class="sj-g">
+                  <span class="sj-num">1.10</span>
+                  <span class="sj-subject">Recency</span>
+                  <span class="sj-num">lifecycle.recency</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A value reported within
+                    <input class="sj-fig w2" value="30"> days is worth
+                    <input class="sj-fig w1" value="8">; one nobody has
+                    touched for <input class="sj-fig w3" value="365"> days
+                    costs <input class="sj-fig w2" value="−4">.
+                  </p>
+                  <p class="sj-note">
+                    How recently this value was last reported by anybody.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option>Attribution</option><option selected>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-up">+8 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c1-11">
+                <div class="sj-g">
+                  <span class="sj-num">1.11</span>
+                  <span class="sj-subject">Warninglist hit</span>
+                  <span class="sj-num">lifecycle.warninglist</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Matching no warninglist is worth
+                    <input class="sj-fig w1" value="6">. A list that means
+                    <i>false positive</i> costs
+                    <input class="sj-fig w3" value="−38">; one that means
+                    <i>known infrastructure</i> is worth
+                    <input class="sj-fig w1" value="0">.
+                  </p>
+                  <p class="sj-note">
+                    Whether the value hits a warninglist, and what kind of
+                    list it is — which lists mean which is schedule C.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option>Attribution</option><option selected>Lifecycle</option></select>
+                  </div>
+                  <div class="sj-contrib sj-down">−38 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause is-amended" id="c1-12">
+                <div class="sj-g">
+                  <span class="sj-num">1.12</span>
+                  <span class="sj-subject">Temporal precision</span>
+                  <span class="sj-num">record.temporal_precision</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    An occurrence carrying <code>first_seen</code> is worth
+                    <input class="sj-fig w1" value="4">; none carrying one
+                    costs <input class="sj-fig w2" value="−6">, and a
+                    further <input class="sj-fig w2" value="−6"> where the
+                    encoding lags the event by more than
+                    <input class="sj-fig w2" value="30"> days.
+                  </p>
+                  <p class="sj-note">
+                    Whether the occurrences date their own observations, or
+                    only their encoding. <b>Amended:</b> the lag penalty is
+                    −6 here; the code would fall back to −4.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div>
+                    <select class="sj-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select>
+                    <select class="sj-sel"><option>Reporting</option><option>Sightings</option><option>Attribution</option><option selected>Lifecycle</option></select>
+                  </div>
+                  <span class="sj-badge">amended</span>
+                  <div class="sj-contrib sj-down">−12 <span>on 8.8.8.8</span></div>
+                </div>
+              </div>
+
+              <div class="sj-clause is-total" style="border-top:1px solid var(--bs-body-color)">
+                <div class="sj-g"><span class="sj-subject">In sum</span></div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Ten of these clauses produced a figure on
+                    <b>8.8.8.8</b>, and they add up to <b>−6</b>. Clause 1.7
+                    made no entry on this value; clause 1.2 could not,
+                    because nothing here implements it.
+                  </p>
+                  <p class="sj-note">
+                    The palette offers nothing further to add: every signal
+                    this instance implements is already stated in this
+                    chapter.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div class="sj-contrib sj-down">−6 <span>ledger total</span></div>
+                </div>
+              </div>
+
+              <div class="sj-errata">
+                <p class="sj-kicker" style="margin-bottom:.15rem">Errata</p>
+                <p class="sj-text" style="font-size:1rem">
+                  Three files the loader refused when it read the signal
+                  directories. The engine skips all three in silence, so
+                  this is the only page anybody finds out on.
+                </p>
+                <ol>
+                  <li><b>Signal</b> · <code>PartnerAgreement.php</code> —
+                    syntax error, unexpected token “;”, expecting “)” on
+                    line 61</li>
+                  <li><b>Signal</b> · <code>HelperFunctions.php</code> —
+                    the class does not extend
+                    <code>ValueSignalBase</code></li>
+                  <li><b>Escalation</b> · <code>ConflictListed.php</code> —
+                    id <code>conflict:listed-vs-asserted</code> already
+                    loaded from <code>Model/ValueEscalations</code></li>
+                </ol>
+              </div>
+            </section>
+            <!-- ============ Chapter 2 · Thresholds =============== -->
+            <section class="sj-chapter" id="sj-ch2">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 2</span>
+                <h3 class="sj-chapter-t">Thresholds</h3>
+              </div>
+              <p class="sj-blurb">
+                Where the counted evidence turns into a word. The lean asks
+                how one-sided the record is; the bands ask how much of it
+                there is.
+              </p>
+
+              <div class="sj-clause" id="c2-1">
+                <div class="sj-g">
+                  <span class="sj-num">2.1</span>
+                  <span class="sj-subject">The lean</span>
+                  <span class="sj-num">thresholds.lean_supermajority</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    The record is read as asserting one thing when
+                    <input class="sj-fig w3" value="0.66"> of the
+                    organisations reporting it agree.
+                  </p>
+                  <p class="sj-note">
+                    A supermajority on either side, with a tolerance — 34 of
+                    100 against misses the mirror of 0.66 by a
+                    floating-point hair.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-clause" id="c2-2">
+                <div class="sj-g">
+                  <span class="sj-num">2.2</span>
+                  <span class="sj-subject">The quality bands</span>
+                  <span class="sj-num">thresholds.quality_bands</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A quality of <input class="sj-fig w2" value="60"> and
+                    above is <b>high</b>;
+                    <input class="sj-fig w2" value="30"> and above is
+                    <b>medium</b>; below that, <b>low</b>. No value is
+                    called high on fewer than
+                    <input class="sj-fig w1" value="4"> signals, so one
+                    heavy row cannot buy the band on its own.
+                  </p>
+
+                  <div class="sj-figure">
+                    <div class="sj-track">
+                      <div class="sj-bar sj-bar-low" style="left:0;width:23.256%"><span>low 0–30</span></div>
+                      <div class="sj-bar sj-bar-med" style="left:23.256%;width:23.256%"><span>medium 30–60</span></div>
+                      <div class="sj-bar sj-bar-high" style="left:46.512%;width:53.488%"><span>high 60–129</span></div>
+                    </div>
+                    <div class="sj-scale">
+                      <span class="sj-s0" style="left:0">0</span>
+                      <span style="left:23.256%">30</span>
+                      <span style="left:46.512%">60</span>
+                      <span class="sj-s1" style="left:100%">129 ceiling</span>
+                    </div>
+                    <p class="sj-figcap">
+                      <b>Figure 1 — the bands against what is attainable.</b>
+                      The ceiling is the most the enabled signals could
+                      contribute: the largest positive figure in each
+                      clause, summed. Eleven signals, <b>129</b>. The
+                      largest single contributor is clause 1.1 at 28; clause
+                      1.4 can only ever subtract, so it adds 0 to the
+                      ceiling. The strip is sound as it stands.
+                    </p>
+                  </div>
+
+                  <div class="sj-figure is-bad">
+                    <p class="sj-kicker" style="margin-bottom:.4rem">
+                      What the page says the moment you type 60 into medium
+                    </p>
+                    <div class="sj-track">
+                      <div class="sj-bar sj-bar-low" style="left:0;width:46.512%"><span>low 0–60</span></div>
+                    </div>
+                    <div class="sj-track">
+                      <div class="sj-bar sj-bar-bad" style="left:23.256%;width:23.256%"><span>medium 60 → 30</span></div>
+                      <div class="sj-mark" style="left:46.512%"></div>
+                    </div>
+                    <div class="sj-track">
+                      <div class="sj-bar sj-bar-high" style="left:23.256%;width:76.744%"><span>high 30–129</span></div>
+                    </div>
+                    <div class="sj-scale">
+                      <span class="sj-s0" style="left:0">0</span>
+                      <span style="left:23.256%">30</span>
+                      <span style="left:46.512%">60</span>
+                      <span class="sj-s1" style="left:100%">129 ceiling</span>
+                    </div>
+                    <p class="sj-refusal">
+                      “Medium starts at 60, which is not below high at 30.
+                      Nothing could ever be high.”
+                    </p>
+                    <p class="sj-figcap">
+                      <b>Figure 2 — the same strip, refused.</b> Medium sits
+                      above high, so the two claim the same stretch of the
+                      scale and the band above them is unreachable. The
+                      sentence is the one the save answers with; the strip
+                      is how the page says it first.
+                    </p>
+                  </div>
+
+                  <p class="sj-note">
+                    Two more the save refuses, in the same words:
+                    <b>high at 180</b> — “high starts at 180, and the
+                    enabled signals cannot sum past 129. Nothing could ever
+                    reach high.” And the one nobody typed: switch nine
+                    clauses off in chapter 1 and the ceiling falls to
+                    <b>52</b> on two remaining signals, so the shipped high
+                    at 60 stops being reachable without anybody touching a
+                    band — “high starts at 60, and the enabled signals
+                    cannot sum past 52.”
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <div class="sj-contrib sj-flat">129 <span>ceiling</span></div>
+                  <span class="sj-badge is-force">sound</span>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c2-3">
+                <div class="sj-g">
+                  <span class="sj-num">2.3</span>
+                  <span class="sj-subject">The thin-record clamp</span>
+                  <span class="sj-num">thresholds.thin_record_clamp</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A record with at most <input class="sj-fig w1" value="1">
+                    source and at most <input class="sj-fig w1" value="0">
+                    sightings is capped at
+                    <select class="sj-sel"><option>none</option><option selected>low</option><option>medium</option><option>high</option></select>,
+                    whatever the ledger says.
+                  </p>
+                  <p class="sj-note">
+                    The weights alone cannot express this: one organisation
+                    reporting the same value for fourteen months sums past
+                    any floor that still says something useful about the
+                    values that do have corroboration. Delete the three
+                    numbers to remove the clamp.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+            </section>
+
+            <!-- ============ Chapter 3 · Conflict rules =========== -->
+            <section class="sj-chapter" id="sj-ch3">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 3</span>
+                <h3 class="sj-chapter-t">Conflict rules</h3>
+              </div>
+              <p class="sj-blurb">
+                When the record contradicts itself loudly enough that no
+                lean is honest. A rule may only ever say <i>contested</i> —
+                one that could name a side would be a score override wearing
+                a different hat.
+              </p>
+
+              <div class="sj-clause" id="c3-1">
+                <div class="sj-g">
+                  <span class="sj-num">3.1</span>
+                  <span class="sj-subject">Known infrastructure against reporting</span>
+                  <span class="sj-num">conflict:known-infrastructure-vs-reporting</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    When a list of category
+                    <input class="sj-fig w8" value="known"> matches and at
+                    least <input class="sj-fig w1" value="3"> organisations
+                    report the value as a threat, the page says
+                    <b>contested</b> and names no side.
+                  </p>
+                  <p class="sj-note">
+                    A warninglist knows the value as shared infrastructure
+                    while several organisations report it as a threat.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">emits contested</span>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c3-2">
+                <div class="sj-g">
+                  <span class="sj-num">3.2</span>
+                  <span class="sj-subject">Listed against asserted</span>
+                  <span class="sj-num">conflict:listed-vs-asserted</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    When a list of category
+                    <input class="sj-fig w14" value="false_positive">
+                    matches and
+                    <input class="sj-fig w14" value="supermajority"> of the
+                    organisations assert it anyway, the page says
+                    <b>contested</b>.
+                  </p>
+                  <p class="sj-note">
+                    A list marks the value as a false positive while a
+                    supermajority of organisations report it as a threat.
+                    The share may be written as a fraction or as the word
+                    <i>supermajority</i>, which reads clause 2.1.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">emits contested</span>
+                  <span class="sj-note" style="margin:0">
+                    This is the rule that fires on 8.8.8.8.
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ Chapter 4 · Exclusions =============== -->
+            <section class="sj-chapter" id="sj-ch4">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 4</span>
+                <h3 class="sj-chapter-t">Exclusions</h3>
+              </div>
+              <p class="sj-blurb">
+                Evidence you have decided not to count, filtered before any
+                signal sees it — so two signals reading the same fact read
+                the same filtered set. Every row an exclusion removes is
+                listed in the assessment as not counted, naming the rule.
+              </p>
+
+              <div class="sj-clause is-amended" id="c4-1">
+                <div class="sj-g">
+                  <span class="sj-num">4.1</span>
+                  <span class="sj-subject">Self-sightings</span>
+                  <span class="sj-num">sightings.self</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Sightings filed by the reporting organisation within
+                    <input class="sj-fig w2" value="1"> hour of its own
+                    report are not counted; later ones are.
+                  </p>
+                  <p class="sj-note">
+                    An organisation confirming its own fresh report is not
+                    corroboration. Later ones are kept, because “we still
+                    see this” is real information. <b>Amended:</b> switched
+                    on here; the code would leave it off.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">row filter</span>
+                  <span class="sj-badge">amended</span>
+                </div>
+              </div>
+
+              <div class="sj-clause is-amended" id="c4-2">
+                <div class="sj-g">
+                  <span class="sj-num">4.2</span>
+                  <span class="sj-subject">Mirrored feeds</span>
+                  <span class="sj-num">feeds.mirrored</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Feeds sharing the same
+                    <select class="sj-sel"><option selected>provider</option><option>url</option></select>
+                    count once rather than separately.
+                  </p>
+                  <p class="sj-note">
+                    MISP does not record what a feed mirrors, so this folds
+                    by the key above — which is wrong where one provider
+                    runs unrelated feeds. <b>Amended:</b> switched on here;
+                    the code would leave it off.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">list fold</span>
+                  <span class="sj-badge">amended</span>
+                </div>
+              </div>
+
+              <div class="sj-clause is-off" id="c4-3">
+                <div class="sj-g">
+                  <span class="sj-num">4.3</span>
+                  <span class="sj-subject">Your own organisation</span>
+                  <span class="sj-num">orgs.own</span>
+                  <input type="checkbox" class="sj-tick">
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Leave your own organisation out of every count, so the
+                    assessment says what everyone else reports.
+                  </p>
+                  <p class="sj-note">
+                    This one changes the queries rather than filtering their
+                    results, so it moves every aggregate at once — and a
+                    simulation that changes it costs two context builds
+                    rather than one.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">condition</span>
+                  <span class="sj-badge is-missing">not in force</span>
+                </div>
+              </div>
+
+              <div class="sj-clause is-amended" id="c4-4">
+                <div class="sj-g">
+                  <span class="sj-num">4.4</span>
+                  <span class="sj-subject">Evidence window</span>
+                  <span class="sj-num">evidence.window</span>
+                  <input type="checkbox" class="sj-tick" checked>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    On a value with <input class="sj-fig w5" value="10000">
+                    occurrences or more, read row evidence from the last
+                    <input class="sj-fig w2" value="90"> days only.
+                  </p>
+                  <p class="sj-note">
+                    Whole-history aggregates are never windowed. Applied by
+                    the context builder rather than here, because it decides
+                    what is fetched. <b>Amended:</b> switched on here; the
+                    code would leave it off.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge">budget</span>
+                  <span class="sj-badge">amended</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ Chapter 5 · Relevance ================ -->
+            <section class="sj-chapter" id="sj-ch5">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 5</span>
+                <h3 class="sj-chapter-t">Relevance</h3>
+              </div>
+              <p class="sj-blurb">
+                Whether what the record asserts still matters today. Its own
+                axis, and nothing in the quality reads it: silence must
+                never be able to promote a value to a definite answer.
+              </p>
+
+              <div class="sj-clause" id="c5-1">
+                <div class="sj-g">
+                  <span class="sj-num">5.1</span>
+                  <span class="sj-subject">The clock</span>
+                  <span class="sj-num">relevance.clock</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Age is measured from the
+                    <select class="sj-sel"><option selected>last_independent_corroboration</option><option>newest_occurrence</option></select>.
+                  </p>
+                  <p class="sj-note">
+                    Last independent corroboration is somebody other than
+                    the original reporter saying it again. Newest occurrence
+                    is the fallback where nothing else can be dated.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-clause" id="c5-2">
+                <div class="sj-g">
+                  <span class="sj-num">5.2</span>
+                  <span class="sj-subject">The curve</span>
+                  <span class="sj-num">relevance.decay_speed</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    The curve is MISP’s polynomial at speed
+                    <input class="sj-fig w1" value="1">, and a value stops
+                    reading as current with
+                    <input class="sj-fig w3" value="0.33"> of its time to
+                    live left.
+                  </p>
+                  <p class="sj-note">
+                    1 is linear; exponential has no TTL to measure against,
+                    which is why the curve is pinned here.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-clause" id="c5-3">
+                <div class="sj-g">
+                  <span class="sj-num">5.3</span>
+                  <span class="sj-subject">Encoding lag</span>
+                  <span class="sj-num">relevance.lag_uncertain_days</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    Past <input class="sj-fig w2" value="30"> days of
+                    encoding lag the timeline is flagged
+                    <b>uncertain</b>.
+                  </p>
+                  <p class="sj-note">
+                    An encoding date is later than the observation it stands
+                    for, so time measured from it is a lower bound. This is
+                    the common state on real data, not the exotic one.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-clause" id="c5-4">
+                <div class="sj-g">
+                  <span class="sj-num">5.4</span>
+                  <span class="sj-subject">Several types at once</span>
+                  <span class="sj-num">relevance.type_rule</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A value carrying several types takes the
+                    <select class="sj-sel"><option selected>shortest</option><option>longest</option><option>first</option></select>
+                    of their lives.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-sched">
+                <div class="sj-sched-head">
+                  <p class="sj-sched-t">Schedule A — time to live, per type</p>
+                  <span class="sj-mono" style="color:var(--bs-secondary-color)">relevance.ttl_days · days</span>
+                </div>
+                <p class="sj-note" style="margin-top:.2rem">
+                  How long a report of this type stays current without
+                  corroboration. Only the types you have an opinion about;
+                  everything else follows the default.
+                </p>
+                <ul class="sj-rows sj-two">
+                  <li><span class="sj-k">Every other type <small>default</small></span><span class="sj-dots"></span><input class="sj-fig w4" value="180"></li>
+                  <li><span class="sj-k">ip-src</span><span class="sj-dots"></span><input class="sj-fig w3" value="90"></li>
+                  <li><span class="sj-k">ip-dst</span><span class="sj-dots"></span><input class="sj-fig w3" value="90"></li>
+                  <li><span class="sj-k">domain</span><span class="sj-dots"></span><input class="sj-fig w4" value="120"></li>
+                  <li><span class="sj-k">hostname</span><span class="sj-dots"></span><input class="sj-fig w4" value="120"></li>
+                  <li><span class="sj-k">url</span><span class="sj-dots"></span><input class="sj-fig w3" value="60"></li>
+                  <li><span class="sj-k">email-src</span><span class="sj-dots"></span><input class="sj-fig w4" value="120"></li>
+                  <li><span class="sj-k">md5</span><span class="sj-dots"></span><input class="sj-fig w4" value="730"></li>
+                  <li><span class="sj-k">sha1</span><span class="sj-dots"></span><input class="sj-fig w4" value="730"></li>
+                  <li><span class="sj-k">sha256</span><span class="sj-dots"></span><input class="sj-fig w4" value="730"></li>
+                  <li><span class="sj-k">btc</span><span class="sj-dots"></span><input class="sj-fig w4" value="365"></li>
+                  <li><span class="sj-k">filename</span><span class="sj-dots"></span><input class="sj-fig w4" value="365"></li>
+                </ul>
+                <div class="sj-add">
+                  <button type="button" class="sj-add-btn">+ Add a type</button>
+                  <span class="sj-add-hint">
+                    The picker offers only attribute types this schedule
+                    does not already hold — never every type MISP has.
+                    Today it offers none: the eleven types above are every
+                    one it had to give.
+                  </span>
+                </div>
+              </div>
+            </section>
+            <!-- ============ Chapter 6 · Reference data =========== -->
+            <section class="sj-chapter" id="sj-ch6">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 6</span>
+                <h3 class="sj-chapter-t">Reference data</h3>
+              </div>
+              <p class="sj-blurb">
+                What you believe about your sources, and what the
+                warninglists mean. Admiralty-shaped on purpose: source
+                reliability goes in, information credibility comes out.
+              </p>
+
+              <div class="sj-sched" style="border-top:0;padding-top:0">
+                <div class="sj-sched-head">
+                  <p class="sj-sched-t">Schedule B — organisation trust</p>
+                  <span class="sj-mono" style="color:var(--bs-secondary-color)">reference.org_trust · grade</span>
+                </div>
+                <p class="sj-note" style="margin-top:.2rem">
+                  Admiralty grades. F is neutral, the same as C — the
+                  shipped taxonomy says so — and G is deliberately
+                  deceptive and worth nothing. Only the organisations you
+                  have graded.
+                </p>
+                <ul class="sj-rows">
+                  <li>
+                    <span class="sj-k">ADMIN
+                      <small>5705de1d-143c-4637-959f-016e291a0265</small></span>
+                    <span class="sj-dots"></span>
+                    <select class="sj-sel"><option selected>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select>
+                  </li>
+                  <li>
+                    <span class="sj-k">Test
+                      <small>cd5afba0-3161-41aa-a83e-f785d045f00b</small></span>
+                    <span class="sj-dots"></span>
+                    <select class="sj-sel"><option>A</option><option>B</option><option>C</option><option selected>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select>
+                  </li>
+                  <li>
+                    <span class="sj-k">my_org 1
+                      <small>593c71f7-6cd9-4276-b98b-e3431a5c293a</small></span>
+                    <span class="sj-dots"></span>
+                    <select class="sj-sel"><option>A</option><option>B</option><option>C</option><option>D</option><option selected>E</option><option>F</option><option>G</option><option>unrated</option></select>
+                  </li>
+                  <li>
+                    <span class="sj-k" style="opacity:.75">9d8f1c60-0000-4000-8000-abcdefabcdef
+                      <small>no organisation with this uuid is on this
+                        instance — graded in somebody else’s profile and
+                        kept, not dropped</small></span>
+                    <span class="sj-dots"></span>
+                    <span class="sj-badge is-missing">not here</span>
+                    <select class="sj-sel"><option>A</option><option selected>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select>
+                  </li>
+                </ul>
+                <div class="sj-add">
+                  <button type="button" class="sj-add-btn">+ Grade an organisation</button>
+                  <span class="sj-add-hint">
+                    A search over the instance’s organisations, offering
+                    only those this schedule does not already hold — never
+                    a list of every organisation on the instance.
+                  </span>
+                </div>
+              </div>
+
+              <div class="sj-clause" id="c6-1" style="border-top:1px solid var(--sj-rule);margin-top:1.25rem">
+                <div class="sj-g">
+                  <span class="sj-num">6.1</span>
+                  <span class="sj-subject">What a grade is worth</span>
+                  <span class="sj-num">reference.org_trust_scale</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    A voice graded <b>A</b> counts
+                    <input class="sj-fig w4" value="1.25">;
+                    <b>B</b> <input class="sj-fig w3" value="1.1">;
+                    <b>C</b> <input class="sj-fig w2" value="1">;
+                    <b>D</b> <input class="sj-fig w4" value="0.75">;
+                    <b>E</b> <input class="sj-fig w4" value="0.25">;
+                    <b>F</b> <input class="sj-fig w2" value="1">;
+                    <b>G</b> <input class="sj-fig w2" value="0">;
+                    and an <b>unrated</b> voice
+                    <input class="sj-fig w2" value="1">.
+                  </p>
+                  <p class="sj-note">
+                    The multiplier each grade contributes. A voice graded E
+                    counts as a quarter of one. Clauses 1.1, 1.4 and 1.5 are
+                    the ones that read it.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-sched">
+                <div class="sj-sched-head">
+                  <p class="sj-sched-t">Schedule C — what a warninglist means</p>
+                  <span class="sj-mono" style="color:var(--bs-secondary-color)">reference.warninglist_category</span>
+                </div>
+                <p class="sj-note" style="margin-top:.2rem">
+                  Known infrastructure is not a false positive. Nothing
+                  upstream sets this column yet, so the instance ships a map
+                  and this is where you disagree with it.
+                </p>
+                <ul class="sj-rows">
+                  <li>
+                    <span class="sj-k" style="opacity:.85">List of known dynamic DNS domains
+                      <small>no list of this name is on this instance — the
+                        override is kept in case one arrives</small></span>
+                    <span class="sj-dots"></span>
+                    <span class="sj-badge is-missing">not here</span>
+                    <select class="sj-sel"><option selected>known</option><option>false_positive</option></select>
+                  </li>
+                </ul>
+                <div class="sj-add">
+                  <button type="button" class="sj-add-btn">+ Override a list</button>
+                  <span class="sj-add-hint">
+                    A search over the <b>40</b> lists this instance carries
+                    that this schedule has not already overridden — from
+                    “Another domain list” to “List of known Microsoft Azure
+                    Germany Datacenter IP Ranges”.
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ Chapter 7 · Enrichment =============== -->
+            <section class="sj-chapter" id="sj-ch7">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">CHAPTER 7</span>
+                <h3 class="sj-chapter-t">Enrichment</h3>
+              </div>
+              <p class="sj-blurb">
+                Which modules you would want asked about a value of each
+                type. Nothing runs on its own: the tab arrives with these
+                ticked and a run still takes a press.
+              </p>
+
+              <div class="sj-clause" id="c7-1">
+                <div class="sj-g">
+                  <span class="sj-num">7.1</span>
+                  <span class="sj-subject">Cost posture</span>
+                  <span class="sj-num">enrichment.cost_posture</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    The modules that may be offered at all are the
+                    <select class="sj-sel"><option selected>local_only</option><option>allow_external</option><option>ask</option></select>
+                    ones.
+                  </p>
+                  <p class="sj-note">
+                    Local only offers nothing that leaves the instance —
+                    which on a platform where enrichment means asking
+                    somebody else selects very little, and says so.
+                  </p>
+                </div>
+                <div class="sj-margin"></div>
+              </div>
+
+              <div class="sj-clause" id="c7-2">
+                <div class="sj-g">
+                  <span class="sj-num">7.2</span>
+                  <span class="sj-subject">Reuse window</span>
+                  <span class="sj-num">enrichment.max_age_hours</span>
+                </div>
+                <div class="sj-body">
+                  <p class="sj-text">
+                    An answer may be reused for
+                    <input class="sj-fig w2" value="24"> hours.
+                  </p>
+                  <p class="sj-note">
+                    <b>This clause governs nothing yet.</b> There is no
+                    store of module answers, so nothing is reused; the
+                    setting is kept and honoured the day there is one.
+                  </p>
+                </div>
+                <div class="sj-margin">
+                  <span class="sj-badge is-inert">inert</span>
+                </div>
+              </div>
+
+              <div class="sj-sched">
+                <div class="sj-sched-head">
+                  <p class="sj-sched-t">Schedule D — modules per type</p>
+                  <span class="sj-mono" style="color:var(--bs-secondary-color)">enrichment.auto_run</span>
+                </div>
+                <ul class="sj-rows">
+                  <li>
+                    <span class="sj-k">ip-src</span>
+                    <span class="sj-dots"></span>
+                    <span>
+                      <span class="sj-badge is-force is-id">circl_passivedns</span>
+                      <span class="sj-badge is-force is-id">virustotal_public</span>
+                      <span class="sj-badge sj-editing-only is-id" style="opacity:.5">+ dns</span>
+                      <span class="sj-badge sj-editing-only is-id" style="opacity:.5">+ countrycode</span>
+                    </span>
+                  </li>
+                  <li>
+                    <span class="sj-k">domain</span>
+                    <span class="sj-dots"></span>
+                    <span>
+                      <span class="sj-badge is-force is-id">dns</span>
+                      <span class="sj-badge sj-editing-only is-id" style="opacity:.5">+ circl_passivedns</span>
+                      <span class="sj-badge sj-editing-only is-id" style="opacity:.5">+ virustotal_public</span>
+                      <span class="sj-badge sj-editing-only is-id" style="opacity:.5">+ countrycode</span>
+                    </span>
+                  </li>
+                </ul>
+                <div class="sj-add">
+                  <button type="button" class="sj-add-btn">+ Declare modules for a type</button>
+                  <span class="sj-add-hint">
+                    Nine types left to declare: ip-dst, hostname, url, md5,
+                    sha1, sha256, email-src, btc, filename. The four modules
+                    offered are what this instance actually has enabled.
+                  </span>
+                </div>
+              </div>
+
+              <div class="sj-sched">
+                <div class="sj-sched-head">
+                  <p class="sj-sched-t">Schedule E — where a module answers from</p>
+                  <span class="sj-mono" style="color:var(--bs-secondary-color)">enrichment.locality</span>
+                </div>
+                <p class="sj-note" style="margin-top:.2rem">
+                  Overrides the shipped roster. Locality cannot be derived —
+                  a module that declares no config and no requirements may
+                  still fetch a third-party site — so it ships as knowledge
+                  and this is where you correct it.
+                </p>
+                <ul class="sj-rows sj-two">
+                  <li>
+                    <span class="sj-k">circl_passivedns</span>
+                    <span class="sj-dots"></span>
+                    <select class="sj-sel"><option>local</option><option selected>external</option></select>
+                  </li>
+                  <li>
+                    <span class="sj-k">dns</span>
+                    <span class="sj-dots"></span>
+                    <select class="sj-sel"><option selected>local</option><option>external</option></select>
+                  </li>
+                </ul>
+                <div class="sj-add">
+                  <button type="button" class="sj-add-btn">+ Override a module</button>
+                  <span class="sj-add-hint">
+                    Two left to override: virustotal_public, countrycode.
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ============ Appendix ============================= -->
+            <section class="sj-chapter" id="sj-appendix">
+              <div class="sj-chapter-head">
+                <span class="sj-chapter-n">APPENDIX</span>
+                <h3 class="sj-chapter-t">The document as it is stored</h3>
+              </div>
+              <p class="sj-blurb">
+                One profile is one JSON document, and an analyst who would
+                rather paste one should be able to. Validated on save, the
+                same way the chapters are. The first 24 of its 258 lines:
+              </p>
+              <pre class="sj-pre">{
+    "format": 1,
+    "signals": [
+        {
+            "id": "reporting.independent_orgs",
+            "group": "Reporting",
+            "enabled": true,
+            "band": "strong",
+            "trust_weighted": true,
+            "points": {
+                "per_org": 7,
+                "cap": 28
+            },
+            "config": {
+                "named": 4
+            }
+        },
+        {
+            "id": "reporting.published_ratio",
+            "group": "Reporting",
+            "enabled": true,
+            "band": "moderate",
+            "points": {
+                "scale": 9,</pre>
+            </section>
+
+          </div>
+        </div>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-simulate">
+    <div class="vp-board-tag"><span><b>/analystProfiles/simulate/23?value=OC44LjguOA==</b></span><span class="vp-board-q">What would my change do — to this value, and to the values I care about?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Simulate
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Simulate
+              </h1>
+              
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              What this candidate would do, before it is saved. It computes; it writes nothing.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-secondary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-rotate-left"></i>Discard</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save these weights</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+        <div class="sj sj-surround is-reading">
+          <div class="sj-paper">
+
+            <div class="sj-preamble">
+              <p class="sj-kicker">Proposed amendment · nothing is saved</p>
+              <h2 class="sj-title">Three changes, and what they would do</h2>
+              <p class="sj-text">
+                An amendment to <b>Weights I actually use</b>, read against
+                <b>Instance default, galaxies off</b> — the judgement in
+                force. It is scored in memory: nothing here is written, so
+                this page works even on a document you cannot edit.
+              </p>
+            </div>
+
+            <p class="sj-kicker">The amendment</p>
+            <ol class="sj-toc" style="list-style:decimal;margin:.5rem 0 1.75rem;padding-left:1.4rem;
+                       font-family:var(--sj-serif);font-size:1.0625rem;line-height:1.7">
+              <li style="display:list-item">
+                <b>Independent reporting</b> — the cap moves
+                <b>28 → 16</b>, which moves the row. A lowered per-unit
+                weight would not: the signal is saturated at its cap.
+              </li>
+              <li style="display:list-item">
+                <b>Warninglist hit</b> — switched <b>on → off</b>, so its
+                entry vanishes.
+              </li>
+              <li style="display:list-item">
+                <b>Galaxy attribution</b> — switched <b>off → on</b>, so an
+                entry appears.
+              </li>
+            </ol>
+
+            <!-- ---- the two readings ---------------------------- -->
+            <div class="sj-chapter-head" style="margin-top:2rem">
+              <span class="sj-chapter-n">§ 1</span>
+              <h3 class="sj-chapter-t">The reading of 8.8.8.8, before and after</h3>
+            </div>
+
+            <div class="sj-facing">
+              <div class="sj-side">
+                <p class="sj-kicker">As it stands · in force</p>
+                <p class="sj-entry-name">Instance default, galaxies off</p>
+                <div class="sj-quality">4</div>
+                <p class="sj-note" style="margin-top:.1rem">quality, band <b>low</b></p>
+                <ul class="sj-axes">
+                  <li><span class="sj-axis-k">lean</span><b>contested</b></li>
+                  <li><span class="sj-axis-k">relevance</span><b>uncertain</b></li>
+                  <li><span class="sj-axis-k">signals with an entry</span><b>9</b></li>
+                  <li><span class="sj-axis-k">conflict rule</span><b>listed vs asserted</b></li>
+                </ul>
+              </div>
+              <div class="sj-side is-after">
+                <p class="sj-kicker">If you saved this · candidate</p>
+                <p class="sj-entry-name">Weights I actually use</p>
+                <div class="sj-quality">23 <span class="sj-up" style="font-size:1rem">+19</span></div>
+                <p class="sj-note" style="margin-top:.1rem">quality, band <b>low</b> — unchanged</p>
+                <ul class="sj-axes">
+                  <li><span class="sj-axis-k">lean</span><b>contested</b></li>
+                  <li><span class="sj-axis-k">relevance</span><b>uncertain</b></li>
+                  <li><span class="sj-axis-k">signals with an entry</span><b>9</b></li>
+                  <li><span class="sj-axis-k">conflict rule</span><b>listed vs asserted</b></li>
+                </ul>
+              </div>
+            </div>
+
+            <p class="sj-text" style="font-size:1rem;margin-top:.75rem">
+              Only the quality moved: <b>4 → 23</b>. The lean, the band, the
+              relevance and the number of signals that had anything to say
+              are all where they were, and the same conflict rule fires on
+              both sides —
+            </p>
+            <p class="sj-blurb" style="margin:.4rem 0 0;padding-left:1rem;
+                      border-left:3px solid var(--vp-conflict)">
+              “A warninglist marks this as a false positive and 8 of 8
+              organisations report it as a threat regardless. Both
+              judgements are deliberate; the page will not pick one.”
+              <span class="sj-note" style="display:block;margin-top:.2rem">
+                List of known IPv4 public DNS resolvers · 100% of
+                organisations assert it
+              </span>
+            </p>
+
+            <!-- ---- the redline --------------------------------- -->
+            <div class="sj-chapter-head" style="margin-top:2.25rem">
+              <span class="sj-chapter-n">§ 2</span>
+              <h3 class="sj-chapter-t">What moved</h3>
+            </div>
+            <p class="sj-blurb">
+              Every entry in the ledger, marked the way an amended passage
+              is: struck where it goes, underlined where it arrives, ruled
+              in the margin where a figure changed. Three of the ten moved.
+            </p>
+
+            <div class="sj-redline">
+              <div class="sj-rl sj-rl-h">
+                <div></div><div>Entry</div>
+                <div style="text-align:right">In force</div>
+                <div style="text-align:right">Candidate</div>
+                <div style="text-align:right">Moved by</div>
+              </div>
+
+              <div class="sj-rl is-moved">
+                <div class="sj-rl-state">±</div>
+                <div class="sj-rl-sentence">8 independent organisations reported it
+                  <small>Reporting · strong · ADMIN, DECEA, CIRCL, abuse.ch and 4 more</small></div>
+                <div class="sj-rl-n">28</div>
+                <div class="sj-rl-n">16</div>
+                <div class="sj-rl-n sj-down">−12</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">5 of 20 events are published
+                  <small>Reporting · moderate · Published events carry more weight than drafts</small></div>
+                <div class="sj-rl-n">2</div>
+                <div class="sj-rl-n">2</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">53 sightings from 6 orgs, last 12 days ago
+                  <small>Sightings · strong · 15 in the last 30 days</small></div>
+                <div class="sj-rl-n">24</div>
+                <div class="sj-rl-n">24</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">4 false-positive sightings from 3 orgs
+                  <small>Sightings · moderate · ADMIN, CUDESO, abuse.ch</small></div>
+                <div class="sj-rl-n">−20</div>
+                <div class="sj-rl-n">−20</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl is-moved is-appeared">
+                <div class="sj-rl-state">+</div>
+                <div class="sj-rl-sentence"><span class="sj-struck">No galaxy on any occurrence</span>
+                  <small>Attribution · strong · Nobody has attributed this value to an
+                    actor, family or campaign — <b>appeared:</b> the clause was
+                    switched on</small></div>
+                <div class="sj-rl-n sj-flat">—</div>
+                <div class="sj-rl-n">−7</div>
+                <div class="sj-rl-n sj-down">−7</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">The record dates only its own encoding
+                  <small>Lifecycle · weak · no first_seen on any occurrence; encoded
+                    302 days after the event’s own dates</small></div>
+                <div class="sj-rl-n">−12</div>
+                <div class="sj-rl-n">−12</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">Present in 3 enabled feeds
+                  <small>Lifecycle · moderate · CIRCL OSINT Feed, Threatfox, Training Main</small></div>
+                <div class="sj-rl-n">8</div>
+                <div class="sj-rl-n">8</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">4 months without a month of silence
+                  <small>Lifecycle · moderate · Reported in 16 of the 52 months it has existed</small></div>
+                <div class="sj-rl-n">4</div>
+                <div class="sj-rl-n">4</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl">
+                <div class="sj-rl-state">·</div>
+                <div class="sj-rl-sentence">Last reported 6 days ago
+                  <small>Lifecycle · moderate · Recent within 30 days, old past 365</small></div>
+                <div class="sj-rl-n">8</div>
+                <div class="sj-rl-n">8</div>
+                <div class="sj-rl-n sj-flat">—</div>
+              </div>
+
+              <div class="sj-rl is-moved is-vanished">
+                <div class="sj-rl-state">−</div>
+                <div class="sj-rl-sentence"><span class="sj-struck">Hits a known-benign warninglist: List of known
+                  IPv4 public DNS resolvers</span>
+                  <small>Lifecycle · weak · 8 lists checked — <b>vanished:</b> the clause
+                    was switched off</small></div>
+                <div class="sj-rl-n">−38</div>
+                <div class="sj-rl-n sj-flat">—</div>
+                <div class="sj-rl-n sj-up">+38</div>
+              </div>
+
+              <div class="sj-rl is-total">
+                <div></div>
+                <div class="sj-rl-sentence">Ten entries · quality</div>
+                <div class="sj-rl-n">4</div>
+                <div class="sj-rl-n">23</div>
+                <div class="sj-rl-n sj-up">+19</div>
+              </div>
+            </div>
+
+            <p class="sj-figcap" style="margin-top:.65rem">
+              <b>Each column adds up to the quality printed under it.</b>
+              Ten entries, nine figures in each column:
+              28 + 2 + 24 − 20 − 12 + 8 + 4 + 8 − 38 = <b>4</b>, and
+              16 + 2 + 24 − 20 − 7 − 12 + 8 + 4 + 8 = <b>23</b>. Nothing is
+              normalised anywhere in this feature, which is the only reason
+              a diff of two ledgers is arithmetic you can check by hand.
+              Neither side had anything it could not count. Colour names the
+              direction a figure moved — <span class="sj-up">with</span> the
+              quality or <span class="sj-down">against</span> it — and not
+              whether the change is right. That is yours to decide.
+            </p>
+
+            <!-- ---- the empty diff ------------------------------ -->
+            <div class="sj-alt" style="margin-top:1.75rem">
+              <p class="sj-kicker">And if you changed nothing</p>
+              <p class="sj-lead">Nothing moved.</p>
+              <p class="sj-text" style="font-size:1rem">
+                Nine entries, none of them different: both readings are
+                <b>4</b>, the band is <b>low</b> on both sides, and there is
+                nothing here to save. The page says so in a sentence rather
+                than showing you an empty table and letting you wonder
+                whether it failed.
+              </p>
+              <p class="sj-note">
+                reporting.independent_orgs · reporting.published_ratio ·
+                sightings.volume_recency · sightings.false_positive ·
+                record.temporal_precision · lifecycle.warninglist ·
+                lifecycle.feeds · lifecycle.continuity · lifecycle.recency
+                — all unchanged.
+              </p>
+            </div>
+
+            <!-- ---- the comparison set -------------------------- -->
+            <div class="sj-chapter-head" style="margin-top:2.25rem">
+              <span class="sj-chapter-n">§ 3</span>
+              <h3 class="sj-chapter-t">The values you keep an eye on</h3>
+            </div>
+            <p class="sj-blurb">
+              Four pinned values, each read under both documents, so a
+              change that quietly turned a known-benign value malicious is
+              visible without opening four pages.
+            </p>
+
+            <div class="sj-cmp" style="border-top:1px solid var(--bs-body-color);
+                       font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;
+                       color:var(--bs-secondary-color);font-weight:700">
+              <div>Value</div><div>What would change</div><div style="text-align:right">Direction</div>
+            </div>
+
+            <div class="sj-cmp">
+              <div class="sj-cmp-v">8.8.8.8</div>
+              <div class="sj-cmp-s">
+                Contested either way. Quality <b>4 → 23</b>; the band stays
+                <b>low</b>, and nine signals have an entry on both sides.
+              </div>
+              <div class="sj-cmp-d sj-up">▲ up</div>
+            </div>
+
+            <div class="sj-cmp">
+              <div class="sj-cmp-v">185.234.219.24</div>
+              <div class="sj-cmp-s">
+                <b>Nothing to assess.</b> No signal has an entry on either
+                side, so there is no lean, no quality and no band — the
+                honest reading of a value this instance’s rows and your
+                permissions give nothing for. Quality <b>0 → 0</b>.
+              </div>
+              <div class="sj-cmp-d sj-flat">— none</div>
+            </div>
+
+            <div class="sj-cmp">
+              <div class="sj-cmp-v">45.155.205.233</div>
+              <div class="sj-cmp-s">
+                Read as a <b>threat</b> today; <b>contested</b> under the
+                amendment. Quality <b>11 → −2</b>, band still <b>low</b>,
+                relevance <i>expired · uncertain</i>, eight entries either
+                way.
+              </div>
+              <div class="sj-cmp-d sj-down">▼ down</div>
+            </div>
+
+            <div class="sj-cmp">
+              <div class="sj-cmp-v">1.1.1.1</div>
+              <div class="sj-cmp-s">
+                Contested either way. Quality <b>15 → 34</b> — and this one
+                <b>changes band, low → medium</b>. Relevance
+                <i>expired · uncertain</i>, nine entries either way.
+              </div>
+              <div class="sj-cmp-d sj-up">▲ up</div>
+            </div>
+
+            <div class="sj-alt" style="margin-top:1.5rem">
+              <p class="sj-kicker">What a new analyst sees here</p>
+              <p class="sj-lead">Nothing pinned yet.</p>
+              <p class="sj-text" style="font-size:1rem">
+                Pin a value from its own page and its two columns appear
+                here — one under the judgement in force, one under whatever
+                you are proposing. An instruction, because an empty table
+                would read as a page that had failed.
+              </p>
+            </div>
+
+            <!-- ---- the candidate's ceiling and the cost -------- -->
+            <div class="sj-chapter-head" style="margin-top:2.25rem">
+              <span class="sj-chapter-n">§ 4</span>
+              <h3 class="sj-chapter-t">What the amendment does to the scale itself</h3>
+            </div>
+
+            <div class="sj-figure">
+              <div class="sj-track">
+                <div class="sj-bar sj-bar-low" style="left:0;width:27.027%"><span>low 0–30</span></div>
+                <div class="sj-bar sj-bar-med" style="left:27.027%;width:27.027%"><span>medium 30–60</span></div>
+                <div class="sj-bar sj-bar-high" style="left:54.054%;width:45.946%"><span>high 60–111</span></div>
+              </div>
+              <div class="sj-scale">
+                <span class="sj-s0" style="left:0">0</span>
+                <span style="left:27.027%">30</span>
+                <span style="left:54.054%">60</span>
+                <span class="sj-s1" style="left:100%">111 ceiling</span>
+              </div>
+              <p class="sj-figcap">
+                <b>Figure 3 — the candidate’s bands.</b> Under the
+                amendment ten signals can contribute, and the most they
+                could sum to is <b>111</b>. High still begins at 60, so the
+                strip is sound; the save has nothing to refuse.
+              </p>
+            </div>
+
+            <p class="sj-note">
+              This simulation cost <b>one</b> context build, because the
+              candidate and the judgement in force exclude the same
+              evidence. A candidate that changed chapter 4 would cost two —
+              exclusions decide which rows the engine sees at all, so both
+              sides have to be gathered again and the entry counts
+              themselves differ.
+            </p>
+
+          </div>
+        </div>
+        </div>
+  </div>
+
+  <section class="vp-doc-head" style="border:0;margin-top:1rem">
+    <h2 class="h5">What this candidate gives up</h2>
+    <div class="sj" style="max-width:62rem">
+      <p class="vp-doc-sub" style="max-width:62rem">
+        <b>The direction.</b> A profile is somebody’s stated judgement, and
+        an org profile has readers who did not write it — a colleague
+        deciding whether to fork it, an auditor asking why a value scored
+        84. So it is a document: chapters, numbered clauses you can cite,
+        marginal notes, schedules for the things that are maps rather than
+        sentences, errata for what the loader refused, and an amendment for
+        the simulator. There is no second form anywhere; the numbers inside
+        the sentences <i>are</i> the form, and <b>Reading</b> is the same
+        document with them turned back into what they say.
+      </p>
+      <p class="vp-doc-sub" style="max-width:62rem">
+        <b>The risk it had to survive</b> is that eleven signals as eleven
+        sentences is a lot of prose to scan, and an analyst who wants to
+        change one number should not have to read a paragraph to find it.
+        Four devices answer it, and they are the design rather than
+        decoration: a <b>right-aligned subject gutter</b>, so the eye scans
+        twelve subjects and not twelve sentences; <b>figures as the only
+        monospace thing on a serif page</b>, so the number is what the eye
+        lands on inside a clause; a <b>contents with dot leaders</b>
+        carrying the figure each clause produced, which is a one-click jump
+        to the number you came for; and <b>change bars</b> ruling the four
+        clauses that depart from the shipped default, so “what did this
+        author actually change” is one scan of the left edge and not a read.
+      </p>
+      <p class="vp-doc-sub" style="max-width:62rem">
+        <b>What it gives up.</b> Density: twelve clauses and their prose
+        take about three screens where a table would take one, and a reader
+        who already thinks in the ledger is being shown a paragraph they did
+        not need. And <b>a dropped-in signal has no sentence</b> — clause
+        1.2 is exactly that case, a signal this instance does not implement
+        whose <code>per_partner</code> and <code>cap</code> no version here
+        can label, so its sentence degrades to the bare keys and their
+        figures. Every future custom signal costs a hand-written line, or
+        gets that fallback. That is the price of the bet.
+      </p>
+      <p class="vp-doc-sub" style="max-width:62rem">
+        <b>Two states in the fixtures were synthesised by the dump</b>, and
+        it says so: this instance has no drop-in signals, so the
+        <span class="sj-badge is-custom">custom</span> badge on clause 1.9
+        is written onto a shipped row, and it has no broken files, so the
+        three errata are written from the loader’s own three refusal
+        reasons. Which clause carries the badge is arbitrary; that a design
+        must render it is not.
+      </p>
+      <p class="vp-doc-sub" style="max-width:62rem">
+        <b>Where the fixtures disagree with each other</b>, and what was
+        drawn instead: <code>profile.json</code>, <code>simulate.json</code>
+        and <code>index.json</code> all describe profile 23 /
+        <code>6e2679bc…</code> at version 4, revision 37, under three
+        different names — <i>default-v1</i>, <i>Weights I actually use</i>
+        and <i>Instance default, galaxies off</i> — and with three
+        different ledgers on 8.8.8.8 (the edit board’s clauses sum to −6;
+        the simulator’s two columns are 4 and 23). Each board here is
+        therefore drawn from one fixture and named as that fixture names it;
+        no figure is carried across. <code>palette.json</code> documents
+        three signal states but holds no <code>available</code> one, so this
+        chapter has nothing to offer as an addition and says so instead of
+        drawing an empty picker.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+    var root = document.documentElement;
+
+    /*
+     * Theme bridge. Artifacts stamp data-theme on the root element and
+     * otherwise leave it to prefers-color-scheme; MISP switches on
+     * data-bs-theme. Mirror one onto the other so a candidate follows
+     * the reader's theme in MISP's own palette rather than a second one.
+     */
+    function applyTheme() {
+        var t = root.getAttribute('data-theme');
+        if (!t) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark' : 'light';
+        }
+        root.setAttribute('data-bs-theme', t);
+    }
+    applyTheme();
+    new MutationObserver(applyTheme).observe(root, {
+        attributes: true, attributeFilter: ['data-theme']
+    });
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', applyTheme);
+    } catch (e) { /* older engines: the stamped attribute still works */ }
+})();
+</script>
+
+<script>
+/*
+ * view/:id is edit/:id with the inputs replaced by their values, so it is
+ * one class on the document rather than a second page. The only script in
+ * this candidate; the numbers are fixtures and nothing here computes.
+ */
+(function () {
+    var doc = document.getElementById('sj-edit');
+    if (!doc) { return; }
+    var buttons = doc.querySelectorAll('[data-sj-mode]');
+    Array.prototype.forEach.call(buttons, function (b) {
+        b.addEventListener('click', function () {
+            doc.classList.toggle('is-reading',
+                b.getAttribute('data-sj-mode') === 'read');
+            Array.prototype.forEach.call(buttons, function (o) {
+                o.classList.toggle('is-on', o === b);
+            });
+        });
+    });
+})();
+</script>

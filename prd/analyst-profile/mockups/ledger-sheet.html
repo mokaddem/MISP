@@ -1,0 +1,1909 @@
+<title>The Ledger Sheet</title>
+
+<!--
+    Phase 8b candidate A — THE LEDGER SHEET.
+    prd/analyst-profile/09b-prototypes.md §4 A.
+
+    Everything is one table and the numbers are the design. One row
+    per signal; weight, band and the points map are columns; the
+    contribution this profile produced on 8.8.8.8 is another column,
+    and it adds up — by group, then to the foot. The simulator is
+    not a separate place: it is two more columns and a delta on the
+    same sheet. Sections that are maps rather than lists become
+    supporting SCHEDULES, which is what a ledger has always done
+    with a line that is itself a breakdown.
+
+    Built from prd/analyst-profile/09a-fixtures/ — every figure,
+    subtotal and total is computed from those files, not typed.
+
+        python3 prd/phase7/kit/inline-kit.py \
+            prd/analyst-profile/mockups/ledger-sheet.html
+        bash prd/analyst-profile/mockups/check-mockup.sh \
+            prd/analyst-profile/build/ledger-sheet.html
+-->
+<!-- vp-kit -->
+
+<style>
+/* ==================================================================
+ * The frame. One navbar, three boards, at a pinned page width so a
+ * candidate is judged at the size it would really have.
+ * ================================================================== */
+
+:root {
+    /*
+     * MISP's content is `container-fluid`, so the column is a share of
+     * the window rather than a fixed width. 1600px is where phase 7
+     * measured its geometry; 1280px is the width §7 of the brief asks a
+     * candidate to still work at — switch this and re-read before
+     * publishing.
+     */
+    --vp-page: 1600px;
+    --vp-board-gap: 3.5rem;
+}
+
+body {
+    margin: 0;
+    background: var(--bs-body-bg, #f8f9fa);
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-doc {
+    max-width: var(--vp-page);
+    margin: 0 auto;
+    padding: 0 0 4rem;
+}
+
+/*
+ * The navbar sits back: it is context, not the thing being judged.
+ * Real markup rather than an approximation, so a candidate is read
+ * inside the navigation it would really have.
+ */
+.vp-doc-chrome {
+    opacity: .5;
+    pointer-events: none;
+    filter: saturate(.55);
+}
+
+.vp-doc-chrome .navbar {
+    position: static !important;
+}
+
+.vp-doc-head {
+    padding: 1.5rem 1rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    margin-bottom: var(--vp-board-gap);
+}
+
+.vp-doc-head h1 {
+    font-size: 1.5rem;
+    margin: 0 0 .35rem;
+}
+
+.vp-doc-sub {
+    color: var(--bs-secondary-color, #6c757d);
+    margin: 0;
+    max-width: 62rem;
+}
+
+.vp-doc-jump {
+    margin-top: .75rem;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.vp-doc-jump a {
+    font-size: .8125rem;
+    padding: .15rem .6rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* One board: a labelled slab holding one page of the candidate. */
+.vp-board {
+    margin: 0 1rem var(--vp-board-gap);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .5rem;
+    overflow: hidden;
+    background: var(--bs-body-bg, #fff);
+}
+
+.vp-board-tag {
+    font: 600 .75rem/1.4 var(--bs-font-monospace, ui-monospace, monospace);
+    letter-spacing: .03em;
+    padding: .5rem .85rem;
+    background: var(--bs-tertiary-bg, #f1f3f5);
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    color: var(--bs-secondary-color, #6c757d);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.vp-board-tag b {
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-board-tag .vp-board-q {
+    font-family: var(--bs-font-sans-serif, system-ui);
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Skeleton primitives, for the parts a board legitimately elides. */
+.sk {
+    display: inline-block;
+    width: var(--sk-w, 100%);
+    height: var(--sk-h, .85rem);
+    border-radius: .25rem;
+    background: var(--bs-secondary-bg, #e9ecef);
+}
+
+.sk-dim { opacity: .55; }
+.sk-line { display: block; margin: .3rem 0; }
+.sk-block { --sk-h: 6rem; display: block; }
+</style>
+
+<style>
+/* ==================================================================
+ * Candidate A — THE LEDGER SHEET.
+ *
+ * One idiom for all three boards: a ruled sheet. Hairlines between
+ * rows, a heavier rule between the figure columns and the prose, a
+ * single rule above a subtotal and an accountant's double rule under a
+ * total. Figures are monospace and tabular so a column can be added by
+ * eye; keys reach their values on a dotted leader, which is what lets
+ * a `points` map with different keys on every row live in one column.
+ *
+ * Colour does exactly one job: the direction of a figure, through
+ * --vp-dir-with / --vp-dir-against (the value page's own pair). Bands,
+ * states and badges are carried by ruling and small caps instead, so
+ * nothing on the sheet asserts good or bad where the analyst is the
+ * one deciding.
+ * ================================================================== */
+
+.led {
+    --led-rule: color-mix(in srgb, var(--bs-body-color) 32%, transparent);
+    --led-hair: color-mix(in srgb, var(--bs-body-color) 13%, transparent);
+    --led-wash: color-mix(in srgb, var(--bs-body-color) 4%, transparent);
+    --led-dim: var(--bs-secondary-color, #6c757d);
+    --led-with: var(--vp-dir-with);
+    --led-against: var(--vp-dir-against);
+    /* the text tone of each direction, from the same kit block */
+    --led-with-ink: var(--vp-mal-ink);
+    --led-against-ink: var(--vp-ben-ink);
+    --led-mono: var(--bs-font-monospace, ui-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+    padding: .35rem 0 2.5rem;
+}
+
+/* ---- sheet captions ------------------------------------------- */
+.led-sheet { margin-top: 2.4rem; }
+.led-sheet:first-of-type { margin-top: 1rem; }
+
+.led-cap {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+    font-family: var(--led-mono);
+    font-size: .69rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--led-dim);
+}
+
+.led-cap b {
+    color: var(--bs-body-color);
+    font-weight: 700;
+    letter-spacing: .1em;
+}
+
+.led-folio {
+    font-family: var(--led-mono);
+    font-size: .67rem;
+    letter-spacing: .06em;
+    text-transform: none;
+    color: var(--led-dim);
+    white-space: nowrap;
+}
+
+.led-lead {
+    flex: 1 1 1.5rem;
+    min-width: .75rem;
+    border-bottom: 1px dotted var(--led-rule);
+    position: relative;
+    top: -.25em;
+}
+
+.led-note {
+    font-size: .8125rem;
+    line-height: 1.5;
+    color: var(--led-dim);
+    margin: .4rem 0 .6rem;
+    max-width: 88ch;
+}
+
+.led-note b { color: var(--bs-body-color); font-weight: 600; }
+.led-note code, .led-foot code { font-size: .95em; }
+
+.led-foot {
+    font-size: .78rem;
+    line-height: 1.55;
+    color: var(--led-dim);
+    margin: .55rem 0 0;
+    max-width: 100ch;
+}
+
+.led-foot b { color: var(--bs-body-color); }
+
+/* ---- the sheet itself ----------------------------------------- */
+.led-scroll { overflow-x: auto; }
+
+table.led-t {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .8125rem;
+    margin: 0;
+}
+
+.led-t th {
+    text-align: left;
+    font-weight: 600;
+    font-size: .655rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--led-dim);
+    padding: .3rem .5rem;
+    border-bottom: 1px solid var(--led-rule);
+    vertical-align: bottom;
+    white-space: nowrap;
+}
+
+.led-t td {
+    padding: .4rem .5rem;
+    border-bottom: 1px solid var(--led-hair);
+    vertical-align: top;
+    line-height: 1.4;
+}
+
+.led-t tbody tr:hover > td { background: var(--led-wash); }
+
+.led-t .n {
+    width: 2.1rem;
+    text-align: right;
+    font-family: var(--led-mono);
+    font-size: .72rem;
+    color: var(--led-dim);
+    white-space: nowrap;
+    padding-right: .55rem;
+}
+
+.led-t .fig, .led-t th.fig {
+    text-align: right;
+    font-family: var(--led-mono);
+    white-space: nowrap;
+}
+
+.led-t .rl { border-left: 1px solid var(--led-hair); }
+.led-t th.rl { border-left: 1px solid var(--led-rule); }
+.led-t-tight td, .led-t-tight th { padding: .28rem .45rem; }
+
+.led-id {
+    font-family: var(--led-mono);
+    font-size: .78rem;
+    word-break: break-word;
+}
+
+.led-sub {
+    color: var(--led-dim);
+    font-size: .745rem;
+    line-height: 1.45;
+}
+
+.led-ev { font-style: italic; }
+.led-acts a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--led-rule); }
+.led-acts a:hover { color: var(--bs-primary); border-bottom-color: var(--bs-primary); }
+
+/* group heads, subtotals, the grand total ------------------------ */
+.led-grp > td {
+    background: color-mix(in srgb, var(--bs-body-color) 7%, transparent);
+    border-bottom: 1px solid var(--led-rule);
+    font-family: var(--led-mono);
+    font-size: .665rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--bs-body-color);
+    padding-top: .4rem;
+    padding-bottom: .35rem;
+}
+
+.led-st > td {
+    border-top: 1px solid var(--led-rule);
+    border-bottom: 1px solid var(--led-hair);
+    font-family: var(--led-mono);
+    font-size: .72rem;
+    color: var(--led-dim);
+    letter-spacing: .03em;
+}
+
+.led-st .fig { color: var(--bs-body-color); }
+
+.led-total > td {
+    border-top: 1px solid var(--led-rule);
+    border-bottom: 3px double var(--led-rule);
+    font-family: var(--led-mono);
+    font-weight: 700;
+    font-size: .82rem;
+    padding-top: .45rem;
+    padding-bottom: .45rem;
+}
+
+.led-nil > td { color: var(--led-dim); }
+.led-inforce > td { background: color-mix(in srgb, var(--bs-primary) 6%, transparent); }
+
+.led-stamp > td {
+    text-align: center;
+    font-family: var(--led-mono);
+    font-size: .71rem;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--led-dim);
+    background: var(--led-wash);
+    border-top: 1px solid var(--led-rule);
+    border-bottom: 1px solid var(--led-rule);
+    padding: .85rem .5rem;
+}
+
+.led-quiet { opacity: .92; }
+
+/* ---- direction ------------------------------------------------- */
+.led-up { color: var(--led-with-ink); }
+.led-down { color: var(--led-against-ink); }
+.led-flat { color: var(--led-dim); }
+
+/* ---- markers, in small caps rather than pills ------------------- */
+.led-mk {
+    display: inline-block;
+    font-family: var(--led-mono);
+    font-size: .615rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    line-height: 1.5;
+    padding: 0 .3rem;
+    border: 1px solid var(--led-rule);
+    color: var(--led-dim);
+    white-space: nowrap;
+    vertical-align: 1px;
+}
+
+.led-mk.on {
+    border-color: color-mix(in srgb, var(--led-with) 55%, transparent);
+    color: var(--led-with-ink);
+}
+
+.led-mk.ok2 {
+    border-color: color-mix(in srgb, var(--led-against) 55%, transparent);
+    color: var(--led-against-ink);
+}
+
+.led-mk.warn {
+    border-color: var(--vp-conflict);
+    color: var(--vp-conflict-ink);
+}
+
+/* the standing of a line, said without spending a colour on it */
+.led-mk.strong {
+    border-color: var(--bs-body-color);
+    background: var(--bs-body-color);
+    color: var(--bs-body-bg);
+    font-weight: 700;
+}
+
+/* ---- the variable-shape points map ----------------------------- */
+.led-kv {
+    margin: 0;
+    font-family: var(--led-mono);
+    font-size: .75rem;
+    min-width: 10.5rem;
+}
+
+.led-kv .kv { display: flex; align-items: baseline; gap: .3rem; }
+.led-kv .k { color: var(--led-dim); white-space: nowrap; }
+.led-kv .v { white-space: nowrap; }
+.led-kv .kv .led-lead { flex: 1 1 .75rem; }
+
+.led-kv-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.6rem;
+    min-width: 0;
+}
+
+.led-kv-row .kv { flex: 0 1 auto; min-width: 9rem; }
+
+.led-off {
+    color: var(--vp-conflict-ink);
+    font-size: .8em;
+    padding-left: .15rem;
+    cursor: help;
+}
+
+/* ---- editing happens in the cells ------------------------------ */
+.led-in {
+    font: inherit;
+    font-family: var(--led-mono);
+    font-size: .75rem;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dotted var(--led-rule);
+    border-radius: 0;
+    padding: 0 .12rem;
+    text-align: right;
+    min-width: 2.4rem;
+}
+
+.led-in:hover { background: color-mix(in srgb, var(--bs-primary) 12%, transparent); }
+
+.led-in:focus {
+    outline: 0;
+    border-bottom: 1px solid var(--bs-primary);
+    background: color-mix(in srgb, var(--bs-primary) 14%, transparent);
+}
+
+.led-sel {
+    font: inherit;
+    font-size: .75rem;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px dotted var(--led-rule);
+    border-radius: 0;
+    padding: 0 .1rem;
+    max-width: 100%;
+}
+
+.led-sel:hover, .led-sel:focus {
+    outline: 0;
+    background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
+}
+
+.led-ck { accent-color: var(--bs-primary); vertical-align: -.1em; }
+
+/* ---- the add affordance, as a ruled blank line ------------------ */
+.led-addline {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    font-size: .78rem;
+    color: var(--led-dim);
+    padding: .45rem .5rem .45rem 2.6rem;
+    border-bottom: 1px solid var(--led-hair);
+    cursor: pointer;
+}
+
+.led-addline:hover { background: var(--led-wash); color: var(--bs-body-color); }
+
+.led-plus {
+    font-family: var(--led-mono);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+
+/* ---- standfirst: the one thing the board answers first ---------- */
+.led-standfirst {
+    border-top: 2px solid var(--bs-body-color);
+    border-bottom: 1px solid var(--led-rule);
+    padding: .5rem 0 .6rem;
+    margin-bottom: .5rem;
+}
+
+.led-standfirst-tight { border-top-width: 1px; }
+
+.led-standfirst-name {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin: .15rem 0 .4rem;
+}
+
+/* ---- schedules: a map is not a list, so it gets its own sheet --- */
+.led-schedule {
+    margin-top: 1.4rem;
+    padding-left: .9rem;
+    border-left: 1px solid var(--led-rule);
+}
+
+.led-bank {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0 2.2rem;
+    align-items: start;
+}
+
+.led-bank-2 { grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); }
+.led-versus { gap: 0 2.5rem; }
+
+.led-base {
+    display: flex;
+    align-items: baseline;
+    gap: .4rem;
+    font-family: var(--led-mono);
+    font-size: .8rem;
+    padding: .3rem .5rem;
+    border-top: 1px solid var(--led-rule);
+    border-bottom: 1px solid var(--led-rule);
+    margin-bottom: .5rem;
+}
+
+/* ---- the band strip -------------------------------------------- */
+.led-stripwrap { margin: .3rem 0 1.5rem; }
+
+.led-strip-head {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    font-family: var(--led-mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--led-dim);
+}
+
+.led-strip-head b { color: var(--bs-body-color); }
+
+.led-strip-label {
+    font-family: var(--led-mono);
+    font-size: .67rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-top: 1.2rem;
+}
+
+.led-strip { position: relative; height: 2.5rem; margin-top: .45rem; }
+
+.led-strip-track {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1.2rem;
+    border: 1px solid var(--led-rule);
+}
+
+.led-seg {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-right: 1px solid var(--led-rule);
+    font-family: var(--led-mono);
+    font-size: .6rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--led-dim);
+    line-height: 1.2rem;
+    padding-left: .3rem;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.led-seg-low { background: color-mix(in srgb, var(--bs-body-color) 5%, transparent); }
+.led-seg-med { background: color-mix(in srgb, var(--bs-body-color) 12%, transparent); }
+.led-seg-high { background: color-mix(in srgb, var(--bs-body-color) 21%, transparent); }
+
+.led-over {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    border-left: 1px dashed var(--vp-conflict);
+    background: repeating-linear-gradient(45deg,
+        transparent 0 3px, var(--led-hair) 3px 6px);
+}
+
+.led-tick {
+    position: absolute;
+    top: 1.2rem;
+    height: .4rem;
+    border-left: 1px solid var(--led-rule);
+}
+
+.led-tlab {
+    position: absolute;
+    top: 1.7rem;
+    font-family: var(--led-mono);
+    font-size: .655rem;
+    color: var(--led-dim);
+    white-space: nowrap;
+}
+
+.led-strip.bad .led-strip-track { border-color: var(--vp-conflict); }
+
+.led-refuse {
+    font-size: .78rem;
+    margin: .1rem 0 0;
+    display: flex;
+    gap: .5rem;
+    align-items: baseline;
+}
+
+/* ---- the raw document ------------------------------------------ */
+.led-raw { border-top: 1px solid var(--led-rule); }
+
+.led-raw > summary {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    list-style: none;
+    cursor: pointer;
+    padding: .45rem .5rem;
+    font-size: .8rem;
+    color: var(--led-dim);
+    border-bottom: 1px solid var(--led-hair);
+}
+
+.led-raw > summary::-webkit-details-marker { display: none; }
+.led-raw > summary:hover { background: var(--led-wash); }
+
+.led-pre {
+    font-family: var(--led-mono);
+    font-size: .72rem;
+    line-height: 1.5;
+    max-height: 26rem;
+    overflow: auto;
+    margin: .5rem 0 0;
+    padding: .6rem .8rem;
+    border: 1px solid var(--led-hair);
+    background: var(--led-wash);
+    color: var(--bs-body-color);
+    white-space: pre;
+}
+
+/* ---- 1280px: the sheet keeps its columns, the prose gives way --- */
+@media (max-width: 1400px) {
+    .led-t { font-size: .78rem; }
+    .led-note, .led-foot { max-width: 74ch; }
+}
+
+</style>
+
+<div class="vp-doc">
+
+  <div class="vp-doc-chrome">
+<header>
+            <nav class="navbar navbar-expand-xl navbar-dark fixed-top shadow-sm" style="background-color: #28191B;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">
+                    </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse justify-content-between" id="mainNavbar">
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-clipboard-list fa-fw"></i>
+        <span>Data points</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-attribute misp-simple fa-fw"></i>
+        <span>Attributes</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-fingerprint fa-fw"></i>
+        <span>Value Profile</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-folder fa-fw"></i>
+        <span>Collections</span>
+</div>                        </a>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-report misp-simple fa-fw"></i>
+        <span>Event Reports</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-scroll fa-fw"></i>
+        <span>Template Variables</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chart-bar fa-fw"></i>
+        <span>Analyst Data</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-comment-dots fa-fw"></i>
+        <span>Proposals</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events with Proposals</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-handshake fa-fw"></i>
+        <span>Delegation Requests</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chalkboard-user fa-fw"></i>
+        <span>Dashboard</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-database fa-fw"></i>
+        <span>Data models</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>Tags &amp; Taxonomies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>List Tags</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tags fa-fw"></i>
+        <span>List Tag Collections</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-taxonomy misp-simple fa-fw"></i>
+        <span>List Taxonomies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>Galaxies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>List Galaxies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>List Galaxy Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-hourglass-half fa-fw"></i>
+        <span>Decaying Models</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-file-code fa-fw"></i>
+        <span>Templates</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>List Event Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-object misp-simple fa-fw"></i>
+        <span>List Object Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cubes fa-fw"></i>
+        <span>List Object Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-list-alt fa-fw"></i>
+        <span>Filters &amp; Lists</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-exclamation-triangle fa-fw"></i>
+        <span>Warninglists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-info-circle fa-fw"></i>
+        <span>Noticelists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>Import Regexp</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-check-circle fa-fw"></i>
+        <span>Signature Allowedlist</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-filter fa-fw"></i>
+        <span>Correlation Exclusions</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-rotate fa-fw"></i>
+        <span>Sync</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Servers &amp; Feeds</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Remote Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-rss fa-fw"></i>
+        <span>Feeds</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-sharing-group misp-simple fa-fw"></i>
+        <span>Sharing Groups</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>List Sharing Groups</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-drafting-compass fa-fw"></i>
+        <span>List Sharing Group Blueprints</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-plug fa-fw"></i>
+        <span>Integrations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users fa-fw"></i>
+        <span>Communities</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-network-wired fa-fw"></i>
+        <span>Cerebrates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cloud fa-fw"></i>
+        <span>TAXII Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-sighting misp-simple fa-fw"></i>
+        <span>Sighting DB</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-exchange-alt fa-fw"></i>
+        <span>Event ID Translator</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-tools fa-fw"></i>
+        <span>Administration</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-gears fa-fw"></i>
+        <span>Server Settings &amp; Maintenance</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-building-user fa-fw"></i>
+        <span>Users &amp; Orgs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-user2 misp-simple fa-fw"></i>
+        <span>List Users</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-sliders fa-fw"></i>
+        <span>User Settings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-organisation misp-simple fa-fw"></i>
+        <span>List Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-user-tag fa-fw"></i>
+        <span>Roles &amp; Permissions</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users-line fa-fw"></i>
+        <span>List Roles</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-key fa-fw"></i>
+        <span>List Auth Keys</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-helmet-safety fa-fw"></i>
+        <span>System jobs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>Workflow</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tasks fa-fw"></i>
+        <span>Jobs</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-clock fa-fw"></i>
+        <span>Scheduled Tasks</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-gauge fa-fw"></i>
+        <span>Benchmarking</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-ban fa-fw"></i>
+        <span>Blocklisting</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-file-circle-exclamation fa-fw"></i>
+        <span>Blocklist Event</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-building-circle-exclamation fa-fw"></i>
+        <span>Blocklists Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-heart-circle-exclamation fa-fw"></i>
+        <span>Blocklists Sightings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-circle-nodes fa-fw"></i>
+        <span>Correlations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-ranking-star fa-fw"></i>
+        <span>Top correlations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-comment-nodes fa-fw"></i>
+        <span>Correlations rules</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-hexagon-nodes-bolt fa-fw"></i>
+        <span>Over-correlating values</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-history fa-fw"></i>
+        <span>Logs</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-alt fa-fw"></i>
+        <span>Application logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-contract fa-fw"></i>
+        <span>Audit logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-pen fa-fw"></i>
+        <span>Access logs</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>API</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-book-open fa-fw"></i>
+        <span>Open API</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-terminal fa-fw"></i>
+        <span>REST Client</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-robot fa-fw"></i>
+        <span>Automation</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-export fa-fw"></i>
+        <span>Export</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-circle-info fa-fw"></i>
+        <span>Resources</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-address-book fa-fw"></i>
+        <span>User Guide</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-table-list fa-fw"></i>
+        <span>Categories &amp; Types</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-palette fa-fw"></i>
+        <span>Themes</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Default">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Default UI                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">The classic MISP interface.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Overmind">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Overmind UI                                                    </div>
+                                                    <span class="badge bg-success ms-2">
+                                                        ON                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">[DEV] Overmind UI is a new user interface for MISP, designed to be more modern and user-friendly. It is currently in development and is not yet ready for production use.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="UiBeta">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Insight UI (beta)                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">Beta UI focusing on context and discovery. Currently reworks Event List, Event View, Event Collections.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-star fa-fw"></i>
+        <span>Bookmarks</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+        <span>Events - MISP</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item set-homepage" href="#">
+                            <div>
+            <i class="fas fa-home fa-fw"></i>
+        <span>Set this page as homepage</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-cog fa-fw"></i>
+        <span>Manage Bookmarks</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+     
+                <span>Admin</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item toggle-dark-mode" href="#">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <div>
+                                    <i class="fas fa-moon fa-fw dark-mode-icon"></i>
+                                    <span>Dark mode</span>
+                                </div>
+                                <span class="badge bg-secondary dark-mode-badge ms-2">OFF</span>
+                            </div>
+                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-user3 misp-simple fa-fw"></i>
+        <span>My Profile</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-right-from-bracket fa-fw"></i>
+        <span>Log out</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+        </div>
+    </div>
+</nav>
+ 
+
+        </header>
+  </div>
+
+  <header class="vp-doc-head">
+    <h1>Candidate A — the ledger sheet</h1>
+    <p class="vp-doc-sub">
+      <b>Everything is one table and the numbers are the design.</b>
+      One ruled sheet per board, one line per signal, figures in a
+      monospace column that adds up — by group, then to the foot —
+      because the exact-sum invariant is the whole reason this
+      feature can show its work. Nothing is normalised anywhere in
+      it, so a column that visibly adds up is not a metaphor for the
+      score; it is the score. Every figure below comes from
+      <code>prd/analyst-profile/09a-fixtures/</code>, and every
+      subtotal was computed from those files rather than typed.
+    </p>
+    <div class="vp-doc-jump">
+      <a href="#board-index">Index</a>
+      <a href="#board-edit">Edit</a>
+      <a href="#board-simulate">Simulate</a>
+    </div>
+  </header>
+
+  <div class="vp-board" id="board-index">
+    <div class="vp-board-tag"><span><b>/analystProfiles/index</b></span><span class="vp-board-q">Which profile is weighting my pages, and why is it not the one I just forked?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Index
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Analyst Profiles
+              </h1>
+              <span class="badge rounded-pill bg-primary fw-semibold px-3">3</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              The judgements the value assessment is computed from. Exactly one is in force for you.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-file-import"></i>Import</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+<div class="led"><div class="led-standfirst"><div class="led-cap"><span>in force for you</span><span class="led-lead"></span><span class="led-folio">index.in_force</span></div><div class="led-standfirst-name">Sightings-heavy (experiment)</div><div class="led-kv led-kv-row"><div class="kv"><span class="k">owner</span><span class="led-lead"></span><span class="v">You</span></div><div class="kv"><span class="k">id</span><span class="led-lead"></span><span class="v">52</span></div><div class="kv"><span class="k">uuid</span><span class="led-lead"></span><span class="v"><span class="led-id">6449f5a4-5950-4115-a4aa-7451fdb99407</span></span></div><div class="kv"><span class="k">version</span><span class="led-lead"></span><span class="v">1</span></div><div class="kv"><span class="k">revision</span><span class="led-lead"></span><span class="v">1</span></div><div class="kv"><span class="k">signals</span><span class="led-lead"></span><span class="v">11&#8202;/&#8202;11</span></div><div class="kv"><span class="k">modified</span><span class="led-lead"></span><span class="v">2026-09-07 18:48:49</span></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 1</span><b>profiles, and the standing of each</b><span class="led-lead"></span><span class="led-folio">index.profiles[]</span></div><p class="led-note">One line per profile. The column that matters is <b>standing</b>: exactly one profile applies to a reader, and a line that is not the one in force says on its own line why not &mdash; disabled, or beaten, naming the profile that beat it and its line number.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Profile</th><th>Owner</th><th class="rl">Standing &mdash; and why</th><th class="fig rl">Signals</th><th class="fig">Ver</th><th class="fig">Rev</th><th class="fig">Modified</th><th class="rl">Actions</th></tr></thead><tbody><tr class="led-inforce"><td class="n">01</td><td><span class="led-id">Sightings-heavy (experiment)</span><div class="led-sub">Forked from “default-v1” on 2026-09-07&hellip;</div></td><td class="led-sub">You</td><td class="rl"><span class="led-mk strong">in force</span><div class="led-sub">This is the profile weighting your pages. Every value you look at is scored by these numbers.</div></td><td class="fig rl">11&#8202;/&#8202;11</td><td class="fig">1</td><td class="fig">1</td><td class="fig led-sub">2026-09-07 18:48:49</td><td class="led-sub rl led-acts"><a href="#board-edit">edit</a> &middot; <a href="#board-simulate">simulate</a> &middot; <a href="#">fork</a> &middot; <a href="#">export</a></td></tr><tr><td class="n">02</td><td><span class="led-id">My tuned weights</span><div class="led-sub">Forked from “default-v1” on 2026-09-07&hellip;</div></td><td class="led-sub">You</td><td class="rl"><span class="led-mk ">disabled</span><div class="led-sub">Switched off. Nothing reads it &mdash; enabling it disables the one in force, and the confirm says which.</div></td><td class="fig rl">11&#8202;/&#8202;11</td><td class="fig">1</td><td class="fig">1</td><td class="fig led-sub">2026-09-07 18:48:49</td><td class="led-sub rl led-acts"><a href="#board-edit">edit</a> &middot; <a href="#board-simulate">simulate</a> &middot; <a href="#">fork</a> &middot; <a href="#">export</a></td></tr><tr><td class="n">03</td><td><span class="led-id">default-v1</span><div class="led-sub">The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weigh&hellip;</div></td><td class="led-sub">Instance default</td><td class="rl"><span class="led-mk ">overridden</span><div class="led-sub">Beaten by <b>Sightings-heavy (experiment)</b>, line 01, which is yours and resolves first.</div></td><td class="fig rl">11&#8202;/&#8202;11</td><td class="fig">4</td><td class="fig">37</td><td class="fig led-sub">2026-09-07 17:45:57</td><td class="led-sub rl led-acts"><a href="#board-edit">edit</a> &middot; <a href="#board-simulate">simulate</a> &middot; <a href="#">fork</a> &middot; <a href="#">export</a></td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td colspan="3">3 profiles &middot; 1 in force &middot; 1 disabled &middot; 1 overridden</td><td class="fig rl"></td><td class="fig"></td><td class="fig"></td><td class="fig"></td><td class="rl"></td></tr></tfoot></table></div><p class="led-foot">Pinned values carried to the simulator: <span class="led-id">8.8.8.8</span> &middot; <span class="led-id">185.234.219.24</span> &middot; <span class="led-id">45.155.205.233</span> &middot; <span class="led-id">1.1.1.1</span> &mdash; 4 in the comparison set.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 1b</span><b>the same sheet with nothing in force</b><span class="led-lead"></span><span class="led-folio">index.scoring_off_variant</span></div><p class="led-note">The other state of this board, and the one an instance in it cannot tell you about from anywhere else: no profile resolves, so <b>no value on this instance is scored at all</b>. The sheet is not empty because the data failed to load; it is empty because there is nothing to post.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Profile</th><th>Owner</th><th class="rl">Standing &mdash; and why</th><th class="fig rl">Signals</th><th class="fig">Ver</th><th class="fig">Rev</th><th class="fig">Modified</th><th class="rl">Actions</th></tr></thead><tbody><tr class="led-stamp"><td colspan="9">nothing in force &mdash; scoring is off on this instance</td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td colspan="3">0 profiles &middot; 0 in force &middot; 0 values pinned</td><td class="fig rl">&mdash;</td><td class="fig">&mdash;</td><td class="fig">&mdash;</td><td class="fig">&mdash;</td><td class="rl"></td></tr></tfoot></table></div></div></div>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-edit">
+    <div class="vp-board-tag"><span><b>/analystProfiles/edit/23</b></span><span class="vp-board-q">What is this profile asserting, and how do I change one number without reading JSON?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Weights I actually use
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Weights I actually use
+              </h1>
+              <span class="badge rounded-pill bg-secondary fw-semibold px-3">rev 37</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              Instance default &middot; enabled &middot; editable. Seven sections, 12 lines, and a column that adds up to the quality.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-flask"></i>Simulate</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+<div class="led"><div class="led-standfirst led-standfirst-tight"><div class="led-cap"><span>the document</span><span class="led-lead"></span><span class="led-folio">profile</span></div><div class="led-kv led-kv-row"><div class="kv"><span class="k">id</span><span class="led-lead"></span><span class="v">23</span></div><div class="kv"><span class="k">uuid</span><span class="led-lead"></span><span class="v"><span class="led-id">6e2679bc-ebb0-417f-90d8-16cb1d0144ba</span></span></div><div class="kv"><span class="k">version</span><span class="led-lead"></span><span class="v">4</span></div><div class="kv"><span class="k">revision</span><span class="led-lead"></span><span class="v">37</span></div><div class="kv"><span class="k">default</span><span class="led-lead"></span><span class="v">true</span></div><div class="kv"><span class="k">enabled</span><span class="led-lead"></span><span class="v">true</span></div><div class="kv"><span class="k">editable</span><span class="led-lead"></span><span class="v">true</span></div><div class="kv"><span class="k">modified</span><span class="led-lead"></span><span class="v">2026-09-07 17:45:57</span></div></div><p class="led-foot">Changing any weight moves the <b>revision</b> only. A rename moves neither counter, and <b>version</b> tracks the shipped file.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 1</span><b>signals &mdash; the ledger</b><span class="led-lead"></span><span class="led-folio">signals[]</span><span class="led-folio">12 lines</span></div><p class="led-note">What each kind of evidence is worth. The contributions sum to the quality exactly — nothing is normalised, so the ledger is the number. Each line carries its own <b>points</b> map: the keys differ per line by design, so the column is a set of dotted-leader pairs rather than three numeric columns that would fit nothing.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>On &middot; signal</th><th class="rl">Band</th><th class="rl">Points</th><th class="rl">Config</th><th class="fig rl">On 8.8.8.8</th></tr></thead><tbody><tr class="led-grp"><td class="n"></td><td colspan="5">Reporting</td></tr><tr><td class="n">01</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">reporting.independent_orgs</span> <span class="led-mk " title="The contribution is exactly this line&#x27;s cap, so lowering the per-unit weight moves nothing until the cap moves.">at cap</span><div class="led-sub">How many organisations independently report this value.</div></td><td class="rl"><select class="led-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per reporting organisation">per_org</span><span class="led-lead"></span><span class="v"><input class="led-in" value="7" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="28" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Organisations named in the evidence line">named</span><span class="led-lead"></span><span class="v"><input class="led-in" value="4" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-up">28</span></td></tr><tr><td class="n">02</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">reporting.published_ratio</span> <div class="led-sub">What share of the events carrying this value are published.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points at full publication">scale</span><span class="led-lead"></span><span class="v"><input class="led-in" value="9" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points when nothing is published">none</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-2" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Events needed before this fires">min_events</span><span class="led-lead"></span><span class="v"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-up">2</span></td></tr><tr class="led-nil"><td class="n">03</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">reporting.partner_feed_agreement</span> <span class="led-mk warn" title="This profile configures a signal this instance does not have. It contributes nothing and is listed in the assessment as not counted. The configuration is kept, so deploying the implementation brings it back.">not implemented here</span><div class="led-sub">No description: this instance has no implementation to ask.</div></td><td class="rl"><select class="led-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="per_partner">per_partner</span><span class="led-lead"></span><span class="v"><input class="led-in" value="6" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="cap">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="18" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-sub">nil</span></td></tr><tr class="led-st"><td class="n"></td><td colspan="4">subtotal &mdash; Reporting &middot; 2 of 3 lines posted</td><td class="fig rl led-up">30</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Sightings</td></tr><tr><td class="n">04</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">sightings.false_positive</span> <div class="led-sub">False-positive sightings, and how many organisations filed them.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per false-positive sighting">per</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-3" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Further points per organisation beyond the first">per_extra_org</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-4" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-26" size="4" style="width:4ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-down">-23</span></td></tr><tr><td class="n">05</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">sightings.volume_recency</span> <span class="led-mk " title="The contribution is exactly this line&#x27;s cap, so lowering the per-unit weight moves nothing until the cap moves.">at cap</span><div class="led-sub">Sighting volume, organisation spread and recency.</div></td><td class="rl"><select class="led-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points at saturation">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="24" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points when nobody has sighted it">none_recent</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-4" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Sightings at which the signal is fully paid">saturation</span><span class="led-lead"></span><span class="v"><input class="led-in" value="50" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Age past which sightings are discounted">stale_days</span><span class="led-lead"></span><span class="v"><input class="led-in" value="90" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="What a stale sighting history is worth">stale_factor</span><span class="led-lead"></span><span class="v"><input class="led-in" value="0.5" size="4" style="width:4ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-up">24</span></td></tr><tr class="led-st"><td class="n"></td><td colspan="4">subtotal &mdash; Sightings &middot; 2 of 2 lines posted</td><td class="fig rl led-up">1</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Attribution</td></tr><tr><td class="n">06</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">attribution.galaxy</span> <div class="led-sub">Galaxy clusters attached to this value&#x27;s own occurrences.</div></td><td class="rl"><select class="led-sel"><option selected>strong</option><option>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per distinct cluster">per_cluster</span><span class="led-lead"></span><span class="v"><input class="led-in" value="7" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="21" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points when nobody has attributed it">absent</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-7" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-down">-7</span></td></tr><tr class="led-nil"><td class="n">07</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">attribution.technique</span> <div class="led-sub">ATT&amp;CK techniques marked on this value&#x27;s occurrences.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per distinct technique">per_technique</span><span class="led-lead"></span><span class="v"><input class="led-in" value="3" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="9" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-sub">&mdash;</span></td></tr><tr class="led-st"><td class="n"></td><td colspan="4">subtotal &mdash; Attribution &middot; 1 of 2 lines posted</td><td class="fig rl led-down">-7</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Lifecycle</td></tr><tr><td class="n">08</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">lifecycle.continuity</span> <div class="led-sub">The longest run of consecutive months in which this value was reported.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per unbroken month">per_month</span><span class="led-lead"></span><span class="v"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="12" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Months of continuity before this fires">min_months</span><span class="led-lead"></span><span class="v"><input class="led-in" value="3" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-up">4</span></td></tr><tr><td class="n">09</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">lifecycle.feeds</span> <span class="led-mk on" title="Dropped into app/Lib/ValueSignals on this instance. Nothing upstream computes it, so a colleague reading this profile elsewhere cannot reproduce the number it contributes.">custom</span> <span class="led-mk " title="The contribution is exactly this line&#x27;s cap, so lowering the per-unit weight moves nothing until the cap moves.">at cap</span><div class="led-sub">Presence in the enabled feeds and servers this instance caches.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points per feed carrying the value">per_feed</span><span class="led-lead"></span><span class="v"><input class="led-in" value="4" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Most this signal may contribute">cap</span><span class="led-lead"></span><span class="v"><input class="led-in" value="8" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points when no feed carries it">no_feed</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-2" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-up">8</span></td></tr><tr><td class="n">10</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">lifecycle.recency</span> <div class="led-sub">How recently this value was last reported by anybody.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option selected>moderate</option><option>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points for a value reported recently">recent</span><span class="led-lead"></span><span class="v"><input class="led-in" value="8" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points for a value nobody has touched">old</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-4" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Days within which a report counts as recent">recent_days</span><span class="led-lead"></span><span class="v"><input class="led-in" value="30" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Days after which it counts as old">old_days</span><span class="led-lead"></span><span class="v"><input class="led-in" value="365" size="4" style="width:4ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-up">8</span></td></tr><tr><td class="n">11</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">lifecycle.warninglist</span> <div class="led-sub">Whether the value hits a warninglist, and what kind of list it is.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points when nothing matched">no_hit</span><span class="led-lead"></span><span class="v"><input class="led-in" value="6" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points for a false-positive list">false_positive_hit</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-38" size="4" style="width:4ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points for a known-infrastructure list">known_hit</span><span class="led-lead"></span><span class="v"><input class="led-in" value="0" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="rl"><span class="led-sub">&mdash;</span></td><td class="fig rl"><span class="led-down">-38</span></td></tr><tr><td class="n">12</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">record.temporal_precision</span> <div class="led-sub">Whether the occurrences date their own observations, or only their encoding.</div></td><td class="rl"><select class="led-sel"><option>strong</option><option>moderate</option><option selected>weak</option></select></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Points when an occurrence carries first_seen">dated</span><span class="led-lead"></span><span class="v"><input class="led-in" value="4" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Points when none does">undated</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-6" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Further points when the encoding lags the event">lagged</span><span class="led-lead"></span><span class="v"><input class="led-in" value="-6" size="3" style="width:3ch" data-kind="int"><span class="led-off" title="shipped default -4">&#8800;</span></span></div></div></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Lag beyond which the encoding date is a poor proxy">lag_days</span><span class="led-lead"></span><span class="v"><input class="led-in" value="30" size="3" style="width:3ch" data-kind="int"></span></div></div></td><td class="fig rl"><span class="led-down">-12</span></td></tr><tr class="led-st"><td class="n"></td><td colspan="4">subtotal &mdash; Lifecycle &middot; 5 of 5 lines posted</td><td class="fig rl led-down">-30</td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td colspan="4">quality on <span class="led-id">8.8.8.8</span> &mdash; 10 lines posted, 2 carried at nil</td><td class="fig rl led-down">-6</td></tr></tfoot></table></div><p class="led-foot">Nothing is normalised, so the column <i>is</i> the quality: <b>-6</b>. Carried at nil: <span class="led-id">reporting.partner_feed_agreement</span> (not implemented here) &middot; <span class="led-id">attribution.technique</span> (did not fire). <span class="led-sub">(<code>profile.json</code> ships no quality field for this run &mdash; this foot is the column above added up. Sheet 3 of the simulate board shows both of its columns checked against the quality the engine recorded.)</span></p><div class="led-addline"><span class="led-plus">+</span> add a line from the palette<span class="led-lead"></span><span class="led-folio">12 signals discovered &middot; 12 already on this sheet &middot; 0 available to add</span></div><p class="led-foot led-legend">Colour does one job on this sheet. A figure pointing <b class="led-up">with</b> the malicious reading takes <code>--vp-dir-with</code>; one pointing <b class="led-down">against</b> it takes <code>--vp-dir-against</code> &mdash; the value page ledger's own pair, so a reader who has seen one recognises the other. <span class="led-mk warn">amber</span> marks a line that is not working &mdash; not implemented, inert, refused on save. Everything else is ruling.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 1c</span><b>refused at load</b><span class="led-lead"></span><span class="led-folio">palette.loader_errors[]</span></div><p class="led-note">The engine skips a bad drop-in <b>in silence</b> &mdash; a file that will not parse, a class that is not a <code>ValueSignalBase</code>, an id that collides with one already loaded. This register is the only place an admin ever finds out.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Subject</th><th>File</th><th class="rl">Reason it was refused</th></tr></thead><tbody><tr><td class="n">01</td><td class="led-sub">Signal</td><td><span class="led-id">PartnerAgreement.php</span></td><td class="rl led-sub">syntax error, unexpected token &quot;;&quot;, expecting &quot;)&quot; on line 61</td></tr><tr><td class="n">02</td><td class="led-sub">Signal</td><td><span class="led-id">HelperFunctions.php</span></td><td class="rl led-sub">the class does not extend ValueSignalBase</td></tr><tr><td class="n">03</td><td class="led-sub">Escalation</td><td><span class="led-id">ConflictListed.php</span></td><td class="rl led-sub">id `conflict:listed-vs-asserted` already loaded from Model/ValueEscalations</td></tr></tbody></table></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 2</span><b>thresholds</b><span class="led-lead"></span><span class="led-folio">thresholds</span></div><p class="led-note">Where the counted evidence turns into a word. The lean asks how one-sided the record is; the bands ask how much of it there is.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Setting</th><th class="fig rl">Value</th><th class="fig">Shipped</th><th>Posts under</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">lean_supermajority</span> <div class="led-sub">The share of organisations that must agree before the record is read as asserting one thing. A supermajority on either side, with a tolerance — 34 of 100 against misses the mirror of 0.66 by a floating-point hair.</div></td><td class="fig rl"><input class="led-in" value="0.66" size="5" style="width:5ch" data-kind="int"></td><td class="fig">0.66</td><td class="led-sub">thresholds/lean_supermajority</td></tr><tr><td class="n">02</td><td><span class="led-id">high</span> <div class="led-sub"></div></td><td class="fig rl"><input class="led-in" value="60" size="3" style="width:3ch" data-kind="int"></td><td class="fig">60</td><td class="led-sub">thresholds/quality_bands/high</td></tr><tr><td class="n">03</td><td><span class="led-id">medium</span> <div class="led-sub"></div></td><td class="fig rl"><input class="led-in" value="30" size="3" style="width:3ch" data-kind="int"></td><td class="fig">30</td><td class="led-sub">thresholds/quality_bands/medium</td></tr><tr><td class="n">04</td><td><span class="led-id">quality_high_min_signals</span> <div class="led-sub">What stops one heavy row buying a high band on its own.</div></td><td class="fig rl"><input class="led-in" value="4" size="3" style="width:3ch" data-kind="int"></td><td class="fig">4</td><td class="led-sub">thresholds/quality_high_min_signals</td></tr><tr><td class="n">05</td><td><span class="led-id">max_orgs</span> <div class="led-sub"></div></td><td class="fig rl"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></td><td class="fig">1</td><td class="led-sub">thresholds/thin_record_clamp/max_orgs</td></tr><tr><td class="n">06</td><td><span class="led-id">max_sightings</span> <div class="led-sub"></div></td><td class="fig rl"><input class="led-in" value="0" size="3" style="width:3ch" data-kind="int"></td><td class="fig">0</td><td class="led-sub">thresholds/thin_record_clamp/max_sightings</td></tr><tr><td class="n">07</td><td><span class="led-id">max_band</span> <div class="led-sub"></div></td><td class="fig rl"><select class="led-sel"><option>none</option><option selected>low</option><option>medium</option><option>high</option></select></td><td class="fig">low</td><td class="led-sub">thresholds/thin_record_clamp/max_band</td></tr></tbody></table></div><p class="led-note"><b>The thin-record clamp.</b> A ceiling on the band for a record with one source and nothing corroborating it. The weights alone cannot express this: one organisation reporting the same value for fourteen months sums past any floor that still says something useful about the values that do have corroboration. Delete the three numbers to remove the clamp.</p><div class="led-sub led-strip-label">the strip, drawn against the attainable bound</div><div class="led-stripwrap"><div class="led-strip-head"><b>as saved</b><span class="led-lead"></span><span class="led-folio">bound 129 &middot; 11 signals</span></div><div class="led-strip"><div class="led-strip-track"><span class="led-seg led-seg-low" style="left:0.000%;width:23.256%" title="low 0 to 30">low</span><span class="led-seg led-seg-med" style="left:23.256%;width:23.256%" title="medium 30 to 60">medium</span><span class="led-seg led-seg-high" style="left:46.512%;width:53.488%" title="high 60 to 129">high</span></div><span class="led-tick" style="left:0.000%"></span><span class="led-tlab" style="left:0.000%;transform:none">0</span><span class="led-tick" style="left:23.256%"></span><span class="led-tlab" style="left:23.256%;transform:translateX(-50%)">30</span><span class="led-tick" style="left:46.512%"></span><span class="led-tlab" style="left:46.512%;transform:translateX(-50%)">60</span><span class="led-tick" style="left:100.000%"></span><span class="led-tlab" style="left:100.000%;transform:translateX(-100%)">129</span></div><p class="led-note">The bound is the most the enabled signals could contribute &mdash; the largest positive value in each points map, added up. It is a ledger too, and it is the ruler every boundary below is measured against.</p></div><div class="led-bank led-bank-2"><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Most this line could contribute</th><th class="fig rl">Points</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">reporting.independent_orgs</span></td><td class="fig rl">28</td></tr><tr><td class="n">02</td><td><span class="led-id">reporting.published_ratio</span></td><td class="fig rl">9</td></tr><tr><td class="n">03</td><td><span class="led-id">record.temporal_precision</span></td><td class="fig rl">4</td></tr><tr><td class="n">04</td><td><span class="led-id">sightings.volume_recency</span></td><td class="fig rl">24</td></tr><tr><td class="n">05</td><td><span class="led-id">sightings.false_positive</span></td><td class="fig rl">0</td></tr><tr><td class="n">06</td><td><span class="led-id">attribution.galaxy</span></td><td class="fig rl">21</td></tr><tr><td class="n">07</td><td><span class="led-id">attribution.technique</span></td><td class="fig rl">9</td></tr><tr><td class="n">08</td><td><span class="led-id">lifecycle.warninglist</span></td><td class="fig rl">6</td></tr><tr><td class="n">09</td><td><span class="led-id">lifecycle.feeds</span></td><td class="fig rl">8</td></tr><tr><td class="n">10</td><td><span class="led-id">lifecycle.continuity</span></td><td class="fig rl">12</td></tr><tr><td class="n">11</td><td><span class="led-id">lifecycle.recency</span></td><td class="fig rl">8</td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td>attainable bound</td><td class="fig rl">129</td></tr></tfoot></table></div><div><p class="led-note"><b>11 signals, 129 points.</b> Reliable: yes. Unbounded lines (a points map with no cap, which would make the bound meaningless): none.</p><div class="led-stripwrap"><div class="led-strip-head"><b>nine signals switched off</b><span class="led-lead"></span><span class="led-folio">bound 52 &middot; 2 signals</span></div><div class="led-strip bad"><div class="led-strip-track"><span class="led-seg led-seg-low" style="left:0.000%;width:50.000%" title="low 0 to 30">low</span><span class="led-seg led-seg-med" style="left:50.000%;width:50.000%" title="medium 30 to 60">medium</span><span class="led-over" style="left:86.667%;width:13.333%" title="past the attainable bound of 52"></span></div><span class="led-tick" style="left:0.000%"></span><span class="led-tlab" style="left:0.000%;transform:none">0</span><span class="led-tick" style="left:50.000%"></span><span class="led-tlab" style="left:50.000%;transform:translateX(-50%)">30</span><span class="led-tick" style="left:86.667%"></span><span class="led-tlab" style="left:86.667%;transform:translateX(-50%)">52</span><span class="led-tick" style="left:100.000%"></span><span class="led-tlab" style="left:100.000%;transform:translateX(-100%)">60</span></div><p class="led-refuse"><span class="led-mk warn">refused on save</span> <span class="led-sub">high starts at 60, and the enabled signals cannot sum past 52. Nothing could ever reach high.</span></p><p class="led-note">Nobody touched a band: the bound fell from 129 to 52 because the catalogue got narrower, and the shipped high at 60 stopped being reachable.</p></div></div></div><div class="led-sub led-strip-label">and the two states a save refuses</div><div class="led-stripwrap"><div class="led-strip-head"><b>medium above high</b><span class="led-lead"></span><span class="led-folio">bound 129 &middot; 11 signals</span></div><div class="led-strip bad"><div class="led-strip-track"><span class="led-seg led-seg-low" style="left:0.000%;width:46.512%" title="low 0 to 60">low</span><span class="led-seg led-seg-high" style="left:23.256%;width:76.744%" title="high 30 to 129">high</span></div><span class="led-tick" style="left:0.000%"></span><span class="led-tlab" style="left:0.000%;transform:none">0</span><span class="led-tick" style="left:23.256%"></span><span class="led-tlab" style="left:23.256%;transform:translateX(-50%)">30</span><span class="led-tick" style="left:46.512%"></span><span class="led-tlab" style="left:46.512%;transform:translateX(-50%)">60</span><span class="led-tick" style="left:100.000%"></span><span class="led-tlab" style="left:100.000%;transform:translateX(-100%)">129</span></div><p class="led-refuse"><span class="led-mk warn">refused on save</span> <span class="led-sub">Medium starts at 60, which is not below high at 30. Nothing could ever be high.</span></p></div><div class="led-stripwrap"><div class="led-strip-head"><b>a boundary past the bound</b><span class="led-lead"></span><span class="led-folio">bound 129 &middot; 11 signals</span></div><div class="led-strip bad"><div class="led-strip-track"><span class="led-seg led-seg-low" style="left:0.000%;width:16.667%" title="low 0 to 30">low</span><span class="led-seg led-seg-med" style="left:16.667%;width:83.333%" title="medium 30 to 180">medium</span><span class="led-over" style="left:71.667%;width:28.333%" title="past the attainable bound of 129"></span></div><span class="led-tick" style="left:0.000%"></span><span class="led-tlab" style="left:0.000%;transform:none">0</span><span class="led-tick" style="left:16.667%"></span><span class="led-tlab" style="left:16.667%;transform:translateX(-50%)">30</span><span class="led-tick" style="left:71.667%"></span><span class="led-tlab" style="left:71.667%;transform:translateX(-50%)">129</span><span class="led-tick" style="left:100.000%"></span><span class="led-tlab" style="left:100.000%;transform:translateX(-100%)">180</span></div><p class="led-refuse"><span class="led-mk warn">refused on save</span> <span class="led-sub">high starts at 180, and the enabled signals cannot sum past 129. Nothing could ever reach high.</span></p></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 3</span><b>conflict rules</b><span class="led-lead"></span><span class="led-folio">escalations{}</span></div><p class="led-note">When the record contradicts itself loudly enough that no lean is honest. A rule may only ever say contested — one that could name a side would be a score override wearing a different hat.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>On &middot; rule</th><th class="rl">Emits</th><th class="rl">Source</th><th class="rl">Fires when</th></tr></thead><tbody><tr><td class="n">01</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">conflict:known-infrastructure-vs-reporting</span><div class="led-sub">A warninglist knows the value as shared infrastructure while several organisations report it as a threat.</div></td><td class="rl"><span class="led-mk ">emits contested</span></td><td class="rl led-sub">Lifecycle</td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="The category of list that must match">warninglist_category</span><span class="led-lead"></span><span class="v"><input class="led-in" value="known" size="6" style="width:6ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Organisations reporting it, at least">min_independent_reports</span><span class="led-lead"></span><span class="v"><input class="led-in" value="3" size="3" style="width:3ch" data-kind="int"></span></div></div></td></tr><tr><td class="n">02</td><td><input type="checkbox" class="led-ck" checked> <span class="led-id">conflict:listed-vs-asserted</span><div class="led-sub">A list marks the value as a false positive while a supermajority of organisations report it as a threat.</div></td><td class="rl"><span class="led-mk ">emits contested</span></td><td class="rl led-sub">Lifecycle</td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="The category of list that must match">warninglist_category</span><span class="led-lead"></span><span class="v"><input class="led-in" value="false_positive" size="15" style="width:15ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Share of organisations asserting it, as a fraction or the word supermajority">threat_share_at_least</span><span class="led-lead"></span><span class="v"><input class="led-in" value="supermajority" size="14" style="width:14ch" data-kind="int"></span></div></div></td></tr></tbody></table></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 4</span><b>exclusions</b><span class="led-lead"></span><span class="led-folio">exclusions{}</span></div><p class="led-note">Evidence you have decided not to count, filtered before any signal sees it — so two signals reading the same fact read the same filtered set. Every row an exclusion removes is listed in the assessment as not counted, naming the rule.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>On &middot; exclusion</th><th class="rl">Layer</th><th class="rl">Parameter</th></tr></thead><tbody><tr><td class="n">01</td><td><input type="checkbox" class="led-ck" checked> <b>Self-sightings</b> <span class="led-id led-sub">sightings.self</span><div class="led-sub">An organisation confirming its own fresh report is not corroboration. Sightings filed by the reporting organisation within the window below are left out; later ones are kept, because &quot;we still see this&quot; is real information.</div></td><td class="rl"><span class="led-mk ">row filter</span></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Hours after the occurrence">within_hours</span><span class="led-lead"></span><span class="v"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></span></div></div></td></tr><tr><td class="n">02</td><td><input type="checkbox" class="led-ck" checked> <b>Mirrored feeds</b> <span class="led-id led-sub">feeds.mirrored</span><div class="led-sub">Feeds sharing another&#x27;s source counted once rather than separately. MISP does not record what a feed mirrors, so this folds by the key below — which is wrong where one provider runs unrelated feeds.</div></td><td class="rl"><span class="led-mk ">list fold</span></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Fold feeds sharing this">dedupe_by</span><span class="led-lead"></span><span class="v"><select class="led-sel"><option selected>provider</option><option>url</option></select></span></div></div></td></tr><tr><td class="n">03</td><td><input type="checkbox" class="led-ck"> <b>Your own organisation</b> <span class="led-id led-sub">orgs.own</span><div class="led-sub">Leave your own organisation out of every count, so the assessment says what everyone else reports. This one changes the queries rather than filtering their results, so it moves every aggregate at once.</div></td><td class="rl"><span class="led-mk ">condition</span></td><td class="rl"><span class="led-sub">no parameter</span></td></tr><tr><td class="n">04</td><td><input type="checkbox" class="led-ck" checked> <b>Evidence window</b> <span class="led-id led-sub">evidence.window</span><div class="led-sub">On a value with more occurrences than the threshold, read row evidence from the last N days only. Whole-history aggregates are never windowed. Applied by the context builder rather than here, because it decides what is fetched.</div></td><td class="rl"><span class="led-mk ">budget</span></td><td class="rl"><div class="led-kv"><div class="kv"><span class="k" title="Days of row evidence">days</span><span class="led-lead"></span><span class="v"><input class="led-in" value="90" size="3" style="width:3ch" data-kind="int"></span></div><div class="kv"><span class="k" title="Occurrences before it applies">min_occurrences</span><span class="led-lead"></span><span class="v"><input class="led-in" value="10000" size="6" style="width:6ch" data-kind="int"></span></div></div></td></tr></tbody></table></div><p class="led-foot">The set is closed in code, so there is no palette to add from. Every line also carries <code>enabled</code> and <code>id</code> as keys this version cannot label &mdash; kept verbatim, never dropped.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 5</span><b>relevance</b><span class="led-lead"></span><span class="led-folio">relevance</span></div><p class="led-note">Whether what the record asserts still matters today. Its own axis, and nothing in the quality reads it: silence must never be able to promote a value to a definite answer.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Setting</th><th class="fig rl">Value</th><th class="fig">Shipped</th><th>Posts under</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">clock</span> <div class="led-sub">Last independent corroboration is somebody other than the original reporter saying it again. Newest occurrence is the fallback where nothing else can be dated.</div></td><td class="fig rl"><select class="led-sel"><option selected>last_independent_corroboration</option><option>newest_occurrence</option></select></td><td class="fig">last_independent_corroboration</td><td class="led-sub">relevance/clock</td></tr><tr><td class="n">02</td><td><span class="led-id">decay_speed</span> <div class="led-sub">MISP&#x27;s polynomial. 1 is linear; exponential has no TTL to measure against, which is why the curve is pinned here.</div></td><td class="fig rl"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></td><td class="fig">1</td><td class="led-sub">relevance/decay_speed</td></tr><tr><td class="n">03</td><td><span class="led-id">aging_fraction</span> <div class="led-sub">The share of the TTL left when a value stops reading as current.</div></td><td class="fig rl"><input class="led-in" value="0.33" size="5" style="width:5ch" data-kind="int"></td><td class="fig">0.33</td><td class="led-sub">relevance/aging_fraction</td></tr><tr><td class="n">04</td><td><span class="led-id">lag_uncertain_days</span> <div class="led-sub">An encoding date is later than the observation it stands for, so time measured from it is a lower bound. Past this lag the timeline is flagged uncertain — which is the common state on real data, not the exotic one.</div></td><td class="fig rl"><input class="led-in" value="30" size="3" style="width:3ch" data-kind="int"></td><td class="fig">30</td><td class="led-sub">relevance/lag_uncertain_days</td></tr><tr><td class="n">05</td><td><span class="led-id">type_rule</span> <div class="led-sub"></div></td><td class="fig rl"><select class="led-sel"><option selected>shortest</option><option>longest</option><option>first</option></select></td><td class="fig">shortest</td><td class="led-sub">relevance/type_rule</td></tr></tbody></table></div><div class="led-schedule"><div class="led-cap"><span>schedule r&#8209;1</span><b>Time to live, per type</b><span class="led-lead"></span><span class="led-folio">relevance/ttl_days</span><span class="led-folio">12 rows</span></div><p class="led-note">How long a report of this type stays current without corroboration. Only the types you have an opinion about; everything else follows the default. A map is not a list of settings, so it gets its own <b>schedule</b>: a base line, then one ruled line per opinion held against it. Never a row per type MISP has.</p><div class="led-base"><span class="led-id">default</span> <span class="led-sub">Every other type</span><span class="led-lead"></span><span class="v"><input class="led-in" value="180" size="4" style="width:4ch" data-kind="int"></span> <span class="led-sub">days &middot; fixed</span></div><div class="led-bank"><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Attribute type</th><th class="fig rl">Days</th><th class="fig">vs base</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">ip-src</span></td><td class="fig rl"><input class="led-in" value="90" size="3" style="width:3ch" data-kind="int"></td><td class="fig led-flat">-90</td></tr><tr><td class="n">02</td><td><span class="led-id">ip-dst</span></td><td class="fig rl"><input class="led-in" value="90" size="3" style="width:3ch" data-kind="int"></td><td class="fig led-flat">-90</td></tr><tr><td class="n">03</td><td><span class="led-id">domain</span></td><td class="fig rl"><input class="led-in" value="120" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">-60</td></tr><tr><td class="n">04</td><td><span class="led-id">hostname</span></td><td class="fig rl"><input class="led-in" value="120" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">-60</td></tr></tbody></table></div><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Attribute type</th><th class="fig rl">Days</th><th class="fig">vs base</th></tr></thead><tbody><tr><td class="n">05</td><td><span class="led-id">url</span></td><td class="fig rl"><input class="led-in" value="60" size="3" style="width:3ch" data-kind="int"></td><td class="fig led-flat">-120</td></tr><tr><td class="n">06</td><td><span class="led-id">email-src</span></td><td class="fig rl"><input class="led-in" value="120" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">-60</td></tr><tr><td class="n">07</td><td><span class="led-id">md5</span></td><td class="fig rl"><input class="led-in" value="730" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">+550</td></tr><tr><td class="n">08</td><td><span class="led-id">sha1</span></td><td class="fig rl"><input class="led-in" value="730" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">+550</td></tr></tbody></table></div><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Attribute type</th><th class="fig rl">Days</th><th class="fig">vs base</th></tr></thead><tbody><tr><td class="n">09</td><td><span class="led-id">sha256</span></td><td class="fig rl"><input class="led-in" value="730" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">+550</td></tr><tr><td class="n">10</td><td><span class="led-id">btc</span></td><td class="fig rl"><input class="led-in" value="365" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">+185</td></tr><tr><td class="n">11</td><td><span class="led-id">filename</span></td><td class="fig rl"><input class="led-in" value="365" size="4" style="width:4ch" data-kind="int"></td><td class="fig led-flat">+185</td></tr></tbody></table></div></div><div class="led-addline"><span class="led-plus">+</span> Add a type<span class="led-lead"></span><span class="led-folio">the picker offers only types this map does not already hold &mdash; source <code>attribute_types</code>, 0 offered in the fixture</span></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 6</span><b>reference data</b><span class="led-lead"></span><span class="led-folio">reference</span></div><p class="led-note">What you believe about your sources, and what the warninglists mean. Admiralty-shaped on purpose: source reliability goes in, information credibility comes out.</p><div class="led-schedule"><div class="led-cap"><span>schedule r&#8209;2</span><b>Organisation trust</b><span class="led-lead"></span><span class="led-folio">reference/org_trust</span><span class="led-folio">4 graded</span></div><p class="led-note">Admiralty grades. F is neutral, the same as C — the shipped taxonomy says so — and G is deliberately deceptive and worth nothing. Only the organisations you have graded. The grade is a letter; the column beside it is what the letter is <b>worth</b>, joined from the scale on the right &mdash; so a map that would otherwise be four opaque letters lands on the same ruler as every other figure on this page.</p><div class="led-bank led-bank-2"><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Organisation</th><th class="rl">Grade</th><th class="fig rl">Worth</th></tr></thead><tbody><tr><td class="n">01</td><td><b>ADMIN</b> <div class="led-sub led-id">5705de1d-143c-4637-959f-016e291a0265</div></td><td class="rl"><select class="led-sel"><option selected>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select></td><td class="fig rl">&times;&thinsp;1.25</td></tr><tr><td class="n">02</td><td><b>Test</b> <div class="led-sub led-id">cd5afba0-3161-41aa-a83e-f785d045f00b</div></td><td class="rl"><select class="led-sel"><option>A</option><option>B</option><option>C</option><option selected>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select></td><td class="fig rl">&times;&thinsp;0.75</td></tr><tr><td class="n">03</td><td><b>my_org 1</b> <div class="led-sub led-id">593c71f7-6cd9-4276-b98b-e3431a5c293a</div></td><td class="rl"><select class="led-sel"><option>A</option><option>B</option><option>C</option><option>D</option><option selected>E</option><option>F</option><option>G</option><option>unrated</option></select></td><td class="fig rl">&times;&thinsp;0.25</td></tr><tr class="led-nil"><td class="n">04</td><td><i>no organisation on this instance</i> <span class="led-mk warn" title="A graded organisation this instance does not have — kept, because the profile may have come from somebody who does.">not on this instance</span><div class="led-sub led-id">9d8f1c60-0000-4000-8000-abcdefabcdef</div></td><td class="rl"><select class="led-sel"><option>A</option><option selected>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option><option>unrated</option></select></td><td class="fig rl">&times;&thinsp;1.1</td></tr></tbody></table><div class="led-addline"><span class="led-plus">+</span> Grade an organisation<span class="led-lead"></span><span class="led-folio">search &mdash; only ungraded organisations, never the whole roster</span></div></div><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Grade</th><th class="fig rl">Multiplier</th><th class="fig">Shipped</th></tr></thead><tbody><tr><td class="n">01</td><td><b>A</b></td><td class="fig rl"><input class="led-in" value="1.25" size="5" style="width:5ch" data-kind="int"></td><td class="fig">1.25</td></tr><tr><td class="n">02</td><td><b>B</b></td><td class="fig rl"><input class="led-in" value="1.1" size="4" style="width:4ch" data-kind="int"></td><td class="fig">1.1</td></tr><tr><td class="n">03</td><td><b>C</b></td><td class="fig rl"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></td><td class="fig">1</td></tr><tr><td class="n">04</td><td><b>D</b></td><td class="fig rl"><input class="led-in" value="0.75" size="5" style="width:5ch" data-kind="int"></td><td class="fig">0.75</td></tr><tr><td class="n">05</td><td><b>E</b></td><td class="fig rl"><input class="led-in" value="0.25" size="5" style="width:5ch" data-kind="int"></td><td class="fig">0.25</td></tr><tr><td class="n">06</td><td><b>F</b></td><td class="fig rl"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></td><td class="fig">1</td></tr><tr><td class="n">07</td><td><b>G</b></td><td class="fig rl"><input class="led-in" value="0" size="3" style="width:3ch" data-kind="int"></td><td class="fig">0</td></tr><tr><td class="n">08</td><td><b>unrated</b></td><td class="fig rl"><input class="led-in" value="1" size="3" style="width:3ch" data-kind="int"></td><td class="fig">1</td></tr></tbody></table><p class="led-foot">The multiplier each grade contributes. A voice graded E counts as a quarter of one.</p></div></div></div><div class="led-schedule"><div class="led-cap"><span>schedule r&#8209;3</span><b>Warninglist categories</b><span class="led-lead"></span><span class="led-folio">reference/warninglist_category</span><span class="led-folio">1 overridden</span></div><p class="led-note">What a list hit means: known infrastructure is not a false positive. Nothing upstream sets this column yet, so the instance ships a map and this is where you disagree with it.</p><div class="led-bank led-bank-2"><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Warninglist</th><th class="rl">Means</th></tr></thead><tbody><tr><td class="n">01</td><td>List of known dynamic DNS domains <span class="led-mk warn">not on this instance</span></td><td class="rl"><select class="led-sel"><option selected>known</option><option>false_positive</option></select></td></tr></tbody></table><div class="led-addline"><span class="led-plus">+</span> Override a list<span class="led-lead"></span><span class="led-folio">40 lists not yet overridden</span></div></div><div><p class="led-note">The add affordance is a search over the 40 warninglists this instance holds that this map does not already name. It is not a picker listing all of them, and it never becomes one row per list.</p></div></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 7</span><b>enrichment</b><span class="led-lead"></span><span class="led-folio">enrichment</span></div><p class="led-note">Which modules you would want asked about a value of each type. Nothing runs on its own: the tab arrives with these ticked and a run still takes a press.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Setting</th><th class="fig rl">Value</th><th class="fig">Shipped</th><th>Posts under</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">cost_posture</span> <div class="led-sub">Local only offers nothing that leaves the instance — which on a platform where enrichment means asking somebody else selects very little, and says so.</div></td><td class="fig rl"><select class="led-sel"><option selected>local_only</option><option>allow_external</option><option>ask</option></select></td><td class="fig">local_only</td><td class="led-sub">enrichment/cost_posture</td></tr><tr><td class="n">02</td><td><span class="led-id">max_age_hours</span> <span class="led-mk warn" title="Stored and governs nothing yet.">inert</span><div class="led-sub">Inert: there is no store of module answers, so nothing is reused and this window governs nothing yet.</div></td><td class="fig rl"><input class="led-in" value="24" size="3" style="width:3ch" data-kind="int"></td><td class="fig">24</td><td class="led-sub">enrichment/max_age_hours</td></tr></tbody></table></div><div class="led-bank led-bank-2"><div class="led-schedule"><div class="led-cap"><span>schedule e&#8209;1</span><b>Modules per type</b><span class="led-lead"></span><span class="led-folio">enrichment/auto_run</span></div><p class="led-note">A map whose values are sets, so it is ruled as a matrix: types down, the modules this instance actually offers across, a tick in the cell.</p><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Attribute type</th><th class="fig rl">circl_passivedns</th><th class="fig rl">dns</th><th class="fig rl">virustotal_public</th><th class="fig rl">countrycode</th><th class="fig rl">On</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">ip-src</span></td><td class="fig rl"><input type="checkbox" class="led-ck" checked></td><td class="fig rl"><input type="checkbox" class="led-ck"></td><td class="fig rl"><input type="checkbox" class="led-ck" checked></td><td class="fig rl"><input type="checkbox" class="led-ck"></td><td class="fig rl">2</td></tr><tr><td class="n">02</td><td><span class="led-id">domain</span></td><td class="fig rl"><input type="checkbox" class="led-ck"></td><td class="fig rl"><input type="checkbox" class="led-ck" checked></td><td class="fig rl"><input type="checkbox" class="led-ck"></td><td class="fig rl"><input type="checkbox" class="led-ck"></td><td class="fig rl">1</td></tr></tbody></table></div><div class="led-addline"><span class="led-plus">+</span> Declare modules for a type<span class="led-lead"></span><span class="led-folio">9 types not yet declared</span></div></div><div class="led-schedule"><div class="led-cap"><span>schedule e&#8209;2</span><b>Where a module answers from</b><span class="led-lead"></span><span class="led-folio">enrichment/locality</span></div><p class="led-note">Overrides the shipped roster. Locality cannot be derived — a module that declares no config and no requirements may still fetch a third-party site — so it ships as knowledge and this is where you correct it.</p><div class="led-scroll"><table class="led-t led-t-tight"><thead><tr><th class="n">#</th><th>Module</th><th class="rl">Answers from</th><th class="rl">Instance roster</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">circl_passivedns</span></td><td class="rl"><select class="led-sel"><option>local</option><option selected>external</option></select></td><td class="rl led-sub">the instance ships no answer</td></tr><tr><td class="n">02</td><td><span class="led-id">dns</span></td><td class="rl"><select class="led-sel"><option selected>local</option><option>external</option></select></td><td class="rl led-sub">the instance ships no answer</td></tr></tbody></table></div><div class="led-addline"><span class="led-plus">+</span> Override a module<span class="led-lead"></span><span class="led-folio">2 modules not overridden</span></div></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 8</span><b>the document itself</b><span class="led-lead"></span><span class="led-folio">raw</span></div><p class="led-note">Every profile is one JSON document, and an analyst who wants to paste one should be able to. Validated on save, never on a keystroke.</p><details class="led-raw"><summary><span class="led-plus">&#9656;</span> open the raw editor<span class="led-lead"></span><span class="led-folio">6,596 characters &middot; 0 warnings &middot; 0 errors</span></summary><pre class="led-pre">{
+    &quot;format&quot;: 1,
+    &quot;signals&quot;: [
+        {
+            &quot;id&quot;: &quot;reporting.independent_orgs&quot;,
+            &quot;group&quot;: &quot;Reporting&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;strong&quot;,
+            &quot;trust_weighted&quot;: true,
+            &quot;points&quot;: {
+                &quot;per_org&quot;: 7,
+                &quot;cap&quot;: 28
+            },
+            &quot;config&quot;: {
+                &quot;named&quot;: 4
+            }
+        },
+        {
+            &quot;id&quot;: &quot;reporting.published_ratio&quot;,
+            &quot;group&quot;: &quot;Reporting&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;moderate&quot;,
+            &quot;points&quot;: {
+                &quot;scale&quot;: 9,
+                &quot;none&quot;: -2
+            },
+            &quot;config&quot;: {
+                &quot;min_events&quot;: 1
+            }
+        },
+        {
+            &quot;id&quot;: &quot;record.temporal_precision&quot;,
+            &quot;group&quot;: &quot;Lifecycle&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;weak&quot;,
+            &quot;points&quot;: {
+                &quot;dated&quot;: 4,
+                &quot;undated&quot;: -6,
+                &quot;lagged&quot;: -6
+            },
+            &quot;config&quot;: {
+                &quot;lag_days&quot;: 30
+            }
+        },
+        {
+            &quot;id&quot;: &quot;sightings.volume_recency&quot;,
+            &quot;group&quot;: &quot;Sightings&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;strong&quot;,
+            &quot;trust_weighted&quot;: true,
+            &quot;points&quot;: {
+                &quot;cap&quot;: 24,
+                &quot;none_recent&quot;: -4
+            },
+            &quot;config&quot;: {
+                &quot;saturation&quot;: 50,
+                &quot;stale_days&quot;: 90,
+                &quot;stale_factor&quot;: 0.5
+            }
+        },
+        {
+            &quot;id&quot;: &quot;sightings.false_positive&quot;,
+            &quot;group&quot;: &quot;Sightings&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;moderate&quot;,
+            &quot;trust_weighted&quot;: true,
+            &quot;points&quot;: {
+                &quot;per&quot;: -3,
+                &quot;per_extra_org&quot;: -4,
+                &quot;cap&quot;: -26
+            }
+        },
+        {
+            &quot;id&quot;: &quot;attribution.galaxy&quot;,
+            &quot;group&quot;: &quot;Attribution&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;strong&quot;,
+            &quot;points&quot;: {
+                &quot;per_cluster&quot;: 7,
+                &quot;cap&quot;: 21,
+                &quot;absent&quot;: -7
+            }
+        },
+        {
+            &quot;id&quot;: &quot;attribution.technique&quot;,
+            &quot;group&quot;: &quot;Attribution&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;weak&quot;,
+            &quot;points&quot;: {
+                &quot;per_technique&quot;: 3,
+                &quot;cap&quot;: 9
+            }
+        },
+        {
+            &quot;id&quot;: &quot;lifecycle.warninglist&quot;,
+            &quot;group&quot;: &quot;Lifecycle&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;weak&quot;,
+            &quot;points&quot;: {
+                &quot;no_hit&quot;: 6,
+                &quot;false_positive_hit&quot;: -38,
+                &quot;known_hit&quot;: 0
+            }
+        },
+        {
+            &quot;id&quot;: &quot;lifecycle.feeds&quot;,
+            &quot;group&quot;: &quot;Lifecycle&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;moderate&quot;,
+            &quot;points&quot;: {
+                &quot;per_feed&quot;: 4,
+                &quot;cap&quot;: 8,
+                &quot;no_feed&quot;: -2
+            }
+        },
+        {
+            &quot;id&quot;: &quot;lifecycle.continuity&quot;,
+            &quot;group&quot;: &quot;Lifecycle&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;moderate&quot;,
+            &quot;points&quot;: {
+                &quot;per_month&quot;: 1,
+                &quot;cap&quot;: 12
+            },
+            &quot;config&quot;: {
+                &quot;min_months&quot;: 3
+            }
+        },
+        {
+            &quot;id&quot;: &quot;lifecycle.recency&quot;,
+            &quot;group&quot;: &quot;Lifecycle&quot;,
+            &quot;enabled&quot;: true,
+            &quot;band&quot;: &quot;moderate&quot;,
+            &quot;points&quot;: {
+                &quot;recent&quot;: 8,
+                &quot;old&quot;: -4
+            },
+            &quot;config&quot;: {
+                &quot;recent_days&quot;: 30,
+                &quot;old_days&quot;: 365
+            }
+        }
+    ],
+    &quot;thresholds&quot;: {
+        &quot;lean_supermajority&quot;: 0.66,
+        &quot;quality_bands&quot;: {
+            &quot;high&quot;: 60,
+            &quot;medium&quot;: 30
+        },
+        &quot;quality_high_min_signals&quot;: 4,
+        &quot;thin_record_clamp&quot;: {
+            &quot;max_orgs&quot;: 1,
+            &quot;max_sightings&quot;: 0,
+            &quot;max_band&quot;: &quot;low&quot;
+        }
+    },
+    &quot;escalations&quot;: [
+        {
+            &quot;id&quot;: &quot;conflict:known-infrastructure-vs-reporting&quot;,
+            &quot;enabled&quot;: true,
+            &quot;emits&quot;: &quot;contested&quot;,
+            &quot;when&quot;: {
+                &quot;warninglist_category&quot;: &quot;known&quot;,
+                &quot;min_independent_reports&quot;: 3
+            }
+        },
+        {
+            &quot;id&quot;: &quot;conflict:listed-vs-asserted&quot;,
+            &quot;enabled&quot;: true,
+            &quot;emits&quot;: &quot;contested&quot;,
+            &quot;when&quot;: {
+                &quot;warninglist_category&quot;: &quot;false_positive&quot;,
+                &quot;threat_share_at_least&quot;: &quot;supermajority&quot;
+            }
+        }
+    ],
+    &quot;exclusions&quot;: [
+        {
+            &quot;id&quot;: &quot;sightings.self&quot;,
+            &quot;enabled&quot;: true,
+            &quot;within_hours&quot;: 1
+        },
+        {
+            &quot;id&quot;: &quot;feeds.mirrored&quot;,
+            &quot;enabled&quot;: true,
+            &quot;dedupe_by&quot;: &quot;provider&quot;
+        },
+        {
+            &quot;id&quot;: &quot;orgs.own&quot;,
+            &quot;enabled&quot;: false
+        },
+        {
+            &quot;id&quot;: &quot;evidence.window&quot;,
+            &quot;enabled&quot;: true,
+            &quot;days&quot;: 90,
+            &quot;min_occurrences&quot;: 10000
+        }
+    ],
+    &quot;relevance&quot;: {
+        &quot;clock&quot;: &quot;last_independent_corroboration&quot;,
+        &quot;decay_speed&quot;: 1,
+        &quot;type_rule&quot;: &quot;shortest&quot;,
+        &quot;aging_fraction&quot;: 0.33,
+        &quot;lag_uncertain_days&quot;: 30,
+        &quot;ttl_days&quot;: {
+            &quot;default&quot;: 180,
+            &quot;ip-src&quot;: 90,
+            &quot;ip-dst&quot;: 90,
+            &quot;domain&quot;: 120,
+            &quot;hostname&quot;: 120,
+            &quot;url&quot;: 60,
+            &quot;email-src&quot;: 120,
+            &quot;md5&quot;: 730,
+            &quot;sha1&quot;: 730,
+            &quot;sha256&quot;: 730,
+            &quot;btc&quot;: 365,
+            &quot;filename&quot;: 365
+        }
+    },
+    &quot;reference&quot;: {
+        &quot;org_trust&quot;: {
+            &quot;5705de1d-143c-4637-959f-016e291a0265&quot;: &quot;A&quot;,
+            &quot;cd5afba0-3161-41aa-a83e-f785d045f00b&quot;: &quot;D&quot;,
+            &quot;593c71f7-6cd9-4276-b98b-e3431a5c293a&quot;: &quot;E&quot;,
+            &quot;9d8f1c60-0000-4000-8000-abcdefabcdef&quot;: &quot;B&quot;
+        },
+        &quot;org_trust_scale&quot;: {
+            &quot;A&quot;: 1.25,
+            &quot;B&quot;: 1.1,
+            &quot;C&quot;: 1,
+            &quot;D&quot;: 0.75,
+            &quot;E&quot;: 0.25,
+            &quot;F&quot;: 1,
+            &quot;G&quot;: 0,
+            &quot;unrated&quot;: 1
+        },
+        &quot;warninglist_category&quot;: {
+            &quot;List of known dynamic DNS domains&quot;: &quot;known&quot;
+        }
+    },
+    &quot;enrichment&quot;: {
+        &quot;auto_run&quot;: {
+            &quot;ip-src&quot;: [
+                &quot;circl_passivedns&quot;,
+                &quot;virustotal_public&quot;
+            ],
+            &quot;domain&quot;: [
+                &quot;dns&quot;
+            ]
+        },
+        &quot;cost_posture&quot;: &quot;local_only&quot;,
+        &quot;max_age_hours&quot;: 24,
+        &quot;locality&quot;: {
+            &quot;circl_passivedns&quot;: &quot;external&quot;,
+            &quot;dns&quot;: &quot;local&quot;
+        }
+    }
+}</pre></details></div></div>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-simulate">
+    <div class="vp-board-tag"><span><b>/analystProfiles/simulate/23?value=OC44LjguOA==</b></span><span class="vp-board-q">What would my change do — to this value, and to the values I care about?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Simulate
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Simulate
+              </h1>
+              <span class="badge rounded-pill bg-secondary fw-semibold px-3">8.8.8.8</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              What this candidate would do, before it is saved. It computes; it writes nothing.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-secondary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-rotate-left"></i>Discard</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save these weights</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+<div class="led"><div class="led-bank led-bank-2 led-versus"><div class="led-standfirst"><div class="led-cap"><span>column A &mdash; in force</span><span class="led-lead"></span></div><div class="led-standfirst-name">Instance default, galaxies off</div><div class="led-kv led-kv-row"><div class="kv"><span class="k">id</span><span class="led-lead"></span><span class="v">23</span></div><div class="kv"><span class="k">version</span><span class="led-lead"></span><span class="v">4</span></div><div class="kv"><span class="k">revision</span><span class="led-lead"></span><span class="v">37</span></div></div></div><div class="led-standfirst"><div class="led-cap"><span>column B &mdash; candidate</span><span class="led-lead"></span></div><div class="led-standfirst-name">Weights I actually use <span class="led-mk on" title="Posted as JSON and scored in memory. Nothing is written.">unsaved</span></div><div class="led-kv led-kv-row"><div class="kv"><span class="k">id</span><span class="led-lead"></span><span class="v">23</span></div><div class="kv"><span class="k">version</span><span class="led-lead"></span><span class="v">4</span></div><div class="kv"><span class="k">revision</span><span class="led-lead"></span><span class="v">37</span></div></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 1</span><b>amendments posted</b><span class="led-lead"></span><span class="led-folio">candidate_edits{}</span></div><p class="led-note">Three edits, and nothing else changed. They are listed before the ledger because every figure that moves below moves because of one of them.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Posts under</th><th class="rl">What it does</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">reporting.independent_orgs.points.cap</span></td><td class="rl led-sub">28 &rarr; 16, which moves the row (a lowered per-unit weight would not: the signal is saturated at its cap)</td></tr><tr><td class="n">02</td><td><span class="led-id">lifecycle.warninglist.enabled</span></td><td class="rl led-sub">true &rarr; false, so its row vanishes</td></tr><tr><td class="n">03</td><td><span class="led-id">attribution.galaxy.enabled</span></td><td class="rl led-sub">false &rarr; true, so its row appears</td></tr></tbody></table></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 2</span><b>the same ledger, two more columns</b><span class="led-lead"></span><span class="led-folio">detail.rows[]</span><span class="led-folio">10 lines</span></div><p class="led-note">Not a second page: the signals sheet from the edit board with <b>before</b>, <b>after</b> and <b>&Delta;</b> added. Each column adds up to its own quality, so the diff is arithmetic a reader can check by hand rather than an impression.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Signal</th><th class="rl">Amendment</th><th class="fig rl">Before</th><th class="fig">After</th><th class="fig">&Delta;</th></tr></thead><tbody><tr class="led-grp"><td class="n"></td><td colspan="5">Reporting</td></tr><tr><td class="n">01</td><td><span class="led-id">reporting.independent_orgs</span> <span class="led-mk ">changed</span><div class="led-sub">8 independent organisations reported it</div><div class="led-sub led-ev">ADMIN, DECEA, CIRCL, abuse.ch and 4 more</div></td><td class="rl"><div class="led-kv"><div class="kv" title="28 -&gt; 16, which moves the row (a lowered per-unit weight would not: the signal is saturated at its cap)"><span class="k">points.cap</span><span class="led-lead"></span><span class="v">28 &rarr; 16</span></div></div></td><td class="fig rl">28</td><td class="fig">16</td><td class="fig led-down">-12</td></tr><tr><td class="n">02</td><td><span class="led-id">reporting.published_ratio</span> <div class="led-sub">5 of 20 events are published</div><div class="led-sub led-ev">Published events carry more weight than drafts</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">2</td><td class="fig">2</td><td class="fig led-flat">0</td></tr><tr class="led-st"><td class="n"></td><td colspan="2">subtotal &mdash; Reporting</td><td class="fig rl">30</td><td class="fig">18</td><td class="fig led-down">-12</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Sightings</td></tr><tr><td class="n">03</td><td><span class="led-id">sightings.volume_recency</span> <div class="led-sub">53 sightings from 6 orgs, last 12 days ago</div><div class="led-sub led-ev">15 in the last 30 days</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">24</td><td class="fig">24</td><td class="fig led-flat">0</td></tr><tr><td class="n">04</td><td><span class="led-id">sightings.false_positive</span> <div class="led-sub">4 false-positive sightings from 3 orgs</div><div class="led-sub led-ev">ADMIN, CUDESO, abuse.ch</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">-20</td><td class="fig">-20</td><td class="fig led-flat">0</td></tr><tr class="led-st"><td class="n"></td><td colspan="2">subtotal &mdash; Sightings</td><td class="fig rl">4</td><td class="fig">4</td><td class="fig led-flat">0</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Attribution</td></tr><tr><td class="n">05</td><td><span class="led-id">attribution.galaxy</span> <span class="led-mk ">appeared</span><div class="led-sub">No galaxy on any occurrence <span class="led-ev">not read under A at all &mdash; this line has no before</span></div><div class="led-sub led-ev">Nobody has attributed this value to an actor, family or campaign</div></td><td class="rl"><div class="led-kv"><div class="kv" title="false -&gt; true, so its row appears"><span class="k">enabled</span><span class="led-lead"></span><span class="v">false &rarr; true</span></div></div></td><td class="fig rl">&mdash;</td><td class="fig">-7</td><td class="fig led-down">-7</td></tr><tr class="led-st"><td class="n"></td><td colspan="2">subtotal &mdash; Attribution</td><td class="fig rl">0</td><td class="fig">-7</td><td class="fig led-down">-7</td></tr><tr class="led-grp"><td class="n"></td><td colspan="5">Lifecycle</td></tr><tr><td class="n">06</td><td><span class="led-id">record.temporal_precision</span> <div class="led-sub">The record dates only its own encoding</div><div class="led-sub led-ev">no first_seen on any occurrence; encoded 302 days after the event&#x27;s own dates</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">-12</td><td class="fig">-12</td><td class="fig led-flat">0</td></tr><tr><td class="n">07</td><td><span class="led-id">lifecycle.feeds</span> <div class="led-sub">Present in 3 enabled feeds</div><div class="led-sub led-ev">CIRCL OSINT Feed, Threatfox, Training Main</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">8</td><td class="fig">8</td><td class="fig led-flat">0</td></tr><tr><td class="n">08</td><td><span class="led-id">lifecycle.continuity</span> <div class="led-sub">4 months without a month of silence</div><div class="led-sub led-ev">Reported in 16 of the 52 months it has existed</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">4</td><td class="fig">4</td><td class="fig led-flat">0</td></tr><tr><td class="n">09</td><td><span class="led-id">lifecycle.recency</span> <div class="led-sub">Last reported 6 days ago</div><div class="led-sub led-ev">Recent within 30 days, old past 365</div></td><td class="rl"><div class="led-kv"><span class="led-sub">&mdash;</span></div></td><td class="fig rl">8</td><td class="fig">8</td><td class="fig led-flat">0</td></tr><tr><td class="n">10</td><td><span class="led-id">lifecycle.warninglist</span> <span class="led-mk ">vanished</span><div class="led-sub">Hits a known-benign warninglist: List of known IPv4 public DNS resolvers</div><div class="led-sub led-ev">8 lists checked</div></td><td class="rl"><div class="led-kv"><div class="kv" title="true -&gt; false, so its row vanishes"><span class="k">enabled</span><span class="led-lead"></span><span class="v">true &rarr; false</span></div></div></td><td class="fig rl">-38</td><td class="fig">&mdash;</td><td class="fig led-up">+38</td></tr><tr class="led-st"><td class="n"></td><td colspan="2">subtotal &mdash; Lifecycle</td><td class="fig rl">-30</td><td class="fig">8</td><td class="fig led-up">+38</td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td colspan="2">quality on <span class="led-id">8.8.8.8</span></td><td class="fig rl">4</td><td class="fig">23</td><td class="fig led-up">+19</td></tr></tfoot></table></div><p class="led-foot"><span class="led-mk ok2">checked</span> Column A 4 = quality 4. Column B 23 = quality 23. The 10 line deltas add to +19, and 4 + 19 = 23. Context builds: <b>1</b> &mdash; One build, because the candidate and the profile in force have the same `exclusions`.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 2b</span><b>the other axes</b><span class="led-lead"></span><span class="led-folio">detail.axes{}</span></div><p class="led-note">The quality is one axis of five. A ledger that moved 19 points and changed no word an analyst reads is a real outcome, and this register is where it shows.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Axis</th><th class="fig rl">Under A</th><th class="fig">Under B</th><th class="rl">&nbsp;</th></tr></thead><tbody><tr><td class="n">01</td><td>lean</td><td class="fig rl">contested</td><td class="fig">contested</td><td class="rl"><span class="led-sub">unchanged</span></td></tr><tr><td class="n">02</td><td>quality</td><td class="fig rl">4</td><td class="fig">23</td><td class="rl"><span class="led-mk strong">moved</span></td></tr><tr><td class="n">03</td><td>band</td><td class="fig rl">low</td><td class="fig">low</td><td class="rl"><span class="led-sub">unchanged</span></td></tr><tr><td class="n">04</td><td>relevance</td><td class="fig rl">uncertain</td><td class="fig">uncertain</td><td class="rl"><span class="led-sub">unchanged</span></td></tr><tr><td class="n">05</td><td>fired</td><td class="fig rl">9</td><td class="fig">9</td><td class="rl"><span class="led-sub">unchanged</span></td></tr><tr><td class="n">06</td><td>rule</td><td class="fig rl"><span class="led-id">listed-vs-asserted</span></td><td class="fig"><span class="led-id">listed-vs-asserted</span></td><td class="rl"><span class="led-sub">unchanged</span></td></tr><tr><td class="n"></td><td colspan="4" class="led-sub">A warninglist marks this as a false positive and 8 of 8 organisations report it as a threat regardless. Both judgements are deliberate; the page will not pick one. <i>List of known IPv4 public DNS resolvers · 100% of organisations assert it</i></td></tr></tbody></table></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 2c</span><b>the same sheet when nothing moved</b><span class="led-lead"></span><span class="led-folio">detail_unchanged</span></div><p class="led-note">The empty diff. Every line still posts, both columns still add up, and the sheet says so in a stamp rather than going blank &mdash; a blank table reads as a page that failed to load.</p><div class="led-quiet"><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Signal</th><th class="fig rl">Before</th><th class="fig">After</th><th class="fig">&Delta;</th></tr></thead><tbody><tr class="led-stamp"><td colspan="5">no movement &mdash; 9 lines, every one unchanged</td></tr><tr class="led-grp"><td class="n"></td><td colspan="4">Reporting</td></tr><tr><td class="n">01</td><td><span class="led-id">reporting.independent_orgs</span></td><td class="fig rl">28</td><td class="fig">28</td><td class="fig led-flat">0</td></tr><tr><td class="n">02</td><td><span class="led-id">reporting.published_ratio</span></td><td class="fig rl">2</td><td class="fig">2</td><td class="fig led-flat">0</td></tr><tr class="led-st"><td class="n"></td><td colspan="1">subtotal &mdash; Reporting</td><td class="fig rl">30</td><td class="fig">30</td><td class="fig led-flat">0</td></tr><tr class="led-grp"><td class="n"></td><td colspan="4">Sightings</td></tr><tr><td class="n">03</td><td><span class="led-id">sightings.volume_recency</span></td><td class="fig rl">24</td><td class="fig">24</td><td class="fig led-flat">0</td></tr><tr><td class="n">04</td><td><span class="led-id">sightings.false_positive</span></td><td class="fig rl">-20</td><td class="fig">-20</td><td class="fig led-flat">0</td></tr><tr class="led-st"><td class="n"></td><td colspan="1">subtotal &mdash; Sightings</td><td class="fig rl">4</td><td class="fig">4</td><td class="fig led-flat">0</td></tr><tr class="led-grp"><td class="n"></td><td colspan="4">Lifecycle</td></tr><tr><td class="n">05</td><td><span class="led-id">record.temporal_precision</span></td><td class="fig rl">-12</td><td class="fig">-12</td><td class="fig led-flat">0</td></tr><tr><td class="n">06</td><td><span class="led-id">lifecycle.warninglist</span></td><td class="fig rl">-38</td><td class="fig">-38</td><td class="fig led-flat">0</td></tr><tr><td class="n">07</td><td><span class="led-id">lifecycle.feeds</span></td><td class="fig rl">8</td><td class="fig">8</td><td class="fig led-flat">0</td></tr><tr><td class="n">08</td><td><span class="led-id">lifecycle.continuity</span></td><td class="fig rl">4</td><td class="fig">4</td><td class="fig led-flat">0</td></tr><tr><td class="n">09</td><td><span class="led-id">lifecycle.recency</span></td><td class="fig rl">8</td><td class="fig">8</td><td class="fig led-flat">0</td></tr><tr class="led-st"><td class="n"></td><td colspan="1">subtotal &mdash; Lifecycle</td><td class="fig rl">-30</td><td class="fig">-30</td><td class="fig led-flat">0</td></tr></tbody><tfoot><tr class="led-total"><td class="n"></td><td colspan="1">quality on <span class="led-id">8.8.8.8</span></td><td class="fig rl">4</td><td class="fig">4</td><td class="fig led-flat">0</td></tr></tfoot></table></div></div></div><div class="led-sheet"><div class="led-cap"><span>sheet 3</span><b>the comparison set</b><span class="led-lead"></span><span class="led-folio">comparison[]</span><span class="led-folio">4 pinned</span></div><p class="led-note">The values this reader pinned, under both profiles. One page load, not one per value &mdash; which is what makes a change that quietly turned a known-benign value malicious visible at all.</p><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Pinned value</th><th class="rl">Lean A</th><th>Lean B</th><th class="fig rl">Qual A</th><th class="fig">Qual B</th><th class="fig">&Delta;</th><th class="rl">Band A</th><th>Band B</th><th class="fig rl">Fired A</th><th class="fig">Fired B</th><th class="rl">Direction</th></tr></thead><tbody><tr><td class="n">01</td><td><span class="led-id">8.8.8.8</span></td><td class="rl">contested</td><td>contested</td><td class="fig rl">4</td><td class="fig">23</td><td class="fig led-up">+19</td><td class="rl">low</td><td>low</td><td class="fig rl">9</td><td class="fig">9</td><td class="rl"><span class="led-mk on">rose</span></td></tr><tr><td class="n">02</td><td><span class="led-id">185.234.219.24</span></td><td class="rl">none</td><td>none</td><td class="fig rl">0</td><td class="fig">0</td><td class="fig led-flat">0</td><td class="rl">none</td><td>none</td><td class="fig rl">0</td><td class="fig">0</td><td class="rl"><span class="led-mk ">no movement</span></td></tr><tr><td class="n">03</td><td><span class="led-id">45.155.205.233</span></td><td class="rl">threat</td><td>contested</td><td class="fig rl">11</td><td class="fig">-2</td><td class="fig led-down">-13</td><td class="rl">low</td><td>low</td><td class="fig rl">8</td><td class="fig">8</td><td class="rl"><span class="led-mk ok2">fell</span></td></tr><tr><td class="n">04</td><td><span class="led-id">1.1.1.1</span></td><td class="rl">contested</td><td>contested</td><td class="fig rl">15</td><td class="fig">34</td><td class="fig led-up">+19</td><td class="rl">low</td><td>medium</td><td class="fig rl">9</td><td class="fig">9</td><td class="rl"><span class="led-mk on">rose</span></td></tr></tbody></table></div><p class="led-foot">Line 02 is a value with <b>nothing to assess</b>: lean none, band none, 0 signals fired on either side. It is not an error and it is not a zero score &mdash; it is the honest reading of what this reader's permissions and this instance's rows give.</p></div><div class="led-sheet"><div class="led-cap"><span>sheet 3b</span><b>the comparison set, unpinned</b><span class="led-lead"></span><span class="led-folio">comparison_empty</span></div><div class="led-quiet"><div class="led-scroll"><table class="led-t"><thead><tr><th class="n">#</th><th>Pinned value</th><th class="rl">Lean A</th><th>Lean B</th><th class="fig rl">Qual A</th><th class="fig">Qual B</th><th class="fig">&Delta;</th><th class="rl">Band A</th><th>Band B</th><th class="fig rl">Fired A</th><th class="fig">Fired B</th><th class="rl">Direction</th></tr></thead><tbody><tr class="led-stamp"><td colspan="12">no values pinned &mdash; pin a value from its verdict and its two columns appear on this sheet</td></tr></tbody></table></div></div></div></div>
+        </div>
+  </div>
+
+  <section class="vp-doc-head" style="border:0;margin-top:1rem">
+    <h2 class="h5">What this candidate gives up</h2>
+    <p class="vp-doc-sub">
+      <b>The risk §4 names is real: seven sections do not all fit one
+      table.</b> Three of them are maps — <code>relevance.ttl_days</code>,
+      <code>reference.org_trust</code> and
+      <code>reference.warninglist_category</code> — and forcing them
+      into the signals table would have given twelve rows of two
+      populated columns. The answer here is the one a real ledger has
+      always used for a line that is itself a breakdown: a
+      <b>supporting schedule</b>, ruled identically, folio-referenced
+      from the section that owns it, banked two or three across so
+      twelve short rows do not waste 1600px. A map with set-valued
+      entries (<code>enrichment.auto_run</code>) becomes a matrix —
+      types down, modules across — which is still a ruled table and
+      still reads at a glance. Where a schedule holds letters rather
+      than figures, the letter is joined to what it is worth
+      (<code>org_trust</code> × <code>org_trust_scale</code>) so it
+      lands on the same ruler as everything else.
+    </p>
+    <p class="vp-doc-sub">
+      What it costs: <b>density</b>. This board asks a reader to be
+      comfortable with a sheet of figures, and it says almost nothing
+      in prose that it can say in a column — a colleague who has
+      never seen the schema will read the index board correctly and
+      will have to work at the edit board. It also spends its one
+      colour pair entirely on direction
+      (<code>--vp-dir-with</code> / <code>--vp-dir-against</code>),
+      so bands, states and badges are all carried by ruling and small
+      caps instead.
+    </p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+    var root = document.documentElement;
+
+    /*
+     * Theme bridge. Artifacts stamp data-theme on the root element and
+     * otherwise leave it to prefers-color-scheme; MISP switches on
+     * data-bs-theme. Mirror one onto the other so a candidate follows
+     * the reader's theme in MISP's own palette rather than a second one.
+     */
+    function applyTheme() {
+        var t = root.getAttribute('data-theme');
+        if (!t) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark' : 'light';
+        }
+        root.setAttribute('data-bs-theme', t);
+    }
+    applyTheme();
+    new MutationObserver(applyTheme).observe(root, {
+        attributes: true, attributeFilter: ['data-theme']
+    });
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', applyTheme);
+    } catch (e) { /* older engines: the stamped attribute still works */ }
+})();
+</script>
