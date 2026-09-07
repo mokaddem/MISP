@@ -5367,7 +5367,7 @@ class Server extends AppModel
      */
     public function updateJSON()
     {
-        foreach (['Galaxy', 'Noticelist', 'Warninglist', 'Taxonomy', 'ObjectTemplate', 'ObjectRelationship'] as $target) {
+        foreach (['Galaxy', 'Noticelist', 'Warninglist', 'Taxonomy', 'ObjectTemplate', 'ObjectRelationship', 'AnalystProfile'] as $target) {
             $model = ClassRegistry::init($target);
             $start = microtime(true);
             $result = $model->update();

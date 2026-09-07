@@ -280,8 +280,31 @@ Three things this must not do:
   upstream stays in the database, because an org may have forked from it and
   the hero may still name it. It becomes an ordinary row that nothing updates.
 
-Called from `Admin runUpdates` and exposed as an `update` action on the
-controller, the same as `DecayingModelController::update()`.
+**Corrected 2026-09-07, on building it.** This said *"called from `Admin
+runUpdates`, the same as `DecayingModelController::update()`"*, and those are
+two different things — neither of which is where MISP actually loads shipped
+JSON. `DecayingModel::update()` has exactly one caller, its own controller
+(`DecayingModelController.php:19`), which is why a decaying model only
+appears after somebody presses a button.
+
+The real registry is **`Server::updateJSON()`** (`Server.php:5368`): a list
+of models, each asked for `update()`, driven by `cake Admin updateJSON` and
+by the UI's *Update all JSON structures*. `AnalystProfile` joins
+`Galaxy`, `Noticelist`, `Warninglist`, `Taxonomy`, `ObjectTemplate` and
+`ObjectRelationship` there, and `update($force = false)` is the
+registry-facing name that delegates to `updateDefaults()`.
+
+That choice matters more than a naming detail: without it a fresh instance
+has **no** profile, so `resolveFor()` returns `null` for every user and the
+Assessment tab is blank out of the box — technically the honest "scoring is
+off" state of §3.1, but arrived at by omission rather than by an admin's
+decision. Following the decaying-model precedent literally would have shipped
+exactly that.
+
+*Noticed in passing and left alone:* `AdminShell::updateJSONLite()` calls
+`$this->Server->updateJSON(true)` while that method takes no parameter, so
+lite and full do identical work. Pre-existing, harmless, and not this
+phase's.
 
 ### 4.1 What the default profile contains
 
@@ -353,30 +376,87 @@ the hero has been naming.
 
 ## 7. Verification
 
-**Run 2026-09-07.** Items 1, 3, 4 and 8 pass; 2, 5, 6 and 9 need a live
-instance and are owed; 7 moved to phase 8 with the controller (§6).
+**Run 2026-09-07, in two passes.** Everything passes except 2b, which
+cannot run here (see below), and 7, which moved to phase 8 with the
+controller (§6).
+
+- **Without a database**:
+  [`02-store-resolve-harness.php`](02-store-resolve-harness.php), 33 checks.
+- **Against the dev instance**, once migration 160 was applied:
+  [`02-store-live-probe.php`](02-store-live-probe.php), 36 checks, run twice
+  to prove it leaves the instance as it found it.
+
+**The live pass earned its keep: it found two defects the harness could not
+see, both in the same place.** The harness stubs `save()` to return `true`,
+so it could not notice that *no save of an existing profile worked at all*.
+
+1. **`beforeValidate()` seeded columns on update as well as create.** It
+   defaulted `default` to `0` whenever the key was absent, and CakePHP writes
+   the fields it is handed — so a partial save of the shipped default, a
+   rename or phase 8's edit form, would have quietly stopped it being the
+   default. Now seeded only when there is no `id`.
+2. **`__validateOwnership()` judged the submitted fields rather than the
+   resulting row.** A save carrying `id`, `name` and `parameters` names none
+   of the three ownership columns, so the rule counted zero owners and
+   rejected it. Every partial update failed. It now returns early when a save
+   does not touch ownership, and merges with the stored row when it does.
+
+**And a third, which is why the first two were invisible.**
+`updateDefaults()` reported `'updated'` without checking the save result, so
+the shipped-default update path was failing validation and telling its caller
+it had succeeded. It now logs the validation errors and returns `'failed'`.
+That was the bug that made the other two hard to see rather than merely
+present — and it is the one worth remembering, because a phase that returns
+an outcome map is inviting exactly this.
+
+A fourth, found while fixing them: **`Model::create()` before an update
+re-seeds `$this->data` from the column defaults**, so `default` arrives as
+`0` and merges over the stored `1`. `create()` is for inserts. The update
+branch sets `$this->id` and nothing else.
 
 | # | What | Status |
 |---|---|---|
+| # | What | Status |
+|---|---|---|
 | 1 | Lint over the new model | **pass** — `php -l` on `AnalystProfile.php` and `AppModel.php`. `parallel-lint` is not installed in this worktree (`app/Vendor` absent), so the project's usual command could not run |
-| 2a | `Admin runUpdates` applies migration 160 | **owed, and ready.** The dev instance serves this worktree and `case 160` is confirmed present in the container's `AppModel.php`; the command mutates, so it needs a hand on it |
+| 2a | `Admin runUpdates` applies migration 160 | **pass** — run 2026-09-07; `db_version` 159 → 160 and the table exists |
 | 2b | `Admin schemaDiagnostics` — no diff | **not runnable through this instance, and the reason is worth keeping.** The dev mount covers `app/` only, so the container compares the live schema against **its image's** `db_schema.json` — `db_version 143`, not this tree's 160 — and root-level files never reach it. Two consequences: the check would report nothing about `analyst_profiles` however correct the table was, and it is *silent* rather than wrong, because `schemaDiagnostics` prints only tables it finds in the expected schema. A missing table *is* a critical diagnostic (`Server.php:3676`, `error_type => missing_table`); it just cannot fire for a table the expected schema has never heard of. Whoever runs this properly should also know the instance carries four unrelated diffs already (`bookmarks.url`, `galaxy_clusters.description`, `roles.perm_sync_authoritative`, `taxii_servers.skip_proxy`), so the assertion is *no new diff*, never *no diff* |
-| 3 | `resolveFor()` for four user shapes | **pass** — harness, and one statement each rather than the four the item assumed |
-| 4 | The default disabled with nothing else: `null`, no throw | **pass** — harness |
-| 5 | Fork the default as a non-admin; the copy is editable, the original is not | **owed, blocked on 2a** — `forkProfile()` writes, so it wants the table. The permission half is asserted in the harness |
-| 6 | `updateDefaults()` twice is a no-op; a version bump applies and leaves `enabled` alone | **owed, blocked on 2a** — reads the filesystem and writes rows. `default-v1.json` is under `app/files/`, so it does reach the container |
+| 3 | `resolveFor()` for four user shapes | **pass** — harness, and again live against the instance's own five users, each resolving to exactly one profile. One statement each rather than the four the item assumed |
+| 4 | The default disabled with nothing else: `null`, no throw | **pass** — harness and live |
+| 5 | Fork the default as a non-admin; the copy is editable, the original is not | **pass** — live, as user 2 (no `perm_admin`, no `perm_site_admin`). Also asserted: a fresh uuid with no lineage, counters reset, parameters verbatim, the fork immediately being what its owner resolves to, a *second* enabled fork refused, and an org fork refused without `perm_admin` |
+| 6 | `updateDefaults()` twice is a no-op; a version bump applies and leaves `enabled` alone | **pass** — live: `created`, then `skipped`, then `updated` after a version bump, with a disabled default left disabled and `revision` moved. This is the item that found all three defects above |
 | 7 | `queryACL/findMissingFunctionNames` | **moved to phase 8** — no controller shipped |
-| 8 | Two of three ownership columns set: rejected | **pass** — harness, all six combinations including none |
-| 9 | Rename leaves `revision`; editing `parameters` bumps it; a shipped update over a local edit names the overwrite | **owed, blocked on 2a** for the round trip. `bumpRevision()` and `updateDefaults()`'s `overwrote_edits` outcome are the halves that implement it |
+| 8 | Two of three ownership columns set: rejected | **pass** — harness (six combinations) and live through CakePHP's own validation, which is where the merged-row rule above had to be got right |
+| 9 | Rename leaves `revision`; editing `parameters` bumps it; a shipped update over a local edit names the overwrite | **pass** — live: a rename leaves `revision`, `bumpRevision()` moves it by one and leaves `version` alone. `overwrote_edits` is the outcome for the local-edit case |
 
-**One measurement to keep: `app/` is the whole of the dev mount.** The
-Value Profile campaign has never needed anything outside it — every phase so
-far touched controllers, models, elements and webroot assets — and this is
-the first phase to ship a root-level file, three of them counting
-`INSTALL/MYSQL.sql` and `db_schema.json`. A migration is therefore the first
-kind of change this project's dev loop cannot fully see, and the gap is
-silent rather than loud. Any later phase adding a table inherits it; phase 10
-adds one (`11-restsearch.md` §4).
+**Two measurements about the dev loop, both of which cost time here.**
+
+**`app/` is not the whole of the dev mount, and `app/files/` is not in the
+source half of it.** The mount list is per-directory —
+`app/Console`, `app/Controller`, `app/Locale`, `app/Model`, `app/View`,
+`app/webroot` and six `app/Lib/*` subdirectories come from the worktree,
+while **`app/files` and `app/Config` come from the docker repo instead**,
+because they hold runtime data and instance configuration rather than code.
+So `app/files/analyst-profiles/default-v1.json` never reaches a dev
+container, and `updateDefaults()` found nothing until the file was placed at
+the mounted path by hand.
+
+That is a dev artifact and not a design error, and it is worth saying why:
+`app/files/<thing>` **is** MISP's convention for shipped JSON —
+`taxonomies`, `warninglists`, `misp-objects`, `misp-galaxy` and
+`misp-decaying-models` all live there, all as git submodules, which is
+exactly how the image comes to have them and how the mount comes to overlay
+a persisted copy. A shipped profile belongs there. It is only invisible to
+*this* loop.
+
+**Nothing outside `app/` is mounted at all**, which is the second one. This
+is the first phase in the campaign to ship a root-level file — three of them,
+counting `INSTALL/MYSQL.sql` and `db_schema.json` — so a migration is the
+first kind of change the dev loop cannot see, and it fails silently:
+`schemaDiagnostics` reads the container's own `db_schema.json` and simply
+never mentions a table its expected schema has not heard of. Any later phase
+adding a table inherits both; phase 10 adds one
+(`11-restsearch.md` §4).
 
 Two things the harness checks that the list did not ask for, both because
 they are cheap to break later: **the per-request cache** — 27 panel calls

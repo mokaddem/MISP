@@ -81,18 +81,28 @@ class AnalystProfile extends AppModel
         parent::beforeValidate();
         $data = &$this->data[$this->alias];
 
-        if (empty($data['uuid'])) {
-            $data['uuid'] = CakeText::uuid();
-        }
-        if (!isset($data['default'])) {
-            $data['default'] = 0;
-        }
-        if (!isset($data['enabled'])) {
-            $data['enabled'] = 1;
-        }
-        foreach (array('version', 'revision') as $counter) {
-            if (!isset($data[$counter])) {
-                $data[$counter] = 1;
+        /*
+         * Seed columns on create only. CakePHP saves the fields it is
+         * handed, so defaulting these on an update writes them: a partial
+         * save of the shipped default — a rename, or phase 8's edit form —
+         * would set `default` to 0 and stop it being the default at all.
+         * Found by the live probe (02-store.md §7.6), which the stubbed
+         * harness could not see because its save() always succeeded.
+         */
+        if (empty($data['id'])) {
+            if (empty($data['uuid'])) {
+                $data['uuid'] = CakeText::uuid();
+            }
+            if (!isset($data['default'])) {
+                $data['default'] = 0;
+            }
+            if (!isset($data['enabled'])) {
+                $data['enabled'] = 1;
+            }
+            foreach (array('version', 'revision') as $counter) {
+                if (!isset($data[$counter])) {
+                    $data[$counter] = 1;
+                }
             }
         }
         if (isset($data['parameters']) && is_array($data['parameters'])) {
@@ -124,15 +134,45 @@ class AnalystProfile extends AppModel
      */
     private function __validateOwnership(array $data)
     {
+        $columns = array('user_id', 'org_id', 'default');
+        $touched = array();
+        foreach ($columns as $column) {
+            if (array_key_exists($column, $data)) {
+                $touched[$column] = $data[$column];
+            }
+        }
+
+        /*
+         * An update is validated against the row as it will be, not against
+         * the fields this save happens to carry. A save that names none of
+         * the three is not changing ownership and must pass; one that names
+         * some is checked merged with what is stored. Without this, every
+         * partial update of an existing profile fails — which is how the
+         * shipped default's own update path was silently doing nothing.
+         */
+        if (!empty($data['id'])) {
+            if (empty($touched)) {
+                return true;
+            }
+            $stored = $this->find('first', array(
+                'conditions' => array('AnalystProfile.id' => $data['id']),
+                'fields' => array(
+                    'AnalystProfile.user_id',
+                    'AnalystProfile.org_id',
+                    'AnalystProfile.default',
+                ),
+                'recursive' => -1,
+            ));
+            if (!empty($stored)) {
+                $touched = array_merge($stored['AnalystProfile'], $touched);
+            }
+        }
+
         $scopes = 0;
-        if (!empty($data['user_id'])) {
-            $scopes++;
-        }
-        if (!empty($data['org_id'])) {
-            $scopes++;
-        }
-        if (!empty($data['default'])) {
-            $scopes++;
+        foreach ($columns as $column) {
+            if (!empty($touched[$column])) {
+                $scopes++;
+            }
         }
         if ($scopes !== 1) {
             $this->invalidate(
@@ -450,6 +490,19 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * The name `Server::updateJSON()` calls on every model that loads
+     * shipped JSON into a table — Galaxy, Noticelist, Warninglist, Taxonomy,
+     * ObjectTemplate, ObjectRelationship, and now this one.
+     *
+     * @param bool $force
+     * @return array
+     */
+    public function update($force = false)
+    {
+        return $this->updateDefaults($force);
+    }
+
+    /**
      * Load the shipped default profiles from app/files/analyst-profiles/.
      *
      * Follows DecayingModel::update() with its version-comparison bug fixed:
@@ -507,7 +560,15 @@ class AnalystProfile extends AppModel
              * the caller can log it.
              */
             $hadLocalEdits = (int)$current['revision'] > 1;
-            $this->save(array('AnalystProfile' => array(
+            /*
+             * No create() here, deliberately. Model::create() seeds
+             * $this->data from the column defaults, so `default` arrives as
+             * 0 and, merged over the stored row, un-owns the profile that is
+             * being updated. create() is for inserts; an update carries its
+             * id and nothing else.
+             */
+            $this->id = $current['id'];
+            $saved = $this->save(array('AnalystProfile' => array(
                 'id' => $current['id'],
                 'uuid' => $uuid,
                 'name' => $profile['name'],
@@ -516,6 +577,20 @@ class AnalystProfile extends AppModel
                 'version' => $profile['version'],
                 'revision' => (int)$current['revision'] + 1,
             )));
+            if (empty($saved)) {
+                /*
+                 * Reported rather than swallowed. This branch returned
+                 * 'updated' unconditionally until the live probe found the
+                 * save failing validation and the caller believing it.
+                 */
+                $this->log(sprintf(
+                    'AnalystProfile: could not update shipped default %s: %s',
+                    $uuid,
+                    json_encode($this->validationErrors)
+                ));
+                $outcome[$uuid] = 'failed';
+                continue;
+            }
             $outcome[$uuid] = $hadLocalEdits ? 'overwrote_edits' : 'updated';
         }
         $this->resolutionCache = array();
