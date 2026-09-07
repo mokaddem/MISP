@@ -56,8 +56,11 @@ function __($string)
 }
 
 require_once APP . 'Model/ValueSignals/ValueSignalBase.php';
+require_once APP . 'Model/ValueEscalations/ValueEscalationBase.php';
 require_once APP . 'Lib/Tools/ValueStatsTool.php';
 require_once APP . 'Lib/Tools/ValueSignalLoader.php';
+require_once APP . 'Lib/Tools/ValueLeanTool.php';
+require_once APP . 'Lib/Tools/ValueChangersTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
 
 $GLOBALS['checks'] = 0;
@@ -993,7 +996,8 @@ is_same(
  * shrunk to the point of saying nothing on the values that do have
  * corroboration. It needs a **clamp in the banding**, which is phase
  * 3's section (`04-dispositions.md` §6), and this is the number it has
- * to clamp.
+ * to clamp — so the check below now prints both bands, the one the
+ * weights reach and the one the clamp holds it at.
  */
 $persistent = medianContext();
 $persistent['publication'] = array('events' => 14, 'published' => 14,
@@ -1018,15 +1022,25 @@ $persistentVerdict = $tool->assess(
 );
 out(sprintf(
     '  note  one org, no sightings, fourteen unbroken months, three'
-        . ' feeds: quality %d, band %s — the clamp phase 3 owes'
-        . ' (§7.4)',
+        . ' feeds: quality %d — band %s on the weights alone, %s'
+        . ' once the thin-record clamp applies',
     $persistentVerdict['quality'],
+    ValueVerdictTool::qualityBand(
+        $persistentVerdict['quality'],
+        $persistentVerdict['signals']['fired'],
+        $profile
+    ),
     $persistentVerdict['band']
 ));
 is_same(
     $persistentVerdict['quality'],
     ledgerSum($persistentVerdict),
     'that case sums exactly too, whichever band it belongs in'
+);
+is_same(
+    'low',
+    $persistentVerdict['band'],
+    'and it is the clamp, not the weights, that keeps it in low'
 );
 
 out('');
@@ -1076,23 +1090,36 @@ is_same(
 );
 
 out('');
-out('the same evidence under a benign lean flips every row');
+out('the same evidence forced to a benign lean cannot stay benign');
 
+/*
+ * The anchoring half of this moved to phase 3's harness, which owns
+ * both the flip and the rule that intervenes here. Forcing a benign
+ * lean on to a record whose every row points at a threat makes the
+ * ledger sum to -98, and a ledger that argues that hard against its own
+ * lean is the contested state rather than a negative gauge — so what is
+ * asserted here is that the accumulator refuses to publish the negative
+ * number, not the negation itself.
+ */
 $flipped = $tool->assess(
     maliciousContext(),
     $profile,
     array('lean' => 'benign')
 );
 is_same(
-    -$malicious['quality'],
-    $flipped['quality'],
-    'the quality is the negation'
+    'contested',
+    $flipped['lean'],
+    'a ledger that disputes its lean lands contested, not negative'
 );
-$flippedOrgs = rowById($flipped, 'reporting.independent_orgs');
 is_same(
-    'down',
-    $flippedOrgs === null ? null : $flippedOrgs['direction'],
-    'and wide reporting now disputes the record\'s own assertion'
+    $malicious['quality'],
+    $flipped['quality'],
+    'and re-anchors threat-signed, back to the same number'
+);
+is_same(
+    'benign',
+    $flipped['derived_lean'],
+    'with the lean it was scored against still on the record'
 );
 
 out('');

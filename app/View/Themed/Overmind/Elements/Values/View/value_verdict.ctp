@@ -86,7 +86,18 @@ foreach ($verdict['orgs'] as $org) {
      */
     ?>
     <div class="vp-vc-hero">
-        <span class="vp-vc-badge">
+        <?php
+        /*
+         * UNKNOWN arrives here too — this layout carries every value
+         * whose signals do not contradict each other, including the ones
+         * with no signals at all. A solid badge in the same weight as
+         * MALICIOUS would state a conclusion where there is none, so a
+         * disposition that refuses to name a state is drawn quietly.
+         */
+        ?>
+        <span class="vp-vc-badge<?= $treatment['definite']
+            ? ''
+            : ' vp-vc-badge-quiet' ?>">
             <i class="<?= h($treatment['icon']) ?>"></i>
             <?= h($disposition) ?>
         </span>

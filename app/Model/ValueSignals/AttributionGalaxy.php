@@ -56,6 +56,12 @@ class AttributionGalaxy extends ValueSignalBase
                 'label' => __('Points when nobody has attributed it'),
             ),
         );
+        $this->unit = array(
+            'points' => 'per_cluster',
+            'cap' => 'cap',
+            'one' => __('A galaxy cluster on any occurrence'),
+            'many' => __('%d galaxy clusters across the occurrences'),
+        );
     }
 
     public function evaluate(array $context, array $config)

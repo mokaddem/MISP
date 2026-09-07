@@ -21,6 +21,8 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueDisposition', 'Tools');
+
 $verdict = $valueProfile['verdict'];
 
 $noWrites = __(
@@ -62,7 +64,9 @@ foreach ($cases as $case) {
     ?>
     <div class="vp-vc-hero">
         <span class="vp-vc-state">
-            <i class="fas fa-circle-exclamation"></i>
+            <i class="<?= h(ValueDisposition::icon(
+                $verdict['disposition']
+            )) ?>"></i>
             <span class="vp-vc-state-word">
                 <?= h($verdict['disposition']) ?>
             </span>

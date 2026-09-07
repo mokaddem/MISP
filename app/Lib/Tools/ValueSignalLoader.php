@@ -16,9 +16,10 @@
  * formula catalogue out of a directory listing minus `Base.php`, which
  * is why the decay UI's formula dropdown is already a directory read.
  *
- * **One subject per pair of roots**, because §8.8 gives escalations the
- * same treatment: phase 3 registers `escalation` with its own base
- * class and its own two directories, and inherits every rule below.
+ * **One subject per pair of roots.** Two of them today — signals, and
+ * the conflict rules that make a lean contested — each with its own
+ * base class and its own two directories, and both inheriting every
+ * rule below.
  *
  * The five rules a directory that executes its contents needs:
  *
@@ -45,10 +46,20 @@ class ValueSignalLoader
 {
     const SUBJECT_SIGNAL = 'signal';
 
+    const SUBJECT_ESCALATION = 'escalation';
+
     /**
      * Subjects, each a pair of roots and the base class its files must
      * extend. Paths are relative to `APP` and resolved at scan time,
      * because `APP` is not available while a class constant is parsed.
+     *
+     * Listed here rather than registered at boot because the two
+     * shipped subjects are part of this class's own contract: a
+     * `register()` call from elsewhere would have to happen before the
+     * first lookup, and a lookup that silently found no directory
+     * because a bootstrap line was missing is the one failure mode a
+     * filesystem catalogue cannot report — an empty directory and an
+     * unregistered subject look identical from here.
      *
      * @var array
      */
@@ -59,6 +70,12 @@ class ValueSignalLoader
             'base' => 'ValueSignalBase',
             'skip' => array('ValueSignalBase.php'),
         ),
+        self::SUBJECT_ESCALATION => array(
+            'shipped' => 'Model/ValueEscalations/',
+            'custom' => 'Lib/ValueEscalations/',
+            'base' => 'ValueEscalationBase',
+            'skip' => array('ValueEscalationBase.php'),
+        ),
     );
 
     /** Memoised per process: subject => id => instance. */
@@ -68,8 +85,9 @@ class ValueSignalLoader
     private static $errors = array();
 
     /**
-     * Register another subject. Phase 3's escalations, and any future
-     * pair of roots.
+     * Register another subject — any future pair of roots that wants
+     * the same five rules, and the seam a harness uses to point a
+     * subject at a directory of its own.
      *
      * @param string $name
      * @param array $spec `shipped`, `custom`, `base`, `skip`

@@ -104,7 +104,12 @@
         "thresholds": {
             "lean_supermajority": 0.66,
             "quality_bands": { "high": 60, "medium": 30 },
-            "quality_high_min_signals": 4
+            "quality_high_min_signals": 4,
+            "thin_record_clamp": {
+                "max_orgs": 1,
+                "max_sightings": 0,
+                "max_band": "low"
+            }
         },
         "escalations": [
             {

@@ -2,6 +2,8 @@
 
 App::uses('ValueSignalLoader', 'Tools');
 App::uses('ValueStatsTool', 'Tools');
+App::uses('ValueLeanTool', 'Tools');
+App::uses('ValueChangersTool', 'Tools');
 
 /**
  * The accumulator: a profile plus a value's facts, in; a ledger that
@@ -56,23 +58,23 @@ App::uses('ValueStatsTool', 'Tools');
  * which is what makes per-viewer weighting cheap and gives a
  * user-defined signal no sync blast radius.
  *
- * ## Phase seams
+ * ## The seventh rule, which lives here rather than with the lean
  *
- * Three things this phase deliberately leaves as inputs:
+ * The lean's categorical rules are `ValueLeanTool`'s and run before any
+ * scoring. One of them cannot: **a lean whose anchored quality comes
+ * out below zero becomes contested**, because a negative quality means
+ * the ledger, row by row, disputes the assertion the record itself
+ * makes. That can only be known after the sum, so it is applied here —
+ * the rows are re-anchored threat-signed, the lean becomes contested
+ * and the tug shows the two sides. It is the state the design's earlier
+ * one-number model had no way to express: it would have printed a
+ * negative score under the word MALICIOUS.
  *
- * - **The lean** (phase 3, `04-dispositions.md` §3). Derived from
- *   per-org `to_ids` stances and the warninglist category resolution.
- *   Until it lands, callers pass `$options['lean']` and the default is
- *   `threat` — the lean every unanimous record reaches by rule 4, and
- *   the one that leaves a threat-signed ledger unflipped.
- * - **The bands** (phase 3, §6). `qualityBand()` below implements the
- *   three-line derivation the profile's own `thresholds` already carry,
- *   because phase 2's exit criterion needs a band to assert against
- *   (§7.4's calibration rule). Phase 3 owns it from there, along with
- *   the escalations that make a lean contested.
- * - **The exclusions** (phase 4). Only `evidence.window` is read here,
- *   because §2.3's budget is this phase's; the rest of the section is
- *   phase 4's and reaches signals as `$context['excluded']`.
+ * ## What is still an input
+ *
+ * **The exclusions.** Only `evidence.window` is read here, because the
+ * evidence budget is what bounds a context this file has to score; the
+ * rest of the section reaches signals as `$context['excluded']`.
  */
 class ValueVerdictTool
 {
@@ -83,6 +85,9 @@ class ValueVerdictTool
         'Attribution',
         'Lifecycle',
     );
+
+    /** The quality bands, weakest first, so one can be capped to another. */
+    const BANDS = array('none', 'low', 'medium', 'high');
 
     /** Lean → the ledger's polarity. */
     const POLARITY = array(
@@ -165,33 +170,35 @@ class ValueVerdictTool
      *                       documented on `ValueSignalBase`
      * @param array|null $profile An `AnalystProfile` row, unwrapped, or
      *                            null when scoring is switched off
-     * @param array $options `lean` (phase 3's input)
+     * @param array $options `lean` forces one instead of deriving it,
+     *                       which is how a ledger is scored against a
+     *                       stated lean rather than a counted one
      * @return array
      */
     public function assess(array $context, $profile,
         array $options = array()
     ) {
-        $lean = isset($options['lean']) ? $options['lean'] : 'threat';
+        $derived = $this->derive($context, $profile, $options);
+        $lean = $derived['lean'];
         $polarity = isset(self::POLARITY[$lean])
             ? self::POLARITY[$lean]
             : 1;
         /*
-         * §2: a `none` lean has no ledger. **And neither has a value
-         * with no occurrence this viewer can see**, whatever lean the
-         * caller passed — that is phase 3's rule 1 stated as a fact
-         * about the context rather than about the lean, and it has to
-         * be here because the absence keys would otherwise fire on
-         * emptiness: no warninglist hit (+6), no galaxy (−7), nobody
-         * sighted it (−4) are all true of a value that does not exist
-         * for this reader, and scoring them is the engine reading its
-         * own blindness as evidence.
+         * A `none` lean has no ledger. **And neither has a value with
+         * no occurrence this viewer can see**, whatever lean the caller
+         * forced — the lean's own first rule, stated here as a fact
+         * about the context, because the absence keys would otherwise
+         * fire on emptiness: no warninglist hit (+6), no galaxy (−7),
+         * nobody sighted it (−4) are all true of a value that does not
+         * exist for this reader, and scoring them is the engine reading
+         * its own blindness as evidence.
          */
         $occurrences = isset($context['occurrences']['total'])
             ? (int)$context['occurrences']['total']
             : 0;
         if ($lean === 'none' || $occurrences === 0) {
-            return $this->nothingToAssess($lean, $polarity, $context,
-                $profile);
+            return $this->nothingToAssess($derived, $polarity,
+                $context, $profile);
         }
         $entries = $this->signalEntries($profile);
 
@@ -242,22 +249,73 @@ class ValueVerdictTool
             $notCounted[] = $note;
         }
 
-        $quality = 0;
-        foreach ($rows as $row) {
-            $quality += $row['contribution'];
+        $quality = $this->sum($rows);
+
+        /*
+         * Rule 7. A ledger that sums below zero against the lean it was
+         * anchored to is a record disputing its own assertion, and the
+         * honest state for that is contested — not a negative gauge
+         * under a confident word. The rows go back to threat-signed,
+         * which is how a contested ledger renders, and the tug below
+         * shows the two sides that could not be reconciled.
+         *
+         * It cannot run twice: re-anchoring a negative sum with a
+         * polarity of −1 makes it positive, and a polarity of +1 leaves
+         * it where it was with the lean already contested.
+         */
+        if ($quality < 0) {
+            $rows = $this->reanchor($rows, $polarity);
+            $quality = $this->sum($rows);
+            $lean = 'contested';
+            $polarity = 1;
         }
         $ledger = $this->group($rows);
 
-        return $this->verdict(
-            $lean,
-            $polarity,
-            $quality,
-            $this->qualityBand($quality, $counts['fired'], $profile),
-            $ledger,
-            $notCounted,
-            $counts,
-            $context,
-            $profile
+        return $this->verdict(array(
+            'lean' => $lean,
+            'derived' => $derived,
+            'polarity' => $polarity,
+            'quality' => $quality,
+            'band' => self::qualityBand(
+                $quality,
+                $counts['fired'],
+                $profile,
+                $context
+            ),
+            'ledger' => $ledger,
+            'tug' => $this->tug($rows, $polarity),
+            'not_counted' => $notCounted,
+            'counts' => $counts,
+            'context' => $context,
+            'profile' => $profile,
+        ));
+    }
+
+    /**
+     * The lean this assessment is anchored to, counted or forced.
+     *
+     * A forced lean skips the rules entirely — it is how a ledger is
+     * scored against a stated lean rather than a counted one, which is
+     * what a profile simulator and a re-anchoring regression both need.
+     * The stances still come back, because they cost nothing and the
+     * falsifiability line needs them either way.
+     *
+     * @param array $context
+     * @param array|null $profile
+     * @param array $options
+     * @return array
+     */
+    private function derive(array $context, $profile, array $options)
+    {
+        $lean = new ValueLeanTool();
+        if (!isset($options['lean'])) {
+            return $lean->leanFor($context, $profile);
+        }
+        return array(
+            'lean' => $options['lean'],
+            'rule' => null,
+            'stances' => $lean->stancesFor($context, $profile),
+            'rule_errors' => array(),
         );
     }
 
@@ -270,26 +328,100 @@ class ValueVerdictTool
      * because the profile *was* in force; it simply had nothing to
      * weigh.
      *
-     * @param string $lean
+     * @param array $derived
      * @param int $polarity
      * @param array $context
      * @param array|null $profile
      * @return array
      */
-    private function nothingToAssess($lean, $polarity, array $context,
-        $profile
+    private function nothingToAssess(array $derived, $polarity,
+        array $context, $profile
     ) {
-        return $this->verdict(
-            $lean,
-            $polarity,
-            0,
-            'none',
-            array(),
-            array(),
-            array('configured' => 0, 'evaluated' => 0, 'fired' => 0,
-                'silent' => 0, 'not_counted' => 0),
-            $context,
-            $profile
+        return $this->verdict(array(
+            'lean' => $derived['lean'],
+            'derived' => $derived,
+            'polarity' => $polarity,
+            'quality' => 0,
+            'band' => 'none',
+            'ledger' => array(),
+            'tug' => $this->tug(array(), $polarity),
+            'not_counted' => array(),
+            'counts' => array('configured' => 0, 'evaluated' => 0,
+                'fired' => 0, 'silent' => 0, 'not_counted' => 0),
+            'context' => $context,
+            'profile' => $profile,
+        ));
+    }
+
+    /**
+     * The exact-sum invariant, in the one place that computes it.
+     *
+     * @param array $rows
+     * @return int
+     */
+    private function sum(array $rows)
+    {
+        $quality = 0;
+        foreach ($rows as $row) {
+            $quality += $row['contribution'];
+        }
+        return $quality;
+    }
+
+    /**
+     * Put a ledger back to threat-signed, which is how a contested
+     * ledger renders: no side to support, so no polarity to apply.
+     *
+     * @param array $rows
+     * @param int $polarity The polarity they were anchored with
+     * @return array
+     */
+    private function reanchor(array $rows, $polarity)
+    {
+        foreach ($rows as $index => $row) {
+            $contribution = (int)$row['contribution'] * $polarity;
+            $rows[$index]['contribution'] = $contribution;
+            $rows[$index]['direction'] = $contribution < 0
+                ? 'down'
+                : 'up';
+        }
+        return $rows;
+    }
+
+    /**
+     * The two one-sided sums a contested layout puts against each
+     * other: what supports the record's assertion, and what disputes
+     * it.
+     *
+     * Both come out of the same rows the other leans render — there is
+     * no third bucket and no separate computation, which is what lets a
+     * reader add the ledger up by hand and arrive at the bar. The
+     * fixture's third *unresolved* wedge was never derivable from
+     * anything and is retired; it stays in the return as a zero until
+     * the layout stops reading it.
+     *
+     * @param array $rows
+     * @param int $polarity
+     * @return array
+     */
+    private function tug(array $rows, $polarity)
+    {
+        $support = 0;
+        $dispute = 0;
+        foreach ($rows as $row) {
+            $threatSigned = (int)$row['contribution'] * $polarity;
+            if ($threatSigned >= 0) {
+                $support += $threatSigned;
+            } else {
+                $dispute -= $threatSigned;
+            }
+        }
+        return array(
+            'support' => $support,
+            'dispute' => $dispute,
+            'malicious' => $support,
+            'benign' => $dispute,
+            'unresolved' => 0,
         );
     }
 
@@ -297,30 +429,32 @@ class ValueVerdictTool
      * The return shape, in one place so the two paths into it cannot
      * drift apart.
      *
-     * @param string $lean
-     * @param int $polarity
-     * @param int $quality
-     * @param string $band
-     * @param array $ledger
-     * @param array $notCounted
-     * @param array $counts
-     * @param array $context
-     * @param array|null $profile
+     * @param array $parts
      * @return array
      */
-    private function verdict($lean, $polarity, $quality, $band,
-        array $ledger, array $notCounted, array $counts, array $context,
-        $profile
-    ) {
+    private function verdict(array $parts)
+    {
+        $lean = $parts['lean'];
+        $quality = $parts['quality'];
+        $ledger = $parts['ledger'];
+        $context = $parts['context'];
+        $profile = $parts['profile'];
+        $derived = $parts['derived'];
+
         $verdict = array(
             'lean' => $lean,
-            'polarity' => $polarity,
+            'derived_lean' => $derived['lean'],
+            'rule' => $derived['rule'],
+            'rule_errors' => $derived['rule_errors'],
+            'stances' => $derived['stances'],
+            'polarity' => $parts['polarity'],
             'quality' => $quality,
-            'band' => $band,
+            'band' => $parts['band'],
             'ledger' => $ledger,
+            'tug' => $parts['tug'],
             'composition' => ValueStatsTool::verdictComposition($ledger),
-            'not_counted' => $notCounted,
-            'signals' => $counts,
+            'not_counted' => $parts['not_counted'],
+            'signals' => $parts['counts'],
             'profile' => $this->profileName($profile),
             'profile_id' => $profile === null
                 ? null
@@ -339,17 +473,30 @@ class ValueVerdictTool
         );
 
         /*
-         * D11's rename map, applied for the templates that have not
-         * been through phase 9's copy pass yet. `value_verdict*.ctp`
-         * reads `disposition`, `score` and `confidence`; the axes above
-         * are what those mean now. Phase 9 renames the templates and
-         * these three keys go with the fixture.
+         * The rename map, applied for the templates that have not been
+         * through the copy pass yet. `value_verdict*.ctp` reads
+         * `disposition`, `score` and `confidence`; the three axes above
+         * are what those mean now, and these keys go with the fixture
+         * when the templates are renamed.
          */
         $verdict['disposition'] = isset(self::LEAN_DISPOSITION[$lean])
             ? self::LEAN_DISPOSITION[$lean]
             : 'UNKNOWN';
         $verdict['score'] = $quality;
-        $verdict['confidence'] = $band;
+        $verdict['confidence'] = $parts['band'];
+
+        /*
+         * Last, because a falsifiability line is derived *from* the
+         * assessment — the lean probe re-runs the rules and the quality
+         * probe re-runs the banding, and both need the finished answer
+         * to say what would move it.
+         */
+        $changers = new ValueChangersTool();
+        $verdict['changers'] = $changers->changersFor(
+            $verdict,
+            $context,
+            $profile
+        );
 
         return $verdict;
     }
@@ -686,12 +833,13 @@ class ValueVerdictTool
     }
 
     /**
-     * The four-segment gauge's band.
+     * The four-segment gauge's band — the field the page used to call
+     * `confidence` and could never say where it came from.
      *
-     * `04-dispositions.md` §6's derivation, implemented here because
-     * this phase's exit criterion asserts against it: *the median
-     * value — one org, no sightings — never leaves `low` under the
-     * shipped default*. Phase 3 owns it from there.
+     * Bands are calibration and the stakes are deliberately low: a
+     * misplaced band miscolours a gauge, it does not change what the
+     * record asserts. That is the whole reason the three axes were
+     * split apart.
      *
      * `quality_high_min_signals` is what stops one heavy row buying a
      * `high` band on its own: a value's quality is high when several
@@ -700,14 +848,19 @@ class ValueVerdictTool
      * @param int $quality
      * @param int $fired
      * @param array|null $profile
+     * @param array $context Needed for the thin-record clamp; an empty
+     *                       array asks for the unclamped band, which
+     *                       is how a caller finds out whether the
+     *                       clamp is what is holding a band down
      * @return string `none`, `low`, `medium` or `high`
      */
-    public function qualityBand($quality, $fired, $profile)
-    {
+    public static function qualityBand($quality, $fired, $profile,
+        array $context = array()
+    ) {
         if ($fired === 0) {
             return 'none';
         }
-        $thresholds = $this->section($profile, 'thresholds');
+        $thresholds = self::section($profile, 'thresholds');
         $bands = isset($thresholds['quality_bands'])
             ? $thresholds['quality_bands']
             : array();
@@ -717,12 +870,82 @@ class ValueVerdictTool
             ? (int)$thresholds['quality_high_min_signals']
             : 4;
         if ($quality >= $high && $fired >= $minSignals) {
-            return 'high';
+            $band = 'high';
+        } elseif ($quality >= $medium) {
+            $band = 'medium';
+        } else {
+            $band = 'low';
         }
-        if ($quality >= $medium) {
-            return 'medium';
+        return self::clamped($band, $thresholds, $context);
+    }
+
+    /**
+     * The thin-record clamp: a ceiling on the band for a record with
+     * one source and nothing corroborating it.
+     *
+     * It exists because the weights alone cannot express it, which was
+     * measured rather than assumed. A single organisation reporting the
+     * same value every month for over a year, carried by a few feeds,
+     * reaches the `medium` band under any weighting that still says
+     * something useful about the values that *do* have corroboration —
+     * the positives such a record can honestly attain simply sum past
+     * the floor. That is not obviously the wrong answer, but it is not
+     * what an analyst means by *how much can I trust this*, and the
+     * place to say so is the band rather than the arithmetic: a clamp
+     * leaves the ledger's own sum intact and visible, where a weighting
+     * would have shrunk every signal to hide one shape.
+     *
+     * So it is stated as its own threshold, in the profile, with the
+     * whole condition named — how many sources still count as one, how
+     * many sightings still count as none, and what the ceiling is. An
+     * analyst who disagrees edits three numbers; an analyst who wants
+     * no clamp deletes the section.
+     *
+     * A caller passing no context gets the unclamped band, which is
+     * how the falsifiability line finds out whether the clamp is what
+     * is holding a record down.
+     *
+     * @param string $band
+     * @param array $thresholds
+     * @param array $context
+     * @return string
+     */
+    private static function clamped($band, array $thresholds,
+        array $context
+    ) {
+        if (empty($context)) {
+            return $band;
         }
-        return 'low';
+        $clamp = isset($thresholds['thin_record_clamp'])
+            && is_array($thresholds['thin_record_clamp'])
+            ? $thresholds['thin_record_clamp']
+            : array();
+        if (empty($clamp['max_band'])) {
+            return $band;
+        }
+        $ceiling = array_search($clamp['max_band'], self::BANDS, true);
+        $reached = array_search($band, self::BANDS, true);
+        if ($ceiling === false || $reached === false
+            || $reached <= $ceiling
+        ) {
+            return $band;
+        }
+        $orgs = isset($context['occurrences']['orgs'])
+            ? (int)$context['occurrences']['orgs']
+            : 0;
+        $sightings = isset($context['sightings']['total'])
+            ? (int)$context['sightings']['total']
+            : 0;
+        $maxOrgs = isset($clamp['max_orgs'])
+            ? (int)$clamp['max_orgs']
+            : 1;
+        $maxSightings = isset($clamp['max_sightings'])
+            ? (int)$clamp['max_sightings']
+            : 0;
+        if ($orgs <= $maxOrgs && $sightings <= $maxSightings) {
+            return $clamp['max_band'];
+        }
+        return $band;
     }
 
     /**
@@ -739,7 +962,7 @@ class ValueVerdictTool
      */
     private function signalEntries($profile)
     {
-        $signals = $this->section($profile, 'signals');
+        $signals = self::section($profile, 'signals');
         if (!is_array($signals)) {
             return array();
         }
@@ -762,7 +985,7 @@ class ValueVerdictTool
      * @param string $name
      * @return array
      */
-    private function section($profile, $name)
+    private static function section($profile, $name)
     {
         if (!is_array($profile)) {
             return array();

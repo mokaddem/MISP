@@ -1028,6 +1028,32 @@ tr.vp-occ-deleted td {
     font-size: 1.05rem;
 }
 
+/*
+ * A disposition that names no state: CONFLICTED and UNKNOWN.
+ *
+ * Same colour, less voice — no tinted ground, a hairline border and the
+ * word in the body ink rather than the disposition's own. It has to stay
+ * recognisably the same component, because a reader scanning a list of
+ * values is comparing these pills to each other; what changes is that it
+ * stops competing for attention with the two that are answers.
+ */
+.vp-disposition-quiet {
+    border-color: color-mix(in srgb, var(--vp-disposition-color) 45%,
+        transparent);
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .vp-disposition-quiet {
+    background: transparent;
+}
+
+.vp-disposition-quiet .vp-disposition-dot {
+    background: transparent;
+    box-shadow: inset 0 0 0 2px var(--vp-disposition-color);
+}
+
 .vp-disposition-dot {
     width: 9px;
     height: 9px;
@@ -2393,6 +2419,28 @@ tr.vp-occ-deleted td {
     font-size: 1.2rem;
     font-weight: 900;
     line-height: 1;
+}
+
+/*
+ * The hero badge for a state that is not an answer — UNKNOWN reaches
+ * this layout, since a value with nothing to weigh has nothing to
+ * contradict either.
+ *
+ * Drawn the way the conflicted layout has always drawn its own state:
+ * the glyph keeps the colour, the word does not shout. A filled block
+ * reading UNKNOWN in the same weight as MALICIOUS is the page being
+ * emphatic about knowing nothing.
+ */
+.vp-vc-badge-quiet {
+    padding: 9px 0;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.vp-vc-badge-quiet > i {
+    color: var(--vp-vc-color);
 }
 
 .vp-vc-score {

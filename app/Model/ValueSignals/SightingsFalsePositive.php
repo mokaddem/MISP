@@ -54,6 +54,20 @@ class SightingsFalsePositive extends ValueSignalBase
                 'label' => __('Most this signal may contribute'),
             ),
         );
+        /*
+         * The per-sighting points, not the per-extra-org bonus: one
+         * more sighting from an organisation already filing them is
+         * linear to the cap, and it is also the change a reader can
+         * actually make. A sighting from a *new* organisation is worth
+         * more than this says, which is the safe direction for a
+         * falsifier to err in.
+         */
+        $this->unit = array(
+            'points' => 'per',
+            'cap' => 'cap',
+            'one' => __('One more false-positive sighting'),
+            'many' => __('%d more false-positive sightings'),
+        );
     }
 
     public function evaluate(array $context, array $config)

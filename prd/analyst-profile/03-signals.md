@@ -833,6 +833,14 @@ median shape lands in `low` with room to spare, and the three absences that
 put it there — nobody sighted it, nobody attributed it, no feed carries it —
 are asserted individually so a future reweighting cannot quietly remove them.
 
+**Closed 2026-09-07 by phase 3.** `thin_record_clamp` ships in the default's
+`thresholds`, with the whole condition in the profile — one source, no
+sightings, ceiling `low`. This section's own measured case is now asserted
+twice over: 43 points, `medium` on the weights alone, `low` once the clamp
+applies. Phase 3 found one thing this section did not anticipate — the
+falsifiability line has to check the clamp *before* offering a points gap, or
+it promises a band the clamp will refuse (`04-dispositions.md` §11.2).
+
 ### 11.2 `8.8.8.8` is a contested value on this instance, not a benign one
 
 The fixture scores it BENIGN 91. The shipped default, over the dev instance's
@@ -853,6 +861,15 @@ Two readings, and both are worth having on the record:
   emit — and it means the fixture's 91 is not a number these weights failed
   to reach. It is a different data set: nine occurrences authored to make an
   argument, against twenty-six real ones that disagree with each other.
+
+**Closed 2026-09-07 by phase 3**, and the second reading is the one that held.
+On the same rows, with nothing forced, the engine now reaches a contested lean
+named by `conflict:listed-vs-asserted` — eight of eight organisations assert
+it against the public-resolver list — with the tug at 74 supporting against 77
+disputing. The quality is still −3, and that is now a legible number rather
+than an awkward one: a contested ledger renders threat-signed, so a value
+whose two sides are within three points of each other reads as exactly that
+(`04-dispositions.md` §11.5).
 
 ### 11.3 A numeric value handed over as an integer scans the table twice
 

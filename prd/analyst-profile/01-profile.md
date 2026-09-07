@@ -96,7 +96,7 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Phases 1 and 2 are built as of 2026-09-07**; phases 3–6 and 8–10 are
+**Phases 1, 2 and 3 are built as of 2026-09-07**; phases 4–6 and 8–10 are
 specifications; phase 7 is blocked on a store that does not exist. Phase 10
 was a recorded direction until 2026-09-03, when D10 settled its design and it
 became specifiable.
@@ -104,13 +104,21 @@ became specifiable.
 Phase 2 built the accumulator, the eleven-signal catalogue and D12's
 filesystem loader, and its exit criterion holds against real rows: the
 ledger sums to the quality to the unit on every value the probe scores
-([`03-signals.md`](03-signals.md) §9). It hands phase 3 one thing it did not
-have before — a measurement showing that §7.4's calibration rule needs a
-clamp in the banding rather than a weighting (§11.1 there).
+([`03-signals.md`](03-signals.md) §9).
+
+**Phase 3 completes the assessment's first two axes.** The lean is now
+derived rather than passed, the quality has a band with a story, and both of
+phase 2's open items are closed: §7.4's calibration rule landed as a clamp in
+the banding ([`04-dispositions.md`](04-dispositions.md) §6), and `8.8.8.8` —
+which phase 2 measured at −3 and could not name — reaches a contested lean
+through `conflict:listed-vs-asserted` on the instance's own rows (§11.5
+there). What remains before the tab can go live is relevance (phase 5) and
+the exclusions that reach the ledger as policy (phase 4).
 
 Building phase 1 closed **Q7 as D13** and, alongside it, **Q5 as D14** —
 the two questions that gated phases 1 and 2; building phase 2 left every
-remaining question where it was, and added one item to phase 3's list. Q11 had closed two days earlier
+remaining question where it was, and added one item to phase 3's list, which
+phase 3 closed. Q11 had closed two days earlier
 as D12. **Every question gating the next phase is now answered**; Q9, Q10 and
 Q13 land in phases 9, 7 and 10 and block nothing before them.
 
@@ -123,7 +131,7 @@ live — and needs 1–5.
 |---|---|---|---|
 | 1 | **The store** — the table, the model, ownership and resolution, the shipped default, fork, permissions | [`02-store.md`](02-store.md) | **built 2026-09-07** — migration 160, `AnalystProfile.php`, `default-v1.json`; closed Q7 as D13. The controller moved to phase 8 (§6 there), and four of nine verification items need a live instance (§7) |
 | 2 | **Signals and the engine** — the `signals` section, the mechanism that turns it into a ledger and a score, and the loader that discovers signal implementations from the filesystem | [`03-signals.md`](03-signals.md) | **built 2026-09-07** — `ValueVerdictTool`, `ValueSignalLoader`, eleven signal files, the context builder, the eleven-signal default. 96 harness checks and 36 live; eight findings in §11, one of them phase 3's to close |
-| 3 | **The lean and the bands** — the lean derivation, `thresholds` and `escalations`, the quality bands, derived `changers` | [`04-dispositions.md`](04-dispositions.md) | specification — rewritten 2026-09-03 under D11; **gained the median clamp** from phase 2's §11.1, and the lean seam is where phase 2 left `$options['lean']` |
+| 3 | **The lean and the bands** — the lean derivation, `thresholds` and `escalations`, the quality bands, derived `changers` | [`04-dispositions.md`](04-dispositions.md) | **built 2026-09-07** — `ValueLeanTool`, `ValueChangersTool`, the `escalation` loader subject with two shipped rules, rule 7 and the tug, `thin_record_clamp`, `isDefinite()` wired. 100 harness checks and 52 live; six findings in §11. Closes phase 2's §11.1 and §11.2 |
 | 4 | **Exclusions** — the `exclusions` section, and splitting policy from ACL in `not_counted` | [`05-exclusions.md`](05-exclusions.md) | specification |
 | 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | specification — reworked 2026-09-03 as the **relevance** axis (D11) |
 | 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | specification |

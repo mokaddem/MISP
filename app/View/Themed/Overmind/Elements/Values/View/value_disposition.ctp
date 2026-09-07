@@ -19,8 +19,16 @@ $score = $score ?? null;
 $size = $size ?? '';
 
 $colour = ValueDisposition::colour($disposition);
+
+/*
+ * A disposition that refuses to name a state is drawn quietly. CONFLICTED
+ * and UNKNOWN are the absence of an answer, and a solid chip in the same
+ * weight as MALICIOUS claims a certainty the value does not have — which
+ * is what `isDefinite()` has always been for.
+ */
+$quiet = ValueDisposition::isDefinite($disposition) ? '' : ' vp-disposition-quiet';
 ?>
-<span class="vp-disposition<?= $size === 'lg' ? ' vp-disposition-lg' : '' ?>"
+<span class="vp-disposition<?= $size === 'lg' ? ' vp-disposition-lg' : '' ?><?= $quiet ?>"
       style="--vp-disposition-color: <?= h($colour) ?>;">
     <span class="vp-disposition-dot"></span>
     <span class="vp-disposition-label"><?= h($disposition) ?></span>

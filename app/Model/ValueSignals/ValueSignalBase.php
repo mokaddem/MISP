@@ -157,6 +157,30 @@ abstract class ValueSignalBase
      */
     public $absence_key = null;
 
+    /**
+     * What a reader could supply more of, so the falsifiability card
+     * can say *"two more organisations reporting it"* instead of
+     * *"14 more points"*.
+     *
+     * ```php
+     * public $unit = array(
+     *     'points' => 'per_org',   // the points key one unit is worth
+     *     'cap' => 'cap',          // the key bounding the total
+     *     'one' => …,              // the phrase for exactly one
+     *     'many' => …,             // a %d format for more than one
+     * );
+     * ```
+     *
+     * Declared only where the points really are linear in the unit up
+     * to the cap, because the arithmetic reading it is exact and a
+     * signal with a saturation curve or a minimum-months gate would
+     * make it quietly wrong. Null means *this signal has no unit a
+     * reader can hand over*, and the card falls back to naming the
+     * points gap — which is the honest answer for a signal whose
+     * shape cannot be summarised in one.
+     */
+    public $unit = null;
+
     /** Which context keys this signal needs; the engine checks them
      *  against `$context['missing']`. */
     public $reads = array();
@@ -193,6 +217,7 @@ abstract class ValueSignalBase
             'points_schema' => $this->points_schema,
             'config_schema' => $this->config_schema,
             'absence_key' => $this->absence_key,
+            'unit' => $this->unit,
             'reads' => $this->reads,
             'evidence_class' => $this->evidence_class,
             'source' => $this->source,

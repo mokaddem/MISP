@@ -16,9 +16,10 @@ document holding every judgement the scoring engine needs — signal weights, th
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
 rather than a shipped opinion. An instance ships one default; an organisation
 or an analyst forks it and edits their copy; exactly one is in force per
-viewer (nearest owner wins). **Phases 1 and 2 — the store, and the engine
-that reads it — are built as of 2026-09-07**; the other eight phases are
-specifications. The corpus is fifteen documents, phase by phase.
+viewer (nearest owner wins). **Phases 1, 2 and 3 — the store, the engine that
+reads it, and the lean and bands that turn its ledger into an assessment — are
+built as of 2026-09-07**; the other seven phases are specifications. The
+corpus is fifteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -76,8 +77,10 @@ design:
   **Measured 2026-09-07 and half true**: the median *shape* lands in `low`
   under the shipped weights, but a single organisation reporting the same
   value for fourteen months reaches `medium`, and no weighting closes that
-  gap. The rule becomes a clamp in phase 3's banding
-  (`03-signals.md` §11.1).
+  gap. **Shipped 2026-09-07 as `thin_record_clamp`** in phase 3's banding —
+  one source, no sightings, ceiling `low`, with the whole condition stated in
+  the profile so an analyst who disagrees edits three numbers
+  (`04-dispositions.md` §6).
 - **The engine got a budget** — an evidence-time window (90 days of row
   evidence on long-history values; whole-history aggregates always), with
   `over_correlating_values` as the hot-value give-up. Deterministic by
@@ -97,8 +100,8 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 and 2 are built;
-3–6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
+Phases (living table: `01-profile.md` §1.4): **phases 1, 2 and 3 are built;
+4–6 and 8–10 are specifications; 7 (enrichment) is a scope note blocked on a
 store that does not exist.** Build order: 1 (store) gates all → 2–6 → 8 → 9
 (the tab goes live) → 10.
 
@@ -123,6 +126,28 @@ byte-identical, and a signal that throws or returns a float lands in
 are recorded in `03-signals.md` §11 — the load-bearing one is that §7.4's
 calibration rule needs a clamp in phase 3's banding rather than a weighting,
 measured rather than assumed.
+
+**Phase 3, built 2026-09-07.** The lean derivation (`ValueLeanTool` — seven
+rules, first match wins, stances counted per organisation), the two shipped
+conflict rules discovered from `app/Model/ValueEscalations/` under D12's
+second pair of roots, rule 7 and the two-sided tug in `ValueVerdictTool`, the
+`thin_record_clamp` threshold, the falsifiability lines derived per axis
+(`ValueChangersTool`), and `isDefinite()` finally wired into the two
+dispositions that were being drawn as though they were answers. Verified by
+100 checks with no database and 52 against the dev instance. Six findings are
+in `04-dispositions.md` §11; three are worth knowing about from here:
+
+- **A supermajority written as a decimal cannot be met on both sides.** A
+  value held by 34 of 100 organisations misses the mirror of `0.66` by a
+  floating-point hair and lands in the stance split. The rules are now stated
+  as *a supermajority on either side*, with an explicit tolerance (§11.1).
+- **A derived falsifier can still lie**, and two of them did. A quality line
+  offered a band the clamp would refuse; a lean line offered a change into
+  the state the value was already in. Both are fixed, and both were found by
+  reading the output rather than by the assertions (§11.2, §11.3).
+- **`8.8.8.8` closes as a contested value with a name on it** — eight of eight
+  organisations against the public-resolver list, tug at 74 against 77 — which
+  is the reading phase 2 predicted and could not reach (§11.5).
 
 Open questions: Q9 (per-viewer caveat, phase 9), Q10 (enrichment scope,
 phase 7), Q13 (`includeAssessment` exposure gate, phase 10), plus two

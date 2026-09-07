@@ -1,12 +1,23 @@
 # PRD: Analyst Profile — phase 3, the lean and the bands
 
-**Specification. Nothing built. Rewritten 2026-09-03 under D11**
+**Built 2026-09-07.** Rewritten 2026-09-03 under D11
 ([`12-assessment.md`](12-assessment.md)) — the first version of this document
 specified score-band dispositions (`band()`, `malicious_floor`, adding
 SUSPICIOUS); that model is superseded and the rewrite replaces it wholesale.
 Depends on phase 2 ([`03-signals.md`](03-signals.md)), which produces the
 quality ledger this phase anchors, and on phase 6 for the warninglist
 categories the lean reads.
+
+What shipped: `ValueLeanTool` (the seven rules and the stance count),
+`ValueChangersTool` (the falsifiability lines, derived by re-running the
+derivation rather than by restating it), the `escalation` subject on
+`ValueSignalLoader` with `ValueEscalationBase` and the two shipped rules under
+`app/Model/ValueEscalations/`, rule 7 and the tug in `ValueVerdictTool`, the
+`thin_record_clamp` threshold, and `isDefinite()` wired into the two
+dispositions that were being drawn as though they were answers. Verified by
+**100 harness checks with no database and 52 against the dev instance**; six
+findings are recorded in §11, two of them defects the live run caught that the
+harness could not.
 
 Covers the **lean derivation**, the **quality banding**, the `thresholds` and
 `escalations` sections, derived `changers`, and what happens to
@@ -90,11 +101,21 @@ First match wins:
                                                           disputes its assertion)
 ```
 
+Rules 4 and 5 are implemented as **a supermajority on either side** rather
+than as one comparison and its arithmetic mirror, and with an explicit
+tolerance — §11.1 is the measurement that says why, and the boundary it
+concerns is one an analyst's own threshold cannot otherwise reach.
+
 Checked against the regression set: the malicious values are unanimous
 threat stances → rule 4. `8.8.8.8` hits the resolver list with a minority
 threat share → rule 3, benign. The conflicted value is rule 2 (§4). The
 median value is one org asserting → rule 4, threat — with the quality band
 saying how little that is worth (§6).
+
+**And measured against the dev instance's rows, where `8.8.8.8` is not that
+value at all**: eight of eight organisations assert it, so rule 2 gets there
+first and the answer is a named contradiction (§11.5). The fixture's stance
+split and the instance's are different data; the rules are the same.
 
 **Rule 3 before rule 4 is deliberate**, and it is what makes the benign
 value's `curves_note` story *reachable*: the 2025-06-24 step is the resolver
@@ -180,7 +201,10 @@ and the two-sided tug says everything the layout needs.
 "thresholds": {
   "lean_supermajority": 0.66,
   "quality_bands": { "high": 60, "medium": 30 },
-  "quality_high_min_signals": 4
+  "quality_high_min_signals": 4,
+  "thin_record_clamp": {
+    "max_orgs": 1, "max_sightings": 0, "max_band": "low"
+  }
 }
 ```
 
@@ -203,7 +227,25 @@ enabled catalogue, and save-time validation warns when a band exceeds it.
 
 The **median value's calibration rule** (`03-signals.md` §7.4) restates as:
 *a single-org, sighting-free record never leaves the `low` band under the
-shipped default.* Same constraint, new vocabulary.
+shipped default.* Same constraint, new vocabulary — and it lands as
+`thin_record_clamp` above rather than as a weighting, for the reason
+`03-signals.md` §11.1 measured: the positives such a record can honestly
+attain sum past `medium` under any weighting that still says something useful
+about the values that *do* have corroboration.
+
+Three properties of the clamp as built:
+
+- **The whole condition is in the profile.** How many sources still count as
+  one, how many sightings still count as none, and what the ceiling is. An
+  analyst who disagrees edits three numbers; an analyst who wants no clamp
+  deletes the section, and a profile with no `thin_record_clamp` clamps
+  nothing.
+- **It is a ceiling, never a floor.** It can only lower a band, so it cannot
+  promote a record it does not describe.
+- **The falsifiability line has to know about it**, which is §11.2's finding:
+  a record two points short of `medium` with one source can close those two
+  points and still band `low`, so the quality changer checks the clamp before
+  it offers a points gap.
 
 ## 7. `ValueDisposition` — relabel, not extend
 
@@ -243,6 +285,12 @@ three rows and now has a natural one from each axis.
 
 ## 9. Verification
 
+**Where each item is asserted.** Items 1–6 and the lean half of 8 are
+`04-lean-bands-harness.php`, 100 checks with no database. The band half of 8,
+the loader against the real directory, and determinism are
+`04-lean-bands-live-probe.php`, 52 checks against the dev instance. Item 7 is
+a rendered page and is a before/after rather than an assertion.
+
 1. The lean derivation at every rule boundary: no occurrences; the known-rule
    firing at exactly 3 reports and not at 2; a false_positive hit under and
    over the supermajority; `threat_share` at exactly `0.66`, just under, just
@@ -277,3 +325,128 @@ three rows and now has a natural one from each axis.
 - The template and constant renames (`value_verdict_*.ctp`,
   `ValueDisposition` keys) — phase 9 touches the shipped code; this phase
   specifies the mapping (§7).
+
+## 11. What building it changed
+
+Six things the specification did not know. Two of them are defects the live
+run caught and the harness could not, which is the argument for having both.
+
+### 11.1 A supermajority stated as a decimal cannot be met on both sides
+
+**Found by the harness at the boundary it was written to check.** §3's rules 4
+and 5 are `threat_share ≥ lean_supermajority` and
+`threat_share ≤ 1 − lean_supermajority`, and implemented literally they are
+not symmetric: `0.66` is not `0.66` in binary and neither is `1 − 0.66`, so a
+value held by **34 of 100 organisations computes a share very slightly above
+the mirror boundary** and lands in rule 6's stance split instead of rule 5's
+benign. One organisation either side of it behaves; the boundary itself does
+not.
+
+Two consequences, and the second is the one worth keeping:
+
+- The comparison carries an explicit tolerance (`SHARE_TOLERANCE`, `1e-9` —
+  smaller by orders of magnitude than one organisation can move any real
+  share). This is not defensive rounding: a threshold an analyst typed has to
+  mean what it says.
+- Rules 4 and 5 are now stated as **a supermajority on either side** rather
+  than as one comparison and its arithmetic mirror. Same answers, and the form
+  cannot come out asymmetric in the first place.
+
+### 11.2 A falsifiability line has to be checked against the clamp
+
+**Found in the derived-changers printout before the harness asserted it.** The
+median value's quality line read *"a galaxy cluster on any occurrence — the
+record reaches the medium band"*, and it was false: the cluster is worth the
+nine points the gap needs, and the thin-record clamp then holds the record at
+`low` regardless. A falsifier that fails when a reader acts on it is worse
+than no falsifier.
+
+So the clamp check comes **before** the points line, not after it, and it
+answers a different question than the first implementation did. The wrong
+question is *"is the clamp holding this band down?"* — a record below the
+floor is not being clamped yet, so that check passes and the line still lies.
+The right question is *"would the clamp cap the band a reader is trying to
+reach?"*, asked by handing the banding the target band's own floor together
+with this value's context. Where it would, the line says what the record is
+actually short of: a second source.
+
+### 11.3 A lean the ledger disputed re-anchors positive, and the changer missed it
+
+**Found by the live probe, on a real value the fixture has no analogue for.**
+A value with 776 occurrences across five organisations, four of them holding
+it without the indicator flag, derives `benign` by rule 5 and then trips rule
+7 — the corroboration signals are threat-signed, so a broad, continuous,
+feed-carried record *disputes* a benign reading. Its ledger re-anchors to
+**+45 threat-signed**, and the lean is contested.
+
+The bug was in detecting that state: rule 7 was recognised by
+`quality < 0`, which is only true of the threat-lean half of it. The benign
+half re-anchors positive, so the falsifiability card fell through to the
+stance probe and offered *"one more organisation asserting it and the lean
+goes contested"* — a change into the state the value was already in.
+
+Rule 7 is now identified by the derived lean and nothing else: a rule or a
+stance split reaches contested *before* scoring, so both leans read contested;
+only the ledger's own dispute leaves a categorical lean on the record and a
+contested one on the page.
+
+### 11.4 A rule-decided lean needs a falsifier the stance probe cannot see
+
+The stance probe adds organisations and re-runs the rules, which is honest
+about precedence and blind to everything precedence is about. On a value
+inside a `known` range with three reports, **no number of organisations
+undoes either half of the contradiction** — the rule keys on a category hit
+and an org count that only grows — so the card had no lean line at all.
+
+The missing probe is the delisting one: remove every hit of one resolved
+category and re-derive. It is one line of the value's own history rendered as
+a falsifier, and it is the same mechanism §3 credits with making the benign
+value's story legible — the day a resolver list gained the address, its lean
+flipped with no row changing. Counted as one change however many lists carry
+the category, because a category ceasing to apply is a single fact about the
+value, which is also what usually makes it the cheapest thing on the card.
+
+### 11.5 §11.2 of phase 2 is confirmed: `8.8.8.8` is contested, by name
+
+Phase 2 measured the shipped default scoring `8.8.8.8` at **−3
+threat-signed** and recorded two readings, one of which was that *"the
+profile's own escalation is what should decide it"*. It does. Against the dev
+instance's own 26 occurrences in 8 organisations, phase 3 reaches:
+
+```
+stances: 8 assert / 0 do not, share 1.00 against 0.66
+lean CONTESTED, quality -3, band low
+rule conflict:listed-vs-asserted
+     A warninglist marks this as a false positive and 8 of 8 organisations
+     report it as a threat regardless.
+tug: 74 supporting / 77 disputing
+```
+
+Which settles the fixture question phase 2 left open. The fixture's BENIGN 91
+is not a number these weights failed to reach; it is a different data set. The
+engine's answer on the real rows is a named contradiction, and the tug says
+how close the two sides are — 74 against 77 — which is the honest form of a
+value that argues with itself.
+
+### 11.6 Nothing in the changers knows a signal by name
+
+The falsifiability card wants to say *"two more organisations"* rather than
+*"14 more points"*, and the obvious way to get there is for the tool to know
+which signal counts organisations. That would have put a list of shipped
+signal ids in code, which is the one thing D12 exists to prevent.
+
+So a signal declares what a reader can supply more of — `$unit`, with the
+points key one unit is worth, the key that caps it, and the phrases for one
+and for many. **Five of the eleven shipped signals declare one**, and the five
+are exactly those whose points are linear in the unit up to the cap; a
+saturation curve or a minimum-months gate makes the arithmetic reading it
+quietly wrong, so those stay silent and the card falls back to naming the
+points gap. A signal dropped into an instance's own directory can be named in
+a falsifiability line without this feature changing.
+
+Two shapes the arithmetic handles rather than approximates: a signal currently
+firing on **absence** (*"no galaxy on any occurrence"*, −7) has its first unit
+both remove the penalty and add its own points, so the first unit is worth
+more than the rest; and every one of these signals is **capped**, so past some
+number of units the answer stops improving — which is exactly when that
+signal is the wrong one to name.

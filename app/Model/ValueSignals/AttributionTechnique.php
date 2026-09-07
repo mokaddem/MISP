@@ -41,6 +41,13 @@ class AttributionTechnique extends ValueSignalBase
                 'label' => __('Most this signal may contribute'),
             ),
         );
+        $this->unit = array(
+            'points' => 'per_technique',
+            'cap' => 'cap',
+            'one' => __('One attack technique named on an occurrence'),
+            'many' => __('%d attack techniques named on the'
+                . ' occurrences'),
+        );
     }
 
     public function evaluate(array $context, array $config)

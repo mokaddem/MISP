@@ -54,6 +54,12 @@ class LifecycleFeeds extends ValueSignalBase
                 'label' => __('Points when no feed carries it'),
             ),
         );
+        $this->unit = array(
+            'points' => 'per_feed',
+            'cap' => 'cap',
+            'one' => __('One enabled feed carrying it'),
+            'many' => __('%d enabled feeds carrying it'),
+        );
     }
 
     public function evaluate(array $context, array $config)

@@ -45,6 +45,12 @@ class ReportingIndependentOrgs extends ValueSignalBase
                 'label' => __('Most this signal may contribute'),
             ),
         );
+        $this->unit = array(
+            'points' => 'per_org',
+            'cap' => 'cap',
+            'one' => __('One more organisation reporting it'),
+            'many' => __('%d more organisations reporting it'),
+        );
         $this->config_schema = array(
             'named' => array(
                 'type' => 'int',
