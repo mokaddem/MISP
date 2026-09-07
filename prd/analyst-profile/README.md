@@ -262,8 +262,8 @@ are worth knowing about from here:
   relevance call to the engine without adding the `require_once` — and phase
   6 would have hidden it, because its new dependency lands the three heaviest
   signals in `not_counted` while every other assertion still prints `ok`.
-  Fixed: all six harnesses run, 493 checks, and the five live probes with
-  them (§7.7).
+  Fixed: all six harnesses run, 493 checks, and all five live probes pass
+  with them (§7.7).
 
 Open questions: Q9 (per-viewer caveat, phase 9 — **half-answered**, since
 phase 4 removed the ACL half and phase 6 made the profile half real), Q10

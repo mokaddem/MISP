@@ -585,8 +585,15 @@ have quietly become *could not run* still prints `ok` against every
 assertion that does not name them, and every number in the file has moved.
 `ValueRelevanceTool`, an `__n()` stub and `ValueTrustTool` are now required
 by all three. **All six harnesses run: 33 + 98 + 100 + 42 + 106 + 114 = 493
-checks, no failures**, and the five live probes with them — 36, 57, 18, 58
-and 84.
+checks, no failures**, and all five live probes pass with them.
+
+Two of those totals are not the numbers their own documents record — phase 2
+reads 98 where §9 says 96, and phase 3's live probe 57 where §11 says 52.
+Both probes count assertions emitted inside loops over live rows and over
+`not_counted`, so a total moves when the instance does; neither is a
+regression in what is asserted, and phase 6's own probe rules out the
+alternative directly by requiring **every ledger row, the quality and the
+lean byte-identical** on all four demo values under the shipped profile.
 
 The general lesson is the loader's: a signal is discovered from the
 filesystem and `require`d, so the file has no `App::uses` of its own and its
