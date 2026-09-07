@@ -1,16 +1,25 @@
 # PRD: Value Profile — the verdict engine
 
-**Not designed. This is a scope note.** It exists so the blocked phase has
-something to point at, and so what the shipped page already asserts about
-verdict signals is written down where it was found rather than rediscovered by
-whoever picks this up.
+**Superseded 2026-09-03. The design is [`analyst-profile/`](analyst-profile/).**
+This file was the scope note that existed so the blocked phase had something to
+point at. It got its dedicated PRD and its grilling session: fifteen documents,
+twelve decisions, ten implementation phases, and a reframe that replaced the
+verdict itself with an **Assessment** on three axes — lean, relevance, quality
+([`analyst-profile/12-assessment.md`](analyst-profile/12-assessment.md)).
 
-The Verdict tab's live wiring is **blocked** on it. See
-`value-profile-page.md` §1.4 and `value-profile-live/00-contract.md` §14.12.
+**Start at [`analyst-profile/README.md`](analyst-profile/README.md)**, or
+[`analyst-profile/01-profile.md`](analyst-profile/01-profile.md) §1.4 for the
+phase table. The Verdict tab's four blocked panels are that corpus's phase 9
+([`analyst-profile/10-wiring.md`](analyst-profile/10-wiring.md)); nothing is
+built yet, so `value-profile-live/00-contract.md` §14.12's four rows are still
+blocked — but on an implementation now, not on a design.
 
-**How it gets unblocked:** a dedicated PRD and a grilling session, in the shape
-the tab phases used — questions first, decisions recorded, then a specification.
-Nothing in this file is a decision.
+**What this file is still for.** Two items in §4 came back here rather than
+moving, and §3 remains the record of what the shipped templates assert, taken
+before anyone designed against them. §4's preamble says which is which. The
+rest is history: it is kept because the reasoning in §1–§3 is what the corpus
+was built on, and a superseded document that still explains *why* is worth more
+than a deleted one.
 
 ---
 
@@ -135,7 +144,18 @@ editorial label — and the design has to say which.
 
 ## 4. Questions the corpus adds
 
-Beyond the three in §2, these are already open and land on this engine:
+Beyond the three in §2, these were open when this file was written. **Four of
+the six moved into [`analyst-profile/`](analyst-profile/) and are answered or
+owned there; two came back here.** Where each went:
+
+| Item | Now |
+|---|---|
+| The decay aggregation rule | closed by phase 23, struck below |
+| **Two decay formulas never run** | **stays here.** `analyst-profile/06-staleness.md` §7 returns it: it was carried on the assumption the staleness phase would put the formula classes under a microscope, and D7 means the page stops calling them instead. Decay work, unrelated to profiles |
+| **The opinion colour contradiction** | **stays here.** `analyst-profile/01-profile.md` §8 keeps it with the engine work rather than the profile |
+| Which opinions count | `analyst-profile/` phase 2, `03-signals.md` §6 — `analyst.opinion` is deliberately not in the v1 catalogue until it is answered |
+| What a `known`-category warninglist hit means | answered: `analyst-profile/07-reference.md` §3.1 verified 0 of 89 lists set one *and* that `Warninglist::__updateList()` drops the field. V1 ships a hardcoded map, V2 is an upstream PR |
+| Whether user-defined signals are visible to others | dissolved by **D12** (2026-09-07). A signal is a PHP file discovered on the filesystem, so it is instance-wide by construction; what a profile carries is whether it is enabled. `analyst-profile/03-signals.md` §8.7 |
 
 - **~~The decay aggregation rule.~~ Decided by phase 23** and owned by
   `ValueDecayTool`: the per-day maximum across a value's occurrences, labelled

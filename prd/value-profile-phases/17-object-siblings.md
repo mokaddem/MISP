@@ -19,7 +19,7 @@ built without.
 ### 9.1 What this phase covers
 
 The **object siblings** sub-section of the Relationships tab —
-[phase 11](value-profile-tabs/03-relationships.md) §6.4, rendered by
+[phase 11](../value-profile-tabs/03-relationships.md) §6.4, rendered by
 `value_relation_cooccurrence.ctp:539-614`. Nothing else on that tab moves: the
 ranked values table, the near-match and asserted sections, the facet bar and the
 three engine states are all as phase 11 shipped them.

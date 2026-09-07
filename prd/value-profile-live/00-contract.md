@@ -498,8 +498,11 @@ account for.
 - **A verdict scoring engine.** Still out, as §5 has it. §14 wires the display
   of a verdict; what computes one is not decided by this contract — and because
   nothing computes one, the four rows in §14.12 that render a verdict are
-  blocked rather than merely unstarted. See
-  [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md).
+  blocked rather than merely unstarted. **It is now designed elsewhere**:
+  [`../analyst-profile/`](../analyst-profile/), whose phase 9 claims those four
+  rows and whose D11 renames what they render to an **Assessment** on three
+  axes. Still out of scope *here* — a design landing does not move it into this
+  contract.
 - ~~**The decay aggregation rule.**~~ **Closed by phase 23** — the per-day
   maximum across occurrences, labelled with the occurrence holding it.
   `23-sightings.md` §5. Left listed rather than deleted, because three
@@ -718,11 +721,33 @@ Verdict tab: the Overview's `value_verdict_card` shows the disposition and the
 top three signals, so it needs the engine as much as the tab does. They cannot
 be wired at all until a verdict engine exists — nothing computes a verdict
 today, so the fixture there stands in for an algorithm rather than for a query.
-Scope is in
-[`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md),
-which needs its own PRD and grilling session before a phase can claim these
-rows. **A live phase that touches the Overview tab must leave that one card
-on the fixture and say so**, rather than treating the tab as indivisible.
+**A phase now claims them.** The engine got its PRD and its grilling session on
+2026-09-02/03 — [`../analyst-profile/`](../analyst-profile/), fifteen documents
+and ten phases — and these four rows are its **phase 9**
+([`../analyst-profile/10-wiring.md`](../analyst-profile/10-wiring.md)), which
+needs that corpus's phases 1–5 first. Nothing is built, so the rows stay
+blocked; what changed is that the blocker is an implementation rather than an
+unanswered question. **A live phase that touches the Overview tab must still
+leave that one card on the fixture and say so**, rather than treating the tab
+as indivisible.
+
+Two amendments that phase will bring to this board, recorded here so they are
+not a surprise:
+
+- **The elements are renamed.** D11 replaces the verdict with an *Assessment* —
+  lean, relevance and quality — so `value_verdict`, `value_verdict_conflicted`,
+  `value_verdict_aside` and `value_verdict_card` are renamed with the tab
+  (`../analyst-profile/12-assessment.md` §5). A rename of four filled-in board
+  rows is the kind of thing §14.12 exists to keep honest.
+- **It rewrites live panels, not only blocked ones.** D7 stops the page reading
+  `decaying_models` entirely, which takes the per-model decay bars out of
+  `value_lifecycle` and `value_sighting_decay` and the decay overlay off the
+  sightings chart (`../analyst-profile/01-profile.md` §6). Two of those three
+  are **already converted rows on this board**. So the Overview's
+  `value_lifecycle` should not be wired live against `decaying_models` at all:
+  it is a fixture panel today whose live design is
+  `../analyst-profile/06-staleness.md`, and converting it first would be
+  building something that phase deletes.
 
 Two rows to watch, both named before the campaign starts rather than found
 during it. `viewVerdict` renders one of two elements depending on the value's
@@ -759,7 +784,7 @@ its decisions and deferrals live; this is only the map.
 | 25 | Timeline — one endpoint, nine lanes, and the audit ACL model §8.2 left open | [`25-timeline.md`](25-timeline.md) | **closed 2026-09-05** — T1–T30 done; §1 is the board, §1.1 its twelve decisions, §16 the build log, and §26–§29 four rounds of reader feedback taken over the closed phase |
 | 26 | Analyst data — three endpoints, the aggregate nothing in MISP computes, the thread and the report list. **The tab is renamed *Collaboration*** | [`26-analyst.md`](26-analyst.md) | **closed 2026-09-05** — T1–T16 done; §1 is the board, §1.1 its ten decisions, §11 how the three open calls were settled, §12 verification as run, §16 the build log. **Four readings followed the build**: §17 the rename and a ledger bug, §18 links on every chip that names a record, §19 the report badge's inherited audience, §20 the Overview's `value_analyst_preview` — which reverses §11's second call and makes this phase's fourth endpoint. **§21 re-ran the verification against all four**, and §21.2 is what the phase hands on |
 | 27 | History — one endpoint, and the audit reader phase 25 built in this tab's shape | [`27-history.md`](27-history.md) | **closed 2026-09-05** — T1–T16 done; §1 is the board, §1.1 seven decisions, §3 the instance survey that falsifies three of the design's assumptions, §12 verification as run, §16 the build log, §17 what it hands on and §18 one review round over the built tab — six findings, all fixed, among them a rule from phase 26 this tab predated and never got. **§8 is an actor disclosure phase 25 shipped** — `eventIndex` strips a foreign-org actor's email for a non-site-admin and `auditRow` did not — fixed here for both tabs. **§9** rejects `fullChange` as the diff source. §10 applies §14.6's two standing History rows and rewords a third band invariant |
-| — | Verdict, and the Overview's verdict card | [`../value-profile-verdict-engine.md`](../value-profile-verdict-engine.md) | **blocked on the verdict engine** |
+| — | Verdict — the tab's three panels and the Overview's verdict card. **Renamed Assessment by D11** | [`../analyst-profile/10-wiring.md`](../analyst-profile/10-wiring.md) | **designed, blocked on an implementation.** It is the Analyst Profile corpus's **phase 9** and needs that corpus's phases 1–5: the store, the signal engine and its filesystem loader, the lean and bands, exclusions, and relevance. `../analyst-profile/01-profile.md` §1.4 is the phase table |
 
 The order is deliberately not fixed here. §14 does not sequence the campaign,
 and the argument for going first differs by tab: Occurrences is the one whose
