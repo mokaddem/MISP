@@ -1,21 +1,28 @@
 """
 Inline the mockup kit into a mockup source file and write the publishable
-copy to prd/phase7/build/.
+copy to the `build/` beside its `mockups/`.
 
     python3 prd/phase7/kit/inline-kit.py prd/phase7/mockups/occurrences.html
+    #   -> prd/phase7/build/occurrences.html
+    python3 prd/phase7/kit/inline-kit.py \
+        prd/analyst-profile/mockups/ledger-sheet.html
+    #   -> prd/analyst-profile/build/ledger-sheet.html
 
 The source file keeps the `<!-- vp-kit -->` marker and stays small enough to
 read in a diff; the built copy carries the 812KB of MISP CSS and is what the
 Artifact tool publishes. The build directory is not committed.
+
+The output directory used to be `prd/phase7/build` unconditionally. It is
+now the `build/` sibling of whatever directory the source is in, which is
+the same path for every phase 7 mockup and lets phase 8b keep its
+candidates under `prd/analyst-profile/` (09b-prototypes.md §1.3).
 """
 import os
 import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PHASE7 = os.path.dirname(HERE)
 KIT = os.path.join(HERE, 'mockup-kit.css')
-BUILD = os.path.join(PHASE7, 'build')
 
 MARKER = '<!-- vp-kit -->'
 
@@ -48,8 +55,9 @@ def main():
         if hits:
             print('   note: %s in source: %s' % (label, hits[:3]))
 
-    os.makedirs(BUILD, exist_ok=True)
-    dst = os.path.join(BUILD, os.path.basename(src))
+    build = os.path.join(os.path.dirname(os.path.dirname(src)), 'build')
+    os.makedirs(build, exist_ok=True)
+    dst = os.path.join(build, os.path.basename(src))
     with open(dst, 'w', encoding='utf-8') as handle:
         handle.write(out_text)
 

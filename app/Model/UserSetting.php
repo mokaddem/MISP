@@ -108,6 +108,22 @@ class UserSetting extends AppModel
             'internal' => true,
             'validation' => 'validate_json',
         ],
+        /*
+         * The values an analyst has pinned to the Analyst Profile
+         * simulator, so a candidate profile can be scored against the
+         * handful they actually argue about
+         * (prd/analyst-profile/09-editor.md §2.2).
+         *
+         * `internal`, following `oidc`: it is written by one feature's
+         * own UI rather than typed into the generic settings form, and
+         * a JSON list of raw indicator values is not something to offer
+         * for hand-editing there. It also keeps the audit log free of an
+         * entry per pin, which is what `setSettingInternal` skips.
+         */
+        'analyst_profile_comparison_set' => [
+            'internal' => true,
+            'validation' => 'validate_json',
+        ],
         'periodic_notification_filters' => [
             'placeholder' => [
                 'orgc_id' => '1',

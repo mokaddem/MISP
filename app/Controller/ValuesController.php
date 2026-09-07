@@ -1,6 +1,7 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('ValueProfileFixture', 'Tools');
+App::uses('ValueUrlTool', 'Tools');
 
 /**
  * Value Profile controller, mounted at /values/* via CakePHP's default
@@ -60,7 +61,7 @@ class ValuesController extends AppController
     public function beforeFilter()
     {
         parent::beforeFilter();
-        $this->rejectNonHtmlExtension(
+        $this->__rejectNonHtmlExtension(
             $this->request->params['ext'] ?? null
         );
         /*
@@ -115,7 +116,7 @@ class ValuesController extends AppController
      * @return void
      * @throws NotFoundException
      */
-    protected function rejectNonHtmlExtension($extension)
+    protected function __rejectNonHtmlExtension($extension)
     {
         if ($extension === null || $extension === 'html') {
             return;
@@ -160,7 +161,7 @@ class ValuesController extends AppController
      */
     public function view($b64value = null)
     {
-        $profile = $this->profileFor($b64value);
+        $profile = $this->__profileFor($b64value);
         /*
          * The frame is still the fixture's — see §14.12, where the tab
          * counts and banner chips are the Overview's phase to convert.
@@ -177,7 +178,7 @@ class ValuesController extends AppController
         $this->set('valueProfile', $profile);
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.
-        $this->set('valueB64', self::encodeValue($profile['value']));
+        $this->set('valueB64', ValueUrlTool::encode($profile['value']));
     }
 
     /**
@@ -193,12 +194,12 @@ class ValuesController extends AppController
      */
     public function viewOccurrences($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_occurrences');
+        $this->__renderPanel($this->__profileFor($b64value), 'value_occurrences');
     }
 
     public function viewContext($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_context');
+        $this->__renderPanel($this->__profileFor($b64value), 'value_context');
     }
 
     /**
@@ -216,7 +217,7 @@ class ValuesController extends AppController
      */
     public function viewAnalystPreview($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forAnalystPreview',
             'value_analyst_preview'
@@ -225,7 +226,7 @@ class ValuesController extends AppController
 
     public function viewVerdictCard($b64value = null)
     {
-        $this->renderPanel($this->profileFor($b64value), 'value_verdict_card');
+        $this->__renderPanel($this->__profileFor($b64value), 'value_verdict_card');
     }
 
     /**
@@ -239,10 +240,10 @@ class ValuesController extends AppController
     public function viewSightings($b64value = null)
     {
         $this->loadModel('ValueProfile');
-        $this->renderPanel(
+        $this->__renderPanel(
             $this->ValueProfile->forSightings(
                 $this->Auth->user(),
-                $this->decodeValue($b64value)
+                $this->__decodeValue($b64value)
             ),
             'value_sightings'
         );
@@ -268,12 +269,12 @@ class ValuesController extends AppController
     public function viewLifecycle($b64value = null)
     {
         $this->loadModel('ValueProfile');
-        $profile = $this->profileFor($b64value);
+        $profile = $this->__profileFor($b64value);
         $profile['relevance'] = $this->ValueProfile->forRelevance(
             $this->Auth->user(),
             $profile['value']
         )['relevance'];
-        $this->renderPanel($profile, 'value_lifecycle');
+        $this->__renderPanel($profile, 'value_lifecycle');
     }
 
     /**
@@ -289,7 +290,7 @@ class ValuesController extends AppController
      */
     public function viewExternal($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forExternal',
             'value_external'
@@ -316,10 +317,10 @@ class ValuesController extends AppController
     public function viewOccurrenceTable($b64value = null)
     {
         $this->loadModel('ValueProfile');
-        $this->renderPanel(
+        $this->__renderPanel(
             $this->ValueProfile->forOccurrenceTable(
                 $this->Auth->user(),
-                $this->decodeValue($b64value)
+                $this->__decodeValue($b64value)
             ),
             'value_occurrence_table'
         );
@@ -348,7 +349,7 @@ class ValuesController extends AppController
      */
     public function viewSightingChart($b64value = null)
     {
-        $this->renderSightingPanel(
+        $this->__renderSightingPanel(
             $b64value,
             'forSightingChart',
             'value_sighting_chart'
@@ -357,7 +358,7 @@ class ValuesController extends AppController
 
     public function viewSightingList($b64value = null)
     {
-        $this->renderSightingPanel(
+        $this->__renderSightingPanel(
             $b64value,
             'forSightingList',
             'value_sighting_list'
@@ -381,7 +382,7 @@ class ValuesController extends AppController
      */
     public function viewRelevance($b64value = null)
     {
-        $this->renderSightingPanel(
+        $this->__renderSightingPanel(
             $b64value,
             'forRelevance',
             'value_relevance'
@@ -390,7 +391,7 @@ class ValuesController extends AppController
 
     public function viewSightingReporters($b64value = null)
     {
-        $this->renderSightingPanel(
+        $this->__renderSightingPanel(
             $b64value,
             'forSightingReporters',
             'value_sighting_reporters'
@@ -399,7 +400,7 @@ class ValuesController extends AppController
 
     public function viewSightingAdd($b64value = null)
     {
-        $this->renderSightingPanel(
+        $this->__renderSightingPanel(
             $b64value,
             'forSightingAdd',
             'value_sighting_add'
@@ -415,13 +416,13 @@ class ValuesController extends AppController
      * @param string $element Name under Elements/Values/View
      * @return void
      */
-    private function renderSightingPanel($b64value, $method, $element)
+    private function __renderSightingPanel($b64value, $method, $element)
     {
         $this->loadModel('ValueProfile');
-        $this->renderPanel(
+        $this->__renderPanel(
             $this->ValueProfile->$method(
                 $this->Auth->user(),
-                $this->decodeValue($b64value)
+                $this->__decodeValue($b64value)
             ),
             $element
         );
@@ -452,12 +453,12 @@ class ValuesController extends AppController
      */
     public function viewRelationCooccurrence($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationCooccurrence',
             'value_relation_cooccurrence',
             array(
-                'filters' => $this->relationFilters(),
+                'filters' => $this->__relationFilters(),
                 // The panel's own refresh, and the only thing on this
                 // page that asks for a read rather than accepting one.
                 'fresh' => !empty($this->request->query['fresh']),
@@ -467,7 +468,7 @@ class ValuesController extends AppController
 
     public function viewRelationNearMatch($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationNearMatch',
             'value_relation_near_match'
@@ -476,7 +477,7 @@ class ValuesController extends AppController
 
     public function viewRelationAsserted($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationAsserted',
             'value_relation_asserted'
@@ -492,7 +493,7 @@ class ValuesController extends AppController
      */
     public function viewRelationDated($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationDated',
             'value_relation_dated'
@@ -510,7 +511,7 @@ class ValuesController extends AppController
      */
     public function viewRelationReferences($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationReferences',
             'value_relation_references'
@@ -519,7 +520,7 @@ class ValuesController extends AppController
 
     public function viewRelationExternal($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationExternal',
             'value_relation_external'
@@ -528,7 +529,7 @@ class ValuesController extends AppController
 
     public function viewRelationGraph($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationGraph',
             'value_relation_graph'
@@ -537,7 +538,7 @@ class ValuesController extends AppController
 
     public function viewRelationSettings($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationSettings',
             'value_relation_settings'
@@ -559,7 +560,7 @@ class ValuesController extends AppController
      */
     public function viewRelationThreats($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forRelationThreats',
             'value_relation_threats'
@@ -576,14 +577,14 @@ class ValuesController extends AppController
      * @param string $element Name under Elements/Values/View
      * @return void
      */
-    private function renderLivePanel($b64value, $method, $element,
+    private function __renderLivePanel($b64value, $method, $element,
         array $options = array()
     ) {
         $this->loadModel('ValueProfile');
-        $this->renderPanel(
+        $this->__renderPanel(
             $this->ValueProfile->$method(
                 $this->Auth->user(),
-                $this->decodeValue($b64value),
+                $this->__decodeValue($b64value),
                 $options
             ),
             $element
@@ -602,7 +603,7 @@ class ValuesController extends AppController
      *
      * @return array
      */
-    private function relationFilters()
+    private function __relationFilters()
     {
         $query = $this->request->query;
         if (empty($query['f']) || !is_array($query['f'])) {
@@ -637,7 +638,7 @@ class ValuesController extends AppController
      */
     public function viewEnrichment($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forEnrichment',
             'value_enrichment'
@@ -676,13 +677,13 @@ class ValuesController extends AppController
                 . ' POST.'
             ));
         }
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forEnrichmentRun',
             'value_enrichment_result',
             array(
-                'module' => $this->runParam('module'),
-                'type' => $this->runParam('type'),
+                'module' => $this->__runParam('module'),
+                'type' => $this->__runParam('type'),
             )
         );
     }
@@ -698,7 +699,7 @@ class ValuesController extends AppController
      * @param string $key
      * @return string|null
      */
-    private function runParam($key)
+    private function __runParam($key)
     {
         $data = $this->request->data;
         if (!isset($data[$key]) || !is_string($data[$key])) {
@@ -734,7 +735,7 @@ class ValuesController extends AppController
      */
     public function viewAnalystStanding($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forAnalystStanding',
             'value_analyst_standing'
@@ -743,7 +744,7 @@ class ValuesController extends AppController
 
     public function viewAnalystThread($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forAnalystThread',
             'value_analyst_thread'
@@ -765,7 +766,7 @@ class ValuesController extends AppController
      */
     public function viewAnalystReports($b64value = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forAnalystReports',
             'value_analyst_reports'
@@ -805,12 +806,12 @@ class ValuesController extends AppController
      */
     public function viewTimeline($b64value = null, $from = null, $to = null)
     {
-        $window = self::period($from, $to);
+        $window = self::__period($from, $to);
         $this->loadModel('ValueProfile');
-        $this->renderPanel(
+        $this->__renderPanel(
             $this->ValueProfile->forTimeline(
                 $this->Auth->user(),
-                $this->decodeValue($b64value),
+                $this->__decodeValue($b64value),
                 // `period` also answers `all`, which this panel has no
                 // use for: its spine is already the whole range.
                 array('window' => is_array($window) ? $window : null)
@@ -844,11 +845,11 @@ class ValuesController extends AppController
      */
     public function viewHistory($b64value = null, $from = null, $to = null)
     {
-        $this->renderLivePanel(
+        $this->__renderLivePanel(
             $b64value,
             'forHistory',
             'value_history',
-            array('window' => self::period($from, $to))
+            array('window' => self::__period($from, $to))
         );
     }
 
@@ -863,7 +864,7 @@ class ValuesController extends AppController
      * @param string $to
      * @return mixed `all`, a from/to pair, or null for the default
      */
-    private static function period($from, $to)
+    private static function __period($from, $to)
     {
         if ($from === 'all') {
             return 'all';
@@ -892,10 +893,10 @@ class ValuesController extends AppController
      */
     public function viewVerdict($b64value = null)
     {
-        $profile = $this->profileFor($b64value);
+        $profile = $this->__profileFor($b64value);
         $conflicted = ($profile['verdict']['disposition'] ?? null)
             === 'CONFLICTED';
-        $this->renderPanel(
+        $this->__renderPanel(
             $profile,
             $conflicted ? 'value_verdict_conflicted' : 'value_verdict'
         );
@@ -914,8 +915,8 @@ class ValuesController extends AppController
      */
     public function viewVerdictAside($b64value = null)
     {
-        $this->renderPanel(
-            $this->profileFor($b64value),
+        $this->__renderPanel(
+            $this->__profileFor($b64value),
             'value_verdict_aside'
         );
     }
@@ -926,10 +927,10 @@ class ValuesController extends AppController
      *                       ValueProfileFixture::forValue
      * @return array
      */
-    private function profileFor($b64value, array $options = array())
+    private function __profileFor($b64value, array $options = array())
     {
         return ValueProfileFixture::forValue(
-            $this->decodeValue($b64value),
+            $this->__decodeValue($b64value),
             $options
         );
     }
@@ -942,42 +943,33 @@ class ValuesController extends AppController
      * @param string $element Name under Elements/Values/View
      * @return void
      */
-    private function renderPanel(array $profile, $element)
+    private function __renderPanel(array $profile, $element)
     {
         $this->set('valueProfile', $profile);
-        $this->set('valueB64', self::encodeValue($profile['value']));
+        $this->set('valueB64', ValueUrlTool::encode($profile['value']));
         $this->layout = false;
         $this->render('/Elements/Values/View/' . $element);
     }
 
     /**
-     * @param string $value
-     * @return string URL-safe base64, so a value containing `/` survives
-     *                a path segment.
-     */
-    private static function encodeValue($value)
-    {
-        return strtr(base64_encode($value), '+/', '-_');
-    }
-
-    /**
-     * Values reach this controller base64-encoded because they are
-     * arbitrary strings in a URL segment. Both the standard and the
-     * URL-safe alphabet are accepted — a raw `/` cannot survive a path
-     * segment, so callers legitimately encode with `-_`.
+     * The value this request is about, or a 404.
      *
-     * @param string $b64value
+     * The encoding itself is `ValueUrlTool`'s — two controllers mint and
+     * read the same `?value=`, and its docblock says why the pair does
+     * not live on either of them. What stays here is the refusal, so the
+     * page's own wording travels with the page.
+     *
+     * @param string|null $b64value
      * @return string
      * @throws NotFoundException
      */
-    private function decodeValue($b64value)
+    private function __decodeValue($b64value)
     {
         if ($b64value === null || $b64value === '') {
             throw new NotFoundException(__('No value supplied.'));
         }
-        $normalised = strtr($b64value, '-_', '+/');
-        $value = base64_decode($normalised, true);
-        if ($value === false || $value === '') {
+        $value = ValueUrlTool::decode($b64value);
+        if ($value === null) {
             throw new NotFoundException(__('Invalid base64 encoding.'));
         }
         return $value;

@@ -1,0 +1,486 @@
+<?php
+
+/**
+ * What one profile does to a value that another does not.
+ *
+ * prd/analyst-profile/09-editor.md §5, phase 8a. Hand it two
+ * assessments of the same value — one under the profile in force, one
+ * under the candidate being edited — and it returns the diff a reader
+ * can check by hand: one row per ledger row, both contributions, the
+ * delta, and rows that appeared or vanished marked as such.
+ *
+ * **This is only renderable because nothing is normalised.** The
+ * exact-sum invariant (`01-profile.md` §5.1) means each column still
+ * adds up to its own quality, so a diff of two ledgers is arithmetic
+ * rather than impressionistic — and `sums` says so per column rather
+ * than asserting it, because an invariant nobody checks is a comment.
+ * A column that does not add up is reported, not hidden: it would mean
+ * the engine had drifted from the one property the whole feature rests
+ * on, and a simulator that showed a plausible diff over a broken ledger
+ * would be the worst possible failure mode.
+ *
+ * No models, no `$user`, no database. Two arrays in, one array out.
+ */
+class ValueVerdictDiffTool
+{
+    /** A row present in both, with the same contribution. */
+    const SAME = 'same';
+
+    /** Present in both, contributing differently. */
+    const CHANGED = 'changed';
+
+    /** Only under the candidate. */
+    const APPEARED = 'appeared';
+
+    /** Only under the profile in force. */
+    const VANISHED = 'vanished';
+
+    /**
+     * @param array $before The assessment under the profile in force
+     * @param array $after The assessment under the candidate
+     * @return array
+     */
+    public static function diff(array $before, array $after)
+    {
+        $beforeRows = self::rowsById($before);
+        $afterRows = self::rowsById($after);
+        $rows = array();
+        foreach (self::mergedOrder($beforeRows, $afterRows) as $id) {
+            $rows[] = self::row(
+                $id,
+                isset($beforeRows[$id]) ? $beforeRows[$id] : null,
+                isset($afterRows[$id]) ? $afterRows[$id] : null
+            );
+        }
+        $beforeQuality = isset($before['quality'])
+            ? (int)$before['quality']
+            : 0;
+        $afterQuality = isset($after['quality'])
+            ? (int)$after['quality']
+            : 0;
+        $notCounted = self::notCounted($before, $after);
+        $moved = array();
+        foreach ($rows as $row) {
+            if ($row['state'] !== self::SAME) {
+                $moved[] = $row['id'];
+            }
+        }
+        return array(
+            'rows' => $rows,
+            'moved' => $moved,
+            'totals' => array(
+                'before' => $beforeQuality,
+                'after' => $afterQuality,
+                'delta' => $afterQuality - $beforeQuality,
+            ),
+            /*
+             * Per column, because the two are scored independently and a
+             * drift in one is not a drift in the other. `ok` is the
+             * conjunction, so a caller that only wants to know whether
+             * the diff can be trusted reads one key.
+             */
+            'sums' => self::sums($beforeRows, $afterRows,
+                $beforeQuality, $afterQuality),
+            'axes' => self::axes($before, $after),
+            'not_counted' => $notCounted,
+            'changed' => !empty($moved)
+                || $beforeQuality !== $afterQuality
+                || self::axesMoved($before, $after)
+                || self::notCountedMoved($notCounted),
+        );
+    }
+
+    /**
+     * One value's headline under each profile — what the comparison set
+     * shows per row, without the ledger.
+     *
+     * @param string $value
+     * @param array $before
+     * @param array $after
+     * @return array
+     */
+    public static function headline($value, array $before, array $after)
+    {
+        $axes = self::axes($before, $after);
+        $moved = self::axesMoved($before, $after);
+        return array(
+            'value' => $value,
+            'axes' => $axes,
+            'moved' => $moved,
+            /*
+             * Which way, so a design can colour the row without
+             * asserting that the change is wrong. A quality that rose is
+             * `up`; one that fell is `down`; a lean or band that moved
+             * with the quality unchanged is `sideways`, which is a real
+             * outcome — a clamp or a conflict rule firing differently.
+             */
+            'direction' => self::direction($before, $after),
+        );
+    }
+
+    /**
+     * @param array $before
+     * @param array $after
+     * @return string
+     */
+    private static function direction(array $before, array $after)
+    {
+        $delta = (int)(isset($after['quality']) ? $after['quality'] : 0)
+            - (int)(isset($before['quality']) ? $before['quality'] : 0);
+        if ($delta > 0) {
+            return 'up';
+        }
+        if ($delta < 0) {
+            return 'down';
+        }
+        return self::axesMoved($before, $after) ? 'sideways' : 'none';
+    }
+
+    /**
+     * The three axes and the two derived words, before and after.
+     *
+     * `relevance` is here although D11 forbids the quality reading it:
+     * the axes are independent of each other, not invisible to a diff,
+     * and a candidate that changed a TTL has changed the assessment
+     * without touching a single ledger row. A diff that showed no
+     * change there would be wrong about the only thing that moved.
+     *
+     * @param array $before
+     * @param array $after
+     * @return array
+     */
+    private static function axes(array $before, array $after)
+    {
+        $axes = array();
+        foreach (array(
+            'lean' => 'lean',
+            'quality' => 'quality',
+            'band' => 'band',
+            'rule' => 'rule',
+        ) as $key => $path) {
+            $axes[$key] = self::pair(
+                isset($before[$path]) ? $before[$path] : null,
+                isset($after[$path]) ? $after[$path] : null
+            );
+        }
+        $axes['relevance'] = self::pair(
+            self::relevanceState($before),
+            self::relevanceState($after)
+        );
+        $axes['fired'] = self::pair(
+            isset($before['signals']['fired'])
+                ? (int)$before['signals']['fired']
+                : null,
+            isset($after['signals']['fired'])
+                ? (int)$after['signals']['fired']
+                : null
+        );
+        return $axes;
+    }
+
+    /**
+     * The relevance axis as one comparable word plus its flag, since
+     * `12-assessment.md` §3 makes the state one word and the
+     * uncertainty also a flag — *"expired · timeline uncertain"* is two
+     * of them at once.
+     *
+     * @param array $verdict
+     * @return string|null
+     */
+    private static function relevanceState(array $verdict)
+    {
+        if (!isset($verdict['relevance'])
+            || !is_array($verdict['relevance'])
+        ) {
+            return null;
+        }
+        $relevance = $verdict['relevance'];
+        $state = isset($relevance['state']) ? $relevance['state'] : null;
+        if ($state === null) {
+            return null;
+        }
+        /*
+         * The flag is appended only where it adds something. `expired ·
+         * uncertain` is the reading `12-assessment.md` §3 wants — two
+         * states at once — but the axis also has `uncertain` as a state
+         * in its own right, and the first version of this printed
+         * *"uncertain · uncertain"* for it. Which is not wrong so much
+         * as it is a design being handed the same word twice and having
+         * to decide what it means.
+         */
+        if (empty($relevance['uncertain']) || $state === 'uncertain') {
+            return $state;
+        }
+        return $state . ' · uncertain';
+    }
+
+    /**
+     * @param mixed $before
+     * @param mixed $after
+     * @return array
+     */
+    private static function pair($before, $after)
+    {
+        return array(
+            'before' => $before,
+            'after' => $after,
+            'changed' => $before !== $after,
+        );
+    }
+
+    /**
+     * @param array $before
+     * @param array $after
+     * @return bool
+     */
+    private static function axesMoved(array $before, array $after)
+    {
+        foreach (self::axes($before, $after) as $axis) {
+            if ($axis['changed']) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param array $notCounted
+     * @return bool
+     */
+    private static function notCountedMoved(array $notCounted)
+    {
+        foreach ($notCounted as $entry) {
+            if ($entry['state'] !== self::SAME) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @param string $id
+     * @param array|null $before
+     * @param array|null $after
+     * @return array
+     */
+    private static function row($id, $before, $after)
+    {
+        $present = $after !== null ? $after : $before;
+        $beforeValue = $before === null
+            ? null
+            : (int)$before['contribution'];
+        $afterValue = $after === null
+            ? null
+            : (int)$after['contribution'];
+        if ($before === null) {
+            $state = self::APPEARED;
+        } elseif ($after === null) {
+            $state = self::VANISHED;
+        } elseif ($beforeValue === $afterValue) {
+            $state = self::SAME;
+        } else {
+            $state = self::CHANGED;
+        }
+        return array(
+            'id' => $id,
+            'signal' => isset($present['signal']) ? $present['signal'] : $id,
+            'group' => isset($present['kind']) ? $present['kind'] : null,
+            'weight' => isset($present['weight'])
+                ? $present['weight']
+                : null,
+            'source' => isset($present['source'])
+                ? $present['source']
+                : null,
+            /*
+             * The candidate's prose where there is one. A row whose
+             * points changed usually says something different about the
+             * same evidence — *"4 organisations"* is the same sentence,
+             * but a threshold in `config` can change the sentence too —
+             * and the reader is deciding about the candidate.
+             */
+            'signal_before' => $before === null
+                ? null
+                : (isset($before['signal']) ? $before['signal'] : null),
+            'evidence' => isset($present['evidence'])
+                ? $present['evidence']
+                : null,
+            'before' => $beforeValue,
+            'after' => $afterValue,
+            'delta' => (int)$afterValue - (int)$beforeValue,
+            'state' => $state,
+        );
+    }
+
+    /**
+     * Every ledger row of one assessment, keyed by signal id and
+     * flattened out of its groups.
+     *
+     * @param array $verdict
+     * @return array
+     */
+    private static function rowsById(array $verdict)
+    {
+        $rows = array();
+        $ledger = isset($verdict['ledger']) && is_array($verdict['ledger'])
+            ? $verdict['ledger']
+            : array();
+        foreach ($ledger as $group) {
+            if (empty($group['signals'])) {
+                continue;
+            }
+            foreach ($group['signals'] as $row) {
+                $id = isset($row['id']) ? $row['id'] : null;
+                if ($id === null) {
+                    continue;
+                }
+                $rows[$id] = $row;
+            }
+        }
+        return $rows;
+    }
+
+    /**
+     * The union of two row sets, in the candidate's order with the
+     * profile-in-force's leftovers appended.
+     *
+     * The candidate leads because it is what the reader is deciding
+     * about; a vanished row has no position of its own to keep, so it
+     * goes after the rows that are still there rather than into a
+     * position the new ledger never had.
+     *
+     * @param array $before
+     * @param array $after
+     * @return array
+     */
+    private static function mergedOrder(array $before, array $after)
+    {
+        $order = array_keys($after);
+        foreach (array_keys($before) as $id) {
+            if (!in_array($id, $order, true)) {
+                $order[] = $id;
+            }
+        }
+        return $order;
+    }
+
+    /**
+     * Whether each column adds up to the quality printed under it.
+     *
+     * @param array $beforeRows
+     * @param array $afterRows
+     * @param int $beforeQuality
+     * @param int $afterQuality
+     * @return array
+     */
+    private static function sums(array $beforeRows, array $afterRows,
+        $beforeQuality, $afterQuality
+    ) {
+        $beforeSum = 0;
+        foreach ($beforeRows as $row) {
+            $beforeSum += (int)$row['contribution'];
+        }
+        $afterSum = 0;
+        foreach ($afterRows as $row) {
+            $afterSum += (int)$row['contribution'];
+        }
+        return array(
+            'before' => array(
+                'ledger' => $beforeSum,
+                'quality' => $beforeQuality,
+                'ok' => $beforeSum === $beforeQuality,
+            ),
+            'after' => array(
+                'ledger' => $afterSum,
+                'quality' => $afterQuality,
+                'ok' => $afterSum === $afterQuality,
+            ),
+            'ok' => $beforeSum === $beforeQuality
+                && $afterSum === $afterQuality,
+        );
+    }
+
+    /**
+     * What each assessment could not count, and what moved between them.
+     *
+     * This is half the diff on an exclusions edit: switching `orgs.own`
+     * on moves rows out of every aggregate and into a policy note, and
+     * a diff that only compared ledgers would show a quality drop with
+     * nothing to attribute it to.
+     *
+     * @param array $before
+     * @param array $after
+     * @return array
+     */
+    private static function notCounted(array $before, array $after)
+    {
+        $beforeEntries = self::notCountedById($before);
+        $afterEntries = self::notCountedById($after);
+        $out = array();
+        foreach (self::mergedOrder($beforeEntries, $afterEntries) as $key) {
+            $b = isset($beforeEntries[$key]) ? $beforeEntries[$key] : null;
+            $a = isset($afterEntries[$key]) ? $afterEntries[$key] : null;
+            $present = $a !== null ? $a : $b;
+            if ($b === null) {
+                $state = self::APPEARED;
+            } elseif ($a === null) {
+                $state = self::VANISHED;
+            } else {
+                $state = ($b['note'] ?? null) === ($a['note'] ?? null)
+                    ? self::SAME
+                    : self::CHANGED;
+            }
+            $out[] = array(
+                'id' => $key,
+                'title' => isset($present['title'])
+                    ? $present['title']
+                    : $key,
+                'reason' => isset($present['reason'])
+                    ? $present['reason']
+                    : null,
+                'source' => isset($present['source'])
+                    ? $present['source']
+                    : null,
+                'before' => $b === null
+                    ? null
+                    : (isset($b['note']) ? $b['note'] : ''),
+                'after' => $a === null
+                    ? null
+                    : (isset($a['note']) ? $a['note'] : ''),
+                'state' => $state,
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * `not_counted` keyed by whatever identifies an entry.
+     *
+     * A signal entry carries `id`; a policy note carries the exclusion's
+     * id; a budget note may carry neither, and falls back to its title —
+     * which is stable for the same reason the note exists at all.
+     *
+     * @param array $verdict
+     * @return array
+     */
+    private static function notCountedById(array $verdict)
+    {
+        $entries = array();
+        $list = isset($verdict['not_counted'])
+            && is_array($verdict['not_counted'])
+            ? $verdict['not_counted']
+            : array();
+        foreach ($list as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+            $key = !empty($entry['id'])
+                ? (string)$entry['id']
+                : (isset($entry['title']) ? (string)$entry['title'] : null);
+            if ($key === null || $key === '') {
+                continue;
+            }
+            $entries[$key] = $entry;
+        }
+        return $entries;
+    }
+}

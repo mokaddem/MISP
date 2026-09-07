@@ -21,9 +21,11 @@ reads it, the lean and bands that turn its ledger into an assessment, the
 exclusions that decide what the ledger may see, the relevance axis that
 says whether any of it still matters, the reference data that says what
 the analyst believes about their sources, and the enrichment modules it
-declares — are built as of 2026-09-07**; the other three phases are
-specifications. Phases 1 to 6 are every phase that can change a number;
-phase 7 changes none. The corpus is fifteen documents, phase by phase.
+declares — are built as of 2026-09-07**, and so is **8a**, the editor's
+contract: every action, the ACL, the mechanics and the validation, with
+no template written yet. Phases 1 to 6 are every phase that can change a
+number; phase 7 changes none. The corpus is sixteen documents, phase by
+phase.
 
 ## The headline: the Assessment (D11)
 
@@ -108,10 +110,60 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 7 are built;
-8–10 are specifications.** Build order: 1 (store) gates all → 2–7 → 8 → 9
-(the tab goes live) → 10. **Phase 9 now has every phase it needs**, and 8 is
-independent of it.
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 7 and 8a are
+built; 8b, 8c, 9 and 10 are specifications.** Build order: 1 (store) gates
+all → 2–7 → 8a → 8b → 8c → 9 (the tab goes live) → 10. **Phase 9 now has
+every phase it needs**, and 8 is independent of it.
+
+**Phase 8 is three passes, split 2026-09-07** (`09-editor.md` §1.1). It is the
+first phase of this corpus whose deliverable is a *look* rather than a
+computation. **8a** is the contract — the controller, the ACL, the mechanics,
+the validation, every action's REST representation, and real JSON fixtures
+dumped from the dev instance — and it writes no templates, so it can be
+verified with no design decisions made at all. **8b** draws three deliberately
+different designs against those fixtures, one agent per candidate, from the
+cold brief in `09b-prototypes.md`; the user picks one. **8c** implements the
+picked one. The order exists because a prototype drawn against invented data
+cannot be built — `value-profile-live/` is the long record of that — and
+because templates written before the design is picked are thrown away, two of
+three by construction.
+
+**Phase 8a, built 2026-09-07.** `AnalystProfilesController` and its twelve
+actions, the ACL block, `AnalystProfileFormTool` (the seven sections as four
+block kinds, the palette, the attainable bound, the validation and the
+form→document merge), `ValueVerdictDiffTool`, `ValueUrlTool`,
+`AnalystProfile::indexFor()`, a per-user comparison set, five fixtures and the
+frame 8b draws into. Verified by 77 checks with no database, 44 against the dev
+instance, 35 over HTTP and 27 over the fixtures, with all eight of the corpus's
+harnesses still passing — 570 checks. Nine findings in `09-editor.md` §7d;
+four of them are defects in code that shipped in earlier phases and were
+invisible until something read it from a new direction:
+
+- **`evidence.window` ignored its own `enabled` flag.** Every other exclusion
+  has honoured it since phase 4; this one read the raw section rather than the
+  plan, so the window applied whatever the profile said — and the editor was
+  about to draw a toggle with nothing behind it (§7d.1).
+- **Every refusal answered HTTP 200.** `RestResponse->viewData()` builds a
+  fresh response and always passes 200, so the status set beforehand was
+  discarded and a rejected save told an automated caller it had succeeded
+  (§7d.2).
+- **The ACL check that phase 1 deferred its work to was useless when it was
+  needed.** `findMissingFunctionNames()` treats any method not prefixed with an
+  underscore as an action, and 39 false positives — all of them this feature's
+  two controllers — buried the real signal. Both now follow MISP's convention
+  and the check returns `[]`. It also only reports one direction, so the live
+  probe asserts the other: no ACL entry names an action that does not exist
+  (§7d.5).
+- **A fork of the shipped default introduced itself as the shipped default**,
+  because `forkProfile()` copied the description verbatim — false of the copy,
+  on the one field a colleague reads to decide whether to adopt it (§7d.4).
+
+And one that changes what 8b may promise: **a weighting is invisible past a
+cap.** The fixture dump's first attempt produced a diff with no changed row in
+it, because the weight it lowered was already saturated. So a design promising
+*"change a weight and watch the row move"* will be wrong for some signals some
+of the time; the honest promise is *change a number and the diff shows what
+actually happened* (§7d.7).
 
 **Phase 1, built 2026-09-07.** Migration 160 and the `analyst_profiles`
 table, `app/Model/AnalystProfile.php`, and the shipped
@@ -336,5 +388,6 @@ it yet (`08-enrichment.md` §3.4).
 | [`01-profile.md`](01-profile.md) | **The main PRD**: purpose, scope, principles, the decisions index, invariants, the state table |
 | [`00-discovery.md`](00-discovery.md) | The discovery pass and the grilling record — why, with the rejected alternatives |
 | [`02-store.md`](02-store.md) … [`11-restsearch.md`](11-restsearch.md) | Phases 1–10, one file each |
+| [`09b-prototypes.md`](09b-prototypes.md) | Phase 8b's brief, written to be executed cold — the only file in the corpus addressed to someone who has read none of the others |
 | [`12-assessment.md`](12-assessment.md) | D11 — the assessment's semantic model and rename map |
 | [`review-2026-09-02.md`](review-2026-09-02.md) | The adversarial review, findings and their resolutions |

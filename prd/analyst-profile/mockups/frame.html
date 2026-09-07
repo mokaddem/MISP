@@ -1,0 +1,1116 @@
+<title>Analyst Profile — candidate frame</title>
+
+<!--
+    Phase 8b candidate frame (prd/analyst-profile/09b-prototypes.md).
+
+    Copy this file to prd/analyst-profile/mockups/<your-candidate>.html
+    and draw your three boards into the three .vp-board slots below.
+    Do not paste the kit into this file: the marker is replaced at build
+    time, which is what keeps 812KB of MISP CSS out of committed files.
+
+        python3 prd/phase7/kit/inline-kit.py \
+            prd/analyst-profile/mockups/<your-candidate>.html
+        bash prd/analyst-profile/mockups/check-mockup.sh \
+            prd/analyst-profile/build/<your-candidate>.html
+
+    Every figure comes from prd/analyst-profile/09a-fixtures/. Read that
+    directory's README.md first, and invent nothing.
+-->
+<!-- vp-kit -->
+
+<style>
+/* ==================================================================
+ * The frame. One navbar, three boards, at a pinned page width so a
+ * candidate is judged at the size it would really have.
+ * ================================================================== */
+
+:root {
+    /*
+     * MISP's content is `container-fluid`, so the column is a share of
+     * the window rather than a fixed width. 1600px is where phase 7
+     * measured its geometry; 1280px is the width §7 of the brief asks a
+     * candidate to still work at — switch this and re-read before
+     * publishing.
+     */
+    --vp-page: 1600px;
+    --vp-board-gap: 3.5rem;
+}
+
+body {
+    margin: 0;
+    background: var(--bs-body-bg, #f8f9fa);
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-doc {
+    max-width: var(--vp-page);
+    margin: 0 auto;
+    padding: 0 0 4rem;
+}
+
+/*
+ * The navbar sits back: it is context, not the thing being judged.
+ * Real markup rather than an approximation, so a candidate is read
+ * inside the navigation it would really have.
+ */
+.vp-doc-chrome {
+    opacity: .5;
+    pointer-events: none;
+    filter: saturate(.55);
+}
+
+.vp-doc-chrome .navbar {
+    position: static !important;
+}
+
+.vp-doc-head {
+    padding: 1.5rem 1rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    margin-bottom: var(--vp-board-gap);
+}
+
+.vp-doc-head h1 {
+    font-size: 1.5rem;
+    margin: 0 0 .35rem;
+}
+
+.vp-doc-sub {
+    color: var(--bs-secondary-color, #6c757d);
+    margin: 0;
+    max-width: 62rem;
+}
+
+.vp-doc-jump {
+    margin-top: .75rem;
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.vp-doc-jump a {
+    font-size: .8125rem;
+    padding: .15rem .6rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 999px;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* One board: a labelled slab holding one page of the candidate. */
+.vp-board {
+    margin: 0 1rem var(--vp-board-gap);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: .5rem;
+    overflow: hidden;
+    background: var(--bs-body-bg, #fff);
+}
+
+.vp-board-tag {
+    font: 600 .75rem/1.4 var(--bs-font-monospace, ui-monospace, monospace);
+    letter-spacing: .03em;
+    padding: .5rem .85rem;
+    background: var(--bs-tertiary-bg, #f1f3f5);
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    color: var(--bs-secondary-color, #6c757d);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.vp-board-tag b {
+    color: var(--bs-body-color, #212529);
+}
+
+.vp-board-tag .vp-board-q {
+    font-family: var(--bs-font-sans-serif, system-ui);
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Skeleton primitives, for the parts a board legitimately elides. */
+.sk {
+    display: inline-block;
+    width: var(--sk-w, 100%);
+    height: var(--sk-h, .85rem);
+    border-radius: .25rem;
+    background: var(--bs-secondary-bg, #e9ecef);
+}
+
+.sk-dim { opacity: .55; }
+.sk-line { display: block; margin: .3rem 0; }
+.sk-block { --sk-h: 6rem; display: block; }
+</style>
+
+<div class="vp-doc">
+
+  <div class="vp-doc-chrome">
+<header>
+            <nav class="navbar navbar-expand-xl navbar-dark fixed-top shadow-sm" style="background-color: #28191B;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#">
+                    </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse justify-content-between" id="mainNavbar">
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-clipboard-list fa-fw"></i>
+        <span>Data points</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-attribute misp-simple fa-fw"></i>
+        <span>Attributes</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-fingerprint fa-fw"></i>
+        <span>Value Profile</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-folder fa-fw"></i>
+        <span>Collections</span>
+</div>                        </a>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-report misp-simple fa-fw"></i>
+        <span>Event Reports</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-scroll fa-fw"></i>
+        <span>Template Variables</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chart-bar fa-fw"></i>
+        <span>Analyst Data</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-comment-dots fa-fw"></i>
+        <span>Proposals</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>Events with Proposals</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-handshake fa-fw"></i>
+        <span>Delegation Requests</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-chalkboard-user fa-fw"></i>
+        <span>Dashboard</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-database fa-fw"></i>
+        <span>Data models</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>Tags &amp; Taxonomies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-tag misp-simple fa-fw"></i>
+        <span>List Tags</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tags fa-fw"></i>
+        <span>List Tag Collections</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-taxonomy misp-simple fa-fw"></i>
+        <span>List Taxonomies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>Galaxies</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-galaxy misp-simple fa-fw"></i>
+        <span>List Galaxies</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>List Galaxy Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-hourglass-half fa-fw"></i>
+        <span>Decaying Models</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>Index</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-file-code fa-fw"></i>
+        <span>Templates</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-event misp-simple fa-fw"></i>
+        <span>List Event Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-object misp-simple fa-fw"></i>
+        <span>List Object Templates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cubes fa-fw"></i>
+        <span>List Object Relationships</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-list-alt fa-fw"></i>
+        <span>Filters &amp; Lists</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-exclamation-triangle fa-fw"></i>
+        <span>Warninglists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-info-circle fa-fw"></i>
+        <span>Noticelists</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>Import Regexp</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-check-circle fa-fw"></i>
+        <span>Signature Allowedlist</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-filter fa-fw"></i>
+        <span>Correlation Exclusions</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-rotate fa-fw"></i>
+        <span>Sync</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Servers &amp; Feeds</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-server fa-fw"></i>
+        <span>Remote Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-rss fa-fw"></i>
+        <span>Feeds</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="misp-icon misp-icon-sharing-group misp-simple fa-fw"></i>
+        <span>Sharing Groups</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-list fa-fw"></i>
+        <span>List Sharing Groups</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-drafting-compass fa-fw"></i>
+        <span>List Sharing Group Blueprints</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-plug fa-fw"></i>
+        <span>Integrations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users fa-fw"></i>
+        <span>Communities</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-network-wired fa-fw"></i>
+        <span>Cerebrates</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-cloud fa-fw"></i>
+        <span>TAXII Servers</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-sighting misp-simple fa-fw"></i>
+        <span>Sighting DB</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-exchange-alt fa-fw"></i>
+        <span>Event ID Translator</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-tools fa-fw"></i>
+        <span>Administration</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-gears fa-fw"></i>
+        <span>Server Settings &amp; Maintenance</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-building-user fa-fw"></i>
+        <span>Users &amp; Orgs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-user2 misp-simple fa-fw"></i>
+        <span>List Users</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-sliders fa-fw"></i>
+        <span>User Settings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="misp-icon misp-icon-organisation misp-simple fa-fw"></i>
+        <span>List Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-user-tag fa-fw"></i>
+        <span>Roles &amp; Permissions</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-users-line fa-fw"></i>
+        <span>List Roles</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-key fa-fw"></i>
+        <span>List Auth Keys</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-helmet-safety fa-fw"></i>
+        <span>System jobs</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-project-diagram fa-fw"></i>
+        <span>Workflow</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-tasks fa-fw"></i>
+        <span>Jobs</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-clock fa-fw"></i>
+        <span>Scheduled Tasks</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-gauge fa-fw"></i>
+        <span>Benchmarking</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-ban fa-fw"></i>
+        <span>Blocklisting</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-file-circle-exclamation fa-fw"></i>
+        <span>Blocklist Event</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-building-circle-exclamation fa-fw"></i>
+        <span>Blocklists Organisations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-heart-circle-exclamation fa-fw"></i>
+        <span>Blocklists Sightings</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                                                                <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-circle-nodes fa-fw"></i>
+        <span>Correlations</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-ranking-star fa-fw"></i>
+        <span>Top correlations</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-comment-nodes fa-fw"></i>
+        <span>Correlations rules</span>
+</div>                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div>
+            <i class="fas fa-hexagon-nodes-bolt fa-fw"></i>
+        <span>Over-correlating values</span>
+</div>                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-history fa-fw"></i>
+        <span>Logs</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-alt fa-fw"></i>
+        <span>Application logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-contract fa-fw"></i>
+        <span>Audit logs</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-pen fa-fw"></i>
+        <span>Access logs</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-code fa-fw"></i>
+        <span>API</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-book-open fa-fw"></i>
+        <span>Open API</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-terminal fa-fw"></i>
+        <span>REST Client</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-robot fa-fw"></i>
+        <span>Automation</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-file-export fa-fw"></i>
+        <span>Export</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-circle-info fa-fw"></i>
+        <span>Resources</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-address-book fa-fw"></i>
+        <span>User Guide</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-table-list fa-fw"></i>
+        <span>Categories &amp; Types</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li class="nav-item dropdown-submenu">
+                        <a class="dropdown-item" href="#" data-bs-toggle="dropdown">
+                            <div>
+            <i class="fas fa-palette fa-fw"></i>
+        <span>Themes</span>
+</div>                            <i class="menu-arrow fas fa-chevron-right"></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Default">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Default UI                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">The classic MISP interface.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="Overmind">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Overmind UI                                                    </div>
+                                                    <span class="badge bg-success ms-2">
+                                                        ON                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">[DEV] Overmind UI is a new user interface for MISP, designed to be more modern and user-friendly. It is currently in development and is not yet ready for production use.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                                                                <li>
+                                        <a class="dropdown-item setTheme text-wrap"
+                                           href="#"
+                                           data-url="#"
+                                           data-theme="UiBeta">
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <i class="fas fa-desktop fa-fw"></i>
+                                                        Insight UI (beta)                                                    </div>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        OFF                                                    </span>
+                                                </div>
+                                                                                                    <div class="small text-muted">Beta UI focusing on context and discovery. Currently reworks Event List, Event View, Event Collections.</div>
+                                                                                            </div>
+                                        </a>
+                                    </li>
+                                                                                    </ul>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+
+            <ul class="navbar-nav mb-lg-0">
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+            <i class="fas fa-star fa-fw"></i>
+        <span>Bookmarks</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+        <span>Events - MISP</span>
+</div>                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item set-homepage" href="#">
+                            <div>
+            <i class="fas fa-home fa-fw"></i>
+        <span>Set this page as homepage</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-cog fa-fw"></i>
+        <span>Manage Bookmarks</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                                        <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle " href="#" data-bs-toggle="dropdown">
+            <div>
+     
+                <span>Admin</span>
+</div>            <i class="menu-arrow fas"></i>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                        <a class="dropdown-item toggle-dark-mode" href="#">
+                            <div class="d-flex justify-content-between align-items-center w-100">
+                                <div>
+                                    <i class="fas fa-moon fa-fw dark-mode-icon"></i>
+                                    <span>Dark mode</span>
+                                </div>
+                                <span class="badge bg-secondary dark-mode-badge ms-2">OFF</span>
+                            </div>
+                        </a>
+                    </li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                        <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="misp-icon misp-icon-user3 misp-simple fa-fw"></i>
+        <span>My Profile</span>
+</div>                        </a>
+                    </li>
+                                                                                <li>
+                        <a class="dropdown-item" href="#">
+                            <div>
+            <i class="fas fa-right-from-bracket fa-fw"></i>
+        <span>Log out</span>
+</div>                        </a>
+                    </li>
+                                    </ul>
+    </li>
+                            </ul>
+        </div>
+    </div>
+</nav>
+ 
+
+        </header>
+  </div>
+
+  <header class="vp-doc-head">
+    <h1>Analyst Profile — candidate <em>&lt;name&gt;</em></h1>
+    <p class="vp-doc-sub">
+      One design for three boards. Name the direction this candidate
+      commits to (09b-prototypes.md §4) and the bet it makes, in two
+      sentences, here. Every number below comes from
+      <code>prd/analyst-profile/09a-fixtures/</code>.
+    </p>
+    <div class="vp-doc-jump">
+      <a href="#board-index">Index</a>
+      <a href="#board-edit">Edit</a>
+      <a href="#board-simulate">Simulate</a>
+    </div>
+  </header>
+
+  <div class="vp-board" id="board-index">
+    <div class="vp-board-tag"><span><b>/analystProfiles/index</b></span><span class="vp-board-q">Which profile is weighting my pages, and why is it not the one I just forked?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Index
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Analyst Profiles
+              </h1>
+              <span class="badge rounded-pill bg-primary fw-semibold px-3">3</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              The judgements the value assessment is computed from. Exactly one is in force for you.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-file-import"></i>Import</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+          <!--
+              Your candidate for this board goes here. MISP's content
+              column is `container-fluid`; use ordinary Bootstrap rows.
+              Keep a 9/3 split if this board wants a rail, or col-12 for
+              the width. At the pinned 1600px page, col-lg-9 is 1200px.
+          -->
+          <p class="text-muted">Candidate body for the index board.</p>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-edit">
+    <div class="vp-board-tag"><span><b>/analystProfiles/edit/29</b></span><span class="vp-board-q">What is this profile asserting, and how do I change one number without reading JSON?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Weights I actually use
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Weights I actually use
+              </h1>
+              <span class="badge rounded-pill bg-secondary fw-semibold px-3">rev 4</span>
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              Yours, in force. Seven sections; nothing is normalised, so the ledger is the number.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-flask"></i>Simulate</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+          <!--
+              Your candidate for this board goes here. MISP's content
+              column is `container-fluid`; use ordinary Bootstrap rows.
+              Keep a 9/3 split if this board wants a rail, or col-12 for
+              the width. At the pinned 1600px page, col-lg-9 is 1200px.
+          -->
+          <p class="text-muted">Candidate body for the edit board.</p>
+        </div>
+  </div>
+
+  <div class="vp-board" id="board-simulate">
+    <div class="vp-board-tag"><span><b>/analystProfiles/simulate/29?value=OC44LjguOA==</b></span><span class="vp-board-q">What would my change do — to this value, and to the values I care about?</span></div>
+      <div class="container-fluid py-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-column align-items-start">
+            <span class="text-muted text-uppercase fw-semibold mb-1"
+                  style="font-size:0.68rem; letter-spacing:0.07em;">
+              <a href="#" class="text-muted text-decoration-none">AnalystProfiles</a> &gt; Simulate
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <h1 class="mb-0 fw-bold lh-1 d-flex"
+                  style="font-size:2rem; word-break:break-word; max-width:100%;">
+                Simulate
+              </h1>
+              
+            </div>
+            <p class="text-muted mt-1" style="font-size:0.85rem;">
+              What this candidate would do, before it is saved. It computes; it writes nothing.
+            </p>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <!-- This board's actions. MISP's own button classes. -->
+            <a href="#" class="btn btn-outline-secondary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-rotate-left"></i>Discard</a>
+            <a href="#" class="btn btn-primary fw-semibold d-flex align-items-center gap-2"><i class="fas fa-save"></i>Save these weights</a>
+
+          </div>
+        </div>
+      </div>
+        <div class="container-fluid">
+          <!--
+              Your candidate for this board goes here. MISP's content
+              column is `container-fluid`; use ordinary Bootstrap rows.
+              Keep a 9/3 split if this board wants a rail, or col-12 for
+              the width. At the pinned 1600px page, col-lg-9 is 1200px.
+          -->
+          <p class="text-muted">Candidate body for the simulate board.</p>
+        </div>
+  </div>
+
+  <section class="vp-doc-head" style="border:0;margin-top:1rem">
+    <h2 class="h5">What this candidate gives up</h2>
+    <p class="vp-doc-sub">
+      Every direction in §4 has a risk it has to survive. Say which one
+      bit and what you did about it. A candidate with no trade-off has
+      not been designed yet.
+    </p>
+  </section>
+
+</div>
+
+<script>
+(function () {
+    var root = document.documentElement;
+
+    /*
+     * Theme bridge. Artifacts stamp data-theme on the root element and
+     * otherwise leave it to prefers-color-scheme; MISP switches on
+     * data-bs-theme. Mirror one onto the other so a candidate follows
+     * the reader's theme in MISP's own palette rather than a second one.
+     */
+    function applyTheme() {
+        var t = root.getAttribute('data-theme');
+        if (!t) {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark' : 'light';
+        }
+        root.setAttribute('data-bs-theme', t);
+    }
+    applyTheme();
+    new MutationObserver(applyTheme).observe(root, {
+        attributes: true, attributeFilter: ['data-theme']
+    });
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', applyTheme);
+    } catch (e) { /* older engines: the stamped attribute still works */ }
+})();
+</script>

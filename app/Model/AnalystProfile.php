@@ -242,6 +242,39 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * Any write invalidates the resolution cache.
+     *
+     * `resolveFor()` memoises per request because the value page calls
+     * it once per panel and there are twenty-seven of them. That is a
+     * read-only assumption, and phase 8's editor breaks it: enabling one
+     * profile disables another *in the same request*, and the response
+     * then has to say which one is in force. `forkProfile()` cleared the
+     * cache by hand; `saveField('enabled', …)` did not, so the swap's own
+     * answer came back from before the swap.
+     *
+     * Cleared here rather than at each call site, because a cache whose
+     * correctness depends on every future caller remembering is a cache
+     * that will be wrong.
+     *
+     * @param bool $created
+     * @param array $options
+     * @return void
+     */
+    public function afterSave($created, $options = array())
+    {
+        $this->resolutionCache = array();
+    }
+
+    /**
+     * @param bool $cascade
+     * @return void
+     */
+    public function afterDelete()
+    {
+        $this->resolutionCache = array();
+    }
+
+    /**
      * The one function every reader calls: the profile in force for a viewer.
      *
      * Nearest owner wins (D3) — the viewer's own, else their organisation's,
@@ -469,7 +502,9 @@ class AnalystProfile extends AppModel
             'name' => $name !== null
                 ? $name
                 : sprintf('%s (copy)', $source['AnalystProfile']['name']),
-            'description' => $source['AnalystProfile']['description'],
+            'description' => $this->forkDescription(
+                $source['AnalystProfile']
+            ),
             'parameters' => $source['AnalystProfile']['parameters'],
             'user_id' => $forOrg ? null : $user['id'],
             'org_id' => $forOrg ? $user['org_id'] : null,
@@ -487,6 +522,253 @@ class AnalystProfile extends AppModel
             'conditions' => array('AnalystProfile.id' => $this->id),
             'recursive' => -1,
         ));
+    }
+
+    /**
+     * The index board: every profile this reader may see, the one in
+     * force, and per row the reason it is not.
+     *
+     * **In the model rather than the controller**, and moved here in 8a
+     * while writing the live probe. The commonest confusion this
+     * feature can create is an analyst editing a profile that is not
+     * weighting their pages, and the answer to it — `overridden`,
+     * naming the profile that won — is an *ownership* statement, made
+     * out of exactly what `resolveFor()` and `isEditableByCurrentUser()`
+     * already decide. Left in the controller it was unreachable except
+     * over HTTP, so the one thing 8c most needs to get right could only
+     * be checked by looking at a page.
+     *
+     * @param array $user
+     * @return array `profiles` and `in_force`
+     */
+    public function indexFor(array $user)
+    {
+        $inForce = $this->resolveFor($user);
+        $rows = array();
+        foreach ($this->fetchProfiles($user) as $profile) {
+            $rows[] = $this->__decorate($user, $profile[$this->alias],
+                $inForce);
+        }
+        /*
+         * The one in force leads, then the reader's own, their
+         * organisation's, and the instance default — nearest owner
+         * first, which is the order resolution walks.
+         */
+        usort($rows, function ($a, $b) {
+            if ($a['in_force'] !== $b['in_force']) {
+                return $a['in_force'] ? -1 : 1;
+            }
+            if ($a['scope_rank'] !== $b['scope_rank']) {
+                return $b['scope_rank'] - $a['scope_rank'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+        return array('profiles' => $rows, 'in_force' => $inForce);
+    }
+
+    /**
+     * The columns every caller names a profile by.
+     *
+     * @param array $row The unwrapped row
+     * @return array
+     */
+    public function summarise(array $row)
+    {
+        return array(
+            'id' => (int)$row['id'],
+            'uuid' => $row['uuid'],
+            'name' => $row['name'],
+            'description' => isset($row['description'])
+                ? $row['description']
+                : null,
+            'enabled' => !empty($row['enabled']),
+            'default' => !empty($row['default']),
+            'version' => (int)$row['version'],
+            'revision' => (int)$row['revision'],
+            'modified' => isset($row['modified']) ? $row['modified'] : null,
+            /*
+             * A profile whose document will not parse reaches every
+             * reader as broken rather than as empty (§3.1), and the
+             * editor is where somebody can do something about it.
+             */
+            'unparseable' => !empty($row['parameters_unparseable']),
+        );
+    }
+
+    /**
+     * What the index needs to say about one row beyond its columns.
+     *
+     * @param array $user
+     * @param array $row
+     * @param array|null $inForce
+     * @return array
+     */
+    private function __decorate(array $user, array $row, $inForce)
+    {
+        $mine = !empty($row['user_id']) && $row['user_id'] == $user['id'];
+        $ours = !empty($row['org_id']) && $row['org_id'] == $user['org_id'];
+        if (!empty($row['user_id'])) {
+            $scopeRank = $mine ? 3 : 1;
+        } elseif (!empty($row['org_id'])) {
+            $scopeRank = $ours ? 2 : 1;
+        } else {
+            $scopeRank = 0;
+        }
+        $decorated = $this->summarise($row) + array(
+            'owner' => $this->__ownerLabel($user, $row),
+            'scope_rank' => $scopeRank,
+            'editable' => $this->isEditableByCurrentUser($user, $row),
+            'in_force' => $inForce !== null
+                && (int)$inForce['id'] === (int)$row['id'],
+            'signals' => $this->__signalCount($row),
+        );
+        $decorated['standing'] = $this->__standing($user, $row, $inForce,
+            $decorated);
+        return $decorated;
+    }
+
+    /**
+     * Why a profile is not the one weighting this reader's pages.
+     *
+     * @param array $user
+     * @param array $row
+     * @param array|null $inForce
+     * @param array $decorated
+     * @return array
+     */
+    private function __standing(array $user, array $row, $inForce,
+        array $decorated
+    ) {
+        if ($decorated['in_force']) {
+            return array('state' => 'in_force');
+        }
+        $mine = !empty($row['user_id']) && $row['user_id'] == $user['id'];
+        $ours = !empty($row['org_id']) && $row['org_id'] == $user['org_id'];
+        if (!$mine && !$ours && empty($row['default'])) {
+            // A site admin looking at somebody else's. It could never
+            // have been in force for this reader.
+            return array('state' => 'other_owner');
+        }
+        if (empty($decorated['enabled'])) {
+            return array('state' => 'disabled');
+        }
+        if ($inForce === null) {
+            /*
+             * Enabled, applies to this reader, and yet nothing is in
+             * force — which resolution cannot produce. Rather than
+             * assert one of them, say what is observable.
+             */
+            return array('state' => 'unresolved');
+        }
+        return array(
+            'state' => 'overridden',
+            'winner' => array(
+                'id' => (int)$inForce['id'],
+                'name' => $inForce['name'],
+            ),
+        );
+    }
+
+    /**
+     * @param array $user
+     * @param array $row
+     * @return string
+     */
+    private function __ownerLabel(array $user, array $row)
+    {
+        if (!empty($row['default'])) {
+            return __('Instance default');
+        }
+        if (!empty($row['user_id'])) {
+            if ($row['user_id'] == $user['id']) {
+                return __('You');
+            }
+            $owner = ClassRegistry::init('User')->find('first', array(
+                'conditions' => array('User.id' => $row['user_id']),
+                'fields' => array('User.email'),
+                'recursive' => -1,
+            ));
+            return empty($owner)
+                ? sprintf(__('User #%s'), $row['user_id'])
+                : $owner['User']['email'];
+        }
+        if (!empty($row['org_id'])) {
+            $org = ClassRegistry::init('Organisation')->find('first', array(
+                'conditions' => array('Organisation.id' => $row['org_id']),
+                'fields' => array('Organisation.name'),
+                'recursive' => -1,
+            ));
+            $name = empty($org)
+                ? sprintf(__('Organisation #%s'), $row['org_id'])
+                : $org['Organisation']['name'];
+            return $row['org_id'] == $user['org_id']
+                ? sprintf(__('%s (yours)'), $name)
+                : $name;
+        }
+        return __('Nobody');
+    }
+
+    /**
+     * Enabled signals over configured ones — the one number that says
+     * how much of a profile is switched on without opening it.
+     *
+     * @param array $row
+     * @return array
+     */
+    private function __signalCount(array $row)
+    {
+        $signals = isset($row['parameters']['signals'])
+            && is_array($row['parameters']['signals'])
+            ? $row['parameters']['signals']
+            : array();
+        $enabled = 0;
+        foreach ($signals as $signal) {
+            if (!is_array($signal)) {
+                continue;
+            }
+            if (!array_key_exists('enabled', $signal)
+                || !empty($signal['enabled'])
+            ) {
+                $enabled++;
+            }
+        }
+        return array('enabled' => $enabled, 'configured' => count($signals));
+    }
+
+    /**
+     * A fork's description: what it is, then what it was copied from.
+     *
+     * The first implementation copied the source's description verbatim,
+     * and forking the shipped default produced a profile whose own page
+     * read *"The instance default Analyst Profile…"* — a claim that was
+     * true of the source and false of the copy, on the one field a
+     * colleague reads to decide whether to adopt it. Found in the phase
+     * 8a live probe, where the fork's description came back three times
+     * saying it was the default (09-editor.md §7a).
+     *
+     * A dated prose note, not lineage. D5 forbids **tracked** lineage —
+     * no `parent_uuid`, nothing an update walks — because override maps
+     * are what keep a fork current. A sentence saying where a document
+     * came from is a changelog line: nothing reads it, nothing resolves
+     * through it, and it stays true if the source is later renamed or
+     * deleted, which is exactly what a tracked pointer would not.
+     *
+     * @param array $source The unwrapped source row
+     * @return string
+     */
+    private function forkDescription(array $source)
+    {
+        $note = sprintf(
+            __('Forked from “%1$s” on %2$s.'),
+            $source['name'],
+            date('Y-m-d')
+        );
+        $description = isset($source['description'])
+            ? trim((string)$source['description'])
+            : '';
+        return $description === ''
+            ? $note
+            : $note . "\n\n" . $description;
     }
 
     /**

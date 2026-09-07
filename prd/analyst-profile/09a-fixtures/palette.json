@@ -1,0 +1,1865 @@
+{
+  "note": "The signal palette. Three states: `active` (in the profile and implemented), `available` (implemented, not in the profile) and `missing` (in the profile, not implemented here). The points columns differ per row by design \u2014 `points` has no fixed schema.",
+  "synthesised": {
+    "reporting.partner_feed_agreement": "Not implemented on this instance. Added to the fixture so the `missing` state can be drawn.",
+    "lifecycle.feeds is_custom": "This instance has no drop-in signals, so the `custom` badge is written onto one shipped row rather than dropping a PHP file into app/Lib/ValueSignals to make a picture look right. The badge is what a design has to render; which signal carries it is not.",
+    "loader_errors": "This instance has no drop-in directory and no broken files, so the three entries below are written by hand from the loader's own three refusal reasons."
+  },
+  "items": [
+    {
+      "id": "reporting.independent_orgs",
+      "title": "reporting.independent_orgs",
+      "description": "How many organisations independently report this value.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Reporting",
+      "band": "strong",
+      "evidence_class": "aggregate",
+      "source": "Occurrences",
+      "trust_weighted": true,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "reporting.independent_orgs"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "strong",
+          "default": "strong",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Reporting",
+          "default": "Reporting",
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "group"
+          ]
+        },
+        {
+          "key": "per_org",
+          "label": "Points per reporting organisation",
+          "type": "int",
+          "value": 7,
+          "default": 7,
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "points",
+            "per_org"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": 28,
+          "default": 28,
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "named",
+          "label": "Organisations named in the evidence line",
+          "type": "int",
+          "value": 4,
+          "default": 4,
+          "path": [
+            "signals",
+            "reporting.independent_orgs",
+            "config",
+            "named"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    },
+    {
+      "id": "reporting.partner_feed_agreement",
+      "title": "reporting.partner_feed_agreement",
+      "description": null,
+      "state": "missing",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [
+        {
+          "id": "missing",
+          "label": "not implemented here",
+          "title": "This profile configures a signal this instance does not have. It contributes nothing and is listed in the assessment as not counted. The configuration is kept, so deploying the implementation brings it back."
+        }
+      ],
+      "group": "Reporting",
+      "band": "strong",
+      "evidence_class": null,
+      "source": null,
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "reporting.partner_feed_agreement"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "reporting.partner_feed_agreement",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "strong",
+          "default": null,
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "reporting.partner_feed_agreement",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Reporting",
+          "default": null,
+          "path": [
+            "signals",
+            "reporting.partner_feed_agreement",
+            "group"
+          ]
+        },
+        {
+          "key": "per_partner",
+          "label": "per_partner",
+          "type": "int",
+          "value": 6,
+          "default": null,
+          "path": [
+            "signals",
+            "reporting.partner_feed_agreement",
+            "points",
+            "per_partner"
+          ],
+          "generated": true,
+          "undeclared": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "cap",
+          "type": "int",
+          "value": 18,
+          "default": null,
+          "path": [
+            "signals",
+            "reporting.partner_feed_agreement",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "undeclared": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "reporting.published_ratio",
+      "title": "reporting.published_ratio",
+      "description": "What share of the events carrying this value are published.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Reporting",
+      "band": "moderate",
+      "evidence_class": "aggregate",
+      "source": "Occurrences",
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "reporting.published_ratio"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "moderate",
+          "default": "moderate",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Reporting",
+          "default": "Reporting",
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "group"
+          ]
+        },
+        {
+          "key": "scale",
+          "label": "Points at full publication",
+          "type": "int",
+          "value": 9,
+          "default": 9,
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "points",
+            "scale"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "none",
+          "label": "Points when nothing is published",
+          "type": "int",
+          "value": -2,
+          "default": -2,
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "points",
+            "none"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "min_events",
+          "label": "Events needed before this fires",
+          "type": "int",
+          "value": 1,
+          "default": 1,
+          "path": [
+            "signals",
+            "reporting.published_ratio",
+            "config",
+            "min_events"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    },
+    {
+      "id": "sightings.false_positive",
+      "title": "sightings.false_positive",
+      "description": "False-positive sightings, and how many organisations filed them.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Sightings",
+      "band": "moderate",
+      "evidence_class": "row",
+      "source": "Sightings",
+      "trust_weighted": true,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "sightings.false_positive"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "moderate",
+          "default": "moderate",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Sightings",
+          "default": "Sightings",
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "group"
+          ]
+        },
+        {
+          "key": "per",
+          "label": "Points per false-positive sighting",
+          "type": "int",
+          "value": -3,
+          "default": -3,
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "points",
+            "per"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "per_extra_org",
+          "label": "Further points per organisation beyond the first",
+          "type": "int",
+          "value": -4,
+          "default": -4,
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "points",
+            "per_extra_org"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": -26,
+          "default": -26,
+          "path": [
+            "signals",
+            "sightings.false_positive",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "sightings.volume_recency",
+      "title": "sightings.volume_recency",
+      "description": "Sighting volume, organisation spread and recency.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Sightings",
+      "band": "strong",
+      "evidence_class": "row",
+      "source": "Sightings",
+      "trust_weighted": true,
+      "absence_key": "none_recent",
+      "path": [
+        "signals",
+        "sightings.volume_recency"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "strong",
+          "default": "strong",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Sightings",
+          "default": "Sightings",
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "group"
+          ]
+        },
+        {
+          "key": "cap",
+          "label": "Points at saturation",
+          "type": "int",
+          "value": 24,
+          "default": 24,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "none_recent",
+          "label": "Points when nobody has sighted it",
+          "type": "int",
+          "value": -4,
+          "default": -4,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "points",
+            "none_recent"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "saturation",
+          "label": "Sightings at which the signal is fully paid",
+          "type": "int",
+          "value": 50,
+          "default": 50,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "config",
+            "saturation"
+          ],
+          "generated": true,
+          "map": "config"
+        },
+        {
+          "key": "stale_days",
+          "label": "Age past which sightings are discounted",
+          "type": "int",
+          "value": 90,
+          "default": 90,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "config",
+            "stale_days"
+          ],
+          "generated": true,
+          "map": "config"
+        },
+        {
+          "key": "stale_factor",
+          "label": "What a stale sighting history is worth",
+          "type": "float",
+          "value": 0.5,
+          "default": 0.5,
+          "path": [
+            "signals",
+            "sightings.volume_recency",
+            "config",
+            "stale_factor"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    },
+    {
+      "id": "attribution.galaxy",
+      "title": "attribution.galaxy",
+      "description": "Galaxy clusters attached to this value's own occurrences.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Attribution",
+      "band": "strong",
+      "evidence_class": "row",
+      "source": "Context",
+      "trust_weighted": false,
+      "absence_key": "absent",
+      "path": [
+        "signals",
+        "attribution.galaxy"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "strong",
+          "default": "strong",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Attribution",
+          "default": "Attribution",
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "group"
+          ]
+        },
+        {
+          "key": "per_cluster",
+          "label": "Points per distinct cluster",
+          "type": "int",
+          "value": 7,
+          "default": 7,
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "points",
+            "per_cluster"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": 21,
+          "default": 21,
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "absent",
+          "label": "Points when nobody has attributed it",
+          "type": "int",
+          "value": -7,
+          "default": -7,
+          "path": [
+            "signals",
+            "attribution.galaxy",
+            "points",
+            "absent"
+          ],
+          "generated": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "attribution.technique",
+      "title": "attribution.technique",
+      "description": "ATT&CK techniques marked on this value's occurrences.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Attribution",
+      "band": "weak",
+      "evidence_class": "row",
+      "source": "Context",
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "attribution.technique"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "attribution.technique",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "weak",
+          "default": "weak",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "attribution.technique",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Attribution",
+          "default": "Attribution",
+          "path": [
+            "signals",
+            "attribution.technique",
+            "group"
+          ]
+        },
+        {
+          "key": "per_technique",
+          "label": "Points per distinct technique",
+          "type": "int",
+          "value": 3,
+          "default": 3,
+          "path": [
+            "signals",
+            "attribution.technique",
+            "points",
+            "per_technique"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": 9,
+          "default": 9,
+          "path": [
+            "signals",
+            "attribution.technique",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "lifecycle.continuity",
+      "title": "lifecycle.continuity",
+      "description": "The longest run of consecutive months in which this value was reported.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Lifecycle",
+      "band": "moderate",
+      "evidence_class": "aggregate",
+      "source": "Timeline",
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "lifecycle.continuity"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "moderate",
+          "default": "moderate",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Lifecycle",
+          "default": "Lifecycle",
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "group"
+          ]
+        },
+        {
+          "key": "per_month",
+          "label": "Points per unbroken month",
+          "type": "int",
+          "value": 1,
+          "default": 1,
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "points",
+            "per_month"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": 12,
+          "default": 12,
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "min_months",
+          "label": "Months of continuity before this fires",
+          "type": "int",
+          "value": 3,
+          "default": 3,
+          "path": [
+            "signals",
+            "lifecycle.continuity",
+            "config",
+            "min_months"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    },
+    {
+      "id": "lifecycle.feeds",
+      "title": "lifecycle.feeds",
+      "description": "Presence in the enabled feeds and servers this instance caches.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [
+        {
+          "id": "custom",
+          "label": "custom",
+          "title": "Dropped into app/Lib/ValueSignals on this instance. Nothing upstream computes it, so a colleague reading this profile elsewhere cannot reproduce the number it contributes."
+        }
+      ],
+      "group": "Lifecycle",
+      "band": "moderate",
+      "evidence_class": "aggregate",
+      "source": "External",
+      "trust_weighted": false,
+      "absence_key": "no_feed",
+      "path": [
+        "signals",
+        "lifecycle.feeds"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "moderate",
+          "default": "moderate",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Lifecycle",
+          "default": "Lifecycle",
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "group"
+          ]
+        },
+        {
+          "key": "per_feed",
+          "label": "Points per feed carrying the value",
+          "type": "int",
+          "value": 4,
+          "default": 4,
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "points",
+            "per_feed"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "cap",
+          "label": "Most this signal may contribute",
+          "type": "int",
+          "value": 8,
+          "default": 8,
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "points",
+            "cap"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "no_feed",
+          "label": "Points when no feed carries it",
+          "type": "int",
+          "value": -2,
+          "default": -2,
+          "path": [
+            "signals",
+            "lifecycle.feeds",
+            "points",
+            "no_feed"
+          ],
+          "generated": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "lifecycle.recency",
+      "title": "lifecycle.recency",
+      "description": "How recently this value was last reported by anybody.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Lifecycle",
+      "band": "moderate",
+      "evidence_class": "aggregate",
+      "source": "Occurrences",
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "lifecycle.recency"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "moderate",
+          "default": "moderate",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Lifecycle",
+          "default": "Lifecycle",
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "group"
+          ]
+        },
+        {
+          "key": "recent",
+          "label": "Points for a value reported recently",
+          "type": "int",
+          "value": 8,
+          "default": 8,
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "points",
+            "recent"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "old",
+          "label": "Points for a value nobody has touched",
+          "type": "int",
+          "value": -4,
+          "default": -4,
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "points",
+            "old"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "recent_days",
+          "label": "Days within which a report counts as recent",
+          "type": "int",
+          "value": 30,
+          "default": 30,
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "config",
+            "recent_days"
+          ],
+          "generated": true,
+          "map": "config"
+        },
+        {
+          "key": "old_days",
+          "label": "Days after which it counts as old",
+          "type": "int",
+          "value": 365,
+          "default": 365,
+          "path": [
+            "signals",
+            "lifecycle.recency",
+            "config",
+            "old_days"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    },
+    {
+      "id": "lifecycle.warninglist",
+      "title": "lifecycle.warninglist",
+      "description": "Whether the value hits a warninglist, and what kind of list it is.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Lifecycle",
+      "band": "weak",
+      "evidence_class": "aggregate",
+      "source": "Lifecycle",
+      "trust_weighted": false,
+      "absence_key": "no_hit",
+      "path": [
+        "signals",
+        "lifecycle.warninglist"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "weak",
+          "default": "weak",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Lifecycle",
+          "default": "Lifecycle",
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "group"
+          ]
+        },
+        {
+          "key": "no_hit",
+          "label": "Points when nothing matched",
+          "type": "int",
+          "value": 6,
+          "default": 6,
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "points",
+            "no_hit"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "false_positive_hit",
+          "label": "Points for a false-positive list",
+          "type": "int",
+          "value": -38,
+          "default": -38,
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "points",
+            "false_positive_hit"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "known_hit",
+          "label": "Points for a known-infrastructure list",
+          "type": "int",
+          "value": 0,
+          "default": 0,
+          "path": [
+            "signals",
+            "lifecycle.warninglist",
+            "points",
+            "known_hit"
+          ],
+          "generated": true,
+          "map": "points"
+        }
+      ]
+    },
+    {
+      "id": "record.temporal_precision",
+      "title": "record.temporal_precision",
+      "description": "Whether the occurrences date their own observations, or only their encoding.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "group": "Lifecycle",
+      "band": "weak",
+      "evidence_class": "aggregate",
+      "source": "Timeline",
+      "trust_weighted": false,
+      "absence_key": null,
+      "path": [
+        "signals",
+        "record.temporal_precision"
+      ],
+      "contribution": null,
+      "not_counted": null,
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "enabled"
+          ]
+        },
+        {
+          "key": "band",
+          "label": "Weight band",
+          "type": "select",
+          "options": [
+            "strong",
+            "moderate",
+            "weak"
+          ],
+          "value": "weak",
+          "default": "weak",
+          "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "band"
+          ]
+        },
+        {
+          "key": "group",
+          "label": "Ledger group",
+          "type": "select",
+          "options": [
+            "Reporting",
+            "Sightings",
+            "Attribution",
+            "Lifecycle"
+          ],
+          "value": "Lifecycle",
+          "default": "Lifecycle",
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "group"
+          ]
+        },
+        {
+          "key": "dated",
+          "label": "Points when an occurrence carries first_seen",
+          "type": "int",
+          "value": 4,
+          "default": 4,
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "points",
+            "dated"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "undated",
+          "label": "Points when none does",
+          "type": "int",
+          "value": -6,
+          "default": -6,
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "points",
+            "undated"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "lagged",
+          "label": "Further points when the encoding lags the event",
+          "type": "int",
+          "value": -6,
+          "default": -4,
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "points",
+            "lagged"
+          ],
+          "generated": true,
+          "map": "points"
+        },
+        {
+          "key": "lag_days",
+          "label": "Lag beyond which the encoding date is a poor proxy",
+          "type": "int",
+          "value": 30,
+          "default": 30,
+          "path": [
+            "signals",
+            "record.temporal_precision",
+            "config",
+            "lag_days"
+          ],
+          "generated": true,
+          "map": "config"
+        }
+      ]
+    }
+  ],
+  "escalations": [
+    {
+      "id": "conflict:known-infrastructure-vs-reporting",
+      "title": "conflict:known-infrastructure-vs-reporting",
+      "description": "A warninglist knows the value as shared infrastructure while several organisations report it as a threat.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "emits": "contested",
+      "source": "Lifecycle",
+      "path": [
+        "escalations",
+        "conflict:known-infrastructure-vs-reporting"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "escalations",
+            "conflict:known-infrastructure-vs-reporting",
+            "enabled"
+          ]
+        },
+        {
+          "key": "warninglist_category",
+          "label": "The category of list that must match",
+          "type": "string",
+          "value": "known",
+          "default": "known",
+          "path": [
+            "escalations",
+            "conflict:known-infrastructure-vs-reporting",
+            "when",
+            "warninglist_category"
+          ],
+          "generated": true,
+          "map": "when"
+        },
+        {
+          "key": "min_independent_reports",
+          "label": "Organisations reporting it, at least",
+          "type": "int",
+          "value": 3,
+          "default": 3,
+          "path": [
+            "escalations",
+            "conflict:known-infrastructure-vs-reporting",
+            "when",
+            "min_independent_reports"
+          ],
+          "generated": true,
+          "map": "when"
+        }
+      ]
+    },
+    {
+      "id": "conflict:listed-vs-asserted",
+      "title": "conflict:listed-vs-asserted",
+      "description": "A list marks the value as a false positive while a supermajority of organisations report it as a threat.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "badges": [],
+      "emits": "contested",
+      "source": "Lifecycle",
+      "path": [
+        "escalations",
+        "conflict:listed-vs-asserted"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": true,
+          "path": [
+            "escalations",
+            "conflict:listed-vs-asserted",
+            "enabled"
+          ]
+        },
+        {
+          "key": "warninglist_category",
+          "label": "The category of list that must match",
+          "type": "string",
+          "value": "false_positive",
+          "default": "false_positive",
+          "path": [
+            "escalations",
+            "conflict:listed-vs-asserted",
+            "when",
+            "warninglist_category"
+          ],
+          "generated": true,
+          "map": "when"
+        },
+        {
+          "key": "threat_share_at_least",
+          "label": "Share of organisations asserting it, as a fraction or the word supermajority",
+          "type": "string",
+          "value": "supermajority",
+          "default": "supermajority",
+          "path": [
+            "escalations",
+            "conflict:listed-vs-asserted",
+            "when",
+            "threat_share_at_least"
+          ],
+          "generated": true,
+          "map": "when"
+        }
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "sightings.self",
+      "title": "Self-sightings",
+      "description": "An organisation confirming its own fresh report is not corroboration. Sightings filed by the reporting organisation within the window below are left out; later ones are kept, because \"we still see this\" is real information.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "layer": "row_filter",
+      "badges": [],
+      "path": [
+        "exclusions",
+        "sightings.self"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": false,
+          "path": [
+            "exclusions",
+            "sightings.self",
+            "enabled"
+          ]
+        },
+        {
+          "key": "within_hours",
+          "label": "Hours after the occurrence",
+          "type": "float",
+          "value": 1,
+          "default": 1,
+          "path": [
+            "exclusions",
+            "sightings.self",
+            "within_hours"
+          ],
+          "generated": true
+        },
+        {
+          "key": "id",
+          "label": "id",
+          "type": "string",
+          "value": "sightings.self",
+          "default": null,
+          "path": [
+            "exclusions",
+            "sightings.self",
+            "id"
+          ],
+          "generated": true,
+          "undeclared": true
+        },
+        {
+          "key": "enabled",
+          "label": "enabled",
+          "type": "string",
+          "value": true,
+          "default": null,
+          "path": [
+            "exclusions",
+            "sightings.self",
+            "enabled"
+          ],
+          "generated": true,
+          "undeclared": true
+        }
+      ]
+    },
+    {
+      "id": "feeds.mirrored",
+      "title": "Mirrored feeds",
+      "description": "Feeds sharing another's source counted once rather than separately. MISP does not record what a feed mirrors, so this folds by the key below \u2014 which is wrong where one provider runs unrelated feeds.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "layer": "list_fold",
+      "badges": [],
+      "path": [
+        "exclusions",
+        "feeds.mirrored"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": false,
+          "path": [
+            "exclusions",
+            "feeds.mirrored",
+            "enabled"
+          ]
+        },
+        {
+          "key": "dedupe_by",
+          "label": "Fold feeds sharing this",
+          "type": "select",
+          "value": "provider",
+          "default": "provider",
+          "path": [
+            "exclusions",
+            "feeds.mirrored",
+            "dedupe_by"
+          ],
+          "generated": true,
+          "options": [
+            "provider",
+            "url"
+          ]
+        },
+        {
+          "key": "id",
+          "label": "id",
+          "type": "string",
+          "value": "feeds.mirrored",
+          "default": null,
+          "path": [
+            "exclusions",
+            "feeds.mirrored",
+            "id"
+          ],
+          "generated": true,
+          "undeclared": true
+        },
+        {
+          "key": "enabled",
+          "label": "enabled",
+          "type": "string",
+          "value": true,
+          "default": null,
+          "path": [
+            "exclusions",
+            "feeds.mirrored",
+            "enabled"
+          ],
+          "generated": true,
+          "undeclared": true
+        }
+      ]
+    },
+    {
+      "id": "orgs.own",
+      "title": "Your own organisation",
+      "description": "Leave your own organisation out of every count, so the assessment says what everyone else reports. This one changes the queries rather than filtering their results, so it moves every aggregate at once.",
+      "state": "active",
+      "enabled": false,
+      "in_profile": true,
+      "layer": "condition",
+      "badges": [],
+      "path": [
+        "exclusions",
+        "orgs.own"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": false,
+          "default": false,
+          "path": [
+            "exclusions",
+            "orgs.own",
+            "enabled"
+          ]
+        },
+        {
+          "key": "id",
+          "label": "id",
+          "type": "string",
+          "value": "orgs.own",
+          "default": null,
+          "path": [
+            "exclusions",
+            "orgs.own",
+            "id"
+          ],
+          "generated": true,
+          "undeclared": true
+        },
+        {
+          "key": "enabled",
+          "label": "enabled",
+          "type": "string",
+          "value": false,
+          "default": null,
+          "path": [
+            "exclusions",
+            "orgs.own",
+            "enabled"
+          ],
+          "generated": true,
+          "undeclared": true
+        }
+      ]
+    },
+    {
+      "id": "evidence.window",
+      "title": "Evidence window",
+      "description": "On a value with more occurrences than the threshold, read row evidence from the last N days only. Whole-history aggregates are never windowed. Applied by the context builder rather than here, because it decides what is fetched.",
+      "state": "active",
+      "enabled": true,
+      "in_profile": true,
+      "layer": "budget",
+      "badges": [],
+      "path": [
+        "exclusions",
+        "evidence.window"
+      ],
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Enabled",
+          "type": "bool",
+          "value": true,
+          "default": false,
+          "path": [
+            "exclusions",
+            "evidence.window",
+            "enabled"
+          ]
+        },
+        {
+          "key": "days",
+          "label": "Days of row evidence",
+          "type": "int",
+          "value": 90,
+          "default": 90,
+          "path": [
+            "exclusions",
+            "evidence.window",
+            "days"
+          ],
+          "generated": true
+        },
+        {
+          "key": "min_occurrences",
+          "label": "Occurrences before it applies",
+          "type": "int",
+          "value": 10000,
+          "default": 10000,
+          "path": [
+            "exclusions",
+            "evidence.window",
+            "min_occurrences"
+          ],
+          "generated": true
+        },
+        {
+          "key": "id",
+          "label": "id",
+          "type": "string",
+          "value": "evidence.window",
+          "default": null,
+          "path": [
+            "exclusions",
+            "evidence.window",
+            "id"
+          ],
+          "generated": true,
+          "undeclared": true
+        },
+        {
+          "key": "enabled",
+          "label": "enabled",
+          "type": "string",
+          "value": true,
+          "default": null,
+          "path": [
+            "exclusions",
+            "evidence.window",
+            "enabled"
+          ],
+          "generated": true,
+          "undeclared": true
+        }
+      ]
+    }
+  ],
+  "loader_errors": [
+    {
+      "subject": "Signal",
+      "file": "PartnerAgreement.php",
+      "reason": "syntax error, unexpected token \";\", expecting \")\" on line 61"
+    },
+    {
+      "subject": "Signal",
+      "file": "HelperFunctions.php",
+      "reason": "the class does not extend ValueSignalBase"
+    },
+    {
+      "subject": "Escalation",
+      "file": "ConflictListed.php",
+      "reason": "id `conflict:listed-vs-asserted` already loaded from Model/ValueEscalations"
+    }
+  ]
+}

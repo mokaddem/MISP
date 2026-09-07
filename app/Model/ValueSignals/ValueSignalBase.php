@@ -74,8 +74,9 @@
  * warninglist  ['hits' => [['name','category'], …],
  *               'lists_checked','category']              aggregate
  * feeds        ['count','names']                          aggregate
- * corroboration ['sightings_days','foreign_days','last_sightings',
- *                'last_foreign','undecidable']            aggregate
+ * corroboration ['sightings_days','foreign_days'  day => report,
+ *                 'last_sightings','last_foreign' int stamps,
+ *                 'undecidable' int]                       aggregate
  * budget       ['window_days','hot','occurrences','threshold']
  * excluded     ['sightings' => int, …]  what exclusions removed
  * missing      ['sightings' => 'reason', …]  facts that could not be read

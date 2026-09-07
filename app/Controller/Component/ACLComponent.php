@@ -214,6 +214,38 @@ class ACLComponent extends Component
             'updateTheme' => ['*'],
             'resetFromTemplate' => ['*']
         ),
+        /*
+         * The Analyst Profile editor (prd/analyst-profile/09-editor.md,
+         * phase 8a). D13: **no new permission flag.** A profile a user
+         * owns changes only their own pages, so it needs no grant —
+         * the same reasoning that leaves `user_settings` ungated. An
+         * organisation profile changes what colleagues read and the
+         * shipped default changes what everybody reads, so both are
+         * narrower than the ACL can express: the model's
+         * `isEditableByCurrentUser()` decides, on every write.
+         *
+         * Which is why `edit`, `fork`, `delete`, `enable` and `disable`
+         * are `*` rather than `perm_admin`. An ACL entry naming a
+         * permission here would be a second opinion about the same
+         * question, and two of those is how the looser one becomes the
+         * answer. `update` is the exception, because loading the
+         * shipped defaults is not about any one profile's owner.
+         */
+        'analystProfiles' => array(
+            'index' => array('*'),
+            'view' => array('*'),
+            'edit' => array('*'),
+            'fork' => array('*'),
+            'delete' => array('*'),
+            'enable' => array('*'),
+            'disable' => array('*'),
+            'export' => array('*'),
+            'import' => array('*'),
+            'simulate' => array('*'),
+            'pin' => array('*'),
+            'unpin' => array('*'),
+            'update' => array(),
+        ),
         'decayingModel' => array(
             "update" => array(),
             "export" => array('*'),

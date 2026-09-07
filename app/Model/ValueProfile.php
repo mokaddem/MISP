@@ -12946,6 +12946,21 @@ class ValueProfile extends AppModel
             if (($rule['id'] ?? null) !== 'evidence.window') {
                 continue;
             }
+            /*
+             * **An entry with no `enabled` key is on**, which is how the
+             * shipped default expresses itself, and one with `enabled`
+             * false is off. Every other exclusion has honoured that
+             * since phase 4 — `ValueExclusionTool::entries()` drops a
+             * disabled rule — and this one did not, because it reads the
+             * raw section rather than going through the plan. So the
+             * window applied whatever the profile said, and phase 8's
+             * editor was about to draw a toggle with nothing behind it.
+             * Found by reading the two paths side by side while building
+             * the exclusions form (09-editor.md §7a).
+             */
+            if (array_key_exists('enabled', $rule) && empty($rule['enabled'])) {
+                continue;
+            }
             $window = isset($rule['days']) ? (int)$rule['days'] : null;
             $threshold = isset($rule['min_occurrences'])
                 ? (int)$rule['min_occurrences']

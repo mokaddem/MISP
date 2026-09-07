@@ -201,7 +201,7 @@ asking somebody else, not a calibration error (§7.4).
 **What remains before the tab can go live is nothing in this feature's
 dependency chain.** Phase 9 is next in build order; phase 8 (the editor) is
 independent of it, and is where phase 6's `unknown` and `invalid` grade lists
-get drawn.
+get drawn — in 8c, against a design 8b picks.
 
 Building phase 1 closed **Q7 as D13** and, alongside it, **Q5 as D14** —
 the two questions that gated phases 1 and 2; building phase 2 left every
@@ -220,6 +220,15 @@ independently once phase 1 lands. Phase 9 is the payoff — the Verdict tab goes
 live — and needs 1–5, **all of which are now built**, with 6 built beside
 them.
 
+**Phase 8 became 8a, 8b and 8c on 2026-09-07** ([`09-editor.md`](09-editor.md)
+§1.1). It is the first phase whose deliverable is a look rather than a
+computation, and the two halves fail in opposite directions when built
+together: a prototype drawn against invented data cannot be built, and
+templates written before the design is picked are thrown away — two of three,
+by construction. So the contract lands first and can be verified with no
+design decisions made at all, three candidates are then drawn against its real
+output, and only the picked one becomes templates.
+
 | Phase | What | Written up in | Status |
 |---|---|---|---|
 | 1 | **The store** — the table, the model, ownership and resolution, the shipped default, fork, permissions | [`02-store.md`](02-store.md) | **built 2026-09-07** — migration 160, `AnalystProfile.php`, `default-v1.json`; closed Q7 as D13. The controller moved to phase 8 (§6 there), and four of nine verification items need a live instance (§7) |
@@ -229,7 +238,9 @@ them.
 | 5 | **Staleness** — per-type TTL against last independent corroboration, and retiring `decaying_models` from the page | [`06-staleness.md`](06-staleness.md) | **built 2026-09-07** — `ValueRelevanceTool`, the completed `relevance` section, `value_relevance.ctp` and the TTL runway overlay; `ValueDecayTool` and the decay path deleted. 106 harness checks and 58 live; six findings in §7 |
 | 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | **built 2026-09-07** — `ValueTrustTool`, `WarninglistCategory` (V1's shipped map and the four-step resolution), `org_trust_scale`, the uuid→id join, trust weighting in the three signals §2.4 names. 114 harness checks and 84 live; nine findings in §7, and phase 3's one shipped escalation can finally reach its own precondition |
 | 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **built 2026-09-07** — `ValueEnrichmentTool`, `ModuleLocality` (V1's 22-module roster and its retirement criterion), the `locality` override, the profile strip and a rail that arrives ticked. 102 harness checks, 55 live, five rendered states; seven findings in §7. Closes Q10 as D15; the badge stays blocked on the store §1.1 names |
-| 8 | **The editor** — index, view, edit, fork, and the profile simulator | [`09-editor.md`](09-editor.md) | specification |
+| 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
+| 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | brief written 2026-09-07; not started |
+| 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09-editor.md`](09-editor.md) §7c | blocked on 8b |
 | 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 

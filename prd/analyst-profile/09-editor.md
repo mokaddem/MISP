@@ -1,8 +1,9 @@
 # PRD: Analyst Profile — phase 8, the editor
 
-**Specification. Nothing built.** Depends on phase 1
-([`02-store.md`](02-store.md)) for the actions and phases 2–6 for the sections
-it edits. Can be built incrementally, one section at a time.
+**8a built 2026-09-07 (§7d); 8b briefed and not started; 8c blocked on
+8b.** Depends on phase 1
+([`02-store.md`](02-store.md)) for the actions and phases 2–7 for the sections
+it edits.
 
 ## 1. What ships
 
@@ -10,6 +11,54 @@ The UI for owning a profile: an index, a viewer, a per-section editor, a
 one-click fork, and — the part that makes the rest worth building — a
 **simulator** that shows what a candidate profile would do to a real value
 before it is saved.
+
+### 1.1 Three passes, and why the order is that way
+
+**Split 2026-09-07 into 8a, 8b and 8c**, because this is the first phase of
+the corpus whose deliverable is a *look* rather than a computation, and the
+two halves fail in opposite directions when they are built together.
+
+| Pass | What it is | What it produces |
+|---|---|---|
+| **8a — the contract** — *built* | The controller, the ACL, the mechanics, the validation, and every action's REST representation. **No templates.** | `AnalystProfilesController`, `AnalystProfileFormTool`, `ValueVerdictDiffTool`, the ACL block, the view-model for every page, real JSON fixtures dumped from the dev instance, and the mockup frame and checker 8b draws into |
+| **8b — the prototypes** | Three deliberately different designs for the same pages, as standalone HTML against 8a's fixtures. Nothing wired. | `mockups/`, published for comparison; one of them is picked and refined |
+| **8c — the wiring** | The picked design implemented as `.ctp` templates against 8a's view-model, plus the links in from the verdict | `View/…/AnalystProfiles/`, `value_verdict_meta.ctp`, `value_verdict_card.ctp`, the harness and the live probe |
+
+Two reasons for that order, and each is a failure this project has already
+paid for once:
+
+- **A prototype drawn against invented data is a prototype that cannot be
+  built.** Every mockup in `prd/phase7/mockups/` was drawn before its data
+  existed, and `value-profile-live/` is the long record of what that cost —
+  seven tabs converted one at a time, each one discovering that the page was
+  asking for a number no query could produce. 8a exists so that 8b's three
+  candidates are drawn against `assess()`'s actual output, an actual
+  `points_schema`, and an actual ledger diff, and so that "did I just break
+  something" is answered by arithmetic rather than by a plausible-looking
+  table.
+- **Templates written before the design is picked are thrown away.** Two of
+  three, by construction. So 8a stops at the seam: it computes what each page
+  needs and can prove it over HTTP, and it renders none of it.
+
+**8a is therefore verifiable with no design decisions made at all** — the
+REST path 02-store.md §6 already owed is what carries every action's
+verification, and it is a deliverable rather than scaffolding: an analyst
+profile is one JSON document, `export`/`import` are the sharing path (§8), and
+a profile the API cannot read is a profile no automation can review.
+
+**8b's brief is its own document**, [`09b-prototypes.md`](09b-prototypes.md):
+which pages each candidate must cover, the three directions they must be
+distinct along, and how one gets picked.
+
+**8b is executed cold, by one agent per candidate**, which is what makes its
+three answers independent rather than three passes of the same hand. That
+pushes two things into 8a that would otherwise have been 8b's: the **fixtures
+have to be sufficient on their own** — an agent who needs the dev instance
+running has been handed an incomplete brief — and the **frame and the checker
+have to exist**, because building a frame means dumping a live MISP page and
+adapting a checker that currently asserts the value page's nine tabs. So 8a
+delivers `mockups/frame.html` and `mockups/check-mockup.sh` alongside the
+fixtures, and 8b copies rather than builds.
 
 ## 2. Why the simulator is not a nice-to-have
 
@@ -45,22 +94,71 @@ answers *"did I just break something"* in one screen.
 Plus one value of the analyst's choosing, because the interesting question is
 usually about a value they are looking at.
 
+### 2.2 The five values are this corpus's fixture, not the product's
+
+**Decided 2026-09-07, building 8a.** `185.234.219.24`, `8.8.8.8`,
+`45.155.205.233` and the median value are values *on the dev instance*.
+Shipping them as the simulator's regression set would put four addresses
+chosen for one database into every MISP install, where three of them are
+absent and the fourth is a public resolver whose row says nothing about the
+reader's own corpus.
+
+So the product ships a **comparison set the analyst owns**: up to eight values
+they pin, stored per user, seeded from the value they arrived from and added
+to from the simulator itself. An empty set is an honest state with an
+instruction in it — *"pin a value and its two columns appear here"* — not a
+blank table.
+
+What §2.1 asked for survives that, because the property it wanted was never
+the specific addresses: it was **more than one value, spanning more than one
+shape, scored in one screen**. An analyst who pins the four values they
+actually argue about gets a better regression set than four hardcoded ones,
+and this corpus keeps its five as the *harness's* fixture, which is where a
+value chosen for its shape belongs.
+
+The cost is stated rather than hidden: **a new analyst's first simulation has
+one row in it**, the value they came from, and nothing on the page can tell
+them whether their edit moved every single-report value on the instance. That
+is the question §2.1's median case answers, and answering it in the product
+needs a corpus-wide sweep — which is phase 10's materialisation, not a render.
+Named here as the gap rather than papered over with four addresses that would
+not have answered it either.
+
 ## 3. Pages
 
-| Action | What it renders |
-|---|---|
-| `index` | The profile in force (badged), the analyst's own, their org's, and the instance default. Each row: name, owner, enabled, version, and whether it is editable |
-| `view/:id` | Read-only, section by section. Takes the simulator's optional `?value=` parameter (§5) to show each weight beside the contribution it produced on that value; without one, the contribution column stays empty rather than inventing a value |
-| `edit/:id` | Per-section forms; see §4 |
-| `fork/:id` | One POST, no form. Lands on `edit` of the copy |
-| `simulate/:id` | §5 |
-| `export/:id` | The JSON |
+| Action | What it renders | Built in |
+|---|---|---|
+| `index` | The profile in force (badged), the analyst's own, their org's, and the instance default. Each row: name, owner, enabled, version, and whether it is editable | 8a view-model, 8c page |
+| `view/:id` | Read-only, section by section. Takes the simulator's optional `?value=` parameter (§5) to show each weight beside the contribution it produced on that value; without one, the contribution column stays empty rather than inventing a value | 8a view-model, 8c page |
+| `edit/:id` | Per-section forms; see §4 | 8a accepts the POST, 8c draws the forms |
+| `fork/:id` | One POST, no form. Lands on `edit` of the copy | 8a whole, 8c the confirm |
+| `simulate/:id` | §5 | 8a the diff, 8c the page |
+| `export/:id` | The JSON | 8a whole |
+| `import` | §8 — the sharing path | 8a accepts it, 8c the form |
+| `enable/:id`, `disable/:id`, `delete/:id` | 02-store.md §6 | 8a whole, 8c the confirms |
+| `update` | `updateDefaults()`, site admin only | 8a whole |
+
+**There is no `add`, decided 2026-09-07 while building 8a.** 02-store.md §6
+lists one; D5 and §6 there make a fork *the* way in, on the argument that the
+shipped default is uneditable by an ordinary analyst — so a blank-slate form
+is a second entrance to a room with one door, and the document it would create
+is an empty `parameters` that scores nothing and names no signal. A new
+profile is a fork of one that already works, or an `import` of somebody
+else's. This deletes a form from 8b's brief rather than adding one.
 
 **`index` names the profile in force first and unmistakably.** Under D3 exactly
 one applies, and the commonest confusion this feature can create is an analyst
 editing a profile that is not the one weighting their pages — because they made
 a fork, forgot, and their org profile still wins, or because their own is
 disabled.
+
+**So every row carries its own standing**, which is 8a's answer to that
+confusion rather than 8c's: `in_force`, `disabled`, `overridden` — *naming the
+profile that beat it* — `other_owner` for a row a site admin can see but which
+could never apply to them, and `unresolved` for the shape resolution cannot
+produce. A badge on one row cannot say *why* the fork you are editing is not
+the one weighting your pages; a per-row standing can, and it is computed
+rather than drawn.
 
 ## 4. Editing, section by section
 
@@ -84,7 +182,17 @@ this phase:
   silently by the engine (`03-signals.md` §8.5), so this is the page where an
   admin finds out. `Workflow` surfaces `$error_while_loading` the same way.
 
-Six sections with genuinely different shapes (D2), so six treatments rather
+**Seven sections, not six.** This section was written before phase 5, which
+added `relevance` — the clock, the curve, the aging fraction, the uncertainty
+lag and the per-type TTL table (`06-staleness.md` §3). It is the section with
+the largest number of editable numbers in it and the only one holding a
+per-attribute-type map that an analyst genuinely re-tunes, so leaving it to
+the raw JSON editor would have made the second axis the one axis nobody can
+adjust. Counted 2026-09-07 against the shipped default: `format`, `signals`,
+`thresholds`, `escalations`, `exclusions`, `relevance`, `reference`,
+`enrichment` — seven editable sections plus the format marker.
+
+Seven sections with genuinely different shapes (D2), so seven treatments rather
 than one JSON textarea. Though **a raw JSON editor is also offered**, because
 every profile is one document and an analyst who wants to paste one should be
 able to — with validation on save (phase 1 §3).
@@ -103,7 +211,19 @@ signals can reach — is visibly wrong rather than silently saved.
 **`escalations`** — a list with enable toggles. v1 ships one, so this is a
 checkbox and its prose.
 
-**`exclusions`** — a list with enable toggles and one parameter each.
+**`exclusions`** — a list with enable toggles and one parameter each. The four
+ids are a closed set in code (`ValueExclusionTool` §"the set is closed"), so
+unlike signals and escalations this palette is *not* a directory read, and the
+editor must carry a declaration of the four and their one parameter each.
+Built in 8a as `ValueExclusionTool::catalogue()` rather than in the editor, so
+that the knowledge stays with the mechanism that applies it — the same
+argument that put `points_schema` on the signal rather than in the form.
+
+**`relevance`** — the clock (a select over the declared clocks), the decay
+speed, the aging fraction, the uncertainty lag, and the per-type TTL table:
+a `default` plus one row per MISP attribute type the analyst has an opinion
+about, with a type picker to add more. Never a row per type MISP has — the
+same posture `reference` takes over organisations, and for the same reason.
 
 **`reference`** — two maps, and the only section that needs real UI work.
 `org_trust` is an org picker plus a grade select, showing only graded orgs with
@@ -145,10 +265,20 @@ contributions and the delta**, rows that appeared or vanished marked as such,
 and both totals. Because of §2, the two columns each sum to their own score, so
 the diff is arithmetic rather than impressionistic.
 
-Then the regression set as a compact summary: disposition and score under
-each profile, five rows (§2.1), so a change that quietly turned `8.8.8.8`
-malicious — or every single-report value out of the `low` band — is visible
-without five page loads.
+Then the analyst's comparison set as a compact summary (§2.2): lean, quality
+and band under each profile, one row per pinned value, so a change that
+quietly turned a known-benign value malicious is visible without one page load
+per value.
+
+**The candidate can change the context, not only the score**, which is the one
+place the simulator is more than two calls to `assess()`. `exclusions` is
+applied by the context builder — `orgs.own` is a query predicate in
+`Value::conditionsFor()` (`05-exclusions.md` §7.1) — so two profiles whose
+exclusion sections differ are two different sets of rows, and scoring both
+from one context would show a diff that no saved profile could reproduce. The
+context is therefore built per *exclusion plan* and reused when the two
+profiles agree, which is the common case of editing a weight: one build, two
+scorings. Measured in 8a rather than assumed.
 
 **It computes, it does not save.** The candidate profile is posted as JSON and
 scored in memory. Nothing is written, which means the simulator works on a
@@ -191,28 +321,248 @@ naming the number of users it will affect.
 
 ## 7. Verification
 
+Split across the three passes, because 8a can assert most of this list with
+no page to look at and 8c should not be re-asserting what 8a already proved.
+
+### 7a. The contract — no templates, no design decisions
+
 1. `parallel-lint`, then `queryACL/findMissingFunctionNames` — every new action
-   has an ACL entry.
+   has an ACL entry, and no entry names an action that does not exist.
 2. `index` as four users (own profile / org profile / neither / site admin):
-   the profile in force is correct and unambiguous in each.
-3. Fork the default as a non-admin, land on `edit`, change one weight, save,
-   reload a value page: the hero names the new profile and the score has moved.
-4. Simulate the default against all five regression cases with no changes: the
-   diff is empty and both columns are identical. An empty diff must render as
-   *"no change"*, not as a blank table.
-5. Simulate a candidate that flips `8.8.8.8` to MALICIOUS: the five-value
-   summary shows it, in a colour that reads as a warning without asserting the
-   change is wrong. Same for one that lifts the median case out of `low`.
-6. Simulate a profile the analyst cannot edit: works, saves nothing.
-7. `quality_bands.medium` above `quality_bands.high`, or a band beyond the
-   enabled catalogue's attainable sum: rejected on save with the band strip
-   showing why.
-8. A malformed JSON paste: rejected, with the parse error and the line, and the
-   stored profile untouched.
-9. Rename a profile: `version` does not move. Change a weight: it does.
-10. Both themes; the diff table's delta column is the one place a red/green
-    pair is doing real work and needs checking against `--vp-dir-with` /
-    `--vp-dir-against` rather than raw Bootstrap colours.
+   the profile in force is correct in each, and every other row carries the
+   standing that says why it is not (§3).
+3. Fork the default as a non-admin over REST, change one weight, save, then
+   re-score a value: the assessment names the new profile and the quality has
+   moved. **The whole of item 3 below except the page.**
+4. Diff a profile against itself on every harness value: every row's delta is
+   zero, no row is marked appeared or vanished, and both totals are equal.
+5. Diff a candidate with one weight changed: exactly the rows that signal
+   touches carry a non-zero delta, and **each column still sums to its own
+   quality exactly** — the invariant §2 rests on, asserted rather than
+   assumed.
+6. A candidate that disables a signal: its row is marked vanished, not
+   silently absent, and the totals differ by that row's old contribution.
+7. Simulate a profile the analyst cannot edit, including the instance default:
+   it computes and writes nothing — asserted by reading `revision` and
+   `modified` back.
+8. `quality_bands.medium` above `quality_bands.high`, or a band beyond the
+   enabled catalogue's attainable sum: rejected on save, with the bound and
+   how it was derived in the message.
+9. A malformed JSON paste: rejected, with the parse error and its line, and
+   the stored profile byte-identical afterwards.
+10. Rename a profile: `revision` does not move, and neither does `version`.
+    Change a weight: `revision` moves by one and `version` does not.
+11. Fork while holding an enabled profile: refused with the existing one
+    named, and the replace path disables rather than deletes it (§6).
+12. Two profiles whose `exclusions` differ: the simulator builds two contexts,
+    and the row counts they see differ. One build when they agree.
+
+### 7b. The prototypes
+
+Owned by [`09b-prototypes.md`](09b-prototypes.md) §6 — the kit assertions,
+both themes, and the coverage each candidate has to demonstrate.
+
+### 7c. The wiring
+
+1. Every page renders in both themes, with `--vp-mal` asserted to resolve
+   before anything else is asserted (`prd/phase7/README.md`'s first trap).
+2. The diff table's delta column is the one place a red/green pair is doing
+   real work and needs checking against `--vp-dir-with` / `--vp-dir-against`
+   rather than raw Bootstrap colours.
+3. An empty diff renders as *"no change"*, not as a blank table. An empty
+   comparison set renders as its instruction, not as a blank table.
+4. The generated form for a signal round-trips: render, save unchanged, and
+   the stored `points` map is byte-identical — the property that stops a form
+   silently rewriting a document it did not understand.
+5. Fork the default from the value page, change one weight, reload the value
+   page: the hero names the new profile and the score has moved. The item 3
+   above that 7a could not reach.
+6. The loader's error list is on screen where an admin will see it.
+7. A `policy` entry in `not_counted` links to the exclusion that produced it
+   (§5.1).
+
+## 7d. What 8a found, built 2026-09-07
+
+**Verified by 77 checks with no database
+([`09-editor-harness.php`](09-editor-harness.php)), 44 against the dev
+instance ([`09a-contract-live-probe.php`](09a-contract-live-probe.php),
+run three times to prove it leaves the instance as it found it), 35 over
+HTTP ([`09a-contract-http-probe.sh`](09a-contract-http-probe.sh), run
+twice), and 27 over the fixtures
+([`09a-fixtures-check.py`](09a-fixtures-check.py)).** All eight of the
+corpus's harnesses still pass — 570 checks — which is phase 6 §7.7's
+lesson held to: a change to shared code can kill an earlier harness
+silently.
+
+Eight findings. Four are defects in code that shipped in earlier phases
+and were invisible until something read it from a new direction.
+
+### 7d.1 `evidence.window` ignored its own `enabled` flag
+
+Every other exclusion has honoured it since phase 4 —
+`ValueExclusionTool::entries()` drops a disabled rule — and this one did
+not, because `ValueProfile::verdictBudget()` reads the raw section rather
+than going through the plan. So the window applied whatever the profile
+said, and **the editor was about to draw a toggle with nothing behind
+it**. Found by reading the two paths side by side while building the
+exclusions form, which is the kind of thing only writing a form makes
+you do.
+
+### 7d.2 Every refusal answered HTTP 200
+
+`refuse()` set 400 on `$this->response` and handed the body to
+`RestResponse->viewData()` — which ignores it: `prepareResponse()` builds
+a fresh `CakeResponse` with the code it was *passed*, and `viewData()`
+always passes 200. So a rejected save answered *200 with `saved:
+false`*, which tells an automated caller the save happened and leaves
+the truth in the body. Now through MISP's own `saveFailResponse()`, which
+answers **403** — semantically odd for a validation failure, and what
+every failed save in MISP has answered for years, so a client that
+already handles it needs no special case here.
+
+### 7d.3 `resolveFor()`'s cache went stale across a swap
+
+The resolution cache is memoised per request because the value page
+calls it once per panel and there are twenty-seven of them. That is a
+read-only assumption, and the editor breaks it: enabling one profile
+disables another *in the same request*, and the response then has to say
+which is in force. `forkProfile()` cleared the cache by hand;
+`saveField('enabled', …)` did not, so **the swap's own answer came back
+from before the swap**. Now cleared in `afterSave()` and `afterDelete()`,
+because a cache whose correctness depends on every future caller
+remembering is a cache that will be wrong.
+
+### 7d.4 A fork of the default claimed to *be* the default
+
+`forkProfile()` copied the description verbatim, and the shipped
+default's description opens *"The instance default Analyst Profile…"* —
+true of the source and false of the copy, on the one field a colleague
+reads to decide whether to adopt it. It now leads with a dated line
+saying where the document came from. **Not lineage**: D5 forbids a
+tracked pointer, and a sentence is a changelog line — nothing resolves
+through it, and it stays true if the source is renamed or deleted.
+
+### 7d.5 The ACL check was reporting 39 false positives
+
+`ACLComponent::findMissingFunctionNames()` reads controller files with a
+regex and treats every method whose name does not begin with an
+underscore as an action needing an entry. Seventy-eight of MISP's eighty
+controllers are clean; the two that were not were **this feature's** —
+`ValuesController` with 10 and the new one with 29 — so the tool that
+02-store.md §6 deferred phase 1's ACL work *to* was useless the moment
+it was needed. Both controllers now follow the convention, and the check
+returns `[]`.
+
+That also moved `encodeValue`/`decodeValue` out of `ValuesController`
+into `ValueUrlTool`: a **public** method named `__decodeValue` reads as
+private while being cross-class API, which is a wart the check's
+convention creates rather than one anybody chose. Out of the controller
+the question does not arise, and there is still one implementation of
+the alphabet decision instead of two.
+
+**And the check only reports one direction.** Nothing in MISP catches an
+ACL entry naming an action that does not exist — the dead row phase 1
+refused to ship — so the live probe asserts it, by reading the
+controller's public methods and comparing both ways.
+
+### 7d.6 The index board was unreachable except over HTTP
+
+The per-row standing (§3) is the answer to the confusion this feature
+can most easily create, and it started life in a private controller
+method — so the one thing 8c most needs to get right could only be
+checked by looking at a page. It moved to `AnalystProfile::indexFor()`,
+which is where it belonged anyway: *"why is this not the one weighting
+my pages"* is an ownership question, made out of exactly what
+`resolveFor()` and `isEditableByCurrentUser()` already decide. The probe
+now reads the board as all five of the instance's users.
+
+### 7d.7 A weighting is invisible past a cap — again
+
+The fixture dump's first attempt produced a diff **with no changed row
+in it**. The candidate edit lowered `per_org` from 7 to 4 on a value
+eight organisations report, and both products exceed the cap of 28, so
+the row did not move. Phase 6 §7.1 recorded the same thing from the
+other side; here it means the edit that demonstrates a *changed* row has
+to move the cap, and — more usefully — that **a design promising "change
+a weight and watch the row move" will be wrong for some signals some of
+the time**. The honest promise is *change a number and the diff shows
+what actually happened*.
+
+The same run found two other gaps: nothing could *appear* in a candidate
+while the profile in force runs every signal, so the fixture's in-force
+side now has one switched off; and the `custom` badge had nowhere to come
+from on an instance with an empty drop-in directory. Both are recorded
+in the fixture's own `synthesised` block — dropping a PHP file into
+`app/Lib/ValueSignals` to make a picture look right would be changing
+the product for a mockup.
+
+### 7d.8 The attainable bound needed a rule, and nearly got the wrong one
+
+§7a item 8 refuses a band beyond what the enabled catalogue can reach,
+which needs a number. The rule is *the largest positive value in a
+signal's `points` map*, and it works only because a `cap` is always the
+largest positive term where one is declared — checked against all eleven
+shipped signals.
+
+The first implementation treated any key beginning `per` **or `scale`**
+as paid-per-unit and therefore unbounded. `reporting.published_ratio`
+pays `scale × published / events`, where the multiplicand is at most 1,
+so `scale` *is* its maximum — and flagging it made the bound
+"unreliable" for the shipped default, which would have downgraded item
+8's refusal to an advisory on **every instance**. A declared maximum on
+the signal class was the alternative and was rejected for D14's reason
+in a new place: a number an author maintains by hand duplicates their
+own arithmetic and drifts from it silently, where a derived one cannot.
+
+What remains stated rather than solved: a custom signal paying per unit
+with no cap is not bounded by its own points, and the bound
+under-reports it. So `attainable()` returns `unbounded` beside the total
+and the refusal becomes a warning when it is non-empty — a derived
+number that quietly rejects a legitimate edit is worse than one that
+says where it stops being reliable.
+
+### 7d.9 Smaller things worth the line
+
+- **The spec said six sections and there are seven.** §4 was written
+  before phase 5 added `relevance`, which holds the most editable
+  numbers of any section and the only per-type map an analyst really
+  re-tunes. Leaving it to the raw JSON editor would have made the second
+  axis the one axis nobody can adjust.
+- **`corroboration.*_days` are day-keyed maps of reports, not counts.**
+  The harness's first fixture made them integers, on the strength of
+  `ValueSignalBase`'s key list, and `ValueRelevanceTool` warned on a
+  `foreach` over an int while **every assertion still passed** — because
+  relevance emits no ledger row and the diff assertions are about the
+  ledger. The docblock now names the shape.
+- **The live probe's own cleanup was the last thing to fail.** Its
+  second fork displaced the *first* fork, which cleanup then deleted, and
+  it tried to re-enable a row that no longer existed — CakePHP reads that
+  as an insert and it died on the missing uuid, after every other
+  assertion had passed. Exactly the failure the *run it twice* convention
+  exists to catch.
+- **The fixtures cannot be written from inside the container.** Only
+  parts of `app/` are mounted from the working tree, so the dump's file
+  writes landed in the image and it reported five fixtures written to a
+  directory that stayed empty. It prints to stdout now — and
+  `app/webroot/` would have been the wrong fix twice over, since these
+  documents carry indicator values and anything under webroot is served.
+- **`relevance` read `uncertain · uncertain`.** The axis carries
+  uncertainty as a flag *and* has `uncertain` as a state in its own
+  right; appending the flag unconditionally handed a design the same
+  word twice and left it to decide what that meant.
+
+### 7d.10 What 8a deliberately did not do
+
+- **No templates**, which is the whole point of the split. A browser
+  gets JSON from every action today.
+- **No side-menu entry.** `side_menu.ctp` is a template, so the
+  navigation case belongs to 8c with the pages it navigates to.
+- **No `add` action** (§3), which deletes a form from 8b's brief rather
+  than adding one.
+- **`enrichment.max_age_hours` stays inert** and the view-model says so
+  with an `inert` flag, because there is still no store of module
+  answers for a window to govern. Carried, drawn, and labelled — the
+  posture phase 7 took, held here rather than quietly dropped.
 
 ## 8. Out of scope
 

@@ -1,0 +1,182 @@
+{
+  "note": "The band strip. `bound` is the most the enabled signals could contribute \u2014 the largest positive value in each `points` map, summed. A boundary above it can never be reached, and a save is refused.",
+  "ok": {
+    "bound": 129,
+    "attainable": {
+      "bound": 129,
+      "per_signal": {
+        "reporting.independent_orgs": 28,
+        "reporting.published_ratio": 9,
+        "record.temporal_precision": 4,
+        "sightings.volume_recency": 24,
+        "sightings.false_positive": 0,
+        "attribution.galaxy": 21,
+        "attribution.technique": 9,
+        "lifecycle.warninglist": 6,
+        "lifecycle.feeds": 8,
+        "lifecycle.continuity": 12,
+        "lifecycle.recency": 8
+      },
+      "unbounded": [],
+      "signals": 11,
+      "reliable": true
+    },
+    "bands": [
+      {
+        "id": "high",
+        "from": 60,
+        "to": 129
+      },
+      {
+        "id": "medium",
+        "from": 30,
+        "to": 60
+      },
+      {
+        "id": "low",
+        "from": 0,
+        "to": 30
+      }
+    ],
+    "problems": [],
+    "ok": true
+  },
+  "inverted": {
+    "bound": 129,
+    "attainable": {
+      "bound": 129,
+      "per_signal": {
+        "reporting.independent_orgs": 28,
+        "reporting.published_ratio": 9,
+        "record.temporal_precision": 4,
+        "sightings.volume_recency": 24,
+        "sightings.false_positive": 0,
+        "attribution.galaxy": 21,
+        "attribution.technique": 9,
+        "lifecycle.warninglist": 6,
+        "lifecycle.feeds": 8,
+        "lifecycle.continuity": 12,
+        "lifecycle.recency": 8
+      },
+      "unbounded": [],
+      "signals": 11,
+      "reliable": true
+    },
+    "bands": [
+      {
+        "id": "high",
+        "from": 30,
+        "to": 129
+      },
+      {
+        "id": "medium",
+        "from": 60,
+        "to": 30
+      },
+      {
+        "id": "low",
+        "from": 0,
+        "to": 60
+      }
+    ],
+    "problems": [
+      {
+        "band": "medium",
+        "message": "Medium starts at 60, which is not below high at 30. Nothing could ever be high."
+      }
+    ],
+    "ok": false
+  },
+  "inverted_errors": [
+    "Medium starts at 60, which is not below high at 30. Nothing could ever be high."
+  ],
+  "beyond_bound": {
+    "bound": 129,
+    "attainable": {
+      "bound": 129,
+      "per_signal": {
+        "reporting.independent_orgs": 28,
+        "reporting.published_ratio": 9,
+        "record.temporal_precision": 4,
+        "sightings.volume_recency": 24,
+        "sightings.false_positive": 0,
+        "attribution.galaxy": 21,
+        "attribution.technique": 9,
+        "lifecycle.warninglist": 6,
+        "lifecycle.feeds": 8,
+        "lifecycle.continuity": 12,
+        "lifecycle.recency": 8
+      },
+      "unbounded": [],
+      "signals": 11,
+      "reliable": true
+    },
+    "bands": [
+      {
+        "id": "high",
+        "from": 180,
+        "to": 180
+      },
+      {
+        "id": "medium",
+        "from": 30,
+        "to": 180
+      },
+      {
+        "id": "low",
+        "from": 0,
+        "to": 30
+      }
+    ],
+    "problems": [
+      {
+        "band": "high",
+        "message": "high starts at 180, and the enabled signals cannot sum past 129. Nothing could ever reach high.",
+        "advisory": false
+      }
+    ],
+    "ok": false
+  },
+  "beyond_bound_errors": [
+    "high starts at 180, and the enabled signals cannot sum past 129. Nothing could ever reach high."
+  ],
+  "narrow_catalogue": {
+    "bound": 52,
+    "attainable": {
+      "bound": 52,
+      "per_signal": {
+        "reporting.independent_orgs": 28,
+        "sightings.volume_recency": 24
+      },
+      "unbounded": [],
+      "signals": 2,
+      "reliable": true
+    },
+    "bands": [
+      {
+        "id": "high",
+        "from": 60,
+        "to": 60
+      },
+      {
+        "id": "medium",
+        "from": 30,
+        "to": 60
+      },
+      {
+        "id": "low",
+        "from": 0,
+        "to": 30
+      }
+    ],
+    "problems": [
+      {
+        "band": "high",
+        "message": "high starts at 60, and the enabled signals cannot sum past 52. Nothing could ever reach high.",
+        "advisory": false
+      }
+    ],
+    "ok": false
+  },
+  "narrow_catalogue_note": "Nine signals disabled, so the bound falls to 52 and the shipped `high` at 60 stops being reachable without anybody moving a band."
+}

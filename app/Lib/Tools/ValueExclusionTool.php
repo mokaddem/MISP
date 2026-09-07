@@ -67,6 +67,110 @@ class ValueExclusionTool
     const DEFAULT_WITHIN_HOURS = 1;
 
     /**
+     * The four ids described, so the editor can render a form for a
+     * section that has no directory to read.
+     *
+     * Signals and conflict rules declare their own schemas on their own
+     * classes; an exclusion has no class, because the four operate at
+     * three different layers and could not honestly share an interface
+     * (see the class docblock). That leaves the editor with a choice
+     * between a hardcoded list of its own and a declaration here, and
+     * the declaration belongs beside the code that applies it — the
+     * same argument that put `points_schema` on the signal rather than
+     * in the form. A list in the view would drift from `entries()` the
+     * first time a parameter changed, silently, because a form that
+     * offers the wrong key writes a key nothing reads.
+     *
+     * `layer` is not decoration: it is why `orgs.own` changes the
+     * numbers a signal sees rather than filtering its output, and the
+     * simulator needs to know that two profiles differing here are two
+     * different contexts rather than two scorings (09-editor.md §5).
+     *
+     * @return array id => declaration
+     */
+    public static function catalogue()
+    {
+        return array(
+            self::SIGHTINGS_SELF => array(
+                'id' => self::SIGHTINGS_SELF,
+                'title' => __('Self-sightings'),
+                'layer' => 'row_filter',
+                'description' => __(
+                    'An organisation confirming its own fresh report is'
+                    . ' not corroboration. Sightings filed by the'
+                    . ' reporting organisation within the window below'
+                    . ' are left out; later ones are kept, because'
+                    . ' "we still see this" is real information.'
+                ),
+                'schema' => array(
+                    'within_hours' => array(
+                        'type' => 'float',
+                        'default' => self::DEFAULT_WITHIN_HOURS,
+                        'label' => __('Hours after the occurrence'),
+                    ),
+                ),
+            ),
+            self::FEEDS_MIRRORED => array(
+                'id' => self::FEEDS_MIRRORED,
+                'title' => __('Mirrored feeds'),
+                'layer' => 'list_fold',
+                'description' => __(
+                    'Feeds sharing another\'s source counted once'
+                    . ' rather than separately. MISP does not record'
+                    . ' what a feed mirrors, so this folds by the key'
+                    . ' below — which is wrong where one provider runs'
+                    . ' unrelated feeds.'
+                ),
+                'schema' => array(
+                    'dedupe_by' => array(
+                        'type' => 'string',
+                        'default' => 'provider',
+                        'label' => __('Fold feeds sharing this'),
+                        'options' => array('provider', 'url'),
+                    ),
+                ),
+            ),
+            self::ORGS_OWN => array(
+                'id' => self::ORGS_OWN,
+                'title' => __('Your own organisation'),
+                'layer' => 'condition',
+                'description' => __(
+                    'Leave your own organisation out of every count, so'
+                    . ' the assessment says what everyone else reports.'
+                    . ' This one changes the queries rather than'
+                    . ' filtering their results, so it moves every'
+                    . ' aggregate at once.'
+                ),
+                'schema' => array(),
+            ),
+            self::EVIDENCE_WINDOW => array(
+                'id' => self::EVIDENCE_WINDOW,
+                'title' => __('Evidence window'),
+                'layer' => 'budget',
+                'description' => __(
+                    'On a value with more occurrences than the'
+                    . ' threshold, read row evidence from the last N'
+                    . ' days only. Whole-history aggregates are never'
+                    . ' windowed. Applied by the context builder rather'
+                    . ' than here, because it decides what is fetched.'
+                ),
+                'schema' => array(
+                    'days' => array(
+                        'type' => 'int',
+                        'default' => 90,
+                        'label' => __('Days of row evidence'),
+                    ),
+                    'min_occurrences' => array(
+                        'type' => 'int',
+                        'default' => 10000,
+                        'label' => __('Occurrences before it applies'),
+                    ),
+                ),
+            ),
+        );
+    }
+
+    /**
      * What the profile in force asks to be left out, resolved against
      * this viewer.
      *
