@@ -639,6 +639,46 @@ body {
 .bench-rel b { color: var(--bs-body-color); font-weight: 600; }
 .bench-meta { margin-top: .45rem; }
 
+/*
+ * The relevance axis has a magnitude — a shelf life — and the shipped
+ * value_relevance.ctp already draws it. Quality having the only bar was
+ * an accident of which axis the fixture carried a number for, not a
+ * property of the assessment.
+ */
+.ax-runway { margin-top: .25rem; }
+.ax-track {
+    position: relative;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+}
+.ax-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px 0 0 2px;
+    background: var(--bs-correlation, var(--bs-secondary-color));
+}
+.ax-agemark {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 1px;
+    background: var(--bs-body-color);
+    opacity: .5;
+}
+.ax-runway-t {
+    display: block;
+    margin-top: .15rem;
+    font-size: .625rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color);
+}
+.ax-runway-t b { color: var(--bs-body-color); font-weight: 600; }
+.wb-tbl .ax-runway { margin-top: .15rem; max-width: 9rem; }
+
 /* Which axis a section configures. The rail is the only place that can
  * say it, because it is the only place that lists all seven at once. */
 .wb-rail-ax {
@@ -3013,6 +3053,13 @@ body {
                     <span class="ax-n">relevance</span>
                     <b class="ax-v">timeline uncertain</b>
                     <span class="ax-g">whether it still holds</span>
+                    <div class="ax-runway">
+                      <div class="ax-track" title="16 days elapsed of a 90 day TTL">
+                        <span class="ax-fill" style="width:82%"></span>
+                        <span class="ax-agemark" style="left:33%" title="where aging begins"></span>
+                      </div>
+                      <span class="ax-runway-t"><b>74</b> of 90 days left &middot; TTL from <span class="wb-id">ip-dst</span> &middot; clock last reset 2026-08-23</span>
+                    </div>
                   </div>
                   <div class="ax ax-led">
                     <span class="ax-n">quality</span>
@@ -3400,7 +3447,14 @@ body {
                   <div class="ax">
                     <span class="ax-n">relevance</span>
                     <b class="ax-v">timeline uncertain &rarr; timeline uncertain</b>
-                    <span class="ax-g">unchanged</span>
+                    <span class="ax-g">unchanged &mdash; no edit touches the TTL table</span>
+                    <div class="ax-runway">
+                      <div class="ax-track" title="16 days elapsed of a 90 day TTL">
+                        <span class="ax-fill" style="width:82%"></span>
+                        <span class="ax-agemark" style="left:33%" title="where aging begins"></span>
+                      </div>
+                      <span class="ax-runway-t"><b>74</b> of 90 days left &middot; TTL from <span class="wb-id">ip-dst</span> &middot; clock last reset 2026-08-23</span>
+                    </div>
                   </div>
                   <div class="ax ax-led">
                     <span class="ax-n">quality</span>
@@ -3447,7 +3501,7 @@ body {
                       <td>contested &rarr; contested</td>
                       <td class="r num">4 &rarr; <b>23</b></td>
                       <td>low &rarr; low</td>
-                      <td class="wb-wide-only">timeline uncertain</td>
+                      <td class="wb-wide-only">timeline uncertain<div class="ax-runway"><div class="ax-track" title="16 days elapsed of a 90 day TTL"><span class="ax-fill" style="width:82%"></span><span class="ax-agemark" style="left:33%"></span></div><span class="ax-runway-t"><b>74</b> of 90 days left</span></div></td>
                       <td class="wb-wide-only r num">9 &rarr; 9</td>
                       <td class="r d-up">&#9650;</td>
                     </tr>
@@ -3456,7 +3510,7 @@ body {
                       <td class="wb-sub">none &rarr; none</td>
                       <td class="r num">0 &rarr; 0</td>
                       <td class="wb-sub">none</td>
-                      <td class="wb-wide-only wb-sub">&mdash;</td>
+                      <td class="wb-wide-only wb-sub">&mdash;<div class="ax-runway"><span class="ax-runway-t">no clock to run &mdash; nothing is recorded</span></div></td>
                       <td class="wb-wide-only r num">0 &rarr; 0</td>
                       <td class="r d-0">&mdash;</td>
                     </tr>
@@ -3465,7 +3519,7 @@ body {
                       <td>threat &rarr; <b>contested</b></td>
                       <td class="r num">11 &rarr; <b>&minus;2</b></td>
                       <td>low &rarr; low</td>
-                      <td class="wb-wide-only">expired &middot; uncertain</td>
+                      <td class="wb-wide-only">expired &middot; uncertain<div class="ax-runway"><div class="ax-track" title="1729 days elapsed of a 180 day TTL"><span class="ax-fill" style="width:0%"></span><span class="ax-agemark" style="left:33%"></span></div><span class="ax-runway-t"><b>1549</b> days over</span></div></td>
                       <td class="wb-wide-only r num">8 &rarr; 8</td>
                       <td class="r d-dn">&#9660;</td>
                     </tr>
@@ -3474,7 +3528,7 @@ body {
                       <td>contested &rarr; contested</td>
                       <td class="r num">15 &rarr; <b>34</b></td>
                       <td>low &rarr; <b>medium</b></td>
-                      <td class="wb-wide-only">expired &middot; uncertain</td>
+                      <td class="wb-wide-only">expired &middot; uncertain<div class="ax-runway"><div class="ax-track" title="201 days elapsed of a 90 day TTL"><span class="ax-fill" style="width:0%"></span><span class="ax-agemark" style="left:33%"></span></div><span class="ax-runway-t"><b>111</b> days over</span></div></td>
                       <td class="wb-wide-only r num">9 &rarr; 9</td>
                       <td class="r d-up">&#9650;</td>
                     </tr>
@@ -3664,6 +3718,13 @@ body {
               <div class="ax">
                 <span class="ax-n">relevance</span>
                 <b class="ax-v">timeline uncertain</b>
+                <div class="ax-runway">
+                  <div class="ax-track" title="16 days elapsed of a 90 day TTL">
+                    <span class="ax-fill" style="width:82%"></span>
+                    <span class="ax-agemark" style="left:33%"></span>
+                  </div>
+                  <span class="ax-runway-t"><b>74</b> of 90 days left</span>
+                </div>
               </div>
               <div class="ax ax-led">
                 <span class="ax-n">quality</span>

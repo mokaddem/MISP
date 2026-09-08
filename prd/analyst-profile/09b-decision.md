@@ -160,12 +160,17 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
 2. **The section-to-axis map of §4**, which is view-model shaped: the
    editor's view-model should carry the axis per section rather than
    leaving each template to remember it.
-3. **The two blockers in [`09b-prototypes.md`](09b-prototypes.md) §9.2**
+3. **The relevance runway in the editor's view-model.** The fixture and
+   the mockup now have it; the controller does not yet assemble it. 8c
+   should carry `ValueRelevanceTool`'s `runway`, `runway_days`,
+   `elapsed_days`, `ttl` and `aging_fraction` through to the bench
+   rather than reducing the axis to its state string a second time.
+4. **The two blockers in [`09b-prototypes.md`](09b-prototypes.md) §9.2**
    — `profile.json` omits the signal the edit page is required to show,
    and profile 23 carries four names across three fixtures while
    `index.json` says 52 is the one in force. Both are 8a fixture and
    view-model defects, and 8c trips on both.
-4. **The scaffolding fixes of §9.1**, already applied.
+5. **The scaffolding fixes of §9.1**, already applied.
 
 ## 7. Still open
 
@@ -177,24 +182,48 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
   and the one a reader is most likely to meet first
   (`09-editor.md` §549 flags the same thing). Worth a fixture that shows
   `current` before 8c draws the real thing.
-- **Relevance has a magnitude, and no candidate could draw it.** Only
-  quality carries a bar in all three candidates, and for the lean that is
-  permanently right — it is categorical and timeless
+- **Relevance's magnitude — found missing, now drawn.** Only quality
+  carried a bar in all three candidates. For the lean that is
+  permanently right: it is categorical and timeless
   (`12-assessment.md` §2.1), so `contested` is not *more* than `threat`
-  and a bar would invent an ordering. For relevance it is wrong. The
-  shipped `value_relevance.ctp` already draws a shelf with
-  `runway_days` — *"N days left"*, *"N days over"* — and
-  `06-staleness.md` §4.2 designs the value page's chart precisely as
-  **evidence strength against remaining shelf life**, two quantities
-  both drawn. But `09a-fixtures/` carries **no runway at all**: the
-  relevance axis is a bare string (`"uncertain"` before and after), so
-  a candidate obeying *invent no number* had nothing to draw and every
-  candidate rendered relevance as a word.
+  and a bar would invent an ordering. For relevance it was wrong. The
+  shipped `value_relevance.ctp` already draws a shelf with `runway_days`,
+  and `06-staleness.md` §4.2 designs the value page's chart as
+  **evidence strength against remaining shelf life** — two quantities,
+  both drawn. But `09a-fixtures/` carried **no runway at all**: the
+  relevance axis was a bare string, so a candidate obeying *invent no
+  number* had nothing to draw, and every candidate rendered relevance as
+  a word. The same bias as §3, one level down — the axis with the
+  arithmetic got the apparatus, because the fixture that fed the design
+  had already dropped the other axis's.
 
-  This is the same bias as §3, one level down: the axis with the
-  arithmetic gets the apparatus, and the fixture that fed the design had
-  already dropped the other axis's. **8c should carry the runway into
-  the editor's view-model**, and the fixture should carry it first.
+  **Closed 2026-09-08.** `simulate.json` now carries
+  `axes.relevance.runway` for the assessed value and for all four pinned
+  values, read from the dev instance's own
+  `/values/viewRelevance/<b64>` — `ValueRelevanceTool` through
+  `value_relevance.ctp` — with each row recording its `runway_source`.
+  B draws it on all three benches and in the comparison column, as the
+  shipped shelf does: a track, a fill, and a mark where aging begins,
+  coloured `--bs-correlation` because that is what the shipped relevance
+  card uses. Deliberately **not** `--vp-dir-with`/`--vp-dir-against`:
+  that pair means *supports / disputes* and a clock says neither.
+
+  The comparison set is now the argument for the whole change. `1.1.1.1`
+  reads quality **34, medium band**, and **111 days over** its TTL at the
+  same time — well evidenced and long expired, which is the clearest
+  statement on the page that these are separate axes. `185.234.219.24`
+  has no clock at all, the same value whose lean is `none` and whose
+  ledger does not exist.
+
+
+- **The fixture and the live page disagree on two labels.**
+  `simulate.json` calls `45.155.205.233` and `1.1.1.1`
+  *"expired · uncertain"*; the instance's own relevance card renders both
+  as plain *"expired"*. The runway figures were taken from the instance
+  and the composed strings were left as the fixture had them, so the
+  mockup currently shows both — the state string from 8a's dump and the
+  runway from the engine. One of the two is stale, and 8c should not
+  inherit both.
 
 - **The composed relevance form.** The fixtures carry
   `expired · uncertain`, and `value_relevance.ctp` renders one labelled

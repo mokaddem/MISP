@@ -224,7 +224,29 @@
       "relevance": {
         "before": "uncertain",
         "after": "uncertain",
-        "changed": false
+        "changed": false,
+        "label": "timeline uncertain",
+        "runway": {
+          "state": "uncertain",
+          "label": "timeline uncertain",
+          "ttl_days": 90,
+          "ttl_from": "ip-dst",
+          "ttl_rule": "shortest rule, over ip-src 90, text 180, ip-dst|port 180",
+          "elapsed_days": 16,
+          "runway_days": 74,
+          "runway": 0.8222,
+          "runway_pct": 82,
+          "aging_fraction": 0.33,
+          "clock": "last_independent_corroboration",
+          "clock_at": "2026-08-23",
+          "clock_by": "CthulhuSPRL.be",
+          "clock_kind": "independent sighting",
+          "expires_at": "2026-11-21",
+          "uncertain": true,
+          "uncertain_note": "no first_seen on any occurrence \u00b7 encoded 302 days after the event's own dates. The elapsed time above is measured from an encoding date, which is later than whatever it stands for \u2014 so it is a lower bound.",
+          "unchanged_note": "identical before and after: none of the candidate's three edits touches the TTL table, so the runway is the same on both sides"
+        },
+        "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
       },
       "fired": {
         "before": 9,
@@ -412,7 +434,29 @@
       "relevance": {
         "before": "uncertain",
         "after": "uncertain",
-        "changed": false
+        "changed": false,
+        "label": "timeline uncertain",
+        "runway": {
+          "state": "uncertain",
+          "label": "timeline uncertain",
+          "ttl_days": 90,
+          "ttl_from": "ip-dst",
+          "ttl_rule": "shortest rule, over ip-src 90, text 180, ip-dst|port 180",
+          "elapsed_days": 16,
+          "runway_days": 74,
+          "runway": 0.8222,
+          "runway_pct": 82,
+          "aging_fraction": 0.33,
+          "clock": "last_independent_corroboration",
+          "clock_at": "2026-08-23",
+          "clock_by": "CthulhuSPRL.be",
+          "clock_kind": "independent sighting",
+          "expires_at": "2026-11-21",
+          "uncertain": true,
+          "uncertain_note": "no first_seen on any occurrence \u00b7 encoded 302 days after the event's own dates. The elapsed time above is measured from an encoding date, which is later than whatever it stands for \u2014 so it is a lower bound.",
+          "unchanged_note": "identical before and after: none of the candidate's three edits touches the TTL table, so the runway is the same on both sides"
+        },
+        "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
       },
       "fired": {
         "before": 9,
@@ -465,7 +509,28 @@
         "relevance": {
           "before": "uncertain",
           "after": "uncertain",
-          "changed": false
+          "changed": false,
+          "runway": {
+            "state": "uncertain",
+            "label": "timeline uncertain",
+            "ttl_days": 90,
+            "ttl_from": "ip-dst",
+            "ttl_rule": "shortest rule, over ip-src 90, text 180, ip-dst|port 180",
+            "elapsed_days": 16,
+            "runway_days": 74,
+            "runway": 0.8222,
+            "runway_pct": 82,
+            "aging_fraction": 0.33,
+            "clock": "last_independent_corroboration",
+            "clock_at": "2026-08-23",
+            "clock_by": "CthulhuSPRL.be",
+            "clock_kind": "independent sighting",
+            "expires_at": "2026-11-21",
+            "uncertain": true,
+            "uncertain_note": "no first_seen on any occurrence \u00b7 encoded 302 days after the event's own dates. The elapsed time above is measured from an encoding date, which is later than whatever it stands for \u2014 so it is a lower bound.",
+            "unchanged_note": "identical before and after: none of the candidate's three edits touches the TTL table, so the runway is the same on both sides"
+          },
+          "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
         },
         "fired": {
           "before": 9,
@@ -502,7 +567,20 @@
         "relevance": {
           "before": null,
           "after": null,
-          "changed": false
+          "changed": false,
+          "runway": {
+            "state": null,
+            "label": null,
+            "reason": "no_record",
+            "note": "Nothing is recorded for this value, so there is no clock to run.",
+            "ttl_days": null,
+            "elapsed_days": null,
+            "runway_days": null,
+            "runway": null,
+            "runway_pct": null,
+            "aging_fraction": 0.33
+          },
+          "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
         },
         "fired": {
           "before": 0,
@@ -539,7 +617,18 @@
         "relevance": {
           "before": "expired \u00b7 uncertain",
           "after": "expired \u00b7 uncertain",
-          "changed": false
+          "changed": false,
+          "runway": {
+            "state": "expired",
+            "label": "expired",
+            "ttl_days": 180,
+            "elapsed_days": 1729,
+            "runway_days": -1549,
+            "runway": 0.0,
+            "runway_pct": 0,
+            "aging_fraction": 0.33
+          },
+          "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
         },
         "fired": {
           "before": 8,
@@ -590,7 +679,18 @@
         "relevance": {
           "before": "expired \u00b7 uncertain",
           "after": "expired \u00b7 uncertain",
-          "changed": false
+          "changed": false,
+          "runway": {
+            "state": "expired",
+            "label": "expired",
+            "ttl_days": 90,
+            "elapsed_days": 201,
+            "runway_days": -111,
+            "runway": 0.0,
+            "runway_pct": 0,
+            "aging_fraction": 0.33
+          },
+          "runway_source": "read from /values/viewRelevance on the dev instance, 2026-09-08; the engine is ValueRelevanceTool and the renderer is value_relevance.ctp"
         },
         "fired": {
           "before": 9,

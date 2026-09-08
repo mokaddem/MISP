@@ -187,6 +187,7 @@ detail                the ledger diff for `value`
   .totals             {before, after, delta}
   .sums               per column: {ledger, quality, ok}
   .axes               lean, quality, band, relevance, fired, rule
+  .axes.relevance     the state, plus `.runway` (below)
   .not_counted[]      what each side could not count, and what moved
   .moved[]            the ids that are not `same`
   .changed            false when nothing moved at all
@@ -196,6 +197,52 @@ comparison_empty      []
 context_builds        1
 bands                 the candidate's strip
 ```
+
+### The relevance runway
+
+The relevance axis is not just a word. It has a magnitude — a shelf life
+— and the shipped value page already draws it, so a design that renders
+relevance as a bare state is dropping something the product has.
+`axes.relevance.runway` carries it, on the assessed value and on every
+comparison row:
+
+```
+state / label         `uncertain` and its shipped label "timeline uncertain"
+ttl_days              90, and `ttl_from` / `ttl_rule` say where it came from
+elapsed_days          16
+runway_days           74 left — negative when the value is over its TTL
+runway / runway_pct   0.8222, drawn as 82%
+aging_fraction        0.33 — where `current` becomes `aging`, a mark on the bar
+clock / clock_at      what resets the shelf, and when it last did
+expires_at            the date the state flips
+uncertain(_note)      why the elapsed count is a lower bound
+```
+
+**These are the engine's numbers, not composed ones.** They were read
+from `/values/viewRelevance/<b64>` on the dev instance on 2026-09-08 —
+`ValueRelevanceTool` through `value_relevance.ctp` — and each row records
+its own `runway_source`. The instance's TTL table for these types is
+identical to profile 23's own (`ip-dst` 90, `ip-src` 90, `text` 180,
+`ip-dst|port` 180), which is what makes them attachable to this
+profile's fixture.
+
+The four pinned values cover the four shapes a runway takes:
+
+| Value | State | Runway |
+|---|---|---|
+| `8.8.8.8` | uncertain | 74 of 90 days left, 82% — a clock running, but a timeline that cannot be trusted |
+| `185.234.219.24` | *none* | **no clock at all** — nothing is recorded, so there is no shelf to draw. The same value whose lean is `none` and whose ledger does not exist |
+| `45.155.205.233` | expired | 1729 days elapsed of 180 — **1549 days over**, 0% |
+| `1.1.1.1` | expired | 201 of 90 — 111 days over, 0%, and quality 34 in the medium band |
+
+That last row is the one worth drawing carefully: **well-evidenced and
+long expired at the same time**. It is the clearest proof on the page
+that quality and relevance are separate axes, and a design that shows
+only quality cannot say it.
+
+The runway is identical before and after in this fixture, because none
+of the candidate's three edits touches the TTL table — which is itself
+the point: signal weights cannot move this axis.
 
 ### The invariant — check it, do not trust it
 
