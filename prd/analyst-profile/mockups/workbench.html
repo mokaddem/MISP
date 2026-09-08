@@ -581,6 +581,74 @@ body {
     border-bottom: 1px solid color-mix(in srgb, var(--bs-border-color) 45%, transparent);
 }
 .bench-axes span { color: var(--bs-secondary-color); }
+
+/*
+ * The assessment is three axes — lean, relevance, quality (D11,
+ * 12-assessment.md). Only quality has a ledger, so only quality has
+ * arithmetic under it; drawing the other two as footnotes to that
+ * arithmetic taught the first reader of this mockup that a profile is
+ * quality weights. These three sit at one rank, and the ledger is
+ * labelled as belonging to one of them.
+ */
+.bench-ax3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .4rem;
+    margin: .1rem 0 .45rem;
+}
+.bench-ax3 .ax {
+    display: flex;
+    flex-direction: column;
+    gap: .05rem;
+    min-width: 0;
+    padding: .3rem .45rem .35rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .3rem;
+}
+.bench-ax3 .ax-led {
+    border-color: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-border-color));
+    background: color-mix(in srgb, var(--bs-primary) 5%, transparent);
+}
+.bench-ax3 .ax-n {
+    font: 600 .5625rem/1.5 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+.bench-ax3 .ax-v {
+    font-size: .9375rem;
+    line-height: 1.25;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.bench-ax3 .ax-was {
+    font: 400 .6875rem/1.3 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.bench-ax3 .ax-g {
+    font-size: .6875rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color);
+}
+.bench-rel {
+    font-size: .6875rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+    margin: 0 0 .35rem;
+}
+.bench-rel b { color: var(--bs-body-color); font-weight: 600; }
+.bench-meta { margin-top: .45rem; }
+
+/* Which axis a section configures. The rail is the only place that can
+ * say it, because it is the only place that lists all seven at once. */
+.wb-rail-ax {
+    display: block;
+    font: 600 .5625rem/1.5 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+.wb-rail-item.is-open .wb-rail-ax { color: var(--bs-primary); }
 .bench-sec {
     font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
     letter-spacing: .09em;
@@ -676,6 +744,9 @@ body {
     .wb-narrow-only { display: revert !important; }
     .wb-wide-only   { display: none !important; }
     .bench-axes     { grid-template-columns: minmax(0, 1fr); }
+    .bench-ax3      { gap: .3rem; }
+    .bench-ax3 .ax  { padding: .25rem .35rem .3rem; }
+    .bench-ax3 .ax-v { font-size: .8125rem; }
     .wb-panehead em { display: none; }
     .wb-bench-inner { padding: .7rem .7rem 1rem; }
 }
@@ -1772,33 +1843,36 @@ body {
             <nav class="wb-rail" id="edit-rail">
               <div class="wb-rail-title">Sections</div>
               <button type="button" class="wb-rail-item is-open" data-sec="signals">
-                <span><span class="mk">&#8961;</span> Signals</span><span class="c">12</span>
+                <span><span class="mk">&#8961;</span> Signals<span class="wb-rail-ax">quality</span></span><span class="c">12</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="thresholds">
-                <span>Thresholds</span><span class="c">7</span>
+                <span>Thresholds<span class="wb-rail-ax">quality &mdash; the bands</span></span><span class="c">7</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="escalations">
-                <span>Conflict rules</span><span class="c">2</span>
+                <span>Conflict rules<span class="wb-rail-ax">lean</span></span><span class="c">2</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="exclusions">
-                <span>Exclusions</span><span class="c">4</span>
+                <span>Exclusions<span class="wb-rail-ax">quality</span></span><span class="c">4</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="relevance">
-                <span>Relevance</span><span class="c">12</span>
+                <span>Relevance<span class="wb-rail-ax">relevance</span></span><span class="c">12</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="reference">
-                <span>Reference data</span><span class="c">5</span>
+                <span>Reference data<span class="wb-rail-ax">quality &mdash; trust weighting</span></span><span class="c">5</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="enrichment">
-                <span>Enrichment</span><span class="c">4</span>
+                <span>Enrichment<span class="wb-rail-ax">no axis &mdash; context</span></span><span class="c">4</span>
               </button>
               <button type="button" class="wb-rail-item" data-sec="raw">
-                <span>Raw JSON</span><span class="c">6.5&thinsp;KB</span>
+                <span>Raw JSON<span class="wb-rail-ax">all three</span></span><span class="c">6.5&thinsp;KB</span>
               </button>
               <p class="wb-rail-note">
                 <span class="mk">&#8961;</span> marks a section holding an edit
                 this session has made and not saved. The rail is the whole
-                document; the pane to its right is one section of it.
+                document; the pane to its right is one section of it. Under each
+                section is the axis it configures &mdash; six of the seven reach
+                only one of the three, which is the fastest way to see that a
+                profile is not just a set of quality weights.
               </p>
             </nav>
 
@@ -2928,7 +3002,35 @@ body {
                 </div>
                 <div class="bench-live">recomputed &middot; 1 context build</div>
 
-                <div class="bench-q mt-2">
+                <div class="bench-sec"><span>Assessment</span><span class="wb-sub">three axes, read separately</span></div>
+                <div class="bench-ax3">
+                  <div class="ax">
+                    <span class="ax-n">lean</span>
+                    <b class="ax-v">contested</b>
+                    <span class="ax-g">what the record asserts</span>
+                  </div>
+                  <div class="ax">
+                    <span class="ax-n">relevance</span>
+                    <b class="ax-v">timeline uncertain</b>
+                    <span class="ax-g">whether it still holds</span>
+                  </div>
+                  <div class="ax ax-led">
+                    <span class="ax-n">quality</span>
+                    <b class="ax-v num">23 <span class="ax-was">was 4</span></b>
+                    <span class="ax-g">how well evidenced &middot; band <b>low</b></span>
+                  </div>
+                </div>
+                <p class="bench-rel">
+                  Three readings, not one score. The <b>lean</b> anchors the ledger
+                  &mdash; every row is <span class="num">points &times; polarity</span>
+                  and <b>quality</b> is that anchored sum, with the band cut from it.
+                  This value is <b>contested</b>, so there is no polarity and the ledger
+                  renders threat-signed; a lean of <b>none</b> has no ledger at all.
+                  <b>Relevance</b> is the clock, and touches neither.
+                </p>
+
+                <div class="bench-sec"><span>The quality ledger</span><span class="wb-sub">the only axis that sums</span></div>
+                <div class="bench-q">
                   <span class="now">23</span>
                   <span class="from">
                     quality<br>
@@ -2946,10 +3048,7 @@ body {
                 </div>
                 <div class="wb-scale"><span style="flex:0 0 0">0</span><span style="flex:0 0 27.027%">30</span><span style="flex:0 0 27.027%">60</span><span style="flex:1 1 auto">111 attainable</span></div>
 
-                <div class="bench-axes">
-                  <div><span>band</span><b>low</b></div>
-                  <div><span>lean</span><b>contested</b></div>
-                  <div><span>relevance</span><b>uncertain</b></div>
+                <div class="bench-axes bench-meta">
                   <div><span>signals fired</span><b class="num">9</b></div>
                   <div><span>attainable bound</span><b class="num">111 <span class="wb-sub">was 129</span></b></div>
                   <div><span>saved</span><b class="wb-sub">nothing, ever</b></div>
@@ -3291,11 +3390,32 @@ body {
                   </tfoot>
                 </table>
 
-                <div class="bench-axes mt-3" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-                  <div><span>lean</span><b>contested &rarr; contested</b></div>
-                  <div><span>band</span><b>low &rarr; low</b></div>
-                  <div><span>quality</span><b class="num">4 &rarr; 23</b></div>
-                  <div><span>relevance</span><b>uncertain &rarr; uncertain</b></div>
+                <div class="bench-sec" style="margin-top:1rem"><span>Assessment</span><span class="wb-sub">before &rarr; after</span></div>
+                <div class="bench-ax3">
+                  <div class="ax">
+                    <span class="ax-n">lean</span>
+                    <b class="ax-v">contested &rarr; contested</b>
+                    <span class="ax-g">unchanged</span>
+                  </div>
+                  <div class="ax">
+                    <span class="ax-n">relevance</span>
+                    <b class="ax-v">timeline uncertain &rarr; timeline uncertain</b>
+                    <span class="ax-g">unchanged</span>
+                  </div>
+                  <div class="ax ax-led">
+                    <span class="ax-n">quality</span>
+                    <b class="ax-v num">4 &rarr; 23</b>
+                    <span class="ax-g">band low &rarr; low</span>
+                  </div>
+                </div>
+                <p class="bench-rel">
+                  Quality moved and the other two did not, which is the ordinary
+                  case rather than a failed edit. Signal weights can only reach
+                  <b>quality</b>; the <b>lean</b> changes only through the conflict
+                  rules, and nothing in a profile moves <b>relevance</b> except the
+                  TTL table.
+                </p>
+                <div class="bench-axes bench-meta">
                   <div><span>signals fired</span><b class="num">9 &rarr; 9</b></div>
                   <div><span>not counted</span><b class="wb-sub">nothing, on either side</b></div>
                 </div>
@@ -3327,7 +3447,7 @@ body {
                       <td>contested &rarr; contested</td>
                       <td class="r num">4 &rarr; <b>23</b></td>
                       <td>low &rarr; low</td>
-                      <td class="wb-wide-only">uncertain</td>
+                      <td class="wb-wide-only">timeline uncertain</td>
                       <td class="wb-wide-only r num">9 &rarr; 9</td>
                       <td class="r d-up">&#9650;</td>
                     </tr>
@@ -3452,14 +3572,14 @@ body {
 
         <nav class="wb-rail">
           <div class="wb-rail-title">Sections</div>
-          <button type="button" class="wb-rail-item is-open"><span><span class="mk">&#8961;</span> Signals</span><span class="c">12</span></button>
-          <button type="button" class="wb-rail-item"><span>Thresholds</span><span class="c">7</span></button>
-          <button type="button" class="wb-rail-item"><span>Conflict rules</span><span class="c">2</span></button>
-          <button type="button" class="wb-rail-item"><span>Exclusions</span><span class="c">4</span></button>
-          <button type="button" class="wb-rail-item"><span>Relevance</span><span class="c">12</span></button>
-          <button type="button" class="wb-rail-item"><span>Reference data</span><span class="c">5</span></button>
-          <button type="button" class="wb-rail-item"><span>Enrichment</span><span class="c">4</span></button>
-          <button type="button" class="wb-rail-item"><span>Raw JSON</span><span class="c">6.5&thinsp;KB</span></button>
+          <button type="button" class="wb-rail-item is-open"><span><span class="mk">&#8961;</span> Signals<span class="wb-rail-ax">quality</span></span><span class="c">12</span></button>
+          <button type="button" class="wb-rail-item"><span>Thresholds<span class="wb-rail-ax">quality &mdash; the bands</span></span><span class="c">7</span></button>
+          <button type="button" class="wb-rail-item"><span>Conflict rules<span class="wb-rail-ax">lean</span></span><span class="c">2</span></button>
+          <button type="button" class="wb-rail-item"><span>Exclusions<span class="wb-rail-ax">quality</span></span><span class="c">4</span></button>
+          <button type="button" class="wb-rail-item"><span>Relevance<span class="wb-rail-ax">relevance</span></span><span class="c">12</span></button>
+          <button type="button" class="wb-rail-item"><span>Reference data<span class="wb-rail-ax">quality &mdash; trust weighting</span></span><span class="c">5</span></button>
+          <button type="button" class="wb-rail-item"><span>Enrichment<span class="wb-rail-ax">no axis &mdash; context</span></span><span class="c">4</span></button>
+          <button type="button" class="wb-rail-item"><span>Raw JSON<span class="wb-rail-ax">all three</span></span><span class="c">6.5&thinsp;KB</span></button>
         </nav>
 
         <div class="wb-body">
@@ -3536,11 +3656,23 @@ body {
               <div class="wb-mark" style="left:20.72%"><b>23</b></div>
             </div>
             <div class="wb-scale"><span style="flex:0 0 0">0</span><span style="flex:0 0 27.027%">30</span><span style="flex:0 0 27.027%">60</span><span style="flex:1 1 auto">111</span></div>
-            <div class="bench-axes">
-              <div><span>band</span><b>low</b></div>
-              <div><span>lean</span><b>contested</b></div>
-              <div><span>relevance</span><b>uncertain</b></div>
-              <div><span>fired</span><b class="num">9</b></div>
+            <div class="bench-ax3">
+              <div class="ax">
+                <span class="ax-n">lean</span>
+                <b class="ax-v">contested</b>
+              </div>
+              <div class="ax">
+                <span class="ax-n">relevance</span>
+                <b class="ax-v">timeline uncertain</b>
+              </div>
+              <div class="ax ax-led">
+                <span class="ax-n">quality</span>
+                <b class="ax-v num">23</b>
+                <span class="ax-g">band low</span>
+              </div>
+            </div>
+            <div class="bench-axes bench-meta">
+              <div><span>signals fired</span><b class="num">9</b></div>
             </div>
             <div class="bench-sec"><span>Moved</span><span class="num">3 of 10</span></div>
             <table class="wb-tbl">

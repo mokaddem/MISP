@@ -214,6 +214,10 @@ which file.
 
 ## 7. How one gets picked
 
+**Decided: B, the workbench, on 2026-09-08.** The record — the
+four questions answered, the hybrid it turned out to be, and what 8c
+inherits — is [`09b-decision.md`](09b-decision.md).
+
 Not by vote. The three are published together and the decision is the user's,
 made against these questions:
 
