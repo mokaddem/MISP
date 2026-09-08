@@ -177,6 +177,25 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
   and the one a reader is most likely to meet first
   (`09-editor.md` §549 flags the same thing). Worth a fixture that shows
   `current` before 8c draws the real thing.
+- **Relevance has a magnitude, and no candidate could draw it.** Only
+  quality carries a bar in all three candidates, and for the lean that is
+  permanently right — it is categorical and timeless
+  (`12-assessment.md` §2.1), so `contested` is not *more* than `threat`
+  and a bar would invent an ordering. For relevance it is wrong. The
+  shipped `value_relevance.ctp` already draws a shelf with
+  `runway_days` — *"N days left"*, *"N days over"* — and
+  `06-staleness.md` §4.2 designs the value page's chart precisely as
+  **evidence strength against remaining shelf life**, two quantities
+  both drawn. But `09a-fixtures/` carries **no runway at all**: the
+  relevance axis is a bare string (`"uncertain"` before and after), so
+  a candidate obeying *invent no number* had nothing to draw and every
+  candidate rendered relevance as a word.
+
+  This is the same bias as §3, one level down: the axis with the
+  arithmetic gets the apparatus, and the fixture that fed the design had
+  already dropped the other axis's. **8c should carry the runway into
+  the editor's view-model**, and the fixture should carry it first.
+
 - **The composed relevance form.** The fixtures carry
   `expired · uncertain`, and `value_relevance.ctp` renders one labelled
   state. Whether the shipped page says *"expired · timeline uncertain"*,
