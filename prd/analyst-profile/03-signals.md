@@ -306,6 +306,12 @@ Same treatment, different reason string — §8.5.
 
 ## 5. Q5 — is the band derived or editorial? **Decided 2026-09-07, D14**
 
+> **Superseded by D16 on 2026-09-10: the band is removed entirely.**
+> What follows is still the record of why it is not *derived* — that
+> part holds. What it got wrong is the conclusion that it therefore
+> had to be kept, and which quantity to test against. Read §5.1
+> before acting on anything below.
+
 **Editorial: the band is declared per signal in the profile.** Not a
 preference — the fixture forecloses the alternative, and the table below is
 the evidence rather than an illustration of it.
@@ -352,6 +358,94 @@ screen and are opposites in the data model.
 
 `attribution.galaxy`'s fixture inconsistency above is still owed, and it is
 phase 9's — one of the rows it changes.
+
+### 5.1 Superseded — the band is removed. Decided 2026-09-10, D16
+
+**D14 is right about what it proved and wrong about what follows.** The
+band is not derived; it does not follow that it should be kept.
+
+**D14 tested the wrong quantity.** It asked whether the label could be
+derived from the **contribution** — what a signal produced on one value.
+It cannot, and it never could: the contribution is a function of the
+evidence in front of it, so the same signal produces 9 on one value and
+7 on another (D14's own example). No threshold on a per-value number can
+label a per-signal property.
+
+The quantity that *does* express "what this kind of evidence is worth in
+principle" is the **ceiling**: the most the signal could ever contribute.
+It exists for every signal — `cap` where there is one, the largest
+positive entry in the points map where there is not — and it is **already
+computed and already on screen**, because the attainable bound is
+precisely the sum of these:
+
+| Signal | Band | Ceiling |
+|---|---|---|
+| `reporting.independent_orgs` | strong | 28 |
+| `sightings.volume_recency` | strong | 24 |
+| `attribution.galaxy` | strong | 21 |
+| `lifecycle.continuity` | moderate | 12 |
+| `reporting.published_ratio` | moderate | 9 |
+| `attribution.technique` | **weak** | **9** |
+| `lifecycle.feeds` | moderate | 8 |
+| `lifecycle.recency` | moderate | 8 |
+| `lifecycle.warninglist` | weak | 6 |
+| `record.temporal_precision` | weak | 4 |
+| `sightings.false_positive` | **moderate** | **0** |
+
+`28 + 24 + 21 + 12 + 9 + 9 + 8 + 8 + 6 + 4 + 0 = 129`, which is the
+shipped default's attainable bound exactly.
+
+**Against the right quantity the labelling nearly works, and then does
+not.** `strong` is cleanly the top three (21–28). Below that it stops
+meaning anything: `attribution.technique` is `weak` at a ceiling of 9
+while `reporting.published_ratio` is `moderate` at the same 9, with no
+stated reason; and `sightings.false_positive` is labelled `moderate`
+though its ceiling is **0** — it can only ever subtract. Calling a purely
+subtractive signal a grade of evidence is not an editorial judgement, it
+is a field nobody was maintaining.
+
+So the band is a word approximating a number the engine already knows,
+and in the two places the word departs from the number, the departure
+explains nothing and changes nothing.
+
+**Decided: remove `band` from the signal schema.** Not renamed —
+removed.
+
+What goes:
+
+- the per-signal `band` entry in the profile document, and
+  `ValueSignalBase::$default_band`;
+- `AnalystProfileFormTool::BANDS`, the select, and its validation;
+- the ledger row's `weight` key in `ValueVerdictTool`, and the two
+  templates that print it (`value_verdict_ledger.ctp`,
+  `value_verdict_card.ctp`);
+- the column from the editor's signals table.
+
+**Back-compat:** `parameters` is opaque JSON, so a `band` stored on an
+existing fork is simply ignored once nothing reads it. No migration.
+Confirm nothing else reads the key before removing the writer.
+
+**Three things this buys.**
+
+1. **The word *band* means one thing again.** It was naming both this
+   label and the derived quality band (`none`/`low`/`medium`/`high`) —
+   on the same screen, in the same ledger. That collision was the
+   reported confusion; the rename would have fixed the symptom.
+2. **The editor stops showing a control that looks like a dial.** A
+   reader who lowered `strong` to `weak` expecting the score to move was
+   right to expect it: it sits beside a points column and reads as
+   arithmetic.
+3. **D14's outstanding obligation dissolves.** §5 records a fixture
+   inconsistency that "has to be fixed either way" — `attribution.galaxy`
+   labelled `moderate` on one value and `strong` on another. With no
+   field there is nothing to reconcile, and phase 9 has one less row to
+   change.
+
+**What is lost, stated plainly.** An organisation can no longer say *"in
+our shop this kind of evidence is weak"* without changing numbers. That
+was the case for keeping it. It is not worth a field that contradicts the
+numbers beside it — and the honest way to make that statement was always
+to change the points, which is the thing that actually scores.
 
 ## 6. The catalogue
 

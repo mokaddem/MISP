@@ -204,6 +204,68 @@ first_seen"*) — never a silently wrong `current`. The same facts feed
 record that cannot date its own observations is a weaker record. The
 uncertainty finally has somewhere to go.
 
+### 3.7 Four buckets and an override, not a row per type. Decided 2026-09-10, D18
+
+**`ttl_days` stops being a map of attribute type to days and becomes four
+named buckets, plus per-type overrides for genuine exceptions, plus the
+existing `default`.**
+
+The per-type table is more granular than anyone edits. The shipped
+default names eleven types; MISP has **194**, and the editor offered all
+194 in its *add a type* picker. The analyst wanting *"hashes stay
+relevant longer than IPs"* had to say it eleven times.
+
+**The four buckets, and the shipped mapping.** The names carry their day
+count wherever they appear.
+
+| Bucket | Days | Types in the shipped default |
+|---|---|---|
+| short | 90 | `ip-dst`, `ip-src` |
+| medium | 120 | `domain`, `email-src`, `hostname` |
+| long | 365 | `btc`, `filename` |
+| very long | 730 | `md5`, `sha1`, `sha256` |
+| *(default)* | 180 | every type not named |
+| *(override)* | 60 | `url` — the only exception the shipped default needs |
+
+**Four rather than three, and this is the whole reason.** The shipped
+table uses five distinct values (60, 90, 120, 365, 730). Three buckets
+cannot hold them: adopting three would move `url` off 60 and the entire
+120-day group onto some other number, which changes how long real values
+stay relevant **on every instance running the default** — a silent
+behaviour change produced by a UI simplification, which is the worst kind.
+Four buckets plus one override reproduces the shipped table exactly, so
+the upgrade changes nothing.
+
+**`type_rule` still compares days.** Buckets resolve to their day count
+*before* `chooseType()` compares, so `shortest` keeps meaning the
+shortest TTL. Comparing bucket ordinals instead would be a different
+rule wearing the same name, and is not adopted.
+
+**The migration is the sharp edge.** `parameters` is an opaque JSON
+column, so there is **no database migration** — and that is exactly what
+makes this dangerous. `AnalystProfile::updateDefaults()` never touches
+forks, so **every profile a user has forked still carries the flat
+per-type map.** Without a read-time shim, those forks resolve no TTLs
+and every value in them silently changes shelf life, with nobody having
+edited anything.
+
+So `ValueRelevanceTool::section()` **must accept both shapes**: a flat
+`ttl_days` map is read as *"no buckets; every named type is its own
+override"*, which is precisely what it already means. That reading is
+exact, not approximate — it is why the override list exists at all, and
+it means an old fork keeps behaving identically until someone opens the
+editor.
+
+**Validation changes** (`AnalystProfileFormTool::relevanceErrors()`):
+each bucket's days must be a whole number above zero, every type must
+name a bucket that exists, `default` is still required, and an override
+is still a whole number of days.
+
+**The remaining design problem is the assignment UI**, and it is the
+reason this is worth doing: 194 types into four buckets is a
+select-many-types-into-a-bucket interaction, not one row per type. The
+override list is a short second table, not a third mode.
+
 ## 4. What gets retired, and what replaces it
 
 | What | Where | Replacement |

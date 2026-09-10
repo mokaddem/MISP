@@ -282,10 +282,15 @@ cut it.**
 > and nothing depended on them*. A field that contradicts the numbers
 > beside it adds noise, not judgement.
 
-**This supersedes D14** (`03-signals.md:307-345`) and must be written
-there as a dated decision before the code changes, with the reasoning
-above — D14 is not wrong about derivability, it is wrong about the
-conclusion.
+**Written up as D16** (`03-signals.md` §5.1, 2026-09-10), which
+supersedes D14 and carries the evidence: measured against each signal's
+**ceiling** rather than its per-value contribution, the labelling
+overlaps (`attribution.technique` `weak` at 9 beside
+`reporting.published_ratio` `moderate` at 9) and calls
+`sightings.false_positive` `moderate` though it can only subtract. Those
+ceilings sum to 129 — the attainable bound the page already shows — so
+the number the band gestures at is already computed and already on
+screen. D14's §5 heading now carries a supersession notice.
 
 What to remove, in one **product** commit:
 - the per-signal `band` entry in the profile schema, and
@@ -407,11 +412,12 @@ shelf life on every instance. Four plus an override preserves every
 shipped number while collapsing the editor from 194 possible rows to
 four choices and one exception.
 
-**Still to write into `06-staleness.md` before coding**: the stored
-shape, the read-time shim for forks carrying the flat map (item 7
-above — this is the one that decides whether the change is cheap), and
-what `type_rule` compares now (keep resolving to days *before* the
-comparison, so `shortest` keeps meaning shortest).
+**Written up as D18** (`06-staleness.md` §3.7, 2026-09-10), including
+the stored shape, the read-time shim for forks carrying the flat map
+(item 7 above — the one that decides whether this is cheap), the
+validation changes, and the ruling that `type_rule` still compares
+**days**: buckets resolve to their day count *before* `chooseType()`
+compares, so `shortest` keeps meaning shortest.
 
 The remaining design problem is the assignment UI: 194 types into four
 buckets, so think select-many-types-into-a-bucket, not one row per
@@ -564,9 +570,14 @@ list must keep meaning "ticked".
 
 **Decided 2026-09-10: ship (a) and (c) now, defer (b).** Build the
 tri-state schema anyway, so auto-run can be added later without a second
-migration. Record in `08-enrichment.md` that (b) is deferred and why —
-the missing last-run store, the dead queue path, and that auto-run
-*widens* what a profile does, against the stated narrow-only invariant.
+migration.
+
+**Written up as D17** (`08-enrichment.md` §2.3), naming the three states
+`ticked` / `never` / `auto`, recording all three deferral reasons, and
+adding one requirement the plan had not: **`never` must be enforced in
+`ValueProfile::enrichmentRun()`**, not merely by disabling the checkbox —
+the run endpoint takes a module name from the request, so a view-only
+guard is not a guard. D15 stands: nothing auto-runs.
 
 ### 3.17 — Enrichment: "cost posture" is a misnomer · **decided** (§7.3)
 
@@ -748,9 +759,11 @@ patches by unique-anchor replacement with assertions**, not by line
 number — the file is ~3900 lines and shifts under edits. Rebuild and run
 the checker after *each* merge, not once at the end.
 
-**Track D — decided, needs writing down before coding.** Each item's
-decision goes into its PRD as a dated entry *first*, then the schema,
-then the drawing. In order of value:
+**Track D — decided and written up. Build to the PRD entries.**
+D16, D17 and D18 were written on 2026-09-10 (`03-signals.md` §5.1,
+`08-enrichment.md` §2.3, `06-staleness.md` §3.7) and are in the register
+in `README.md`. Nothing here needs a decision or a write-up first — go
+straight to the schema, then the drawing. In order of value:
 
 1. **3.9 — cut the signal `band`.** Supersede D14 in `03-signals.md`,
    then remove the field, its validation, the ledger's `weight` key and
@@ -803,9 +816,9 @@ hand-maintained. → 3.17.
 org-trust blurb uses the word *reputation*. → 3.20.
 
 **7.5 — Cut `strong`/`moderate`/`weak` entirely.** Not renamed — removed.
-It changes no score, and `points.cap` already says what it claims to say,
-in real units. **This supersedes D14** and must be written into
-`03-signals.md` as a dated decision before the code changes. → 3.9.
+It changes no score, and the signal's **ceiling** already says what it
+claims to say, in real units — and that number is already summed into
+the attainable bound. Written up as **D16**, superseding D14. → 3.9.
 
 **7.6 — Four TTL buckets plus a per-type override**, named *short /
 medium / long / very long* (90 / 120 / 365 / 730), with `url` at 60 as

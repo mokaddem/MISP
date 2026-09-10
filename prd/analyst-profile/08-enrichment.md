@@ -166,6 +166,58 @@ when a declared module is missing from the eligible set**. A
 declaration that resolves cleanly pays nothing, and the shipped default,
 which declares nothing, can never pay it. Measured in §6.
 
+### 2.3 Three run states, two of them built. Decided 2026-09-10, D17
+
+**The declaration gains a third state per module. Two ship; the third is
+declared and not implemented.**
+
+Today `auto_run` is `type => [module names]` and yields two outcomes:
+**selected** (the box arrives ticked, a human still presses) and
+**withheld** (declared, but held back by the locality posture). "Cannot
+be run" is not a profile decision at all — only the instance can forbid a
+module.
+
+The shape becomes `type => {module: state}`, with three states:
+
+| State | Meaning | Ships |
+|---|---|---|
+| `ticked` | arrives ticked, still needs a press — today's `selected` | **yes** |
+| `never` | this profile will not run this module, at all | **yes** |
+| `auto` | runs without being asked | **no — deferred** |
+
+**Why `auto` is deferred.** Three reasons, and the third is the one that
+is not just plumbing:
+
+1. **There is still no last-run store.** This is D15's original reason
+   and it has not moved: `Module` is `useTable = false`, nothing records
+   that a module was asked about a value, so *"run the declared modules
+   on open"* means running them on **every** open.
+2. **The queued path is dead code.** `Event::enrichmentRouter()` returns
+   before its `MISP.background_jobs` branch, so there is no working
+   route to run enrichment off the request.
+3. **Auto-run widens what a profile does**, and §2.1 says a profile may
+   only ever narrow, never widen. Every other setting in this document
+   removes something: fewer modules ticked, fewer leaving the instance.
+   `auto` is the first that would make a profile *cause* outbound
+   requests that would not otherwise happen — on somebody else's
+   instance, under a profile they may have forked and forgotten. That
+   needs a consent story, not a scheduler.
+
+**D15 therefore stands**: nothing auto-runs. This decision does not
+reverse it; it names the state so the schema is shaped for it.
+
+**Why the schema lands now anyway.** Adding a third state later means a
+second pass over the same map in every stored profile. The cost of
+carrying an unimplemented enum value is a line in a validator; the cost
+of migrating twice is not.
+
+**`never` must be enforced server-side** — in `ValueProfile::enrichmentRun()`,
+not merely by disabling the checkbox. The run endpoint takes a module
+name from the request, so a view-only guard is not a guard.
+
+**Back-compat:** a bare list keeps meaning *"every module named here is
+`ticked`"*, which is exactly what it means today. Read both shapes.
+
 ## 3. Locality: which modules answer from inside
 
 ### 3.1 The knowledge ships as code, and cannot be derived
