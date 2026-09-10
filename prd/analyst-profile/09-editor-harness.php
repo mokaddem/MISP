@@ -315,6 +315,64 @@ is_same(array(), $ok['warnings'],
 
 /*
  * ------------------------------------------------------------------
+ * 2b. The editor's vocabulary is the engine's
+ * ------------------------------------------------------------------
+ * `09b-revisions.md` 3.13. The form tool carried its own `CLOCKS` and
+ * `TYPE_RULES` lists and both had drifted: it offered `first`, which
+ * the engine treats as `shortest`, and refused `most_common`, which the
+ * engine implements. A profile a reader could not have written was
+ * being refused, so the lists are asserted equal rather than reviewed.
+ */
+out('');
+out('== the editor speaks the engine\'s vocabulary ==');
+$relevanceSection = $form->sections($parameters, array(
+    'attribute_types' => array('ip-src', 'ip-dst', 'domain'),
+))['relevance'];
+$clockField = null;
+$ruleField = null;
+$speedField = null;
+foreach ($relevanceSection['blocks'][0]['fields'] as $field) {
+    if ($field['key'] === 'clock') {
+        $clockField = $field;
+    } elseif ($field['key'] === 'type_rule') {
+        $ruleField = $field;
+    } elseif ($field['key'] === 'decay_speed') {
+        $speedField = $field;
+    }
+}
+is_same(ValueRelevanceTool::CLOCKS, $clockField['options'],
+    'the clock select offers exactly the clocks the engine reads');
+is_same(ValueRelevanceTool::TYPE_RULES, $ruleField['options'],
+    'and the type rule select exactly the rules it applies');
+$mostCommon = $parameters;
+$mostCommon['relevance']['type_rule'] = 'most_common';
+is_same(array(), $form->validate($mostCommon)['errors'],
+    '`most_common` is accepted — it was refused, and it is the rule the'
+        . ' engine implements');
+$invented = $parameters;
+$invented['relevance']['type_rule'] = 'first';
+is_same(1, count($form->validate($invented)['errors']),
+    'and `first` is refused — the editor used to offer it and the'
+        . ' engine silently read it as `shortest`');
+
+/*
+ * `decay_speed` was declared `int`, which cannot express the sub-1 half
+ * of the curve family, and had no validator at all.
+ */
+is_same('float', $speedField['type'],
+    'decay speed is a float, so the holds-then-cliff half of the curve'
+        . ' family is reachable from the editor');
+$half = $parameters;
+$half['relevance']['decay_speed'] = 0.5;
+is_same(array(), $form->validate($half)['errors'],
+    'and 0.5 validates');
+$zero = $parameters;
+$zero['relevance']['decay_speed'] = 0;
+is_same(1, count($form->validate($zero)['errors']),
+    'while zero is refused rather than silently swapped for the default');
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,

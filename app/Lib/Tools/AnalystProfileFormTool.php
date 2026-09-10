@@ -92,15 +92,6 @@ class AnalystProfileFormTool
     /** The editorial bands a profile may put a signal in (D14). */
     const BANDS = array('strong', 'moderate', 'weak');
 
-    /** The clocks `relevance` may be told to read (`06-staleness.md`). */
-    const CLOCKS = array(
-        'last_independent_corroboration',
-        'newest_occurrence',
-    );
-
-    /** How a per-type TTL table resolves for a multi-type value. */
-    const TYPE_RULES = array('shortest', 'longest', 'first');
-
     /**
      * The whole view-model for `view` and `edit`.
      *
@@ -856,7 +847,7 @@ class AnalystProfileFormTool
                             'key' => 'clock',
                             'label' => __('Measure from'),
                             'type' => 'select',
-                            'options' => self::CLOCKS,
+                            'options' => ValueRelevanceTool::CLOCKS,
                             'value' => isset($section['clock'])
                                 ? $section['clock']
                                 : null,
@@ -864,25 +855,29 @@ class AnalystProfileFormTool
                             'help' => __(
                                 'Last independent corroboration is'
                                 . ' somebody other than the original'
-                                . ' reporter saying it again. Newest'
-                                . ' occurrence is the fallback where'
-                                . ' nothing else can be dated.'
+                                . ' reporter saying it again. Last'
+                                . ' sighting counts sightings alone;'
+                                . ' last occurrence falls back to the'
+                                . " value's own newest encoding, which"
+                                . ' every value has.'
                             ),
                             'path' => array('relevance', 'clock'),
                         ),
                         array(
                             'key' => 'decay_speed',
                             'label' => __('Decay speed'),
-                            'type' => 'int',
+                            'type' => 'float',
                             'value' => isset($section['decay_speed'])
                                 ? $section['decay_speed']
                                 : null,
-                            'default' => 1,
+                            'default' => 1.0,
                             'help' => __(
-                                "MISP's polynomial. 1 is linear;"
-                                . ' exponential has no TTL to measure'
-                                . ' against, which is why the curve is'
-                                . ' pinned here.'
+                                "MISP's polynomial. 1 is linear; below"
+                                . ' 1 holds its value then falls off a'
+                                . ' cliff; above 1 drops at once then'
+                                . ' lingers. Exponential has no TTL to'
+                                . ' measure against, which is why the'
+                                . ' curve is pinned here.'
                             ),
                             'path' => array('relevance', 'decay_speed'),
                         ),
@@ -924,7 +919,7 @@ class AnalystProfileFormTool
                             'key' => 'type_rule',
                             'label' => __('A value with several types'),
                             'type' => 'select',
-                            'options' => self::TYPE_RULES,
+                            'options' => ValueRelevanceTool::TYPE_RULES,
                             'value' => isset($section['type_rule'])
                                 ? $section['type_rule']
                                 : null,
@@ -1703,7 +1698,8 @@ class AnalystProfileFormTool
         $errors = array();
         $section = $this->section($parameters, 'relevance');
         if (isset($section['clock'])
-            && !in_array($section['clock'], self::CLOCKS, true)
+            && !in_array($section['clock'], ValueRelevanceTool::CLOCKS,
+                true)
         ) {
             $errors[] = sprintf(
                 __('`relevance.clock`: `%s` is not a clock this version'
@@ -1712,13 +1708,24 @@ class AnalystProfileFormTool
             );
         }
         if (isset($section['type_rule'])
-            && !in_array($section['type_rule'], self::TYPE_RULES, true)
+            && !in_array($section['type_rule'],
+                ValueRelevanceTool::TYPE_RULES, true)
         ) {
             $errors[] = sprintf(
                 __('`relevance.type_rule`: `%s` is not a rule this'
                     . ' version applies.'),
                 $section['type_rule']
             );
+        }
+        if (isset($section['decay_speed'])) {
+            $speed = $section['decay_speed'];
+            if (!is_numeric($speed) || $speed <= 0) {
+                $errors[] = __(
+                    '`relevance.decay_speed` must be a number above'
+                    . ' zero — it is the exponent the runway is raised'
+                    . ' to, and zero has no curve.'
+                );
+            }
         }
         if (isset($section['aging_fraction'])) {
             $fraction = $section['aging_fraction'];
