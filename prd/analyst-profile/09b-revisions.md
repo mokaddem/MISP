@@ -79,8 +79,11 @@ decision is made, and a quarter of it is not a drawing task at all.
 |---|---|---|
 | **A** | Already designed and/or built, never drawn. Pure drawing. | 3.1 fork, 3.2 import/export, 3.5 pinned-values copy |
 | **M** | Mockup-only. Draw it, no open question. | 3.3, 3.6, 3.7, 3.8, 3.11, 3.14, 3.15, §4 |
-| **P** | **Product bugs found by this review.** Real defects in built code, independent of the mockup. | 3.9, 3.10, 3.13 |
-| **D** | **Needs a design decision before it can be drawn.** Schema and/or engine change. | 3.4 (add form), 3.12 (TTL buckets), 3.16 (enrichment states), 3.17 (cost posture) |
+| **P** | **Product bugs found by this review.** Real defects in built code, independent of the mockup. | 3.10, 3.13, 3.18 |
+| **D** | Schema and/or engine change. **All four were decided on 2026-09-10 — see §7.** | 3.9 (cut the band), 3.12 (TTL buckets), 3.16 (enrichment states), 3.17 (locality rename) |
+
+3.4 is closed: no blank-slate form (§7.1). 3.9 grew — it is no longer a
+rename but a field deletion that supersedes a recorded decision (§7.5).
 
 **Bucket P is the surprise of this round.** Reviewing a mockup turned up
 three defects in shipped code that no mockup change can fix, and one of
@@ -136,7 +139,7 @@ The full built action set is: `index`, `view`, `edit`, `fork`, `enable`,
 plus `update` (site-admin only). Check the index draws all of the ones
 that belong to a row, and nothing that does not exist.
 
-### 3.4 — An "add"/"create" button · bucket D — **ask before building**
+### 3.4 — An "add"/"create" button · **decided: no** (§7.1)
 
 > "also add a 'add' or 'create' button so that a user can add their own model"
 
@@ -152,13 +155,10 @@ that belong to a row, and nothing that does not exist.
 
 There is no `add` action and no ACL entry for one.
 
-**Plan:** the reviewer's intent — *"a user can make their own"* — is
-already served by fork (3.1) and import (3.2), neither of which was
-drawn, which is very likely why the affordance felt missing. **Do 3.1
-and 3.2 first, then ask the reviewer whether the gap is closed.** Only
-if they still want a blank-slate form is D5 reopened, and that is a PRD
-decision with an ACL entry, a controller action and a validation story —
-not a button.
+**Decided 2026-09-10: no blank-slate form.** D5 stands. The create path
+is **one control on the index** — *"New profile ▾ → Fork the instance
+default / Import JSON"* — which is create-shaped, reverses nothing, and
+is built already. Build that; do not add an `add` action.
 
 ### 3.5 — "Pinned values" · bucket A (copy, not removal)
 
@@ -237,7 +237,7 @@ group heading, and expose "move to group" as a row action or an inline
 control that only shows the value when it differs from the
 implementation's default.
 
-### 3.9 — `strong` / `moderate`: the word "band" means two things · buckets M + P
+### 3.9 — `strong` / `moderate` is **cut** · **decided** (§7.5)
 
 > "There's also a level 'strong'/'moderate', I don't know where this is
 > coming from and what that means. Is it the weight? If not, where is
@@ -262,24 +262,47 @@ implementation's default.
   Worked example: `reporting.independent_orgs` with `{per_org: 7,
   cap: 28}` and 4 orgs → `min(7×4, 28) = 28`.
 
-**The actual defect is a name collision**, and it is why this was
-confusing: **"band" is two unrelated concepts on the same screen** — the
-signal's editorial band (`strong`/`moderate`/`weak`, declared) and the
-quality band (`none`/`low`/`medium`/`high`, derived from the total,
-`ValueVerdictTool.php:98`).
+There were two defects here. The first is a **name collision** —
+"band" names two unrelated things on one screen: the signal's editorial
+band (declared) and the quality band (derived,
+`ValueVerdictTool.php:98`). The editor calls the first one *"Weight
+band"* (`AnalystProfileFormTool.php:334-345`), which is wrong twice
+over: it is not the weight and it is not a band.
 
-- **M:** in the mockup, stop calling the signal one a "band". The form
-  tool already labels it *"Weight band"*
-  (`AnalystProfileFormTool.php:334-345`) which makes it worse, because it
-  is not the weight. Propose **"emphasis"** or **"editorial weight"**,
-  with a tooltip saying plainly: *this does not affect the score; it
-  tells a reader how much to weigh the row*. Reserve the word *band*
-  for the quality bands.
-- **P:** the same rename belongs in
-  `AnalystProfileFormTool.php:334-345` and in the value-page ledger
-  templates that print it (`value_verdict_ledger.ctp:126`,
-  `value_verdict_card.ctp:110`). Separate commit; ask first, because it
-  is user-visible copy on a shipped page.
+**The second is that the field earns nothing, and the decision was to
+cut it.**
+
+> **Decided 2026-09-10: delete `band` from the signal schema.** The
+> thing it claims to express — *what this evidence is worth in
+> principle* — is already stated by `points.cap` in the next column, in
+> real units. D14 concluded the labels were editorial because they could
+> not be derived from contribution; the same evidence (`7` in both
+> `moderate` and `weak`; `17` strong above `16` moderate; `5` moderate
+> below `6` weak) reads at least as well as *the labels are arbitrary
+> and nothing depended on them*. A field that contradicts the numbers
+> beside it adds noise, not judgement.
+
+**This supersedes D14** (`03-signals.md:307-345`) and must be written
+there as a dated decision before the code changes, with the reasoning
+above — D14 is not wrong about derivability, it is wrong about the
+conclusion.
+
+What to remove, in one **product** commit:
+- the per-signal `band` entry in the profile schema, and
+  `ValueSignalBase::$default_band` (`:137`);
+- `AnalystProfileFormTool::BANDS` (`:93`), the select
+  (`:334-345`), and its validation (`:1633-1640`);
+- the ledger row's `weight` key (`ValueVerdictTool.php:806-808`) and the
+  two templates that print it (`value_verdict_ledger.ctp:126`,
+  `value_verdict_card.ctp:110`);
+- the column in the mockup's signals table.
+
+**Back-compat:** `parameters` is opaque JSON, so a stored `band` on an
+existing fork is simply ignored once nothing reads it. Do not write a
+migration; do confirm nothing else reads the key first.
+
+**Free the word:** after this, *band* means the quality band and nothing
+else, which was half the confusion.
 
 Also worth drawing while here: `trust_weighted` is **inert by default**
 (it needs a non-empty `org_trust` map, `ValueTrustTool.php:373-377`), so
@@ -325,7 +348,7 @@ a `none` lean **there is no ledger at all**.
 Draw one sentence to that effect in the pane, and make the fixture's own
 fired rule (`conflict:listed-vs-asserted`) show *which* axis it moved.
 
-### 3.12 — Relevance: TTL buckets · bucket D — **decide before drawing**
+### 3.12 — Relevance: TTL buckets · **decided** (§7.6)
 
 > "'Time to live, per type': The table is nice, but I think it's too
 > granular. Maybe, let's create 3 configurable (+ the default one)
@@ -364,12 +387,35 @@ blast radius, all verified:
    `06-relevance-harness.php:367-382` ("eleven types plus the default"),
    `06-relevance-live-probe.php`, `09-editor-harness.php`.
 
-**Plan:** write the decision into `06-staleness.md` as a dated decision
-(shape, migration shim, what `type_rule` compares) **before** drawing
-it. Then the mockup draws the agreed shape, with a bucket→types
-assignment UI whose "assign many types quickly" is the actual design
-problem (194 types, 4 buckets — think multi-select-into-bucket, not one
-row per type).
+**Decided 2026-09-10: four buckets, plus a per-type override.** Named
+**short / medium / long / very long**, each showing its day count.
+
+The shipped table maps onto them with **no behaviour change**:
+
+| Bucket | Days | Types today |
+|---|---|---|
+| short | 90 | `ip-dst`, `ip-src` |
+| medium | 120 | `domain`, `email-src`, `hostname` |
+| long | 365 | `btc`, `filename` |
+| very long | 730 | `md5`, `sha1`, `sha256` |
+| *(default)* | 180 | every other type |
+| *(override)* | 60 | `url` — the single exception in the shipped default |
+
+That is the argument for four rather than three: three would have forced
+`url` and the 120-day group onto values they do not have, changing real
+shelf life on every instance. Four plus an override preserves every
+shipped number while collapsing the editor from 194 possible rows to
+four choices and one exception.
+
+**Still to write into `06-staleness.md` before coding**: the stored
+shape, the read-time shim for forks carrying the flat map (item 7
+above — this is the one that decides whether the change is cheap), and
+what `type_rule` compares now (keep resolving to days *before* the
+comparison, so `shortest` keeps meaning shortest).
+
+The remaining design problem is the assignment UI: 194 types into four
+buckets, so think select-many-types-into-a-bucket, not one row per
+type. The override list is a short second table, not a third mode.
 
 ### 3.13 — Relevance: `type_rule`, and two divergence bugs · buckets M + P
 
@@ -476,7 +522,7 @@ one organisation is one vote; the share must pass this threshold.*
 This also corrects `09b-decision.md` §4's map (Thresholds is not
 quality-only).
 
-### 3.16 — Enrichment: three run states · bucket D — **decide before drawing**
+### 3.16 — Enrichment: run states · **decided** (§7.2)
 
 > "Modules are ticked by default / Modules are run automatically /
 > Modules cannot be run"
@@ -516,10 +562,13 @@ the form's `multiselect` block (which **cannot express three states**,
 (`value_enrichment_rail.ctp:151-163`). Keep a back-compat read: a plain
 list must keep meaning "ticked".
 
-**Plan:** write the decision into `08-enrichment.md` first. Recommend
-shipping (a) + (c) now and deferring (b) until a last-run store exists.
+**Decided 2026-09-10: ship (a) and (c) now, defer (b).** Build the
+tri-state schema anyway, so auto-run can be added later without a second
+migration. Record in `08-enrichment.md` that (b) is deferred and why —
+the missing last-run store, the dead queue path, and that auto-run
+*widens* what a profile does, against the stated narrow-only invariant.
 
-### 3.17 — Enrichment: "cost posture" is a misnomer · bucket D + M
+### 3.17 — Enrichment: "cost posture" is a misnomer · **decided** (§7.3)
 
 > "The 'cost posture' is unclear. Also, I guess to determine what cost a
 > module has, misp-modules's modules must declare it"
@@ -548,13 +597,12 @@ locality gate, not a cost gate.
   such (`08-enrichment.md:398-405`). A three-option select where two
   options do nothing different is its own defect.
 
-**Plan (M):** rename to something locality-honest — *"Modules that leave
-the instance"* — and either implement `ask` or drop it to two options.
-**Plan (D):** real cost is **not implementable** without a new upstream
-`meta` field; if the reviewer wants it, that is a misp-modules proposal
-(`~/git/misp-modules`), and `ModuleLocality::retirable()` (`:256-272`)
-already records the criterion for when a declared field could replace
-the roster. Raise it, do not build it.
+**Decided 2026-09-10:** rename to something locality-honest —
+*"Modules that leave the instance"* — and **drop `ask`**, leaving the two
+options that actually differ. **No upstream proposal**: real per-module
+cost is not pursued, so the hardcoded roster stays hand-maintained and
+`ModuleLocality::retirable()` (`:256-272`) stays unused. Do not describe
+this control as being about cost anywhere in the UI.
 
 ### 3.18 — Enrichment: "Reuse an answer for" · buckets M + P
 
@@ -601,9 +649,11 @@ make the "does this module accept this type" check possible. Do this
 
 The section is org-trust grades plus warninglist meanings, Admiralty-
 shaped — source reliability in, information credibility out
-(`AnalystProfileFormTool.php:1038-1044`). Propose **"Sources &
-reputation"** or **"Who you trust"**; the reviewer picks. Rewrite the
-org-trust blurb to use the word **reputation**.
+(`AnalystProfileFormTool.php:1038-1044`).
+
+**Decided 2026-09-10: "Sources & reputation".** Rename the section
+everywhere it appears — the form tool's title, the rail, the mockup —
+and rewrite the org-trust blurb to use the word **reputation**.
 
 Two facts the copy should not contradict: a `0.00` grade is *"an
 accusation of deception, not a quality judgement"* (`07-reference.md:114`),
@@ -677,20 +727,19 @@ into `app/Console/Command/` — that path is bind-mounted from the user's
 
 ## 6. Sequencing
 
-**Three tracks. The first two are independent and can run in parallel;
-the third must wait on decisions.**
+**Three tracks. All six decisions are made (§7), so nothing is blocked
+on the reviewer any more — Track D now means "write the decision down,
+then build it", not "wait".**
 
 **Track P — product bugs (no mockup dependency, do first, commit
 separately).**
 1. 3.13 — `TYPE_RULES` and clock divergence, `decay_speed` int→float +
    validator. *This one refuses a valid profile today.*
 2. 3.18 — a `unit`/`suffix` affordance in the form field spec.
-3. 3.9 (P half) — the band/weight rename in the form tool and the two
-   ledger templates. **Ask first** — user-visible copy on a shipped page.
 
-**Track M — mockup work that needs no decision (parallelisable).**
+**Track M — mockup work (parallelisable).**
 - Group A (index/edit chrome): 3.1, 3.2, 3.3, 3.5, 3.6
-- Group B (panes): 3.8, 3.9 (M half), 3.10, 3.11, 3.15, 3.20
+- Group B (panes): 3.8, 3.10, 3.11, 3.15, 3.20
 - Group C (cross-cutting, do **last** so it catches everything): 4.1, 4.2
 
 Groups A and B touch different regions of one file. If two agents run in
@@ -699,30 +748,75 @@ patches by unique-anchor replacement with assertions**, not by line
 number — the file is ~3900 lines and shifts under edits. Rebuild and run
 the checker after *each* merge, not once at the end.
 
-**Track D — blocked on decisions.** In order of value:
-1. 3.16 + 3.19 (enrichment states, then the redesign that depends on the
-   shape) — write into `08-enrichment.md`.
-2. 3.12 (TTL buckets, and the fork shim) — write into `06-staleness.md`.
-3. 3.17 (cost posture rename now; real cost is a misp-modules proposal).
-4. 3.4 (add form) — **only if fork+import does not satisfy the reviewer.**
+**Track D — decided, needs writing down before coding.** Each item's
+decision goes into its PRD as a dated entry *first*, then the schema,
+then the drawing. In order of value:
+
+1. **3.9 — cut the signal `band`.** Supersede D14 in `03-signals.md`,
+   then remove the field, its validation, the ledger's `weight` key and
+   the two templates. Do this early: it *deletes* a column the other
+   panes would otherwise be redrawn around.
+2. **3.16 + 3.19** — enrichment run states into `08-enrichment.md`
+   (ship ticked + cannot-run, defer auto-run with its reasons), then the
+   per-type redesign that depends on the settled shape.
+3. **3.12** — four buckets + override and the fork read-shim into
+   `06-staleness.md`, then the schema, then the assignment UI.
+4. **3.17** — the locality rename and dropping `ask`. Small, no PRD
+   entry needed beyond a line.
+5. ~~3.4 (add form)~~ — closed, see §7.1.
+
+3.9 was a copy fix when this document was written and is now a schema
+change; it moved from Track M to here.
 
 **Publish once per track**, to the same artifact URL, not once per item.
 
-## 7. Ask the reviewer before building
+## 7. Decisions — taken 2026-09-10
 
-Do not guess these:
+All six open questions were put to the reviewer and answered. **These
+are settled. Do not re-open them; build to them.**
 
-1. **3.4** — after fork and import are drawn, is a blank-slate "create"
-   still wanted? (It reverses a recorded decision.)
-2. **3.16(b)** — auto-run needs a cache table or a working queue.
-   Defer, or fund it?
-3. **3.17** — real per-module cost needs a new misp-modules field.
-   Raise upstream, or settle for a locality rename?
-4. **3.20** — which name replaces "Reference data"?
-5. **3.9(P)** — rename the band on the shipped value page too, or only
-   in the editor?
-6. **3.12** — bucket names (`fast`/`medium`/`long`?) and how many
-   besides the default.
+| # | Question | Decision |
+|---|---|---|
+| 1 | blank-slate create form | **No** — fork + import only |
+| 2 | enrichment auto-run | **Defer** — ship ticked + cannot-run |
+| 3 | module cost | **Rename only** — drop `ask`, nothing upstream |
+| 4 | "Reference data" | **"Sources & reputation"** |
+| 5 | the `strong`/`moderate` label | **Cut the field entirely** |
+| 6 | TTL buckets | **Four + per-type override** |
+
+**7.1 — No blank-slate create form.** D5 stands. The create path is one
+control on the index: *"New profile ▾ → Fork the instance default /
+Import JSON"*. Both actions are already built. → 3.4, 3.1, 3.2.
+
+**7.2 — Enrichment: ship two states, defer the third.** *Ticked by
+default* and *cannot be run* land this round; *run automatically* is
+deferred until a last-run store or a working queue exists. Build the
+tri-state schema now so adding it later needs no second migration.
+→ 3.16.
+
+**7.3 — Locality, not cost.** Rename the setting, drop the `ask` option
+that does nothing, and make **no** misp-modules proposal. Real
+per-module cost is out of scope indefinitely; the 22-name roster stays
+hand-maintained. → 3.17.
+
+**7.4 — "Sources & reputation"** replaces "Reference data", and the
+org-trust blurb uses the word *reputation*. → 3.20.
+
+**7.5 — Cut `strong`/`moderate`/`weak` entirely.** Not renamed — removed.
+It changes no score, and `points.cap` already says what it claims to say,
+in real units. **This supersedes D14** and must be written into
+`03-signals.md` as a dated decision before the code changes. → 3.9.
+
+**7.6 — Four TTL buckets plus a per-type override**, named *short /
+medium / long / very long* (90 / 120 / 365 / 730), with `url` at 60 as
+the single shipped override. Chosen over three because three could not
+express the shipped table without changing real shelf life on every
+instance. → 3.12.
+
+**What changed in this document as a result:** 3.4 closed; 3.9 grew from
+a rename into a field deletion that supersedes a recorded decision; 3.12,
+3.16, 3.17 and 3.20 have their shapes fixed. §2's triage table is
+updated to match.
 
 ## 8. Verification
 
