@@ -315,13 +315,29 @@ fixtures and the spec disagree, and the cost lands on 8c.
    states. The add-a-signal affordance has nothing real to offer, so all three
    candidates drew it empty, disabled, or as a stated absence.
 
-2. **`profile.json` omits the signal §5.2 requires.** Its `sections.signals`
-   holds eleven items and the string `partner_feed` does not occur anywhere in
-   the file; `reporting.partner_feed_agreement` exists only in `palette.json`,
-   marked `missing`. All three candidates reached into the palette to draw it.
-   **If 8c builds the edit page from the profile view-model alone, the
-   not-implemented row cannot appear on any page** — and that row is the one
-   §5.2 exists to force.
+2. **`profile.json` did not exercise the `missing` state.** ~~Fixed
+   2026-09-10, and the diagnosis above it was wrong.~~ Its
+   `sections.signals` held eleven items with no `partner_feed` anywhere,
+   while `palette.json` carried `reporting.partner_feed_agreement` as
+   `missing`, so all three candidates reached into the palette to draw
+   the row §5.2 requires.
+
+   **This was recorded here as a view-model defect that would block 8c.
+   It was not one.** `AnalystProfileFormTool::sectionSignals()` calls
+   `signalPalette()`, which is the union of the loader's catalogue and
+   the profile's own entries — so a signal the profile names and the
+   instance cannot compute already reaches the edit section. The product
+   is right. What was missing was fixture coverage:
+   `09a-fixtures-dump.php` synthesises that signal into the parameters
+   for the **palette** fixture only, and says why in its own
+   `synthesised` note — the drop-in directory is empty on this instance,
+   and writing a PHP file to make a mockup look right would be changing
+   the product for a picture.
+
+   `profile.json` now carries the same synthesis, with the same
+   disclosure, and the item is the tool's own output copied from
+   `palette.json` rather than composed. The edit board's fixture has
+   twelve items and draws the not-implemented row on its own.
 
 3. **One profile, four names, and a diff against itself.** id 23 / uuid
    `6e2679bc…` / version 4 / revision 37 is *default-v1* in `index.json`,

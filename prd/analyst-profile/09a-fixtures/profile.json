@@ -1,5 +1,8 @@
 {
   "note": "The edit and view boards. `sections` is the whole view-model: seven sections, four block kinds. Every field carries the `path` a form posts it under.",
+  "synthesised": {
+    "reporting.partner_feed_agreement": "Not implemented on this instance. Synthesised into the profile's parameters exactly as 09a-fixtures-dump.php does for palette.json, so the edit board's own fixture carries the `missing` state the brief requires it to draw. The item is the tool's output, copied from palette.json rather than composed. AnalystProfileFormTool already emits it: sectionSignals() calls signalPalette(), which unions the catalogue with the profile's entries."
+  },
   "profile": {
     "id": 23,
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
@@ -140,6 +143,115 @@
                   ],
                   "generated": true,
                   "map": "config"
+                }
+              ]
+            },
+            {
+              "id": "reporting.partner_feed_agreement",
+              "title": "reporting.partner_feed_agreement",
+              "description": null,
+              "state": "missing",
+              "enabled": true,
+              "in_profile": true,
+              "badges": [
+                {
+                  "id": "missing",
+                  "label": "not implemented here",
+                  "title": "This profile configures a signal this instance does not have. It contributes nothing and is listed in the assessment as not counted. The configuration is kept, so deploying the implementation brings it back."
+                }
+              ],
+              "group": "Reporting",
+              "band": "strong",
+              "evidence_class": null,
+              "source": null,
+              "trust_weighted": false,
+              "absence_key": null,
+              "path": [
+                "signals",
+                "reporting.partner_feed_agreement"
+              ],
+              "contribution": null,
+              "not_counted": null,
+              "fields": [
+                {
+                  "key": "enabled",
+                  "label": "Enabled",
+                  "type": "bool",
+                  "value": true,
+                  "default": true,
+                  "path": [
+                    "signals",
+                    "reporting.partner_feed_agreement",
+                    "enabled"
+                  ]
+                },
+                {
+                  "key": "band",
+                  "label": "Weight band",
+                  "type": "select",
+                  "options": [
+                    "strong",
+                    "moderate",
+                    "weak"
+                  ],
+                  "value": "strong",
+                  "default": null,
+                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
+                  "path": [
+                    "signals",
+                    "reporting.partner_feed_agreement",
+                    "band"
+                  ]
+                },
+                {
+                  "key": "group",
+                  "label": "Ledger group",
+                  "type": "select",
+                  "options": [
+                    "Reporting",
+                    "Sightings",
+                    "Attribution",
+                    "Lifecycle"
+                  ],
+                  "value": "Reporting",
+                  "default": null,
+                  "path": [
+                    "signals",
+                    "reporting.partner_feed_agreement",
+                    "group"
+                  ]
+                },
+                {
+                  "key": "per_partner",
+                  "label": "per_partner",
+                  "type": "int",
+                  "value": 6,
+                  "default": null,
+                  "path": [
+                    "signals",
+                    "reporting.partner_feed_agreement",
+                    "points",
+                    "per_partner"
+                  ],
+                  "generated": true,
+                  "undeclared": true,
+                  "map": "points"
+                },
+                {
+                  "key": "cap",
+                  "label": "cap",
+                  "type": "int",
+                  "value": 18,
+                  "default": null,
+                  "path": [
+                    "signals",
+                    "reporting.partner_feed_agreement",
+                    "points",
+                    "cap"
+                  ],
+                  "generated": true,
+                  "undeclared": true,
+                  "map": "points"
                 }
               ]
             },

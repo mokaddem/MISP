@@ -165,11 +165,21 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
    should carry `ValueRelevanceTool`'s `runway`, `runway_days`,
    `elapsed_days`, `ttl` and `aging_fraction` through to the bench
    rather than reducing the axis to its state string a second time.
-4. **The two blockers in [`09b-prototypes.md`](09b-prototypes.md) §9.2**
-   — `profile.json` omits the signal the edit page is required to show,
-   and profile 23 carries four names across three fixtures while
-   `index.json` says 52 is the one in force. Both are 8a fixture and
-   view-model defects, and 8c trips on both.
+4. **One remaining blocker in
+   [`09b-prototypes.md`](09b-prototypes.md) §9.2** — profile 23 carries
+   four names across three fixtures while `index.json` says 52 is the
+   one in force, so the simulate board's before column draws a profile
+   the index says is not in force.
+
+   The other one is closed, and was misdiagnosed here: the missing
+   signal was recorded as a view-model defect that would block 8c, and
+   the view-model was never at fault. `sectionSignals()` unions the
+   catalogue with the profile's entries and emits the row already; only
+   the edit board's *fixture* lacked it, and it now carries the same
+   synthesis the palette fixture always had. Worth keeping as a note on
+   method: the first reading compared two fixtures and inferred a defect
+   in code neither of them was, and reading the tool settled it in one
+   look.
 5. **The scaffolding fixes of §9.1**, already applied.
 
 ## 7. Still open
