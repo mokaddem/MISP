@@ -30,7 +30,11 @@ App::uses('WarninglistCategory', 'Tools');
  * including a section a later phase adds.
  *
  * - **`fields`** — labelled scalars. `thresholds`' supermajority,
- *   `relevance`'s clock, `enrichment`'s posture.
+ *   `relevance`'s clock, `enrichment`'s posture. A numeric field may
+ *   carry a `unit` — the suffix a design draws after the input — because
+ *   without one the settings smuggle their unit into the key name
+ *   (`ttl_days`, `lag_uncertain_days`) and the ones that do not are
+ *   read in whatever unit the reader guesses.
  * - **`map`** — key→value pairs with an *add* affordance and a named
  *   source for the keys. `relevance.ttl_days`, `reference.org_trust`,
  *   `enrichment.locality`. Never a row per candidate key: the source is
@@ -355,6 +359,16 @@ class AnalystProfileFormTool
             foreach ($this->generatedFields($schema, $stored,
                 array('signals', $id, $map)) as $field) {
                 $field['map'] = $map;
+                /*
+                 * Every entry in a `points_schema` is in points —
+                 * that is what the map is — so the unit is the form's
+                 * to state rather than eleven signal files'. A schema
+                 * that declares its own still wins. `config` gets no
+                 * default: its entries are in days, ratios and names.
+                 */
+                if ($map === 'points' && !isset($field['unit'])) {
+                    $field['unit'] = __('points');
+                }
                 $item['fields'][] = $field;
             }
         }
@@ -476,6 +490,7 @@ class AnalystProfileFormTool
                             'key' => 'high',
                             'label' => __('High from'),
                             'type' => 'int',
+                            'unit' => __('points'),
                             'value' => isset($bands['high'])
                                 ? $bands['high']
                                 : null,
@@ -487,6 +502,7 @@ class AnalystProfileFormTool
                             'key' => 'medium',
                             'label' => __('Medium from'),
                             'type' => 'int',
+                            'unit' => __('points'),
                             'value' => isset($bands['medium'])
                                 ? $bands['medium']
                                 : null,
@@ -498,6 +514,7 @@ class AnalystProfileFormTool
                             'key' => 'quality_high_min_signals',
                             'label' => __('Signals needed for high'),
                             'type' => 'int',
+                            'unit' => __('signals'),
                             'value' => isset(
                                 $section['quality_high_min_signals'])
                                 ? $section['quality_high_min_signals']
@@ -899,6 +916,7 @@ class AnalystProfileFormTool
                             'key' => 'lag_uncertain_days',
                             'label' => __('Encoding lag before uncertain'),
                             'type' => 'int',
+                            'unit' => __('days'),
                             'value' => isset($section['lag_uncertain_days'])
                                 ? $section['lag_uncertain_days']
                                 : null,
@@ -1233,6 +1251,7 @@ class AnalystProfileFormTool
                             'key' => 'max_age_hours',
                             'label' => __('Reuse an answer for'),
                             'type' => 'int',
+                            'unit' => __('hours'),
                             'value' => isset($section['max_age_hours'])
                                 ? $section['max_age_hours']
                                 : null,
@@ -1324,6 +1343,9 @@ class AnalystProfileFormTool
             }
             if (isset($spec['help'])) {
                 $field['help'] = $spec['help'];
+            }
+            if (isset($spec['unit'])) {
+                $field['unit'] = $spec['unit'];
             }
             $fields[] = $field;
         }

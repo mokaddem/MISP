@@ -373,6 +373,76 @@ is_same(1, count($form->validate($zero)['errors']),
 
 /*
  * ------------------------------------------------------------------
+ * 2c. A numeric field says what it counts
+ * ------------------------------------------------------------------
+ * `09b-revisions.md` 3.18. "Reuse an answer for: 24" was read by a
+ * reviewer as having no unit, and it did not: hours appeared only
+ * inside a validation error string. The settings that read correctly
+ * were smuggling the unit into the key name (`ttl_days`,
+ * `lag_uncertain_days`), which the label does not show either.
+ */
+out('');
+out('== a numeric field says what it counts ==');
+$unitSections = $form->sections($parameters, array(
+    'attribute_types' => array('ip-src', 'ip-dst', 'domain'),
+    'modules' => array(),
+));
+$units = array();
+foreach ($unitSections as $sectionId => $section) {
+    foreach ($section['blocks'] as $block) {
+        if ($block['kind'] !== 'fields') {
+            continue;
+        }
+        foreach ($block['fields'] as $field) {
+            if (isset($field['unit'])) {
+                $units[$field['key']] = $field['unit'];
+            }
+        }
+    }
+}
+is_same('hours', isset($units['max_age_hours'])
+    ? $units['max_age_hours'] : null,
+    'the reuse window is in hours, and now says so outside a validation'
+        . ' message');
+is_same('days', isset($units['lag_uncertain_days'])
+    ? $units['lag_uncertain_days'] : null,
+    'the encoding lag is in days without the key name having to carry'
+        . ' it');
+is_same('points', isset($units['high']) ? $units['high'] : null,
+    'and a quality band threshold is in points — the same units the'
+        . ' attainable bound is quoted in');
+
+/*
+ * The affordance is general rather than five hand-written cases: a
+ * generated points field gets the unit from the map it belongs to, so a
+ * dropped-in signal needs to declare nothing, and `config` — whose
+ * entries are days and ratios — gets no unit it has not earned.
+ */
+$unitPalette = $form->signalPalette($parameters);
+$pointsUnits = array();
+$configUnits = array();
+foreach ($unitPalette as $item) {
+    foreach ($item['fields'] as $field) {
+        if (!isset($field['map'])) {
+            continue;
+        }
+        $seen = isset($field['unit']) ? $field['unit'] : null;
+        if ($field['map'] === 'points') {
+            $pointsUnits[$seen === null ? 'none' : $seen] = true;
+        } else {
+            $configUnits[$seen === null ? 'none' : $seen] = true;
+        }
+    }
+}
+is_same(array('points' => true), $pointsUnits,
+    'every generated points field across all eleven signals is in'
+        . ' points, from the map rather than from eleven signal files');
+is_same(array('none' => true), $configUnits,
+    'and no `config` field is silently called points — its entries are'
+        . ' days and ratios');
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,
