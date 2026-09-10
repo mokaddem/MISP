@@ -2,7 +2,7 @@
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
     "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. Phase 6 added reference.org_trust_scale, the admiralty grade multipliers, with both override maps still empty: an empty org_trust map switches trust weighting off entirely, so this profile scores exactly as it did before the section existed. Phase 7 completed the enrichment section: an empty auto_run declares no module, which is the switch — the Enrichment tab is byte-identical to the one that shipped without this section — and the empty locality map defers to the shipped ModuleLocality roster. Nothing in this file causes a module to run: a run takes a press, because nothing in MISP records that a module ran. See prd/analyst-profile/03-signals.md section 7, 06-staleness.md section 3, 07-reference.md section 2.3 and 08-enrichment.md section 3.",
-    "version": 5,
+    "version": 6,
     "parameters": {
         "format": 1,
         "signals": [
@@ -10,7 +10,6 @@
                 "id": "reporting.independent_orgs",
                 "group": "Reporting",
                 "enabled": true,
-                "band": "strong",
                 "trust_weighted": true,
                 "points": { "per_org": 7, "cap": 28 },
                 "config": { "named": 4 }
@@ -19,7 +18,6 @@
                 "id": "reporting.published_ratio",
                 "group": "Reporting",
                 "enabled": true,
-                "band": "moderate",
                 "points": { "scale": 9, "none": -2 },
                 "config": { "min_events": 1 }
             },
@@ -27,7 +25,6 @@
                 "id": "record.temporal_precision",
                 "group": "Lifecycle",
                 "enabled": true,
-                "band": "weak",
                 "points": { "dated": 4, "undated": -6, "lagged": -6 },
                 "config": { "lag_days": 30 }
             },
@@ -35,7 +32,6 @@
                 "id": "sightings.volume_recency",
                 "group": "Sightings",
                 "enabled": true,
-                "band": "strong",
                 "trust_weighted": true,
                 "points": { "cap": 24, "none_recent": -4 },
                 "config": {
@@ -48,7 +44,6 @@
                 "id": "sightings.false_positive",
                 "group": "Sightings",
                 "enabled": true,
-                "band": "moderate",
                 "trust_weighted": true,
                 "points": { "per": -3, "per_extra_org": -4, "cap": -26 }
             },
@@ -56,21 +51,18 @@
                 "id": "attribution.galaxy",
                 "group": "Attribution",
                 "enabled": true,
-                "band": "strong",
                 "points": { "per_cluster": 7, "cap": 21, "absent": -7 }
             },
             {
                 "id": "attribution.technique",
                 "group": "Attribution",
                 "enabled": true,
-                "band": "weak",
                 "points": { "per_technique": 3, "cap": 9 }
             },
             {
                 "id": "lifecycle.warninglist",
                 "group": "Lifecycle",
                 "enabled": true,
-                "band": "weak",
                 "points": {
                     "no_hit": 6,
                     "false_positive_hit": -38,
@@ -81,14 +73,12 @@
                 "id": "lifecycle.feeds",
                 "group": "Lifecycle",
                 "enabled": true,
-                "band": "moderate",
                 "points": { "per_feed": 4, "cap": 8, "no_feed": -2 }
             },
             {
                 "id": "lifecycle.continuity",
                 "group": "Lifecycle",
                 "enabled": true,
-                "band": "moderate",
                 "points": { "per_month": 1, "cap": 12 },
                 "config": { "min_months": 3 }
             },
@@ -96,7 +86,6 @@
                 "id": "lifecycle.recency",
                 "group": "Lifecycle",
                 "enabled": true,
-                "band": "moderate",
                 "points": { "recent": 8, "old": -4 },
                 "config": { "recent_days": 30, "old_days": 365 }
             }
