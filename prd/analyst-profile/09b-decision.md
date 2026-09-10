@@ -12,6 +12,11 @@ and not an implementation detail. This is that record.
 | **B** | **the workbench** | **`mockups/workbench.html`** | **picked** |
 | C | the stated judgement | `mockups/stated-judgement.html` | published, not picked |
 
+**A revision round followed.** The reviewer's feedback on B, checked
+item by item against the built code, and the plan for acting on it, are
+[`09b-revisions.md`](09b-revisions.md). A and C are abandoned as of
+2026-09-10 and are not kept in step with B.
+
 ## 1. Against §7's four questions
 
 Answered honestly, including the one B lost.
