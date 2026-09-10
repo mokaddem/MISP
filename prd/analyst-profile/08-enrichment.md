@@ -76,9 +76,9 @@ The section, and its resolution against instance policy.
     "domain":  ["dns"],
     "md5":     []
   },
-  "cost_posture": "allow_external",
-  "locality":     { "dns": "local" },
-  "max_age_hours": 24
+  "locality_posture": "allow_external",
+  "locality":         { "dns": "local" },
+  "max_age_hours":    24
 }
 ```
 
@@ -109,10 +109,24 @@ the module accepts it, not the value's most common: an analyst filing
 falls back to the row's default type when the declaration cannot be
 honoured.
 
-**`cost_posture`** is `local_only` (default) | `allow_external` | `ask`.
+**`locality_posture`** is `local_only` (default) | `allow_external`.
 `local_only` auto-selects nothing that leaves the instance, which is
 the only defensible default for a setting that can be set by one person
 and applied to their whole organisation.
+
+It was called `cost_posture` until 2026-09-10 and it never gated cost —
+nothing a module declares, in MISP or in misp-modules, says anything
+about money or rate limits (§2.1), so there was never a cost to read.
+What it does is withhold a module whose resolved locality is not local.
+The old key is still read, because `updateDefaults()` never touches a
+fork and a rename without a shim would silently reset every fork to
+`local_only`.
+
+**`ask` was dropped in the same pass.** It was byte-identical to
+`allow_external` — under D15 nothing runs without a press, so a page
+where every run needs a press is already asking — and a three-option
+select where two options behave the same is its own defect. A stored
+`ask` reads as `allow_external`, which is what it did.
 
 **`locality`** is the override map §3.1 needs — a module name to
 `local` or `external`, empty by default, deferring to the shipped
@@ -340,7 +354,7 @@ can do about it. Two deliberate refusals:
    with the site admin's reading asserted beside it, because `canUse()`
    passes them through every restriction and telling them the module
    was reserved away would be false.
-4. `cost_posture: local_only` with an external module in `auto_run`:
+4. `locality_posture: local_only` with an external module in `auto_run`:
    the condition states the conflict rather than silently ignoring one
    of the two. **Live probe**, on `circl_passivedns`.
 5. Nothing runs. No third-party request is made by any page load.
@@ -357,12 +371,15 @@ being paid only where a condition needs explaining.
 
 ## 6. How it is verified
 
-- **`08-enrichment-harness.php`** — 102 checks, no database and no
+- **`08-enrichment-harness.php`** — 105 checks, no database and no
   modules service. The resolution arithmetic, every condition id, the
   normalisation of a hand-edited document, and the two invariants that
   are structural rather than numeric: an empty declaration produces
-  nothing at all, and `ask` resolves **byte-identically** to
-  `allow_external`.
+  nothing at all, and a stored `ask` resolves **byte-identically** to
+  `allow_external` — posture included, now that it is read as one. The
+  two read shims are asserted here too: a fork carrying `cost_posture`
+  keeps its setting, and where a document carries both keys the current
+  one wins.
 - **`08-enrichment-live-probe.php`** — 46 checks under `run` and 9
   under `unreachable`, against real rows, real settings and the real
   modules service. Writes no profile: every declaration goes through
@@ -446,15 +463,21 @@ somebody else. An analyst who wants a default selection sets
 `allow_external` deliberately, which is the point of the setting
 existing.
 
-### 7.5 Under D15 the posture has two values, not three
+### 7.5 The posture has two values, and `ask` is not one of them
 
-`ask` means *check with me before spending this*, and a page where
-every run takes a press is already asking. The two are kept as separate
-values because they diverge the moment anything runs without a press —
-which is what §1.1's missing store would unblock — and the identity is
-asserted as byte-equality in both the harness and the live probe, so
-the day that changes, the check fails and the difference has to be
-designed rather than discovered.
+`ask` meant *check with me before spending this*, and a page where every
+run takes a press is already asking. It was kept as a separate value on
+the argument that it would diverge the moment anything ran without a
+press — which is what §1.1's missing store would unblock.
+
+**Retired 2026-09-10.** The argument was for a divergence that never
+arrived, and meanwhile a three-option select where two options behave
+identically is its own defect: a reader who picks `ask` believes they
+have constrained something. `ask` is no longer offered, and a stored one
+is read as `allow_external`, which is what it did. The byte-equality is
+still asserted — it is now exact rather than posture-aside — so if the
+store ever lands, the check fails and the difference has to be designed
+rather than discovered.
 
 ### 7.6 A diagnostic that counts prose is worse than none
 

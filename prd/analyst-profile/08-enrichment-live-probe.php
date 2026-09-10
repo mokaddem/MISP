@@ -250,12 +250,13 @@ class AnalystEnrichmentProbeShell extends AppShell
         $section = ValueEnrichmentTool::section($profile);
         $this->__is(
             true,
-            isset($section['cost_posture']),
-            'the profile in force carries a cost posture'
+            isset($section['locality_posture']),
+            'the profile in force carries a locality posture — not a'
+                . ' cost one, which is what it was called and never was'
         );
         $this->__is(
             'local_only',
-            $section['cost_posture'],
+            $section['locality_posture'],
             'and it is local only, which is the only defensible'
                 . ' default for a setting one person can apply to a'
                 . ' whole organisation'
@@ -424,7 +425,7 @@ class AnalystEnrichmentProbeShell extends AppShell
     private function __posture(array $user)
     {
         $this->out('');
-        $this->out('the cost posture');
+        $this->out('the locality posture');
         $declaration = array(
             'text' => array(self::LOCAL_MODULE),
             'ip-dst' => array(self::EXTERNAL_MODULE),
@@ -796,7 +797,7 @@ class AnalystEnrichmentProbeShell extends AppShell
                 'name' => 'probe',
                 'parameters' => array('enrichment' => array(
                     'auto_run' => $autoRun,
-                    'cost_posture' => $posture,
+                    'locality_posture' => $posture,
                     'max_age_hours' => 24,
                     'locality' => $locality,
                 )),

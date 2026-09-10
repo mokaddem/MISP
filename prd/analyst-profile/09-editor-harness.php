@@ -443,6 +443,58 @@ is_same(array('none' => true), $configUnits,
 
 /*
  * ------------------------------------------------------------------
+ * 2d. The posture is about locality, and the editor refuses neither
+ *     name
+ * ------------------------------------------------------------------
+ * `09b-revisions.md` 3.17. `cost_posture` never gated cost, and `ask`
+ * was byte-identical to `allow_external`. The setting is renamed and
+ * `ask` retired — but a pasted document may carry either, and the
+ * engine reads both, so validation that refused them would refuse a
+ * profile that works.
+ */
+out('');
+out('== the posture is locality, under either name ==');
+$postureSection = $form->sections($parameters, array(
+    'attribute_types' => array('ip-dst'),
+    'modules' => array(),
+))['enrichment'];
+$postureBlock = $postureSection['blocks'][0];
+is_same('Modules that leave the instance', $postureBlock['title'],
+    'the pane is named for what it does, not for the cost it never'
+        . ' read');
+is_same('locality_posture', $postureBlock['fields'][0]['key'],
+    'and so is the setting');
+is_same(array('local_only', 'allow_external'),
+    $postureBlock['fields'][0]['options'],
+    'two options, both of which do something different');
+
+$legacy = $parameters;
+$legacy['enrichment']['cost_posture'] =
+    $legacy['enrichment']['locality_posture'];
+unset($legacy['enrichment']['locality_posture']);
+is_same(array(), $form->validate($legacy)['errors'],
+    'a document carrying the old key validates — the engine reads it,'
+        . ' so refusing it would refuse a working profile');
+$asked = $parameters;
+$asked['enrichment']['locality_posture'] = 'ask';
+is_same(array(), $form->validate($asked)['errors'],
+    'and so does a retired `ask`, which the engine reads as'
+        . ' allow_external');
+$nonsense = $parameters;
+$nonsense['enrichment']['locality_posture'] = 'whenever';
+is_same(1, count($form->validate($nonsense)['errors']),
+    'while a posture that never existed is still refused');
+$legacyNonsense = $parameters;
+$legacyNonsense['enrichment']['cost_posture'] = 'whenever';
+is_true(
+    strpos($form->validate($legacyNonsense)['errors'][0],
+        'cost_posture') !== false,
+    'and a bad value under the old key is reported under the name the'
+        . ' reader actually typed'
+);
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,

@@ -361,9 +361,9 @@ start and is not part of any of them.
   },
 
   "enrichment": {
-    "auto_run":     { "ip-dst": ["virustotal"], "domain": ["dns"] },
-    "cost_posture": "allow_external",
-    "locality":     { "dns": "local" }
+    "auto_run":         { "ip-dst": ["virustotal"], "domain": ["dns"] },
+    "locality_posture": "allow_external",
+    "locality":         { "dns": "local" }
   }
 }
 ```

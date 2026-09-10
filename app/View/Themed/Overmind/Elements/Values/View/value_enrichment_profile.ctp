@@ -36,15 +36,14 @@ $applicable = (int)$declaration['applicable'];
 $declared = (int)$declaration['declared'];
 
 /*
- * The posture, in the reader's words. `ask` and `allow_external`
- * cannot differ while every run needs a press, so `ask` says what it
- * currently amounts to rather than implying a control that is not
- * there.
+ * The posture, in the reader's words. Two options, because the retired
+ * third — `ask` — behaved exactly as `allow_external`: while every run
+ * needs a press, the press is the asking. A stored `ask` arrives here
+ * already read as `allow_external`.
  */
 $postures = array(
     'local_only' => __('local only'),
     'allow_external' => __('external allowed'),
-    'ask' => __('ask first'),
 );
 $posture = isset($postures[$declaration['posture']])
     ? $postures[$declaration['posture']]
@@ -118,7 +117,7 @@ $icons = array(
             <?php endif; ?>
         </span>
         <span class="vp-e-profile-posture"><?= h(sprintf(
-            __('cost posture: %s'),
+            __('modules that leave the instance: %s'),
             $posture
         )) ?></span>
     </div>
@@ -134,19 +133,11 @@ $icons = array(
      */
     ?>
     <div class="vp-e-profile-note">
-        <?php if ($declaration['posture'] === 'ask'): ?>
-            <?= h(__(
-                'Nothing has been run. Your profile ticks the boxes'
-                . ' and nothing else — and since every run here takes'
-                . ' a press, the press is the asking.'
-            )) ?>
-        <?php else: ?>
-            <?= h(__(
-                'Nothing has been run. Your profile ticks the boxes'
-                . ' and nothing else; sending anything anywhere still'
-                . ' takes a press.'
-            )) ?>
-        <?php endif; ?>
+        <?= h(__(
+            'Nothing has been run. Your profile ticks the boxes and'
+            . ' nothing else; sending anything anywhere still takes a'
+            . ' press.'
+        )) ?>
     </div>
 
     <?php if (!empty($declaration['conditions'])): ?>

@@ -44,20 +44,20 @@ class ValueEnrichRenderShell extends AppShell
 
     private $cases = array(
         'bare' => array('auto_run' => array(),
-            'cost_posture' => 'local_only'),
+            'locality_posture' => 'local_only'),
         'local' => array(
             'auto_run' => array(
                 'text' => array('convert_markdown_to_pdf'),
                 'ip-dst' => array('circl_passivedns'),
             ),
-            'cost_posture' => 'local_only',
+            'locality_posture' => 'local_only',
         ),
         'open' => array(
             'auto_run' => array(
                 'text' => array('convert_markdown_to_pdf'),
                 'ip-dst' => array('circl_passivedns'),
             ),
-            'cost_posture' => 'allow_external',
+            'locality_posture' => 'allow_external',
         ),
         'broken' => array(
             'auto_run' => array(
@@ -65,7 +65,7 @@ class ValueEnrichRenderShell extends AppShell
                 'md5' => array('hashlookup'),
                 'sha256' => array('hashlookup'),
             ),
-            'cost_posture' => 'allow_external',
+            'locality_posture' => 'allow_external',
         ),
     );
 

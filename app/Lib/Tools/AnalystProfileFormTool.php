@@ -1208,25 +1208,33 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'fields',
                     'id' => 'posture',
-                    'title' => __('Cost posture'),
+                    'title' => __('Modules that leave the instance'),
                     'fields' => array(
                         array(
-                            'key' => 'cost_posture',
+                            'key' => 'locality_posture',
                             'label' => __('Modules that may be offered'),
                             'type' => 'select',
                             'options' => ValueEnrichmentTool::postures(),
-                            'value' => isset($section['cost_posture'])
-                                ? $section['cost_posture']
-                                : null,
+                            'value' => isset($section['locality_posture'])
+                                ? $section['locality_posture']
+                                : (isset($section['cost_posture'])
+                                    ? $section['cost_posture']
+                                    : null),
                             'default' => ValueEnrichmentTool::DEFAULT_POSTURE,
                             'help' => __(
-                                'Local only offers nothing that leaves'
-                                . ' the instance — which on a platform'
-                                . ' where enrichment means asking'
-                                . ' somebody else selects very little,'
-                                . ' and says so.'
+                                'Whether a module that would tell'
+                                . ' somebody outside this instance the'
+                                . ' value is being looked at may be'
+                                . ' offered. Local only selects very'
+                                . ' little on a platform where'
+                                . ' enrichment mostly means asking'
+                                . ' somebody else, and says so. Not a'
+                                . ' cost setting: nothing a module'
+                                . ' declares says anything about money'
+                                . ' or rate limits.'
                             ),
-                            'path' => array('enrichment', 'cost_posture'),
+                            'path' => array('enrichment',
+                                'locality_posture'),
                         ),
                         array(
                             'key' => 'max_age_hours',
@@ -1817,13 +1825,27 @@ class AnalystProfileFormTool
     {
         $errors = array();
         $section = $this->section($parameters, 'enrichment');
-        if (isset($section['cost_posture'])
-            && !in_array($section['cost_posture'],
-                ValueEnrichmentTool::postures(), true)
+        foreach (array('locality_posture',
+            ValueEnrichmentTool::POSTURE_KEY_LEGACY) as $postureKey
         ) {
+            if (!isset($section[$postureKey])) {
+                continue;
+            }
+            $given = $section[$postureKey];
+            /*
+             * A pasted document may carry the retired `ask`, which the
+             * engine reads as `allow_external`. Refusing it would
+             * refuse a profile that works.
+             */
+            if ($given === ValueEnrichmentTool::POSTURE_ASK_LEGACY
+                || in_array($given, ValueEnrichmentTool::postures(), true)
+            ) {
+                continue;
+            }
             $errors[] = sprintf(
-                __('`enrichment.cost_posture`: `%s` is not a posture.'),
-                $section['cost_posture']
+                __('`enrichment.%1$s`: `%2$s` is not a posture.'),
+                $postureKey,
+                $given
             );
         }
         if (isset($section['max_age_hours'])

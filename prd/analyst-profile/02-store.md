@@ -462,7 +462,7 @@ Two things the harness checks that the list did not ask for, both because
 they are cheap to break later: **the per-request cache** — 27 panel calls
 cost one statement, which is what §3.1 asks for in prose and nothing else
 asserts — and **the shipped default's inertness**, that its `auto_run` is
-empty and its `cost_posture` is `local_only`. The second matters more than it
+empty and its `locality_posture` is `local_only`. The second matters more than it
 looks: a default shipping modules in `auto_run` would make opening a value
 page contact third parties, and phase 28 established that an enrichment run
 is a press and never a page load. `08-enrichment.md` §2 had already called

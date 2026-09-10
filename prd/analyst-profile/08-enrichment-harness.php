@@ -102,7 +102,7 @@ function shippedProfile()
         'parameters' => array(
             'enrichment' => array(
                 'auto_run' => array(),
-                'cost_posture' => 'local_only',
+                'locality_posture' => 'local_only',
                 'max_age_hours' => 24,
             ),
         ),
@@ -120,7 +120,7 @@ function declaredProfile($autoRun, $posture = 'allow_external',
         'parameters' => array(
             'enrichment' => array(
                 'auto_run' => $autoRun,
-                'cost_posture' => $posture,
+                'locality_posture' => $posture,
                 'max_age_hours' => 24,
                 'locality' => $locality,
             ),
@@ -743,22 +743,52 @@ is_same(
 );
 
 /*
- * **D15's honest statement, as an identity.** While every run takes a
- * press, `ask` cannot mean anything `allow_external` does not: the
- * page is already asking. Asserted as byte-equality rather than as
- * two similar-looking lists, so that the day something runs without a
- * press this check fails and the difference has to be designed.
+ * **The retired `ask`, and the renamed key.** `ask` was byte-identical
+ * to `allow_external` except for the posture it reported — while every
+ * run takes a press, the page is already asking — so it is no longer
+ * offered and is read as `allow_external`. That makes the identity
+ * exact, posture included, which is a stronger check than the one it
+ * replaces.
+ *
+ * Both of these are read-time shims, and they matter because
+ * `updateDefaults()` never touches a fork: without them every existing
+ * fork would silently fall back to `local_only` and stop offering the
+ * modules its owner declared.
  */
 $ask = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor(declaredProfile($declaration, 'ask')),
     facts()
 );
-$askCopy = $ask;
-$askCopy['posture'] = 'allow_external';
 is_same(
     json_encode($external),
-    json_encode($askCopy),
-    'ask resolves identically to allow_external, posture aside'
+    json_encode($ask),
+    'a stored `ask` resolves byte-identically to allow_external, the'
+        . ' posture it reports included'
+);
+is_same(
+    array('local_only', 'allow_external'),
+    ValueEnrichmentTool::postures(),
+    'and `ask` is not offered — two options that differ, not three of'
+        . ' which two behave the same'
+);
+
+$legacyKey = declaredProfile($declaration, 'allow_external');
+$legacyKey['parameters']['enrichment']['cost_posture'] =
+    $legacyKey['parameters']['enrichment']['locality_posture'];
+unset($legacyKey['parameters']['enrichment']['locality_posture']);
+is_same(
+    json_encode($external),
+    json_encode(ValueEnrichmentTool::resolve(
+        ValueEnrichmentTool::planFor($legacyKey), facts())),
+    'a fork still carrying `cost_posture` keeps its setting — the'
+        . ' rename is a read shim, not a migration'
+);
+$bothKeys = declaredProfile($declaration, 'allow_external');
+$bothKeys['parameters']['enrichment']['cost_posture'] = 'local_only';
+is_same(
+    'allow_external',
+    ValueEnrichmentTool::planFor($bothKeys)['posture'],
+    'and where a document carries both, the current key wins'
 );
 
 /*

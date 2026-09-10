@@ -54,20 +54,26 @@ App::uses('ModuleLocality', 'Tools');
  * asked. It falls back to the row's own default type when the
  * declaration cannot be honoured.
  *
- * ## The posture, and what it can honestly mean here
+ * ## The posture: locality, not cost
  *
- * `cost_posture` is `local_only` (the shipped default),
- * `allow_external` or `ask`. `local_only` withholds any module that
- * would tell somebody outside the instance that this value is being
- * looked at — `ModuleLocality` decides which, and treats *unknown* as
- * *outside*, so an incomplete map fails towards not sending.
+ * `locality_posture` is `local_only` (the shipped default) or
+ * `allow_external`. `local_only` withholds any module that would tell
+ * somebody outside the instance that this value is being looked at —
+ * `ModuleLocality` decides which, and treats *unknown* as *outside*, so
+ * an incomplete map fails towards not sending.
  *
- * **Under D15 `allow_external` and `ask` cannot differ**, and saying
- * so is more honest than shipping a distinction that does nothing:
- * `ask` means *check with me before spending this*, and a page where
- * every run needs a press is already asking. The two are kept as
- * separate values because they diverge the moment anything runs
- * without a press, which is what the missing store would unblock.
+ * **It was called `cost_posture` and it never gated cost.** Nothing in
+ * module introspection says anything about money or rate limits, in
+ * MISP or in misp-modules, so there was no cost to gate; the one thing
+ * the setting does is decide whether a non-local module is withheld.
+ * The old key is still read, so a fork that carries it keeps its
+ * setting.
+ *
+ * **`ask` is gone.** It was byte-identical to `allow_external` — under
+ * D15 nothing runs without a press, so a page where every run needs a
+ * press is already asking — and a three-option select where two options
+ * behave the same is its own defect. A stored `ask` reads as
+ * `allow_external`, which is what it did.
  *
  * ## `max_age_hours` is carried and inert
  *
@@ -86,14 +92,17 @@ class ValueEnrichmentTool
     /** Auto-run nothing that leaves the instance. The default. */
     const POSTURE_LOCAL = 'local_only';
 
-    /** Auto-run whatever is declared. */
+    /** Offer whatever is declared, wherever it answers from. */
     const POSTURE_EXTERNAL = 'allow_external';
 
     /**
-     * Check with the reader first — which, while nothing runs without
-     * a press, is what the page already does.
+     * Retired. It behaved exactly as `POSTURE_EXTERNAL` and is read as
+     * that, so a fork that stored it keeps working. Not offered.
      */
-    const POSTURE_ASK = 'ask';
+    const POSTURE_ASK_LEGACY = 'ask';
+
+    /** The key this setting had while it claimed to be about cost. */
+    const POSTURE_KEY_LEGACY = 'cost_posture';
 
     /**
      * The only defensible default for a setting one person can apply
@@ -240,15 +249,25 @@ class ValueEnrichmentTool
      */
     private static function posture(array $section)
     {
-        $posture = isset($section['cost_posture'])
-            ? $section['cost_posture']
-            : null;
+        $posture = null;
+        if (isset($section['locality_posture'])) {
+            $posture = $section['locality_posture'];
+        } elseif (isset($section[self::POSTURE_KEY_LEGACY])) {
+            // A fork carries the old key; `updateDefaults()` never
+            // touches a fork, so reading it is the whole migration.
+            $posture = $section[self::POSTURE_KEY_LEGACY];
+        }
+        if ($posture === self::POSTURE_ASK_LEGACY) {
+            $posture = self::POSTURE_EXTERNAL;
+        }
         return in_array($posture, self::postures(), true)
             ? $posture
             : self::DEFAULT_POSTURE;
     }
 
     /**
+     * The two that differ. `ask` is not here: see the class note.
+     *
      * @return array
      */
     public static function postures()
@@ -256,7 +275,6 @@ class ValueEnrichmentTool
         return array(
             self::POSTURE_LOCAL,
             self::POSTURE_EXTERNAL,
-            self::POSTURE_ASK,
         );
     }
 

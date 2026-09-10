@@ -53,7 +53,7 @@
  * ## An omission is the safe direction, and it is a real one
  *
  * A module this map does not name resolves `unknown`, and
- * `cost_posture: local_only` treats `unknown` exactly as it treats
+ * `locality_posture: local_only` treats `unknown` exactly as it treats
  * `external`: it does not auto-run. So the failure mode of an
  * incomplete map is *a local module that does not run by itself*,
  * never *a value quietly sent somewhere*.

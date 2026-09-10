@@ -103,7 +103,7 @@ class AnalystProfileProbeShell extends AppShell
         );
         $this->__is(
             'local_only',
-            $profile['parameters']['enrichment']['cost_posture'],
+            $profile['parameters']['enrichment']['locality_posture'],
             'the stored default still contacts nobody'
         );
         $this->__is(
