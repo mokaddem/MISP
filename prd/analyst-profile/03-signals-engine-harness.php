@@ -886,21 +886,20 @@ is_same(
 );
 
 $groups = array();
-$bands = array();
+$banded = array();
 foreach ($catalogue as $id => $config) {
     if (!in_array($config['group'], ValueSignalBase::GROUPS, true)) {
         $groups[] = $id;
     }
-    if (!in_array(
-        $config['default_band'],
-        array('strong', 'moderate', 'weak'),
-        true
-    )) {
-        $bands[] = $id;
+    if (array_key_exists('default_band', $config)) {
+        $banded[] = $id;
     }
 }
 is_same(array(), $groups, 'every signal declares one of the four groups');
-is_same(array(), $bands, 'and a band the editor can render');
+is_same(array(), $banded,
+    'and none of them declares an editorial band — D16 removed it, and'
+        . " what a signal is worth in principle is its cap's own"
+        . ' contribution to the attainable bound');
 
 $schemaless = array();
 foreach ($catalogue as $id => $config) {

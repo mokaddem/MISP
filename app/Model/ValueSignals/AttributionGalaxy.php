@@ -27,7 +27,6 @@ class AttributionGalaxy extends ValueSignalBase
 {
     public $id = 'attribution.galaxy';
     public $group = 'Attribution';
-    public $default_band = 'strong';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('galaxies');
     public $absence_key = 'absent';

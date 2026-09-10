@@ -28,7 +28,6 @@ class RecordTemporalPrecision extends ValueSignalBase
 {
     public $id = 'record.temporal_precision';
     public $group = 'Lifecycle';
-    public $default_band = 'weak';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('temporal');
     public $source = 'Timeline';

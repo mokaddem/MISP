@@ -93,9 +93,6 @@ class AnalystProfileFormTool
         'enrichment',
     );
 
-    /** The editorial bands a profile may put a signal in (D14). */
-    const BANDS = array('strong', 'moderate', 'weak');
-
     /**
      * The whole view-model for `view` and `edit`.
      *
@@ -290,9 +287,6 @@ class AnalystProfileFormTool
             'group' => $entry !== null && !empty($entry['group'])
                 ? $entry['group']
                 : ($config === null ? null : $config['group']),
-            'band' => $entry !== null && !empty($entry['band'])
-                ? $entry['band']
-                : ($config === null ? null : $config['default_band']),
             'evidence_class' => $config === null
                 ? null
                 : $config['evidence_class'],
@@ -312,10 +306,11 @@ class AnalystProfileFormTool
             'fields' => array(),
         );
         /*
-         * The toggle and the two editorial choices come first, then the
-         * generated maps. `band` is editorial and not derived (D14), so
-         * it is a select over three words rather than a number the form
-         * computes from the points.
+         * The toggle and the group come first, then the generated maps.
+         * There is no editorial band: D16 removed it, because what a
+         * signal is worth in principle is `points.cap` in the next
+         * column, in points, and *band* now means the quality band and
+         * nothing else.
          */
         $item['fields'][] = array(
             'key' => 'enabled',
@@ -324,20 +319,6 @@ class AnalystProfileFormTool
             'value' => $enabled,
             'default' => true,
             'path' => array('signals', $id, 'enabled'),
-        );
-        $item['fields'][] = array(
-            'key' => 'band',
-            'label' => __('Weight band'),
-            'type' => 'select',
-            'options' => self::BANDS,
-            'value' => $item['band'],
-            'default' => $config === null ? null : $config['default_band'],
-            'help' => __(
-                'What this kind of evidence is worth in principle. The'
-                . ' contribution says what it produced here; the band'
-                . ' says how much a reader should weigh that.'
-            ),
-            'path' => array('signals', $id, 'band'),
         );
         $item['fields'][] = array(
             'key' => 'group',
@@ -1646,15 +1627,6 @@ class AnalystProfileFormTool
             }
             foreach ($signal->validateEntry($entry) as $error) {
                 $errors[] = $error;
-            }
-            if (!empty($entry['band'])
-                && !in_array($entry['band'], self::BANDS, true)
-            ) {
-                $errors[] = sprintf(
-                    __('%1$s: `%2$s` is not a weight band.'),
-                    $id,
-                    $entry['band']
-                );
             }
         }
         foreach ($this->entriesById($parameters, 'escalations')

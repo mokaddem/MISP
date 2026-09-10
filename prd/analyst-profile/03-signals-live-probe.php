@@ -82,11 +82,10 @@ class AnalystSignalProbeShell extends AppShell
         );
         foreach ($catalogue as $id => $config) {
             $this->out(sprintf(
-                '    %-32s %-12s %-10s %s',
+                '    %-32s %-12s %s',
                 $id,
                 $config['group'],
-                $config['evidence_class'],
-                $config['default_band']
+                $config['evidence_class']
             ));
         }
     }
@@ -191,10 +190,9 @@ class AnalystSignalProbeShell extends AppShell
                 foreach ($group['signals'] as $row) {
                     $sum += $row['contribution'];
                     $this->out(sprintf(
-                        '      %s %+4d  %-9s %-46s %s',
+                        '      %s %+4d  %-46s %s',
                         $row['direction'] === 'up' ? '^' : 'v',
                         $row['contribution'],
-                        $row['weight'],
                         $row['signal'],
                         $row['evidence']
                     ));

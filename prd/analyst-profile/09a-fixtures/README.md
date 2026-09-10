@@ -122,8 +122,10 @@ items[]               one per signal
   .state              active | available | missing
   .enabled .in_profile
   .badges[]           {id, label, title} — `custom` and `missing`
-  .group .band        Reporting | Sightings | Attribution | Lifecycle;
-                      strong | moderate | weak
+  .group              Reporting | Sightings | Attribution | Lifecycle.
+                      There is no editorial band: D16 removed it, so
+                      what a signal is worth in principle is the `cap`
+                      in its own points map, in points.
   .contribution       null here — see profile.json for a scored one
   .fields[]           as above, including the generated points/config maps
 escalations[]         the conflict rules, same shape

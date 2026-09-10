@@ -803,9 +803,6 @@ class ValueVerdictTool
                 ? $entry['group']
                 : $signal->group,
             'direction' => $contribution < 0 ? 'down' : 'up',
-            'weight' => !empty($entry['band'])
-                ? $entry['band']
-                : $signal->default_band,
             'contribution' => $contribution,
             'signal' => $row['signal'],
             'evidence' => isset($row['evidence'])

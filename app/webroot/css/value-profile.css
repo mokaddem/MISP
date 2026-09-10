@@ -1149,15 +1149,6 @@ tr.vp-occ-deleted td {
     min-width: 0;
 }
 
-.vp-signal-weight {
-    flex: 0 0 auto;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
 .vp-signals-rest {
     font-size: 0.72rem;
     font-style: italic;
@@ -2189,23 +2180,6 @@ tr.vp-occ-deleted td {
     background: var(--vp-ben);
 }
 
-.vp-vc-weight {
-    flex: 0 0 56px;
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    text-align: right;
-}
-
-.vp-vc-case-malicious .vp-vc-weight {
-    color: var(--vp-mal);
-}
-
-.vp-vc-case-benign .vp-vc-weight {
-    color: var(--vp-ben);
-}
-
 .vp-vc-row-bottom {
     display: flex;
     align-items: baseline;
@@ -2738,23 +2712,6 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-down .vp-ledger-points {
-    color: var(--vp-dir-against);
-}
-
-.vp-ledger-weight {
-    flex: 0 0 58px;
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.vp-ledger-line-up .vp-ledger-weight {
-    color: var(--vp-dir-with);
-}
-
-.vp-ledger-line-down .vp-ledger-weight {
     color: var(--vp-dir-against);
 }
 

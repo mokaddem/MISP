@@ -39,7 +39,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Reporting",
-              "band": "strong",
               "evidence_class": "aggregate",
               "source": "Occurrences",
               "trust_weighted": true,
@@ -61,24 +60,6 @@
                     "signals",
                     "reporting.independent_orgs",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "strong",
-                  "default": "strong",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "reporting.independent_orgs",
-                    "band"
                   ]
                 },
                 {
@@ -161,7 +142,6 @@
                 }
               ],
               "group": "Reporting",
-              "band": "strong",
               "evidence_class": null,
               "source": null,
               "trust_weighted": false,
@@ -183,24 +163,6 @@
                     "signals",
                     "reporting.partner_feed_agreement",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "strong",
-                  "default": null,
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "reporting.partner_feed_agreement",
-                    "band"
                   ]
                 },
                 {
@@ -264,7 +226,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Reporting",
-              "band": "moderate",
               "evidence_class": "aggregate",
               "source": "Occurrences",
               "trust_weighted": false,
@@ -286,24 +247,6 @@
                     "signals",
                     "reporting.published_ratio",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "moderate",
-                  "default": "moderate",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "reporting.published_ratio",
-                    "band"
                   ]
                 },
                 {
@@ -380,7 +323,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Sightings",
-              "band": "moderate",
               "evidence_class": "row",
               "source": "Sightings",
               "trust_weighted": true,
@@ -402,24 +344,6 @@
                     "signals",
                     "sightings.false_positive",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "moderate",
-                  "default": "moderate",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "sightings.false_positive",
-                    "band"
                   ]
                 },
                 {
@@ -496,7 +420,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Sightings",
-              "band": "strong",
               "evidence_class": "row",
               "source": "Sightings",
               "trust_weighted": true,
@@ -518,24 +441,6 @@
                     "signals",
                     "sightings.volume_recency",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "strong",
-                  "default": "strong",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "sightings.volume_recency",
-                    "band"
                   ]
                 },
                 {
@@ -642,7 +547,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Attribution",
-              "band": "strong",
               "evidence_class": "row",
               "source": "Context",
               "trust_weighted": false,
@@ -664,24 +568,6 @@
                     "signals",
                     "attribution.galaxy",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "strong",
-                  "default": "strong",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "attribution.galaxy",
-                    "band"
                   ]
                 },
                 {
@@ -758,7 +644,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Attribution",
-              "band": "weak",
               "evidence_class": "row",
               "source": "Context",
               "trust_weighted": false,
@@ -780,24 +665,6 @@
                     "signals",
                     "attribution.technique",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "weak",
-                  "default": "weak",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "attribution.technique",
-                    "band"
                   ]
                 },
                 {
@@ -859,7 +726,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Lifecycle",
-              "band": "moderate",
               "evidence_class": "aggregate",
               "source": "Timeline",
               "trust_weighted": false,
@@ -881,24 +747,6 @@
                     "signals",
                     "lifecycle.continuity",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "moderate",
-                  "default": "moderate",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "lifecycle.continuity",
-                    "band"
                   ]
                 },
                 {
@@ -975,7 +823,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Lifecycle",
-              "band": "moderate",
               "evidence_class": "aggregate",
               "source": "External",
               "trust_weighted": false,
@@ -997,24 +844,6 @@
                     "signals",
                     "lifecycle.feeds",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "moderate",
-                  "default": "moderate",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "lifecycle.feeds",
-                    "band"
                   ]
                 },
                 {
@@ -1091,7 +920,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Lifecycle",
-              "band": "moderate",
               "evidence_class": "aggregate",
               "source": "Occurrences",
               "trust_weighted": false,
@@ -1113,24 +941,6 @@
                     "signals",
                     "lifecycle.recency",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "moderate",
-                  "default": "moderate",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "lifecycle.recency",
-                    "band"
                   ]
                 },
                 {
@@ -1222,7 +1032,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Lifecycle",
-              "band": "weak",
               "evidence_class": "aggregate",
               "source": "Lifecycle",
               "trust_weighted": false,
@@ -1244,24 +1053,6 @@
                     "signals",
                     "lifecycle.warninglist",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "weak",
-                  "default": "weak",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "lifecycle.warninglist",
-                    "band"
                   ]
                 },
                 {
@@ -1338,7 +1129,6 @@
               "in_profile": true,
               "badges": [],
               "group": "Lifecycle",
-              "band": "weak",
               "evidence_class": "aggregate",
               "source": "Timeline",
               "trust_weighted": false,
@@ -1360,24 +1150,6 @@
                     "signals",
                     "record.temporal_precision",
                     "enabled"
-                  ]
-                },
-                {
-                  "key": "band",
-                  "label": "Weight band",
-                  "type": "select",
-                  "options": [
-                    "strong",
-                    "moderate",
-                    "weak"
-                  ],
-                  "value": "weak",
-                  "default": "weak",
-                  "help": "What this kind of evidence is worth in principle. The contribution says what it produced here; the band says how much a reader should weigh that.",
-                  "path": [
-                    "signals",
-                    "record.temporal_precision",
-                    "band"
                   ]
                 },
                 {

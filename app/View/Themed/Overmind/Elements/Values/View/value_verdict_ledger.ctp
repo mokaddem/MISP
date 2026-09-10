@@ -102,9 +102,8 @@ foreach ($ledger as $group) {
                             <td>
                                 <div class="vp-ledger-contrib-cell"
                                      title="<?= h(sprintf(
-                                         __('%1$s points, %2$s'),
-                                         $signal['contribution'],
-                                         $signal['weight']
+                                         __('%s points'),
+                                         $signal['contribution']
                                      )) ?>">
                                     <span class="vp-vc-bar">
                                         <span class="vp-vc-bar-fill"
@@ -121,9 +120,6 @@ foreach ($ledger as $group) {
                                                 : '')
                                             . $signal['contribution']
                                         ) ?>
-                                    </span>
-                                    <span class="vp-ledger-weight">
-                                        <?= h($signal['weight']) ?>
                                     </span>
                                 </div>
                             </td>

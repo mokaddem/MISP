@@ -25,7 +25,6 @@ class LifecycleFeeds extends ValueSignalBase
 {
     public $id = 'lifecycle.feeds';
     public $group = 'Lifecycle';
-    public $default_band = 'moderate';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('feeds');
     public $absence_key = 'no_feed';

@@ -19,7 +19,6 @@ class AttributionTechnique extends ValueSignalBase
 {
     public $id = 'attribution.technique';
     public $group = 'Attribution';
-    public $default_band = 'weak';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('galaxies');
     public $source = 'Context';

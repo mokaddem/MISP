@@ -378,7 +378,6 @@ class AnalystFixturesShell extends AppShell
             'id' => 'reporting.partner_feed_agreement',
             'group' => 'Reporting',
             'enabled' => true,
-            'band' => 'strong',
             'points' => array('per_partner' => 6, 'cap' => 18),
         );
         return array(

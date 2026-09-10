@@ -106,9 +106,6 @@ $confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
                         <span class="vp-signal-text">
                             <?= h($signal['signal']) ?>
                         </span>
-                        <span class="vp-signal-weight">
-                            <?= h($signal['weight']) ?>
-                        </span>
                     </div>
                 <?php endforeach; ?>
             </div>

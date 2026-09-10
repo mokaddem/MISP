@@ -132,9 +132,6 @@ abstract class ValueSignalBase
     /** One line, shown in the editor's palette. */
     public $description = 'to-override';
 
-    /** `strong` / `moderate` / `weak`. The profile may override it. */
-    public $default_band = 'moderate';
-
     /**
      * The keys this signal reads from `points`, so the editor can
      * render a form for a signal it has never seen.
@@ -223,7 +220,6 @@ abstract class ValueSignalBase
             'id' => $this->id,
             'group' => $this->group,
             'description' => $this->description,
-            'default_band' => $this->default_band,
             'points_schema' => $this->points_schema,
             'config_schema' => $this->config_schema,
             'absence_key' => $this->absence_key,

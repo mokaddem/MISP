@@ -30,7 +30,6 @@ class ReportingIndependentOrgs extends ValueSignalBase
 {
     public $id = 'reporting.independent_orgs';
     public $group = 'Reporting';
-    public $default_band = 'strong';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('orgs');
     public $source = 'Occurrences';

@@ -197,11 +197,14 @@ than one JSON textarea. Though **a raw JSON editor is also offered**, because
 every profile is one document and an analyst who wants to paste one should be
 able to — with validation on save (phase 1 §3).
 
-**`signals`** — a table, one row per signal: enabled, group, band, and its
-`points` fields. The points columns differ per signal, which the table has to
-tolerate; `points` has no fixed schema by design (`03-signals.md` §3). Each row
-links to its implementation's description of what it reads and what its keys
-mean, because `per_org` and `cap` are not self-explanatory.
+**`signals`** — a table, one row per signal: enabled, group, and its `points`
+fields. The points columns differ per signal, which the table has to tolerate;
+`points` has no fixed schema by design (`03-signals.md` §3). Each row links to
+its implementation's description of what it reads and what its keys mean,
+because `per_org` and `cap` are not self-explanatory. There is no editorial
+band column — D16 removed the field, so *band* on this page means the quality
+band and nothing else, and what a signal is worth in principle is the `cap`
+beside it, in points.
 
 **`thresholds`** — the lean supermajority and the quality bands (D11), with
 the band boundaries drawn as a strip against the attainable range under the

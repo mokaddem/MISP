@@ -35,7 +35,6 @@ class SightingsFalsePositive extends ValueSignalBase
 {
     public $id = 'sightings.false_positive';
     public $group = 'Sightings';
-    public $default_band = 'moderate';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('sightings');
     public $source = 'Sightings';

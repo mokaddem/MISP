@@ -28,7 +28,6 @@ class LifecycleContinuity extends ValueSignalBase
 {
     public $id = 'lifecycle.continuity';
     public $group = 'Lifecycle';
-    public $default_band = 'moderate';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('activity');
     public $source = 'Timeline';

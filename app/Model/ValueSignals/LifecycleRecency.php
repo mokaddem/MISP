@@ -27,7 +27,6 @@ class LifecycleRecency extends ValueSignalBase
 {
     public $id = 'lifecycle.recency';
     public $group = 'Lifecycle';
-    public $default_band = 'moderate';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('occurrences');
     public $source = 'Occurrences';

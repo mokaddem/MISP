@@ -196,9 +196,6 @@ foreach ($cases as $case) {
                                           2
                                       ) ?>%;"></span>
                             </span>
-                            <span class="vp-vc-weight">
-                                <?= h($row['weight']) ?>
-                            </span>
                         </div>
                         <div class="vp-vc-row-bottom">
                             <span class="vp-vc-evidence">

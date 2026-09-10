@@ -40,7 +40,6 @@ class SightingsVolumeRecency extends ValueSignalBase
 {
     public $id = 'sightings.volume_recency';
     public $group = 'Sightings';
-    public $default_band = 'strong';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('sightings');
     public $absence_key = 'none_recent';

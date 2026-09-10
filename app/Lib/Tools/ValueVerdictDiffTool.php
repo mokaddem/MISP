@@ -285,9 +285,6 @@ class ValueVerdictDiffTool
             'id' => $id,
             'signal' => isset($present['signal']) ? $present['signal'] : $id,
             'group' => isset($present['kind']) ? $present['kind'] : null,
-            'weight' => isset($present['weight'])
-                ? $present['weight']
-                : null,
             'source' => isset($present['source'])
                 ? $present['source']
                 : null,

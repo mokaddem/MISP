@@ -41,7 +41,6 @@ class LifecycleWarninglist extends ValueSignalBase
 {
     public $id = 'lifecycle.warninglist';
     public $group = 'Lifecycle';
-    public $default_band = 'weak';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('warninglist');
     public $absence_key = 'no_hit';

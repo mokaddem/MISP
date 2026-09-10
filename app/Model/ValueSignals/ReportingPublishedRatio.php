@@ -26,7 +26,6 @@ class ReportingPublishedRatio extends ValueSignalBase
 {
     public $id = 'reporting.published_ratio';
     public $group = 'Reporting';
-    public $default_band = 'moderate';
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('publication');
     public $source = 'Occurrences';

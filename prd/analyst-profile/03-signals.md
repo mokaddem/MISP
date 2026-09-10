@@ -416,14 +416,24 @@ What goes:
 - the per-signal `band` entry in the profile document, and
   `ValueSignalBase::$default_band`;
 - `AnalystProfileFormTool::BANDS`, the select, and its validation;
-- the ledger row's `weight` key in `ValueVerdictTool`, and the two
-  templates that print it (`value_verdict_ledger.ctp`,
-  `value_verdict_card.ctp`);
+- the ledger row's `weight` key in `ValueVerdictTool`, the copy of it
+  `ValueVerdictDiffTool` carried into every diff row, and the three
+  templates that print it (`value_verdict_ledger.ctp` — the span and
+  the tooltip beside the points — `value_verdict_card.ctp` and
+  `value_verdict_conflicted.ctp`), with their three now-dead CSS rules;
 - the column from the editor's signals table.
+
+**Removed 2026-09-10.** The list above was written from a survey that
+found two templates; the removal found a third, `value_verdict_conflicted.ctp`,
+and a second writer, `ValueVerdictDiffTool`. `bands.json` and
+`simulate.json`'s `axes.band` keep their `band` — that key is the
+quality band, which is the one the word now belongs to.
 
 **Back-compat:** `parameters` is opaque JSON, so a `band` stored on an
 existing fork is simply ignored once nothing reads it. No migration.
-Confirm nothing else reads the key before removing the writer.
+Confirmed before removing the writer: after the change no file under
+`app/` reads `default_band`, and every surviving `band` is the quality
+band.
 
 **Three things this buys.**
 
