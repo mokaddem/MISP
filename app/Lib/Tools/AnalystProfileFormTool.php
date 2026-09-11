@@ -6,6 +6,7 @@ App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueRelevanceTool', 'Tools');
 App::uses('ValueTrustTool', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueLeanTool', 'Tools');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 
@@ -712,11 +713,13 @@ class AnalystProfileFormTool
         $items = array();
         foreach ($catalogue as $id => $config) {
             $items[$id] = $this->escalationItem($id, $config,
-                isset($entries[$id]) ? $entries[$id] : null);
+                isset($entries[$id]) ? $entries[$id] : null,
+                $parameters);
         }
         foreach ($entries as $id => $entry) {
             if (!isset($items[$id])) {
-                $items[$id] = $this->escalationItem($id, null, $entry);
+                $items[$id] = $this->escalationItem($id, null, $entry,
+                    $parameters);
             }
         }
         return array_values($items);
@@ -726,10 +729,13 @@ class AnalystProfileFormTool
      * @param string $id
      * @param array|null $config
      * @param array|null $entry
+     * @param array $parameters The whole document, for a `when` spec
+     *                          whose fallback is another setting in it
      * @return array
      */
-    private function escalationItem($id, $config, $entry)
-    {
+    private function escalationItem($id, $config, $entry,
+        array $parameters = array()
+    ) {
         $inProfile = $entry !== null;
         $enabled = $inProfile
             && (!array_key_exists('enabled', $entry)
@@ -787,7 +793,7 @@ class AnalystProfileFormTool
             : array();
         $schema = $config === null ? array() : $config['when_schema'];
         foreach ($this->generatedFields($schema, $when,
-            array('escalations', $id, 'when')) as $field) {
+            array('escalations', $id, 'when'), $parameters) as $field) {
             $field['map'] = 'when';
             $item['fields'][] = $field;
         }
@@ -1548,16 +1554,63 @@ class AnalystProfileFormTool
     }
 
     /**
+     * A setting whose fallback is another setting, drawn as an empty box
+     * that says what it is following.
+     *
+     * Two things make this more than a placeholder. **The word is not a
+     * value**: `ValueEscalationBase::shareThreshold()` reads anything
+     * that is not a number as *follow the profile*, so `supermajority`
+     * and an absent key have always meant the same thing — printing the
+     * word into a box invites an analyst to edit a sentinel as though
+     * it were a threshold. It is shown as empty instead, which is what
+     * the engine already reads it as, and a save then writes it away.
+     *
+     * **And the number is the profile's, not the schema's.** The box
+     * names the fallback and shows what it currently resolves to, read
+     * with the engine's own function — a second copy of
+     * `lean_supermajority`'s validity rule here would be a placeholder
+     * that lies the day somebody stores `0.4`.
+     *
+     * One setting is followed and one resolver answers for it, so the
+     * spec names the word rather than a path: a second `follows` field
+     * would want a resolver named beside it, and inventing that slot
+     * before there is a second one is a guess about what it needs.
+     *
+     * @param array $field
+     * @param array $follows The `name` the fallback is written as
+     * @param array $parameters
+     * @return array
+     */
+    private function following(array $field, array $follows,
+        array $parameters
+    ) {
+        if ($field['value'] !== null && !is_numeric($field['value'])) {
+            $field['value'] = null;
+        }
+        $resolved = ValueLeanTool::supermajority(
+            array('parameters' => $parameters));
+        $field['placeholder'] = sprintf(
+            '%s · %s',
+            $follows['name'],
+            $resolved
+        );
+        $field['follows'] = $follows['name'];
+        return $field;
+    }
+
+    /**
      * A form for a schema the tool has never seen, which is what makes a
      * dropped-in signal configurable without hand-edited JSON.
      *
      * @param array $schema key => spec
      * @param array $stored The map as the profile carries it
      * @param array $prefix The path segments this map lives under
+     * @param array $parameters The whole document, for a spec whose
+     *                          fallback is another setting in it
      * @return array
      */
     private function generatedFields(array $schema, array $stored,
-        array $prefix
+        array $prefix, array $parameters = array()
     ) {
         $fields = array();
         foreach ($schema as $key => $spec) {
@@ -1583,6 +1636,15 @@ class AnalystProfileFormTool
             }
             if (isset($spec['unit'])) {
                 $field['unit'] = $spec['unit'];
+            }
+            foreach (array('min', 'max') as $bound) {
+                if (isset($spec[$bound])) {
+                    $field[$bound] = $spec[$bound];
+                }
+            }
+            if (isset($spec['follows'])) {
+                $field = $this->following($field, $spec['follows'],
+                    $parameters);
             }
             $fields[] = $field;
         }
@@ -2415,6 +2477,61 @@ class AnalystProfileFormTool
                 ValueEnrichmentTool::POSTURE_KEY_LEGACY,
                 'locality_posture'
             );
+        }
+        foreach ($this->followedWords($parameters) as $note) {
+            $notes[] = $note;
+        }
+        return $notes;
+    }
+
+    /**
+     * A `when` setting still written as the word for its fallback.
+     *
+     * The same shape as the two above and for the same reason: the word
+     * is read as *follow the profile*, an absent key is read as exactly
+     * that too, and the editor draws the reading rather than the
+     * spelling — so a save takes the key out and moves `revision`
+     * without changing a single answer. Said before it happens.
+     *
+     * Driven off the schemas rather than a list here, so a second rule
+     * declaring `follows` is covered the day it is dropped in.
+     *
+     * @param array $parameters
+     * @return array
+     */
+    private function followedWords(array $parameters)
+    {
+        $notes = array();
+        $catalogue = ValueSignalLoader::catalogue(
+            ValueSignalLoader::SUBJECT_ESCALATION
+        );
+        foreach ($this->entriesById($parameters, 'escalations')
+            as $id => $entry
+        ) {
+            if (!isset($catalogue[$id]['when_schema'])
+                || !isset($entry['when'])
+                || !is_array($entry['when'])
+            ) {
+                continue;
+            }
+            foreach ($catalogue[$id]['when_schema'] as $key => $spec) {
+                if (!isset($spec['follows']['name'])
+                    || !isset($entry['when'][$key])
+                    || $entry['when'][$key] !== $spec['follows']['name']
+                ) {
+                    continue;
+                }
+                $notes[] = sprintf(
+                    __('`%1$s` writes `%2$s` as the word `%3$s`. That'
+                        . ' means follow the profile, and so does'
+                        . ' leaving the key out, which is how the box'
+                        . ' below shows it. Saving any section drops'
+                        . ' the word and changes no answer.'),
+                    $id,
+                    $key,
+                    $spec['follows']['name']
+                );
+            }
         }
         return $notes;
     }

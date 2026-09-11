@@ -40,12 +40,21 @@ $shown = $value === null ? '' : $value;
 if (is_bool($shown)) {
     $shown = $shown ? 'true' : 'false';
 }
-$placeholder = $value === null && $default !== null
-    ? (is_bool($default) ? ($default ? 'true' : 'false') : (string)$default)
-    : '';
+/*
+ * A field whose fallback is another setting carries its own
+ * placeholder, because *what an empty box will use* is then a number
+ * out of the document rather than the schema's word for it.
+ */
+$placeholder = '';
+if ($value === null && isset($field['placeholder'])) {
+    $placeholder = (string)$field['placeholder'];
+} elseif ($value === null && $default !== null) {
+    $placeholder = is_bool($default)
+        ? ($default ? 'true' : 'false')
+        : (string)$default;
+}
 
 $numeric = $type === 'float' || $type === 'int';
-$width = $numeric ? '4.6rem' : '';
 $classes = 'form-control form-control-sm';
 if ($numeric) {
     $classes .= ' num text-end';
@@ -66,26 +75,36 @@ $asNumber = $numeric && ($shown === '' || is_numeric($shown));
 $step = $type === 'int' ? '1' : 'any';
 
 /*
- * How many characters a text box holds, which is the only thing that
- * can size one. `supermajority` in a box built for a weight reads
- * `supermaj`, and a setting you cannot finish reading is a setting you
- * have to click into to check.
+ * How many characters a box holds, offered to whoever is laying it out.
+ * A chip's control is a fixed `3.4rem` — right for a weight, wrong for
+ * anything you have to finish reading — so it widens to this and the
+ * section panes, where `.form-control` is already 100% of its cell,
+ * ignore it.
  *
- * Only where a width is not already decided: `.form-control` is 100% of
- * its cell in the section panes, so this changes the chips and nothing
- * else. Bounded both ways — a one-character box is not a target, and an
- * over-long stored value must not push the table out.
+ * A custom property rather than `size`, which only text inputs honour:
+ * the box that most needs the room here is a `number` whose placeholder
+ * names what an empty one falls back to. Bounded both ways — a
+ * one-character box is not a target, and an over-long stored value must
+ * not push the table out.
  *
  * `types` and `module_states` hold arrays and draw their own controls,
  * so they never reach the box this sizes and must not be measured as
  * though they did.
  */
-$size = is_scalar($shown)
+$chars = is_scalar($shown)
     ? max(4, min(28, max(
         mb_strlen((string)$shown),
         mb_strlen($placeholder)
     )))
     : 4;
+
+/*
+ * A number box is capped so a column of them lines up, and the cap
+ * yields to a box that has more to say — the placeholder naming a
+ * fallback is longer than any weight. Short contents never reach it,
+ * so the section panes keep the width they had.
+ */
+$width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
 ?>
 <?php if ($type === 'bool'): ?>
     <?php if ($editable): ?>
@@ -243,10 +262,22 @@ $size = is_scalar($shown)
     </div>
 <?php else: ?>
     <?php if ($editable): ?>
+        <?php
+        $style = '--fld-w:' . (int)$chars . 'ch';
+        if ($width !== '') {
+            $style .= ';max-width:' . $width;
+        }
+        $bounds = '';
+        foreach (array('min', 'max') as $bound) {
+            if ($asNumber && isset($field[$bound])) {
+                $bounds .= ' ' . $bound . '="'
+                    . h((string)$field[$bound]) . '"';
+            }
+        }
+        ?>
         <input class="<?= h($classes) ?>"
                type="<?= $asNumber ? 'number' : 'text' ?>"
-               <?= $asNumber ? 'step="' . h($step) . '"'
-                   : 'size="' . (int)$size . '"' ?>
+               <?= $asNumber ? 'step="' . h($step) . '"' : '' ?><?= $bounds ?>
                id="<?= h($id) ?>"
                name="<?= h($name) ?>"
                value="<?= h((string)$shown) ?>"
@@ -255,9 +286,7 @@ $size = is_scalar($shown)
                <?= $placeholder === ''
                    ? ''
                    : 'placeholder="' . h($placeholder) . '"' ?>
-               <?= $width === ''
-                   ? ''
-                   : 'style="max-width:' . h($width) . '"' ?>>
+               style="<?= h($style) ?>">
     <?php else: ?>
         <span class="num"><?= $shown === ''
             ? '<span class="wb-sub">' . h(__('not set')) . '</span>'

@@ -96,6 +96,24 @@ class AnalystWiringShell extends AppShell
             return;
         }
         $stored = $profile['parameters'];
+        $form = new AnalystProfileFormTool();
+        /*
+         * This section asks whether a *current-shape* document survives
+         * the form, so it starts from one. An instance still holding a
+         * shape an older version wrote is not a failure here — the
+         * editor announces that and rewrites it, which
+         * `sectionLegacyUpgrade()` is the check for — but reading it as
+         * one would make this section fail for a reason that has
+         * nothing to do with the round trip.
+         */
+        if (!empty($form->legacyShapes($stored))) {
+            $stored = $form->merge($stored, $this->postedFrom(
+                $this->renderWorkbench($user, $profile, null, true)));
+            $profile['parameters'] = $stored;
+            $this->ok(empty($form->legacyShapes($stored)),
+                'the in-force profile carried an older shape, upgraded'
+                    . ' once before the round trip is asked about');
+        }
         $html = $this->renderWorkbench($user, $profile, null, true);
         if (strpos($html, 'EXCEPTION') === 0) {
             $this->fail('the editor did not render: '
@@ -107,7 +125,6 @@ class AnalystWiringShell extends AppShell
             sprintf('the form posts %d sections',
                 count($posted)));
 
-        $form = new AnalystProfileFormTool();
         $merged = $form->merge($stored, $posted);
 
         foreach (array('signals', 'escalations', 'exclusions') as $name) {
@@ -189,9 +206,21 @@ class AnalystWiringShell extends AppShell
                 = $legacy['enrichment']['locality_posture'];
             unset($legacy['enrichment']['locality_posture']);
         }
+        /*
+         * And a `when` threshold written as the word for the setting it
+         * follows. Built here for the same reason as the two above: the
+         * shipped profile stopped carrying the word, so waiting for an
+         * instance to hold one is waiting on an accident.
+         */
+        foreach ($legacy['escalations'] as $i => $entry) {
+            if ($entry['id'] === 'conflict:listed-vs-asserted') {
+                $legacy['escalations'][$i]['when']['threat_share_at_least']
+                    = 'supermajority';
+            }
+        }
 
         $notes = $form->legacyShapes($legacy);
-        $this->ok(count($notes) === 2,
+        $this->ok(count($notes) === 3,
             sprintf('the editor names %d older shapes before a save',
                 count($notes)));
 
@@ -207,6 +236,9 @@ class AnalystWiringShell extends AppShell
             'dropping the flat TTL map rather than leaving both');
         $this->ok(isset($upgraded['relevance']['ttl_buckets']),
             'and writing the buckets');
+        $this->ok(!$this->carriesFollowedWord($upgraded),
+            'and dropping the word a threshold followed, which an'
+                . ' absent key already said');
 
         $before = ValueRelevanceTool::section(array('parameters' => $legacy));
         $after = ValueRelevanceTool::section(array('parameters' => $upgraded));
@@ -233,6 +265,22 @@ class AnalystWiringShell extends AppShell
         }
         $this->ok(empty($form->legacyShapes($upgraded)),
             'with nothing left for the notice to say');
+    }
+
+    /**
+     * Whether any escalation still writes a threshold as the word for
+     * the setting it follows.
+     */
+    private function carriesFollowedWord(array $parameters)
+    {
+        foreach ($parameters['escalations'] as $entry) {
+            if (isset($entry['when']['threat_share_at_least'])
+                && !is_numeric($entry['when']['threat_share_at_least'])
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

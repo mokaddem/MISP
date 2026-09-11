@@ -46,11 +46,34 @@ class ConflictListedVsAsserted extends ValueEscalationBase
                 'options' => WarninglistCategory::CATEGORIES,
                 'label' => __('The category of list that must match'),
             ),
+            /*
+             * A share, and by default *the* share — the profile's own
+             * `lean_supermajority`, which is the point of the rule:
+             * it fires exactly where the derivation would otherwise
+             * have called the value a threat on the stances alone.
+             *
+             * `supermajority` was the word for that and was never a
+             * value: `shareThreshold()` reads every non-number as
+             * *follow the profile*, so the word and an absent key have
+             * always meant the same thing — and so did a typo. It is
+             * declared as what it is now, a fallback the editor can
+             * name and resolve, and the word stays accepted so that
+             * documents already carrying it still validate.
+             */
             'threat_share_at_least' => array(
-                'type' => 'string',
-                'default' => 'supermajority',
+                'type' => 'float',
+                'min' => 0,
+                'max' => 1,
+                'follows' => array('name' => 'supermajority'),
                 'label' => __('Share of organisations asserting it,'
-                    . ' as a fraction or the word supermajority'),
+                    . ' at least'),
+                'help' => __(
+                    'Left empty this follows the profile\'s own'
+                    . ' supermajority share, so the rule fires exactly'
+                    . ' where the lean would otherwise have flipped to'
+                    . ' threat; give it a fraction to pin this one rule'
+                    . ' to its own threshold instead.'
+                ),
             ),
         );
     }

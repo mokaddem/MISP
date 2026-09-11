@@ -701,11 +701,10 @@ fraction *or* the word `supermajority`. Both are `string` in their
 `when_schema` and both draw as prose fields, without the monospace
 right-aligned styling the numbers carry.
 
-**Half of that was wrong, and §7.22 fixes it.** `warninglist_category`
-is a category name out of a set of two — it is a select, not prose.
-`threat_share_at_least` stays text, because *a fraction or one
-particular word* is not a set anything can enumerate — but §7.23 gives
-it a box wide enough to read.
+**Both of those were wrong, and §7.22 and §7.24 fix them.**
+`warninglist_category` is a category name out of a set of two — a
+select, not prose. And `threat_share_at_least` is not *a fraction or a
+word* either: the word was never a value.
 
 **Still open, same shape, different pane.** A map whose values are a
 `select` — `org_trust`'s grades, `warninglist_category`'s two meanings
@@ -764,10 +763,9 @@ left to hover. The mechanism is untouched; the other panes keep theirs.
 as free text on both rules — a box you could type `banana` into, next to
 a rule whose entire precondition is that the category resolves. §7.20
 looked at the same two boxes and classed them with
-`threat_share_at_least` as *prose fields, right to stay text*. Only one
-of the two deserved that: a fraction **or** the word `supermajority` is
-not an enumerable set, while a warninglist category is exactly two
-values and always has been — `warninglists.category` validates against
+`threat_share_at_least` as *prose fields, right to stay text*. Neither
+deserved it, for different reasons — the second is §7.24 — and a
+warninglist category is exactly two values and always has been — `warninglists.category` validates against
 `['false_positive', 'known']` and nothing else can reach the column.
 
 The schema already had the extension point. `generatedFields()` turns a
@@ -809,11 +807,12 @@ raising, so a missing `require` reads as a behaviour change.
 ### 7.23 A text chip is as wide as what it holds
 
 The chip pins its control to `3.4rem`, which is right for a weight and
-wrong for a word: `supermajority` — the value `threat_share_at_least`
-ships with — read `supermaj`, and a setting you cannot finish reading
-is one you have to click into to check. §7.22 fixed the neighbouring
-box by making it a select; this one cannot be a set, so it is sized
-instead.
+wrong for anything you have to finish reading — `supermajority` read
+`supermaj`, and a setting you cannot finish reading is one you have to
+click into to check. §7.22 fixed the neighbouring box by making it a
+select; this one cannot be a set, so it is sized instead. §7.24 then
+emptied it, and the sizing is what lets the placeholder that replaced
+it say something worth reading.
 
 `size` is the attribute for this, and the box now carries the character
 count of what it holds, bounded at both ends — 4, so a short value is
@@ -834,6 +833,63 @@ measuring it as a string raised *Array to string conversion* four times
 per render. Rendering the page looked perfect throughout — the warnings
 only surface with `debug` on, which the harness sets and the browser
 does not.
+
+### 7.24 The word `supermajority` was never a value
+
+`threat_share_at_least` was a text box, and the question it invites is
+*what else may I type in here*. The answer was worse than the label
+said. `ValueEscalationBase::shareThreshold()` is
+
+```php
+$given = $this->when($config, $key, 'supermajority');
+return is_numeric($given) ? (float)$given : <the profile's supermajority>;
+```
+
+— so **every** non-number means *follow the profile*. `supermajority`
+was not a value the resolution recognised; it was the documented
+spelling of *not a number*. `banana` did the same thing, silently, and
+so did a typo of the word itself. An absent key did the same thing
+again.
+
+So the box is now a **number**, and the state that used to be spelled
+with a word is the state a number box already has: empty. What an empty
+one falls back to is written in the placeholder, named and resolved —
+`supermajority · 0.66` — and the number comes from
+`ValueLeanTool::supermajority()`, made public for this, rather than from
+a second copy of its validity rule that would read `0.4` back to an
+analyst the day somebody stored it.
+
+**Declared, not special-cased.** The `when_schema` spec gains `follows`,
+beside the `options` that §7.22 used, and the generic builder does the
+rest: a stored non-number is drawn as empty, and the placeholder is
+resolved from the document. One setting is followed and one resolver
+answers for it, so the spec names the word rather than a path — the slot
+for a second resolver is a guess until there is a second one.
+
+**What it accepts now, and what it refuses.** A number, in `[0, 1]`,
+checked as `is_numeric` rather than by PHP type because that is the test
+the resolution applies — a document writing `"0.9"` is not wrong about
+anything the engine reads. Or the word, still, so documents carrying it
+validate. Everything else is refused and named. `75` for *75%* is
+refused too, by `min`/`max` in the spec and `min`/`max` on the box, and
+that one matters: in range it is a threshold no record can reach, so the
+rule would simply never fire and never say why.
+
+**A save drops the word, and the page says so first.** `legacyShapes()`
+already exists for exactly this — a shim read that a save turns into a
+write — and it gains a third note, driven off the schemas rather than a
+list, so a second rule declaring `follows` is covered the day it is
+dropped in. The shipped `default-v1.json` stops carrying the word for
+the same reason.
+
+**The round-trip check had to grow up.** It rendered the in-force
+profile, posted it back and demanded byte-identity — which is the right
+question only for a document already in the current shape. An instance
+holding a legacy one now fails it for a reason that has nothing to do
+with the round trip, so the section upgrades once, asserts the notice
+was empty afterwards, and then asks about identity. The legacy section
+builds the word deliberately, like it already builds the flat TTL map
+and the old posture name.
 
 ## 8. What 8c deliberately did not do
 

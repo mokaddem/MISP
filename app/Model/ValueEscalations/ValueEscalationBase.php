@@ -210,26 +210,57 @@ abstract class ValueEscalationBase
     private function checkValue($given, array $spec, $key)
     {
         $type = isset($spec['type']) ? $spec['type'] : 'int';
-        if ($type === 'int' && !is_int($given)) {
-            return sprintf(
-                __('%1$s: `when.%2$s` must be a whole number.'),
-                $this->id,
-                $key
-            );
-        }
-        if ($type === 'float' && !is_int($given) && !is_float($given)) {
-            return sprintf(
-                __('%1$s: `when.%2$s` must be a number.'),
-                $this->id,
-                $key
-            );
-        }
-        if ($type === 'string' && !is_string($given)) {
-            return sprintf(
-                __('%1$s: `when.%2$s` must be a word.'),
-                $this->id,
-                $key
-            );
+        /*
+         * A setting that follows another one is written as a number, or
+         * as the word naming what it follows. **Only** that word: the
+         * resolution reads *any* non-number as `follow`, so before this
+         * a typo was accepted and quietly meant the default — the
+         * quietest possible way for a threshold to be not what somebody
+         * typed.
+         *
+         * `is_numeric` and not the declared type, because that is the
+         * test the resolution itself applies: a document writing `0.9`
+         * as a string is not wrong about anything the engine reads, and
+         * the type check below would refuse it for a shape that only
+         * matters where the number is summed.
+         */
+        if (isset($spec['follows']['name'])) {
+            if ($given === $spec['follows']['name']) {
+                return null;
+            }
+            if (!is_numeric($given)) {
+                return sprintf(
+                    __('%1$s: `when.%2$s` must be a number, or `%3$s`'
+                        . ' to follow the profile.'),
+                    $this->id,
+                    $key,
+                    $spec['follows']['name']
+                );
+            }
+        } else {
+            if ($type === 'int' && !is_int($given)) {
+                return sprintf(
+                    __('%1$s: `when.%2$s` must be a whole number.'),
+                    $this->id,
+                    $key
+                );
+            }
+            if ($type === 'float' && !is_int($given)
+                && !is_float($given)
+            ) {
+                return sprintf(
+                    __('%1$s: `when.%2$s` must be a number.'),
+                    $this->id,
+                    $key
+                );
+            }
+            if ($type === 'string' && !is_string($given)) {
+                return sprintf(
+                    __('%1$s: `when.%2$s` must be a word.'),
+                    $this->id,
+                    $key
+                );
+            }
         }
         /*
          * A schema that names its options is drawn as a select, and a
@@ -247,6 +278,32 @@ abstract class ValueEscalationBase
                 $this->id,
                 $key,
                 implode(', ', $spec['options'])
+            );
+        }
+        /*
+         * A share is between nothing and everyone, and the failure this
+         * catches is `75` for *75%*: in range it would be a threshold
+         * no record can reach, so the rule would simply never fire and
+         * say nothing about why.
+         */
+        if (isset($spec['min']) && is_numeric($given)
+            && (float)$given < (float)$spec['min']
+        ) {
+            return sprintf(
+                __('%1$s: `when.%2$s` must be at least %3$s.'),
+                $this->id,
+                $key,
+                $spec['min']
+            );
+        }
+        if (isset($spec['max']) && is_numeric($given)
+            && (float)$given > (float)$spec['max']
+        ) {
+            return sprintf(
+                __('%1$s: `when.%2$s` must be at most %3$s.'),
+                $this->id,
+                $key,
+                $spec['max']
             );
         }
         return null;

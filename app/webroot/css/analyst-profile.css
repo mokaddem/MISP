@@ -1067,8 +1067,9 @@ input.num[type="number"]::-webkit-inner-spin-button {
     padding: 0;
     height: auto;
     min-height: 0;
-    width: 3.4rem;
-    max-width: 5rem;
+    min-width: 3.4rem;
+    width: var(--fld-w, 3.4rem);
+    max-width: 12rem;
     font-family: var(--bs-font-monospace, ui-monospace, monospace);
     font-size: .6875rem;
     font-variant-numeric: tabular-nums;
@@ -1084,18 +1085,16 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
- * A text chip sizes to what it holds, by the `size` the box carries.
+ * A chip's box is as wide as what it holds, never narrower than a
+ * weight. `--fld-w` is the character count the template measured;
+ * `min-width` is the floor that keeps a column of two-digit weights
+ * lining up, so only a box with more to say than that grows — the
+ * placeholder naming a fallback, or a value somebody typed in words.
  *
- * The fixed width above is right for a weight and wrong for a word:
- * `supermajority` in 3.4rem reads `supermaj`, and a setting you cannot
- * finish reading is one you have to click into to check. Numbers keep
- * the fixed width — that is what makes a column of them line up — so
- * this is the text boxes only, and `max-width` is the backstop for a
- * stored value longer than the template bounded.
+ * Text reads left, numbers read right, which is the one thing the
+ * shared rule above cannot get right for both.
  */
 .kv input.form-control[type="text"] {
-    width: auto;
-    max-width: 12rem;
     text-align: left;
 }
 

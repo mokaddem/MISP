@@ -205,7 +205,7 @@ class ValueLeanTool
             'threat_share' => $counted === 0
                 ? 0.0
                 : $threat / $counted,
-            'supermajority' => $this->supermajority($profile),
+            'supermajority' => self::supermajority($profile),
         );
     }
 
@@ -450,7 +450,7 @@ class ValueLeanTool
     private function ruleEntries($profile)
     {
         $entries = array();
-        foreach ($this->section($profile, 'escalations') as $entry) {
+        foreach (self::section($profile, 'escalations') as $entry) {
             if (!is_array($entry) || empty($entry['id'])) {
                 continue;
             }
@@ -467,12 +467,18 @@ class ValueLeanTool
     /**
      * The share of organisations that makes a stance decisive.
      *
+     * Public because the editor asks the same question: a rule whose
+     * threshold *follows the profile* has to say in its own box which
+     * number it is following, and a second copy of this rule in the
+     * form would be a placeholder that lies the day somebody stores
+     * `0.4`.
+     *
      * @param array|null $profile
      * @return float
      */
-    private function supermajority($profile)
+    public static function supermajority($profile)
     {
-        $thresholds = $this->section($profile, 'thresholds');
+        $thresholds = self::section($profile, 'thresholds');
         if (isset($thresholds['lean_supermajority'])
             && is_numeric($thresholds['lean_supermajority'])
         ) {
@@ -499,7 +505,7 @@ class ValueLeanTool
      * @param string $name
      * @return array
      */
-    private function section($profile, $name)
+    private static function section($profile, $name)
     {
         if (!is_array($profile)) {
             return array();

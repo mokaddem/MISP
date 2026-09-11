@@ -115,8 +115,7 @@
                 "enabled": true,
                 "emits": "contested",
                 "when": {
-                    "warninglist_category": "false_positive",
-                    "threat_share_at_least": "supermajority"
+                    "warninglist_category": "false_positive"
                 }
             }
         ],
