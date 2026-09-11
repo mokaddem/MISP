@@ -51,17 +51,51 @@ if ($isSignals) {
     $rows[''] = $block['items'];
 }
 
-$columns = $isSignals ? 5 : 4;
+/*
+ * Two chip columns, named for what they actually hold.
+ *
+ * *Settings* and *What it reads* were each one word too broad: both
+ * columns held settings, and the second mixed the `config` map with the
+ * data source being read — which is a property of the implementation,
+ * not something on the form. The source moved to the name column with
+ * the rest of the signal's identity, and each header now names its own
+ * map: `points` is what a reading is worth, `config` is every other
+ * knob on it.
+ *
+ * **Not "thresholds"**, though most of them are: `named` sets how many
+ * organisations the evidence line lists, and `stale_factor` is a
+ * multiplier — so a header promising thresholds would be wrong about
+ * the two keys a reader is most likely to be surprised by. *Tuning*
+ * is true of all nine. It also keeps the word *thresholds* meaning the
+ * section in the rail, which is a different thing at a different scope.
+ *
+ * Only signals have a `points` map; an escalation's settings are its
+ * `when` conditions and an exclusion's are its own schema, so for those
+ * the points column was an em-dash on every row and is not drawn.
+ */
+$pointsHead = __('Points');
+if ($sectionId === 'escalations') {
+    $settingsHead = __('When it fires');
+} elseif ($sectionId === 'exclusions') {
+    $settingsHead = __('Settings');
+} else {
+    $settingsHead = __('Tuning');
+}
+$columns = $isSignals ? 5 : 3;
 ?>
 <table class="wb-tbl">
     <thead>
         <tr>
             <th style="width:2.2rem"></th>
-            <th style="width:<?= $isSignals ? '31%' : '38%' ?>">
+            <th style="width:<?= $isSignals ? '31%' : '46%' ?>">
                 <?= $isSignals ? h(__('Signal')) : h(__('Rule')) ?>
             </th>
-            <th style="width:26%"><?= h(__('Settings')) ?></th>
-            <th style="width:21%"><?= h(__('What it reads')) ?></th>
+            <?php if ($isSignals): ?>
+                <th style="width:26%"><?= h($pointsHead) ?></th>
+            <?php endif; ?>
+            <th style="width:<?= $isSignals ? '21%' : '48%' ?>">
+                <?= h($settingsHead) ?>
+            </th>
             <?php if ($isSignals): ?>
                 <th class="r" style="width:12%">
                     <?= $benchValue === null
@@ -141,9 +175,6 @@ $columns = $isSignals ? 5 : 4;
                             </span>
                         </div>
                     <?php endif; ?>
-                    <?php if (!empty($item['trust_weighted'])): ?>
-                        <div class="wb-sub">&times;&nbsp;<?= h(__('trust weighted')) ?></div>
-                    <?php endif; ?>
                     <?php if (!empty($item['emits'])): ?>
                         <div class="wb-sub"><?= h(sprintf(
                             __('Forces the lean to %s when it fires.'),
@@ -153,19 +184,60 @@ $columns = $isSignals ? 5 : 4;
                     <?php if (!empty($item['description'])): ?>
                         <div class="wb-sub"><?= h($item['description']) ?></div>
                     <?php endif; ?>
-                </td>
-                <td>
-                    <?php if (empty($chips['points'])): ?>
-                        <span class="wb-sub">&mdash;</span>
+                    <?php
+                    /*
+                     * What the row *is*, as against what it is set to:
+                     * the multiplier its contribution passes through,
+                     * and the data it reads. Neither is on the form, so
+                     * neither is a chip — tags are square where the
+                     * state pills are round, which is the whole reason
+                     * they can sit in the same cell without being read
+                     * as the same kind of thing.
+                     */
+                    ?>
+                    <?php if (!empty($item['trust_weighted'])
+                        || !empty($item['source'])
+                        || !empty($item['layer'])): ?>
+                        <div class="sig-meta">
+                            <?php if (!empty($item['trust_weighted'])): ?>
+                                <span class="sig-tag is-mult"
+                                      title="<?= h(__('Every point this signal'
+                                          . ' contributes is multiplied by how'
+                                          . ' much the reporting organisation'
+                                          . ' is trusted.')) ?>">
+                                    <span class="op">&times;</span>
+                                    <?= h(__('trust weighted')) ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if (!empty($item['source'])): ?>
+                                <span class="sig-tag">
+                                    <span class="k"><?= h(__('reads')) ?></span>
+                                    <b><?= h($item['source']) ?></b>
+                                </span>
+                            <?php endif; ?>
+                            <?php if (!empty($item['layer'])): ?>
+                                <span class="sig-tag">
+                                    <span class="k"><?= h(__('applies at')) ?></span>
+                                    <b><?= h($item['layer']) ?></b>
+                                </span>
+                            <?php endif; ?>
+                        </div>
                     <?php endif; ?>
-                    <?php foreach ((array)(isset($chips['points'])
-                        ? $chips['points'] : array()) as $field): ?>
-                        <?= $this->element('AnalystProfiles/chip', array(
-                            'field' => $field,
-                            'editable' => $editable,
-                        )) ?>
-                    <?php endforeach; ?>
                 </td>
+                <?php if ($isSignals): ?>
+                    <td>
+                        <?php if (empty($chips['points'])): ?>
+                            <span class="wb-sub">&mdash;</span>
+                        <?php endif; ?>
+                        <?php foreach ((array)(isset($chips['points'])
+                            ? $chips['points'] : array()) as $field): ?>
+                            <?= $this->element('AnalystProfiles/chip', array(
+                                'field' => $field,
+                                'editable' => $editable,
+                            )) ?>
+                        <?php endforeach; ?>
+                    </td>
+                <?php endif; ?>
                 <td>
                     <?php if (empty($chips['config'])): ?>
                         <span class="wb-sub">&mdash;</span>
@@ -177,16 +249,6 @@ $columns = $isSignals ? 5 : 4;
                             'editable' => $editable,
                         )) ?>
                     <?php endforeach; ?>
-                    <?php if (!empty($item['source'])): ?>
-                        <div class="wb-sub mt-1"><?= h(sprintf(
-                            __('source: %s'), $item['source']
-                        )) ?></div>
-                    <?php endif; ?>
-                    <?php if (!empty($item['layer'])): ?>
-                        <div class="wb-sub mt-1"><?= h(sprintf(
-                            __('applies at: %s'), $item['layer']
-                        )) ?></div>
-                    <?php endif; ?>
                 </td>
                 <?php if ($isSignals): ?>
                     <td class="r">

@@ -198,6 +198,67 @@
 .pill.t-plain   { --tone: var(--bs-secondary-color); }
 
 
+/*
+ * ---- what a row *is*, not what it is set to ----
+ *
+ * The trust multiplier and the data source are declared by the
+ * implementation and are not on the form. They used to be grey prose
+ * lines under the description, which put them in the same voice as the
+ * sentence explaining the signal — so the multiplier that scales every
+ * point the row contributes read as the tail of a sentence.
+ *
+ * Square where the state pills are round: `available` and `missing` say
+ * what a row's relationship to this profile is and belong to the pill
+ * vocabulary; these say what the signal reads and how its points are
+ * scaled, and a reader should not have to parse the text to tell the
+ * two apart.
+ */
+.sig-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .3rem;
+    margin-top: .4rem;
+}
+.sig-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .3rem;
+    padding: .05rem .4rem;
+    border-radius: .25rem;
+    /* A neutral tint rather than `--bs-tertiary-bg`, which is a hair off
+     * the row behind it and left the tag reading as prose again — the
+     * thing the tag exists to stop. Mixed from a token, so it is the
+     * same weight of grey against either theme's ground. */
+    background: color-mix(in srgb, var(--bs-secondary-color) 13%, transparent);
+    font-size: .6875rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+.sig-tag .k {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+}
+.sig-tag b {
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+/*
+ * The multiplier earns the accent: it is arithmetic, and it is the one
+ * thing in this cell that changes what the points column is worth.
+ */
+.sig-tag.is-mult {
+    background: color-mix(in srgb, var(--bs-primary) 10%, transparent);
+    color: var(--bs-primary);
+    font-weight: 600;
+}
+.sig-tag.is-mult .op {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-weight: 700;
+    font-size: .75rem;
+    line-height: 1;
+}
+
 /* ---- key/value chips: a points map has no fixed schema ---- */
 .kv {
     display: inline-flex;

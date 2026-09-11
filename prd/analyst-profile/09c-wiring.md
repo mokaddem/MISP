@@ -492,6 +492,51 @@ round-trip section, which reads the shipped default's own `group` keys
 back out after a merge, and confirmed in the browser by setting a group
 through Raw JSON and then saving a different section.
 
+### 7.14 The palette's two columns were named for neither of their maps
+
+> "the column 'What it reads' is fine for the actual data source but it
+> mixes the config part"
+
+Correct, and *Settings* beside it had the same fault from the other
+end. The table held **four** different things in two columns: the
+`points` map, the `config` map, the data source the implementation
+reads, and — for exclusions — the layer it applies at. *Settings* named
+one of two maps that are both settings; *What it reads* named the
+source but sat on top of the config chips.
+
+The source and the layer are declared by the implementation and are not
+on the form, so they moved to the name column with the rest of the
+row's identity. Each chip column now names its own map: **Points** and
+**Tuning**.
+
+**Not *Thresholds***, though seven of the nine `config` keys are one.
+`named` sets how many organisations the evidence line lists and
+`stale_factor` is a multiplier, so the header would be wrong about
+exactly the two keys a reader is most likely to be surprised by — and
+*thresholds* already names a section in the rail, at a different scope.
+*Tuning* is true of all nine.
+
+**Escalations and exclusions lost a column.** Only signals have a
+`points` map; the other two put everything in the second column, so the
+first was an em-dash on every row. Their headers are their own now —
+*When it fires* for a conflict rule's `when` conditions, *Settings* for
+an exclusion — and the freed width goes to the conditions, which were
+the most cramped cells on the page.
+
+### 7.15 `× trust weighted` was styled as prose
+
+It sat in `wb-sub`, the same grey the description below it uses, so the
+multiplier that scales **every point the row contributes** read as the
+tail of a sentence. It is now a tag: square where the state pills
+(`available`, `missing`) are round, because those say what a row's
+relationship to this profile is and this says what the arithmetic does
+to it — two different questions that were sharing one voice in one
+cell. The multiplier carries the primary tint and the `×` in monospace;
+`reads <source>` is the same tag shape in neutral grey.
+
+Both tints are `color-mix` over a token rather than a fixed grey, so
+they hold their weight against either theme's ground — checked in both.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships
