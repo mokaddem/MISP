@@ -1083,3 +1083,38 @@ class it reads, and the implementation makes it `aggregate`: both facts — the
 in the same single-row aggregate the tally comes from. So it survives the hot
 tier, which is the right way round: how honest a record's dates are is
 exactly the sort of thing worth knowing about a value too big to read.
+
+### 11.9 Half of `record.temporal_precision` was measuring nothing. Removed 2026-09-11
+
+The signal read two facts. The second — `lagged`, a further **-4** when
+the "encoding date" lagged the event's own dates past `lag_days` — is
+gone, and the reason is that neither column it was built from means what
+it was read as.
+
+`MAX(TIMESTAMPDIFF(DAY, Event.date, FROM_UNIXTIME(Attribute.timestamp)))`
+compares an analyst-typed date against a **last-modified** timestamp.
+`Attribute.timestamp` is bumped by an edit, a tag, a sync update or a
+delete, and it is the column sync compares to decide which copy is
+newer; **the `attributes` table has no created column at all**, so there
+was never an encoding date in MISP to measure from. On `8.8.8.8` the
+302-day maximum came from an attribute last written the day *after* its
+event was published, and a second occurrence sat under an event modified
+a full year later. `Event.date` is the other half of the objection,
+raised by the user who found this: it carries the very delay the
+measurement was hunting for.
+
+**This mattered more than the relevance axis it was built beside.**
+Relevance emits no ledger row, so its half of the mistake only mislabelled
+a state. This one deducted 4 points from the quality on every value the
+bogus number flagged — so an unsound reading was moving the verdict, which
+is the one thing the axis separation exists to prevent.
+
+`config_schema` is now empty and `points_schema` is `dated` / `undated`.
+The fixtures that still pass `max_lag_days` in their `temporal` block are
+left alone: nothing reads it, and a fixture that keeps a retired key is
+the cheapest possible assertion that nothing does.
+
+What replaces it is not in this signal at all. `06-staleness.md` §7.11
+records it: a declared assumption on the relevance axis, visible on
+every page that shows one, rather than a measurement dressed up as a
+reading.

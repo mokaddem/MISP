@@ -25,8 +25,7 @@
                 "id": "record.temporal_precision",
                 "group": "Lifecycle",
                 "enabled": true,
-                "points": { "dated": 4, "undated": -6, "lagged": -6 },
-                "config": { "lag_days": 30 }
+                "points": { "dated": 4, "undated": -6 }
             },
             {
                 "id": "sightings.volume_recency",
@@ -132,7 +131,7 @@
             "decay_speed": 1,
             "type_rule": "shortest",
             "aging_fraction": 0.33,
-            "lag_uncertain_days": 30,
+            "undated_assumed_days": 30,
             "ttl_default": 180,
             "ttl_buckets": {
                 "short": 90,

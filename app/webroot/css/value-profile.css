@@ -1341,13 +1341,14 @@ tr.vp-occ-deleted td {
     background: var(--vp-shelf-colour);
 }
 
+/*
+ * The fill is solid even when uncertain. It was hatched to signal the
+ * state, which left nothing to draw the *reason* with once the assumed
+ * stretch had to appear beside it — and a bar hatched end to end says
+ * everything about it is a guess, when only the last stretch is.
+ */
 .vp-shelf-uncertain .vp-shelf-fill {
-    /* Striped, because the length itself is what is not trustworthy. */
-    background: repeating-linear-gradient(
-        135deg,
-        var(--vp-shelf-colour) 0 3px,
-        transparent 3px 6px
-    );
+    opacity: 0.9;
 }
 
 /*
@@ -1356,6 +1357,25 @@ tr.vp-occ-deleted td {
  * the same argument the retired decay track made for its threshold
  * tick, which is the one part of that card worth keeping.
  */
+/*
+ * The assumed stretch of the track: days the profile added because
+ * nothing records when the value was seen. Hatched and distinct from
+ * the fill, because the whole objection to what this replaced was a
+ * number presented as a reading — drawing it like measured time would
+ * make the same claim in a different place.
+ */
+.vp-shelf-assumed {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        -45deg,
+        color-mix(in srgb, var(--vp-shelf-colour) 55%, transparent) 0 3px,
+        transparent 3px 6px);
+    border-left: 1px solid var(--vp-shelf-colour);
+    pointer-events: auto;
+}
+
 .vp-shelf-mark {
     position: absolute;
     top: -2px;

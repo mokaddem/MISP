@@ -41,7 +41,7 @@
  * stating.
  *
  * **Uncertainty is a flag as well as a state**, and the order the two
- * resolve in is an argument rather than a preference. An encoding date
+ * resolve in is an argument rather than a preference. A row-write date
  * is *later* than the observation it stands for, so elapsed-time
  * measured from it is a **lower bound** on the true elapsed time. A
  * lower bound already past the TTL is past it on any honest reading, so
@@ -50,6 +50,25 @@
  * page can read *"expired · timeline uncertain"* — which is exactly
  * what `12-assessment.md` §3 says the late-encoded phishing URL should
  * say.
+ *
+ * ## The virtual age, and why it is not a measurement
+ *
+ * MISP stores **no creation date for an attribute**: `timestamp` is
+ * last-modified and `Event.date` is typed by an analyst. The axis used
+ * to subtract one from the other and call the difference an encoding
+ * lag; on `8.8.8.8` that produced 302 days out of a row last edited
+ * the day after its event was published. The number was wrong, it
+ * flagged the timeline uncertain, and through
+ * `record.temporal_precision` it also took 4 points off the quality.
+ *
+ * It is replaced by `undated_assumed_days` — **a declared assumption,
+ * not a reading.** When no occurrence carries `first_seen`, the value
+ * is treated as that many days older than its record, and the page
+ * says so in those words. `elapsed_days` is what the runway is drawn
+ * from; `recorded_days` is what the rows actually say; `assumed_days`
+ * is the difference and is never larger than what leaves one day of
+ * lifetime, so the assumption can age a value and can never expire
+ * one.
  */
 class ValueRelevanceTool
 {
@@ -117,7 +136,14 @@ class ValueRelevanceTool
         'decay_speed' => 1.0,
         'type_rule' => 'shortest',
         'aging_fraction' => 0.33,
-        'lag_uncertain_days' => 30,
+        /*
+         * How much older than its record an undated value is assumed
+         * to be. Not a measured lag — the measurement it replaces is
+         * described in `Value::recordSummaryFor()` and was unsound.
+         * Conservative by §3.5's asymmetry, and capped at render so
+         * the assumption alone can never expire anything.
+         */
+        'undated_assumed_days' => 30,
         'ttl_default' => 180,
     );
 
@@ -156,6 +182,11 @@ class ValueRelevanceTool
                 'precision' => $precision,
                 'runway' => null,
                 'elapsed_days' => null,
+                'recorded_days' => null,
+                'recorded_runway' => null,
+                'assumed_days' => 0,
+                'assumed_setting' => (int)$precision['assumed_days'],
+                'assumed_capped' => false,
                 'runway_days' => null,
                 'expires_at' => null,
                 'uncertain' => false,
@@ -164,11 +195,59 @@ class ValueRelevanceTool
         }
 
         $elapsedDays = self::daysBetween($clock['at'], $now);
+        /*
+         * The virtual age. Nothing records when an undated value was
+         * seen, so the profile states how much older than its record
+         * to treat it as — and the days-left figure is computed from
+         * that, rather than from a date everyone knows is too recent.
+         *
+         * **Capped so the assumption alone can never expire it.** An
+         * assumption that drops indicators out of an export is exactly
+         * the failure §3.5's asymmetry is written against, and most
+         * real values carry no `first_seen` (§7.3), so an uncapped
+         * offset would age the whole instance past its own TTL. The
+         * cap leaves `expired` reachable only by elapsed time that
+         * actually elapsed; the assumption can carry a value as far as
+         * the last day of its lifetime and no further.
+         *
+         * Both numbers travel. A page that showed only the effective
+         * one would be asserting a measurement again, which is the
+         * thing this replaced.
+         */
+        $assumed = 0;
+        if (!empty($precision['uncertain'])) {
+            $assumed = max(0, min(
+                (int)$precision['assumed_days'],
+                (int)$ttl['days'] - 1 - $elapsedDays
+            ));
+        }
+        $effectiveDays = $elapsedDays + $assumed;
         $runway = self::runway(
+            $effectiveDays,
+            $ttl['days'],
+            $section['decay_speed']
+        );
+        /*
+         * The same curve without the assumption. The track's axis is
+         * runway remaining, not elapsed time, so a panel wanting to
+         * draw the stretch the assumption consumed needs both readings
+         * in *that* coordinate system — subtracting days and scaling
+         * them linearly is only correct at `decay_speed` 1.
+         */
+        $recordedRunway = self::runway(
             $elapsedDays,
             $ttl['days'],
             $section['decay_speed']
         );
+        /*
+         * **The real elapsed time decides expiry; the assumed one
+         * decides everything else.** Passing the effective days here
+         * would let the assumption expire a value, and `stateFor()`
+         * uses its first argument for the `>= ttl` test alone — so the
+         * record's own days go in, and the runway computed above,
+         * which already carries the assumption, settles current
+         * against aging.
+         */
         $state = self::stateFor(
             $elapsedDays,
             $ttl['days'],
@@ -184,7 +263,24 @@ class ValueRelevanceTool
             'ttl' => $ttl,
             'precision' => $precision,
             'runway' => $runway,
-            'elapsed_days' => $elapsedDays,
+            'elapsed_days' => $effectiveDays,
+            'recorded_days' => $elapsedDays,
+            'recorded_runway' => $recordedRunway,
+            'assumed_days' => $assumed,
+            'assumed_setting' => (int)$precision['assumed_days'],
+            'assumed_capped' => !empty($precision['uncertain'])
+                && $assumed < (int)$precision['assumed_days'],
+            /*
+             * Both of these are the record's, not the assumption's.
+             * They were the assumption's for one draft and the card
+             * contradicted itself within three lines: *41 days left*
+             * over *expires in 71 days*, because the cap hands the
+             * assumed days back as the real ones run out. The
+             * assumption moves where the value sits on the curve —
+             * which is what the bar draws and what `current` against
+             * `aging` reads — and the date its lifetime ends is a fact
+             * about the clock and the TTL that no assumption touches.
+             */
             'runway_days' => $ttl['days'] - $elapsedDays,
             'expires_at' => $clock['at'] + ($ttl['days'] * 86400),
             'uncertain' => $precision['uncertain'],
@@ -686,23 +782,51 @@ class ValueRelevanceTool
     }
 
     /**
+     * The first of `$keys` this section gives a number for.
+     *
+     * So a renamed setting can keep reading the name a stored profile
+     * wrote, without the caller branching on which one it found.
+     *
+     * @param array $section
+     * @param array $keys In precedence order
+     * @param int $fallback
+     * @return int
+     */
+    private static function firstNumeric(array $section, array $keys,
+        $fallback
+    ) {
+        foreach ($keys as $key) {
+            if (isset($section[$key]) && is_numeric($section[$key])) {
+                return (int)$section[$key];
+            }
+        }
+        return (int)$fallback;
+    }
+
+    /**
      * Whether the clock can be trusted at all (§3.6).
      *
      * The example that forced D11: a phishing URL encoded two months
      * after the incident with no `first_seen`, so the clock falls back
-     * to a creation timestamp and the axis would call a dead campaign
-     * *current*. Both detecting facts are already in the rows, and both
-     * arrive as single-row aggregates:
+     * to a row-modification timestamp and the axis would call a dead
+     * campaign *current*.
      *
-     *   - `first_seen` absent on every occurrence — the observation
-     *     date is unknown and only the encoding date is known;
-     *   - a created-to-published lag beyond `lag_uncertain_days` — the
-     *     encoding date is a poor proxy for the observation date.
+     * **One detecting fact, not two. Revised 2026-09-11.** The second
+     * was a created-to-published lag — `Event.date` against
+     * `Attribute.timestamp`, beyond `lag_uncertain_days`. Neither
+     * column supports the reading: `timestamp` is *last-modified*, so
+     * a tag, a sync or a delete years later inflates it, and
+     * `Event.date` is typed by an analyst and carries the very delay
+     * the measurement was hunting. MISP records no attribute creation
+     * date at all, so there was nothing to repair it with. It is gone
+     * here and from `record.temporal_precision`, which is the only
+     * place it reached the ledger.
      *
-     * The same two facts feed `record.temporal_precision` in the
-     * quality ledger, which says the quieter thing beside this one: a
-     * record that cannot date its own observations is a weaker record.
-     * Two readings, two homes, one pair of measurements.
+     * What survives is the fact the rows can answer: **does any
+     * occurrence carry `first_seen`.** Where the lag was a bad
+     * estimate of how much older the value really is,
+     * `undated_assumed_days` is a declared assumption about the same
+     * thing — visible, editable, and never pretending to be a reading.
      *
      * @param array $context
      * @param array $section
@@ -715,21 +839,9 @@ class ValueRelevanceTool
             : array();
         $occurrences = (int)($temporal['occurrences'] ?? 0);
         $dated = (int)($temporal['with_first_seen'] ?? 0);
-        $lag = isset($temporal['max_lag_days'])
-            && $temporal['max_lag_days'] !== null
-            ? (int)$temporal['max_lag_days']
-            : null;
-        $limit = (int)$section['lag_uncertain_days'];
         $reasons = array();
         if ($occurrences > 0 && $dated === 0) {
             $reasons[] = array('key' => 'no_first_seen');
-        }
-        if ($lag !== null && $lag > $limit) {
-            $reasons[] = array(
-                'key' => 'lag',
-                'days' => $lag,
-                'limit' => $limit,
-            );
         }
         return array(
             'uncertain' => !empty($reasons),
@@ -737,8 +849,7 @@ class ValueRelevanceTool
             'note' => self::precisionNote($reasons),
             'occurrences' => $occurrences,
             'with_first_seen' => $dated,
-            'max_lag_days' => $lag,
-            'lag_limit' => $limit,
+            'assumed_days' => (int)$section['undated_assumed_days'],
         );
     }
 
@@ -760,14 +871,7 @@ class ValueRelevanceTool
         }
         $parts = array();
         foreach ($reasons as $reason) {
-            if ($reason['key'] === 'lag') {
-                $parts[] = sprintf(
-                    __('added %s days after its event\'s date'),
-                    $reason['days']
-                );
-            } else {
-                $parts[] = __('no first-seen date on any occurrence');
-            }
+            $parts[] = __('no occurrence records when it was first seen');
         }
         return implode(__(' · '), $parts);
     }
@@ -803,6 +907,7 @@ class ValueRelevanceTool
         $events = isset($relevance['clock']['events'])
             ? $relevance['clock']['events']
             : array();
+        $assumed = (int)($relevance['assumed_days'] ?? 0);
         $stamps = array();
         foreach ($events as $event) {
             $stamps[] = (int)$event['at'];
@@ -836,8 +941,14 @@ class ValueRelevanceTool
                 $points[] = null;
                 continue;
             }
+            /*
+             * The assumed days ride along the whole series, or the
+             * chart's last point and the card's bar disagree by
+             * exactly the assumption — which is how the live probe
+             * caught this: 79% drawn under 46% printed.
+             */
             $points[] = self::runway(
-                self::daysBetween($from, $at),
+                self::daysBetween($from, $at) + $assumed,
                 $ttl,
                 $speed
             );
@@ -1119,10 +1230,20 @@ class ValueRelevanceTool
                 && is_numeric($section['aging_fraction'])
                 ? (float)$section['aging_fraction']
                 : self::DEFAULTS['aging_fraction'],
-            'lag_uncertain_days' => isset($section['lag_uncertain_days'])
-                && is_numeric($section['lag_uncertain_days'])
-                ? (int)$section['lag_uncertain_days']
-                : self::DEFAULTS['lag_uncertain_days'],
+            /*
+             * `lag_uncertain_days` is still read, because every fork
+             * written before 2026-09-11 carries it and a profile that
+             * silently lost a setting on upgrade is worse than one
+             * that repurposes a number a reader chose. Same units,
+             * same order of magnitude, opposite kind of thing: it was
+             * a threshold a measurement had to cross, it is now the
+             * assumption that replaced the measurement.
+             */
+            'undated_assumed_days' => self::firstNumeric(
+                $section,
+                array('undated_assumed_days', 'lag_uncertain_days'),
+                self::DEFAULTS['undated_assumed_days']
+            ),
             'ttl_days' => $table,
             'ttl_default' => $default,
         );

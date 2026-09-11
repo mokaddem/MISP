@@ -411,11 +411,31 @@ class Value extends AppModel
                 'MAX(Attribute.timestamp) AS newest',
                 'COUNT(DISTINCT CASE WHEN Event.published = 1'
                     . ' THEN Event.id END) AS published',
+                /*
+                 * `max_lag_days` was here, as
+                 * `MAX(TIMESTAMPDIFF(DAY, Event.date,
+                 * FROM_UNIXTIME(Attribute.timestamp)))`, and it is
+                 * gone rather than fixed because there is nothing to
+                 * fix it to. **The attributes table has no created
+                 * column** — `timestamp` is last-modified, bumped by
+                 * an edit, a tag, a sync update or a delete, and it is
+                 * what sync compares to decide which copy is newer. So
+                 * the expression measured *analyst-assigned event date
+                 * → whenever somebody last touched this row*, which is
+                 * neither an encoding delay nor anything else with a
+                 * name. On `8.8.8.8` its 302-day maximum came from an
+                 * attribute last written the day after its event was
+                 * published.
+                 *
+                 * `Event.date` is the other half of the objection: it
+                 * is a date an analyst types, so it carries the same
+                 * delay the measurement was trying to detect.
+                 *
+                 * What replaces it is not a measurement at all — see
+                 * `ValueRelevanceTool`'s `undated_assumed_days`.
+                 */
                 'SUM(CASE WHEN Attribute.first_seen IS NOT NULL'
                     . ' THEN 1 ELSE 0 END) AS dated',
-                'MAX(TIMESTAMPDIFF(DAY, Event.date,'
-                    . ' FROM_UNIXTIME(Attribute.timestamp)))'
-                    . ' AS max_lag_days',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -434,15 +454,6 @@ class Value extends AppModel
             'newest' => empty($found['newest'])
                 ? null
                 : (int)$found['newest'],
-            /*
-             * Null rather than zero when there is nothing to measure:
-             * a value with no occurrence has no lag, and a lag of zero
-             * is a real and different answer.
-             */
-            'max_lag_days' => isset($found['max_lag_days'])
-                    && $found['max_lag_days'] !== null
-                ? (int)$found['max_lag_days']
-                : null,
         );
     }
 

@@ -65,7 +65,7 @@
  * publication  ['events','published','unpublished']       aggregate
  * activity     ['months' => ['2025-07' => 3, …], 'active_months',
  *               'span_months','longest_run','gaps']       aggregate
- * temporal     ['occurrences','with_first_seen','max_lag_days']   row
+ * temporal     ['occurrences','with_first_seen']              row
  * sightings    ['total','fp','expiration','orgs','fp_orgs',
  *               'fp_org_names','first_stamp','last_stamp',
  *               'recent','recent_days']                          row

@@ -3,11 +3,10 @@
 /**
  * Whether the record can date its own observations.
  *
- * The signal D11 added, and the quality reading of the two facts that
- * make the relevance axis say *timeline uncertain*
- * (`06-staleness.md` §3.6): no `first_seen` on any occurrence, so only
- * the encoding date is known, and an encoding date that lags the
- * event's own dates far enough to be a poor proxy for it.
+ * The signal D11 added, and the quality reading of the fact that makes
+ * the relevance axis say *timeline uncertain* (`06-staleness.md` §3.6):
+ * no `first_seen` on any occurrence, so nothing records when the value
+ * was seen — only when its row was last written.
  *
  * The example that forced the three-axis model was a phishing URL
  * encoded two months after the incident. Relevance says *the timeline
@@ -15,14 +14,24 @@
  * that cannot date its own observations is a weaker record** — and the
  * two readings finally have separate homes.
  *
- * **Aggregate evidence, not row evidence.** Both facts arrive as
- * single-row aggregates — a `SUM` over `first_seen` and a `MAX` of the
- * lag — so they are cheap at any cardinality and are read
- * whole-history like every other aggregate (§2.3). A hot value keeps
- * this row when the sighting and galaxy signals bow out, which is the
- * right way round: what it measures is how honest the record's dates
- * are, and that is exactly the sort of thing worth knowing about a
- * value too big to read.
+ * **It measured two facts until 2026-09-11.** The second was an
+ * encoding lag, `Event.date` against `Attribute.timestamp`, worth a
+ * further -4. It is gone, and the reason is that neither column means
+ * what it was read as: `timestamp` is last-modified — an edit, a tag,
+ * a sync update or a delete bumps it — and `Event.date` is typed by an
+ * analyst, so it carries the same delay the measurement was looking
+ * for. MISP stores no created date for an attribute at all. This
+ * signal was the one path by which that number reached the ledger, so
+ * dropping it takes it out of the verdict rather than merely off a
+ * page.
+ *
+ * **Aggregate evidence, not row evidence.** The fact arrives as a
+ * single-row `SUM` over `first_seen`, so it is cheap at any
+ * cardinality and is read whole-history like every other aggregate
+ * (§2.3). A hot value keeps this row when the sighting and galaxy
+ * signals bow out, which is the right way round: what it measures is
+ * how honest the record's dates are, and that is exactly the sort of
+ * thing worth knowing about a value too big to read.
  */
 class RecordTemporalPrecision extends ValueSignalBase
 {
@@ -50,21 +59,20 @@ class RecordTemporalPrecision extends ValueSignalBase
                 'default' => -6,
                 'label' => __('Points when none does'),
             ),
-            'lagged' => array(
-                'type' => 'int',
-                'default' => -4,
-                'label' => __('Further points when the encoding lags the'
-                    . ' event'),
-            ),
         );
-        $this->config_schema = array(
-            'lag_days' => array(
-                'type' => 'int',
-                'default' => 30,
-                'label' => __('Lag beyond which the encoding date is a'
-                    . ' poor proxy'),
-            ),
-        );
+        /*
+         * `lagged` points and their `lag_days` threshold were here,
+         * deducting 4 for an encoding date that "lags the event". They
+         * are gone with the measurement behind them: `Attribute
+         * .timestamp` is last-modified, not created, and `Event.date`
+         * is typed by an analyst — see `Value::recordSummaryFor()`.
+         * This signal was the only place that unsound number reached
+         * the ledger, so removing it takes it out of the verdict.
+         *
+         * What remains is the fact MISP can actually answer: does any
+         * occurrence carry `first_seen`.
+         */
+        $this->config_schema = array();
     }
 
     public function evaluate(array $context, array $config)
@@ -77,16 +85,9 @@ class RecordTemporalPrecision extends ValueSignalBase
             return null;
         }
         $dated = (int)($temporal['with_first_seen'] ?? 0);
-        $lag = $temporal['max_lag_days'] ?? null;
-        $lagDays = (int)$this->setting($config, 'lag_days');
-        $lagged = ($lag !== null && $lag > $lagDays);
-
         $points = $dated > 0
             ? $this->points($config, 'dated')
             : $this->points($config, 'undated');
-        if ($lagged) {
-            $points += $this->points($config, 'lagged');
-        }
 
         $evidence = array();
         $evidence[] = $dated > 0
@@ -95,27 +96,11 @@ class RecordTemporalPrecision extends ValueSignalBase
                 $dated,
                 $occurrences
             )
-            : __('no first_seen on any occurrence');
-        if ($lagged) {
-            $evidence[] = sprintf(
-                __('encoded %d days after the event\'s own dates'),
-                (int)$lag
-            );
-        }
+            : __('no occurrence carries a first-seen date');
 
-        /*
-         * The prose names whichever fact is doing the work. Both are in
-         * the evidence line either way, because a row saying only
-         * *"undated"* on a value that is also two months late has
-         * hidden half of what it measured.
-         */
-        if ($dated === 0) {
-            $signal = __('The record dates only its own encoding');
-        } elseif ($lagged) {
-            $signal = __('Dated, but encoded well after the event');
-        } else {
-            $signal = __('The record dates its own observations');
-        }
+        $signal = $dated === 0
+            ? __('The record never says when it was seen')
+            : __('The record dates its own observations');
 
         return $this->row(
             $points,

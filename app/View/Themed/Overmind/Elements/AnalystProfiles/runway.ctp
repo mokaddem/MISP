@@ -31,13 +31,9 @@ $aging = (int)round(
 $clockAt = isset($runway['clock']['at']) && $runway['clock']['at']
     ? date('Y-m-d', $runway['clock']['at'])
     : null;
-$precision = isset($runway['precision']) ? $runway['precision'] : array();
-$lagDays = isset($precision['max_lag_days'])
-    && $precision['max_lag_days'] !== null
-    ? (int)$precision['max_lag_days']
-    : null;
-$lagLimit = isset($precision['lag_limit'])
-    ? (int)$precision['lag_limit']
+$assumed = (int)($runway['assumed_days'] ?? 0);
+$recorded = isset($runway['recorded_days'])
+    ? (int)$runway['recorded_days']
     : null;
 ?>
 <div class="ax-runway">
@@ -69,43 +65,41 @@ $lagLimit = isset($precision['lag_limit'])
     <?php if (!empty($runway['uncertain'])): ?>
         <?php
         /*
-         * The measurement, not the verdict. This line said *the
-         * timeline is uncertain, so the elapsed time is a lower bound*
-         * and kept the number that tripped it in a `title` — beside an
-         * editor whose next field is the threshold that number is
-         * compared against. Judging `30` with the reading hidden is the
-         * one thing this pane exists to prevent.
+         * The assumption is on the bench because the box that sets it
+         * is three fields away. A pane that shows the consequence and
+         * hides the number producing it cannot be used to choose the
+         * number — which was true of the threshold this replaced, and
+         * is more true of an assumption, since an assumption has no
+         * reading to fall back on.
          */
         ?>
         <span class="ax-runway-t wb-sub"
-              title="<?= h(__('Counted from when the value was added to'
-                  . ' MISP, not from when it was seen, so the elapsed'
-                  . ' time above is a minimum.')) ?>">
-            <?= h(sprintf(
-                __('timeline uncertain — %s'),
-                $runway['uncertain_note']
-            )) ?>
-        </span>
-    <?php elseif ($lagDays !== null && $lagDays > 0): ?>
-        <?php
-        /*
-         * A lag that did not trip is still the reading the threshold is
-         * set against, and a pane that only ever shows the number when
-         * it has already failed cannot be used to choose the number.
-         */
-        ?>
-        <span class="ax-runway-t wb-sub">
-            <?= h(sprintf(
-                __n(
-                    'added %1$s day after its event\'s date, inside the'
-                        . ' %2$s-day limit',
-                    'added %1$s days after its event\'s date, inside the'
-                        . ' %2$s-day limit',
-                    $lagDays
-                ),
-                $lagDays,
-                $lagLimit
-            )) ?>
+              title="<?= h(__('MISP records no creation date for an'
+                  . ' attribute, so with no first-seen date there is'
+                  . ' nothing to measure the real age with.')) ?>">
+            <?= h($assumed > 0 && $recorded !== null
+                ? sprintf(
+                    __n(
+                        'timeline uncertain — %1$s day on the record'
+                            . ' plus %2$s assumed',
+                        'timeline uncertain — %1$s days on the record'
+                            . ' plus %2$s assumed',
+                        $recorded
+                    ),
+                    $recorded,
+                    $assumed
+                )
+                : sprintf(
+                    __('timeline uncertain — %s'),
+                    $runway['uncertain_note']
+                )) ?>
+            <?php if (!empty($runway['assumed_capped'])): ?>
+                <?= h(sprintf(
+                    __('(capped from %s — an assumption never expires a'
+                        . ' value)'),
+                    (int)$runway['assumed_setting']
+                )) ?>
+            <?php endif; ?>
         </span>
     <?php endif; ?>
 </div>

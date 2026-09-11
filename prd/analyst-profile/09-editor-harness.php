@@ -397,7 +397,7 @@ is_same(1, count($form->validate($zero)['errors']),
  * reviewer as having no unit, and it did not: hours appeared only
  * inside a validation error string. The settings that read correctly
  * were smuggling the unit into the key name (`ttl_days`,
- * `lag_uncertain_days`), which the label does not show either.
+ * `undated_assumed_days`), which the label does not show either.
  */
 out('');
 out('== a numeric field says what it counts ==');
@@ -422,10 +422,10 @@ is_same('hours', isset($units['max_age_hours'])
     ? $units['max_age_hours'] : null,
     'the reuse window is in hours, and now says so outside a validation'
         . ' message');
-is_same('days', isset($units['lag_uncertain_days'])
-    ? $units['lag_uncertain_days'] : null,
-    'the encoding lag is in days without the key name having to carry'
-        . ' it');
+is_same('days', isset($units['undated_assumed_days'])
+    ? $units['undated_assumed_days'] : null,
+    'the assumed age for an undated value is in days without the key'
+        . ' name having to carry it');
 is_same('points', isset($units['high']) ? $units['high'] : null,
     'and a quality band threshold is in points — the same units the'
         . ' attainable bound is quoted in');

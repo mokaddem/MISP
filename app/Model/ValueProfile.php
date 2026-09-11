@@ -1397,7 +1397,6 @@ class ValueProfile extends AppModel
             'temporal' => array(
                 'occurrences' => $summary['occurrences'],
                 'with_first_seen' => $summary['dated'],
-                'max_lag_days' => $summary['max_lag_days'],
             ),
             'orgs' => $this->verdictOrgs($user, $value, $options),
             'corroboration' => ValueRelevanceTool::corroborationFrom(
@@ -12826,7 +12825,6 @@ class ValueProfile extends AppModel
             'temporal' => array(
                 'occurrences' => $record['occurrences'],
                 'with_first_seen' => $record['dated'],
-                'max_lag_days' => $record['max_lag_days'],
             ),
             'orgs' => $this->verdictOrgs($user, $value, $options),
             /*

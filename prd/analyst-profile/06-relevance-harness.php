@@ -562,18 +562,40 @@ is_same(
     'on url\'s 60-day TTL'
 );
 is_true(
-    strpos($relevance['uncertain_note'], '61') !== false,
-    'and the note carries the lag it measured'
+    strpos($relevance['uncertain_note'], 'first seen') !== false,
+    'and the note names the fact the rows can answer, in the words'
+        . ' MISP\'s own attribute form uses (§7.8)'
 );
-is_true(
-    strpos($relevance['uncertain_note'], 'first-seen') !== false,
-    'and names the missing field the way MISP\'s own attribute form'
-        . ' names it, rather than as the column (§7.8)'
+/*
+ * One reason, not two. The second was the event-date lag, and it is
+ * gone with the columns that could not support it (§7.11) — the
+ * fixture still carries `max_lag_days: 61` and nothing reads it, which
+ * is the point.
+ */
+is_same(
+    1,
+    count($relevance['precision']['reasons']),
+    'one fact trips it, and a stale max_lag_days in the context moves'
+        . ' nothing'
 );
 is_same(
-    2,
-    count($relevance['precision']['reasons']),
-    'both facts tripped, and both are recorded'
+    30,
+    $relevance['assumed_days'],
+    'the undated value is aged by the profile\'s stated assumption'
+);
+is_same(
+    20,
+    $relevance['recorded_days'],
+    'while what the rows actually say is kept beside it'
+);
+is_same(
+    50,
+    $relevance['elapsed_days'],
+    'and the runway is drawn from the sum'
+);
+is_true(
+    !$relevance['assumed_capped'],
+    'no cap needed here — 50 of 60 days leaves the lifetime intact'
 );
 is_true(
     $relevance['clock']['fallback'],

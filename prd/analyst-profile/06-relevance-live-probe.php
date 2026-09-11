@@ -667,13 +667,10 @@ class AnalystRelevanceProbeShell extends AppShell
             $summary = $this->Value->recordSummaryFor($user, $value);
             if ($summary['occurrences'] > 0) {
                 $subjects[$value] = sprintf(
-                    '%d occurrences in %d orgs, %d dated, lag %s',
+                    '%d occurrences in %d orgs, %d dated',
                     $summary['occurrences'],
                     $summary['orgs'],
-                    $summary['dated'],
-                    $summary['max_lag_days'] === null
-                        ? 'unknown'
-                        : $summary['max_lag_days'] . 'd'
+                    $summary['dated']
                 );
             }
         }

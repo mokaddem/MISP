@@ -182,17 +182,67 @@ $ttl = $relevance['ttl'];
                     </span>
                 </div>
 
+                <?php
+                /*
+                 * The assumed days are drawn, not just stated. A track
+                 * whose fill silently included 30 days nobody measured
+                 * is the failure this replaced in a new costume — so
+                 * the assumed stretch is its own hatched segment,
+                 * between what the rows support and what is left.
+                 */
+                $assumed = (int)($relevance['assumed_days'] ?? 0);
+                /*
+                 * In the track's own coordinates, which are runway
+                 * remaining and not elapsed days: the assumption ate
+                 * the stretch between the runway as drawn and the
+                 * runway the record alone supports, so it sits
+                 * immediately right of the fill and ends where the bar
+                 * would have ended without it.
+                 */
+                $runwayPct = (int)round($relevance['runway'] * 100);
+                $recordedPct = (int)round(
+                    ($relevance['recorded_runway'] ?? $relevance['runway'])
+                    * 100
+                );
+                $assumedPct = max(0, $recordedPct - $runwayPct);
+                ?>
                 <div class="vp-shelf-track"
-                     title="<?= h(sprintf(
-                         __('%1$s of %2$s days used'),
-                         $relevance['elapsed_days'],
-                         $ttl['days']
-                     )) ?>">
+                     title="<?= h($assumed > 0
+                         ? sprintf(
+                             __('%1$s of %2$s days used: %3$s on the'
+                                 . ' record, %4$s assumed'),
+                             $relevance['elapsed_days'],
+                             $ttl['days'],
+                             $relevance['recorded_days'],
+                             $assumed
+                         )
+                         : sprintf(
+                             __('%1$s of %2$s days used'),
+                             $relevance['elapsed_days'],
+                             $ttl['days']
+                         )) ?>">
                     <span class="vp-shelf-fill"
                           style="width: <?=
                               (int)round(
                                   $relevance['runway'] * 100
                               ) ?>%;"></span>
+                    <?php if ($assumed > 0): ?>
+                        <span class="vp-shelf-assumed"
+                              title="<?= h(sprintf(
+                                  __n(
+                                      '%s day the profile assumes,'
+                                          . ' because nothing records'
+                                          . ' when this was seen',
+                                      '%s days the profile assumes,'
+                                          . ' because nothing records'
+                                          . ' when this was seen',
+                                      $assumed
+                                  ),
+                                  $assumed
+                              )) ?>"
+                              style="left: <?= $runwayPct ?>%; width: <?=
+                                  $assumedPct ?>%;"></span>
+                    <?php endif; ?>
                     <span class="vp-shelf-mark"
                           title="<?= h(__('where it stops counting as current')) ?>"
                           style="left: <?=
@@ -204,24 +254,67 @@ $ttl = $relevance['ttl'];
                 <?php if (!empty($relevance['uncertain'])): ?>
                     <?php
                     /*
-                     * The measurement that tripped, never a bare
-                     * *uncertain*. This is the example that forced the
-                     * three-axis model: a phishing URL encoded two
-                     * months after the incident, where a page reading
-                     * the encoding date as an observation date says
-                     * `current` about infrastructure that died in June.
-                     * The uncertainty has somewhere to go now, and this
-                     * is it.
+                     * **The assumption, in the words of an assumption.**
+                     * This block used to print a measured lag — MISP's
+                     * `Event.date` against a row-modification timestamp
+                     * — which was not a measurement of anything. What
+                     * it says now is what the profile is doing and by
+                     * how much, because a number the reader cannot see
+                     * is a number they cannot argue with, and this one
+                     * moves the days-left figure directly above it.
                      */
                     ?>
                     <div class="vp-shelf-why">
-                        <?= h(sprintf(
-                            __('Counted from when this was added to'
-                                . ' MISP, not when it was seen — %s.'
-                                . ' The real age is at least this,'
-                                . ' probably more.'),
-                            $relevance['uncertain_note']
-                        )) ?>
+                        <?php
+                        /*
+                         * `uncertain_note` is not repeated here. With
+                         * one reason left it says the same sentence
+                         * back, and the card printed *nothing records
+                         * when this value was seen (no occurrence
+                         * records when it was first seen)*. The note
+                         * still serves the two panels that have room
+                         * for nothing longer.
+                         */
+                        ?>
+                        <?= h(__('Nothing records when this value was'
+                            . ' seen — only when its rows were last'
+                            . ' written.')) ?>
+                        <?php if ($assumed > 0): ?>
+                            <?= h(sprintf(
+                                __n(
+                                    'So the %1$s profile reads it as'
+                                        . ' %2$s day older than its'
+                                        . ' %3$s days on the record —'
+                                        . ' the hatched part of the bar'
+                                        . ' above.',
+                                    'So the %1$s profile reads it as'
+                                        . ' %2$s days older than its'
+                                        . ' %3$s days on the record —'
+                                        . ' the hatched part of the bar'
+                                        . ' above.',
+                                    $assumed
+                                ),
+                                $relevance['profile'] ?? __('active'),
+                                $assumed,
+                                $relevance['recorded_days']
+                            )) ?>
+                            <?= h(__('That is an assumption, not a'
+                                . ' reading: it makes the value count'
+                                . ' as old sooner, and never changes'
+                                . ' the date its lifetime ends.')) ?>
+                        <?php else: ?>
+                            <?= h(__('Its age is a minimum, not a'
+                                . ' measurement.')) ?>
+                        <?php endif; ?>
+                        <?php if (!empty($relevance['assumed_capped'])): ?>
+                            <?= h(sprintf(
+                                __('The profile would have assumed %s'
+                                    . ' days; the rest is not applied,'
+                                    . ' because an assumption may never'
+                                    . ' expire a value on its own.'),
+                                $relevance['assumed_setting']
+                            )) ?>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 

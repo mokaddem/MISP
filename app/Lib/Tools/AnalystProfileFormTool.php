@@ -34,7 +34,7 @@ App::uses('WarninglistCategory', 'Tools');
  *   `relevance`'s clock, `enrichment`'s posture. A numeric field may
  *   carry a `unit` — the suffix a design draws after the input — because
  *   without one the settings smuggle their unit into the key name
- *   (`ttl_days`, `lag_uncertain_days`) and the ones that do not are
+ *   (`ttl_days`, `undated_assumed_days`) and the ones that do not are
  *   read in whatever unit the reader guesses.
  * - **`map`** — key→value pairs with an *add* affordance and a named
  *   source for the keys. `relevance.ttl_days`, `reference.org_trust`,
@@ -1105,26 +1105,44 @@ class AnalystProfileFormTool
                             'path' => array('relevance', 'aging_fraction'),
                         ),
                         array(
-                            'key' => 'lag_uncertain_days',
-                            'label' => __('Flag uncertain past a lag of'),
+                            'key' => 'undated_assumed_days',
+                            'label' => __('Assume undated values are'
+                                . ' older by'),
                             'type' => 'int',
                             'unit' => __('days'),
-                            'value' => isset($section['lag_uncertain_days'])
-                                ? $section['lag_uncertain_days']
-                                : null,
+                            /*
+                             * Reads the old key too, so a fork written
+                             * before the rename opens with the number
+                             * its author chose rather than silently
+                             * back at the default.
+                             */
+                            'value' => isset(
+                                $section['undated_assumed_days']
+                            )
+                                ? $section['undated_assumed_days']
+                                : (isset($section['lag_uncertain_days'])
+                                    ? $section['lag_uncertain_days']
+                                    : null),
                             'default' => 30,
                             'help' => __(
-                                'Days between an event\'s own date and'
-                                . ' the value being added to MISP. Past'
-                                . ' this many, the date MISP holds is'
-                                . ' too far from the observation to'
-                                . ' measure age with, and the timeline'
-                                . ' is flagged uncertain — which is the'
-                                . ' common state on real data, not the'
-                                . ' exotic one.'
+                                'MISP records no date an attribute was'
+                                . ' created, so when no occurrence sets'
+                                . ' first seen there is nothing to'
+                                . ' measure the value\'s real age'
+                                . ' with. This is the assumption used'
+                                . ' instead: those values read as this'
+                                . ' many days older than their record,'
+                                . ' and every page showing one says so.'
+                                . ' It moves where a value sits on the'
+                                . ' curve, so it counts as aging'
+                                . ' sooner — and it never moves the'
+                                . ' date its lifetime ends, because'
+                                . ' expiring on a guess would drop'
+                                . ' indicators nobody chose to drop.'
+                                . ' Set it to 0 to assume nothing.'
                             ),
                             'path' => array('relevance',
-                                'lag_uncertain_days'),
+                                'undated_assumed_days'),
                         ),
                         array(
                             'key' => 'type_rule',

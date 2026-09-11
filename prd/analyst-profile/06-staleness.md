@@ -63,7 +63,7 @@ is the second question with the first removed.
   "decay_speed": 1,
   "type_rule": "shortest",
   "aging_fraction": 0.33,
-  "lag_uncertain_days": 30,
+  "undated_assumed_days": 30,
   "ttl_default": 180,
   "ttl_buckets": {
     "short": 90, "medium": 120, "long": 365, "very_long": 730
@@ -201,9 +201,13 @@ this are already in the rows:
 
 - **`first_seen` absent** on every occurrence — the observation date is
   unknown; only the encoding date is known.
-- **Created-to-published lag** — the attribute's `timestamp` against the
-  event's own dates; a lag beyond `lag_uncertain_days` means the encoding
-  date is a poor proxy for the observation date.
+- ~~**Created-to-published lag** — the attribute's `timestamp` against
+  the event's own dates; a lag beyond `lag_uncertain_days` means the
+  encoding date is a poor proxy for the observation date.~~
+  **Removed 2026-09-11 — see §7.11.** Neither column supports the
+  reading: `timestamp` is last-modified and `Event.date` is typed by an
+  analyst. `undated_assumed_days` replaces it with a declared
+  assumption.
 
 When either trips, the state is **`timeline uncertain`**, rendered with the
 measurement that tripped it (*"encoded ≥ 61 days after the event's dates; no
@@ -745,6 +749,78 @@ carried the right number, and answered a question the reader had
 stopped asking. Its *no negative number* assertion needed a `-\d`
 match too — the bare hyphen check the expired line uses passes only
 because that sentence happens to contain no hyphenated word.
+
+### 7.11 The encoding lag measured nothing. Replaced 2026-09-11, D19
+
+§3.6 gave the axis two triggers. The second was a created-to-published
+lag past `lag_uncertain_days`, and it is **removed rather than
+retuned**, because the columns cannot support any reading of it:
+
+- **`Attribute.timestamp` is last-modified**, not created. An edit, a
+  tag, a sync update or a delete bumps it, and it is what sync compares
+  to decide which copy is newer. The `attributes` table has **no
+  created column**, so MISP holds no encoding date to measure from.
+- **`Event.date` is typed by an analyst**, so it carries the same delay
+  the measurement was trying to detect — the objection that opened
+  this, from the user reading `8.8.8.8`'s card.
+
+Measured on the dev instance, `8.8.8.8`'s 302-day maximum came from an
+attribute last written the day after its event was published, beside a
+second occurrence whose event was modified a year later. The number was
+not a lag; it was the age of the most recent edit.
+
+It also reached the ledger through `record.temporal_precision`'s
+`lagged` points — see `03-signals.md` §11.9 — so an unsound reading was
+moving the quality, which is what D11's separation exists to stop.
+
+**`undated_assumed_days` replaces it: an assumption, not a reading.**
+When no occurrence carries `first_seen`, the value reads as that many
+days older than its record (30 by default). Where the lag pretended to
+measure how much older a value really was, this states it — and a
+stated number is one an analyst can disagree with, set to 0, or raise.
+`lag_uncertain_days` is still read as a fallback, so a fork written
+before the rename opens with the number its author chose.
+
+**What the assumption moves, and what it must not.** The first draft
+had it move the days-left figure and the expiry date too, and the card
+contradicted itself within three lines — *41 days left* over *expires
+in 71 days* — because the cap that stops an assumption expiring a value
+hands the assumed days back as the real ones run out. Resolved by
+splitting them:
+
+| | reads |
+|---|---|
+| `runway`, and so `current` against `aging` | the record's days **plus** the assumption |
+| `runway_days`, `expires_at`, and `expired` | the record's days alone |
+
+So the assumption makes a value count as old sooner, and **never moves
+the date its lifetime ends**. §3.5's asymmetry is the argument: a guess
+that expires an indicator drops it silently, where a guess that ages
+one merely flags it. The runway series carries the assumption too — the
+live probe caught that first, with the chart's last point at 79% under
+a card printing 46%.
+
+**The UI requirement came with the report and is the larger half.** A
+number nobody can see is worse than the measurement it replaced,
+because an assumption has no reading to fall back on. So:
+
+- the card states it in full — *"Nothing records when this value was
+  seen … the default-v1 profile reads it as 30 days older than its 19
+  days on the record … that is an assumption, not a reading"*;
+- the track **draws** it, as a hatched stretch between the runway as
+  drawn and the runway the record alone supports. That stretch is in
+  the bar's own coordinates, which are runway remaining and not elapsed
+  days — subtracting days and scaling them is only correct at
+  `decay_speed` 1. The uncertain fill stopped being hatched end-to-end
+  to make room for it: a bar hatched throughout says everything about
+  it is a guess, when one stretch is;
+- the bench line reads *19 days on the record plus 30 assumed*;
+- the editor field is **Assume undated values are older by**, with the
+  reason, the limit, and *set it to 0 to assume nothing*.
+
+`8.8.8.8` is the worked example: 19 days on the record, 30 assumed, 71
+days left, expiring 2026-11-21 — the same date as before, because the
+assumption never moved it.
 
 ## 8. Out of scope
 
