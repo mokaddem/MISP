@@ -83,6 +83,27 @@ class ValueRelevanceTool
     /** `type_rule` settings. */
     const TYPE_RULES = array('shortest', 'longest', 'most_common');
 
+    /**
+     * The shelf-life buckets a type may be assigned to (D18).
+     *
+     * Four, not three, and the reason is arithmetic rather than taste:
+     * the shipped table uses five distinct values (60, 90, 120, 365,
+     * 730), and three buckets cannot hold them without moving `url`
+     * off 60 and the whole 120-day group onto some other number —
+     * which would change how long real values stay relevant on every
+     * instance running the default. Four plus one override reproduces
+     * the shipped table exactly.
+     */
+    const BUCKETS = array('short', 'medium', 'long', 'very_long');
+
+    /** What each bucket is worth when a profile does not say. */
+    const BUCKET_DAYS = array(
+        'short' => 90,
+        'medium' => 120,
+        'long' => 365,
+        'very_long' => 730,
+    );
+
     /** Defaults for a profile that names none, or for no profile. */
     const DEFAULTS = array(
         'clock' => 'last_independent_corroboration',
@@ -269,8 +290,27 @@ class ValueRelevanceTool
         $rule = $section['type_rule'];
         $table = $section['ttl_days'];
         $default = $section['ttl_default'];
+        $assigned = isset($section['ttl_types'])
+            ? $section['ttl_types']
+            : array();
+        $overrides = isset($section['ttl_overrides'])
+            ? $section['ttl_overrides']
+            : array();
         $candidates = array();
         foreach (self::typeList($context) as $type => $count) {
+            /*
+             * Where the number came from, so the page can say *90 days,
+             * short* rather than quoting a bare number a reader then
+             * has to go and look up. An override is named as one
+             * because it is the thing the buckets could not express.
+             */
+            if (isset($overrides[$type])) {
+                $from = 'override';
+            } elseif (isset($assigned[$type])) {
+                $from = 'bucket';
+            } else {
+                $from = 'default';
+            }
             $candidates[$type] = array(
                 'type' => $type,
                 'days' => isset($table[$type])
@@ -278,6 +318,10 @@ class ValueRelevanceTool
                     : $default,
                 'count' => $count,
                 'named' => isset($table[$type]),
+                'from' => $from,
+                'bucket' => isset($assigned[$type]) && $from === 'bucket'
+                    ? $assigned[$type]
+                    : null,
             );
         }
         if (empty($candidates)) {
@@ -288,6 +332,8 @@ class ValueRelevanceTool
                 'candidates' => array(),
                 'spread' => false,
                 'from_default' => true,
+                'from' => 'default',
+                'bucket' => null,
             );
         }
         $chosen = self::chooseType($candidates, $rule);
@@ -299,6 +345,8 @@ class ValueRelevanceTool
             'candidates' => array_values($candidates),
             'spread' => min($days) !== max($days),
             'from_default' => !$chosen['named'],
+            'from' => $chosen['from'],
+            'bucket' => $chosen['bucket'],
         );
     }
 
@@ -941,15 +989,13 @@ class ValueRelevanceTool
         $rule = isset($section['type_rule'])
             ? $section['type_rule']
             : null;
-        $table = isset($section['ttl_days'])
-            && is_array($section['ttl_days'])
-            ? $section['ttl_days']
-            : array();
-        $default = isset($table['default'])
-            ? (int)$table['default']
-            : self::DEFAULTS['ttl_default'];
-        unset($table['default']);
+        $shelf = self::shelfLife($section);
+        $table = $shelf['ttl_days'];
+        $default = $shelf['ttl_default'];
         return array(
+            'ttl_buckets' => $shelf['ttl_buckets'],
+            'ttl_types' => $shelf['ttl_types'],
+            'ttl_overrides' => $shelf['ttl_overrides'],
             'clock' => in_array($clock, self::CLOCKS, true)
                 ? $clock
                 : self::DEFAULTS['clock'],
@@ -970,6 +1016,138 @@ class ValueRelevanceTool
                 ? (int)$section['lag_uncertain_days']
                 : self::DEFAULTS['lag_uncertain_days'],
             'ttl_days' => $table,
+            'ttl_default' => $default,
+        );
+    }
+
+    /**
+     * Shelf life, from whichever of the two shapes the profile carries
+     * (D18).
+     *
+     * **Current shape.** `ttl_buckets` gives each of the four buckets a
+     * day count, `ttl_types` assigns a type to a bucket,
+     * `ttl_overrides` gives a type its own day count, and `ttl_default`
+     * covers every type nobody named. An override beats a bucket
+     * assignment, because it exists for the type the buckets cannot
+     * express.
+     *
+     * **Pre-D18 shape.** A flat `ttl_days` map — the one every existing
+     * fork carries, because `AnalystProfile::updateDefaults()` never
+     * touches a fork. It reads as *no buckets, and every named type is
+     * its own override*, which is exactly what it already meant. The
+     * reading is exact rather than approximate, and it is why the
+     * override list exists at all: an old fork keeps behaving
+     * identically until somebody opens the editor. Without this a fork
+     * would resolve no TTLs and every value in it would silently change
+     * shelf life, with nobody having edited anything.
+     *
+     * Both shapes come out as one **effective type => days** map, so
+     * `ttlFor()` and `chooseType()` compare days and `shortest` keeps
+     * meaning shortest. Comparing bucket ordinals instead would be a
+     * different rule wearing the same name.
+     *
+     * @param array $section The raw `relevance` section
+     * @return array `ttl_buckets`, `ttl_types`, `ttl_overrides`,
+     *               `ttl_days` (effective), `ttl_default`
+     */
+    private static function shelfLife(array $section)
+    {
+        /*
+         * The two shapes do not blend. A document carrying any of the
+         * current keys is read as a current one and its `ttl_days` is
+         * ignored outright — a half-edited fork whose stale flat map
+         * shadowed its own bucket assignments would resolve to a blend
+         * of two shapes, which is unpredictable and which no analyst
+         * asked for. `merge()` drops the legacy key on save for the
+         * same reason.
+         */
+        $current = false;
+        foreach (array('ttl_buckets', 'ttl_types', 'ttl_overrides',
+            'ttl_default') as $key
+        ) {
+            if (isset($section[$key])) {
+                $current = true;
+            }
+        }
+        $buckets = self::BUCKET_DAYS;
+        if (isset($section['ttl_buckets'])
+            && is_array($section['ttl_buckets'])
+        ) {
+            foreach ($section['ttl_buckets'] as $name => $days) {
+                if (!isset($buckets[$name]) || !is_numeric($days)
+                    || (int)$days <= 0
+                ) {
+                    continue;
+                }
+                $buckets[$name] = (int)$days;
+            }
+        }
+
+        $legacy = !$current && isset($section['ttl_days'])
+            && is_array($section['ttl_days'])
+            ? $section['ttl_days']
+            : array();
+        $default = null;
+        if (array_key_exists('default', $legacy)
+            && is_numeric($legacy['default'])
+        ) {
+            $default = (int)$legacy['default'];
+        }
+        unset($legacy['default']);
+        if (isset($section['ttl_default'])
+            && is_numeric($section['ttl_default'])
+        ) {
+            $default = (int)$section['ttl_default'];
+        }
+        if ($default === null || $default <= 0) {
+            $default = self::DEFAULTS['ttl_default'];
+        }
+
+        $types = array();
+        if (isset($section['ttl_types'])
+            && is_array($section['ttl_types'])
+        ) {
+            foreach ($section['ttl_types'] as $type => $bucket) {
+                if (!is_string($bucket) || !isset($buckets[$bucket])) {
+                    continue;
+                }
+                $types[(string)$type] = $bucket;
+            }
+        }
+
+        // The legacy map's named types become overrides, which is
+        // exactly what they already meant.
+        $overrides = array();
+        foreach ($legacy as $type => $days) {
+            if (!is_numeric($days) || (int)$days <= 0) {
+                continue;
+            }
+            $overrides[(string)$type] = (int)$days;
+        }
+        if (isset($section['ttl_overrides'])
+            && is_array($section['ttl_overrides'])
+        ) {
+            foreach ($section['ttl_overrides'] as $type => $days) {
+                if (!is_numeric($days) || (int)$days <= 0) {
+                    continue;
+                }
+                $overrides[(string)$type] = (int)$days;
+            }
+        }
+
+        $effective = array();
+        foreach ($types as $type => $bucket) {
+            $effective[$type] = $buckets[$bucket];
+        }
+        foreach ($overrides as $type => $days) {
+            $effective[$type] = $days;
+        }
+
+        return array(
+            'ttl_buckets' => $buckets,
+            'ttl_types' => $types,
+            'ttl_overrides' => $overrides,
+            'ttl_days' => $effective,
             'ttl_default' => $default,
         );
     }

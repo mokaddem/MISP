@@ -102,11 +102,22 @@ check('7d nothing in force at all',
 
 # 8. two map sections with entries
 secs = F['profile']['sections']
-ttl = [b for b in secs['relevance']['blocks'] if b.get('id') == 'ttl_days']
+# D18: four buckets and an override table, not a row per attribute type.
+buckets = [b for b in secs['relevance']['blocks']
+           if b.get('id') == 'ttl_types']
+overrides = [b for b in secs['relevance']['blocks']
+             if b.get('id') == 'ttl_overrides']
 trust = [b for b in secs['reference']['blocks']
          if b.get('id') == 'org_trust']
-check('8  relevance TTL map', ttl and len(ttl[0]['entries']) > 1,
-      '%d rows' % len(ttl[0]['entries']) if ttl else 'none')
+check('8  relevance shelf life, in buckets',
+      bool(buckets) and len(buckets[0]['entries']) == 4
+      and any(e['value'] for e in buckets[0]['entries']),
+      ', '.join('%s=%d' % (e['key'], len(e['value']))
+                for e in buckets[0]['entries']) if buckets else 'none')
+check('8a and an override for the type no bucket fits',
+      bool(overrides) and len(overrides[0]['entries']) == 1,
+      '%s' % [(e['key'], e['value']) for e in overrides[0]['entries']]
+      if overrides else 'none')
 check('8b org trust map', trust and len(trust[0]['entries']) > 1,
       '%d rows' % len(trust[0]['entries']) if trust else 'none')
 check('8c a graded org not on this instance',

@@ -351,8 +351,13 @@ start and is not part of any of them.
     "type_rule": "shortest",
     "aging_fraction": 0.33,
     "lag_uncertain_days": 30,
-    "ttl_days": { "default": 180, "ip-dst": 90, "ip-src": 90,
-                  "domain": 120, "url": 60, "md5": 730, "sha256": 730 }
+    "ttl_default": 180,
+    "ttl_buckets": { "short": 90, "medium": 120, "long": 365,
+                     "very_long": 730 },
+    "ttl_types":   { "ip-dst": "short", "ip-src": "short",
+                     "domain": "medium", "md5": "very_long",
+                     "sha256": "very_long" },
+    "ttl_overrides": { "url": 60 }
   },
 
   "reference": {

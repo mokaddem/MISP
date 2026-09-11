@@ -64,15 +64,23 @@ is the second question with the first removed.
   "type_rule": "shortest",
   "aging_fraction": 0.33,
   "lag_uncertain_days": 30,
-  "ttl_days": {
-    "default": 180,
-    "ip-src": 90, "ip-dst": 90, "domain": 120, "hostname": 120,
-    "url": 60, "email-src": 120,
-    "md5": 730, "sha1": 730, "sha256": 730,
-    "btc": 365, "filename": 365
-  }
+  "ttl_default": 180,
+  "ttl_buckets": {
+    "short": 90, "medium": 120, "long": 365, "very_long": 730
+  },
+  "ttl_types": {
+    "ip-src": "short", "ip-dst": "short",
+    "domain": "medium", "hostname": "medium", "email-src": "medium",
+    "btc": "long", "filename": "long",
+    "md5": "very_long", "sha1": "very_long", "sha256": "very_long"
+  },
+  "ttl_overrides": { "url": 60 }
 }
 ```
+
+Shelf life was a flat `ttl_days` map of attribute type to days until
+2026-09-10; §3.7 (D18) is why it is not. The flat shape is still read,
+because `updateDefaults()` never touches a fork — see the shim below.
 
 The pre-D11 draft carried this as `lifecycle.staleness`'s `config` inside the
 `signals` list; it is now a **top-level profile section** — the seventh —
@@ -265,6 +273,44 @@ is still a whole number of days.
 reason this is worth doing: 194 types into four buckets is a
 select-many-types-into-a-bucket interaction, not one row per type. The
 override list is a short second table, not a third mode.
+
+#### Built 2026-09-10
+
+**The stored shape** is `ttl_default`, `ttl_buckets`, `ttl_types` and
+`ttl_overrides`. The shipped default carries all four and version 8
+applies it; every one of its eleven TTLs comes out on the same number it
+had, which the relevance harness asserts rather than reviews.
+
+**`section()` resolves both shapes into one effective `type => days`
+map**, so `ttlFor()` and `chooseType()` are untouched and `shortest`
+still compares days. The resolution also reports `from` — `bucket`,
+`override` or `default` — and `bucket`, so the page can say *730 days
+from md5, very long bucket* rather than quoting a number a reader then
+has to go and look up.
+
+**The two shapes do not blend, and that turned out to matter.** The
+first version merged them: a legacy `ttl_days` entry became an override,
+and overrides beat bucket assignments — so a fork the editor had
+upgraded, with a stale flat map still sitting beside its new buckets,
+would have had the stale entry silently shadow its own assignment. A
+document carrying any of the four current keys is now read as a current
+one and its `ttl_days` is ignored outright, and `merge()` drops the key
+on save so the dead weight does not persist. A fork nobody has opened
+still carries only the flat map, and still reads exactly as it did.
+
+**Validation** covers both shapes, because both are documents an
+analyst can legitimately hold. Buckets and overrides must be whole days
+above zero, a bucket name must be one of the four, a type must name a
+bucket that exists, and `ttl_default` must be days above zero. The one
+rule that had to be relaxed: a flat map with no `default` is still
+refused, *unless* the current keys are present — demanding a default
+inside a block the engine ignores would refuse a document that works.
+
+**The editor** replaces the 194-row picker with four bucket day counts
+plus a default, one row per bucket holding the types assigned to it
+(four rows, not 194), and a short override table with its own picker.
+The buckets carry `days` as a unit and each assignment row names its day
+count, so choosing a bucket does not mean remembering what it is worth.
 
 ## 4. What gets retired, and what replaces it
 

@@ -1850,11 +1850,12 @@
               "type": "select",
               "options": [
                 "last_independent_corroboration",
-                "newest_occurrence"
+                "last_sighting",
+                "last_occurrence"
               ],
               "value": "last_independent_corroboration",
               "default": "last_independent_corroboration",
-              "help": "Last independent corroboration is somebody other than the original reporter saying it again. Newest occurrence is the fallback where nothing else can be dated.",
+              "help": "Last independent corroboration is somebody other than the original reporter saying it again. Last sighting counts sightings alone; last occurrence falls back to the value's own newest encoding, which every value has.",
               "path": [
                 "relevance",
                 "clock"
@@ -1863,10 +1864,10 @@
             {
               "key": "decay_speed",
               "label": "Decay speed",
-              "type": "int",
+              "type": "float",
               "value": 1,
               "default": 1,
-              "help": "MISP's polynomial. 1 is linear; exponential has no TTL to measure against, which is why the curve is pinned here.",
+              "help": "MISP's polynomial. 1 is linear; below 1 holds its value then falls off a cliff; above 1 drops at once then lingers. Exponential has no TTL to measure against, which is why the curve is pinned here.",
               "path": [
                 "relevance",
                 "decay_speed"
@@ -1888,6 +1889,7 @@
               "key": "lag_uncertain_days",
               "label": "Encoding lag before uncertain",
               "type": "int",
+              "unit": "days",
               "value": 30,
               "default": 30,
               "help": "An encoding date is later than the observation it stands for, so time measured from it is a lower bound. Past this lag the timeline is flagged uncertain \u2014 which is the common state on real data, not the exotic one.",
@@ -1903,7 +1905,7 @@
               "options": [
                 "shortest",
                 "longest",
-                "first"
+                "most_common"
               ],
               "value": "shortest",
               "default": "shortest",
@@ -1915,167 +1917,287 @@
           ]
         },
         {
+          "kind": "fields",
+          "id": "ttl_buckets",
+          "title": "Shelf life",
+          "blurb": "How long a report stays current without corroboration. Four buckets, and a type is assigned to one of them below.",
+          "fields": [
+            {
+              "key": "short",
+              "label": "Short",
+              "type": "int",
+              "unit": "days",
+              "value": 90,
+              "default": 90,
+              "path": [
+                "relevance",
+                "ttl_buckets",
+                "short"
+              ]
+            },
+            {
+              "key": "medium",
+              "label": "Medium",
+              "type": "int",
+              "unit": "days",
+              "value": 120,
+              "default": 120,
+              "path": [
+                "relevance",
+                "ttl_buckets",
+                "medium"
+              ]
+            },
+            {
+              "key": "long",
+              "label": "Long",
+              "type": "int",
+              "unit": "days",
+              "value": 365,
+              "default": 365,
+              "path": [
+                "relevance",
+                "ttl_buckets",
+                "long"
+              ]
+            },
+            {
+              "key": "very_long",
+              "label": "Very long",
+              "type": "int",
+              "unit": "days",
+              "value": 730,
+              "default": 730,
+              "path": [
+                "relevance",
+                "ttl_buckets",
+                "very_long"
+              ]
+            },
+            {
+              "key": "ttl_default",
+              "label": "Every other type",
+              "type": "int",
+              "unit": "days",
+              "value": 180,
+              "default": 180,
+              "path": [
+                "relevance",
+                "ttl_default"
+              ]
+            }
+          ]
+        },
+        {
           "kind": "map",
-          "id": "ttl_days",
-          "title": "Time to live, per type",
-          "blurb": "How long a report of this type stays current without corroboration. Only the types you have an opinion about; everything else follows the default.",
+          "id": "ttl_types",
+          "title": "Which types go in which bucket",
+          "blurb": "Only the types you have an opinion about; everything else follows the default.",
+          "key_label": "Bucket",
+          "value_label": "Attribute types",
+          "value_type": "types",
+          "path": [
+            "relevance",
+            "ttl_types"
+          ],
+          "entries": [
+            {
+              "key": "short",
+              "label": "Short \u2014 90 days",
+              "value": [
+                "ip-dst",
+                "ip-src"
+              ],
+              "type": "types",
+              "options": [
+                "ip-src",
+                "domain",
+                "ip-dst",
+                "hostname",
+                "url",
+                "md5",
+                "sha1",
+                "sha256",
+                "email-src",
+                "btc",
+                "filename"
+              ],
+              "taken": {
+                "ip-src": "short",
+                "ip-dst": "short",
+                "domain": "medium",
+                "hostname": "medium",
+                "email-src": "medium",
+                "btc": "long",
+                "filename": "long",
+                "md5": "very_long",
+                "sha1": "very_long",
+                "sha256": "very_long"
+              },
+              "path": [
+                "relevance",
+                "ttl_types"
+              ]
+            },
+            {
+              "key": "medium",
+              "label": "Medium \u2014 120 days",
+              "value": [
+                "domain",
+                "email-src",
+                "hostname"
+              ],
+              "type": "types",
+              "options": [
+                "ip-src",
+                "domain",
+                "ip-dst",
+                "hostname",
+                "url",
+                "md5",
+                "sha1",
+                "sha256",
+                "email-src",
+                "btc",
+                "filename"
+              ],
+              "taken": {
+                "ip-src": "short",
+                "ip-dst": "short",
+                "domain": "medium",
+                "hostname": "medium",
+                "email-src": "medium",
+                "btc": "long",
+                "filename": "long",
+                "md5": "very_long",
+                "sha1": "very_long",
+                "sha256": "very_long"
+              },
+              "path": [
+                "relevance",
+                "ttl_types"
+              ]
+            },
+            {
+              "key": "long",
+              "label": "Long \u2014 365 days",
+              "value": [
+                "btc",
+                "filename"
+              ],
+              "type": "types",
+              "options": [
+                "ip-src",
+                "domain",
+                "ip-dst",
+                "hostname",
+                "url",
+                "md5",
+                "sha1",
+                "sha256",
+                "email-src",
+                "btc",
+                "filename"
+              ],
+              "taken": {
+                "ip-src": "short",
+                "ip-dst": "short",
+                "domain": "medium",
+                "hostname": "medium",
+                "email-src": "medium",
+                "btc": "long",
+                "filename": "long",
+                "md5": "very_long",
+                "sha1": "very_long",
+                "sha256": "very_long"
+              },
+              "path": [
+                "relevance",
+                "ttl_types"
+              ]
+            },
+            {
+              "key": "very_long",
+              "label": "Very long \u2014 730 days",
+              "value": [
+                "md5",
+                "sha1",
+                "sha256"
+              ],
+              "type": "types",
+              "options": [
+                "ip-src",
+                "domain",
+                "ip-dst",
+                "hostname",
+                "url",
+                "md5",
+                "sha1",
+                "sha256",
+                "email-src",
+                "btc",
+                "filename"
+              ],
+              "taken": {
+                "ip-src": "short",
+                "ip-dst": "short",
+                "domain": "medium",
+                "hostname": "medium",
+                "email-src": "medium",
+                "btc": "long",
+                "filename": "long",
+                "md5": "very_long",
+                "sha1": "very_long",
+                "sha256": "very_long"
+              },
+              "path": [
+                "relevance",
+                "ttl_types"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "map",
+          "id": "ttl_overrides",
+          "title": "Types with their own shelf life",
+          "blurb": "For the type no bucket fits. The shipped default needs exactly one.",
           "key_label": "Attribute type",
           "value_label": "Days",
           "value_type": "int",
           "path": [
             "relevance",
-            "ttl_days"
+            "ttl_overrides"
           ],
           "entries": [
-            {
-              "key": "default",
-              "label": "Every other type",
-              "value": 180,
-              "type": "int",
-              "fixed": true,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "default"
-              ]
-            },
-            {
-              "key": "ip-src",
-              "label": "ip-src",
-              "value": 90,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "ip-src"
-              ]
-            },
-            {
-              "key": "ip-dst",
-              "label": "ip-dst",
-              "value": 90,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "ip-dst"
-              ]
-            },
-            {
-              "key": "domain",
-              "label": "domain",
-              "value": 120,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "domain"
-              ]
-            },
-            {
-              "key": "hostname",
-              "label": "hostname",
-              "value": 120,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "hostname"
-              ]
-            },
             {
               "key": "url",
               "label": "url",
               "value": 60,
               "type": "int",
-              "fixed": false,
+              "unit": "days",
               "path": [
                 "relevance",
-                "ttl_days",
+                "ttl_overrides",
                 "url"
-              ]
-            },
-            {
-              "key": "email-src",
-              "label": "email-src",
-              "value": 120,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "email-src"
-              ]
-            },
-            {
-              "key": "md5",
-              "label": "md5",
-              "value": 730,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "md5"
-              ]
-            },
-            {
-              "key": "sha1",
-              "label": "sha1",
-              "value": 730,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "sha1"
-              ]
-            },
-            {
-              "key": "sha256",
-              "label": "sha256",
-              "value": 730,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "sha256"
-              ]
-            },
-            {
-              "key": "btc",
-              "label": "btc",
-              "value": 365,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "btc"
-              ]
-            },
-            {
-              "key": "filename",
-              "label": "filename",
-              "value": 365,
-              "type": "int",
-              "fixed": false,
-              "path": [
-                "relevance",
-                "ttl_days",
-                "filename"
               ]
             }
           ],
           "add": {
-            "label": "Add a type",
+            "label": "Override a type",
             "source": "attribute_types",
-            "options": []
+            "options": [
+              "ip-src",
+              "domain",
+              "ip-dst",
+              "hostname",
+              "md5",
+              "sha1",
+              "sha256",
+              "email-src",
+              "btc",
+              "filename"
+            ]
           }
         }
       ]
@@ -2612,7 +2734,7 @@
     "problems": [],
     "ok": true
   },
-  "raw": "{\n    \"format\": 1,\n    \"signals\": [\n        {\n            \"id\": \"reporting.independent_orgs\",\n            \"group\": \"Reporting\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"per_org\": 7,\n                \"cap\": 28\n            },\n            \"config\": {\n                \"named\": 4\n            }\n        },\n        {\n            \"id\": \"reporting.published_ratio\",\n            \"group\": \"Reporting\",\n            \"enabled\": true,\n            \"points\": {\n                \"scale\": 9,\n                \"none\": -2\n            },\n            \"config\": {\n                \"min_events\": 1\n            }\n        },\n        {\n            \"id\": \"record.temporal_precision\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"dated\": 4,\n                \"undated\": -6,\n                \"lagged\": -6\n            },\n            \"config\": {\n                \"lag_days\": 30\n            }\n        },\n        {\n            \"id\": \"sightings.volume_recency\",\n            \"group\": \"Sightings\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"cap\": 24,\n                \"none_recent\": -4\n            },\n            \"config\": {\n                \"saturation\": 50,\n                \"stale_days\": 90,\n                \"stale_factor\": 0.5\n            }\n        },\n        {\n            \"id\": \"sightings.false_positive\",\n            \"group\": \"Sightings\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"per\": -3,\n                \"per_extra_org\": -4,\n                \"cap\": -26\n            }\n        },\n        {\n            \"id\": \"attribution.galaxy\",\n            \"group\": \"Attribution\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_cluster\": 7,\n                \"cap\": 21,\n                \"absent\": -7\n            }\n        },\n        {\n            \"id\": \"attribution.technique\",\n            \"group\": \"Attribution\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_technique\": 3,\n                \"cap\": 9\n            }\n        },\n        {\n            \"id\": \"lifecycle.warninglist\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"no_hit\": 6,\n                \"false_positive_hit\": -38,\n                \"known_hit\": 0\n            }\n        },\n        {\n            \"id\": \"lifecycle.feeds\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_feed\": 4,\n                \"cap\": 8,\n                \"no_feed\": -2\n            }\n        },\n        {\n            \"id\": \"lifecycle.continuity\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_month\": 1,\n                \"cap\": 12\n            },\n            \"config\": {\n                \"min_months\": 3\n            }\n        },\n        {\n            \"id\": \"lifecycle.recency\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"recent\": 8,\n                \"old\": -4\n            },\n            \"config\": {\n                \"recent_days\": 30,\n                \"old_days\": 365\n            }\n        }\n    ],\n    \"thresholds\": {\n        \"lean_supermajority\": 0.66,\n        \"quality_bands\": {\n            \"high\": 60,\n            \"medium\": 30\n        },\n        \"quality_high_min_signals\": 4,\n        \"thin_record_clamp\": {\n            \"max_orgs\": 1,\n            \"max_sightings\": 0,\n            \"max_band\": \"low\"\n        }\n    },\n    \"escalations\": [\n        {\n            \"id\": \"conflict:known-infrastructure-vs-reporting\",\n            \"enabled\": true,\n            \"emits\": \"contested\",\n            \"when\": {\n                \"warninglist_category\": \"known\",\n                \"min_independent_reports\": 3\n            }\n        },\n        {\n            \"id\": \"conflict:listed-vs-asserted\",\n            \"enabled\": true,\n            \"emits\": \"contested\",\n            \"when\": {\n                \"warninglist_category\": \"false_positive\",\n                \"threat_share_at_least\": \"supermajority\"\n            }\n        }\n    ],\n    \"exclusions\": [\n        {\n            \"id\": \"sightings.self\",\n            \"enabled\": true,\n            \"within_hours\": 1\n        },\n        {\n            \"id\": \"feeds.mirrored\",\n            \"enabled\": true,\n            \"dedupe_by\": \"provider\"\n        },\n        {\n            \"id\": \"orgs.own\",\n            \"enabled\": false\n        },\n        {\n            \"id\": \"evidence.window\",\n            \"enabled\": true,\n            \"days\": 90,\n            \"min_occurrences\": 10000\n        }\n    ],\n    \"relevance\": {\n        \"clock\": \"last_independent_corroboration\",\n        \"decay_speed\": 1,\n        \"type_rule\": \"shortest\",\n        \"aging_fraction\": 0.33,\n        \"lag_uncertain_days\": 30,\n        \"ttl_days\": {\n            \"default\": 180,\n            \"ip-src\": 90,\n            \"ip-dst\": 90,\n            \"domain\": 120,\n            \"hostname\": 120,\n            \"url\": 60,\n            \"email-src\": 120,\n            \"md5\": 730,\n            \"sha1\": 730,\n            \"sha256\": 730,\n            \"btc\": 365,\n            \"filename\": 365\n        }\n    },\n    \"reference\": {\n        \"org_trust\": {\n            \"5705de1d-143c-4637-959f-016e291a0265\": \"A\",\n            \"cd5afba0-3161-41aa-a83e-f785d045f00b\": \"D\",\n            \"593c71f7-6cd9-4276-b98b-e3431a5c293a\": \"E\",\n            \"9d8f1c60-0000-4000-8000-abcdefabcdef\": \"B\"\n        },\n        \"org_trust_scale\": {\n            \"A\": 1.25,\n            \"B\": 1.1,\n            \"C\": 1,\n            \"D\": 0.75,\n            \"E\": 0.25,\n            \"F\": 1,\n            \"G\": 0,\n            \"unrated\": 1\n        },\n        \"warninglist_category\": {\n            \"List of known dynamic DNS domains\": \"known\"\n        }\n    },\n    \"enrichment\": {\n        \"auto_run\": {\n            \"ip-src\": [\n                \"circl_passivedns\",\n                \"virustotal_public\"\n            ],\n            \"domain\": [\n                \"dns\"\n            ]\n        },\n        \"locality_posture\": \"local_only\",\n        \"max_age_hours\": 24,\n        \"locality\": {\n            \"circl_passivedns\": \"external\",\n            \"dns\": \"local\"\n        }\n    }\n}",
+  "raw": "{\n    \"format\": 1,\n    \"signals\": [\n        {\n            \"id\": \"reporting.independent_orgs\",\n            \"group\": \"Reporting\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"per_org\": 7,\n                \"cap\": 28\n            },\n            \"config\": {\n                \"named\": 4\n            }\n        },\n        {\n            \"id\": \"reporting.published_ratio\",\n            \"group\": \"Reporting\",\n            \"enabled\": true,\n            \"points\": {\n                \"scale\": 9,\n                \"none\": -2\n            },\n            \"config\": {\n                \"min_events\": 1\n            }\n        },\n        {\n            \"id\": \"record.temporal_precision\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"dated\": 4,\n                \"undated\": -6,\n                \"lagged\": -6\n            },\n            \"config\": {\n                \"lag_days\": 30\n            }\n        },\n        {\n            \"id\": \"sightings.volume_recency\",\n            \"group\": \"Sightings\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"cap\": 24,\n                \"none_recent\": -4\n            },\n            \"config\": {\n                \"saturation\": 50,\n                \"stale_days\": 90,\n                \"stale_factor\": 0.5\n            }\n        },\n        {\n            \"id\": \"sightings.false_positive\",\n            \"group\": \"Sightings\",\n            \"enabled\": true,\n            \"trust_weighted\": true,\n            \"points\": {\n                \"per\": -3,\n                \"per_extra_org\": -4,\n                \"cap\": -26\n            }\n        },\n        {\n            \"id\": \"attribution.galaxy\",\n            \"group\": \"Attribution\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_cluster\": 7,\n                \"cap\": 21,\n                \"absent\": -7\n            }\n        },\n        {\n            \"id\": \"attribution.technique\",\n            \"group\": \"Attribution\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_technique\": 3,\n                \"cap\": 9\n            }\n        },\n        {\n            \"id\": \"lifecycle.warninglist\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"no_hit\": 6,\n                \"false_positive_hit\": -38,\n                \"known_hit\": 0\n            }\n        },\n        {\n            \"id\": \"lifecycle.feeds\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_feed\": 4,\n                \"cap\": 8,\n                \"no_feed\": -2\n            }\n        },\n        {\n            \"id\": \"lifecycle.continuity\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"per_month\": 1,\n                \"cap\": 12\n            },\n            \"config\": {\n                \"min_months\": 3\n            }\n        },\n        {\n            \"id\": \"lifecycle.recency\",\n            \"group\": \"Lifecycle\",\n            \"enabled\": true,\n            \"points\": {\n                \"recent\": 8,\n                \"old\": -4\n            },\n            \"config\": {\n                \"recent_days\": 30,\n                \"old_days\": 365\n            }\n        }\n    ],\n    \"thresholds\": {\n        \"lean_supermajority\": 0.66,\n        \"quality_bands\": {\n            \"high\": 60,\n            \"medium\": 30\n        },\n        \"quality_high_min_signals\": 4,\n        \"thin_record_clamp\": {\n            \"max_orgs\": 1,\n            \"max_sightings\": 0,\n            \"max_band\": \"low\"\n        }\n    },\n    \"escalations\": [\n        {\n            \"id\": \"conflict:known-infrastructure-vs-reporting\",\n            \"enabled\": true,\n            \"emits\": \"contested\",\n            \"when\": {\n                \"warninglist_category\": \"known\",\n                \"min_independent_reports\": 3\n            }\n        },\n        {\n            \"id\": \"conflict:listed-vs-asserted\",\n            \"enabled\": true,\n            \"emits\": \"contested\",\n            \"when\": {\n                \"warninglist_category\": \"false_positive\",\n                \"threat_share_at_least\": \"supermajority\"\n            }\n        }\n    ],\n    \"exclusions\": [\n        {\n            \"id\": \"sightings.self\",\n            \"enabled\": true,\n            \"within_hours\": 1\n        },\n        {\n            \"id\": \"feeds.mirrored\",\n            \"enabled\": true,\n            \"dedupe_by\": \"provider\"\n        },\n        {\n            \"id\": \"orgs.own\",\n            \"enabled\": false\n        },\n        {\n            \"id\": \"evidence.window\",\n            \"enabled\": true,\n            \"days\": 90,\n            \"min_occurrences\": 10000\n        }\n    ],\n    \"relevance\": {\n        \"clock\": \"last_independent_corroboration\",\n        \"decay_speed\": 1,\n        \"type_rule\": \"shortest\",\n        \"aging_fraction\": 0.33,\n        \"lag_uncertain_days\": 30,\n        \"ttl_default\": 180,\n        \"ttl_buckets\": {\n            \"short\": 90,\n            \"medium\": 120,\n            \"long\": 365,\n            \"very_long\": 730\n        },\n        \"ttl_types\": {\n            \"ip-src\": \"short\",\n            \"ip-dst\": \"short\",\n            \"domain\": \"medium\",\n            \"hostname\": \"medium\",\n            \"email-src\": \"medium\",\n            \"btc\": \"long\",\n            \"filename\": \"long\",\n            \"md5\": \"very_long\",\n            \"sha1\": \"very_long\",\n            \"sha256\": \"very_long\"\n        },\n        \"ttl_overrides\": {\n            \"url\": 60\n        }\n    },\n    \"reference\": {\n        \"org_trust\": {\n            \"5705de1d-143c-4637-959f-016e291a0265\": \"A\",\n            \"cd5afba0-3161-41aa-a83e-f785d045f00b\": \"D\",\n            \"593c71f7-6cd9-4276-b98b-e3431a5c293a\": \"E\",\n            \"9d8f1c60-0000-4000-8000-abcdefabcdef\": \"B\"\n        },\n        \"org_trust_scale\": {\n            \"A\": 1.25,\n            \"B\": 1.1,\n            \"C\": 1,\n            \"D\": 0.75,\n            \"E\": 0.25,\n            \"F\": 1,\n            \"G\": 0,\n            \"unrated\": 1\n        },\n        \"warninglist_category\": {\n            \"List of known dynamic DNS domains\": \"known\"\n        }\n    },\n    \"enrichment\": {\n        \"auto_run\": {\n            \"ip-src\": [\n                \"circl_passivedns\",\n                \"virustotal_public\"\n            ],\n            \"domain\": [\n                \"dns\"\n            ]\n        },\n        \"locality_posture\": \"local_only\",\n        \"max_age_hours\": 24,\n        \"locality\": {\n            \"circl_passivedns\": \"external\",\n            \"dns\": \"local\"\n        }\n    }\n}",
   "errors": [],
   "warnings": []
 }

@@ -117,9 +117,23 @@ class AnalystRelevanceProbeShell extends AppShell
             count($section['ttl_days']),
             'eleven types carry a named TTL'
         );
+        $this->__is(
+            10,
+            count($section['ttl_types']),
+            'ten of them through a bucket (D18)'
+        );
+        $this->__is(
+            array('url' => 60),
+            $section['ttl_overrides'],
+            'and `url` as the one override'
+        );
         $this->out(sprintf(
-            '    default %d · ip-src %d · url %d · sha256 %d',
+            '    default %d · buckets %s',
             $section['ttl_default'],
+            json_encode($section['ttl_buckets'])
+        ));
+        $this->out(sprintf(
+            '    ip-src %d · url %d · sha256 %d',
             $section['ttl_days']['ip-src'] ?? 0,
             $section['ttl_days']['url'] ?? 0,
             $section['ttl_days']['sha256'] ?? 0
@@ -419,11 +433,19 @@ class AnalystRelevanceProbeShell extends AppShell
              * whose state was already the extreme.
              */
             $tuned = $profile;
-            $tuned['parameters']['relevance']['ttl_days'] = array(
-                'default' => $long['relevance']['state'] === 'expired'
+            /*
+             * Written in the current shape, and the assignments and
+             * overrides are cleared with it: leaving them would leave
+             * every named type on its own shelf life and the default
+             * would move nothing (D18).
+             */
+            $tuned['parameters']['relevance']['ttl_default'] =
+                $long['relevance']['state'] === 'expired'
                     ? $long['relevance']['elapsed_days'] + 3650
-                    : 1,
-            );
+                    : 1;
+            $tuned['parameters']['relevance']['ttl_types'] = array();
+            $tuned['parameters']['relevance']['ttl_overrides'] = array();
+            unset($tuned['parameters']['relevance']['ttl_days']);
             $short = $engine->verdictFor(
                 $user,
                 $value,

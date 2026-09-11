@@ -222,14 +222,41 @@ $ttl = $relevance['ttl'];
                             $ttl['days']
                         )) ?>
                     <?php else: ?>
+                        <?php
+                        /*
+                         * Where the number came from (D18). A bucket is
+                         * named because *730 days, very long* is a
+                         * setting a reader can find in the editor,
+                         * where a bare 730 is a number they then have
+                         * to go and look up. An override says so
+                         * because it is the thing the buckets could not
+                         * express.
+                         */
+                        $bucketNames = array(
+                            'short' => __('short'),
+                            'medium' => __('medium'),
+                            'long' => __('long'),
+                            'very_long' => __('very long'),
+                        );
+                        if (($ttl['from'] ?? null) === 'bucket'
+                            && isset($bucketNames[$ttl['bucket']])
+                        ) {
+                            $provenance = sprintf(
+                                __(', %s bucket'),
+                                $bucketNames[$ttl['bucket']]
+                            );
+                        } elseif (($ttl['from'] ?? null) === 'override') {
+                            $provenance = __(', its own override');
+                        } else {
+                            $provenance = __(', which the profile does'
+                                . ' not name — so this is its default');
+                        }
+                        ?>
                         <?= h(sprintf(
                             __('TTL %1$s days from %2$s%3$s'),
                             $ttl['days'],
                             $ttl['type'],
-                            empty($ttl['from_default'])
-                                ? ''
-                                : __(', which the profile does not name'
-                                    . ' — so this is its default')
+                            $provenance
                         )) ?>
                         <?php if (!empty($ttl['spread'])): ?>
                             <?php

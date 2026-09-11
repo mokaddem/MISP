@@ -810,23 +810,86 @@ class AnalystProfileFormTool
     private function sectionRelevance(array $parameters, array $sources)
     {
         $section = $this->section($parameters, 'relevance');
-        $ttl = isset($section['ttl_days']) && is_array($section['ttl_days'])
-            ? $section['ttl_days']
-            : array();
         $types = isset($sources['attribute_types'])
             ? $sources['attribute_types']
             : array();
+        /*
+         * D18. `ValueRelevanceTool::section()` is the one place that
+         * reads both the bucket shape and the flat per-type map every
+         * existing fork still carries, so the editor reads its output
+         * rather than the raw section — a fork opens with its TTLs
+         * intact and saving writes the current shape.
+         */
+        $shelf = ValueRelevanceTool::section($parameters);
+        $buckets = $shelf['ttl_buckets'];
+        $assigned = $shelf['ttl_types'];
+        $overrides = $shelf['ttl_overrides'];
+
+        $bucketFields = array();
+        foreach (ValueRelevanceTool::BUCKETS as $bucket) {
+            $bucketFields[] = array(
+                'key' => $bucket,
+                'label' => $this->bucketLabel($bucket),
+                'type' => 'int',
+                'unit' => __('days'),
+                'value' => isset($buckets[$bucket])
+                    ? $buckets[$bucket]
+                    : null,
+                'default' => ValueRelevanceTool::BUCKET_DAYS[$bucket],
+                'path' => array('relevance', 'ttl_buckets', $bucket),
+            );
+        }
+
+        /*
+         * One row per bucket, each holding the types assigned to it —
+         * not one row per attribute type. MISP has 194 types and the
+         * old picker offered all of them, so an analyst saying *hashes
+         * keep longer than IPs* had to say it once per type.
+         */
+        $bucketOptions = array();
+        foreach (ValueRelevanceTool::BUCKETS as $bucket) {
+            $bucketOptions[$bucket] = $this->bucketLabel($bucket);
+        }
+        $byBucket = array();
+        foreach (ValueRelevanceTool::BUCKETS as $bucket) {
+            $byBucket[$bucket] = array();
+        }
+        foreach ($assigned as $type => $bucket) {
+            if (!isset($byBucket[$bucket])) {
+                continue;
+            }
+            $byBucket[$bucket][] = (string)$type;
+        }
+        $assignmentEntries = array();
+        foreach ($byBucket as $bucket => $members) {
+            sort($members);
+            $assignmentEntries[] = array(
+                'key' => $bucket,
+                'label' => sprintf(
+                    __('%1$s — %2$d days'),
+                    $this->bucketLabel($bucket),
+                    isset($buckets[$bucket])
+                        ? $buckets[$bucket]
+                        : ValueRelevanceTool::BUCKET_DAYS[$bucket]
+                ),
+                'value' => $members,
+                'type' => 'types',
+                'options' => $types,
+                'taken' => $assigned,
+                'path' => array('relevance', 'ttl_types'),
+            );
+        }
+
         $entries = array();
-        foreach ($ttl as $type => $days) {
+        foreach ($overrides as $type => $days) {
             $entries[] = array(
                 'key' => (string)$type,
-                'label' => $type === 'default'
-                    ? __('Every other type')
-                    : (string)$type,
+                'label' => (string)$type,
                 'value' => $days,
                 'type' => 'int',
-                'fixed' => $type === 'default',
-                'path' => array('relevance', 'ttl_days', (string)$type),
+                'unit' => __('days'),
+                'path' => array('relevance', 'ttl_overrides',
+                    (string)$type),
             );
         }
         return array(
@@ -931,28 +994,86 @@ class AnalystProfileFormTool
                     ),
                 ),
                 array(
-                    'kind' => 'map',
-                    'id' => 'ttl_days',
-                    'title' => __('Time to live, per type'),
+                    'kind' => 'fields',
+                    'id' => 'ttl_buckets',
+                    'title' => __('Shelf life'),
                     'blurb' => __(
-                        'How long a report of this type stays current'
-                        . ' without corroboration. Only the types you'
-                        . ' have an opinion about; everything else'
-                        . ' follows the default.'
+                        'How long a report stays current without'
+                        . ' corroboration. Four buckets, and a type is'
+                        . ' assigned to one of them below.'
+                    ),
+                    'fields' => array_merge(
+                        $bucketFields,
+                        array(
+                            array(
+                                'key' => 'ttl_default',
+                                'label' => __('Every other type'),
+                                'type' => 'int',
+                                'unit' => __('days'),
+                                'value' => $shelf['ttl_default'],
+                                'default' =>
+                                    ValueRelevanceTool::DEFAULTS['ttl_default'],
+                                'path' => array('relevance',
+                                    'ttl_default'),
+                            ),
+                        )
+                    ),
+                ),
+                array(
+                    'kind' => 'map',
+                    'id' => 'ttl_types',
+                    'title' => __('Which types go in which bucket'),
+                    'blurb' => __(
+                        'Only the types you have an opinion about;'
+                        . ' everything else follows the default.'
+                    ),
+                    'key_label' => __('Bucket'),
+                    'value_label' => __('Attribute types'),
+                    'value_type' => 'types',
+                    'path' => array('relevance', 'ttl_types'),
+                    'entries' => $assignmentEntries,
+                ),
+                array(
+                    'kind' => 'map',
+                    'id' => 'ttl_overrides',
+                    'title' => __('Types with their own shelf life'),
+                    'blurb' => __(
+                        'For the type no bucket fits. The shipped'
+                        . ' default needs exactly one.'
                     ),
                     'key_label' => __('Attribute type'),
                     'value_label' => __('Days'),
                     'value_type' => 'int',
-                    'path' => array('relevance', 'ttl_days'),
+                    'path' => array('relevance', 'ttl_overrides'),
                     'entries' => $entries,
                     'add' => array(
-                        'label' => __('Add a type'),
+                        'label' => __('Override a type'),
                         'source' => 'attribute_types',
-                        'options' => $this->unusedKeys($types, $ttl),
+                        'options' => $this->unusedKeys($types,
+                            $overrides),
                     ),
                 ),
             ),
         );
+    }
+
+    /**
+     * A bucket's name in the reader's words. `very_long` is a key and
+     * *very long* is a label, and the key is what a stored document
+     * carries.
+     *
+     * @param string $bucket
+     * @return string
+     */
+    private function bucketLabel($bucket)
+    {
+        $labels = array(
+            'short' => __('Short'),
+            'medium' => __('Medium'),
+            'long' => __('Long'),
+            'very_long' => __('Very long'),
+        );
+        return isset($labels[$bucket]) ? $labels[$bucket] : $bucket;
     }
 
     /**
@@ -1757,6 +1878,68 @@ class AnalystProfileFormTool
                 );
             }
         }
+        /*
+         * D18. Both shapes are validated, because both are documents
+         * an analyst can legitimately be holding: a fork nobody has
+         * opened still carries the flat map, and the engine still
+         * reads it.
+         */
+        foreach (array('ttl_buckets' => ValueRelevanceTool::BUCKETS,
+            'ttl_overrides' => null) as $key => $allowed
+        ) {
+            if (!isset($section[$key]) || !is_array($section[$key])) {
+                continue;
+            }
+            foreach ($section[$key] as $name => $days) {
+                if ($allowed !== null
+                    && !in_array($name, $allowed, true)
+                ) {
+                    $errors[] = sprintf(
+                        __('`relevance.%1$s.%2$s` is not a bucket. One'
+                            . ' of: %3$s.'),
+                        $key,
+                        $name,
+                        implode(', ', $allowed)
+                    );
+                    continue;
+                }
+                if (!is_int($days) || $days <= 0) {
+                    $errors[] = sprintf(
+                        __('`relevance.%1$s.%2$s` must be a whole'
+                            . ' number of days above zero.'),
+                        $key,
+                        $name
+                    );
+                }
+            }
+        }
+        if (isset($section['ttl_types'])
+            && is_array($section['ttl_types'])
+        ) {
+            foreach ($section['ttl_types'] as $type => $bucket) {
+                if (in_array($bucket, ValueRelevanceTool::BUCKETS, true)) {
+                    continue;
+                }
+                $errors[] = sprintf(
+                    __('`relevance.ttl_types.%1$s`: `%2$s` is not a'
+                        . ' bucket. One of: %3$s.'),
+                    $type,
+                    is_scalar($bucket) ? (string)$bucket : gettype($bucket),
+                    implode(', ', ValueRelevanceTool::BUCKETS)
+                );
+            }
+        }
+        if (isset($section['ttl_default'])
+            && (!is_int($section['ttl_default'])
+                || $section['ttl_default'] <= 0)
+        ) {
+            $errors[] = __(
+                '`relevance.ttl_default` must be a whole number of days'
+                . ' above zero — it is the shelf life of every type'
+                . ' nothing else names.'
+            );
+        }
+
         $ttl = isset($section['ttl_days']) && is_array($section['ttl_days'])
             ? $section['ttl_days']
             : array();
@@ -1769,7 +1952,15 @@ class AnalystProfileFormTool
                 );
             }
         }
-        if (!empty($ttl) && !isset($ttl['default'])) {
+        /*
+         * A flat map still needs its own default, but only while it is
+         * the shape in force: once the bucket keys are present the
+         * engine ignores the flat map entirely, so demanding a default
+         * inside an ignored block would refuse a document that works.
+         */
+        if (!empty($ttl) && !isset($ttl['default'])
+            && !isset($section['ttl_default'])
+        ) {
             $errors[] = __(
                 '`relevance.ttl_days` needs a `default`, or every type'
                 . ' it does not name has no time to live at all.'
@@ -2118,6 +2309,22 @@ class AnalystProfileFormTool
                     : array(),
                 is_array($value) ? $value : array()
             );
+        }
+        /*
+         * D18: a fork upgraded from the flat per-type TTL map must not
+         * keep the flat map beside its buckets. `ValueRelevanceTool`
+         * ignores `ttl_days` once the current keys are present, so
+         * leaving it would be dead weight that reads as a setting.
+         */
+        if (isset($merged['relevance']['ttl_days'])) {
+            foreach (array('ttl_buckets', 'ttl_types', 'ttl_overrides',
+                'ttl_default') as $key
+            ) {
+                if (isset($merged['relevance'][$key])) {
+                    unset($merged['relevance']['ttl_days']);
+                    break;
+                }
+            }
         }
         return $merged;
     }

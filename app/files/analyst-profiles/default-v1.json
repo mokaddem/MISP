@@ -2,7 +2,7 @@
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
     "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. Phase 6 added reference.org_trust_scale, the admiralty grade multipliers, with both override maps still empty: an empty org_trust map switches trust weighting off entirely, so this profile scores exactly as it did before the section existed. Phase 7 completed the enrichment section: an empty auto_run declares no module, which is the switch — the Enrichment tab is byte-identical to the one that shipped without this section — and the empty locality map defers to the shipped ModuleLocality roster. Nothing in this file causes a module to run: a run takes a press, because nothing in MISP records that a module ran. See prd/analyst-profile/03-signals.md section 7, 06-staleness.md section 3, 07-reference.md section 2.3 and 08-enrichment.md section 3.",
-    "version": 7,
+    "version": 8,
     "parameters": {
         "format": 1,
         "signals": [
@@ -134,19 +134,27 @@
             "type_rule": "shortest",
             "aging_fraction": 0.33,
             "lag_uncertain_days": 30,
-            "ttl_days": {
-                "default": 180,
-                "ip-src": 90,
-                "ip-dst": 90,
-                "domain": 120,
-                "hostname": 120,
-                "url": 60,
-                "email-src": 120,
-                "md5": 730,
-                "sha1": 730,
-                "sha256": 730,
-                "btc": 365,
-                "filename": 365
+            "ttl_default": 180,
+            "ttl_buckets": {
+                "short": 90,
+                "medium": 120,
+                "long": 365,
+                "very_long": 730
+            },
+            "ttl_types": {
+                "ip-src": "short",
+                "ip-dst": "short",
+                "domain": "medium",
+                "hostname": "medium",
+                "email-src": "medium",
+                "btc": "long",
+                "filename": "long",
+                "md5": "very_long",
+                "sha1": "very_long",
+                "sha256": "very_long"
+            },
+            "ttl_overrides": {
+                "url": 60
             }
         },
         "reference": {

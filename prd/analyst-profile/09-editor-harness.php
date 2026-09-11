@@ -622,6 +622,105 @@ is_true(strpos($bogusErrors[0], 'ticked, never, auto') !== false,
 
 /*
  * ------------------------------------------------------------------
+ * 2f. Saving an upgraded profile drops the shape it replaced
+ * ------------------------------------------------------------------
+ * D18. `ValueRelevanceTool` ignores the flat `ttl_days` map once the
+ * bucket keys are present — the two shapes do not blend, because a
+ * stale flat entry shadowing a bucket assignment is a blend nobody
+ * asked for. Leaving the key behind would therefore leave dead weight
+ * that still reads as a setting to anyone opening the JSON.
+ */
+out('');
+out('== an upgraded profile does not keep the shape it replaced ==');
+$dropped = $form->merge(
+    array('relevance' => array(
+        'ttl_days' => array('default' => 5, 'ip-src' => 9),
+        'ttl_default' => 180,
+        'ttl_types' => array('ip-src' => 'short'),
+    )),
+    array('relevance' => array('ttl_default' => 200))
+);
+is_same(false, isset($dropped['relevance']['ttl_days']),
+    'saving a profile that carries both shapes drops the flat map');
+is_same(200, $dropped['relevance']['ttl_default'],
+    'and keeps what was posted');
+$untouched = $form->merge(
+    array('relevance' => array(
+        'ttl_days' => array('default' => 5, 'ip-src' => 9),
+    )),
+    array('relevance' => array('clock' => 'last_sighting'))
+);
+is_same(array('default' => 5, 'ip-src' => 9),
+    $untouched['relevance']['ttl_days'],
+    'while a fork nobody has upgraded keeps its flat map — the shim is'
+        . ' what reads it, and dropping it would lose the setting');
+
+/*
+ * ------------------------------------------------------------------
+ * 2g. Shelf life, refused before it is saved
+ * ------------------------------------------------------------------
+ * D18's validation, on both shapes — a fork nobody has opened still
+ * carries the flat map and the engine still reads it, so refusing it
+ * would refuse a document that works.
+ */
+out('');
+out('== shelf life is refused before it is saved ==');
+is_same(array(), $form->validate($parameters)['errors'],
+    'the shipped bucketed default validates');
+
+$badBucket = $parameters;
+$badBucket['relevance']['ttl_buckets'] = array('short' => 0);
+is_true(count($form->validate($badBucket)['errors']) === 1,
+    'a bucket of zero days is refused — a shelf life of no days is not'
+        . ' a shelf life');
+$invented = $parameters;
+$invented['relevance']['ttl_buckets'] = array('eternal' => 9000);
+$inventedErrors = $form->validate($invented)['errors'];
+is_same(1, count($inventedErrors), 'and a fifth bucket is refused');
+is_true(strpos($inventedErrors[0], 'very_long') !== false,
+    'with the four named, because a reader hand-editing JSON has no'
+        . ' select to look at');
+
+$badAssignment = $parameters;
+$badAssignment['relevance']['ttl_types'] = array('ip-src' => 'quick');
+$assignErrors = $form->validate($badAssignment)['errors'];
+is_same(1, count($assignErrors),
+    'a type assigned to a bucket that does not exist is refused');
+is_true(strpos($assignErrors[0], 'ip-src') !== false,
+    'naming the type, so the reader knows which row to fix');
+
+$badDefault = $parameters;
+$badDefault['relevance']['ttl_default'] = 0;
+is_same(1, count($form->validate($badDefault)['errors']),
+    'and a default of zero is refused');
+
+/*
+ * The flat map keeps its own rules while it is the shape in force,
+ * and loses the one that would contradict the bucket keys beside it.
+ */
+$flatOnly = $parameters;
+unset($flatOnly['relevance']['ttl_default']);
+unset($flatOnly['relevance']['ttl_buckets']);
+unset($flatOnly['relevance']['ttl_types']);
+unset($flatOnly['relevance']['ttl_overrides']);
+$flatOnly['relevance']['ttl_days'] = array('ip-src' => 90);
+$flatErrors = $form->validate($flatOnly)['errors'];
+is_same(1, count($flatErrors),
+    'a flat map with no `default` is still refused — every type it'
+        . ' does not name would have no shelf life at all');
+$flatOk = $flatOnly;
+$flatOk['relevance']['ttl_days']['default'] = 180;
+is_same(array(), $form->validate($flatOk)['errors'],
+    'and a complete flat map still validates, because a fork nobody'
+        . ' has opened is a document that works');
+$upgraded = $parameters;
+$upgraded['relevance']['ttl_days'] = array('ip-src' => 90);
+is_same(array(), $form->validate($upgraded)['errors'],
+    'while a half-upgraded fork is not refused for a missing default'
+        . ' inside a block the engine ignores');
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,
@@ -901,7 +1000,13 @@ is_same(null, $appeared['before'], 'with nothing before it');
  * have reported as *no change*.
  */
 $shortTtl = $parameters;
-$shortTtl['relevance']['ttl_days'] = array('default' => 1, 'ip-dst' => 1);
+/*
+ * Written in the current shape (D18): the flat `ttl_days` map is only
+ * read on a profile that carries no bucket keys, and this one does.
+ */
+$shortTtl['relevance']['ttl_default'] = 1;
+$shortTtl['relevance']['ttl_types'] = array();
+$shortTtl['relevance']['ttl_overrides'] = array('ip-dst' => 1);
 $expired = $engine->assess(context(), profileRow($shortTtl));
 $relevanceDiff = ValueVerdictDiffTool::diff($base, $expired);
 is_same(array(), $relevanceDiff['moved'],
@@ -1025,21 +1130,57 @@ is_same(array('fields' => true, 'items' => true, 'map' => true,
     'four block kinds cover all seven, so a design that renders four'
         . ' shapes renders the whole document');
 
-$ttl = null;
+$shelf = null;
+$assignment = null;
+$overrides = null;
 foreach ($sections['relevance']['blocks'] as $block) {
-    if (isset($block['id']) && $block['id'] === 'ttl_days') {
-        $ttl = $block;
+    if (!isset($block['id'])) {
+        continue;
+    }
+    if ($block['id'] === 'ttl_buckets') {
+        $shelf = $block;
+    } elseif ($block['id'] === 'ttl_types') {
+        $assignment = $block;
+    } elseif ($block['id'] === 'ttl_overrides') {
+        $overrides = $block;
     }
 }
-is_true($ttl !== null, 'relevance carries its per-type TTL map');
-is_same('map', $ttl['kind'], 'as a map');
-is_true(count($ttl['entries']) > 1,
-    'with a row per type the profile has an opinion about');
+is_true($shelf !== null, 'relevance carries its shelf life (D18)');
+is_same(5, count($shelf['fields']),
+    'as four buckets and a default, not a row per attribute type');
+is_same('days', $shelf['fields'][0]['unit'],
+    'each in days, said rather than smuggled into a key name');
+
+is_true($assignment !== null, 'and a bucket assignment beside it');
+is_same('map', $assignment['kind'], 'still one of the four block kinds');
+is_same(4, count($assignment['entries']),
+    'with one row per bucket — four rows, not 194');
+is_same('types', $assignment['value_type'],
+    'whose value is a list of types, so the interaction is'
+        . ' select-many-types-into-a-bucket');
+$shortRow = null;
+foreach ($assignment['entries'] as $entry) {
+    if ($entry['key'] === 'short') {
+        $shortRow = $entry;
+    }
+}
+is_same(array('ip-dst', 'ip-src'), $shortRow['value'],
+    'the shipped default puts both IP types in `short`');
+is_true(strpos($shortRow['label'], '90') !== false,
+    'and the row names its day count, so a reader picking a bucket'
+        . ' knows what they are picking');
+
+is_true($overrides !== null, 'and a short override table');
+is_same(1, count($overrides['entries']),
+    'holding the one exception the shipped default needs');
+is_same('url', $overrides['entries'][0]['key'], 'which is `url`');
+is_same(60, $overrides['entries'][0]['value'], 'at 60 days');
 is_same(
     array(),
-    array_diff($ttl['add']['options'], array('ip-src', 'domain')),
-    'and the picker offers only types not already in it — never a row'
-        . ' per type MISP has'
+    array_diff($overrides['add']['options'], array('ip-src', 'domain',
+        'ip-dst')),
+    'and the picker offers only types not already overridden — never a'
+        . ' row per type MISP has'
 );
 
 $exclusions = $sections['exclusions']['blocks'][0]['items'];

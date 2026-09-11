@@ -379,7 +379,11 @@ $sameValue = atElapsed(30);
 $current = $engine->assess($sameValue, $profile);
 $expired = $engine->assess(
     $sameValue,
-    relevanceProfile(array('ttl_days' => array('default' => 5)))
+    relevanceProfile(array(
+        'ttl_default' => 5,
+        'ttl_types' => array(),
+        'ttl_overrides' => array(),
+    ))
 );
 
 is_same(
@@ -1071,7 +1075,9 @@ $shippedSection = ValueRelevanceTool::section(shippedProfile());
 is_same(
     12,
     count($shippedSection['ttl_days']) + 1,
-    'the shipped table covers eleven types plus the default (§3)'
+    'the shipped shelf life still covers eleven types plus the default'
+        . ' (§3) — ten in buckets, one override, and `ttl_days` is now'
+        . ' what they resolve to'
 );
 is_true(
     $shippedSection['ttl_days']['ip-src'] > 60,
@@ -1079,6 +1085,166 @@ is_true(
         . ' because a short TTL drops indicators silently where a long'
         . ' one merely fails to flag a stale one (§3.5)'
 );
+
+/*
+ * ==================================================================
+ * D18: four buckets, one override, and an upgrade that changes nothing
+ * ==================================================================
+ * The load-bearing property of the whole change. The shipped table
+ * uses five distinct values, four buckets plus one override reproduce
+ * every one of them, and a fork still carrying the flat map resolves
+ * to the same days it always did — because `updateDefaults()` never
+ * touches a fork, so without the read shim every value in one would
+ * silently change shelf life with nobody having edited anything.
+ */
+out('');
+out('== shelf life: four buckets and an override (D18) ==');
+
+$bucketed = ValueRelevanceTool::section(shippedProfile());
+is_same(
+    array('short' => 90, 'medium' => 120, 'long' => 365,
+        'very_long' => 730),
+    $bucketed['ttl_buckets'],
+    'the shipped default names four buckets'
+);
+is_same(10, count($bucketed['ttl_types']),
+    'ten of its eleven types are assigned to one');
+is_same(array('url' => 60), $bucketed['ttl_overrides'],
+    'and `url` is the single override — the value no bucket can hold');
+is_same(
+    5,
+    count(array_unique(array_values($bucketed['ttl_days']))),
+    'so all five distinct shipped values survive, which is why four'
+        . ' buckets and not three: three cannot hold five values'
+        . ' without moving real shelf life on every instance'
+);
+
+/*
+ * The shape every existing fork carries, read verbatim.
+ */
+$flat = shippedProfile();
+$flat['parameters']['relevance'] = array_diff_key(
+    $flat['parameters']['relevance'],
+    array('ttl_default' => 1, 'ttl_buckets' => 1, 'ttl_types' => 1,
+        'ttl_overrides' => 1)
+);
+$flat['parameters']['relevance']['ttl_days'] = array(
+    'default' => 180,
+    'ip-src' => 90, 'ip-dst' => 90,
+    'domain' => 120, 'hostname' => 120, 'url' => 60, 'email-src' => 120,
+    'md5' => 730, 'sha1' => 730, 'sha256' => 730,
+    'btc' => 365, 'filename' => 365,
+);
+$forked = ValueRelevanceTool::section($flat);
+
+$a = $bucketed['ttl_days'];
+$b = $forked['ttl_days'];
+ksort($a);
+ksort($b);
+is_same($a, $b,
+    'a fork carrying the pre-D18 flat map resolves to byte-identical'
+        . ' per-type days — the upgrade changes nothing');
+is_same($bucketed['ttl_default'], $forked['ttl_default'],
+    'and the same default');
+is_same(array(), $forked['ttl_types'],
+    'the flat map assigns nothing to a bucket, which is exactly what'
+        . ' "no buckets" means');
+is_same(11, count($forked['ttl_overrides']),
+    'every type it named is its own override — the reading is exact,'
+        . ' not approximate');
+
+/*
+ * The half-edited fork: a document carrying both shapes. The current
+ * keys win, because the editor is what wrote them — a fork the editor
+ * upgraded while a stale `ttl_days` block sat below it must not keep
+ * resolving the stale default.
+ */
+$mixed = shippedProfile();
+$mixed['parameters']['relevance']['ttl_days'] = array(
+    'default' => 5,
+    'sha256' => 10,
+    'zzz-not-a-real-type' => 42,
+);
+$mixedSection = ValueRelevanceTool::section($mixed);
+is_same(180, $mixedSection['ttl_default'],
+    'where a document carries both shapes the current keys win and the'
+        . ' legacy map is ignored outright — the shapes do not blend');
+is_same(730, $mixedSection['ttl_days']['sha256'],
+    'so a stale flat entry cannot shadow a bucket assignment, which is'
+        . ' what a half-edited fork would otherwise do');
+is_same(false, isset($mixedSection['ttl_days']['zzz-not-a-real-type']),
+    'and nothing from the ignored map leaks through');
+is_same(60, $mixedSection['ttl_days']['url'],
+    'while the current override list is untouched');
+
+
+$nonsense = ValueRelevanceTool::section(array('parameters' => array(
+    'relevance' => array(
+        'ttl_buckets' => array('short' => 0, 'made_up' => 7,
+            'long' => 'soon'),
+        'ttl_types' => array('ip-src' => 'made_up', 'md5' => 'long'),
+        'ttl_overrides' => array('url' => -1, 'domain' => 30),
+        'ttl_default' => 'whenever',
+    ),
+)));
+is_same(90, $nonsense['ttl_buckets']['short'],
+    'a bucket set to zero keeps its default — a shelf life of no days'
+        . ' is not a shelf life');
+is_same(false, isset($nonsense['ttl_buckets']['made_up']),
+    'a bucket that is not one of the four is not invented');
+is_same(365, $nonsense['ttl_buckets']['long'],
+    'and a word where days go falls back');
+is_same(false, isset($nonsense['ttl_types']['ip-src']),
+    'a type assigned to a bucket that does not exist is unassigned'
+        . ' rather than throwing — a profile is a hand-edited document');
+is_same(365, $nonsense['ttl_days']['md5'],
+    'while the assignment beside it still resolves, to its own'
+        . " bucket's days");
+is_same(false, isset($nonsense['ttl_days']['url']),
+    'a negative override is dropped');
+is_same(30, $nonsense['ttl_days']['domain'], 'and a good one kept');
+is_same(180, $nonsense['ttl_default'], 'a nonsense default falls back');
+
+/*
+ * `type_rule` still compares days. Comparing bucket ordinals would be
+ * a different rule wearing the same name.
+ */
+$spread = ValueRelevanceTool::relevanceFor(
+    context(array(
+        'types' => array(
+            array('type' => 'md5', 'count' => 1),
+            array('type' => 'url', 'count' => 9),
+        ),
+    )),
+    shippedProfile()
+);
+is_same(60, $spread['ttl']['days'],
+    '`shortest` over a very-long bucket and a 60-day override picks'
+        . ' the override — the comparison is on days, so shortest'
+        . ' still means shortest');
+is_same('url', $spread['ttl']['type'], 'and names the type it came from');
+is_same('override', $spread['ttl']['from'],
+    'saying the number came from an override');
+$bucketPick = ValueRelevanceTool::relevanceFor(
+    context(array(
+        'types' => array(array('type' => 'md5', 'count' => 1)),
+    )),
+    shippedProfile()
+);
+is_same('bucket', $bucketPick['ttl']['from'],
+    'while a bucketed type says so');
+is_same('very_long', $bucketPick['ttl']['bucket'],
+    'and names its bucket, so a page can say 730 days, very long'
+        . ' rather than quoting a bare number');
+$unnamed = ValueRelevanceTool::relevanceFor(
+    context(array(
+        'types' => array(array('type' => 'text', 'count' => 3)),
+    )),
+    shippedProfile()
+);
+is_same('default', $unnamed['ttl']['from'],
+    'and a type nobody named falls to the default');
+is_same(180, $unnamed['ttl']['days'], 'at 180 days');
 
 out('');
 out(sprintf(

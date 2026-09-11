@@ -219,7 +219,9 @@ comparison row:
 
 ```
 state / label         `uncertain` and its shipped label "timeline uncertain"
-ttl_days              90, and `ttl_from` / `ttl_rule` say where it came from
+ttl.days              90, with `ttl.from` (bucket | override |
+                      default) and `ttl.bucket` saying where it came
+                      from, and `ttl.rule` which rule chose the type
 elapsed_days          16
 runway_days           74 left — negative when the value is over its TTL
 runway / runway_pct   0.8222, drawn as 82%
