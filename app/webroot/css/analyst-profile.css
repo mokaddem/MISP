@@ -335,6 +335,15 @@
     padding-top: .45rem;
 }
 .wb-tbl .r { text-align: right; }
+/* The second line of a header: what a column's numbers are measured
+ * against, in the header's own voice rather than a footnote. */
+.wb-tbl-sub {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
 .wb-tbl tr.is-off > td { opacity: .62; }
 .wb-tbl tr.is-hot > td {
     background: color-mix(in srgb, var(--bs-primary) 8%, transparent);
@@ -351,8 +360,15 @@
 .d-up { color: var(--vp-dir-with); font-weight: 700; }
 .d-dn { color: var(--vp-dir-against); font-weight: 700; }
 .d-0  { color: var(--vp-unknown); }
-[data-bs-theme="dark"] .d-up { color: var(--vp-mal-ink); }
-[data-bs-theme="dark"] .d-dn { color: var(--vp-ben-ink); }
+/*
+ * Through the direction pair, not the inks themselves: `d-up` is *with
+ * the lean*, and on a benign value that is the green one. Naming
+ * `--vp-mal-ink` here was how the dark theme kept painting a row that
+ * agrees with a benign verdict as an objection to it, however the hue
+ * pair above had been swapped for it.
+ */
+[data-bs-theme="dark"] .d-up { color: var(--vp-dir-with-ink); }
+[data-bs-theme="dark"] .d-dn { color: var(--vp-dir-against-ink); }
 
 /* ---- the band strip ---- */
 .wb-strip {

@@ -553,28 +553,74 @@ they hold their weight against either theme's ground — checked in both.
 The signals pane's last column is the one number on the page that is
 about the value rather than the document — the points this row put into
 the quality of the value on the bench — and it was rendering as an
-undifferentiated bold figure. It now carries `d-up` / `d-dn`, the pair
-the bench's delta column beside it already uses, **and prints the
-sign**: colour is the fastest way to read it and the only way to miss
-it, and this is a column people read while deciding whether a weight
-did what they meant.
+undifferentiated bold figure. It now carries `d-up` / `d-dn` **and
+prints the sign**: colour is the fastest way to read a direction and
+the only way to miss one, and this is a column people read while
+deciding whether a weight did what they meant.
 
-**A split this uncovered, left alone on purpose.** `--vp-dir-with` and
-`--vp-dir-against` mean *with* and *against the lean*, not red and
-green — on a benign value the row supporting the verdict is the green
-one, and the value page swaps the pair per card through
-`ValueDisposition::directionStyle()`. **The editor swaps nowhere**: the
-diff table, the totals and now this column all take the `:root` default,
-which is the malicious reading. So on a benign-leaning value the two
-surfaces disagree about the same number.
+**And the header says what a `+` is toward.** The sign of a row is its
+agreement with the lean, and the lean is decided *before* any of this
+arithmetic — by `ValueLeanTool`, from the stance count across
+organisations, a false-positive listing and the conflict rules. Nothing
+in the ledger produces it; the ledger is then *anchored* to it, `row =
+points × polarity`, with polarity `−1` on a benign lean. So a column of
+signed, coloured numbers whose meaning lives in a word rendered in the
+other pane is a column a reader has to be told how to read. It now says
+`+ toward benign` under `ON 127.0.0.1`, and updates as the lean does.
 
-Threading the lean into this one column was written and then backed
-out. It would have left the signals pane swapping while the bench two
-inches to its right did not, which is worse than either surface being
-consistently wrong — and the dark-theme rules (`.d-up` → `--vp-mal-ink`)
-bypass the custom properties entirely, so a real fix needs an ink pair
-as well, across both surfaces. That is phase 9's, with the rest of the
-reconciliation between the editor and the value page (§4.3).
+### 7.17 The direction pair now follows the lean everywhere
+
+`--vp-dir-with` and `--vp-dir-against` mean *with* and *against the
+lean*, not red and green: on a benign value the row agreeing with the
+verdict is the green one. The value page had this right — every verdict
+card carries `ValueDisposition::directionStyle()` and every consumer in
+`value-profile.css` reads the pair. **The editor had it wrong
+everywhere**, taking the `:root` default, which is the malicious
+reading. On `127.0.0.1` — benign, quality 20 — the warninglist row that
+*supports* the benign verdict was painted red.
+
+Three changes, because the fix is not only a swap:
+
+- **The editor emits the pair.** The lean travels `workbench.ctp` →
+  `section.ctp` → `block_items.ctp` for the signals table, and
+  `bench.ctp` re-emits it on the fragment itself. The fragment has to
+  carry its own, because editing a weight can move the lean: a ledger
+  summing against the lean it was anchored to comes back `contested`.
+  One helper for both surfaces, so they cannot drift.
+- **An ink pair, `--vp-dir-with-ink` / `--vp-dir-against-ink`.** The
+  dark-theme rules read `--vp-mal-ink` directly, and a rule naming an
+  ink cannot be swapped — so dark mode went on showing the malicious
+  reading however carefully the hue was flipped. The pair is declared in
+  the shared palette and swapped by the same helper.
+- **`directionStyle()` emits all four**, which is why the value page
+  gets the ink pair for free when something there needs it.
+
+Checked on a threat value and a benign one, in both themes, on the
+signals table and the bench: `+` is red on the first and green on the
+second, and the inks follow. Asserted in the harness — the helper's
+contract both ways, the ink pair's default, that no dark rule reaches
+past the pair, and that a rendered editor carries one.
+
+**What the value page could not be shown doing.** Its own verdict path
+does not read this engine yet (§4.3 is phase 9's switch), so on this
+instance it answers `UNKNOWN` for every value the editor scores and its
+ledger draws no rows to colour. The helper and its consumers are
+verified; the rendering is not, and cannot be until phase 9.
+
+### 7.18 The contribution column is stale after an edit
+
+Found while colouring it, not fixed. The bench recomputes on every
+change; the signals pane does not. Setting `per_org` from 7 to 40 moves
+the bench's quality from 27 to 48 and leaves the column reading `+7`,
+because `simulate` answers the bench fragment alone and the JS swaps
+only `.wb-bench`.
+
+It has been true since the column existed and colour does not create it
+— but colour makes it louder, because a confidently red `+7` beside a
+quality that just moved reads as a number that means something. The fix
+is for the fragment to carry the new ledger and the JS to write it into
+the cells, which is a second thing for the recompute to do and wants
+its own pass.
 
 ## 8. What 8c deliberately did not do
 

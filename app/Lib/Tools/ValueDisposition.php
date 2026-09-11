@@ -126,9 +126,18 @@ class ValueDisposition
     public static function directionStyle($disposition)
     {
         $benign = $disposition === 'BENIGN';
-        return '--vp-dir-with: '
-            . ($benign ? 'var(--vp-ben)' : 'var(--vp-mal)')
-            . '; --vp-dir-against: '
-            . ($benign ? 'var(--vp-mal)' : 'var(--vp-ben)') . ';';
+        $with = $benign ? 'ben' : 'mal';
+        $against = $benign ? 'mal' : 'ben';
+        /*
+         * The ink pair travels with the hue pair. A surface that paints
+         * direction on a dark ground needs the lighter tone, and a rule
+         * that reaches for `--vp-mal-ink` directly cannot be swapped —
+         * so dark mode would go on showing the malicious reading of a
+         * benign verdict no matter what the two lines above say.
+         */
+        return '--vp-dir-with: var(--vp-' . $with . ')'
+            . '; --vp-dir-against: var(--vp-' . $against . ')'
+            . '; --vp-dir-with-ink: var(--vp-' . $with . '-ink)'
+            . '; --vp-dir-against-ink: var(--vp-' . $against . '-ink);';
     }
 }

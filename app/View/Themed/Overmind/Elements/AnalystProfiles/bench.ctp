@@ -16,6 +16,8 @@
  * @var string $profileId
  */
 App::uses('ValueUrlTool', 'Tools');
+App::uses('ValueDisposition', 'Tools');
+App::uses('ValueVerdictTool', 'Tools');
 
 $full = isset($full) ? $full : false;
 $detail = $bench['detail'];
@@ -36,8 +38,24 @@ $pinUrl = function ($value, $pin) {
     return array('action' => $pin ? 'pin' : 'unpin',
         ValueUrlTool::encode($value));
 };
+/*
+ * Which way the direction pair points, re-stated on every recompute.
+ * `--vp-dir-with` is *with the lean*, and a weight edit can move the
+ * lean itself — a ledger that sums against the lean it was anchored to
+ * comes back `contested` — so the swap has to arrive with the fragment
+ * rather than being set once on the page around it.
+ */
+$leanNow = $detail !== null && isset($detail['axes']['lean']['after'])
+    ? $detail['axes']['lean']['after']
+    : null;
+$dispositions = ValueVerdictTool::LEAN_DISPOSITION;
+$directionStyle = $leanNow !== null && isset($dispositions[$leanNow])
+    ? ValueDisposition::directionStyle($dispositions[$leanNow])
+    : '';
 ?>
-<div class="wb-bench-inner" data-ap-bench-url="<?= h($benchUrl) ?>">
+<div class="wb-bench-inner" data-ap-bench-url="<?= h($benchUrl) ?>"
+     <?= $directionStyle === ''
+         ? '' : 'style="' . h($directionStyle) . '"' ?>>
     <?php
     /*
      * The picker, and it comes before everything including the empty

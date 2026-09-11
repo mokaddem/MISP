@@ -46,6 +46,15 @@
      */
     --vp-dir-with: var(--vp-mal);
     --vp-dir-against: var(--vp-ben);
+    /*
+     * The same pair as ink, for the surfaces that need the lighter tone
+     * on a dark ground. It has to be a *pair* and not two fixed inks:
+     * a rule reaching straight for `--vp-mal-ink` cannot be swapped,
+     * so a dark theme would keep the malicious reading on a benign
+     * value however carefully the hue above was flipped for it.
+     */
+    --vp-dir-with-ink: var(--vp-mal-ink);
+    --vp-dir-against-ink: var(--vp-ben-ink);
 }
 
 [data-bs-theme="dark"] {

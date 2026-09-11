@@ -21,9 +21,23 @@
  * @var string|null $benchValue
  */
 App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('ValueDisposition', 'Tools');
+App::uses('ValueVerdictTool', 'Tools');
 
 $ledger = isset($ledger) ? $ledger : array();
 $benchValue = isset($benchValue) ? $benchValue : null;
+$lean = isset($lean) ? $lean : null;
+/*
+ * Which way the direction pair points on this table. `--vp-dir-with`
+ * means *with the lean*, so on a benign value the row that agrees with
+ * the verdict is the green one — the same swap the value page puts on
+ * every verdict card, from the same helper, because the two surfaces
+ * show the same contributions and must read the same way.
+ */
+$dispositions = ValueVerdictTool::LEAN_DISPOSITION;
+$directionStyle = $lean !== null && isset($dispositions[$lean])
+    ? ValueDisposition::directionStyle($dispositions[$lean])
+    : '';
 $isSignals = $sectionId === 'signals';
 $groups = isset($block['groups']) ? $block['groups'] : array();
 
@@ -83,7 +97,8 @@ if ($sectionId === 'escalations') {
 }
 $columns = $isSignals ? 5 : 3;
 ?>
-<table class="wb-tbl">
+<table class="wb-tbl"<?= $directionStyle === ''
+    ? '' : ' style="' . h($directionStyle) . '"' ?>>
     <thead>
         <tr>
             <th style="width:2.2rem"></th>
@@ -101,6 +116,22 @@ $columns = $isSignals ? 5 : 3;
                     <?= $benchValue === null
                         ? h(__('Contribution'))
                         : h(sprintf(__('On %s'), $benchValue)) ?>
+                    <?php
+                    /*
+                     * What a `+` is *toward*. The sign of a row is its
+                     * agreement with the lean, and the lean is decided
+                     * before any of this arithmetic — so a column of
+                     * signed, coloured numbers with the lean named only
+                     * in the other pane is a column a reader has to be
+                     * told how to read. Now it says so where they are
+                     * looking.
+                     */
+                    ?>
+                    <?php if ($lean !== null && $lean !== 'none'): ?>
+                        <div class="wb-tbl-sub">
+                            <?= h(sprintf(__('+ toward %s'), $lean)) ?>
+                        </div>
+                    <?php endif; ?>
                 </th>
             <?php endif; ?>
         </tr>

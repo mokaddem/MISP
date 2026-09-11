@@ -8,6 +8,7 @@ App::uses('ValueVerdictDiffTool', 'Tools');
 App::uses('ValueRelevanceTool', 'Tools');
 App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
+App::uses('ValueDisposition', 'Tools');
 
 /**
  * Phase 8c's templates, rendered and asserted with no HTTP session.
@@ -61,6 +62,7 @@ class AnalystWiringShell extends AppShell
         $this->sectionVerdictLinks($user, $value);
         $this->sectionReadOnly($user, $value);
         $this->sectionTheWayIn($user, $value);
+        $this->sectionDirectionPair($user, $value);
 
         $this->out('');
         $this->out(sprintf('%d checks, %d failures',
@@ -691,6 +693,58 @@ class AnalystWiringShell extends AppShell
          */
         $this->ok(substr_count($filled, '<form') === 1,
             'and the editor is one form deep, so the press is not swallowed');
+    }
+
+    /* ============================================================
+     * §7.16 — the direction pair follows the lean, on both surfaces
+     * ============================================================ */
+
+    /**
+     * `--vp-dir-with` means *with the lean*, not *malicious*. On a
+     * benign value the row agreeing with the verdict is the green one,
+     * and the editor used to paint it red because it took the `:root`
+     * default while the value page swapped.
+     */
+    private function sectionDirectionPair(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the direction pair follows the lean ==');
+
+        $benign = ValueDisposition::directionStyle('BENIGN');
+        $malicious = ValueDisposition::directionStyle('MALICIOUS');
+        $this->ok(strpos($benign, '--vp-dir-with: var(--vp-ben)') !== false,
+            'a benign verdict makes *with* the green');
+        $this->ok(strpos($benign, '--vp-dir-against: var(--vp-mal)') !== false,
+            'and *against* the red');
+        $this->ok(strpos($malicious, '--vp-dir-with: var(--vp-mal)') !== false,
+            'a malicious verdict is the other way round');
+        /*
+         * The ink pair has to swap too. A dark-theme rule naming
+         * `--vp-mal-ink` directly cannot be swapped, which is exactly
+         * how `analyst-profile.css` kept the malicious reading in dark
+         * however carefully the hue was flipped.
+         */
+        $this->ok(strpos($benign, '--vp-dir-with-ink: var(--vp-ben-ink)')
+            !== false, 'and the ink pair swaps with it');
+        $css = file_get_contents(WWW_ROOT . 'css' . DS . 'analyst-profile.css');
+        $this->ok(strpos($css, '--vp-dir-with-ink') !== false
+            && !preg_match('/\.d-up\s*\{[^}]*--vp-mal-ink/', $css),
+            'the dark rules read the pair rather than the inks');
+        $palette = file_get_contents(WWW_ROOT . 'css' . DS . 'value-palette.css');
+        $this->ok(strpos($palette, '--vp-dir-with-ink:') !== false,
+            'which the shared palette declares a default for');
+
+        /*
+         * And the editor actually emits it. Rendered, because the
+         * plumbing runs through three templates and a lean that never
+         * arrives is indistinguishable from one that did.
+         */
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $html = $this->renderWorkbench($user, $profile, $value, true);
+        $this->ok(strpos($html, '--vp-dir-with:') !== false,
+            'the rendered editor carries a direction pair at all');
+        $this->ok(strpos($html, 'toward') !== false,
+            'and the contribution column says what a + is toward');
     }
 
     /* ============================================================

@@ -46,6 +46,16 @@ $marks = $detail === null
         'was' => $detail['totals']['before'],
         'now' => $detail['totals']['after'],
     );
+/*
+ * The direction pair is *with* and *against the lean*, not red and
+ * green: on a benign value the row that agrees with the verdict is the
+ * green one. Both halves of this page colour contributions, so both are
+ * handed the same lean — the bench re-emits it on every recompute,
+ * because editing a weight can flip the lean itself.
+ */
+$lean = $detail !== null && isset($detail['axes']['lean']['after'])
+    ? $detail['axes']['lean']['after']
+    : null;
 
 $open = $open_section !== null ? $open_section : 'signals';
 $parse = isset($parse) ? $parse : null;
@@ -131,6 +141,7 @@ $parse = isset($parse) ? $parse : null;
                             'benchValue' => $value,
                             'marks' => $marks,
                             'runway' => $runway,
+                            'lean' => $lean,
                         )) ?>
                     <?php endforeach; ?>
 

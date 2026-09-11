@@ -17,11 +17,14 @@
  * @var string|null $benchValue
  * @var array|null $marks
  * @var array|null $runway The bench value's relevance, for the curve
+ * @var string|null $lean The bench value's lean, which says which way
+ *                        the palette's direction pair points
  */
 $ledger = isset($ledger) ? $ledger : array();
 $benchValue = isset($benchValue) ? $benchValue : null;
 $marks = isset($marks) ? $marks : array();
 $runway = isset($runway) ? $runway : null;
+$lean = isset($lean) ? $lean : null;
 
 $blurb = trim($section['blurb']);
 $rest = '';
@@ -89,6 +92,7 @@ foreach ($section['blocks'] as $block) {
                 'sectionId' => $section['id'],
                 'ledger' => $ledger,
                 'benchValue' => $benchValue,
+                'lean' => $lean,
             )) ?>
         <?php elseif ($block['kind'] === 'fields'): ?>
             <?php $curve = $section['id'] === 'relevance'
