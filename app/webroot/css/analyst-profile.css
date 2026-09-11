@@ -1084,6 +1084,22 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
+ * A text chip sizes to what it holds, by the `size` the box carries.
+ *
+ * The fixed width above is right for a weight and wrong for a word:
+ * `supermajority` in 3.4rem reads `supermaj`, and a setting you cannot
+ * finish reading is one you have to click into to check. Numbers keep
+ * the fixed width — that is what makes a column of them line up — so
+ * this is the text boxes only, and `max-width` is the backstop for a
+ * stored value longer than the template bounded.
+ */
+.kv input.form-control[type="text"] {
+    width: auto;
+    max-width: 12rem;
+    text-align: left;
+}
+
+/*
  * A select in a chip sizes to its options and keeps its caret.
  *
  * The width above is a cap on free text, which is unbounded — `4.6` and

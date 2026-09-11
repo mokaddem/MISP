@@ -64,6 +64,28 @@ if ($numeric) {
  */
 $asNumber = $numeric && ($shown === '' || is_numeric($shown));
 $step = $type === 'int' ? '1' : 'any';
+
+/*
+ * How many characters a text box holds, which is the only thing that
+ * can size one. `supermajority` in a box built for a weight reads
+ * `supermaj`, and a setting you cannot finish reading is a setting you
+ * have to click into to check.
+ *
+ * Only where a width is not already decided: `.form-control` is 100% of
+ * its cell in the section panes, so this changes the chips and nothing
+ * else. Bounded both ways — a one-character box is not a target, and an
+ * over-long stored value must not push the table out.
+ *
+ * `types` and `module_states` hold arrays and draw their own controls,
+ * so they never reach the box this sizes and must not be measured as
+ * though they did.
+ */
+$size = is_scalar($shown)
+    ? max(4, min(28, max(
+        mb_strlen((string)$shown),
+        mb_strlen($placeholder)
+    )))
+    : 4;
 ?>
 <?php if ($type === 'bool'): ?>
     <?php if ($editable): ?>
@@ -223,7 +245,8 @@ $step = $type === 'int' ? '1' : 'any';
     <?php if ($editable): ?>
         <input class="<?= h($classes) ?>"
                type="<?= $asNumber ? 'number' : 'text' ?>"
-               <?= $asNumber ? 'step="' . h($step) . '"' : '' ?>
+               <?= $asNumber ? 'step="' . h($step) . '"'
+                   : 'size="' . (int)$size . '"' ?>
                id="<?= h($id) ?>"
                name="<?= h($name) ?>"
                value="<?= h((string)$shown) ?>"

@@ -704,7 +704,8 @@ right-aligned styling the numbers carry.
 **Half of that was wrong, and §7.22 fixes it.** `warninglist_category`
 is a category name out of a set of two — it is a select, not prose.
 `threat_share_at_least` stays text, because *a fraction or one
-particular word* is not a set anything can enumerate.
+particular word* is not a set anything can enumerate — but §7.23 gives
+it a box wide enough to read.
 
 **Still open, same shape, different pane.** A map whose values are a
 `select` — `org_trust`'s grades, `warninglist_category`'s two meanings
@@ -804,6 +805,35 @@ constructor failed to construct, and 13 escalation checks went quiet
 rather than red. Worth recording as a property of the harness pattern:
 a rule that cannot construct disappears from the catalogue rather than
 raising, so a missing `require` reads as a behaviour change.
+
+### 7.23 A text chip is as wide as what it holds
+
+The chip pins its control to `3.4rem`, which is right for a weight and
+wrong for a word: `supermajority` — the value `threat_share_at_least`
+ships with — read `supermaj`, and a setting you cannot finish reading
+is one you have to click into to check. §7.22 fixed the neighbouring
+box by making it a select; this one cannot be a set, so it is sized
+instead.
+
+`size` is the attribute for this, and the box now carries the character
+count of what it holds, bounded at both ends — 4, so a short value is
+still a target, and 28, so a long stored string cannot push the table
+out, with a `12rem` CSS backstop behind that. Numbers keep the fixed
+width, which is what makes a column of them line up; only `type="text"`
+is sized.
+
+**It changes the chips and nothing else.** `.form-control` is 100% of
+its cell in the section panes, so the attribute is inert there —
+checked on relevance and enrichment, which are the two panes with text
+fields in them.
+
+**One thing the round-trip harness caught that a screenshot did not.**
+`$shown` is an array for the `types` and `module_states` field kinds,
+which draw their own controls and never reach the box being sized;
+measuring it as a string raised *Array to string conversion* four times
+per render. Rendering the page looked perfect throughout — the warnings
+only surface with `debug` on, which the harness sets and the browser
+does not.
 
 ## 8. What 8c deliberately did not do
 
