@@ -814,11 +814,10 @@ class AnalystProfileFormTool
             'id' => 'exclusions',
             'title' => __('Exclusions'),
             'blurb' => __(
-                'Evidence you have decided not to count, filtered before'
-                . ' any signal sees it — so two signals reading the same'
-                . ' fact read the same filtered set. Every row an'
-                . ' exclusion removes is listed in the assessment as not'
-                . ' counted, naming the rule.'
+                'Evidence you have decided not to count, filtered once'
+                . ' before any signal sees it, and every row an'
+                . ' exclusion removes is listed in the assessment as'
+                . ' not counted, naming the rule.'
             ),
             'blocks' => array(
                 array(
@@ -829,6 +828,27 @@ class AnalystProfileFormTool
                 ),
             ),
         );
+    }
+
+    /**
+     * One layer's word, or the key itself where this version has no
+     * word for it — a profile naming a layer nothing declares is a
+     * document from a later version, and the key is still truer than
+     * blank.
+     *
+     * @param string|null $layer
+     * @param string $part `label` or `title`
+     * @return string|null
+     */
+    private function layerLabel($layer, $part)
+    {
+        if ($layer === null) {
+            return null;
+        }
+        $layers = ValueExclusionTool::layers();
+        return isset($layers[$layer][$part])
+            ? $layers[$layer][$part]
+            : ($part === 'label' ? $layer : null);
     }
 
     /**
@@ -853,6 +873,10 @@ class AnalystProfileFormTool
                 'in_profile' => $entry !== null,
                 'layer' => $declaration['layer'],
                 'badges' => array(),
+                'layer_label' => $this->layerLabel($declaration['layer'],
+                    'label'),
+                'layer_title' => $this->layerLabel($declaration['layer'],
+                    'title'),
                 'path' => array('exclusions', $id),
                 'fields' => array(
                     array(
@@ -2317,6 +2341,31 @@ class AnalystProfileFormTool
                 __('`%1$s` must be one of: %2$s.'),
                 $label,
                 implode(', ', $spec['options'])
+            );
+        }
+        /*
+         * A bound the schema declares. The box already carries it as a
+         * `min`/`max` the browser refuses at the keystroke, and a
+         * document that arrived by import never met that box — so a
+         * window of `-5` days would be stored, read as a window nothing
+         * falls inside, and say nothing about why.
+         */
+        if (isset($spec['min']) && is_numeric($given)
+            && (float)$given < (float)$spec['min']
+        ) {
+            return sprintf(
+                __('`%1$s` must be at least %2$s.'),
+                $label,
+                $spec['min']
+            );
+        }
+        if (isset($spec['max']) && is_numeric($given)
+            && (float)$given > (float)$spec['max']
+        ) {
+            return sprintf(
+                __('`%1$s` must be at most %2$s.'),
+                $label,
+                $spec['max']
             );
         }
         return null;

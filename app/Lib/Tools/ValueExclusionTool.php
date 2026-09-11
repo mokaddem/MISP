@@ -67,6 +67,55 @@ class ValueExclusionTool
     const DEFAULT_WITHIN_HOURS = 1;
 
     /**
+     * What each layer means to somebody reading the pane.
+     *
+     * The layer is a real distinction and the editor has to show it —
+     * `orgs.own` moving every aggregate at once is exactly the thing an
+     * analyst is surprised by — but `row_filter` is the name the code
+     * calls it, not an answer to *what does this touch*. Declared here
+     * beside the layer each rule is assigned, for the same reason the
+     * schemas are: a vocabulary kept in the view drifts from the code
+     * that uses it the first time a rule moves layer.
+     *
+     * @return array layer => label and the sentence behind it
+     */
+    public static function layers()
+    {
+        return array(
+            'condition' => array(
+                'label' => __('every count'),
+                'title' => __(
+                    'Excluded in the query itself, so every aggregate'
+                    . ' on the value moves at once rather than one'
+                    . ' list being filtered afterwards.'
+                ),
+            ),
+            'row_filter' => array(
+                'label' => __('rows'),
+                'title' => __(
+                    'Rows are left out where they exist, before'
+                    . ' anything tallies them.'
+                ),
+            ),
+            'list_fold' => array(
+                'label' => __('one list'),
+                'title' => __(
+                    'One already-fetched list, deduplicated. Nothing'
+                    . ' else on the value changes.'
+                ),
+            ),
+            'budget' => array(
+                'label' => __('what is fetched'),
+                'title' => __(
+                    'Decides what is read at all, rather than'
+                    . ' filtering what arrived. Whole-history'
+                    . ' aggregates are never windowed.'
+                ),
+            ),
+        );
+    }
+
+    /**
      * The four ids described, so the editor can render a form for a
      * section that has no directory to read.
      *
@@ -106,6 +155,7 @@ class ValueExclusionTool
                     'within_hours' => array(
                         'type' => 'float',
                         'default' => self::DEFAULT_WITHIN_HOURS,
+                        'min' => 0,
                         'label' => __('Hours after the occurrence'),
                     ),
                 ),
@@ -158,11 +208,13 @@ class ValueExclusionTool
                     'days' => array(
                         'type' => 'int',
                         'default' => 90,
+                        'min' => 1,
                         'label' => __('Days of row evidence'),
                     ),
                     'min_occurrences' => array(
                         'type' => 'int',
                         'default' => 10000,
+                        'min' => 0,
                         'label' => __('Occurrences before it applies'),
                     ),
                 ),

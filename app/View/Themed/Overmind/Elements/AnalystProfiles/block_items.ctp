@@ -270,9 +270,28 @@ $columns = $isSignals ? 5 : 3;
                                 </span>
                             <?php endif; ?>
                             <?php if (!empty($item['layer'])): ?>
-                                <span class="sig-tag">
-                                    <span class="k"><?= h(__('applies at')) ?></span>
-                                    <b><?= h($item['layer']) ?></b>
+                                <?php
+                                /*
+                                 * What the rule touches, not what the
+                                 * code calls the hook it hangs on.
+                                 * `row_filter` is an accurate name for
+                                 * a mechanism and no answer at all to
+                                 * *does this move one list or every
+                                 * count*, which is the difference an
+                                 * analyst is surprised by.
+                                 */
+                                $layer = !empty($item['layer_label'])
+                                    ? $item['layer_label']
+                                    : $item['layer'];
+                                ?>
+                                <span class="sig-tag"
+                                      <?= empty($item['layer_title'])
+                                          ? ''
+                                          : 'title="'
+                                              . h($item['layer_title'])
+                                              . '"' ?>>
+                                    <span class="k"><?= h(__('applies to')) ?></span>
+                                    <b><?= h($layer) ?></b>
                                 </span>
                             <?php endif; ?>
                         </div>

@@ -891,6 +891,41 @@ was empty afterwards, and then asks about identity. The legacy section
 builds the word deliberately, like it already builds the flat TTL map
 and the old posture name.
 
+### 7.25 The exclusions pane printed the name of a hook
+
+The same pass as §7.21–7.24, over the one pane they had not touched.
+Most of it came back clean: all four exclusions already declare proper
+types, and `dedupe_by` already declared `options`, so it was already a
+select — it simply inherited §7.22's caret and sizing. There was no
+free-text box and nothing to convert.
+
+**What was wrong was the layer tag.** Every rule printed `applies at
+row_filter`, `list_fold`, `condition` or `budget` — the names the code
+calls the hooks it hangs on, and no answer at all to the question the
+tag is there to answer: *does this move one list, or every count?* That
+distinction is the surprising one. `orgs.own` contributes SQL to
+`Value::conditionsFor()`, so it reaches every value-scoped aggregate at
+once, where `feeds.mirrored` deduplicates one already-fetched list. The
+tag now reads **applies to every count** / **rows** / **one list** /
+**what is fetched**, with the mechanism behind a `title` — the pattern
+the *trust weighted* tag beside it already uses, rather than a bare
+`i`. The vocabulary is declared in `ValueExclusionTool::layers()`,
+beside the layer each rule is assigned, for the same reason the schemas
+are there: one kept in the view drifts the first time a rule moves.
+
+**The numbers had no bounds.** `AnalystProfileFormTool::checkScalar()`
+is the exclusions' validator and it honoured `options` and nothing else,
+so `days: -5` was accepted — stored, read as a window nothing falls
+inside, and silent about why. It honours `min`/`max` now, as
+`ValueEscalationBase::checkValue()` already did, and the three numbers
+declare them: hours and occurrences from zero, and a row-evidence window
+from one day, because a window of no days is not a window.
+
+**And one `i` went.** The section blurb hid *"every row an exclusion
+removes is listed in the assessment as not counted, naming the rule"* —
+the more useful of its two sentences — behind a hover. It is one
+sentence now and the pane has no `i` left.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships
