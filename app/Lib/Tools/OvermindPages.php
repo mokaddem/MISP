@@ -53,6 +53,9 @@ class OvermindPages
             'preview', 'update', 'library_status'
         ),
         'decayingModel' => array('index', 'view', 'add', 'edit', 'import'),
+        'analystProfiles' => array(
+            'index', 'view', 'edit', 'simulate', 'import', 'fork'
+        ),
 
         // Lists and correlation
         'warninglists' => array('index', 'view', 'add', 'edit'),

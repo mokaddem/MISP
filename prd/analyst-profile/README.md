@@ -21,11 +21,11 @@ reads it, the lean and bands that turn its ledger into an assessment, the
 exclusions that decide what the ledger may see, the relevance axis that
 says whether any of it still matters, the reference data that says what
 the analyst believes about their sources, and the enrichment modules it
-declares — are built as of 2026-09-07**, and so is **8a**, the editor's
-contract: every action, the ACL, the mechanics and the validation, with
-no template written yet. Phases 1 to 6 are every phase that can change a
-number; phase 7 changes none. The corpus is sixteen documents, phase by
-phase.
+declares — are built as of 2026-09-07**, and so is **phase 8**, the editor —
+its contract (8a), three cold prototypes of which one was picked (8b),
+and the wiring of that design into pages (8c, 2026-09-11). Phases 1 to 6
+are every phase that can change a number; phase 7 changes none. The
+corpus is nineteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -114,10 +114,25 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 7 and 8a are
-built; 8b, 8c, 9 and 10 are specifications.** Build order: 1 (store) gates
-all → 2–7 → 8a → 8b → 8c → 9 (the tab goes live) → 10. **Phase 9 now has
-every phase it needs**, and 8 is independent of it.
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 8 are built;
+9 and 10 are specifications.** Build order: 1 (store) gates all → 2–7 →
+8a (the contract) → 8b (three prototypes, one picked) → 8c (the wiring)
+→ 9 (the tab goes live) → 10.
+
+**Phase 8 closed 2026-09-11.** The editor is six pages under
+`View/Themed/Overmind/AnalystProfiles/`: an index that names the profile
+in force and why every other row is not, a read-only viewer, the
+workbench — the document on the left, the value under assessment on the
+right, recomputed by the engine on every change — the same bench given
+the whole width, an import form and one confirm. The design is 8b's
+workbench ([`09b-decision.md`](09b-decision.md)); the build and its ten
+findings are [`09c-wiring.md`](09c-wiring.md).
+
+**Phase 9 is the only thing left before the Verdict tab reads a real
+profile.** It is also what two of 8c's deliverables are waiting on: the
+value page's verdict is still `ValueProfileFixture`, so the links from
+it to the profile that weighted it appear only once the page computes
+one.
 
 **Phase 8 is three passes, split 2026-09-07** (`09-editor.md` §1.1). It is the
 first phase of this corpus whose deliverable is a *look* rather than a

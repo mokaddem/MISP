@@ -15,7 +15,7 @@ App::uses('ValueDisposition', 'Tools');
  * assuming it has arrived.
  */
 echo $this->element('genericElements/assetLoader', array(
-    'css' => array('value-profile'),
+    'css' => array('value-palette', 'value-profile'),
     'js' => array('Chart.min', 'value-profile'),
 ));
 

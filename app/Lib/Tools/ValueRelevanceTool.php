@@ -83,6 +83,9 @@ class ValueRelevanceTool
     /** `type_rule` settings. */
     const TYPE_RULES = array('shortest', 'longest', 'most_common');
 
+    /** The states the axis can report, in clock order. */
+    const STATES = array('current', 'aging', 'expired', 'uncertain');
+
     /**
      * The shelf-life buckets a type may be assigned to (D18).
      *
@@ -263,6 +266,37 @@ class ValueRelevanceTool
             return 'uncertain';
         }
         return $runway >= $aging ? 'current' : 'aging';
+    }
+
+    /**
+     * What a state is called on screen.
+     *
+     * Two surfaces render this axis — the value page's relevance card
+     * and the profile editor's bench — and each one keeping its own
+     * copy of four words is how `uncertain` came to be printed raw in
+     * one of them while the other said *timeline uncertain*. One
+     * writer, the way the clock and `type_rule` lists were settled.
+     *
+     * The uncertainty flag is deliberately not composed in here. It is
+     * a second thing that is true at once, and a caller that wants
+     * both says so itself rather than receiving a sentence it cannot
+     * take apart again.
+     *
+     * @param string|null $state
+     * @return string
+     */
+    public static function stateLabel($state)
+    {
+        $labels = array(
+            'current' => __('current'),
+            'aging' => __('aging'),
+            'expired' => __('expired'),
+            'uncertain' => __('timeline uncertain'),
+        );
+        if ($state === null || !isset($labels[$state])) {
+            return (string)$state;
+        }
+        return $labels[$state];
     }
 
     /**

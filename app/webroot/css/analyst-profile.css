@@ -1,0 +1,1037 @@
+/*
+ * The Analyst Profile editor.
+ *
+ * Two panes on every page. The left pane is the profile: an outline
+ * rail and one open section. The right pane is the value under
+ * assessment, and it never leaves — which is the whole bet, so it is
+ * sticky rather than merely present, and the last thing to be given up
+ * when the window narrows.
+ *
+ * Loaded by the AnalystProfiles views only. It shares the value page's
+ * palette — `--vp-mal`, `--vp-ben`, `--vp-dir-with`,
+ * `--vp-dir-against` — and nothing else, which is why it is its own
+ * file rather than another 300 lines of value-profile.css.
+ */
+
+/*
+ * The query container is the page wrapper rather than the workbench
+ * itself: an element cannot answer a container query against itself.
+ * Every degradation below fires on this width, so it fires on the
+ * content column and not on the window — which is the same thing on a
+ * `container-fluid` page and not the same thing inside a modal.
+ */
+.ap-page {
+    container-type: inline-size;
+    container-name: wb;
+}
+
+.wb {
+    display: grid;
+    grid-template-columns: 212px minmax(0, 1fr) 468px;
+    grid-template-areas:
+        "lefthead lefthead benchhead"
+        "rail     body     bench";
+    margin: 0 -0.75rem;                 /* bleed to the content column */
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.wb-panehead {
+    font: 600 .6875rem/1.7 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    padding: .35rem .85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.wb-panehead em {
+    font-style: normal;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: .75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wb-panehead-left  { grid-area: lefthead; }
+.wb-panehead-right {
+    grid-area: benchhead;
+    border-left: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+.wb-rail {
+    grid-area: rail;
+    border-right: 1px solid var(--bs-border-color);
+    padding: .5rem 0 1rem;
+    min-width: 0;
+}
+
+.wb-rail-title {
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    padding: .1rem .85rem .3rem;
+}
+
+.wb-rail-item {
+    display: flex;
+    align-items: baseline;
+    gap: .35rem;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-left: 3px solid transparent;
+    padding: .3rem .6rem .3rem .55rem;
+    font-size: .8125rem;
+    line-height: 1.35;
+    color: var(--bs-body-color);
+}
+
+.wb-rail-item:hover { background: var(--bs-secondary-bg); }
+
+.wb-rail-item.is-open {
+    border-left-color: var(--bs-primary);
+    background: var(--bs-secondary-bg);
+    font-weight: 600;
+}
+
+.wb-rail-item .c {
+    margin-left: auto;
+    font-size: .6875rem;
+    color: var(--bs-secondary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.wb-rail-note {
+    font-size: .6875rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+    padding: .5rem .85rem 0;
+}
+
+.wb-body {
+    grid-area: body;
+    padding: .85rem 1rem 1.4rem;
+    min-width: 0;
+}
+
+.wb-bench {
+    grid-area: bench;
+    border-left: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    min-width: 0;
+}
+
+.wb-bench-inner {
+    position: sticky;
+    top: .5rem;
+    padding: .8rem .9rem 1.1rem;
+}
+
+/* Wide bench: the simulate board turns the split around — what you
+ * changed is the small half, the consequence is the large one. */
+.wb-flip {
+    grid-template-columns: 400px minmax(0, 1fr);
+    grid-template-areas:
+        "lefthead benchhead"
+        "body     bench";
+}
+.wb-flip .wb-body { border-right: 1px solid var(--bs-border-color); }
+
+/* ---- type ---- */
+.num {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+}
+.wb-id {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: .75rem;
+}
+.wb-h {
+    font: 600 .8125rem/1.4 var(--bs-font-sans-serif, system-ui);
+    margin: 0 0 .15rem;
+}
+.wb-blurb {
+    font-size: .75rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+    margin: 0 0 .7rem;
+    max-width: 66ch;
+}
+.wb-sub {
+    font-size: .6875rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
+
+/* ---- pills ---- */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: 0 .4rem;
+    border-radius: 999px;
+    font-size: .6875rem;
+    font-weight: 600;
+    line-height: 1.55;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--tone, var(--vp-unknown)) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tone, var(--vp-unknown)) 38%, transparent);
+    color: var(--tone-ink, var(--tone, var(--vp-unknown)));
+}
+.pill.t-force   { --tone: var(--bs-primary); }
+.pill.t-off     { --tone: var(--vp-unknown); }
+.pill.t-over    { --tone: var(--vp-conflict); --tone-ink: var(--vp-conflict-ink); }
+.pill.t-missing { --tone: var(--vp-mal); --tone-ink: var(--vp-mal-ink); }
+.pill.t-custom  { --tone: var(--bs-primary); }
+.pill.t-plain   { --tone: var(--bs-secondary-color); }
+
+
+/* ---- key/value chips: a points map has no fixed schema ---- */
+.kv {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .3rem;
+    padding: .05rem .35rem;
+    margin: .1rem .25rem .1rem 0;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    background: var(--bs-body-bg);
+    font-size: .6875rem;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+.kv k {
+    color: var(--bs-secondary-color);
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+}
+.kv v {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+.kv.is-edited {
+    border-color: var(--bs-primary);
+    background: color-mix(in srgb, var(--bs-primary) 10%, var(--bs-body-bg));
+}
+.kv.is-undeclared { border-style: dashed; }
+.kv .was {
+    color: var(--bs-secondary-color);
+    text-decoration: line-through;
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+}
+.nd {
+    border-bottom: 1px dotted var(--bs-secondary-color);
+    cursor: help;
+}
+
+/* the two markers, which are not the same thing */
+.mk {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-weight: 700;
+    color: var(--bs-primary);
+    cursor: help;
+}
+.neq {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-weight: 700;
+    color: var(--vp-conflict-ink);
+    cursor: help;
+}
+
+/* ---- tables ---- */
+.wb-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .8125rem;
+}
+.wb-tbl th {
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    text-align: left;
+    padding: .25rem .5rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    white-space: nowrap;
+}
+.wb-tbl td {
+    padding: .38rem .5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--bs-border-color) 55%, transparent);
+    vertical-align: top;
+}
+.wb-tbl tfoot td {
+    border-top: 2px solid var(--bs-border-color);
+    border-bottom: 0;
+    font-weight: 600;
+    padding-top: .45rem;
+}
+.wb-tbl .r { text-align: right; }
+.wb-tbl tr.is-off > td { opacity: .62; }
+.wb-tbl tr.is-hot > td {
+    background: color-mix(in srgb, var(--bs-primary) 8%, transparent);
+}
+.wb-grp td {
+    background: var(--bs-tertiary-bg);
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    padding: .2rem .5rem;
+}
+
+.d-up { color: var(--vp-dir-with); font-weight: 700; }
+.d-dn { color: var(--vp-dir-against); font-weight: 700; }
+.d-0  { color: var(--vp-unknown); }
+[data-bs-theme="dark"] .d-up { color: var(--vp-mal-ink); }
+[data-bs-theme="dark"] .d-dn { color: var(--vp-ben-ink); }
+
+/* ---- the band strip ---- */
+.wb-strip {
+    position: relative;
+    height: 30px;
+    border-radius: .2rem;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+}
+.wb-strip:has(.wb-mark) { margin-top: 1.05rem; }
+.wb-strip.sm { height: 18px; }
+.seg {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 600 .6875rem/1 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-body-color);
+    overflow: hidden;
+}
+.seg-low  { background: color-mix(in srgb, var(--vp-unknown) 20%, transparent); }
+.seg-med  { background: color-mix(in srgb, var(--vp-conflict) 30%, transparent); }
+.seg-high { background: color-mix(in srgb, var(--vp-mal) 26%, transparent); }
+.seg-dead {
+    background: repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--vp-unknown) 26%, transparent) 0 4px,
+        transparent 4px 9px);
+}
+.seg-clash {
+    background: repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--vp-mal) 42%, transparent) 0 4px,
+        transparent 4px 9px);
+    border-left: 1px solid var(--vp-mal);
+    border-right: 1px solid var(--vp-mal);
+}
+.wb-mark {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--bs-body-color);
+}
+.wb-mark.ghost { background: var(--bs-secondary-color); opacity: .55; }
+.wb-mark b {
+    position: absolute;
+    top: -1.05rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font: 700 .6875rem/1 var(--bs-font-monospace, monospace);
+    white-space: nowrap;
+}
+.wb-scale span { text-align: right; white-space: nowrap; }
+.wb-scale span:first-child { text-align: left; }
+
+.wb-scale {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font: .625rem/1.6 var(--bs-font-monospace, monospace);
+    color: var(--bs-secondary-color);
+}
+
+/* ---- notes, refusals, empty states ---- */
+.wb-note {
+    border-left: 3px solid var(--bs-border-color);
+    padding: .3rem .6rem;
+    font-size: .75rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    border-radius: 0 .25rem .25rem 0;
+}
+.wb-note.bad {
+    border-left-color: var(--vp-mal);
+    color: var(--bs-body-color);
+    background: color-mix(in srgb, var(--vp-mal) 8%, transparent);
+}
+.wb-note.warn {
+    border-left-color: var(--vp-conflict);
+    color: var(--bs-body-color);
+    background: color-mix(in srgb, var(--vp-conflict) 10%, transparent);
+}
+.wb-empty {
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .35rem;
+    padding: .7rem .8rem;
+    font-size: .75rem;
+    line-height: 1.55;
+    color: var(--bs-secondary-color);
+    background: var(--bs-body-bg);
+}
+
+/* ---- the bench ---- */
+.bench-value {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: .55rem;
+}
+.bench-value .v {
+    font: 700 1.0625rem/1.2 var(--bs-font-monospace, monospace);
+    letter-spacing: -.01em;
+}
+.bench-q {
+    display: flex;
+    align-items: flex-end;
+    gap: .55rem;
+    line-height: 1;
+}
+.bench-q .now {
+    font: 700 2.4rem/1 var(--bs-font-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+}
+.bench-q .from {
+    font: .75rem/1.4 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+    padding-bottom: .2rem;
+}
+.bench-axes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .1rem 1.5rem;
+    margin: .55rem 0 .1rem;
+    font-size: .75rem;
+}
+.bench-axes div {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .12rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--bs-border-color) 45%, transparent);
+}
+.bench-axes span { color: var(--bs-secondary-color); }
+
+/*
+ * The assessment is three axes — lean, relevance, quality (D11,
+ * 12-assessment.md). Only quality has a ledger, so only quality has
+ * arithmetic under it; drawing the other two as footnotes to that
+ * arithmetic taught the first reader of this mockup that a profile is
+ * quality weights. These three sit at one rank, and the ledger is
+ * labelled as belonging to one of them.
+ */
+.bench-ax3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .4rem;
+    margin: .1rem 0 .45rem;
+}
+.bench-ax3 .ax {
+    display: flex;
+    flex-direction: column;
+    gap: .05rem;
+    min-width: 0;
+    padding: .3rem .45rem .35rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .3rem;
+}
+.bench-ax3 .ax-led {
+    border-color: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-border-color));
+    background: color-mix(in srgb, var(--bs-primary) 5%, transparent);
+}
+.bench-ax3 .ax-n {
+    font: 600 .5625rem/1.5 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+.bench-ax3 .ax-v {
+    font-size: .9375rem;
+    line-height: 1.25;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.bench-ax3 .ax-was {
+    font: 400 .6875rem/1.3 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.bench-ax3 .ax-g {
+    font-size: .6875rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color);
+}
+.bench-rel {
+    font-size: .6875rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+    margin: 0 0 .35rem;
+}
+.bench-rel b { color: var(--bs-body-color); font-weight: 600; }
+.bench-meta { margin-top: .45rem; }
+
+/*
+ * The relevance axis has a magnitude — a shelf life — and the shipped
+ * value_relevance.ctp already draws it. Quality having the only bar was
+ * an accident of which axis the fixture carried a number for, not a
+ * property of the assessment.
+ */
+.ax-runway { margin-top: .25rem; }
+.ax-track {
+    position: relative;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
+}
+.ax-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-radius: 2px 0 0 2px;
+    background: var(--bs-correlation, var(--bs-secondary-color));
+}
+.ax-agemark {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 1px;
+    background: var(--bs-body-color);
+    opacity: .5;
+}
+.ax-runway-t {
+    display: block;
+    margin-top: .15rem;
+    font-size: .625rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color);
+}
+.ax-runway-t b { color: var(--bs-body-color); font-weight: 600; }
+.wb-tbl .ax-runway { margin-top: .15rem; max-width: 9rem; }
+
+/* Which axis a section configures. The rail is the only place that can
+ * say it, because it is the only place that lists all seven at once. */
+.wb-rail-ax {
+    display: block;
+    font: 600 .5625rem/1.5 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+.wb-rail-item.is-open .wb-rail-ax { color: var(--bs-primary); }
+.bench-sec {
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin: .85rem 0 .3rem;
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+}
+.bench-live {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--bs-primary);
+}
+.bench-live::before {
+    content: "";
+    width: .45rem;
+    height: .45rem;
+    border-radius: 50%;
+    background: var(--bs-primary);
+}
+
+/* ==================================================================
+ * The degradation, made rather than caveated.
+ *
+ * The workbench is a container, so this fires on the pane width and
+ * not on the window: at a 1280px MISP page the content column is about
+ * 1220px, and the same rules run inside the inset below the boards.
+ *
+ * What is given up, in order: the outline stops being a column and
+ * becomes a row of chips; the bench sheds evidence prose, the source
+ * and band chips, and the comparison set's lean and relevance columns.
+ * What is never given up: the bench itself, the value, the quality,
+ * the delta, the band, and every row that moved.
+ * ================================================================== */
+@container wb (max-width: 1400px) {
+    .wb {
+        grid-template-columns: minmax(0, 1fr) 344px;
+        grid-template-areas:
+            "lefthead benchhead"
+            "rail     bench"
+            "body     bench";
+        /* the bench spans two rows and is the taller half, so the chip row
+         * has to be told not to absorb its slack */
+        grid-template-rows: auto min-content 1fr;
+    }
+    .wb-flip {
+        grid-template-columns: 300px minmax(0, 1fr);
+        grid-template-areas:
+            "lefthead benchhead"
+            "body     bench";
+    }
+    .wb-rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--bs-border-color);
+        padding: .4rem .5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: .25rem;
+        align-items: center;
+    }
+    .wb-rail-title { display: none; }
+    .wb-rail-note  { display: none; }
+    .wb-rail-item {
+        width: auto;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 999px;
+        padding: .1rem .5rem;
+        font-size: .75rem;
+    }
+    .wb-rail-item.is-open {
+        border-color: var(--bs-primary);
+        background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
+    }
+    .wb-rail-item .c { margin-left: .3rem; }
+    .wb-narrow-only { display: revert !important; }
+    .wb-wide-only   { display: none !important; }
+    .bench-axes     { grid-template-columns: minmax(0, 1fr); }
+    .bench-ax3      { gap: .3rem; }
+    .bench-ax3 .ax  { padding: .25rem .35rem .3rem; }
+    .bench-ax3 .ax-v { font-size: .8125rem; }
+    .wb-panehead em { display: none; }
+    .wb-bench-inner { padding: .7rem .7rem 1rem; }
+}
+
+.wb-narrow-only { display: none; }
+
+/* one section open at a time */
+.wb-sec { display: none; }
+.wb-sec.is-open { display: block; }
+.wb-sec-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.wb-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: .55rem .9rem;
+    margin: .2rem 0 .3rem;
+}
+.wb-field label {
+    display: block;
+    font: 600 .6875rem/1.5 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.wb-field .help {
+    font-size: .6875rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+    margin: .15rem 0 0;
+}
+.wb-inline { display: flex; align-items: center; gap: .4rem; }
+
+/*
+ * A numeric setting says what it counts (3.18). The unit sits beside
+ * the input rather than inside the label, so the label stays the
+ * question and the unit stays the answer's scale.
+ */
+.wb-unit {
+    font-size: .6875rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+
+/*
+ * One sentence visible, the rest behind an `i` (4.2). A real tooltip on
+ * the page; here the browser's own, so the text is readable in a static
+ * mockup without a script.
+ */
+.wb-i {
+    display: inline-grid;
+    place-items: center;
+    width: .95rem;
+    height: .95rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 50%;
+    font: 700 .625rem/1 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    vertical-align: -1px;
+}
+.wb-i:hover, .wb-i:focus {
+    color: var(--bs-body-color);
+    border-color: var(--bs-secondary-color);
+}
+
+/*
+ * Types go into a bucket as chips, so the row is the bucket and not the
+ * type: four rows whatever the instance has, against 194 before.
+ */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .05rem .3rem .05rem .4rem;
+    margin: 0 .2rem .2rem 0;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .8rem;
+    background: var(--bs-tertiary-bg);
+    font: 500 .6875rem/1.6 var(--bs-font-monospace, monospace);
+    color: var(--bs-body-color);
+}
+.chip a {
+    color: var(--bs-secondary-color);
+    text-decoration: none;
+    font-family: var(--bs-font-sans-serif, system-ui);
+}
+.chip a:hover { color: var(--vp-mal); }
+.chip.is-muted {
+    opacity: .55;
+    border-style: dashed;
+}
+
+/*
+ * Which axis a sub-pane serves. The rail says it per section; the panes
+ * did not, which is how a reader hunting for "where is the lean
+ * decided" found neither of the two panes that decide it (3.15).
+ */
+.wb-ax {
+    margin-left: .45rem;
+    padding: 0 .3rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+    text-transform: lowercase;
+    letter-spacing: .02em;
+    vertical-align: 1px;
+}
+
+/*
+ * Each band threshold sits under the segment it starts, so the reading
+ * order matches the strip instead of contradicting it (3.10).
+ */
+.band-inputs {
+    position: relative;
+    height: 3.4rem;
+}
+.band-in {
+    position: absolute;
+    top: 0;
+    transform: translateX(-.35rem);
+}
+.band-in::before {
+    content: "";
+    position: absolute;
+    top: -.35rem;
+    left: .35rem;
+    width: 1px;
+    height: .35rem;
+    background: var(--bs-border-color);
+}
+.band-in label {
+    display: block;
+    font: 600 .6875rem/1.5 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+@media (max-width: 900px) {
+    .band-inputs { height: auto; display: flex; gap: 1rem; }
+    .band-in { position: static; transform: none; }
+    .band-in::before { display: none; }
+}
+
+/*
+ * The create path and the fork, as menus. Drawn open, because a mockup
+ * that hides a state behind a click is a mockup of a closed menu.
+ */
+.wb-menu { display: inline-block; }
+.wb-caret { font-size: .7em; opacity: .7; }
+.wb-menu-list {
+    margin-top: .3rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .375rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .3rem .9rem rgba(0, 0, 0, .09);
+    overflow: hidden;
+    max-width: 21rem;
+}
+.wb-menu-item {
+    display: flex;
+    gap: .55rem;
+    padding: .4rem .55rem;
+    text-decoration: none;
+    color: var(--bs-body-color);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.wb-menu-item:last-child { border-bottom: 0; }
+.wb-menu-item:hover { background: var(--bs-tertiary-bg); }
+.wb-menu-item i {
+    margin-top: .15rem;
+    color: var(--bs-secondary-color);
+    width: .9rem;
+    text-align: center;
+}
+.wb-menu-item b {
+    display: block;
+    font-size: .8125rem;
+    font-weight: 600;
+}
+.wb-menu-item em {
+    display: block;
+    font-size: .6875rem;
+    font-style: normal;
+    line-height: 1.4;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * A confirm, drawn as the state it is. The one-enabled invariant is
+ * only visible here, and what it does — disable, never delete — is the
+ * whole reason the confirm exists.
+ */
+.wb-confirm {
+    max-width: 34rem;
+    padding: .6rem .7rem;
+    border: 1px solid var(--bs-border-color);
+    border-left: 3px solid var(--bs-primary);
+    border-radius: .375rem;
+    background: var(--bs-tertiary-bg);
+    font-size: .8125rem;
+    line-height: 1.5;
+}
+.wb-confirm-head {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    margin-bottom: .35rem;
+    font-weight: 600;
+}
+.wb-confirm-head i { color: var(--bs-primary); }
+.wb-confirm-head em { font-style: normal; font-weight: 700; }
+
+/*
+ * The bench's value is searched for, not chosen from a fixed list: in
+ * the product it arrives as `?value=<b64>` or from the analyst's own
+ * pinned set, and a select over four implied that four was all there
+ * was (3.6).
+ */
+.bench-pick { margin: .4rem 0 .2rem; }
+.bench-quick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem;
+    margin-top: .35rem;
+}
+.bench-quick .chip {
+    margin: 0;
+    cursor: pointer;
+}
+.bench-quick .chip.is-on {
+    border-color: var(--bs-primary);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+
+/*
+ * Dropping the Group column removed the repetition and the control with
+ * it. `group` is declared per implementation and overridable per signal
+ * in the profile, and it is not derived from the id prefix, so the
+ * control survives as a row action (3.8).
+ */
+.wb-move {
+    margin-top: .2rem;
+    padding: 0 .3rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    background: transparent;
+    font: 600 .625rem/1.7 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.wb-move:hover {
+    color: var(--bs-body-color);
+    border-color: var(--bs-secondary-color);
+}
+.wb-grp-drop {
+    float: right;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: .45;
+}
+.chip-add {
+    padding: .05rem .45rem;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .8rem;
+    background: transparent;
+    font: 600 .6875rem/1.6 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.chip-add:hover {
+    color: var(--bs-body-color);
+    border-color: var(--bs-secondary-color);
+}
+
+/* The bucket table and the curve, side by side until there is no room. */
+.ttl-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    gap: 1rem 1.4rem;
+    align-items: start;
+}
+.ttl-def td, .ttl-def .fw-semibold { color: var(--bs-secondary-color); }
+.ttl-curve { margin: 0; max-width: 24rem; }
+.ttl-curve figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .4rem;
+    font-size: .75rem;
+    margin-bottom: .2rem;
+}
+.ttl-curve svg { width: 100%; height: auto; display: block; }
+.ttl-ax {
+    fill: none;
+    stroke: var(--bs-border-color);
+    stroke-width: 1;
+}
+.ttl-line {
+    fill: none;
+    stroke: var(--bs-primary);
+    stroke-width: 2;
+}
+.ttl-aging {
+    stroke: var(--bs-secondary-color);
+    stroke-width: 1;
+    stroke-dasharray: 2 2;
+}
+.ttl-here { fill: var(--bs-body-color); }
+.ttl-t {
+    font: 500 7px/1 var(--bs-font-sans-serif, system-ui);
+    fill: var(--bs-secondary-color);
+}
+.ttl-t.ttl-hl { fill: var(--bs-body-color); font-weight: 700; }
+
+/*
+ * Three states per module, so a checklist will not do (D17). The
+ * middle column is the state; `auto` is declarable and inert and says
+ * so rather than being drawn as though it ran.
+ */
+.mod-tbl .mod-state { width: 9.5rem; }
+.mod-inert {
+    font-size: .625rem;
+    color: var(--vp-unknown);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 700;
+}
+
+/* ==================================================================
+ * What the wiring adds.
+ *
+ * The mockup drew a reading of a profile; this is an editor. Three
+ * things follow: the key/value chip has to hold an input, a map row
+ * has to be removable, and the bench has to be able to say that it is
+ * behind the form while the engine catches up.
+ * ================================================================== */
+
+/*
+ * The chip keeps its density with a field inside it: no border, no
+ * padding of its own, and the chip's own border is the one the reader
+ * sees. Sized to its content so a two-character weight does not get a
+ * six-character box.
+ */
+.kv input.form-control,
+.kv select.form-select {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    height: auto;
+    min-height: 0;
+    width: 3.4rem;
+    max-width: 5rem;
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: .6875rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: right;
+    box-shadow: none;
+}
+.kv input.form-control:focus,
+.kv select.form-select:focus {
+    outline: 1px solid var(--bs-primary);
+    outline-offset: 1px;
+}
+.kv k label { cursor: text; margin: 0; }
+
+/* Removing a map row. A map is written whole on save, so this is the
+ * only gesture that can take a key out of one. */
+.wb-drop {
+    border: 0;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: .875rem;
+    line-height: 1;
+    padding: .1rem .3rem;
+    border-radius: .25rem;
+}
+.wb-drop:hover {
+    color: var(--vp-mal-ink);
+    background: color-mix(in srgb, var(--vp-mal) 12%, transparent);
+}
+
+/*
+ * The bench while the engine is recomputing it. Dimmed rather than
+ * replaced: the previous numbers are still true of the previous
+ * document, and blanking them would make every keystroke flash.
+ */
+.wb-bench.is-recomputing { opacity: .55; transition: opacity .12s ease-in; }
+
+/* A module's three states, one row each. */
+.mod-states { display: flex; flex-direction: column; gap: .25rem; }
+.mod-row {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .75rem;
+}
+.mod-row .form-select { max-width: 9rem; }
+.mod-row.is-off { opacity: .6; }
+
+/* A bucket's types, as chips that toggle. */
+.ttl-chips { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+.ttl-chips label.chip { cursor: pointer; }

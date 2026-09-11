@@ -23,6 +23,7 @@
  *                       shown in place of the storage note
  */
 $metaRule = $metaRule ?? null;
+$valueB64 = $valueB64 ?? null;
 
 /*
  * Literally true: there is no stored verdict, so the timestamp is this
@@ -41,8 +42,29 @@ $parts = array(
  * computation that did not happen.
  */
 if (!empty($verdict['ledger'])) {
-    $parts[] = h(__('Weighting profile')) . ' <span class="font-monospace'
-        . ' vp-meta-strong">' . h($verdict['profile']) . '</span>';
+    /*
+     * A link when the assessment knows which profile it read, plain
+     * text when it does not. The editor is where an analyst answers
+     * *"why is it weighted like that"*, and a link to a profile the
+     * page did not actually use would answer it wrongly.
+     */
+    $named = '<span class="font-monospace vp-meta-strong">'
+        . h($verdict['profile']) . '</span>';
+    if (!empty($verdict['profile_id'])) {
+        $named = $this->Html->link(
+            $named,
+            array(
+                'controller' => 'analystProfiles',
+                'action' => 'view',
+                $verdict['profile_id'],
+                '?' => $valueB64 === null
+                    ? array()
+                    : array('value' => $valueB64),
+            ),
+            array('escape' => false)
+        );
+    }
+    $parts[] = h(__('Weighting profile')) . ' ' . $named;
 }
 
 $parts[] = $metaRule === null

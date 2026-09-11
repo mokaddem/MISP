@@ -38,6 +38,28 @@ $rest = count($signals) - count($top);
 $confidenceLevels = array('none' => 0, 'low' => 1, 'medium' => 2,
     'high' => 3);
 $confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
+
+/*
+ * The profile that weighted this value, as a link to the page that
+ * says what is in it — `view` for one the reader cannot change,
+ * because the editor itself refuses an edit that is not theirs and
+ * sending them there to be refused is worse than sending them to read
+ * it. Plain text when the assessment names no profile id, which is
+ * what a render that did not read one looks like.
+ */
+$weighting = h($verdict['profile']);
+if (!empty($verdict['profile_id'])) {
+    $weighting = $this->Html->link(
+        $weighting,
+        array(
+            'controller' => 'analystProfiles',
+            'action' => 'view',
+            $verdict['profile_id'],
+            '?' => empty($valueB64) ? array() : array('value' => $valueB64),
+        ),
+        array('escape' => false)
+    );
+}
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
      style="--vp-panel-color: var(--primary);
@@ -51,10 +73,10 @@ $confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
         'panelColor' => 'var(--primary)',
         'panelSub' => empty($verdict['ledger'])
             ? h(__('Nothing to weigh'))
-            : h(sprintf(
-                __('Weighting profile %s'),
-                $verdict['profile']
-            )),
+            : sprintf(
+                h(__('Weighting profile %s')),
+                $weighting
+            ),
     )) ?>
 
     <div class="p-3 d-flex flex-column gap-3">

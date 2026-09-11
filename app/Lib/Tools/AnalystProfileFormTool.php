@@ -97,6 +97,33 @@ class AnalystProfileFormTool
     );
 
     /**
+     * Which of the three axes each section configures.
+     *
+     * Here rather than in a template because every surface that lists
+     * the sections has to say the same thing about them, and because a
+     * wrong entry teaches the wrong thing on every page. Six of the
+     * seven reach exactly one axis, which is the fastest available
+     * proof that a profile is not a set of quality weights.
+     *
+     * `thresholds` reaches two: the quality bands are cut from the
+     * score, and `lean_supermajority` lives in the same section. It is
+     * the one section whose blocks carry their own tag as well.
+     *
+     * A section configuring an axis does not mean the axis reads the
+     * section — relevance reads none of the others and none of them
+     * reads it, and enrichment emits no ledger row at all.
+     */
+    const SECTION_AXIS = array(
+        'signals' => 'quality',
+        'thresholds' => 'lean + quality',
+        'escalations' => 'lean',
+        'exclusions' => 'quality',
+        'relevance' => 'relevance',
+        'reference' => 'quality — trust weighting',
+        'enrichment' => 'no axis — context',
+    );
+
+    /**
      * The whole view-model for `view` and `edit`.
      *
      * @param array $parameters The profile's decoded `parameters`
@@ -112,8 +139,32 @@ class AnalystProfileFormTool
         foreach (self::SECTION_ORDER as $id) {
             $method = 'section' . ucfirst($id);
             $sections[$id] = $this->$method($parameters, $sources);
+            $sections[$id]['axis'] = $this->axisLabel($id);
         }
         return $sections;
+    }
+
+    /**
+     * The axis tag a section carries, translated.
+     *
+     * The constant holds the keys so a caller can compare them; this
+     * holds the words so `__()` sees a literal.
+     *
+     * @param string $id
+     * @return string
+     */
+    private function axisLabel($id)
+    {
+        $labels = array(
+            'quality' => __('quality'),
+            'lean + quality' => __('lean + quality'),
+            'lean' => __('lean'),
+            'relevance' => __('relevance'),
+            'quality — trust weighting' => __('quality — trust weighting'),
+            'no axis — context' => __('no axis — context'),
+        );
+        $key = self::SECTION_AXIS[$id];
+        return isset($labels[$key]) ? $labels[$key] : $key;
     }
 
     /**
@@ -439,6 +490,7 @@ class AnalystProfileFormTool
                     'kind' => 'fields',
                     'id' => 'lean',
                     'title' => __('The lean'),
+                    'axis' => __('lean'),
                     'fields' => array(
                         array(
                             'key' => 'lean_supermajority',
@@ -469,6 +521,7 @@ class AnalystProfileFormTool
                     'kind' => 'fields',
                     'id' => 'quality',
                     'title' => __('The quality bands'),
+                    'axis' => __('quality'),
                     'fields' => array(
                         array(
                             'key' => 'high',
@@ -762,9 +815,19 @@ class AnalystProfileFormTool
                     ),
                 ),
             );
+            /*
+             * The entry itself, minus the two keys that are not
+             * settings: `id` is the entry's address and `enabled` is
+             * the row's own checkbox, drawn above. Passed whole, both
+             * came back as *undeclared* keys — so the pane offered to
+             * edit an exclusion's id, and posted `enabled` twice under
+             * the same name.
+             */
+            $stored = $entry === null ? array() : $entry;
+            unset($stored['id'], $stored['enabled']);
             foreach ($this->generatedFields(
                 $declaration['schema'],
-                $entry === null ? array() : $entry,
+                $stored,
                 array('exclusions', $id)
             ) as $field) {
                 $item['fields'][] = $field;
@@ -2266,6 +2329,95 @@ class AnalystProfileFormTool
     }
 
     /**
+     * The parts of a stored document that are in a shape an older
+     * version wrote, and what saving will do to them.
+     *
+     * Two sections are read through a shim — `relevance` since D18
+     * gave TTLs four buckets, `enrichment` since D19 renamed the
+     * posture — and a shim is a *read*: the stored document keeps the
+     * old keys until something writes it. The editor is that
+     * something. It renders the shimmed reading, so posting any
+     * section back rewrites both sections into the current shape and
+     * moves `revision`, on a save the analyst may believe changed
+     * nothing.
+     *
+     * That is the right outcome and a bad surprise, so the page says
+     * it first. Detected from the legacy keys themselves rather than
+     * by merging a document to see what comes out: the keys are what
+     * the shim reads, so they are what can be stated.
+     *
+     * @param array $parameters
+     * @return array Sentences, one per section still in an old shape
+     */
+    public function legacyShapes(array $parameters)
+    {
+        $notes = array();
+        if (isset($parameters['relevance']['ttl_days'])) {
+            $notes[] = __(
+                'This profile keeps shelf life as one day count per'
+                . ' attribute type, which is the shape before the four'
+                . ' buckets. It is read exactly — every named type'
+                . ' counts as its own override, so nothing has changed'
+                . ' shelf life — and the pane below shows that reading.'
+                . ' Saving any section writes the buckets and drops the'
+                . ' old key.'
+            );
+        }
+        $enrichment = isset($parameters['enrichment'])
+            && is_array($parameters['enrichment'])
+            ? $parameters['enrichment']
+            : array();
+        if (isset($enrichment[ValueEnrichmentTool::POSTURE_KEY_LEGACY])) {
+            $notes[] = sprintf(
+                __('This profile still calls the module posture `%1$s`.'
+                    . ' It is read as `%2$s`, which is what it always'
+                    . ' did, and saving any section renames it.'),
+                ValueEnrichmentTool::POSTURE_KEY_LEGACY,
+                'locality_posture'
+            );
+        }
+        return $notes;
+    }
+
+    /**
+     * What a field is called in the POST.
+     *
+     * The naming convention is the class docblock's, and it lives here
+     * rather than in a template because `merge()` is the reader: one
+     * writer for the name and one for the read, and neither has to
+     * remember what the other does with a dot or a pipe.
+     *
+     * @param array $path The field's `path`, from the view-model
+     * @param array $extra Segments appended after it — `__present`,
+     *                     `__remove`, a map key
+     * @return string
+     */
+    public static function fieldName(array $path, array $extra = array())
+    {
+        $name = 'data[AnalystProfile][parameters]';
+        foreach (array_merge($path, $extra) as $segment) {
+            $name .= '[' . $segment . ']';
+        }
+        return $name;
+    }
+
+    /**
+     * A DOM id for the same field, so a label can point at it.
+     *
+     * @param array $path
+     * @param array $extra
+     * @return string
+     */
+    public static function fieldId(array $path, array $extra = array())
+    {
+        return 'ap-' . preg_replace(
+            '/[^a-zA-Z0-9_-]+/',
+            '-',
+            implode('-', array_merge($path, $extra))
+        );
+    }
+
+    /**
      * A posted form applied to the stored document.
      *
      * **A section the form did not post is untouched.** The editor edits
@@ -2331,6 +2483,21 @@ class AnalystProfileFormTool
                     break;
                 }
             }
+        }
+        /*
+         * D19's rename, for the same reason. `ValueEnrichmentTool`
+         * reads `locality_posture` and falls back to `cost_posture`,
+         * so a document carrying both is not ambiguous — but the old
+         * key is then a setting nothing reads, sitting in the raw
+         * document under a name that says it is about cost. A save
+         * that wrote the new name takes the old one out with it.
+         */
+        if (isset($merged['enrichment']['locality_posture'])
+            && isset($merged['enrichment'][
+                ValueEnrichmentTool::POSTURE_KEY_LEGACY])
+        ) {
+            unset($merged['enrichment'][
+                ValueEnrichmentTool::POSTURE_KEY_LEGACY]);
         }
         return $merged;
     }

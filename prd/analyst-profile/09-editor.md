@@ -1,7 +1,9 @@
 # PRD: Analyst Profile — phase 8, the editor
 
-**8a built 2026-09-07 (§7d); 8b briefed and not started; 8c blocked on
-8b.** Depends on phase 1
+**Built. 8a 2026-09-07 (§7d), 8b 2026-09-08
+([`09b-decision.md`](09b-decision.md)) with a revision round closing
+2026-09-11 ([`09b-revisions.md`](09b-revisions.md)), 8c 2026-09-11
+([`09c-wiring.md`](09c-wiring.md)).** Depends on phase 1
 ([`02-store.md`](02-store.md)) for the actions and phases 2–7 for the sections
 it edits.
 
@@ -22,7 +24,7 @@ two halves fail in opposite directions when they are built together.
 |---|---|---|
 | **8a — the contract** — *built* | The controller, the ACL, the mechanics, the validation, and every action's REST representation. **No templates.** | `AnalystProfilesController`, `AnalystProfileFormTool`, `ValueVerdictDiffTool`, the ACL block, the view-model for every page, real JSON fixtures dumped from the dev instance, and the mockup frame and checker 8b draws into |
 | **8b — the prototypes** | Three deliberately different designs for the same pages, as standalone HTML against 8a's fixtures. Nothing wired. | `mockups/`, published for comparison; one of them is picked and refined |
-| **8c — the wiring** | The picked design implemented as `.ctp` templates against 8a's view-model, plus the links in from the verdict | `View/…/AnalystProfiles/`, `value_verdict_meta.ctp`, `value_verdict_card.ctp`, the harness and the live probe |
+| **8c — the wiring** — *built* | The picked design implemented as `.ctp` templates against 8a's view-model, plus the links in from the verdict | `View/…/AnalystProfiles/` (six pages, seventeen elements), `analyst-profile.css` and `.js`, `value-palette.css`, the two verdict links, and three checks: a render harness, an HTTP probe and a browser check |
 
 Two reasons for that order, and each is a failure this project has already
 paid for once:
@@ -125,6 +127,14 @@ blank table.
 > mockup draws what is built — the arrived-from row is labelled
 > *benched, not pinned* and carries the Pin button — so the drawing and
 > the code agree while the spec sentence does not.
+>
+> **Decided 2026-09-11, building 8c: the built behaviour stands, and
+> this sentence is the one that was wrong.** A pinned set is a
+> shortlist the analyst curates; a page load is not a decision, and a
+> set that grows by being visited is a set nobody trusts to mean
+> anything. The cost is that a first visit shows the empty state, and
+> the empty state is drawn and says what pinning is for
+> (`09c-wiring.md` §4.4).
 
 What §2.1 asked for survives that, because the property it wanted was never
 the specific addresses: it was **more than one value, spanning more than one
@@ -383,6 +393,12 @@ Owned by [`09b-prototypes.md`](09b-prototypes.md) §6 — the kit assertions,
 both themes, and the coverage each candidate has to demonstrate.
 
 ### 7c. The wiring
+
+**Done 2026-09-11**, item by item, in
+[`09c-wiring.md`](09c-wiring.md) §7.10. Item 5 is the exception and is
+deferred to phase 9 with the reason in §4.3 there: it asks for a fork
+made from the value page to move that page's score, and the value page
+does not read the engine yet.
 
 1. Every page renders in both themes, with `--vp-mal` asserted to resolve
    before anything else is asserted (`prd/phase7/README.md`'s first trap).

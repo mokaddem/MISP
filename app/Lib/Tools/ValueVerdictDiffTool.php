@@ -1,4 +1,5 @@
 <?php
+App::uses('ValueRelevanceTool', 'Tools');
 
 /**
  * What one profile does to a value that another does not.
@@ -163,9 +164,28 @@ class ValueVerdictDiffTool
                 isset($after[$path]) ? $after[$path] : null
             );
         }
+        /*
+         * The relevance axis travels as three things at once, because a
+         * word is not enough for the surface that draws it: the
+         * comparable state a diff can test, the label a reader sees,
+         * and the runway — the shelf the value page already draws. A
+         * caller handed only the state reduces the axis to a string for
+         * the second time, which is how every candidate in 8b came to
+         * render a clock as a word while quality got a bar.
+         */
         $axes['relevance'] = self::pair(
             self::relevanceState($before),
             self::relevanceState($after)
+        ) + array(
+            'label' => ValueRelevanceTool::stateLabel(
+                isset($after['relevance']['state'])
+                    ? $after['relevance']['state']
+                    : null
+            ),
+            'runway' => isset($after['relevance'])
+                && is_array($after['relevance'])
+                ? $after['relevance']
+                : null,
         );
         $axes['fired'] = self::pair(
             isset($before['signals']['fired'])

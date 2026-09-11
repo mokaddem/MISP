@@ -1,0 +1,55 @@
+/*
+ * The verdict palette, shared.
+ *
+ * Two pages speak the three roles a verdict has: the Value Profile and
+ * the Analyst Profile editor. One declaration, loaded by both, because
+ * the alternative is two files drifting a shade apart on the one pair
+ * of colours whose meaning is load-bearing.
+ */
+
+/* ==================================================================
+ * Verdict palette
+ * ------------------------------------------------------------------
+ * The three roles a verdict speaks in, named once. Two of them already
+ * exist in MISP's palette — the benign case is `--report`, the same
+ * green the artboard uses — and only the conflict amber is new, so it
+ * is declared here rather than borrowed from a Bootstrap state that
+ * means something else.
+ *
+ * `-ink` is the text tone that sits on a tint of the same hue. In dark
+ * they invert: the tint carries more of the hue and the ink lightens,
+ * because the artboards are light-only and give no guidance here.
+ * ================================================================== */
+
+:root {
+    --vp-conflict: #f39a1f;
+    --vp-conflict-ink: #8a5a04;
+    --vp-mal: var(--bs-danger);
+    --vp-mal-ink: #a71d2a;
+    --vp-ben: var(--report);
+    --vp-ben-ink: #2f6b45;
+
+    /*
+     * The quiet role, for a verdict that names no state. It is a grey
+     * from the scale rather than `--bs-secondary-color`, which is a
+     * text colour and inverts between the themes — used as a chip fill
+     * it turns light in dark mode and takes the white label with it.
+     */
+    --vp-unknown: var(--bs-gray-600);
+
+    /*
+     * Which way a signal points, as opposed to which hue that is. A ▲
+     * row supports the disposition the card states, so on a BENIGN
+     * value `with` is the green and `against` is the red. The default
+     * pair is the malicious reading; `ValueDisposition::directionStyle`
+     * swaps them on the cards that need it.
+     */
+    --vp-dir-with: var(--vp-mal);
+    --vp-dir-against: var(--vp-ben);
+}
+
+[data-bs-theme="dark"] {
+    --vp-conflict-ink: #f0b657;
+    --vp-mal-ink: #f1919b;
+    --vp-ben-ink: #8fd0a7;
+}

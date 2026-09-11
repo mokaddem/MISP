@@ -190,6 +190,12 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
    one in force, so the simulate board's before column draws a profile
    the index says is not in force.
 
+   **Dissolved 2026-09-11.** It was a fixture's inconsistency and the
+   pages 8c built read the instance: `simulate` resolves the profile
+   in force for the reader and names it, and the index names the same
+   one because both call `resolveFor()`. Nothing carried the
+   discrepancy across.
+
    The other one is closed, and was misdiagnosed here: the missing
    signal was recorded as a view-model defect that would block 8c, and
    the view-model was never at fault. `sectionSignals()` unions the
@@ -246,6 +252,11 @@ exactly — lean `threat` / `benign` / `contested` / `none`; relevance
 
 
 - **The fixture and the live page disagree on two labels.**
+  **Closed 2026-09-11** (`09c-wiring.md` §4.2): the label has one
+  writer, `ValueRelevanceTool::stateLabel()`, which all three render
+  sites now read, and the editor prints the label with the uncertainty
+  marked separately rather than composing a second reading of the
+  axis. The original note follows.
   `simulate.json` calls `45.155.205.233` and `1.1.1.1`
   *"expired · uncertain"*; the instance's own relevance card renders both
   as plain *"expired"*. The runway figures were taken from the instance

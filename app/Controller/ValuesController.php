@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('MispTheme', 'MispTheme');
 App::uses('ValueProfileFixture', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
 
@@ -139,15 +140,18 @@ class ValuesController extends AppController
      * `Overmind`, so naming it here is a statement of where the files
      * are rather than a preference overriding the reader's.
      *
-     * A theme the user did choose is left alone: this is a floor, not a
-     * ceiling.
+     * A theme the user did choose is left alone **only if it carries
+     * these views**. It is a floor, not a ceiling — but the first
+     * version tested for *no theme at all*, and an analyst whose
+     * `ui_theme` is `Default` has a theme, so the floor never fired
+     * and every one of them got a 500 instead of a value page.
      *
      * @return void
      */
     public function beforeRender()
     {
         parent::beforeRender();
-        if (empty($this->theme)) {
+        if (!MispTheme::carries($this->theme, 'Values')) {
             $this->theme = self::THEME;
             $this->viewClass = 'Theme';
         }

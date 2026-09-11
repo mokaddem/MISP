@@ -17,6 +17,30 @@ class MispTheme
     }
 
     /**
+     * Whether a theme carries an implementation of one controller's
+     * views.
+     *
+     * A page whose templates exist under exactly one theme is a fact
+     * about where its files are, not a preference: rendering it under
+     * a theme that does not have it throws `MissingViewException` and
+     * the reader gets a 500 rather than a page. A controller with one
+     * implementation asks this before leaving the reader's own theme
+     * in place.
+     *
+     * @param string|null $theme
+     * @param string $controller The view directory, e.g. `Values`
+     * @return bool
+     */
+    public static function carries($theme, $controller)
+    {
+        if (empty($theme) || $theme === 'Default') {
+            return false;
+        }
+        return is_dir(APP . 'View' . DS . 'Themed' . DS . $theme . DS
+            . $controller);
+    }
+
+    /**
      * Get all available themes as MispTheme objects
      *
      * @param string $currentActiveTheme The name of the currently active theme

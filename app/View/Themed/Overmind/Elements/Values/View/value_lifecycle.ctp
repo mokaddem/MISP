@@ -30,17 +30,12 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueRelevanceTool', 'Tools');
 $relevance = $valueProfile['relevance'];
 $warninglists = $valueProfile['warninglists'];
 $checked = $valueProfile['warninglists_checked'];
 $correlations = $valueProfile['correlations'];
 
-$stateLabels = array(
-    'current' => __('current'),
-    'aging' => __('aging'),
-    'expired' => __('expired'),
-    'uncertain' => __('timeline uncertain'),
-);
 $state = $relevance['state'];
 
 $subtitle = $state === null
@@ -67,7 +62,7 @@ $subtitle = $state === null
             <div class="vp-shelf vp-shelf-<?= h($state) ?>">
                 <div class="vp-shelf-head">
                     <span class="vp-shelf-state">
-                        <?= h($stateLabels[$state]) ?>
+                        <?= h(ValueRelevanceTool::stateLabel($state)) ?>
                     </span>
                     <span class="vp-shelf-days">
                         <?= h(sprintf(

@@ -1,0 +1,734 @@
+<?php
+App::uses('View', 'View');
+App::uses('ThemeView', 'View');
+App::uses('Controller', 'Controller');
+App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueVerdictDiffTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueEnrichmentTool', 'Tools');
+App::uses('ValueUrlTool', 'Tools');
+
+/**
+ * Phase 8c's templates, rendered and asserted with no HTTP session.
+ *
+ * 8a proved the view-model and `09a-contract-http-probe.sh` proves the
+ * transport. What only a render can see is whether the **markup** says
+ * what the arrays mean: whether a signal's points reach a form that
+ * posts back the same document, whether an empty diff says *no
+ * change* rather than showing a blank table, and whether the relevance
+ * axis prints the label the value page prints or the key underneath
+ * it.
+ *
+ * The round-trip is the check this file exists for. §7c item 4: render
+ * the form, post it back unchanged, and the stored `points` map must
+ * be byte-identical. A form that silently rewrites a document it did
+ * not understand is the one failure an editor must not have, and it is
+ * invisible to every assertion about an array.
+ *
+ * **Not part of the application.** Copy it in for the duration:
+ *
+ *   cp prd/analyst-profile/09c-wiring-harness.php \
+ *      app/Console/Command/AnalystWiringShell.php
+ *   app/Console/cake AnalystWiring all 1
+ *   rm app/Console/Command/AnalystWiringShell.php
+ */
+class AnalystWiringShell extends AppShell
+{
+    public $uses = array('User', 'AnalystProfile');
+
+    private $checks = 0;
+    private $failures = 0;
+
+    /**
+     * cake AnalystWiring all <userId> [value]
+     */
+    public function all()
+    {
+        $user = $this->User->getAuthUser((int)$this->args[0]);
+        $value = isset($this->args[1]) ? $this->args[1] : '8.8.8.8';
+        Configure::write('CurrentUserId', $user['id']);
+        Configure::write('debug', 2);
+
+        $this->out(sprintf('reader: %s · value: %s', $user['email'], $value));
+
+        $this->sectionRoundTrip($user);
+        $this->sectionLegacyUpgrade($user);
+        $this->sectionDiff($user, $value);
+        $this->sectionRelevance($user, $value);
+        $this->sectionEmptyStates();
+        $this->sectionPalette();
+        $this->sectionReadOnly($user, $value);
+
+        $this->out('');
+        $this->out(sprintf('%d checks, %d failures',
+            $this->checks, $this->failures));
+        if ($this->failures > 0) {
+            $this->_stop(1);
+        }
+    }
+
+    /* ============================================================
+     * §7c.4 — the form round-trips
+     * ============================================================ */
+
+    /**
+     * Render the editor for the shipped default, read every field name
+     * and value back out of the markup, parse them the way PHP parses
+     * a POST, and merge them onto the stored document.
+     *
+     * The document that comes out must equal the one that went in.
+     * Anything else means the form dropped a key it could not label,
+     * cast a number to a string, or rewrote a list as a map — and the
+     * analyst would only find out when their assessment moved.
+     */
+    private function sectionRoundTrip(array $user)
+    {
+        $this->out('');
+        $this->out('== the generated form round-trips ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        if ($profile === null) {
+            $this->fail('no profile in force to round-trip');
+            return;
+        }
+        $stored = $profile['parameters'];
+        $html = $this->renderWorkbench($user, $profile, null, true);
+        if (strpos($html, 'EXCEPTION') === 0) {
+            $this->fail('the editor did not render: '
+                . substr($html, 0, 400));
+            return;
+        }
+        $posted = $this->postedFrom($html);
+        $this->ok(!empty($posted['signals']),
+            sprintf('the form posts %d sections',
+                count($posted)));
+
+        $form = new AnalystProfileFormTool();
+        $merged = $form->merge($stored, $posted);
+
+        foreach (array('signals', 'escalations', 'exclusions') as $name) {
+            $this->compareEntries($name, $stored, $merged);
+        }
+        foreach (array('thresholds', 'relevance', 'reference',
+            'enrichment') as $name
+        ) {
+            $this->compareSection($name, $stored, $merged);
+        }
+
+        $this->ok(
+            $this->canonical($merged) === $this->canonical($stored),
+            'the whole document comes back identical, so revision would'
+                . ' not move'
+        );
+        if ($this->canonical($merged) !== $this->canonical($stored)) {
+            $this->diffDocuments($stored, $merged);
+        }
+    }
+
+    /* ============================================================
+     * And the same form over a document an older version wrote
+     * ============================================================ */
+
+    /**
+     * `relevance` and `enrichment` are read through a shim — D18 gave
+     * TTLs four buckets, D19 renamed the posture — so the editor
+     * renders the shimmed reading and posting any section back writes
+     * the current shape. That upgrade is the design; what has to be
+     * true of it is that it is **lossless**, that it **settles** in
+     * one pass, and that the page **says so** before the analyst
+     * presses Save on what they believe is a no-op.
+     *
+     * Built here rather than waited for: whether the instance happens
+     * to hold a legacy profile is not something a check should depend
+     * on, and once `updateDefaults()` has run it never does.
+     */
+    private function sectionLegacyUpgrade(array $user)
+    {
+        $this->out('');
+        $this->out('== a document an older version wrote ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $form = new AnalystProfileFormTool();
+
+        $legacy = $profile['parameters'];
+        $shelf = ValueRelevanceTool::section(array('parameters' => $legacy));
+        $legacy['relevance']['ttl_days'] = $shelf['ttl_days']
+            + array('default' => $shelf['ttl_default']);
+        unset($legacy['relevance']['ttl_buckets'],
+            $legacy['relevance']['ttl_types'],
+            $legacy['relevance']['ttl_overrides'],
+            $legacy['relevance']['ttl_default']);
+        if (isset($legacy['enrichment']['locality_posture'])) {
+            $legacy['enrichment'][ValueEnrichmentTool::POSTURE_KEY_LEGACY]
+                = $legacy['enrichment']['locality_posture'];
+            unset($legacy['enrichment']['locality_posture']);
+        }
+
+        $notes = $form->legacyShapes($legacy);
+        $this->ok(count($notes) === 2,
+            sprintf('the editor names %d older shapes before a save',
+                count($notes)));
+
+        $stale = $profile;
+        $stale['parameters'] = $legacy;
+        $posted = $this->postedFrom(
+            $this->renderWorkbench($user, $stale, null, true));
+        $upgraded = $form->merge($legacy, $posted);
+
+        $this->ok($this->canonical($upgraded) !== $this->canonical($legacy),
+            'and a save rewrites it into the current shape');
+        $this->ok(!isset($upgraded['relevance']['ttl_days']),
+            'dropping the flat TTL map rather than leaving both');
+        $this->ok(isset($upgraded['relevance']['ttl_buckets']),
+            'and writing the buckets');
+
+        $before = ValueRelevanceTool::section(array('parameters' => $legacy));
+        $after = ValueRelevanceTool::section(array('parameters' => $upgraded));
+        foreach (array('ttl_days', 'ttl_default', 'clock', 'type_rule',
+            'decay_speed', 'aging_fraction', 'lag_uncertain_days') as $key
+        ) {
+            $this->ok(
+                $this->canonical($before[$key])
+                    === $this->canonical($after[$key]),
+                sprintf('the upgrade leaves relevance.%s alone', $key)
+            );
+        }
+
+        $settled = $form->merge($upgraded, $this->postedFrom(
+            $this->renderWorkbench($user,
+                array('parameters' => $upgraded) + $profile, null, true)
+        ));
+        $this->ok(
+            $this->canonical($settled) === $this->canonical($upgraded),
+            'and the upgraded document round-trips byte-identical'
+        );
+        if ($this->canonical($settled) !== $this->canonical($upgraded)) {
+            $this->diffDocuments($upgraded, $settled);
+        }
+        $this->ok(empty($form->legacyShapes($upgraded)),
+            'with nothing left for the notice to say');
+    }
+
+    /**
+     * One list section, entry by entry.
+     */
+    private function compareEntries($name, array $stored, array $merged)
+    {
+        $before = $this->byId(isset($stored[$name]) ? $stored[$name] : array());
+        $after = $this->byId(isset($merged[$name]) ? $merged[$name] : array());
+        $this->ok(array_keys($before) === array_keys($after),
+            sprintf('%s keeps its %d entries, in order',
+                $name, count($before)));
+        foreach ($before as $id => $entry) {
+            if (!isset($after[$id])) {
+                $this->fail(sprintf('%s.%s vanished', $name, $id));
+                continue;
+            }
+            if (json_encode($entry) !== json_encode($after[$id])) {
+                $this->fail(sprintf('%s.%s changed: %s -> %s',
+                    $name, $id, json_encode($entry),
+                    json_encode($after[$id])));
+            }
+        }
+        $this->ok(true, sprintf('%s: every entry byte-identical', $name));
+    }
+
+    private function compareSection($name, array $stored, array $merged)
+    {
+        $before = isset($stored[$name]) ? $stored[$name] : array();
+        $after = isset($merged[$name]) ? $merged[$name] : array();
+        $same = $this->canonical($before) === $this->canonical($after);
+        $this->ok($same, sprintf('%s is byte-identical', $name));
+        if (!$same) {
+            foreach (array_unique(array_merge(array_keys((array)$before),
+                array_keys((array)$after))) as $key
+            ) {
+                $a = isset($before[$key]) ? $before[$key] : null;
+                $b = isset($after[$key]) ? $after[$key] : null;
+                if ($this->canonical($a) === $this->canonical($b)) {
+                    continue;
+                }
+                $this->out(sprintf('        %s.%s : %s  ->  %s',
+                    $name, $key,
+                    substr($this->canonical($a), 0, 160),
+                    substr($this->canonical($b), 0, 160)));
+            }
+        }
+    }
+
+    /* ============================================================
+     * §7c.2, §7c.3 — the diff, and what it says when nothing moved
+     * ============================================================ */
+
+    private function sectionDiff(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the diff, and the direction pair ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        if ($profile === null) {
+            $this->fail('no profile in force');
+            return;
+        }
+        $this->loadModel('ValueProfile');
+        $engine = new ValueVerdictTool($this->ValueProfile);
+        $context = $this->ValueProfile->verdictContextFor($user, $value,
+            $profile);
+        $before = $engine->assess($context, $profile);
+
+        $same = ValueVerdictDiffTool::diff($before, $before);
+        $html = $this->renderElement($user, 'AnalystProfiles/diff_table',
+            array('detail' => $same, 'full' => false));
+        $this->ok(stripos($html, 'No change.') !== false,
+            'an identity diff renders as "no change", not a blank table');
+        $this->ok(strpos($html, '<tbody>') === false,
+            'and draws no table at all');
+
+        /*
+         * One weight changed, which is the case the whole simulator
+         * exists for. `reporting.independent_orgs` is capped on this
+         * value, so the cap is what moves the row — a lowered per-unit
+         * weight would not, and a check that used one would pass for
+         * the wrong reason.
+         */
+        $candidate = $profile;
+        $entries = $candidate['parameters']['signals'];
+        $touched = null;
+        foreach ($entries as $index => $entry) {
+            if ($entry['id'] === 'reporting.independent_orgs') {
+                $candidate['parameters']['signals'][$index]['points']['cap']
+                    = (int)($entry['points']['cap'] / 2);
+                $touched = $entry['id'];
+            }
+        }
+        $after = $engine->assess($context, $candidate);
+        $moved = ValueVerdictDiffTool::diff($before, $after);
+        $this->ok(!empty($moved['moved']),
+            sprintf('halving one cap moves %d row(s): %s',
+                count($moved['moved']), implode(', ', $moved['moved'])));
+        $this->ok(in_array($touched, $moved['moved'], true),
+            'and the row that moved is the one whose weight changed');
+        $this->ok(!empty($moved['sums']['ok']),
+            'both columns still sum to their own quality exactly');
+
+        $html = $this->renderElement($user, 'AnalystProfiles/diff_table',
+            array('detail' => $moved, 'full' => true));
+        $this->ok(strpos($html, 'd-dn') !== false
+            || strpos($html, 'd-up') !== false,
+            'the delta column carries a direction class');
+        $this->ok(strpos($html, 'text-danger') === false
+            && strpos($html, 'text-success') === false,
+            'and not a raw Bootstrap colour');
+    }
+
+    /* ============================================================
+     * The relevance axis prints a label and a shelf, not a key
+     * ============================================================ */
+
+    private function sectionRelevance(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the relevance axis ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $this->loadModel('ValueProfile');
+        $engine = new ValueVerdictTool($this->ValueProfile);
+        $context = $this->ValueProfile->verdictContextFor($user, $value,
+            $profile);
+        $verdict = $engine->assess($context, $profile);
+        $diff = ValueVerdictDiffTool::diff($verdict, $verdict);
+        $axis = $diff['axes']['relevance'];
+
+        $this->ok(array_key_exists('label', $axis)
+            && array_key_exists('runway', $axis),
+            'the diff carries the label and the runway, not only the state');
+        $state = $axis['after'];
+        if ($state !== null) {
+            $this->ok(
+                $axis['label'] === ValueRelevanceTool::stateLabel($state),
+                sprintf('and the label is the one writer\'s: %s -> %s',
+                    $state, $axis['label'])
+            );
+        }
+
+        $html = $this->renderElement($user, 'AnalystProfiles/assessment_head',
+            array('axes' => $diff['axes'], 'moved' => false));
+        foreach (array('lean', 'relevance', 'quality') as $name) {
+            $this->ok(strpos($html, '>' . $name . '<') !== false,
+                sprintf('the assessment head names %s', $name));
+        }
+        if ($state !== null && $state !== $axis['label']) {
+            $this->ok(strpos($html, h($axis['label'])) !== false,
+                'and prints the label rather than the key');
+        }
+        if (!empty($axis['runway']['runway'])) {
+            $this->ok(strpos($html, 'ax-fill') !== false,
+                'the shelf is drawn, so relevance has a magnitude too');
+            $this->ok(strpos($html, '--vp-dir-') === false,
+                'and not in the supports/disputes pair, which a clock is not');
+        }
+
+        /*
+         * And the curve in the relevance pane marks where this value
+         * sits on it. Asserted because the first version did not: the
+         * loop that samples the polyline used `$runway` as its own
+         * counter and overwrote the value the caller passed in, so
+         * the curve drew and the point on it silently did not.
+         */
+        $form = new AnalystProfileFormTool();
+        $sections = $form->sections($profile['parameters'], array(
+            'attribute_types' => array('ip-src', 'ip-dst'),
+        ));
+        $relevance = $sections['relevance'];
+        $buckets = null;
+        foreach ($relevance['blocks'] as $block) {
+            if ($block['kind'] === 'fields' && $block['id'] === 'ttl_buckets') {
+                $buckets = $block;
+            }
+        }
+        $html = $this->renderElement($user, 'AnalystProfiles/ttl_curve',
+            array('block' => $buckets, 'section' => $relevance,
+                'runway' => $axis['runway']));
+        $this->ok(strpos($html, 'ttl-line') !== false,
+            'the shelf-life curve is drawn');
+        if (!empty($axis['runway']['elapsed_days'])) {
+            $this->ok(strpos($html, 'ttl-here') !== false,
+                'and it marks where the value on the bench sits on it');
+            $this->ok(strpos($html, 'This value sits at day') !== false,
+                'with the same thing said for a reader who cannot see it');
+        }
+    }
+
+    /* ============================================================
+     * The states a page has to have and cannot be shown by luck
+     * ============================================================ */
+
+    private function sectionEmptyStates()
+    {
+        $this->out('');
+        $this->out('== empty states ==');
+        $user = $this->User->getAuthUser((int)$this->args[0]);
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $form = new AnalystProfileFormTool();
+
+        $html = $this->renderElement($user, 'AnalystProfiles/comparison',
+            array('comparison' => array(), 'pinned' => array()));
+        $this->ok(strpos($html, 'Nothing pinned yet') !== false,
+            'an empty comparison set renders its instruction');
+        $this->ok(strpos($html, '<tbody>') === false,
+            'and no empty table');
+
+        /*
+         * The three band states, built from the live tool rather than
+         * read from `09a-fixtures/`: the fixtures are not mounted into
+         * the container, and a strip computed here is a strip this
+         * instance's catalogue can actually produce.
+         */
+        $cases = array(
+            'inverted' => array('medium' => 60, 'high' => 30),
+            'beyond the bound' => array('medium' => 30, 'high' => 180),
+        );
+        foreach ($cases as $name => $bands) {
+            $candidate = $profile['parameters'];
+            $candidate['thresholds']['quality_bands'] = $bands
+                + $candidate['thresholds']['quality_bands'];
+            $strip = $form->bandStrip($candidate);
+            $this->ok(empty($strip['ok']),
+                sprintf('%s is refused', $name));
+            $html = $this->renderElement($user,
+                'AnalystProfiles/block_strip',
+                array('strip' => $strip, 'marks' => array()));
+            $this->ok(strpos($html, 'wb-note bad') !== false
+                || strpos($html, 'wb-note warn') !== false,
+                sprintf('and the strip says what is wrong with %s', $name));
+        }
+
+        /*
+         * And the one nobody caused: disabling signals moves the bound
+         * under a band that was legal when it was set.
+         */
+        $narrow = $profile['parameters'];
+        foreach ($narrow['signals'] as $index => $entry) {
+            if ($index > 1) {
+                $narrow['signals'][$index]['enabled'] = false;
+            }
+        }
+        $strip = $form->bandStrip($narrow);
+        $this->ok(empty($strip['ok']),
+            'disabling nine signals makes the high band unreachable');
+        $html = $this->renderElement($user, 'AnalystProfiles/block_strip',
+            array('strip' => $strip, 'marks' => array()));
+        $this->ok(strpos($html, 'attainable') !== false,
+            'and the strip names the bound it can no longer reach');
+
+        $html = $this->renderElement($user, 'AnalystProfiles/loader_errors',
+            array('loader_errors' => array(array(
+                'subject' => 'Signal',
+                'file' => 'Broken.php',
+                'reason' => 'not a ValueSignalBase',
+            ))));
+        $this->ok(strpos($html, 'Broken.php') !== false,
+            "the loader's error list is on screen where an admin will see it");
+    }
+
+    /* ============================================================
+     * The first trap: a stylesheet that did not apply
+     * ============================================================ */
+
+    private function sectionPalette()
+    {
+        $this->out('');
+        $this->out('== the palette resolves ==');
+        $palette = WWW_ROOT . 'css' . DS . 'value-palette.css';
+        $editor = WWW_ROOT . 'css' . DS . 'analyst-profile.css';
+        $this->ok(file_exists($palette) && file_exists($editor),
+            'both stylesheets are on disk');
+        $css = file_get_contents($palette);
+        foreach (array('--vp-mal', '--vp-ben', '--vp-dir-with',
+            '--vp-dir-against', '--vp-conflict') as $token
+        ) {
+            $this->ok(strpos($css, $token . ':') !== false,
+                sprintf('%s is declared', $token));
+        }
+        $this->ok(strpos($css, '[data-bs-theme="dark"]') !== false,
+            'and the dark theme redeclares the inks');
+        $profileCss = file_get_contents(WWW_ROOT . 'css'
+            . DS . 'value-profile.css');
+        $this->ok(strpos($profileCss, '--vp-mal:') === false,
+            'the value page no longer declares its own copy');
+    }
+
+    /* ============================================================
+     * `view` is the same two panes with the inputs taken out
+     * ============================================================ */
+
+    private function sectionReadOnly(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the read-only page ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $html = $this->renderWorkbench($user, $profile, $value, false);
+        $this->ok(substr_count($html, 'data-ap-field') === 0,
+            'a profile rendered read-only carries no editable field');
+        $this->ok(strpos($html, 'wb-rail-item') !== false,
+            'and the same rail');
+        $this->ok(strpos($html, 'readonly') !== false,
+            'with the raw document readable and not writable');
+
+        $editable = $this->renderWorkbench($user, $profile, $value, true);
+        $this->ok(substr_count($editable, 'data-ap-field') > 40,
+            sprintf('the editable page carries %d fields',
+                substr_count($editable, 'data-ap-field')));
+    }
+
+    /* ============================================================
+     * Rendering
+     * ============================================================ */
+
+    /**
+     * The whole workbench, as `edit` or `view` would hand it over.
+     */
+    private function renderWorkbench(array $user, array $profile, $value,
+        $editable
+    ) {
+        $form = new AnalystProfileFormTool();
+        $parameters = $profile['parameters'];
+        $sources = array(
+            'attribute_types' => array('ip-src', 'ip-dst', 'domain', 'url',
+                'md5', 'sha1', 'sha256', 'hostname', 'email-src', 'btc',
+                'filename'),
+            'orgs' => array(),
+            'warninglists' => array(),
+            'modules' => array(),
+        );
+        $checked = $form->validate($parameters);
+        $bench = array(
+            'detail' => null,
+            'focus' => $value,
+            'values' => $value === null ? array() : array($value),
+            'comparison' => array(),
+            'comparison_set' => array(),
+            'context_builds' => 0,
+        );
+        if ($value !== null) {
+            $this->loadModel('ValueProfile');
+            $engine = new ValueVerdictTool($this->ValueProfile);
+            $context = $this->ValueProfile->verdictContextFor($user,
+                $value, $profile);
+            $verdict = $engine->assess($context, $profile);
+            $bench['detail'] = ValueVerdictDiffTool::diff($verdict, $verdict);
+            $bench['comparison'] = array(
+                ValueVerdictDiffTool::headline($value, $verdict, $verdict),
+            );
+            $bench['context_builds'] = 1;
+        }
+        return $this->renderElement($user, 'AnalystProfiles/workbench', array(
+            'profile' => $this->AnalystProfile->summarise($profile),
+            'editable' => $editable,
+            'sections' => $form->sections($parameters, $sources),
+            'bands' => $form->bandStrip($parameters),
+            'errors' => $checked['errors'],
+            'warnings' => $checked['warnings'],
+            'legacy' => $form->legacyShapes($parameters),
+            'loader_errors' => array(),
+            'raw' => json_encode($parameters,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            'value' => $value,
+            'open_section' => null,
+            'bench' => $bench,
+        ));
+    }
+
+    private function renderElement(array $user, $element, array $data)
+    {
+        $controller = new Controller(new CakeRequest(null, false),
+            new CakeResponse());
+        $controller->theme = 'Overmind';
+        $controller->viewPath = 'AnalystProfiles';
+        $controller->layout = false;
+        $controller->set($data + array(
+            'baseurl' => '',
+            'queryVersion' => '203',
+            'me' => $user,
+            'isSiteAdmin' => !empty($user['Role']['perm_site_admin']),
+        ));
+        $controller->helpers = array('Html', 'Form');
+        $view = new ThemeView($controller);
+        $view->theme = 'Overmind';
+        ob_start();
+        try {
+            $html = $view->element($element, $data);
+        } catch (Exception $e) {
+            $html = 'EXCEPTION: ' . get_class($e) . ': ' . $e->getMessage()
+                . "\n" . $e->getTraceAsString();
+        }
+        $noise = ob_get_clean();
+        return $noise . $html;
+    }
+
+    /* ============================================================
+     * Reading a form back out of its own markup
+     * ============================================================ */
+
+    /**
+     * Every `data[AnalystProfile][parameters]...` control in the
+     * markup, parsed the way PHP parses the POST it would make.
+     *
+     * Checkboxes count only when checked; a select contributes its
+     * selected option; a disabled control contributes nothing, which
+     * is how the raw-document textarea stays out of a section save.
+     *
+     * @param string $html
+     * @return array The `parameters` sub-array of the request
+     */
+    private function postedFrom($html)
+    {
+        $pairs = array();
+        $previous = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $previous->loadHTML('<?xml encoding="utf-8" ?><div>' . $html
+            . '</div>');
+        libxml_clear_errors();
+        $xpath = new DOMXPath($previous);
+        foreach ($xpath->query('//input | //select | //textarea') as $node) {
+            $name = $node->getAttribute('name');
+            if (strpos($name, 'data[AnalystProfile][parameters]') !== 0) {
+                continue;
+            }
+            if ($node->hasAttribute('disabled')) {
+                continue;
+            }
+            if ($node->nodeName === 'input') {
+                $type = strtolower($node->getAttribute('type'));
+                if (($type === 'checkbox' || $type === 'radio')
+                    && !$node->hasAttribute('checked')
+                ) {
+                    continue;
+                }
+                $pairs[] = array($name, $node->getAttribute('value'));
+                continue;
+            }
+            if ($node->nodeName === 'textarea') {
+                $pairs[] = array($name, $node->textContent);
+                continue;
+            }
+            $value = '';
+            foreach ($node->getElementsByTagName('option') as $option) {
+                if ($option->hasAttribute('selected')) {
+                    $value = $option->getAttribute('value');
+                }
+            }
+            $pairs[] = array($name, $value);
+        }
+
+        $query = array();
+        foreach ($pairs as $pair) {
+            $query[] = urlencode($pair[0]) . '=' . urlencode($pair[1]);
+        }
+        $parsed = array();
+        parse_str(implode('&', $query), $parsed);
+        return isset($parsed['data']['AnalystProfile']['parameters'])
+            ? $parsed['data']['AnalystProfile']['parameters']
+            : array();
+    }
+
+    /* ============================================================
+     * Small things
+     * ============================================================ */
+
+    private function byId($entries)
+    {
+        $out = array();
+        foreach ((array)$entries as $entry) {
+            if (is_array($entry) && isset($entry['id'])) {
+                $out[$entry['id']] = $entry;
+            }
+        }
+        return $out;
+    }
+
+    private function canonical($value)
+    {
+        return json_encode($this->sorted($value));
+    }
+
+    private function sorted($value)
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        ksort($value);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->sorted($item);
+        }
+        return $value;
+    }
+
+    private function diffDocuments(array $stored, array $merged)
+    {
+        foreach (array_unique(array_merge(array_keys($stored),
+            array_keys($merged))) as $key
+        ) {
+            $a = isset($stored[$key]) ? $stored[$key] : null;
+            $b = isset($merged[$key]) ? $merged[$key] : null;
+            if ($this->canonical($a) !== $this->canonical($b)) {
+                $this->out('        section ' . $key . ' differs');
+            }
+        }
+    }
+
+    private function ok($condition, $label)
+    {
+        $this->checks++;
+        if ($condition) {
+            $this->out('  ok    ' . $label);
+            return;
+        }
+        $this->failures++;
+        $this->out('  FAIL  ' . $label);
+    }
+
+    private function fail($label)
+    {
+        $this->checks++;
+        $this->failures++;
+        $this->out('  FAIL  ' . $label);
+    }
+}

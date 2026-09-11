@@ -1,5 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
+App::uses('MispTheme', 'MispTheme');
 App::uses('ValueUrlTool', 'Tools');
 App::uses('AnalystProfileFormTool', 'Tools');
 App::uses('ValueSignalLoader', 'Tools');
@@ -56,7 +57,7 @@ class AnalystProfilesController extends AppController
 
     public $uses = array('AnalystProfile');
 
-    /** Where 8c's views and elements will live. */
+    /** Where these views and elements live. */
     const THEME = 'Overmind';
 
     /** The most values an analyst may pin to the simulator (§2.2). */
@@ -66,12 +67,41 @@ class AnalystProfilesController extends AppController
     const COMPARISON_SETTING = 'analyst_profile_comparison_set';
 
     /**
+     * The editor posts field names the form helper cannot produce.
+     *
+     * A signal id contains dots, an attribute type a pipe, an
+     * organisation key is a uuid — so the form writes its own bracket
+     * names, and `SecurityComponent`'s field hash, which is built from
+     * the names the helper emitted, can only ever fail against them.
+     * **CSRF stays on**: it is the check that matters here, and it is
+     * checked separately from the field hash.
+     *
+     * @return void
+     */
+    public function beforeFilter()
+    {
+        parent::beforeFilter();
+        if (in_array($this->request->params['action'],
+            array('edit', 'import', 'simulate'), true)
+        ) {
+            $this->Security->validatePost = false;
+        }
+    }
+
+    /**
+     * Render under the theme these pages live in, whoever is asking.
+     *
+     * They have one implementation and it is under `Overmind`, so
+     * naming it here says where the files are rather than overriding
+     * anybody's preference. A reader whose own theme carries the
+     * directory keeps it.
+     *
      * @return void
      */
     public function beforeRender()
     {
         parent::beforeRender();
-        if (empty($this->theme)) {
+        if (!MispTheme::carries($this->theme, 'AnalystProfiles')) {
             $this->theme = self::THEME;
             $this->viewClass = 'Theme';
         }
@@ -111,7 +141,8 @@ class AnalystProfilesController extends AppController
             'scoring_off' => $inForce === null,
             'loader_errors' => $this->__loaderErrors(),
             'comparison_set' => $this->__comparisonSet($user),
-        ));
+            'comparison_limit' => self::COMPARISON_LIMIT,
+        ), 'index');
     }
 
     /**
@@ -129,7 +160,10 @@ class AnalystProfilesController extends AppController
     {
         $user = $this->Auth->user();
         $profile = $this->__profileOr404($user, $id);
-        return $this->__payload($this->__board($user, $profile, false));
+        return $this->__payload(
+            $this->__board($user, $profile, false),
+            'view'
+        );
     }
 
     /**
@@ -161,7 +195,10 @@ class AnalystProfilesController extends AppController
             ));
         }
         if (!$this->request->is(array('post', 'put'))) {
-            return $this->__payload($this->__board($user, $profile, true));
+            return $this->__payload(
+                $this->__board($user, $profile, true),
+                'edit'
+            );
         }
 
         $posted = isset($this->request->data['AnalystProfile'])
@@ -173,14 +210,18 @@ class AnalystProfilesController extends AppController
         if (array_key_exists('parameters_json', $posted)) {
             $parsed = $form->parse($posted['parameters_json']);
             if (empty($parsed['ok'])) {
+                $board = $this->__board($user, $profile, true);
+                $board['raw'] = $posted['parameters_json'];
+                $board['parse'] = array(
+                    'error' => $parsed['error'],
+                    'line' => isset($parsed['line'])
+                        ? $parsed['line']
+                        : null,
+                );
+                $board['open_section'] = 'raw';
                 return $this->__refuse(array($parsed['error']), array(
-                    'parse' => array(
-                        'error' => $parsed['error'],
-                        'line' => isset($parsed['line'])
-                            ? $parsed['line']
-                            : null,
-                    ),
-                ));
+                    'parse' => $board['parse'],
+                ), array('view' => 'edit', 'vars' => $board));
             }
             $parameters = $parsed['parameters'];
         } elseif (isset($posted['parameters'])
@@ -193,9 +234,14 @@ class AnalystProfilesController extends AppController
 
         $checked = $form->validate($parameters);
         if (!empty($checked['errors'])) {
+            $candidate = $profile;
+            $candidate['AnalystProfile']['parameters'] = $parameters;
             return $this->__refuse($checked['errors'], array(
                 'warnings' => $checked['warnings'],
                 'bands' => $form->bandStrip($parameters),
+            ), array(
+                'view' => 'edit',
+                'vars' => $this->__board($user, $candidate, true),
             ));
         }
 
@@ -226,12 +272,25 @@ class AnalystProfilesController extends AppController
             $this->AnalystProfile->bumpRevision($row['id']);
         }
         $saved = $this->AnalystProfile->fetchProfile($user, $row['id']);
-        return $this->__payload(array(
-            'saved' => true,
-            'parameters_changed' => $changedParameters,
-            'warnings' => $checked['warnings'],
-            'profile' => $this->AnalystProfile->summarise($saved['AnalystProfile']),
-        ));
+        return $this->__wrote(
+            array(
+                'saved' => true,
+                'parameters_changed' => $changedParameters,
+                'warnings' => $checked['warnings'],
+                'profile' => $this->AnalystProfile->summarise(
+                    $saved['AnalystProfile']
+                ),
+            ),
+            $changedParameters
+                ? sprintf(
+                    __('Saved. %s is now at revision %s.'),
+                    $saved['AnalystProfile']['name'],
+                    $saved['AnalystProfile']['revision']
+                )
+                : __('Saved. Nothing in the document changed, so the'
+                    . ' revision did not move.'),
+            array('action' => 'edit', $row['id'])
+        );
     }
 
     /**
@@ -276,7 +335,7 @@ class AnalystProfilesController extends AppController
 
         $existing = $this->__enabledFor($user, $forOrg);
         if ($existing !== null && !$replace) {
-            return $this->__payload(array(
+            return $this->__confirm(array(
                 'confirm' => 'replace',
                 'existing' => $this->AnalystProfile->summarise($existing),
                 'affects' => $forOrg ? $this->__orgReaders($user) : null,
@@ -295,6 +354,19 @@ class AnalystProfilesController extends AppController
                             . ' in force.'),
                         $existing['name']
                     ),
+            ), array(
+                'title' => $forOrg
+                    ? __('Fork to my organisation')
+                    : __('Fork to me'),
+                'url' => array('action' => 'fork', $id),
+                'fields' => array(
+                    'replace' => 1,
+                    'for_org' => $forOrg ? 1 : 0,
+                ),
+                'confirm_label' => $forOrg
+                    ? __('Replace my organisation\'s profile')
+                    : __('Replace my current profile'),
+                'cancel' => array('action' => 'index'),
             ));
         }
         if ($existing !== null) {
@@ -324,7 +396,7 @@ class AnalystProfilesController extends AppController
                 $this->AnalystProfile->validationErrors
             ) ?: array(__('The fork could not be saved.')));
         }
-        return $this->__payload(array(
+        return $this->__wrote(array(
             'forked' => true,
             /*
              * With `enabled` corrected, because `$existing` was read
@@ -338,7 +410,20 @@ class AnalystProfilesController extends AppController
                     + $this->AnalystProfile->summarise($existing),
             'profile' => $this->AnalystProfile->summarise($fork['AnalystProfile']),
             'source' => $this->AnalystProfile->summarise($source['AnalystProfile']),
-        ));
+        ),
+            $existing === null
+                ? sprintf(
+                    __('Forked. %s is yours and is the one in force.'),
+                    $fork['AnalystProfile']['name']
+                )
+                : sprintf(
+                    __('Forked. %1$s is now in force and %2$s is'
+                        . ' disabled — not deleted.'),
+                    $fork['AnalystProfile']['name'],
+                    $existing['name']
+                ),
+            array('action' => 'edit', $fork['AnalystProfile']['id'])
+        );
     }
 
     /**
@@ -416,7 +501,7 @@ class AnalystProfilesController extends AppController
          * rather than reported stale.
          */
         $inForce = $this->AnalystProfile->resolveFor($user);
-        return $this->__payload(array(
+        return $this->__wrote(array(
             'enabled' => $enabled,
             'profile' => array('enabled' => $enabled)
                 + $this->AnalystProfile->summarise($row),
@@ -426,7 +511,23 @@ class AnalystProfilesController extends AppController
             'in_force' => $inForce === null
                 ? null
                 : $this->AnalystProfile->summarise($inForce),
-        ));
+        ),
+            $displaced === null
+                ? sprintf(
+                    $enabled
+                        ? __('%s is enabled.')
+                        : __('%s is disabled.'),
+                    $row['name']
+                )
+                : sprintf(
+                    __('%1$s is enabled, so %2$s was disabled — you may'
+                        . ' hold one at a time, and nothing was'
+                        . ' deleted.'),
+                    $row['name'],
+                    $displaced['name']
+                ),
+            array('action' => 'index')
+        );
     }
 
     /**
@@ -464,10 +565,14 @@ class AnalystProfilesController extends AppController
                 'The profile could not be deleted.'
             )));
         }
-        return $this->__payload(array(
-            'deleted' => true,
-            'profile' => $this->AnalystProfile->summarise($row),
-        ));
+        return $this->__wrote(
+            array(
+                'deleted' => true,
+                'profile' => $this->AnalystProfile->summarise($row),
+            ),
+            sprintf(__('%s is deleted.'), $row['name']),
+            array('action' => 'index')
+        );
     }
 
     /**
@@ -508,12 +613,24 @@ class AnalystProfilesController extends AppController
      */
     public function import()
     {
-        if (!$this->request->is('post')) {
-            throw new MethodNotAllowedException(__(
-                'Importing a profile is a POST.'
-            ));
-        }
         $user = $this->Auth->user();
+        if (!$this->request->is('post')) {
+            /*
+             * A browser has to be given the form before it can post
+             * one. REST keeps the refusal: there is nothing to GET
+             * here for a caller that already holds a document.
+             */
+            if ($this->_isRest()) {
+                throw new MethodNotAllowedException(__(
+                    'Importing a profile is a POST.'
+                ));
+            }
+            return $this->__payload(array(
+                'can_import_for_org' => !empty($user['Role']['perm_admin'])
+                    || !empty($user['Role']['perm_site_admin']),
+                'holds_enabled' => $this->__enabledFor($user, false) !== null,
+            ), 'import');
+        }
         $posted = isset($this->request->data['AnalystProfile'])
             ? $this->request->data['AnalystProfile']
             : $this->request->data;
@@ -602,7 +719,7 @@ class AnalystProfilesController extends AppController
         }
         $imported = $this->AnalystProfile->fetchProfile($user,
             $this->AnalystProfile->id);
-        return $this->__payload(array(
+        return $this->__wrote(array(
             'imported' => true,
             're_uuided' => $reuuid,
             'enabled' => $existing === null,
@@ -611,7 +728,21 @@ class AnalystProfilesController extends AppController
                 : $this->AnalystProfile->summarise($existing),
             'warnings' => $checked['warnings'],
             'profile' => $this->AnalystProfile->summarise($imported['AnalystProfile']),
-        ));
+        ),
+            $existing === null
+                ? sprintf(
+                    __('Imported. %s is yours and is the one in force.'),
+                    $imported['AnalystProfile']['name']
+                )
+                : sprintf(
+                    __('Imported. %1$s is disabled, because %2$s is'
+                        . ' still in force — simulate it before you'
+                        . ' adopt it.'),
+                    $imported['AnalystProfile']['name'],
+                    $existing['name']
+                ),
+            array('action' => 'edit', $imported['AnalystProfile']['id'])
+        );
     }
 
     /**
@@ -631,7 +762,11 @@ class AnalystProfilesController extends AppController
         $outcome = $this->AnalystProfile->updateDefaults(
             $force === true || $force === 'true' || $force === '1'
         );
-        return $this->__payload(array('outcomes' => $outcome));
+        return $this->__wrote(
+            array('outcomes' => $outcome),
+            __('The shipped defaults were loaded.'),
+            array('action' => 'index')
+        );
     }
 
     /**
@@ -682,9 +817,55 @@ class AnalystProfilesController extends AppController
                         ? $parseError['line']
                         : null,
                 ),
-            ));
+            ), array('redirect' => array('action' => 'edit', $id)));
         }
 
+        $checked = $form->validate($candidateParameters);
+        $simulation = $this->__simulation($user, $row, $candidateParameters);
+        /*
+         * The editor's bench is this computation, so the editor asks
+         * for it again whenever a field changes — as the fragment
+         * alone, since the rest of the page is already on screen.
+         * One producer: the pane and the page it expands into cannot
+         * disagree, and neither can the pane and itself after an edit.
+         */
+        if (!$this->_isRest() && $this->request->is('ajax')) {
+            $this->set('bench', $simulation);
+            $this->set('bands', $form->bandStrip($candidateParameters));
+            $this->set('full', false);
+            $this->set('profileId', $row['id']);
+            $this->layout = false;
+            return $this->render('/Elements/AnalystProfiles/bench');
+        }
+        return $this->__payload(
+            $simulation + array(
+                'candidate_valid' => empty($checked['errors']),
+                'errors' => $checked['errors'],
+                'warnings' => $checked['warnings'],
+                'bands' => $form->bandStrip($candidateParameters),
+            ),
+            'simulate'
+        );
+    }
+
+    /**
+     * One candidate document, scored against the profile in force over
+     * every value on the bench.
+     *
+     * **Shared with the editor**, which is not an optimisation but the
+     * design: §2 exists because MISP already shipped a simulator that
+     * was a destination, and the bench in the right-hand pane of
+     * `edit` is this same computation. One producer, so the pane and
+     * the page it expands into cannot disagree.
+     *
+     * @param array $user
+     * @param array $row The base profile, unwrapped
+     * @param array $candidateParameters The document to score
+     * @return array
+     */
+    private function __simulation(array $user, array $row,
+        array $candidateParameters
+    ) {
         $inForce = $this->AnalystProfile->resolveFor($user);
         $candidate = $row;
         $candidate['parameters'] = $candidateParameters;
@@ -718,8 +899,7 @@ class AnalystProfilesController extends AppController
                 );
             }
         }
-        $checked = $form->validate($candidateParameters);
-        return $this->__payload(array(
+        return array(
             'base' => $this->AnalystProfile->summarise($row),
             'in_force' => $inForce === null
                 ? null
@@ -735,11 +915,7 @@ class AnalystProfilesController extends AppController
             'comparison' => $rows,
             'comparison_set' => $this->__comparisonSet($user),
             'context_builds' => $builds,
-            'candidate_valid' => empty($checked['errors']),
-            'errors' => $checked['errors'],
-            'warnings' => $checked['warnings'],
-            'bands' => $form->bandStrip($candidateParameters),
-        ));
+        );
     }
 
     /**
@@ -793,12 +969,22 @@ class AnalystProfilesController extends AppController
         $this->loadModel('UserSetting');
         $this->UserSetting->setSettingInternal($user['id'],
             self::COMPARISON_SETTING, $set);
-        return $this->__payload(array(
-            'pinned' => $pinned,
-            'value' => $value,
-            'comparison_set' => $set,
-            'limit' => self::COMPARISON_LIMIT,
-        ));
+        return $this->__wrote(
+            array(
+                'pinned' => $pinned,
+                'value' => $value,
+                'comparison_set' => $set,
+                'limit' => self::COMPARISON_LIMIT,
+            ),
+            $pinned
+                ? sprintf(
+                    __('%s is pinned, and every profile change is now'
+                        . ' judged against it too.'),
+                    $value
+                )
+                : sprintf(__('%s is unpinned.'), $value),
+            $this->referer(array('action' => 'index'), true)
+        );
     }
 
     /**
@@ -892,6 +1078,26 @@ class AnalystProfilesController extends AppController
     }
 
     /**
+     * The section the caller wants open, when the link that brought
+     * them here knew which one answers their question.
+     *
+     * @return string|null
+     */
+    private function __requestedSection()
+    {
+        if (empty($this->request->query['section'])) {
+            return null;
+        }
+        $section = (string)$this->request->query['section'];
+        if ($section === 'raw'
+            || in_array($section, AnalystProfileFormTool::SECTION_ORDER, true)
+        ) {
+            return $section;
+        }
+        return null;
+    }
+
+    /**
      * The value the caller asked about, from `?value=` or a posted one.
      *
      * @return string|null
@@ -969,11 +1175,35 @@ class AnalystProfilesController extends AppController
             'bands' => $form->bandStrip($parameters),
             'errors' => $checked['errors'],
             'warnings' => $checked['warnings'],
+            'legacy' => $form->legacyShapes($parameters),
             'loader_errors' => $this->__loaderErrors(),
             'raw' => json_encode($parameters,
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
             'value' => $focus,
+            'value_b64' => $focus === null
+                ? null
+                : ValueUrlTool::encode($focus),
+            /*
+             * Which section the page opens on. A `not_counted` entry on
+             * a value page links straight to the exclusion that
+             * produced it, and landing on the signals table with the
+             * answer three clicks away would make that link a gesture.
+             */
+            'open_section' => $this->__requestedSection(),
+            'comparison_limit' => self::COMPARISON_LIMIT,
             'comparison_set' => $this->__comparisonSet($user),
+            /*
+             * The right-hand pane, and it is the simulator rather than
+             * a reading of the stored document: the whole bet of this
+             * design is that the consequence of an edit is unavoidable
+             * rather than merely available, which it is not if the
+             * pane shows what the profile already does.
+             *
+             * It costs nothing when there is nothing to score — no
+             * pinned values and no value arrived with means no
+             * context is built at all.
+             */
+            'bench' => $this->__simulation($user, $row, $parameters),
         );
     }
 
@@ -1341,13 +1571,40 @@ class AnalystProfilesController extends AppController
      * here: a client that already treats 403-with-`saved: false` as a
      * refused save handles this endpoint with no special case.
      *
+     * **A browser is refused on the page it posted from**, with the
+     * document it posted still in the form. Redirecting to the index
+     * would answer *"no"* and throw away the paste that caused it,
+     * which is the one thing an analyst cannot get back.
+     *
      * @param array $errors
      * @param array $extra Carried under `data`, which is where the
      *                     helper puts a caller's own payload
+     * @param array|null $html `view` and `vars` — the page to re-render
+     *                         for a browser, with what it should show
      * @return CakeResponse
      */
-    private function __refuse(array $errors, array $extra = array())
-    {
+    private function __refuse(array $errors, array $extra = array(),
+        array $html = null
+    ) {
+        if (!$this->_isRest()) {
+            foreach ($errors as $error) {
+                $this->Flash->error($error);
+            }
+            if ($html === null) {
+                return $this->redirect(array('action' => 'index'));
+            }
+            if (isset($html['redirect'])) {
+                return $this->redirect($html['redirect']);
+            }
+            $vars = $html['vars'];
+            $vars['errors'] = array_merge(
+                isset($vars['errors']) ? $vars['errors'] : array(),
+                $errors
+            );
+            $this->set($vars);
+            $this->set('payload', $vars);
+            return $this->render($html['view']);
+        }
         return $this->RestResponse->saveFailResponse(
             'AnalystProfiles',
             isset($this->request->params['action'])
@@ -1363,13 +1620,76 @@ class AnalystProfilesController extends AppController
     }
 
     /**
-     * Every action's answer, until 8c gives them templates.
+     * Every action's answer, in whichever of the two shapes the caller
+     * asked for.
+     *
+     * **The same array, both ways.** A REST caller gets exactly the
+     * JSON it got before there were templates; a browser gets the
+     * template, handed the identical keys. An action that grew a
+     * second view-model for its page would put the fixtures and the
+     * page out of step the first time one of them changed, and the
+     * fixtures are what the templates are checked against.
+     *
+     * An action with no view — every write — is JSON either way, and
+     * the HTML path is `__wrote()` below.
      *
      * @param array $data
+     * @param string|null $view
      * @return CakeResponse
      */
-    private function __payload(array $data)
+    private function __payload(array $data, $view = null)
     {
-        return $this->RestResponse->viewData($data, 'application/json');
+        if ($view === null || $this->_isRest()) {
+            return $this->RestResponse->viewData($data, 'application/json');
+        }
+        $this->set($data);
+        $this->set('payload', $data);
+        return $this->render($view);
+    }
+
+    /**
+     * A write's answer: the payload over REST, a flash and a redirect
+     * in a browser.
+     *
+     * A write has nothing to render — the page a reader wants next is
+     * the one showing the result — so the outcome travels as a flash
+     * and the destination is named by the caller rather than guessed
+     * from the referer, which lies as soon as a confirm sat in between.
+     *
+     * @param array $data
+     * @param string $message
+     * @param array|string $url
+     * @return CakeResponse
+     */
+    private function __wrote(array $data, $message, $url)
+    {
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData($data, 'application/json');
+        }
+        $this->Flash->success($message);
+        return $this->redirect($url);
+    }
+
+    /**
+     * A write that stopped to ask.
+     *
+     * The two that do are the one-enabled swap and a fork into an
+     * occupied slot, and both are refusals to act silently rather than
+     * failures: the consequence is named, and the same POST carrying
+     * `replace` goes through. REST callers get the same payload and
+     * decide for themselves.
+     *
+     * @param array $data
+     * @param array $form `url`, `fields` and `confirm_label`
+     * @return CakeResponse
+     */
+    private function __confirm(array $data, array $form)
+    {
+        if ($this->_isRest()) {
+            return $this->RestResponse->viewData($data, 'application/json');
+        }
+        $this->set($data);
+        $this->set('form', $form);
+        return $this->render('confirm');
     }
 }

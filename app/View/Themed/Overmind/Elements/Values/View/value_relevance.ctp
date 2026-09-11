@@ -37,16 +37,11 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueRelevanceTool', 'Tools');
 $relevance = $valueProfile['relevance'];
 $sightings = $valueProfile['sightings'];
 $notes = $valueProfile['sighting_notes'];
 
-$stateLabels = array(
-    'current' => __('current'),
-    'aging' => __('aging'),
-    'expired' => __('expired'),
-    'uncertain' => __('timeline uncertain'),
-);
 $clockLabels = array(
     'last_independent_corroboration' => __('last independent'
         . ' corroboration'),
@@ -105,7 +100,7 @@ $ttl = $relevance['ttl'];
 
                 <div class="vp-shelf-head">
                     <span class="vp-shelf-state">
-                        <?= h($stateLabels[$state]) ?>
+                        <?= h(ValueRelevanceTool::stateLabel($state)) ?>
                     </span>
                     <span class="vp-shelf-days">
                         <?php if ($relevance['runway_days'] > 0): ?>

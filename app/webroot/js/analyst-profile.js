@@ -1,0 +1,293 @@
+/*
+ * The Analyst Profile editor.
+ *
+ * Three jobs and no arithmetic: switch the open section, mark the
+ * fields this session has changed, and ask the server what the changed
+ * document does to the value on the bench.
+ *
+ * The third is what makes the bench recomputed rather than a reading
+ * of the saved document, and it is the only network call the page
+ * makes. Nothing here re-implements the ledger: a second scoring
+ * engine in JavaScript is exactly the thing this feature exists to
+ * avoid having, so every number on the bench arrives from the one
+ * that already exists.
+ */
+(function () {
+    'use strict';
+
+    var form = document.getElementById('ap-form');
+    var rail = document.getElementById('ap-rail');
+    if (!rail) {
+        return;
+    }
+
+    var raw = document.getElementById('ap-raw');
+    var bench = document.querySelector('.wb-bench');
+    var body = rail.parentNode;
+
+    /* ------------------------------------------------------------ *
+     * One section open at a time
+     * ------------------------------------------------------------ */
+
+    function open(section) {
+        Array.prototype.forEach.call(
+            rail.querySelectorAll('.wb-rail-item'),
+            function (item) {
+                item.classList.toggle('is-open',
+                    item.getAttribute('data-sec') === section);
+            }
+        );
+        Array.prototype.forEach.call(
+            body.querySelectorAll('.wb-sec'),
+            function (pane) {
+                pane.classList.toggle('is-open',
+                    pane.getAttribute('data-sec') === section);
+            }
+        );
+        /*
+         * A disabled field posts nothing, and `edit` prefers a pasted
+         * document over a merged section — so the textarea is live
+         * only while its own pane is the one on screen. Otherwise
+         * saving a weight would post the whole stored document beside
+         * it and the paste would win.
+         */
+        if (raw) {
+            raw.disabled = section !== 'raw';
+        }
+    }
+
+    rail.addEventListener('click', function (event) {
+        var item = event.target.closest
+            ? event.target.closest('.wb-rail-item')
+            : null;
+        if (!item || !item.getAttribute('data-sec')) {
+            return;
+        }
+        open(item.getAttribute('data-sec'));
+    });
+
+    /* ------------------------------------------------------------ *
+     * What this session has changed, and where
+     * ------------------------------------------------------------ */
+
+    function changed(field) {
+        var was = field.getAttribute('data-ap-was');
+        if (was === null) {
+            return false;
+        }
+        if (field.type === 'checkbox') {
+            return String(field.checked) !== was;
+        }
+        return String(field.value) !== was;
+    }
+
+    function sectionOf(field) {
+        var pane = field.closest ? field.closest('.wb-sec') : null;
+        return pane ? pane.getAttribute('data-sec') : null;
+    }
+
+    function mark() {
+        var dirty = {};
+        var count = 0;
+        Array.prototype.forEach.call(
+            document.querySelectorAll('[data-ap-field]'),
+            function (field) {
+                var moved = changed(field);
+                var chip = field.closest ? field.closest('.kv') : null;
+                if (chip) {
+                    chip.classList.toggle('is-edited', moved);
+                }
+                if (!moved) {
+                    return;
+                }
+                count++;
+                var section = sectionOf(field);
+                if (section) {
+                    dirty[section] = true;
+                }
+            }
+        );
+        Array.prototype.forEach.call(
+            rail.querySelectorAll('[data-ap-dirty-mark]'),
+            function (glyph) {
+                glyph.hidden = !dirty[glyph.getAttribute('data-ap-dirty-mark')];
+            }
+        );
+        return count;
+    }
+
+    /* ------------------------------------------------------------ *
+     * The bench, recomputed by the engine that scores the real thing
+     * ------------------------------------------------------------ */
+
+    var pending = null;
+    var inflight = null;
+
+    function refresh() {
+        if (!form || !bench) {
+            return;
+        }
+        var url = form.getAttribute('data-ap-simulate');
+        if (!url) {
+            return;
+        }
+        if (inflight) {
+            inflight.abort();
+        }
+        var request = new XMLHttpRequest();
+        inflight = request;
+        request.open('POST', url, true);
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        bench.classList.add('is-recomputing');
+        request.onload = function () {
+            inflight = null;
+            bench.classList.remove('is-recomputing');
+            if (request.status >= 200 && request.status < 300) {
+                bench.innerHTML = request.responseText;
+            }
+        };
+        request.onerror = function () {
+            inflight = null;
+            bench.classList.remove('is-recomputing');
+        };
+        request.send(new FormData(form));
+    }
+
+    document.addEventListener('change', function (event) {
+        if (!event.target.hasAttribute
+            || !event.target.hasAttribute('data-ap-field')) {
+            return;
+        }
+        mark();
+        window.clearTimeout(pending);
+        pending = window.setTimeout(refresh, 250);
+    });
+
+    /* ------------------------------------------------------------ *
+     * Map rows: removing one and adding one
+     * ------------------------------------------------------------ */
+
+    document.addEventListener('click', function (event) {
+        var drop = event.target.closest
+            ? event.target.closest('[data-ap-drop]')
+            : null;
+        if (!drop) {
+            return;
+        }
+        event.preventDefault();
+        /*
+         * A map is written whole on save, so a row taken off the page
+         * is a key removed from the document. Nothing is written until
+         * Save — the bench below says what removing it did.
+         */
+        var row = drop.closest('tr');
+        if (row) {
+            row.parentNode.removeChild(row);
+            mark();
+            refresh();
+        }
+    });
+
+    document.addEventListener('change', function (event) {
+        var add = event.target;
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-add')) {
+            return;
+        }
+        var key = add.value.trim();
+        var prefix = add.getAttribute('data-ap-add-name');
+        if (key === '' || !prefix) {
+            return;
+        }
+        /*
+         * The map this control belongs to, not the first table in the
+         * pane: the relevance section holds three of them and the
+         * buckets table is the one that comes first.
+         */
+        var map = add.closest ? add.closest('.ap-map') : null;
+        var table = map ? map.querySelector('table.wb-tbl tbody') : null;
+        if (!table) {
+            return;
+        }
+        var row = document.createElement('tr');
+        var name = document.createElement('td');
+        name.innerHTML = '<div class="fw-semibold"></div>';
+        name.firstChild.textContent = key;
+        var value = document.createElement('td');
+        var input = document.createElement('input');
+        input.className = 'form-control form-control-sm num text-end';
+        input.type = 'text';
+        input.name = prefix + '[' + key + ']';
+        input.setAttribute('data-ap-field', '1');
+        input.setAttribute('data-ap-was', '');
+        value.appendChild(input);
+        row.appendChild(name);
+        row.appendChild(value);
+        row.appendChild(document.createElement('td'));
+        table.appendChild(row);
+        add.value = '';
+        input.focus();
+    });
+
+    /* ------------------------------------------------------------ *
+     * A bucket's types: chips in, chips out
+     * ------------------------------------------------------------ */
+
+    document.addEventListener('click', function (event) {
+        var drop = event.target.closest
+            ? event.target.closest('.ap-chip-drop')
+            : null;
+        if (!drop) {
+            return;
+        }
+        event.preventDefault();
+        var chip = drop.closest('.chip');
+        if (chip) {
+            chip.parentNode.removeChild(chip);
+            mark();
+            refresh();
+        }
+    });
+
+    document.addEventListener('change', function (event) {
+        var picker = event.target;
+        if (!picker.hasAttribute
+            || !picker.hasAttribute('data-ap-type-add')) {
+            return;
+        }
+        var type = picker.value.trim();
+        if (type === '') {
+            return;
+        }
+        var chip = document.createElement('span');
+        chip.className = 'chip is-on';
+        chip.appendChild(document.createTextNode(type + ' '));
+        var carried = document.createElement('input');
+        carried.type = 'hidden';
+        // Type-first, like the chips the server drew: the name carries
+        // the type and the value carries the bucket.
+        carried.name = picker.getAttribute('data-ap-type-add')
+            + '[' + type + ']';
+        carried.value = picker.getAttribute('data-ap-type-value');
+        carried.setAttribute('data-ap-field', '1');
+        carried.setAttribute('data-ap-was', '');
+        chip.appendChild(carried);
+        var remove = document.createElement('a');
+        remove.href = '#';
+        remove.className = 'ap-chip-drop';
+        remove.textContent = '\u00d7';
+        chip.appendChild(remove);
+        picker.parentNode.insertBefore(chip, picker);
+        picker.value = '';
+        mark();
+        refresh();
+    });
+
+    /* Exposed for the header's Save button. */
+    window.analystProfileSave = function () {
+        if (form) {
+            form.submit();
+        }
+    };
+
+    mark();
+})();
