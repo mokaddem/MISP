@@ -427,6 +427,37 @@ function boot() {
         }
     });
 
+    /*
+     * A box the browser refuses sits in whatever pane it belongs to,
+     * and a closed pane is `display: none` — a control the browser
+     * cannot report on, so it blocks the save and says nothing at all.
+     * Opening the pane first is what turns a silent refusal back into
+     * the message beside the box.
+     *
+     * The first refusal only. The events arrive in tree order and the
+     * browser reports on the first of them, so opening a pane for each
+     * would leave the last one on screen and the reported box behind
+     * it. The flag clears on the next tick, which is after the whole
+     * pass.
+     */
+    var reported = false;
+    document.addEventListener('invalid', function (event) {
+        if (reported) {
+            return;
+        }
+        reported = true;
+        window.setTimeout(function () {
+            reported = false;
+        }, 0);
+        var pane = event.target.closest
+            ? event.target.closest('.wb-sec')
+            : null;
+        if (!pane || pane.classList.contains('is-open')) {
+            return;
+        }
+        open(pane.getAttribute('data-sec'));
+    }, true);
+
     document.addEventListener('change', function (event) {
         var add = event.target;
         if (!add.hasAttribute || !add.hasAttribute('data-ap-add')) {
@@ -454,7 +485,17 @@ function boot() {
         var value = document.createElement('td');
         var input = document.createElement('input');
         input.className = 'form-control form-control-sm num text-end';
-        input.type = 'text';
+        /*
+         * The same box the server would have drawn for this row. A map
+         * whose values are days gets a `number`; without the type the
+         * row added on the page is the one place in the editor where a
+         * numeric setting still takes a word.
+         */
+        var kind = add.getAttribute('data-ap-add-type');
+        input.type = kind === 'int' || kind === 'float' ? 'number' : 'text';
+        if (input.type === 'number') {
+            input.step = kind === 'int' ? '1' : 'any';
+        }
         input.name = prefix + '[' + key + ']';
         input.setAttribute('data-ap-field', '1');
         input.setAttribute('data-ap-was', '');
@@ -521,9 +562,22 @@ function boot() {
         refresh();
     });
 
-    /* Exposed for the header's Save button. */
+    /*
+     * Exposed for the header's Save button.
+     *
+     * `requestSubmit()` and not `submit()`: the second one skips the
+     * browser's own checks altogether, so the Save in the header would
+     * post a number box holding a half-typed number where the Save
+     * inside a pane refuses it. A button that is the page's main one
+     * cannot be the one that validates least.
+     */
     window.analystProfileSave = function () {
-        if (form) {
+        if (!form) {
+            return;
+        }
+        if (form.requestSubmit) {
+            form.requestSubmit();
+        } else {
             form.submit();
         }
     };

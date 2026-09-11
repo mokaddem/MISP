@@ -154,6 +154,19 @@
     font-family: var(--bs-font-monospace, ui-monospace, monospace);
     font-variant-numeric: tabular-nums;
 }
+/* A numeric setting is a `number` box, and the stepper is the one part
+ * of that it cannot afford: the chip gives a weight 3.4rem of
+ * monospace, and two arrows inside it leave room for a single digit.
+ * The keyboard still steps; only the buttons are gone. */
+input.num[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+input.num[type="number"]::-webkit-outer-spin-button,
+input.num[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
 .wb-id {
     font-family: var(--bs-font-monospace, ui-monospace, monospace);
     font-size: .75rem;

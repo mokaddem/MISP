@@ -44,11 +44,26 @@ $placeholder = $value === null && $default !== null
     ? (is_bool($default) ? ($default ? 'true' : 'false') : (string)$default)
     : '';
 
-$width = $type === 'float' || $type === 'int' ? '4.6rem' : '';
+$numeric = $type === 'float' || $type === 'int';
+$width = $numeric ? '4.6rem' : '';
 $classes = 'form-control form-control-sm';
-if ($type === 'int' || $type === 'float') {
+if ($numeric) {
     $classes .= ' num text-end';
 }
+
+/*
+ * A box that refuses a word as it is typed. `ValueSignalBase::checkMap()`
+ * and `checkScalar()` already refuse one on save, but a setting that
+ * looks like a number and takes `soon` is a round trip to learn what
+ * the control could have said at the keystroke.
+ *
+ * **Unless what is stored is not a number.** A `number` input shows
+ * nothing for a value it cannot parse, and a box that silently empties
+ * itself posts the key away on the next save. Such a value is drawn as
+ * text, where it stays visible and correctable.
+ */
+$asNumber = $numeric && ($shown === '' || is_numeric($shown));
+$step = $type === 'int' ? '1' : 'any';
 ?>
 <?php if ($type === 'bool'): ?>
     <?php if ($editable): ?>
@@ -206,7 +221,10 @@ if ($type === 'int' || $type === 'float') {
     </div>
 <?php else: ?>
     <?php if ($editable): ?>
-        <input class="<?= h($classes) ?>" type="text" id="<?= h($id) ?>"
+        <input class="<?= h($classes) ?>"
+               type="<?= $asNumber ? 'number' : 'text' ?>"
+               <?= $asNumber ? 'step="' . h($step) . '"' : '' ?>
+               id="<?= h($id) ?>"
                name="<?= h($name) ?>"
                value="<?= h((string)$shown) ?>"
                data-ap-field="1"

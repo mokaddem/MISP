@@ -174,6 +174,7 @@ if (($block['value_type'] ?? null) === 'types') {
                     id="<?= h(AnalystProfileFormTool::fieldId($block['path'],
                         array('add'))) ?>"
                     data-ap-add="<?= h(implode('.', $block['path'])) ?>"
+                    data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
                     data-ap-add-name="<?= h(AnalystProfileFormTool::fieldName(
                         $block['path'])) ?>">
                 <option value=""><?= h(__('pick one…')) ?></option>
@@ -187,6 +188,7 @@ if (($block['value_type'] ?? null) === 'types') {
                    id="<?= h(AnalystProfileFormTool::fieldId($block['path'],
                        array('add'))) ?>"
                    data-ap-add="<?= h(implode('.', $block['path'])) ?>"
+                   data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
                    data-ap-add-name="<?= h(AnalystProfileFormTool::fieldName(
                        $block['path'])) ?>"
                    data-ap-add-source="<?= h($block['add']['source']) ?>"

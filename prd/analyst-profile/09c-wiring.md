@@ -658,6 +658,56 @@ column is flipped* — with one line on screen and the rest behind the
 `i`, which is the length [`09b-revisions.md`](09b-revisions.md) §3.7
 asked for and never got.
 
+### 7.20 The numeric settings took a word
+
+Every setting on the signals pane is a number — what a signal pays, the
+days its config counts in — and every one of them was a `type="text"`
+box. Typing `soon` into `recent_days` was accepted at the keystroke,
+accepted by the recompute, and refused only by
+`ValueSignalBase::checkMap()` on save, as a line at the top of a page
+whose thirty-six other boxes look exactly the same. The refusal was
+correct and arrived in the wrong place.
+
+`field.ctp` draws `int` and `float` as `number` — stepping by one and by
+anything — so the browser refuses the word as it is typed. Four things
+came with it:
+
+- **A stored value that is not a number is still drawn as text.** A
+  `number` input shows nothing for a value it cannot parse, and a box
+  that silently empties itself posts the key away on the next save.
+- **The stepper is suppressed.** The chip gives a weight 3.4rem of
+  monospace, and two arrows inside that leave room for one digit. The
+  keyboard still steps.
+- **A refusal in a closed pane opens it.** One section is on screen and
+  the rest are `display: none`; a browser cannot report on a control it
+  cannot show, so it blocks the save and says nothing at all. The first
+  refusal of a validation pass now opens its own pane — the first,
+  because the events arrive in tree order and the browser reports on
+  that one.
+- **The header's Save runs the checks at all.** `analystProfileSave()`
+  called `form.submit()`, which skips constraint validation outright —
+  so the page's main button would have posted a half-typed number that
+  the Save inside a pane refuses. It calls `requestSubmit()`, which is
+  the same post through the door the checks are behind.
+
+The row the page builds when a map gains a key was the last text box.
+It now reads the map's `value_type` and builds the control the server
+would have drawn, which for `ttl_overrides` — a map of days — is a
+`number`.
+
+Three boxes stay text and are right to: `warninglist_category` on both
+conflict rules is a category name, and `threat_share_at_least` takes a
+fraction *or* the word `supermajority`. Both are `string` in their
+`when_schema` and both draw as prose fields, without the monospace
+right-aligned styling the numbers carry.
+
+**Still open, same shape, different pane.** A map whose values are a
+`select` — `org_trust`'s grades, `warninglist_category`'s three
+meanings — has its existing rows drawn as selects and the row the page
+adds drawn as a free-text box. The fix is the option list carried to
+the add control the way `value_type` now is; it is the reference pane,
+not the signals one, and it is not in this change.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships
