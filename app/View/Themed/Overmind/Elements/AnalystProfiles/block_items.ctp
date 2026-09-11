@@ -200,12 +200,26 @@ $columns = $isSignals ? 5 : 3;
                         || !empty($item['layer'])): ?>
                         <div class="sig-meta">
                             <?php if (!empty($item['trust_weighted'])): ?>
+                                <?php
+                                /*
+                                 * No `×`. It is the remove glyph three
+                                 * times over on this page — the chip
+                                 * drop, the map row's button, and the
+                                 * one the JS writes for a new chip —
+                                 * so a lone leading one beside those
+                                 * chips reads as a control that turns
+                                 * the weighting off. It works in
+                                 * `assessment_head` because *points ×
+                                 * polarity* has a second operand;
+                                 * here there is none, and *weighted*
+                                 * already says the points are scaled.
+                                 */
+                                ?>
                                 <span class="sig-tag is-mult"
                                       title="<?= h(__('Every point this signal'
                                           . ' contributes is multiplied by how'
                                           . ' much the reporting organisation'
                                           . ' is trusted.')) ?>">
-                                    <span class="op">&times;</span>
                                     <?= h(__('trust weighted')) ?>
                                 </span>
                             <?php endif; ?>

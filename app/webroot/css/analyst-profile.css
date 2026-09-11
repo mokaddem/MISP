@@ -245,18 +245,14 @@
 }
 /*
  * The multiplier earns the accent: it is arithmetic, and it is the one
- * thing in this cell that changes what the points column is worth.
+ * thing in this cell that changes what the points column is worth. The
+ * tint is the whole tag's, never one character's — an accented glyph
+ * inside a tag is how a label starts looking like a button.
  */
 .sig-tag.is-mult {
     background: color-mix(in srgb, var(--bs-primary) 10%, transparent);
     color: var(--bs-primary);
     font-weight: 600;
-}
-.sig-tag.is-mult .op {
-    font-family: var(--bs-font-monospace, ui-monospace, monospace);
-    font-weight: 700;
-    font-size: .75rem;
-    line-height: 1;
 }
 
 /* ---- key/value chips: a points map has no fixed schema ---- */

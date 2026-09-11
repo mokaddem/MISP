@@ -531,8 +531,19 @@ tail of a sentence. It is now a tag: square where the state pills
 (`available`, `missing`) are round, because those say what a row's
 relationship to this profile is and this says what the arithmetic does
 to it — two different questions that were sharing one voice in one
-cell. The multiplier carries the primary tint and the `×` in monospace;
-`reads <source>` is the same tag shape in neutral grey.
+cell. The multiplier carries the primary tint; `reads <source>` is the
+same tag shape in neutral grey.
+
+**The `×` is gone, and the first pass was wrong to keep it.** It is the
+remove glyph three times over on this page — `field.ctp`'s chip drop,
+`block_map.ctp`'s row button, and the one `analyst-profile.js` writes
+for a chip it builds — so a lone leading `×` sat beside chips whose own
+removal affordance is the same character, and the accent it had been
+given is exactly the treatment that reads as *clickable*. `×` is right
+in `assessment_head` (*"every row is points × polarity"*) because it
+has two operands; here it had none. *Weighted* already says the points
+are scaled, and it keeps the term the rail uses for the section that
+sets it.
 
 Both tints are `color-mix` over a token rather than a fixed grey, so
 they hold their weight against either theme's ground — checked in both.
