@@ -185,7 +185,17 @@ $columns = $isSignals ? 5 : 3;
                 $chips[$map === 'points' ? 'points' : 'config'][] = $field;
             }
             ?>
-            <tr class="<?= h($rowClass) ?>" data-ap-item="<?= h($item['id']) ?>">
+            <?php
+            /*
+             * The state travels with the row because the switch can
+             * change how the row should read without a reload, and the
+             * script is not allowed to guess which dimmed rows it may
+             * undim: `missing` is a fact about the instance, and
+             * ticking a box cannot change it.
+             */
+            ?>
+            <tr class="<?= h($rowClass) ?>" data-ap-item="<?= h($item['id']) ?>"
+                data-ap-state="<?= h($state) ?>">
                 <td>
                     <?php if ($switch !== null): ?>
                         <?= $this->element('AnalystProfiles/field', array(

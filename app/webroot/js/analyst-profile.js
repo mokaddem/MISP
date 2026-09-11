@@ -123,6 +123,29 @@ function boot() {
                 if (chip) {
                     chip.classList.toggle('is-edited', moved);
                 }
+                /*
+                 * A row reads as off when its switch is off, and the
+                 * class was rendered from the *stored* value — so
+                 * ticking a disabled rule left it greyed out until a
+                 * save, which is the page showing a state the form no
+                 * longer has. Toggled here rather than on the click,
+                 * because this already runs on every change and the
+                 * switch is not the only way one arrives.
+                 *
+                 * A row the instance does not implement stays dimmed
+                 * either way: that is a fact about the instance, and
+                 * ticking a box cannot change it.
+                 */
+                if (field.type === 'checkbox') {
+                    var row = field.closest
+                        ? field.closest('tr[data-ap-item]')
+                        : null;
+                    if (row
+                        && row.getAttribute('data-ap-state') !== 'missing'
+                    ) {
+                        row.classList.toggle('is-off', !field.checked);
+                    }
+                }
                 if (!moved) {
                     return;
                 }

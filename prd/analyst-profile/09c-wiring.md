@@ -926,6 +926,31 @@ removes is listed in the assessment as not counted, naming the rule"* —
 the more useful of its two sentences — behind a hover. It is one
 sentence now and the pane has no `i` left.
 
+### 7.26 A row stayed greyed out after you switched it on
+
+The palette dims a row whose switch is off — `.wb-tbl tr.is-off > td`
+at `.62` — and the class was rendered from the **stored** value. So
+ticking a disabled rule left it greyed out until a save, and
+`orgs.own`, the one exclusion the shipped profile ships disabled, is
+where anybody meets it.
+
+Same shape as §7.18: the page showing a state the form no longer has.
+`mark()` already runs on every change and already repaints the chips and
+the rail's dirty glyphs; the row's own class was the one it did not
+touch. It does now.
+
+**A dimmed row is not always a switched-off row**, which is why the
+state travels with it. `missing` — a rule this profile names and this
+instance does not implement — is dimmed for a different reason, and it
+is a fact about the instance that ticking a box cannot change, exactly
+as §7.18's contribution column leaves `not counted` rows alone. The
+`<tr>` carries `data-ap-state` and the script undims nothing else.
+
+Checked by driving it rather than by reading it: the row goes
+`opacity .62` → `1` on the tick and back on the untick with no reload, a
+signal row dims when switched off and returns, and a row stamped
+`missing` stays dimmed with its box ticked.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships
