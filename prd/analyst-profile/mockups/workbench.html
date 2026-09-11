@@ -1,20 +1,25 @@
 <title>The Workbench</title>
 
 <!--
-    Phase 8b candidate frame (prd/analyst-profile/09b-prototypes.md).
+    The Analyst Profile editor, three pages in one file
+    (prd/analyst-profile/09-editor.md; revisions in 09b-revisions.md).
 
-    Copy this file to prd/analyst-profile/mockups/<your-candidate>.html
-    and draw your three boards into the three .vp-board slots below.
-    Do not paste the kit into this file: the marker is replaced at build
-    time, which is what keeps 812KB of MISP CSS out of committed files.
+    Do not paste the kit into this file: the marker below is replaced at
+    build time, which is what keeps 812KB of MISP CSS out of committed
+    files.
 
         python3 prd/phase7/kit/inline-kit.py \
-            prd/analyst-profile/mockups/<your-candidate>.html
+            prd/analyst-profile/mockups/workbench.html
         bash prd/analyst-profile/mockups/check-mockup.sh \
-            prd/analyst-profile/build/<your-candidate>.html
+            prd/analyst-profile/build/workbench.html
 
     Every figure comes from prd/analyst-profile/09a-fixtures/. Read that
     directory's README.md first, and invent nothing.
+
+    STILL SCAFFOLDING, and 8c must remove it: the three .vp-board
+    frames with their URL labels, and the dimmed .vp-doc-chrome navbar.
+    They are how three pages are compared in one file; each board
+    becomes a real page and the frame goes with it.
 -->
 <!-- vp-kit -->
 
@@ -96,7 +101,7 @@ body {
     color: inherit;
 }
 
-/* One board: a labelled slab holding one page of the candidate. */
+/* One board: a labelled slab holding one page of the editor. */
 .vp-board {
     margin: 0 1rem var(--vp-board-gap);
     border: 1px solid var(--bs-border-color, #dee2e6);
@@ -164,8 +169,7 @@ body {
 
 /* The query container is the content column rather than the workbench
  * itself: an element cannot answer a container query against itself. */
-.vp-board .container-fluid,
-.wb-1280 {
+.vp-board .container-fluid {
     container-type: inline-size;
     container-name: wb;
 }
@@ -713,18 +717,6 @@ body {
     border-radius: 50%;
     background: var(--bs-primary);
 }
-
-/* ---- the 1280 inset ---- */
-.wb-1280 {
-    width: 1246px;
-    max-width: 100%;
-    border: 1px solid var(--bs-border-color);
-    border-radius: .4rem;
-    overflow: clip;
-    background: var(--bs-body-bg);
-}
-.wb-1280 .wb { margin: 0; border-top: 0; }
-.wb-1280 .wb-bench-inner { position: static; }
 
 /* ==================================================================
  * The degradation, made rather than caveated.
@@ -1893,25 +1885,16 @@ body {
   </div>
 
   <header class="vp-doc-head">
-    <h1>Analyst Profile — candidate <em>B, the workbench</em></h1>
-    <p class="vp-doc-sub">
-      <strong>Two panes, and the effect is never off screen.</strong> The left
-      pane is the profile — seven sections as an outline, one open at a time.
-      The right pane is the value under assessment, on all three boards,
-      sticky, recomputed as the left pane changes: the simulator is not a
-      place you navigate to, it is the right-hand half of the editor. Every
-      figure below comes from <code>prd/analyst-profile/09a-fixtures/</code>.
-    </p>
+    <h1>Analyst Profile</h1>
     <div class="vp-doc-jump">
       <a href="#board-index">Index</a>
       <a href="#board-edit">Edit</a>
       <a href="#board-simulate">Simulate</a>
-      <a href="#gives-up">At 1280px</a>
     </div>
   </header>
 
   <div class="vp-board" id="board-index">
-    <div class="vp-board-tag"><span><b>/analystProfiles/index</b></span><span class="vp-board-q">Which profile is weighting my pages, and why is it not the one I just forked?</span></div>
+    <div class="vp-board-tag"><span><b>/analystProfiles/index</b></span></div>
       <div class="container-fluid py-3">
         <div class="d-flex justify-content-between align-items-center">
           <div class="d-flex flex-column align-items-start">
@@ -2211,7 +2194,7 @@ body {
   </div>
 
   <div class="vp-board" id="board-edit">
-    <div class="vp-board-tag"><span><b>/analystProfiles/edit/23?value=OC44LjguOA==</b></span><span class="vp-board-q">What is this profile asserting, and how do I change one number without reading JSON?</span></div>
+    <div class="vp-board-tag"><span><b>/analystProfiles/edit/23?value=OC44LjguOA==</b></span></div>
       <div class="container-fluid py-3">
         <div class="d-flex justify-content-between align-items-center">
           <div class="d-flex flex-column align-items-start">
@@ -2686,12 +2669,8 @@ body {
 
                 <p class="wb-h mt-3">The thin-record clamp</p>
                 <p class="wb-blurb">
-                  A ceiling on the band for a record with one source and nothing
-                  corroborating it. The weights alone cannot express this: one
-                  organisation reporting the same value for fourteen months sums
-                  past any floor that still says something useful about the
-                  values that do have corroboration. Delete the three numbers to
-                  remove the clamp.
+                  A ceiling on the band for a record with one source and nothing corroborating it.
+                  <a href="#" class="wb-i" title="The points alone cannot express thin: one organisation reporting the same value for fourteen months sums past any floor that still says something useful about the values that do have corroboration. Delete the three numbers to remove the clamp.">i</a>
                 </p>
                 <div class="wb-fields">
                   <div class="wb-field">
@@ -2792,9 +2771,8 @@ body {
                 <p class="wb-h">Exclusions</p>
                 <p class="wb-blurb">
                   Evidence you have decided not to count, filtered before any
-                  signal sees it &mdash; so two signals reading the same fact read
-                  the same filtered set. Every row an exclusion removes is listed
-                  in the assessment as not counted, naming the rule.
+                  signal sees it.
+                  <a href="#" class="wb-i" title="Filtered at the source rather than per signal, so two signals reading the same fact read the same filtered set. Every row an exclusion removes is listed in the assessment as not counted, naming the rule.">i</a>
                 </p>
 
                 <table class="wb-tbl">
@@ -2865,9 +2843,8 @@ body {
               <section class="wb-sec" data-sec="relevance">
                 <p class="wb-h">Relevance</p>
                 <p class="wb-blurb">
-                  Whether what the record asserts still matters today. Its own
-                  axis, and nothing in the quality reads it: silence must never
-                  be able to promote a value to a definite answer.
+                  Whether what the record asserts still matters today.
+                  <a href="#" class="wb-i" title="Its own axis, and nothing in the quality reads it: silence must never be able to promote a value to a definite answer.">i</a>
                 </p>
 
                 <p class="wb-h mt-2">The clock</p>
@@ -3009,8 +2986,8 @@ body {
 
                 <p class="wb-h mt-3">Types with their own shelf life</p>
                 <p class="wb-blurb">
-                  For the type no bucket fits. The shipped default needs exactly
-                  one.
+                  For the type no bucket fits &mdash; the shipped default needs
+                  exactly one.
                 </p>
                 <table class="wb-tbl" style="max-width:30rem">
                   <thead><tr><th>Attribute type</th><th class="r" style="width:9rem">Days</th><th style="width:4rem"></th></tr></thead>
@@ -3078,7 +3055,7 @@ body {
                 </div>
 
                 <p class="wb-h mt-3">What a grade is worth</p>
-                <p class="wb-blurb">The multiplier each grade contributes. A voice graded E counts as a quarter of one.</p>
+                <p class="wb-blurb">The multiplier each grade contributes &mdash; a voice graded E counts as a quarter of one.</p>
                 <div class="wb-fields" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));max-width:42rem">
                   <div class="wb-field"><label>A</label><input class="form-control form-control-sm num" value="1.25"></div>
                   <div class="wb-field"><label>B</label><input class="form-control form-control-sm num" value="1.1"></div>
@@ -3120,8 +3097,7 @@ body {
                 <p class="wb-h">Enrichment</p>
                 <p class="wb-blurb">
                   Which modules you would want asked about a value of each type.
-                  Nothing runs on its own: the tab arrives with these ticked and
-                  a run still takes a press.
+                  <a href="#" class="wb-i" title="Nothing runs on its own: the tab arrives with these ticked and a run still takes a press. No module declares a cost, so nothing here is a spend control.">i</a>
                 </p>
 
                 <p class="wb-h mt-2">Modules that leave the instance</p>
@@ -3247,10 +3223,8 @@ body {
 
                 <p class="wb-h mt-3">Where a module answers from</p>
                 <p class="wb-blurb">
-                  Overrides the shipped roster. Locality cannot be derived &mdash;
-                  a module that declares no config and no requirements may still
-                  fetch a third-party site &mdash; so it ships as knowledge and
-                  this is where you correct it.
+                  Overrides the shipped roster of where each module answers from.
+                  <a href="#" class="wb-i" title="Locality cannot be derived: a module that declares no config and no requirements may still fetch a third-party site, and one with an API key may stay local. So it ships as hand-maintained knowledge, and this is where you correct it.">i</a>
                 </p>
                 <table class="wb-tbl" style="max-width:34rem">
                   <thead><tr><th>Module</th><th style="width:10rem">Answers from</th><th style="width:3rem"></th></tr></thead>
@@ -3704,7 +3678,7 @@ body {
   </div>
 
   <div class="vp-board" id="board-simulate">
-    <div class="vp-board-tag"><span><b>/analystProfiles/simulate/23?value=OC44LjguOA==</b></span><span class="vp-board-q">What would my change do — to this value, and to the values I care about?</span></div>
+    <div class="vp-board-tag"><span><b>/analystProfiles/simulate/23?value=OC44LjguOA==</b></span></div>
       <div class="container-fluid py-3">
         <div class="d-flex justify-content-between align-items-center">
           <div class="d-flex flex-column align-items-start">
@@ -4126,188 +4100,6 @@ body {
         </div>
   </div>
 
-  <section class="vp-doc-head" id="gives-up" style="border:0;margin-top:1rem">
-    <h2 class="h5">What this candidate gives up</h2>
-    <p class="vp-doc-sub">
-      <b>The risk the workbench has to survive is that the right pane is a
-      whole second page&rsquo;s worth of content in half the width.</b> It is
-      answered with a container query rather than a caveat: the workbench
-      measures itself, not the window, so the same rules run in the inset
-      below and in a 1280px MISP page, where the content column is 1246px
-      wide. Under 1400px of column width the outline stops being a column
-      and becomes a row of chips; the bench drops the evidence prose, the
-      source lines and the comparison set&rsquo;s relevance and fired
-      columns. What it never drops is the bench itself, the value, the
-      quality, the delta, the band and every row that moved &mdash; because
-      a bench you have to scroll to is the decaying-model simulator again.
-    </p>
-    <p class="vp-doc-sub">
-      Three things this direction pays for that: <b>one section at a time</b>,
-      so you cannot read Signals and Thresholds side by side and the rail has
-      to carry the edit markers instead; <b>468px off the editing pane</b>, which
-      is why the signals table renders its points map as chips rather than as
-      columns wide enough to edit in place; and an <b>index board that spends
-      half its width on a bench with no numbers on it</b> &mdash; the fixtures
-      score no profile there, and inventing one to fill the pane is exactly
-      the move this phase exists to prevent.
-    </p>
-
-    <p class="vp-doc-sub mb-2"><b>The same workbench at a 1280px window</b>
-      &mdash; live, not a screenshot. Rows are thinned in this inset only;
-      nothing that is required to be on screen is dropped by the layout.</p>
-
-    <div class="wb-1280">
-      <div class="wb">
-        <div class="wb-panehead wb-panehead-left"><span>The profile</span><em>one open</em></div>
-        <div class="wb-panehead wb-panehead-right"><span>8.8.8.8</span></div>
-
-        <nav class="wb-rail">
-          <div class="wb-rail-title">Sections</div>
-          <button type="button" class="wb-rail-item is-open"><span><span class="mk">&#8961;</span> Signals<span class="wb-rail-ax">quality</span></span><span class="c">12</span></button>
-          <button type="button" class="wb-rail-item"><span>Thresholds<span class="wb-rail-ax">lean + quality</span></span><span class="c">7</span></button>
-          <button type="button" class="wb-rail-item"><span>Conflict rules<span class="wb-rail-ax">lean</span></span><span class="c">2</span></button>
-          <button type="button" class="wb-rail-item"><span>Exclusions<span class="wb-rail-ax">quality</span></span><span class="c">4</span></button>
-          <button type="button" class="wb-rail-item"><span>Relevance<span class="wb-rail-ax">relevance</span></span><span class="c">12</span></button>
-          <button type="button" class="wb-rail-item"><span>Sources &amp; reputation<span class="wb-rail-ax">quality &mdash; trust weighting</span></span><span class="c">5</span></button>
-          <button type="button" class="wb-rail-item"><span>Enrichment<span class="wb-rail-ax">no axis &mdash; context</span></span><span class="c">4</span></button>
-          <button type="button" class="wb-rail-item"><span>Raw JSON<span class="wb-rail-ax">all three</span></span><span class="c">6.5&thinsp;KB</span></button>
-        </nav>
-
-        <div class="wb-body">
-          <p class="wb-h">Signals</p>
-          <p class="wb-blurb">Nothing is normalised, so the ledger is the number.</p>
-          <table class="wb-tbl">
-            <thead>
-              <tr>
-                <th style="width:2.2rem"></th>
-                <th style="width:27%">Signal</th>
-                <th style="width:13%">Group</th>
-                <th style="width:26%">Points</th>
-                <th style="width:18%">Config</th>
-                <th class="r">On 8.8.8.8</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="is-hot">
-                <td><input class="form-check-input" type="checkbox" checked></td>
-                <td><div class="wb-id fw-semibold">reporting.independent_orgs</div></td>
-                <td><span class="pill t-plain">Reporting</span></td>
-                <td><span class="kv"><k>per_org</k><v>7</v></span><span class="kv is-edited"><k>cap</k><v>16</v> <span class="was">28</span></span></td>
-                <td><span class="kv"><k>named</k><v>4</v></span></td>
-                <td class="r"><div class="num fw-bold">16</div><div class="wb-sub d-dn num">&minus;12</div></td>
-              </tr>
-              <tr class="is-off">
-                <td><input class="form-check-input" type="checkbox" checked></td>
-                <td><div class="wb-id fw-semibold">reporting.partner_feed_agreement</div><div class="mt-1"><span class="pill t-missing">not implemented here</span></div></td>
-                <td><span class="pill t-plain">Reporting</span></td>
-                <td><span class="kv is-undeclared"><k>per_partner</k><v>6</v></span><span class="kv is-undeclared"><k>cap</k><v>18</v></span></td>
-                <td class="wb-sub">&mdash;</td>
-                <td class="r wb-sub">not counted</td>
-              </tr>
-              <tr>
-                <td><input class="form-check-input" type="checkbox" checked></td>
-                <td><div class="wb-id fw-semibold">sightings.volume_recency</div></td>
-                <td><span class="pill t-plain">Sightings</span></td>
-                <td><span class="kv"><k>cap</k><v>24</v></span><span class="kv"><k>none_recent</k><v>&minus;4</v></span></td>
-                <td><span class="kv"><k>saturation</k><v>50</v></span><span class="kv"><k>stale_days</k><v>90</v></span></td>
-                <td class="r"><div class="num fw-bold">24</div></td>
-              </tr>
-              <tr class="is-off is-hot">
-                <td><input class="form-check-input" type="checkbox"></td>
-                <td><div class="wb-id fw-semibold">lifecycle.warninglist</div><div class="wb-sub"><span class="mk">&#8961;</span> switched off here</div></td>
-                <td><span class="pill t-plain">Lifecycle</span></td>
-                <td><span class="kv"><k>no_hit</k><v>6</v></span><span class="kv"><k>false_positive_hit</k><v>&minus;38</v></span><span class="kv"><k>known_hit</k><v>0</v></span></td>
-                <td class="wb-sub">&mdash;</td>
-                <td class="r"><div class="num fw-bold">&mdash;</div><div class="wb-sub d-up num">+38</div></td>
-              </tr>
-              <tr>
-                <td colspan="6" class="wb-sub">&hellip; eight more rows, unchanged in this inset</td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr><td colspan="5">The column adds up</td><td class="r num" style="font-size:1rem">23</td></tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <aside class="wb-bench">
-          <div class="wb-bench-inner">
-            <div class="bench-value"><span class="v">8.8.8.8</span></div>
-            <div class="bench-live">recomputed</div>
-            <div class="bench-q mt-2">
-              <span class="now">23</span>
-              <span class="from">quality<br><span class="num">4</span> in force</span>
-              <span class="num d-up" style="font-size:1.05rem;font-weight:700;margin-left:auto">+19</span>
-            </div>
-            <div class="wb-strip mt-3 mb-1">
-              <div class="seg seg-low"  style="left:0%;width:27.027%">low</div>
-              <div class="seg seg-med"  style="left:27.027%;width:27.027%">medium</div>
-              <div class="seg seg-high" style="left:54.054%;width:45.946%">high</div>
-              <div class="wb-mark ghost" style="left:3.60%"><b>4</b></div>
-              <div class="wb-mark" style="left:20.72%"><b>23</b></div>
-            </div>
-            <div class="wb-scale"><span style="flex:0 0 0">0</span><span style="flex:0 0 27.027%">30</span><span style="flex:0 0 27.027%">60</span><span style="flex:1 1 auto">111</span></div>
-            <div class="bench-ax3">
-              <div class="ax">
-                <span class="ax-n">lean</span>
-                <b class="ax-v">contested</b>
-              </div>
-              <div class="ax">
-                <span class="ax-n">relevance</span>
-                <b class="ax-v">timeline uncertain</b>
-                <div class="ax-runway">
-                  <div class="ax-track" title="16 days elapsed of a 90 day TTL">
-                    <span class="ax-fill" style="width:82%"></span>
-                    <span class="ax-agemark" style="left:33%"></span>
-                  </div>
-                  <span class="ax-runway-t"><b>74</b> of 90 days left</span>
-                </div>
-              </div>
-              <div class="ax ax-led">
-                <span class="ax-n">quality</span>
-                <b class="ax-v num">23</b>
-                <span class="ax-g">band low</span>
-              </div>
-            </div>
-            <div class="bench-axes bench-meta">
-              <div><span>signals fired</span><b class="num">9</b></div>
-            </div>
-            <div class="bench-sec"><span>Moved</span><span class="num">3 of 10</span></div>
-            <table class="wb-tbl">
-              <tbody>
-                <tr><td class="wb-id">reporting.independent_orgs</td><td class="r num">28 &rarr; 16</td><td class="r num d-dn">&minus;12</td></tr>
-                <tr><td class="wb-id">attribution.galaxy</td><td class="r num">&mdash; &rarr; &minus;7</td><td class="r num d-dn">&minus;7</td></tr>
-                <tr><td class="wb-id">lifecycle.warninglist</td><td class="r num">&minus;38 &rarr; &mdash;</td><td class="r num d-up">+38</td></tr>
-              </tbody>
-              <tfoot><tr><td class="wb-sub">seven did not move</td><td class="r num">4 &rarr; 23</td><td class="r num d-up">+19</td></tr></tfoot>
-            </table>
-            <div class="bench-sec"><span>Pinned</span><span class="num">4</span></div>
-            <table class="wb-tbl">
-              <thead><tr><th>Value</th><th class="r">Quality</th><th class="wb-wide-only">Band</th><th class="r" style="width:2.5rem"></th></tr></thead>
-              <tbody>
-                <tr><td class="wb-id">8.8.8.8</td><td class="r num">4 &rarr; 23</td><td class="wb-wide-only wb-sub">low</td><td class="r d-up">&#9650;</td></tr>
-                <tr><td class="wb-id">185.234.219.24</td><td class="r num">0 &rarr; 0</td><td class="wb-wide-only wb-sub">none</td><td class="r d-0">&mdash;</td></tr>
-                <tr><td class="wb-id">45.155.205.233</td><td class="r num">11 &rarr; &minus;2</td><td class="wb-wide-only wb-sub">low</td><td class="r d-dn">&#9660;</td></tr>
-                <tr><td class="wb-id">1.1.1.1</td><td class="r num">15 &rarr; 34</td><td class="wb-wide-only wb-sub">low &rarr; medium</td><td class="r d-up">&#9650;</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </aside>
-      </div>
-    </div>
-
-    <p class="vp-doc-sub mt-3">
-      <b>Two fixtures disagree and the page follows the simulator.</b>
-      <code>profile.json</code> carries a contribution column for
-      <span class="wb-id">8.8.8.8</span> that sums to <span class="num">&minus;6</span>
-      and matches neither side of <code>simulate.json</code>&rsquo;s diff &mdash;
-      its <span class="wb-id">sightings.false_positive</span> row reads
-      <span class="num">&minus;23</span> where the simulator reads
-      <span class="num">&minus;20</span>. Every contribution drawn above is the
-      simulator&rsquo;s candidate column, so the number under the table is the
-      quality on the bench and the two agree to the point.
-    </p>
-  </section>
 
 </div>
 
