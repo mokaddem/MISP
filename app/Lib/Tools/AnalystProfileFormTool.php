@@ -484,9 +484,8 @@ class AnalystProfileFormTool
             'id' => 'thresholds',
             'title' => __('Thresholds'),
             'blurb' => __(
-                'Where the counted evidence turns into a word. The lean'
-                . ' asks how one-sided the record is; the bands ask how'
-                . ' much of it there is.'
+                'Where the points become words: which way the record'
+                . ' leans, and how much evidence stands behind it.'
             ),
             'blocks' => array(
                 array(
@@ -504,12 +503,12 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 0.66,
                             'help' => __(
-                                'The share of organisations that must'
-                                . ' agree before the record is read as'
-                                . ' asserting one thing. A supermajority'
-                                . ' on either side, with a tolerance —'
-                                . ' 34 of 100 against misses the mirror'
-                                . ' of 0.66 by a floating-point hair.'
+                                'How one-sided the reporting has to be'
+                                . ' before the record counts as saying'
+                                . ' one thing: at 0.66, two thirds of'
+                                . ' the organisations must be on the'
+                                . ' same side, and anything short of'
+                                . ' that either way reads as contested.'
                             ),
                             'path' => array('thresholds',
                                 'lean_supermajority'),
@@ -525,19 +524,14 @@ class AnalystProfileFormTool
                     'id' => 'quality',
                     'title' => __('The quality bands'),
                     'axis' => __('quality'),
+                    'blurb' => __(
+                        'The quality score is a running total of points.'
+                        . ' These two numbers cut that total into three'
+                        . ' bands, in the order the strip above reads:'
+                        . ' below the first it is low, from the first it'
+                        . ' is medium, from the second it is high.'
+                    ),
                     'fields' => array(
-                        array(
-                            'key' => 'high',
-                            'label' => __('High from'),
-                            'type' => 'int',
-                            'unit' => __('points'),
-                            'value' => isset($bands['high'])
-                                ? $bands['high']
-                                : null,
-                            'default' => 60,
-                            'path' => array('thresholds', 'quality_bands',
-                                'high'),
-                        ),
                         array(
                             'key' => 'medium',
                             'label' => __('Medium from'),
@@ -551,6 +545,18 @@ class AnalystProfileFormTool
                                 'medium'),
                         ),
                         array(
+                            'key' => 'high',
+                            'label' => __('High from'),
+                            'type' => 'int',
+                            'unit' => __('points'),
+                            'value' => isset($bands['high'])
+                                ? $bands['high']
+                                : null,
+                            'default' => 60,
+                            'path' => array('thresholds', 'quality_bands',
+                                'high'),
+                        ),
+                        array(
                             'key' => 'quality_high_min_signals',
                             'label' => __('Signals needed for high'),
                             'type' => 'int',
@@ -561,8 +567,10 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 4,
                             'help' => __(
-                                'What stops one heavy row buying a high'
-                                . ' band on its own.'
+                                'How many signals must fire before high'
+                                . ' is allowed at all, so one generous'
+                                . ' signal cannot buy the band on its'
+                                . ' own.'
                             ),
                             'path' => array('thresholds',
                                 'quality_high_min_signals'),
@@ -574,47 +582,80 @@ class AnalystProfileFormTool
                     'id' => 'thin_record_clamp',
                     'title' => __('The thin-record clamp'),
                     'blurb' => __(
-                        'A ceiling on the band for a record with one'
-                        . ' source and nothing corroborating it. The'
-                        . ' weights alone cannot express this: one'
-                        . ' organisation reporting the same value for'
-                        . ' fourteen months sums past any floor that'
-                        . ' still says something useful about the values'
-                        . ' that do have corroboration. Delete the three'
-                        . ' numbers to remove the clamp.'
+                        'A value can pile up points while resting on a'
+                        . ' single reporter — one organisation repeating'
+                        . ' the same value month after month, with'
+                        . ' nobody else confirming it. When the record'
+                        . ' is that thin, the three settings below hold'
+                        . ' its band down whatever the points say: with'
+                        . ' the shipped numbers, a value reported by one'
+                        . ' organisation and sighted by nobody never'
+                        . ' reads above low. The clamp only lowers the'
+                        . ' quality band; it leaves the lean alone.'
                     ),
                     'fields' => array(
                         array(
                             'key' => 'max_orgs',
-                            'label' => __('Sources that still count as one'),
+                            'label' => __('Reported by at most'),
                             'type' => 'int',
+                            'unit' => __('organisations'),
                             'value' => isset($clamp['max_orgs'])
                                 ? $clamp['max_orgs']
                                 : null,
                             'default' => 1,
+                            'help' => __(
+                                'More reporting organisations than this'
+                                . ' and the record is not thin, so it'
+                                . ' keeps the band its points earned.'
+                            ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_orgs'),
                         ),
                         array(
                             'key' => 'max_sightings',
-                            'label' => __('Sightings that still count as none'),
+                            'label' => __('Sighted at most'),
                             'type' => 'int',
+                            'unit' => __('times'),
                             'value' => isset($clamp['max_sightings'])
                                 ? $clamp['max_sightings']
                                 : null,
                             'default' => 0,
+                            'help' => __(
+                                'More sightings than this and it is not'
+                                . ' thin either — both conditions have'
+                                . ' to hold before the cap bites.'
+                            ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_sightings'),
                         ),
                         array(
                             'key' => 'max_band',
-                            'label' => __('Ceiling'),
+                            'label' => __('Cap the band at'),
                             'type' => 'select',
-                            'options' => ValueVerdictTool::BANDS,
+                            /*
+                             * `ValueVerdictTool::clamped()` reads an
+                             * absent `max_band` as no clamp at all, so
+                             * the editor needs a way to post one away.
+                             * Without the blank option a profile that
+                             * has none shows `none` selected and the
+                             * next save writes it — a clamp to the
+                             * emptiest band, chosen by nobody.
+                             */
+                            'options' => array_merge(
+                                array(array(
+                                    'value' => '',
+                                    'label' => __('no cap'),
+                                )),
+                                ValueVerdictTool::BANDS
+                            ),
                             'value' => isset($clamp['max_band'])
                                 ? $clamp['max_band']
                                 : null,
-                            'default' => 'low',
+                            'help' => __(
+                                'The highest band a thin record may'
+                                . ' reach, or no cap to switch the clamp'
+                                . ' off.'
+                            ),
                             'path' => array('thresholds',
                                 'thin_record_clamp', 'max_band'),
                         ),

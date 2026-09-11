@@ -708,6 +708,50 @@ adds drawn as a free-text box. The fix is the option list carried to
 the add control the way `value_type` now is; it is the reference pane,
 not the signals one, and it is not in this change.
 
+### 7.21 The thresholds pane said what it does in its own language
+
+Three complaints about one pane, and they share a cause: the copy was
+written by somebody who already knew the model.
+
+**The band inputs were drawn high first.** `09b-revisions.md` §3.10
+asked for this and it had not landed: the strip above reads low →
+medium → high and the boxes under it read *High from*, *Medium from*.
+They are now in the strip's order, under a line that says what a band
+even is — the quality score is a running total of points, and these two
+numbers cut it into three.
+
+**The thin-record clamp explained its own justification and not its
+controls.** *Sources that still count as one* and *Sightings that still
+count as none* are riddles: both name the threshold by what the record
+is treated as rather than by what you are typing. They now read
+**Reported by at most `1` organisations**, **Sighted at most `0` times**,
+**Cap the band at `low`**, each with one line saying what falling above
+it means. The blurb leads with the shape the clamp exists for — a value
+piling up points while resting on a single reporter — gives the outcome
+under the shipped numbers, and says the thing the reviewer asked for
+outright: *the clamp only lowers the quality band; it leaves the lean
+alone.* The old paragraph about weightings being unable to express this
+is true, is the reason the clamp exists, and belongs in
+`ValueVerdictTool::clamped()`'s docblock, where it already is.
+
+**The ceiling could not be set to nothing.** The blurb ended *Delete the
+three numbers to remove the clamp*, which the editor could not do:
+`max_band` is a select over `BANDS` with no empty option, so a profile
+that has no clamp showed `none` selected — the emptiest band, chosen by
+nobody — and the next save wrote it. `clamped()` has always read an
+absent `max_band` as no clamp; the select now offers **no cap** as a
+blank option, `mergeAssoc()` drops the key on an empty post, and the
+document goes back to having no clamp. Checked both ways: posting the
+blank option removes `max_band`, and a thin record at 80 points then
+reads `high` where the ceiling had held it at `low`.
+
+**Two `i` tooltips are gone from the pane, not moved.** `block_fields`
+and `section` hide everything after the first sentence behind an `i`,
+which is the right default and was hiding two things that did not earn
+it — a floating-point aside about 34-of-100, and half of the section
+blurb. Both sentences are now one sentence each, so the pane has no `i`
+left to hover. The mechanism is untouched; the other panes keep theirs.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships

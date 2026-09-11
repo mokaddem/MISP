@@ -341,6 +341,13 @@ existing live refusal — the pane already answers *what a save would
 refuse* while you type, against the attainable bound, and that is the
 best thing in the pane.
 
+> **Reorder closed 2026-09-11** (`09c-wiring.md` §7.21), along with a
+> second reviewer pass on the same pane: the clamp's controls now name
+> what you are typing rather than what the record is treated as, the
+> ceiling can be set to *no cap* at all, and the pane's two `i` tooltips
+> are gone because nothing on it needs hiding any more. **Still open:**
+> binding each input visually to its segment.
+
 **Also fix an IA error this pane exposes** (and correct
 `09b-decision.md` §4, which is wrong): **Thresholds configures two
 axes, not one.** It holds *"The lean → Supermajority share"*
