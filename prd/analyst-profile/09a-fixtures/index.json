@@ -100,5 +100,38 @@
     "in_force": null,
     "scoring_off": true,
     "comparison_set": []
+  },
+  "fork_confirm": {
+    "note": "What `fork()` returns before it forks anything, when the reader already holds an enabled profile (09-editor.md section 6). Two shapes: forking to yourself, and forking to the organisation, which names how many colleagues it would change.",
+    "provenance": {
+      "users_and_own_profile": "Counted on the dev instance 2026-09-11 the way `AnalystProfilesController::__orgReaders()` counts them: active users in the org, minus those holding an enabled profile of their own. ADMIN has 4 active users and, before this dump ran, none with their own enabled profile.",
+      "own_profile_here": "This board's reader does hold one \u2014 it is the `in_force` row above \u2014 so 1 of the 4 is exempt and 3 are affected."
+    },
+    "to_me": {
+      "confirm": "replace",
+      "existing": {
+        "name": "Sightings-heavy (experiment)",
+        "uuid": "6449f5a4",
+        "enabled": true
+      },
+      "affects": null,
+      "message": "You already have an enabled profile, Sightings-heavy (experiment). Replacing it disables it \u2014 it is not deleted \u2014 and the fork becomes the one in force."
+    },
+    "to_org": {
+      "confirm": "replace",
+      "existing": null,
+      "affects": {
+        "users": 4,
+        "own_profile": 1,
+        "affected": 3
+      },
+      "message": "An organisation profile is what every colleague who has not forked resolves to. This one would change how values are scored for 3 users."
+    },
+    "after": {
+      "note": "A fork has no lineage: a new uuid, counters reset, no parent_uuid. Its description is rewritten, because a verbatim copy made a fork claim to be the default (09-editor.md:435-443).",
+      "description": "Forked from \u201cdefault-v1\u201d on 2026-09-11.",
+      "revision": 1,
+      "version": 1
+    }
   }
 }
