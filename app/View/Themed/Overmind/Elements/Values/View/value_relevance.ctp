@@ -87,10 +87,10 @@ $kindHints = array(
         . ' it.'),
 );
 $stateHints = array(
-    'current' => __('Inside its shelf life.'),
-    'aging' => __('Past the point where this profile starts treating it'
-        . ' as old — worth re-checking.'),
-    'expired' => __('Older than its shelf life. Re-check it before'
+    'current' => __('Inside its lifetime.'),
+    'aging' => __('Still inside its lifetime, but past the point'
+        . ' where this profile stops calling it current.'),
+    'expired' => __('Past its lifetime. Re-check it before'
         . ' acting on it.'),
     'uncertain' => __('The age below is a minimum, not a'
         . ' measurement.'),
@@ -108,7 +108,7 @@ $ttl = $relevance['ttl'];
            title="<?= h(__('How long this value counts as current after'
                . ' the last time somebody confirmed it.')) ?>"
            style="color: var(--correlation);"></i>
-        <span class="vp-aside-title"><?= __('Shelf life') ?></span>
+        <span class="vp-aside-title"><?= __('Lifetime') ?></span>
         <?php if ($state !== null): ?>
             <?php
             /*
@@ -119,7 +119,7 @@ $ttl = $relevance['ttl'];
              */
             ?>
             <span class="vp-aside-meta"
-                  title="<?= h(__('The full shelf life. The days left'
+                  title="<?= h(__('The full lifetime. The days left'
                       . ' below are what is unused of it.')) ?>">
                 <?= h(sprintf(
                     __('%s days in total'),
@@ -194,7 +194,7 @@ $ttl = $relevance['ttl'];
                                   $relevance['runway'] * 100
                               ) ?>%;"></span>
                     <span class="vp-shelf-mark"
-                          title="<?= h(__('where aging begins')) ?>"
+                          title="<?= h(__('where it stops counting as current')) ?>"
                           style="left: <?=
                               (int)round(
                                   $relevance['aging_fraction'] * 100
@@ -297,7 +297,7 @@ $ttl = $relevance['ttl'];
                 $ttlTitle = null;
                 if ($ttl['type'] === null) {
                     $ttlLine = __('Nothing here has a type to take a'
-                        . ' shelf life from, so this is the profile\'s'
+                        . ' lifetime from, so this is the profile\'s'
                         . ' default.');
                 } else {
                     if (($ttl['from'] ?? null) === 'bucket'
@@ -315,7 +315,7 @@ $ttl = $relevance['ttl'];
                         );
                     } else {
                         $ttlLine = sprintf(
-                            __('No shelf life set for %s, so this is'
+                            __('No lifetime set for %s, so this is'
                                 . ' the profile\'s default'),
                             $ttl['type']
                         );
@@ -444,7 +444,7 @@ $ttl = $relevance['ttl'];
             <p class="vp-aside-note"
                title="<?= h(__('A false positive is drawn on that chart'
                    . ' too. A report arguing against a value never'
-                   . ' extends its shelf life.')) ?>">
+                   . ' extends its lifetime.')) ?>">
                 <?= h(__(
                     'The chart plots this bar over time: it steps back'
                     . ' up on each of the dates listed here, and never'

@@ -163,11 +163,17 @@ if ($here !== null) {
          * moment the decay speed moves. `0.33` is not day 30 of 90
          * either — the speed bends the curve between them — which is
          * the whole reason the number is worth printing.
+         *
+         * *Aging starts on day 60* was the first wording and it is a
+         * false statement about the line directly above it: the line
+         * falls from day zero, which is what makes it a line. Nothing
+         * starts on day 60 — that is where the label changes.
          */
         ?>
         <?= h(sprintf(
-            __('Aging starts on day %1$s, with %2$s of the shelf life'
-                . ' left.'),
+            __('It loses relevance from day zero. Day %1$s is only'
+                . ' where it stops counting as current, with %2$s of'
+                . ' the lifetime left.'),
             $agingDay,
             $aging
         )) ?>

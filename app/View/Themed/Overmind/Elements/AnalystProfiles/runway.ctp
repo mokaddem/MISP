@@ -42,13 +42,13 @@ $lagLimit = isset($precision['lag_limit'])
 ?>
 <div class="ax-runway">
     <div class="ax-track" title="<?= h(sprintf(
-        __('%1$s days elapsed of a %2$s day TTL'),
+        __('%1$s of %2$s days used'),
         $runway['elapsed_days'],
         $ttlDays
     )) ?>">
         <span class="ax-fill" style="width:<?= max(0, min(100, $left)) ?>%"></span>
         <span class="ax-agemark" style="left:<?= max(0, min(100, $aging)) ?>%"
-              title="<?= h(__('where aging begins')) ?>"></span>
+              title="<?= h(__('where it stops counting as current')) ?>"></span>
     </div>
     <span class="ax-runway-t">
         <?php if ($runway['runway_days'] < 0): ?>
@@ -59,7 +59,7 @@ $lagLimit = isset($precision['lag_limit'])
             <?= h(sprintf(__('of %s days left'), $ttlDays)) ?>
         <?php endif; ?>
         <?php if ($ttlFrom !== null): ?>
-            &middot; <?= h(__('TTL from')) ?>
+            &middot; <?= h(__('lifetime from')) ?>
             <span class="wb-id"><?= h($ttlFrom) ?></span>
         <?php endif; ?>
         <?php if ($clockAt !== null): ?>

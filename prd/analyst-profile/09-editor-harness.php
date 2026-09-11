@@ -340,10 +340,28 @@ foreach ($relevanceSection['blocks'][0]['fields'] as $field) {
         $speedField = $field;
     }
 }
-is_same(ValueRelevanceTool::CLOCKS, $clockField['options'],
+/*
+ * The options carry a label now, so the check is on what they *post* —
+ * which is what "speaks the engine's vocabulary" always meant. A picker
+ * showing the constant was never the requirement; a picker that can
+ * store something the engine does not read still is.
+ */
+is_same(ValueRelevanceTool::CLOCKS,
+    array_column($clockField['options'], 'value'),
     'the clock select offers exactly the clocks the engine reads');
-is_same(ValueRelevanceTool::TYPE_RULES, $ruleField['options'],
+is_same(ValueRelevanceTool::TYPE_RULES,
+    array_column($ruleField['options'], 'value'),
     'and the type rule select exactly the rules it applies');
+foreach (array($clockField, $ruleField) as $picker) {
+    foreach ($picker['options'] as $option) {
+        is_true(
+            isset($option['label']) && $option['label'] !== ''
+                && $option['label'] !== $option['value'],
+            sprintf('and %s is offered as words rather than as its'
+                . ' stored key', $option['value'])
+        );
+    }
+}
 $mostCommon = $parameters;
 $mostCommon['relevance']['type_rule'] = 'most_common';
 is_same(array(), $form->validate($mostCommon)['errors'],

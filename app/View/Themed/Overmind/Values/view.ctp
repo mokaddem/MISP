@@ -281,7 +281,7 @@ $panelChrome = array(
             6),
     ),
     'viewRelevance' => array(
-        $await(__('Shelf life'), 'fas fa-hourglass-half',
+        $await(__('Lifetime'), 'fas fa-hourglass-half',
             'var(--correlation)', 3, $aside),
     ),
     'viewSightingReporters' => array(

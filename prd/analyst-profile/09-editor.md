@@ -668,6 +668,69 @@ for company: *added 18 days after its event's date, inside the 30-day
 limit*. Both read live off `precision`, so moving the threshold
 restates them without a save.
 
+### 7e.4 `shelf life` was ours; `Lifetime` is MISP's
+
+The docs call the quantity **shelf life** and it reads well, which is
+why it reached the screen — but it is a metaphor this feature invented,
+and a reader hitting it in the editor has nothing to check it against.
+MISP already ships the same quantity under its own name: a decaying
+model's parameters are `lifetime` and `decay_speed`, and the form at
+`/decayingModels/add` labels the first **Lifetime (days)**.
+
+This section had already borrowed `decay_speed` from that pair and then
+renamed its twin. **Every user-facing string says `Lifetime` now** — the
+editor's block titles, the value page's rail card and its panel
+registration, the sightings chart's dataset and axis, the lifecycle
+line. The prose in these documents keeps *shelf life*, because it reads
+better in a paragraph and nobody is trying to look it up.
+
+Two strings survived the first pass and are worth naming, because both
+were the abbreviation rather than the metaphor: `TTL from ip-dst` on the
+runway line and `N days elapsed of a 90 day TTL` in two track tooltips.
+An acronym is not a standard term just because it is short.
+
+### 7e.5 The pickers offered constants, and `Aging from` was a false claim
+
+Two findings that are the same finding.
+
+**The selects printed their stored keys.** `Measure from` offered
+`last_independent_corroborat…` — a constant with its end cut off by the
+column width — and `A value with several types` offered `shortest`,
+which does not say shortest *what*. `field.ctp` had supported
+`{value, label}` options since it was written and nothing had ever
+passed one. They read as answers to their labels now (*Somebody else
+confirming it*; *Take the shortest lifetime*), the read-only viewer
+resolves the same labels rather than printing the key, and `type_rule`
+gained the help explaining why `shortest` is the cautious default —
+§3.4's reasoning, which existed only in this document.
+
+`ValueRelevanceTool::CLOCKS` and `TYPE_RULES` are untouched: they are
+validation lists, the document still stores the key, and the harness
+now checks `array_column($options, 'value')` against them. That is what
+*the editor speaks the engine's vocabulary* always meant — a picker that
+cannot store something the engine will not read — and not that the
+picker had to show the constant.
+
+**`Aging from` was worse than unclear; it was untrue.** The first fix
+made it *Aging starts with this much left*, which states that aging
+begins at that point. It does not. A value loses relevance continuously
+from the moment its clock last reset — that is what makes the curve a
+curve — and nothing at all happens to the value at `0.33`. It is where
+the *page* stops calling it `current` and starts calling it `aging`: a
+labelling threshold, not an event.
+
+**Call it aging below**, with `of the lifetime left` as its unit. The
+figure says the rest, and says it in the order that answers the
+question: *It loses relevance from day zero. Day 60 is only where it
+stops counting as current, with 0.33 of the lifetime left.* The
+`where aging begins` tooltip on both track marks was the same claim and
+is now `where it stops counting as current`.
+
+The lesson generalises past this field: **a threshold named for the
+thing it bounds reads as the moment that thing begins.** The relevance
+axis has three of them and this was the only one whose name made a
+claim about the value rather than about the label.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

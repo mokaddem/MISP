@@ -225,7 +225,7 @@ if ($series !== null) {
                     __('expirations'),
                 ),
             ),
-            'score' => __('Shelf life'),
+            'score' => __('Lifetime'),
             /*
              * The axis now has two halves and the caption is the only
              * place that says which is which before the reader hovers
@@ -290,7 +290,7 @@ if ($series !== null) {
                         . ' · sightings up, contradictions down') ?>
                 </span>
                 <span class="vp-subhead vp-sight-axis-right">
-                    <?= __('Shelf life left · % of the TTL') ?>
+                    <?= __('Lifetime left · % of the full lifetime') ?>
                 </span>
             </div>
 
@@ -300,7 +300,7 @@ if ($series !== null) {
                             'Reports per organisation over time — sightings'
                             . ' above the axis, false positives and'
                             . ' expirations below it — with the share of'
-                            . ' the value\'s shelf life still left'
+                            . ' the value\'s lifetime still left'
                             . ' overlaid'
                         )) ?>"></canvas>
                 <?php if ($sightings['total'] === 0): ?>
@@ -456,7 +456,7 @@ if ($series !== null) {
                 <?php if ($relevance['state'] !== null): ?>
                     <div class="vp-sight-legend-group">
                         <span class="vp-sight-legend-head">
-                            <?= __('Shelf life') ?>
+                            <?= __('Lifetime') ?>
                         </span>
                         <span class="vp-sight-key">
                             <span class="vp-sight-swatch

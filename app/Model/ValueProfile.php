@@ -1006,7 +1006,7 @@ class ValueProfile extends AppModel
                 : (int)round($point * 100);
         }
         return array(array(
-            'model' => __('Shelf life left'),
+            'model' => __('Lifetime left'),
             'threshold' => null,
             'points' => $points,
         ));
@@ -6640,7 +6640,7 @@ class ValueProfile extends AppModel
             1 => __(
                 'Type 1. Corroborates nothing: the relevance clock'
                 . ' counts type-0 reports only, so a contradiction'
-                . ' cannot extend the value\'s shelf life.'
+                . ' cannot extend the value\'s lifetime.'
             ),
             2 => __(
                 'Type 2. An organisation retiring the value, not'

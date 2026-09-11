@@ -1048,7 +1048,7 @@ class AnalystProfileFormTool
                             'key' => 'clock',
                             'label' => __('Measure from'),
                             'type' => 'select',
-                            'options' => ValueRelevanceTool::CLOCKS,
+                            'options' => $this->clockOptions(),
                             'value' => isset($section['clock'])
                                 ? $section['clock']
                                 : null,
@@ -1084,10 +1084,9 @@ class AnalystProfileFormTool
                         ),
                         array(
                             'key' => 'aging_fraction',
-                            'label' => __('Aging starts with this much'
-                                . ' left'),
+                            'label' => __('Call it aging below'),
                             'type' => 'float',
-                            'unit' => __('of the shelf life'),
+                            'unit' => __('of the lifetime left'),
                             'value' => isset($section['aging_fraction'])
                                 ? $section['aging_fraction']
                                 : null,
@@ -1107,7 +1106,7 @@ class AnalystProfileFormTool
                         ),
                         array(
                             'key' => 'lag_uncertain_days',
-                            'label' => __('Encoding lag before uncertain'),
+                            'label' => __('Flag uncertain past a lag of'),
                             'type' => 'int',
                             'unit' => __('days'),
                             'value' => isset($section['lag_uncertain_days'])
@@ -1115,11 +1114,12 @@ class AnalystProfileFormTool
                                 : null,
                             'default' => 30,
                             'help' => __(
-                                'An encoding date is later than the'
-                                . ' observation it stands for, so time'
-                                . ' measured from it is a lower bound.'
-                                . ' Past this lag the timeline is'
-                                . ' flagged uncertain — which is the'
+                                'Days between an event\'s own date and'
+                                . ' the value being added to MISP. Past'
+                                . ' this many, the date MISP holds is'
+                                . ' too far from the observation to'
+                                . ' measure age with, and the timeline'
+                                . ' is flagged uncertain — which is the'
                                 . ' common state on real data, not the'
                                 . ' exotic one.'
                             ),
@@ -1128,13 +1128,25 @@ class AnalystProfileFormTool
                         ),
                         array(
                             'key' => 'type_rule',
-                            'label' => __('A value with several types'),
+                            'label' => __('When a value has several'
+                                . ' types'),
                             'type' => 'select',
-                            'options' => ValueRelevanceTool::TYPE_RULES,
+                            'options' => $this->typeRuleOptions(),
                             'value' => isset($section['type_rule'])
                                 ? $section['type_rule']
                                 : null,
                             'default' => 'shortest',
+                            'help' => __(
+                                'One value can be an ip-src in one'
+                                . ' event and an ip-dst in another, and'
+                                . ' the two can sit in different'
+                                . ' buckets. Shortest is the cautious'
+                                . ' reading — a value that is stale in'
+                                . ' any of its roles is worth'
+                                . ' re-checking, where the others let a'
+                                . ' type it barely appears as extend'
+                                . ' it.'
+                            ),
                             'path' => array('relevance', 'type_rule'),
                         ),
                     ),
@@ -1142,7 +1154,7 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'fields',
                     'id' => 'ttl_buckets',
-                    'title' => __('Shelf life'),
+                    'title' => __('Lifetime'),
                     'blurb' => __(
                         'How long a report stays current without'
                         . ' corroboration. Four buckets, and a type is'
@@ -1182,7 +1194,7 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'map',
                     'id' => 'ttl_overrides',
-                    'title' => __('Types with their own shelf life'),
+                    'title' => __('Types with their own lifetime'),
                     'blurb' => __(
                         'For the type no bucket fits. The shipped'
                         . ' default needs exactly one.'
@@ -1223,12 +1235,86 @@ class AnalystProfileFormTool
     }
 
     /**
+     * The clock settings, as answers rather than as constant names.
+     *
+     * `ValueRelevanceTool::CLOCKS` is a validation list and stays one —
+     * the stored document keeps `last_independent_corroboration`. What
+     * was wrong is that the picker showed it: a `<select>` narrow
+     * enough to fit the column rendered
+     * `last_independent_corroborat…`, which is a key with its end cut
+     * off rather than a choice being offered. The field asks *measure
+     * from*, so each option finishes that sentence.
+     *
+     * @return array `{value, label}` pairs
+     */
+    private function clockOptions()
+    {
+        $labels = array(
+            'last_independent_corroboration' => __('Somebody else'
+                . ' confirming it'),
+            'last_sighting' => __('Any sighting'),
+            'last_occurrence' => __('Its own newest record'),
+        );
+        return $this->labelled(ValueRelevanceTool::CLOCKS, $labels);
+    }
+
+    /**
+     * The `type_rule` settings, likewise.
+     *
+     * `shortest` alone does not say shortest *what*, and the three read
+     * as adjectives with no noun. Each names the lifetime it takes.
+     *
+     * @return array `{value, label}` pairs
+     */
+    private function typeRuleOptions()
+    {
+        $labels = array(
+            'shortest' => __('Take the shortest lifetime'),
+            'longest' => __('Take the longest lifetime'),
+            'most_common' => __('Take the type it appears as most'),
+        );
+        return $this->labelled(ValueRelevanceTool::TYPE_RULES, $labels);
+    }
+
+    /**
+     * Pair a validation list with display labels, keeping its order.
+     *
+     * A setting with no label falls back to its own key rather than
+     * vanishing: the constant is the authority on what may be stored,
+     * and a value this map has not caught up with must still be
+     * selectable.
+     *
+     * @param array $values
+     * @param array $labels
+     * @return array
+     */
+    private function labelled(array $values, array $labels)
+    {
+        $options = array();
+        foreach ($values as $value) {
+            $options[] = array(
+                'value' => $value,
+                'label' => isset($labels[$value])
+                    ? $labels[$value]
+                    : $value,
+            );
+        }
+        return $options;
+    }
+
+    /**
      * What `aging_fraction` means.
      *
-     * `Aging from` beside a box holding `0.33` read as a date the box
-     * cannot take, and *the share of the TTL left* explained the units
-     * without saying what the number did. The label carries the
-     * sentence now, and this carries the units.
+     * Two wrong readings, in the order they were reported. `Aging from`
+     * over a box holding `0.33` read as a date the box cannot take; the
+     * replacement, *Aging starts with this much left*, was worse in a
+     * more interesting way — **it says aging begins there, and it does
+     * not.** A value loses relevance continuously from the moment its
+     * clock last reset. Nothing happens to the value at this point at
+     * all: it is where the *page* stops calling it `current` and starts
+     * calling it `aging`, which is a labelling threshold and not an
+     * event. `Call it aging below` says that and cannot be read the
+     * other way.
      *
      * **The day it lands on is deliberately not here.** It is what a
      * reader actually wants — and it is not `day 30` of 90 either,
@@ -1243,9 +1329,10 @@ class AnalystProfileFormTool
     private function agingHelp()
     {
         return __(
-            'A fraction of the shelf life, not a number of days —'
-            . ' it applies to every bucket at once. The curve beside'
-            . ' this marks the day it works out to.'
+            'A fraction of the lifetime, not a number of days. The'
+            . ' value has been losing relevance since its clock last'
+            . ' reset — this is only where the page stops calling it'
+            . ' current, and the curve beside this marks the day.'
         );
     }
 
@@ -2166,7 +2253,7 @@ class AnalystProfileFormTool
         ) {
             $errors[] = __(
                 '`relevance.ttl_default` must be a whole number of days'
-                . ' above zero — it is the shelf life of every type'
+                . ' above zero — it is the lifetime of every type'
                 . ' nothing else names.'
             );
         }
@@ -2541,11 +2628,11 @@ class AnalystProfileFormTool
         $notes = array();
         if (isset($parameters['relevance']['ttl_days'])) {
             $notes[] = __(
-                'This profile keeps shelf life as one day count per'
+                'This profile keeps lifetimes as one day count per'
                 . ' attribute type, which is the shape before the four'
                 . ' buckets. It is read exactly — every named type'
                 . ' counts as its own override, so nothing has changed'
-                . ' shelf life — and the pane below shows that reading.'
+                . ' lifetime — and the pane below shows that reading.'
                 . ' Saving any section writes the buckets and drops the'
                 . ' old key.'
             );

@@ -41,7 +41,7 @@ $state = $relevance['state'];
 $subtitle = $state === null
     ? h(__('Nothing recorded to age'))
     : h(sprintf(
-        __('%1$s of %2$s days of shelf life left'),
+        __('%1$s of %2$s days of lifetime left'),
         max(0, $relevance['runway_days']),
         $relevance['ttl']['days']
     ));
@@ -74,7 +74,7 @@ $subtitle = $state === null
                 </div>
                 <div class="vp-shelf-track"
                      title="<?= h(sprintf(
-                         __('%1$s days elapsed of a %2$s day TTL'),
+                         __('%1$s of %2$s days used'),
                          $relevance['elapsed_days'],
                          $relevance['ttl']['days']
                      )) ?>">
@@ -117,7 +117,7 @@ $subtitle = $state === null
                     <?= h($relevance['ttl']['type'] === null
                         ? __('default TTL')
                         : sprintf(
-                            __('TTL from %s'),
+                            __('lifetime from %s'),
                             $relevance['ttl']['type']
                         )) ?>
                 </div>

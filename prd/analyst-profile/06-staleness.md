@@ -684,6 +684,28 @@ with a default cursor is a tooltip nobody finds, and this card now
 depends on being found. Card height on `8.8.8.8` fell 791px → 699px
 with no fact removed.
 
+### 7.9 On screen the card is called `Lifetime`. Renamed 2026-09-11
+
+**`shelf life` is this document's metaphor, not MISP's term.** It reads
+well in a paragraph and that is why it reached the screen, but a reader
+meeting it in the product has nothing to check it against. MISP already
+ships this exact quantity under its own name — a decaying model's
+parameters are `lifetime` and `decay_speed`, and `/decayingModels/add`
+labels the first **Lifetime (days)**. The relevance section had already
+taken `decay_speed` from that pair and renamed its twin.
+
+So the rail card, its panel registration in `view.ctp`, the sightings
+chart's dataset and axis label, and the Lifecycle card's freshness line
+all say *lifetime*. `TTL` went with it wherever it was visible — an
+abbreviation is not a standard term for being short. **The prose in
+these documents keeps *shelf life***: it is better writing, and nobody
+reading a PRD is trying to look the word up.
+
+`ValueRelevanceTool` keeps `ttl`, `ttl_days`, `ttl_buckets` and the
+rest. The stored document and the engine's own vocabulary are not what
+changed; only what a reader is shown. Recorded in
+[`09-editor.md`](09-editor.md) §7e.4 with the editor half.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in

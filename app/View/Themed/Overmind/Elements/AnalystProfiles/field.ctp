@@ -139,7 +139,27 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
             <?php endforeach; ?>
         </select>
     <?php else: ?>
-        <span class="wb-id"><?= h((string)$shown) ?></span>
+        <?php
+        /*
+         * The label the picker would have shown, not the stored key.
+         * The read-only viewer is where somebody decides whether to
+         * fork a profile, and `most_common` there is the same
+         * unexplained constant the editable pane stopped printing.
+         */
+        $readable = (string)$shown;
+        foreach ($field['options'] as $option) {
+            if (!is_array($option)
+                || (string)$option['value'] !== (string)$shown
+            ) {
+                continue;
+            }
+            $readable = isset($option['label'])
+                ? $option['label']
+                : $option['value'];
+            break;
+        }
+        ?>
+        <span class="wb-id"><?= h($readable) ?></span>
     <?php endif; ?>
 <?php elseif ($type === 'types'): ?>
     <?php
