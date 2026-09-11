@@ -1154,7 +1154,7 @@ class AnalystProfileFormTool
         }
         return array(
             'id' => 'reference',
-            'title' => __('Reference data'),
+            'title' => __('Sources & reputation'),
             'blurb' => __(
                 'What you believe about your sources, and what the'
                 . ' warninglists mean. Admiralty-shaped on purpose:'
@@ -1165,12 +1165,18 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'map',
                     'id' => 'org_trust',
-                    'title' => __('Organisation trust'),
+                    'title' => __('Organisation reputation'),
                     'blurb' => __(
-                        'Admiralty grades. F is neutral, the same as C —'
-                        . ' the shipped taxonomy says so — and G is'
-                        . ' deliberately deceptive and worth nothing.'
-                        . ' Only the organisations you have graded.'
+                        "An organisation's reputation, as an Admiralty"
+                        . ' grade, multiplies what its reports'
+                        . ' contribute. F is neutral, the same as C —'
+                        . ' the shipped taxonomy says so — and G is not'
+                        . ' a low reputation but an accusation of'
+                        . ' deception: worth nothing, deliberately.'
+                        . ' Only the organisations you have graded;'
+                        . ' every other one is unrated and worth 1.00,'
+                        . ' and an empty map switches the weighting off'
+                        . ' entirely.'
                     ),
                     'key_label' => __('Organisation'),
                     'value_label' => __('Grade'),

@@ -721,6 +721,39 @@ is_same(array(), $form->validate($upgraded)['errors'],
 
 /*
  * ------------------------------------------------------------------
+ * 2h. The section is named for what it holds
+ * ------------------------------------------------------------------
+ * `09b-revisions.md` 3.20. "Reference data" said nothing about
+ * organisations or reputation, and the blurb never used the word the
+ * grades are of.
+ */
+out('');
+out('== sources and reputation ==');
+$named = $form->sections($parameters, array(
+    'orgs' => array(),
+    'warninglists' => array(),
+));
+is_same('Sources & reputation', $named['reference']['title'],
+    'the section is named for what it holds');
+$trustBlock = null;
+foreach ($named['reference']['blocks'] as $block) {
+    if (isset($block['id']) && $block['id'] === 'org_trust') {
+        $trustBlock = $block;
+    }
+}
+is_same('Organisation reputation', $trustBlock['title'],
+    'and so is the block');
+is_true(strpos($trustBlock['blurb'], 'reputation') !== false,
+    'whose blurb uses the word the grades are of');
+is_true(strpos($trustBlock['blurb'], 'accusation of deception') !== false,
+    'and keeps the one thing the copy must not soften: G is not a low'
+        . ' reputation, it is an accusation of deception');
+is_true(strpos($trustBlock['blurb'], 'switches the weighting off') !== false,
+    'while saying that an empty map means no weighting at all —'
+        . ' drawing it as active would be lying about the shipped state');
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,

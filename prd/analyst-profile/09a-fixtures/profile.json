@@ -2204,14 +2204,14 @@
     },
     "reference": {
       "id": "reference",
-      "title": "Reference data",
+      "title": "Sources & reputation",
       "blurb": "What you believe about your sources, and what the warninglists mean. Admiralty-shaped on purpose: source reliability goes in, information credibility comes out.",
       "blocks": [
         {
           "kind": "map",
           "id": "org_trust",
-          "title": "Organisation trust",
-          "blurb": "Admiralty grades. F is neutral, the same as C \u2014 the shipped taxonomy says so \u2014 and G is deliberately deceptive and worth nothing. Only the organisations you have graded.",
+          "title": "Organisation reputation",
+          "blurb": "An organisation's reputation, as an Admiralty grade, multiplies what its reports contribute. F is neutral, the same as C \u2014 the shipped taxonomy says so \u2014 and G is not a low reputation but an accusation of deception: worth nothing, deliberately. Only the organisations you have graded; every other one is unrated and worth 1.00, and an empty map switches the weighting off entirely.",
           "key_label": "Organisation",
           "value_label": "Grade",
           "value_type": "select",
@@ -2222,9 +2222,9 @@
           "entries": [
             {
               "key": "5705de1d-143c-4637-959f-016e291a0265",
-              "label": "ADMIN",
-              "sub_label": "5705de1d-143c-4637-959f-016e291a0265",
-              "missing": false,
+              "label": "5705de1d-143c-4637-959f-016e291a0265",
+              "sub_label": null,
+              "missing": true,
               "value": "A",
               "type": "select",
               "options": [
@@ -2245,9 +2245,9 @@
             },
             {
               "key": "cd5afba0-3161-41aa-a83e-f785d045f00b",
-              "label": "Test",
-              "sub_label": "cd5afba0-3161-41aa-a83e-f785d045f00b",
-              "missing": false,
+              "label": "cd5afba0-3161-41aa-a83e-f785d045f00b",
+              "sub_label": null,
+              "missing": true,
               "value": "D",
               "type": "select",
               "options": [
@@ -2268,9 +2268,9 @@
             },
             {
               "key": "593c71f7-6cd9-4276-b98b-e3431a5c293a",
-              "label": "my_org 1",
-              "sub_label": "593c71f7-6cd9-4276-b98b-e3431a5c293a",
-              "missing": false,
+              "label": "593c71f7-6cd9-4276-b98b-e3431a5c293a",
+              "sub_label": null,
+              "missing": true,
               "value": "E",
               "type": "select",
               "options": [
@@ -2440,7 +2440,7 @@
             {
               "key": "List of known dynamic DNS domains",
               "label": "List of known dynamic DNS domains",
-              "missing": true,
+              "missing": false,
               "value": "known",
               "type": "select",
               "options": [
@@ -2458,48 +2458,7 @@
             "label": "Override a list",
             "source": "warninglists",
             "search": true,
-            "options": [
-              "Another domain list",
-              "BT IP Ranges",
-              "BT Systems under berylia.org - UI",
-              "BT02 domains",
-              "CRL and OCSP IP addresses",
-              "CRL and OCSP domains",
-              "Captive Portal Detection Hostnames",
-              "Censys IP Ranges Used for Scanning",
-              "Common contact e-mail addresses",
-              "Covid-19 Cyber Threat Coalition's Whitelist",
-              "Covid-19 Krassi's Whitelist",
-              "Fingerprint of known intermediate of trusted certificates",
-              "Fingerprint of trusted CA certificates",
-              "Hashes that are often included in IOC lists but are false positives.",
-              "List of Azure Applicaiton IDs",
-              "List of IPv6 link local blocks",
-              "List of LOTS (Living Off Trusted Sites) Project Domains",
-              "List of RFC 1918 CIDR blocks",
-              "List of RFC 3849 CIDR blocks",
-              "List of RFC 5735 CIDR blocks",
-              "List of RFC 5771 multicast CIDR blocks",
-              "List of RFC 6598 CIDR blocks",
-              "List of RFC 6761 Special-Use Domain Names",
-              "List of disposable email domains",
-              "List of hashes for EICAR test virus",
-              "List of known Akamai IP ranges",
-              "List of known Amazon AWS IP address ranges",
-              "List of known Apple IP ranges",
-              "List of known Cloudflare IP ranges",
-              "List of known Fastly IP address ranges",
-              "List of known GCP (Google Cloud Platform) IP address ranges",
-              "List of known GitHub IP ranges (https://api.github.com/meta)",
-              "List of known Gmail sending IP ranges",
-              "List of known Googlebot IP ranges (https://developers.google.com/search/apis/ipranges/googlebot.json)",
-              "List of known IP address ranges for OpenAI GPT crawler bot",
-              "List of known IPv4 public DNS resolvers",
-              "List of known IPv6 public DNS resolvers",
-              "List of known Microsoft Azure China Datacenter IP Ranges",
-              "List of known Microsoft Azure Datacenter IP Ranges",
-              "List of known Microsoft Azure Germany Datacenter IP Ranges"
-            ]
+            "options": []
           }
         }
       ]

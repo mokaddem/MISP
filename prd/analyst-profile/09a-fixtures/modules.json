@@ -1,0 +1,1925 @@
+{
+  "note": "The modules service's own roster, for the enrichment section's module-first redesign (09b-revisions.md 3.19). `input` is each module's declared `mispattributes.input` \u2014 the attribute types it accepts \u2014 which is the data that makes \"does this module even take that type\" checkable. Nothing here is synthesised.",
+  "provenance": {
+    "source": "GET /modules on the dev instance's misp-modules",
+    "fetched": "2026-09-11",
+    "modules": 146,
+    "note": "Fetched from inside the misp-core container, which is how it reaches the service. No attribute value and no instance name is carried: this is the module catalogue, not data."
+  },
+  "counts": {
+    "modules": 146,
+    "with_input": 112,
+    "distinct_input_types": 71,
+    "no_cost_field": "Not one module declares anything about money or rate limits (08-enrichment.md \u00a72.1), which is why the posture is a locality gate and not a cost one (D19)."
+  },
+  "most_accepted_types": {
+    "ip-src": 48,
+    "ip-dst": 48,
+    "domain": 40,
+    "hostname": 33,
+    "url": 30,
+    "md5": 27,
+    "sha256": 26,
+    "sha1": 24,
+    "attachment": 19,
+    "email-src": 13,
+    "email-dst": 11,
+    "malware-sample": 11
+  },
+  "the_four_the_profile_declares": [
+    {
+      "name": "circl_passivedns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "ip-src|port",
+        "ip-dst|port"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "countrycode",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "dns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "virustotal_public",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 5
+    }
+  ],
+  "modules": [
+    {
+      "name": "abuseipdb",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain",
+        "domain|ip"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "apiosintds",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "domain|ip",
+        "hostname",
+        "ip-dst",
+        "ip-src",
+        "ip-dst|port",
+        "ip-src|port",
+        "url",
+        "md5",
+        "sha1",
+        "sha256",
+        "filename|md5",
+        "filename|sha1",
+        "filename|sha256"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "apivoid",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "hostname",
+        "email",
+        "email-src",
+        "email-dst",
+        "email-reply-to",
+        "dns-soa-email",
+        "target-email",
+        "whois-registrant-email"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "assemblyline_query",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "link"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "assemblyline_submit",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "backscatter_io",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "btc_scam_check",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "btc"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "btc_steroids",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "btc"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "cef_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 4
+    },
+    {
+      "name": "censys_enrich",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "domain",
+        "hostname",
+        "hostname|port",
+        "domain|ip",
+        "ip-dst|port",
+        "ip-src|port",
+        "x509-fingerprint-md5",
+        "x509-fingerprint-sha1",
+        "x509-fingerprint-sha256"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "circl_passivedns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "ip-src|port",
+        "ip-dst|port"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "circl_passivessl",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "ip-src|port",
+        "ip-dst|port"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "cisco_firesight_manager_ACL_rule_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 5
+    },
+    {
+      "name": "clamav",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "cluster25_expand",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "email-src",
+        "email-dst",
+        "filename",
+        "md5",
+        "sha1",
+        "sha256",
+        "ip-src",
+        "ip-dst",
+        "url",
+        "vulnerability",
+        "btc",
+        "xmr",
+        "ja3-fingerprint-md5"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "cof2misp",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "convert_markdown_to_pdf",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "text"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "countrycode",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "cpe",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "cpe"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "crowdsec",
+      "kinds": [
+        "hover",
+        "expansion"
+      ],
+      "input": [
+        "ip-dst",
+        "ip-src"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "crowdstrike_falcon",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "email-attachment",
+        "email-dst",
+        "email-reply-to",
+        "email-src",
+        "email-subject",
+        "filename",
+        "hostname",
+        "ip",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "mutex",
+        "regkey",
+        "sha1",
+        "sha256",
+        "uri",
+        "url",
+        "user-agent",
+        "whois-registrant-email",
+        "x509-fingerprint-md5"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "csvimport",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "cuckoo_submit",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url",
+        "domain"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "cuckooimport",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "cve",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "cve_advanced",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "cytomic_orion",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "md5"
+      ],
+      "config_keys": 14
+    },
+    {
+      "name": "dbl_spamhaus",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "domain|ip",
+        "hostname",
+        "hostname|port"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "defender_endpoint_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "dns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "docx_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "domaintools",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email",
+        "whois-registrant-name",
+        "whois-registrant-phone",
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "email_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 3
+    },
+    {
+      "name": "eql",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "filename"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "eupi",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "url"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "extract_url_components",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "url"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "farsight_passivedns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "btc",
+        "dkim",
+        "email",
+        "email-src",
+        "email-dst",
+        "domain|ip",
+        "hex",
+        "mac-address",
+        "mac-eui-64",
+        "other",
+        "pattern-filename",
+        "target-email",
+        "text",
+        "uri",
+        "url",
+        "whois-registrant-email"
+      ],
+      "config_keys": 4
+    },
+    {
+      "name": "geoip_asn",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "geoip_city",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "geoip_country",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "goamlexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "goamlimport",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "google_safe_browsing",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "url"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "google_threat_intelligence",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "greynoise",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "vulnerability"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "hashdd",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "md5"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "hashlookup",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "hibp",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "email-dst",
+        "email-src"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "html_to_markdown",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "url"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "hyasinsight",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain",
+        "email",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email",
+        "phone-number",
+        "whois-registrant-phone",
+        "md5",
+        "x509-fingerprint-md5",
+        "ja3-fingerprint-md5",
+        "hassh-md5",
+        "hasshserver-md5",
+        "sha1",
+        "x509-fingerprint-sha1",
+        "sha256",
+        "x509-fingerprint-sha256",
+        "sha512"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "import_blueprint",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "intel471",
+      "kinds": [
+        "hover",
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "url",
+        "ip-src",
+        "ip-dst",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email",
+        "whois-registrant-name",
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "ip2locationio",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "ipasn",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "ipinfo",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "ipqs_fraud_and_risk_scoring",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain",
+        "url",
+        "uri",
+        "email",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email",
+        "phone-number",
+        "whois-registrant-phone"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "iprep",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "jinja_template_rendering",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "text"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "joe_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "joesandbox_query",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "link"
+      ],
+      "config_keys": 4
+    },
+    {
+      "name": "joesandbox_submit",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url",
+        "domain"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "lastline_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 3
+    },
+    {
+      "name": "lastline_query",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "link"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "lastline_submit",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "liteexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "macaddress_io",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "mac-address"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "macvendors",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "mac-address"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "malshare_upload",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "malwarebazaar",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "mass_eql_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "mattermost",
+      "kinds": [
+        "action"
+      ],
+      "input": [],
+      "config_keys": 4
+    },
+    {
+      "name": "mcafee_insights_enrich",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "mispjson",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "mmdb_lookup",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-src|port",
+        "ip-dst",
+        "ip-dst|port"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "mwdb",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "nexthinkexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "ocr",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "ocr_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "ods_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "odt_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "onion_lookup",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "onion-address"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "onyphe",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "onyphe_full",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "openiocimport",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "osqueryexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "otx",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "sha512"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "passive_ssh",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "ssh-fingerprint"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "passivetotal",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "x509-fingerprint-sha1",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email",
+        "whois-registrant-phone",
+        "text",
+        "whois-registrant-name",
+        "whois-registrar",
+        "whois-creation-date"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "pdf_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "pdfexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 7
+    },
+    {
+      "name": "pptx_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "qintel_qsentry",
+      "kinds": [
+        "hover",
+        "expansion"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "qrcode",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "ransomcoindb",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "sha1",
+        "sha256",
+        "md5",
+        "btc"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "rbl",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "recordedfuture",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip",
+        "ip-src",
+        "ip-dst",
+        "ip-src|port",
+        "ip-dst|port",
+        "domain",
+        "hostname",
+        "md5",
+        "sha1",
+        "sha256",
+        "uri",
+        "url",
+        "vulnerability",
+        "weakness"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "reversedns",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "domain|ip"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "securitytrails",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "shodan",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "sigma_queries",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "sigma"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "sigma_syntax_validator",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "sigma"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "sigmf_expand",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "sigmf-recording",
+        "sigmf-archive"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "slack",
+      "kinds": [
+        "action"
+      ],
+      "input": [],
+      "config_keys": 4
+    },
+    {
+      "name": "socialscan",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "github-username",
+        "target-user",
+        "email",
+        "email-src",
+        "email-dst",
+        "target-email",
+        "whois-registrant-email"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "sophoslabs_intelix",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "sha256",
+        "ip",
+        "ip-src",
+        "ip-dst",
+        "uri",
+        "url",
+        "domain",
+        "hostname"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "sourcecache",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "link",
+        "url"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "stairwell",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "stix2_pattern_syntax_validator",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "stix2-pattern"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "taxii21",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "testaction",
+      "kinds": [
+        "action"
+      ],
+      "input": [],
+      "config_keys": 4
+    },
+    {
+      "name": "testexport",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "testimport",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "threatStream_misp_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "threat_connect_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "threatanalyzer_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "threatcrowd",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "sha512",
+        "whois-registrant-email"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "threatfox",
+      "kinds": [
+        "hover",
+        "expansion"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256",
+        "domain",
+        "url",
+        "email-src",
+        "ip-dst|port",
+        "ip-src|port"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "threatminer",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "sha512"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "triage_submit",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "trustar_enrich",
+      "kinds": [
+        "hover",
+        "expansion"
+      ],
+      "input": [
+        "btc",
+        "domain",
+        "email-src",
+        "filename",
+        "hostname",
+        "ip-src",
+        "ip-dst",
+        "malware-type",
+        "md5",
+        "sha1",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 3
+    },
+    {
+      "name": "url_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "urlhaus",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain",
+        "hostname",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "urlscan",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "url"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "variotdbs",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "virustotal",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "url",
+        "ip-src|port",
+        "ip-dst|port"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "virustotal_collections",
+      "kinds": [
+        "export"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "virustotal_public",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "hostname",
+        "domain",
+        "ip-src",
+        "ip-dst",
+        "md5",
+        "sha1",
+        "sha256",
+        "url"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "virustotal_upload",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "vmray_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 5
+    },
+    {
+      "name": "vmray_submit",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample"
+      ],
+      "config_keys": 5
+    },
+    {
+      "name": "vmray_summary_json_import",
+      "kinds": [
+        "import"
+      ],
+      "input": [],
+      "config_keys": 1
+    },
+    {
+      "name": "vmware_nsx",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "attachment",
+        "malware-sample",
+        "url",
+        "md5",
+        "sha1",
+        "sha256"
+      ],
+      "config_keys": 8
+    },
+    {
+      "name": "vt_graph",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 9
+    },
+    {
+      "name": "vulndb",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 8
+    },
+    {
+      "name": "vulnerability_lookup",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "vulners",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "vulnerability"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "vysion",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "email",
+        "domain",
+        "hostname",
+        "url",
+        "text",
+        "btc",
+        "phone-number",
+        "target-org",
+        "xmr",
+        "dash"
+      ],
+      "config_keys": 6
+    },
+    {
+      "name": "whois",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "domain",
+        "ip-src",
+        "ip-dst"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "whoisfreaks",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "domain"
+      ],
+      "config_keys": 1
+    },
+    {
+      "name": "wiki",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "text"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "xforceexchange",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "ip-src",
+        "ip-dst",
+        "vulnerability",
+        "md5",
+        "sha1",
+        "sha256",
+        "domain",
+        "hostname",
+        "url"
+      ],
+      "config_keys": 2
+    },
+    {
+      "name": "xlsx_enrich",
+      "kinds": [
+        "expansion"
+      ],
+      "input": [
+        "attachment"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "yara_export",
+      "kinds": [
+        "export"
+      ],
+      "input": [],
+      "config_keys": 0
+    },
+    {
+      "name": "yara_query",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "md5",
+        "sha1",
+        "sha256",
+        "filename|md5",
+        "filename|sha1",
+        "filename|sha256",
+        "imphash"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "yara_syntax_validator",
+      "kinds": [
+        "hover"
+      ],
+      "input": [
+        "yara"
+      ],
+      "config_keys": 0
+    },
+    {
+      "name": "yeti",
+      "kinds": [
+        "expansion",
+        "hover"
+      ],
+      "input": [
+        "AS",
+        "ip-src",
+        "ip-dst",
+        "hostname",
+        "domain",
+        "sha256",
+        "sha1",
+        "md5",
+        "url"
+      ],
+      "config_keys": 2
+    }
+  ]
+}
