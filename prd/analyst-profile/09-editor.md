@@ -731,6 +731,53 @@ thing it bounds reads as the moment that thing begins.** The relevance
 axis has three of them and this was the only one whose name made a
 claim about the value rather than about the label.
 
+### 7e.6 The figure drew three states and named one
+
+The follow-up question to §7e.5 was *"by aging, do you mean expired?"* —
+and the honest answer is that the figure gave no way to tell. It marked
+day 60 `aging`, ran the plot to the lifetime, and put a bare `90` on the
+tick. One labelled threshold, so `aging` read as the end of the line.
+
+`stateFor()` has had three for as long as it has existed:
+
+```
+current   runway ≥ aging_fraction        day 0  → day 60
+aging     0 < runway < aging_fraction    day 60 → day 90
+expired   elapsed ≥ ttl                  day 90 →
+```
+
+`aging` is a **warning band inside the lifetime** — the stretch where
+this profile would rather you re-checked, with the value still live —
+and `expired` is the hard edge at the end of it. That distinction is
+the reason the fraction is a setting at all; a profile that only had
+`expired` would need no `aging_fraction`.
+
+**The x-axis runs to 1.25× the lifetime now.** `expired` begins *at* the
+lifetime, so an axis stopping there has nowhere to put the word, which
+is precisely how the figure came to show two states and name one. The
+curve stays flat on zero out there — the statement that nothing comes
+back — and the three stretches are shaded and named: plain ground,
+amber, grey. Both thresholds carry their day, where the old figure left
+the second as an unexplained tick.
+
+Two layout rules, because a fraction near 0 or 1 collapses a band:
+
+- a band narrower than its own word goes unlabelled rather than
+  printing over its neighbour (`room`, at 4.2px per character);
+- the aging day is dropped when it would land on the y-axis or crowd
+  the lifetime's — the shading and the sentence still carry it, and two
+  strings in the same 24 pixels carry nothing.
+
+Verified at `aging_fraction` 0.9 with `decay_speed` 2.5, which squeezes
+`current` to one pixel: the remaining two stay legible and nothing
+overlaps.
+
+The help's first sentence is the only one the pane shows, so it is now
+the answer to the question rather than the units: *Aging is the band
+between current and expired, not the end of the lifetime.* Units come
+second — a reader who has the states wrong is not helped by getting the
+units right.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

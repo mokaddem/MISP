@@ -1328,11 +1328,21 @@ class AnalystProfileFormTool
      */
     private function agingHelp()
     {
+        /*
+         * The first sentence is the only one the pane shows, so it has
+         * to carry the question that keeps being asked — *is aging the
+         * same as expired?* It is not: `aging` is the middle of three
+         * states and the value is still inside its lifetime there.
+         * Saying what the number is a fraction *of* comes second,
+         * because a reader who has the states wrong is not helped by
+         * getting the units right.
+         */
         return __(
-            'A fraction of the lifetime, not a number of days. The'
-            . ' value has been losing relevance since its clock last'
-            . ' reset — this is only where the page stops calling it'
-            . ' current, and the curve beside this marks the day.'
+            'Aging is the band between current and expired, not the end'
+            . ' of the lifetime. This is a fraction of the lifetime'
+            . ' left, not a number of days — the value has been losing'
+            . ' relevance since its clock last reset, and the curve'
+            . ' beside this marks the day it works out to.'
         );
     }
 

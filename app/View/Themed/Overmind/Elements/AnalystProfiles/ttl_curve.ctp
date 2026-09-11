@@ -1,6 +1,6 @@
 <?php
 /**
- * The shelf life the numbers beside it describe, drawn.
+ * The lifetime the numbers beside it describe, drawn.
  *
  * MISP's polynomial at the profile's own decay speed —
  * `1 − (elapsed / ttl)^(1 / speed)` — over the shortest bucket, with
@@ -20,6 +20,15 @@
  * swaps both (`analyst-profile.js`), which keeps the arithmetic here,
  * on the server, rather than growing a second copy of the polynomial in
  * JavaScript to animate it with.
+ *
+ * **It draws three bands, because the axis has three states.** The
+ * first version marked day 60 `aging` and ended the plot at the
+ * lifetime with a bare `90` on the tick — so the only labelled
+ * threshold was the first one, and `aging` read as the end of the line
+ * rather than as the middle of three. It is asked, and the answer was
+ * not on the figure. The x-axis runs past the lifetime now, the curve
+ * stays flat on zero out there, and `current` / `aging` / `expired` are
+ * each named under the stretch they own.
  *
  * @var array $block The `ttl_buckets` fields
  * @var array $section
@@ -58,8 +67,14 @@ $left = 30;
 $right = 250;
 $top = 12;
 $bottom = 96;
-$at = function ($fractionElapsed) use ($left, $right) {
-    return round($left + ($right - $left) * $fractionElapsed, 2);
+/*
+ * How far past the lifetime the axis runs. `expired` begins *at* the
+ * lifetime, so an axis that stops there has nowhere to put the word —
+ * which is how the figure came to show two states and name one.
+ */
+$span = 1.25;
+$at = function ($fractionElapsed) use ($left, $right, $span) {
+    return round($left + ($right - $left) * ($fractionElapsed / $span), 2);
 };
 $height = function ($runway) use ($top, $bottom) {
     return round($bottom - ($bottom - $top) * $runway, 2);
@@ -68,7 +83,9 @@ $height = function ($runway) use ($top, $bottom) {
 /*
  * Twelve samples is enough for a line and more than enough for a
  * curve: at speed 1 it is straight and the extra points cost nothing,
- * away from 1 the bow is smooth.
+ * away from 1 the bow is smooth. The thirteenth point is the flat run
+ * past the lifetime, which is not a sample of the polynomial — it is
+ * the statement that nothing comes back.
  */
 $points = array();
 for ($i = 0; $i <= 12; $i++) {
@@ -82,6 +99,7 @@ for ($i = 0; $i <= 12; $i++) {
     $remaining = ValueRelevanceTool::runway($elapsed, 1, $speed);
     $points[] = $at($elapsed) . ',' . $height($remaining);
 }
+$points[] = $at($span) . ',' . $height(0);
 
 /*
  * Where aging begins: the elapsed fraction at which the runway falls
@@ -90,13 +108,38 @@ for ($i = 0; $i <= 12; $i++) {
 $agingElapsed = ValueRelevanceTool::agingElapsed($aging, $speed);
 $agingDay = ValueRelevanceTool::agingDay($aging, $speed, $ttl);
 
+$agingX = $at($agingElapsed);
+$ttlX = $at(1);
+/*
+ * A band too narrow for its own word goes unlabelled rather than
+ * printing one over its neighbour: an aging fraction near 0 or 1
+ * squeezes one of the three to nothing, and the two that are legible
+ * still carry the reading.
+ */
+$bands = array();
+foreach (array(
+    array('current', $left, $agingX, __('current')),
+    array('aging', $agingX, $ttlX, __('aging')),
+    array('expired', $ttlX, $right, __('expired')),
+) as $band) {
+    list($id, $from, $to, $word) = $band;
+    $bands[] = array(
+        'id' => $id,
+        'from' => $from,
+        'to' => $to,
+        'word' => $word,
+        'mid' => round(($from + $to) / 2, 2),
+        'room' => ($to - $from) >= 4.2 * mb_strlen($word),
+    );
+}
+
 $here = null;
 if (!empty($runway) && isset($runway['runway'])
     && isset($runway['elapsed_days']) && isset($runway['ttl']['days'])
     && $runway['ttl']['days'] > 0
 ) {
     $here = array(
-        'elapsed' => min(1, $runway['elapsed_days'] / $runway['ttl']['days']),
+        'elapsed' => min($span, $runway['elapsed_days'] / $runway['ttl']['days']),
         'runway' => max(0, min(1, $runway['runway'])),
         'days' => (int)$runway['elapsed_days'],
         'pct' => (int)round($runway['runway'] * 100),
@@ -105,7 +148,8 @@ if (!empty($runway) && isset($runway['runway'])
 
 $label = sprintf(
     __('Relevance falls from 100%% at day zero to nothing at day %1$s.'
-        . ' It crosses the aging mark on day %2$s.'),
+        . ' It counts as current until day %2$s, as aging from there to'
+        . ' day %1$s, and as expired after that.'),
     $ttl,
     $agingDay
 );
@@ -130,15 +174,52 @@ if ($here !== null) {
         )) ?></span>
     </figcaption>
     <svg viewBox="0 0 260 118" role="img" aria-label="<?= h($label) ?>">
+        <?php foreach ($bands as $band): ?>
+            <rect class="ttl-band ttl-band-<?= h($band['id']) ?>"
+                  x="<?= $band['from'] ?>" y="8"
+                  width="<?= round($band['to'] - $band['from'], 2) ?>"
+                  height="<?= $bottom - 8 ?>" />
+        <?php endforeach; ?>
         <polyline class="ttl-ax"
                   points="<?= $left ?>,8 <?= $left ?>,<?= $bottom ?> <?= $right ?>,<?= $bottom ?>" />
         <polyline class="ttl-line" points="<?= h(implode(' ', $points)) ?>" />
-        <line class="ttl-aging" x1="<?= $at($agingElapsed) ?>" y1="8"
-              x2="<?= $at($agingElapsed) ?>" y2="<?= $bottom ?>" />
-        <text class="ttl-t" x="<?= $at($agingElapsed) - 4 ?>" y="106"
-              text-anchor="middle"><?= h(__('aging')) ?></text>
-        <text class="ttl-t" x="<?= $at($agingElapsed) - 4 ?>" y="18"
-              text-anchor="middle"><?= h(sprintf(__('day %s'), $agingDay)) ?></text>
+        <line class="ttl-aging" x1="<?= $agingX ?>" y1="8"
+              x2="<?= $agingX ?>" y2="<?= $bottom ?>" />
+        <line class="ttl-aging" x1="<?= $ttlX ?>" y1="8"
+              x2="<?= $ttlX ?>" y2="<?= $bottom ?>" />
+        <?php foreach ($bands as $band): ?>
+            <?php if (!$band['room']) { continue; } ?>
+            <text class="ttl-t ttl-band-t" x="<?= $band['mid'] ?>" y="106"
+                  text-anchor="middle"><?= h($band['word']) ?></text>
+        <?php endforeach; ?>
+        <?php
+        /*
+         * Both thresholds carry their day. The lifetime's is the one
+         * the old figure left as a bare axis tick, which is what let
+         * `aging` be read as the end of the line.
+         */
+        ?>
+        <?php
+        /*
+         * Anchored to the left of their own line rather than centred on
+         * it: a dashed rule drawn through the middle of `day 60` is the
+         * label and the thing it labels fighting for the same pixels.
+         *
+         * Dropped entirely when that leaves it nowhere to sit — an
+         * aging fraction near 1 pushes the mark onto the y-axis, where
+         * the label lands on top of `100%`. The shading and the
+         * sentence below still say where the band starts; two strings
+         * in the same 24 pixels say nothing.
+         */
+        ?>
+        <?php if ($ttlX - $agingX >= 26 && $agingX - $left >= 26): ?>
+            <text class="ttl-t" x="<?= $agingX - 3 ?>" y="18"
+                  text-anchor="end"><?= h(sprintf(__('day %s'),
+                      $agingDay)) ?></text>
+        <?php endif; ?>
+        <text class="ttl-t" x="<?= $ttlX - 3 ?>" y="18"
+              text-anchor="end"><?= h(sprintf(__('day %s'),
+                  $ttl)) ?></text>
         <?php if ($here !== null): ?>
             <circle class="ttl-here" cx="<?= $at($here['elapsed']) ?>"
                     cy="<?= $height($here['runway']) ?>" r="3.5" />
@@ -149,7 +230,6 @@ if ($here !== null) {
             </text>
         <?php endif; ?>
         <text class="ttl-t" x="<?= $left ?>" y="106" text-anchor="middle">0</text>
-        <text class="ttl-t" x="<?= $right ?>" y="106" text-anchor="middle"><?= h($ttl) ?></text>
         <text class="ttl-t" x="24" y="15" text-anchor="end">100%</text>
         <text class="ttl-t" x="24" y="99" text-anchor="end">0%</text>
     </svg>
@@ -167,15 +247,16 @@ if ($here !== null) {
          * *Aging starts on day 60* was the first wording and it is a
          * false statement about the line directly above it: the line
          * falls from day zero, which is what makes it a line. Nothing
-         * starts on day 60 — that is where the label changes.
+         * starts on day 60 — that is where the label changes, from
+         * `current` to `aging`, and `aging` is not `expired` either.
          */
         ?>
         <?= h(sprintf(
-            __('It loses relevance from day zero. Day %1$s is only'
-                . ' where it stops counting as current, with %2$s of'
-                . ' the lifetime left.'),
+            __('It loses relevance from day zero. Current until day'
+                . ' %1$s, then aging — still inside its lifetime —'
+                . ' until day %2$s, and expired after that.'),
             $agingDay,
-            $aging
+            $ttl
         )) ?>
         <?= $speed == 1
             ? h(__('Straight because decay speed is 1. Below 1 it bows up'

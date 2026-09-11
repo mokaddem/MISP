@@ -1025,6 +1025,20 @@ input.num[type="number"]::-webkit-inner-spin-button {
     stroke-dasharray: 2 2;
 }
 .ttl-here { fill: var(--bs-body-color); }
+/*
+ * The three states, as three stretches of the axis. `current` is the
+ * plain ground rather than a third tint: two washes read as two bands
+ * and a background, which is the shape of the thing — the figure is
+ * saying where a value stops being ordinary, twice.
+ */
+.ttl-band { fill: none; }
+.ttl-band-aging {
+    fill: color-mix(in srgb, var(--bs-warning, #f0ad4e) 14%, transparent);
+}
+.ttl-band-expired {
+    fill: color-mix(in srgb, var(--bs-secondary-color) 16%, transparent);
+}
+.ttl-band-t { text-transform: uppercase; letter-spacing: .04em; }
 .ttl-t {
     font: 500 7px/1 var(--bs-font-sans-serif, system-ui);
     fill: var(--bs-secondary-color);
