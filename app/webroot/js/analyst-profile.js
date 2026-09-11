@@ -257,6 +257,33 @@ function boot() {
         return node;
     }
 
+    /*
+     * The TTL curve lives in the relevance section, not in the bench —
+     * so a recompute that swaps only the bench left the decay speed's
+     * own picture drawn from the saved document, which is the one field
+     * on this page whose entire output is that shape.
+     *
+     * The fragment carries a redrawn figure in a hidden carrier and
+     * this moves it across. Server-drawn, like everything else here: no
+     * arithmetic in this file, and one polynomial rather than two that
+     * can drift.
+     */
+    function repaintCurve() {
+        if (!bench) {
+            return;
+        }
+        var carrier = bench.querySelector('[data-ap-curve]');
+        if (!carrier) {
+            return;
+        }
+        var drawn = carrier.querySelector('.ttl-curve');
+        var live = document.querySelector('.ttl-grid .ttl-curve');
+        if (drawn && live) {
+            live.parentNode.replaceChild(drawn, live);
+        }
+        carrier.parentNode.removeChild(carrier);
+    }
+
     function refresh() {
         if (!form || !bench) {
             return;
@@ -278,6 +305,7 @@ function boot() {
             bench.classList.remove('is-recomputing');
             if (request.status >= 200 && request.status < 300) {
                 bench.innerHTML = request.responseText;
+                repaintCurve();
                 repaintLedger();
             }
         };

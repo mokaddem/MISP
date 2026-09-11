@@ -11,10 +11,21 @@
  * the server already has, and a chart library loaded to draw one
  * polyline is a chart library loaded for nothing.
  *
+ * **It redraws on every edit all the same.** The figure sits in the
+ * relevance section and the editor's recompute only ever swapped the
+ * bench, so moving the decay speed changed the numbers under it and
+ * left the line it is a picture of exactly where it was — the one
+ * control on this page whose whole point is the shape it makes. The
+ * recompute now carries this element back with the bench and the editor
+ * swaps both (`analyst-profile.js`), which keeps the arithmetic here,
+ * on the server, rather than growing a second copy of the polynomial in
+ * JavaScript to animate it with.
+ *
  * @var array $block The `ttl_buckets` fields
  * @var array $section
  * @var array|null $runway The bench value's relevance, when there is one
  */
+App::uses('ValueRelevanceTool', 'Tools');
 $numbers = array();
 foreach ($block['fields'] as $field) {
     $numbers[$field['key']] = $field['value'] === null
@@ -68,7 +79,7 @@ for ($i = 0; $i <= 12; $i++) {
      * so the curve drew itself correctly and then lost the point
      * saying where this value sits on it.
      */
-    $remaining = max(0, 1 - pow($elapsed, 1 / $speed));
+    $remaining = ValueRelevanceTool::runway($elapsed, 1, $speed);
     $points[] = $at($elapsed) . ',' . $height($remaining);
 }
 
@@ -76,8 +87,8 @@ for ($i = 0; $i <= 12; $i++) {
  * Where aging begins: the elapsed fraction at which the runway falls
  * to the aging fraction, which is the curve read backwards.
  */
-$agingElapsed = min(1, max(0, pow(max(0, 1 - $aging), $speed)));
-$agingDay = (int)round($agingElapsed * $ttl);
+$agingElapsed = ValueRelevanceTool::agingElapsed($aging, $speed);
+$agingDay = ValueRelevanceTool::agingDay($aging, $speed, $ttl);
 
 $here = null;
 if (!empty($runway) && isset($runway['runway'])
@@ -143,6 +154,23 @@ if ($here !== null) {
         <text class="ttl-t" x="24" y="99" text-anchor="end">0%</text>
     </svg>
     <p class="wb-sub mb-0">
+        <?php
+        /*
+         * What the aging fraction works out to, said here rather than
+         * under the box that holds it: the field's help is rendered
+         * once with the section, this figure redraws on every edit, and
+         * only one of the two can name a day without going stale the
+         * moment the decay speed moves. `0.33` is not day 30 of 90
+         * either — the speed bends the curve between them — which is
+         * the whole reason the number is worth printing.
+         */
+        ?>
+        <?= h(sprintf(
+            __('Aging starts on day %1$s, with %2$s of the shelf life'
+                . ' left.'),
+            $agingDay,
+            $aging
+        )) ?>
         <?= $speed == 1
             ? h(__('Straight because decay speed is 1. Below 1 it bows up'
                 . ' and falls off a cliff at the end; above 1 it drops at'

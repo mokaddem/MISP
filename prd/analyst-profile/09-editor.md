@@ -602,6 +602,72 @@ says where it stops being reliable.
   answers for a window to govern. Carried, drawn, and labelled — the
   posture phase 7 took, held here rather than quietly dropped.
 
+## 7e. What reading the relevance section back found, 2026-09-11
+
+Three findings, all of them on the one section whose settings are
+shapes rather than quantities — and all three the same failure, which
+is that the section explains its numbers everywhere except where they
+take effect.
+
+### 7e.1 The curve was the one thing an edit did not move
+
+`refresh()` swaps `.wb-bench` and nothing else, and the TTL curve lives
+in the relevance section, outside it. So moving **Decay speed** — the
+one field on this page whose entire output is a shape — recomputed
+every number around the figure and left the figure drawn from the
+*saved* document. A straight line, while the box above it said `0.3`.
+
+Measured rather than argued: `figure.ttl-curve.closest('.wb-bench')` is
+null.
+
+**The fix keeps the arithmetic on the server.** `simulate()` renders
+`ttl_curve` from the posted document into a hidden carrier inside the
+bench fragment, and `repaintCurve()` lifts it out and drops it where it
+lives. No second endpoint — that would be a request per keystroke for a
+figure this response regenerates anyway — and no polynomial in
+JavaScript, which is the rule `analyst-profile.js` opens by stating and
+the one this feature exists to keep. §4.2's *evidence against remaining
+shelf life* is only worth drawing if the drawing answers the control.
+
+`ValueRelevanceTool::agingElapsed()` / `agingDay()` are new, and the
+template calls them rather than carrying its own copy of the inverse
+curve: the mark on the figure and any sentence naming the day it falls
+on have to agree, and two implementations is how they stop.
+
+### 7e.2 `Aging from` read as a date and took a fraction
+
+`Aging from` over a box holding `0.33`, helped by *the share of the TTL
+left when a value stops reading as current* — which gives the units and
+never says what the number does. The label is the sentence now:
+**Aging starts with this much left**, with `of the shelf life` as the
+unit the other numeric fields already carry.
+
+**The day it works out to is on the figure, not in the help.** It is
+what a reader actually wants, and it is not day 30 of 90 either — the
+decay speed bends the curve between the fraction and the day, which is
+exactly why it is worth printing. But the field's help renders once
+with the section while the figure now redraws on every edit, so a day
+printed under the box would be right until the first keystroke and then
+argue with the mark it describes. The figure's own note carries it:
+*Aging starts on day 60, with 0.33 of the shelf life left.*
+
+### 7e.3 The lag was measured, compared, and never shown
+
+The section's next field is **Encoding lag before uncertain**, a
+threshold in days. The reading it is compared against sat in a `title`
+on the bench's runway line, under the words *the timeline is uncertain,
+so the elapsed time is a lower bound* — a verdict with its measurement
+hidden, beside the box for choosing where the verdict falls. A
+threshold cannot be set from a pane that only ever shows the number
+once it has already been exceeded.
+
+`runway.ctp` prints the measurement now — *timeline uncertain — no
+first-seen date on any occurrence · added 302 days after its event's
+date* — and, when a lag exists but did not trip, says so with the limit
+for company: *added 18 days after its event's date, inside the 30-day
+limit*. Both read live off `precision`, so moving the threshold
+restates them without a save.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

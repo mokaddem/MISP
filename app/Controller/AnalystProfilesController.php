@@ -862,6 +862,16 @@ class AnalystProfilesController extends AppController
             $this->set('bands', $form->bandStrip($candidateParameters));
             $this->set('full', false);
             $this->set('profileId', $row['id']);
+            /*
+             * The relevance curve rides back with the bench, because it
+             * is the one figure on the page that is a picture of a
+             * field rather than of the document's effect — and it was
+             * the one thing an edit did not move. Built from the posted
+             * document like everything else in this response, so a
+             * decay speed typed and not saved draws the line it makes.
+             */
+            $this->set($this->__curveFor($user, $candidateParameters,
+                $simulation));
             $this->layout = false;
             return $this->render('/Elements/AnalystProfiles/bench');
         }
@@ -1191,6 +1201,50 @@ class AnalystProfilesController extends AppController
      * @param bool $editable
      * @return array
      */
+    /**
+     * The three variables `ttl_curve` needs, from a candidate document.
+     *
+     * The section builder is the one place that knows how a bucket
+     * block is shaped, so the curve is fed from its output rather than
+     * from the raw parameters — the same reading the open editor drew
+     * with, which is what makes the redrawn figure comparable to the
+     * one it replaces.
+     *
+     * @param array $user
+     * @param array $parameters The candidate document
+     * @param array $simulation What `__simulation` answered for it
+     * @return array Empty when the relevance section has no curve
+     */
+    private function __curveFor(array $user, array $parameters,
+        array $simulation
+    ) {
+        $form = new AnalystProfileFormTool();
+        $sections = $form->sections($parameters,
+            $this->__sources($user, $parameters));
+        foreach ($sections as $section) {
+            if ($section['id'] !== 'relevance') {
+                continue;
+            }
+            foreach ($section['blocks'] as $block) {
+                if ($block['kind'] !== 'fields'
+                    || $block['id'] !== 'ttl_buckets'
+                ) {
+                    continue;
+                }
+                $detail = $simulation['detail'];
+                return array(
+                    'curveBlock' => $block,
+                    'curveSection' => $section,
+                    'curveRunway' => $detail !== null
+                        && isset($detail['axes']['relevance']['runway'])
+                            ? $detail['axes']['relevance']['runway']
+                            : null,
+                );
+            }
+        }
+        return array();
+    }
+
     private function __board(array $user, array $profile, $editable)
     {
         $row = $profile['AnalystProfile'];

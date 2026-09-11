@@ -241,6 +241,45 @@ class ValueRelevanceTool
     }
 
     /**
+     * Where on the curve aging begins, as a fraction of the TTL.
+     *
+     * `runway()` read backwards: solve `aging = 1 − elapsed^(1/speed)`
+     * for elapsed and you get `(1 − aging)^speed`. It lives here rather
+     * than in the template that draws the mark because the editor now
+     * has to say the same day in words — *0.33 means day 60 of 90* —
+     * and the mark and the sentence disagreeing would be worse than
+     * either of them being wrong alone.
+     *
+     * @param float $aging The share of shelf life left when aging starts
+     * @param float $speed
+     * @return float In `[0, 1]`
+     */
+    public static function agingElapsed($aging, $speed = 1)
+    {
+        $speed = (float)$speed;
+        if ($speed <= 0) {
+            $speed = 1.0;
+        }
+        $aging = max(0.0, min(1.0, (float)$aging));
+        return max(0.0, min(1.0, pow(1 - $aging, $speed)));
+    }
+
+    /**
+     * The same point in days, for a shelf life of `$ttlDays`.
+     *
+     * @param float $aging
+     * @param float $speed
+     * @param int $ttlDays
+     * @return int
+     */
+    public static function agingDay($aging, $speed, $ttlDays)
+    {
+        return (int)round(
+            self::agingElapsed($aging, $speed) * (int)$ttlDays
+        );
+    }
+
+    /**
      * Which state a runway and an elapsed time make.
      *
      * @param float $elapsedDays

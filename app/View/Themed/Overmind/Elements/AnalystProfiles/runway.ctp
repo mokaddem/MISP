@@ -31,6 +31,14 @@ $aging = (int)round(
 $clockAt = isset($runway['clock']['at']) && $runway['clock']['at']
     ? date('Y-m-d', $runway['clock']['at'])
     : null;
+$precision = isset($runway['precision']) ? $runway['precision'] : array();
+$lagDays = isset($precision['max_lag_days'])
+    && $precision['max_lag_days'] !== null
+    ? (int)$precision['max_lag_days']
+    : null;
+$lagLimit = isset($precision['lag_limit'])
+    ? (int)$precision['lag_limit']
+    : null;
 ?>
 <div class="ax-runway">
     <div class="ax-track" title="<?= h(sprintf(
@@ -59,10 +67,45 @@ $clockAt = isset($runway['clock']['at']) && $runway['clock']['at']
         <?php endif; ?>
     </span>
     <?php if (!empty($runway['uncertain'])): ?>
+        <?php
+        /*
+         * The measurement, not the verdict. This line said *the
+         * timeline is uncertain, so the elapsed time is a lower bound*
+         * and kept the number that tripped it in a `title` — beside an
+         * editor whose next field is the threshold that number is
+         * compared against. Judging `30` with the reading hidden is the
+         * one thing this pane exists to prevent.
+         */
+        ?>
         <span class="ax-runway-t wb-sub"
-              title="<?= h((string)$runway['uncertain_note']) ?>">
-            <?= h(__('the timeline is uncertain, so the elapsed time is a'
-                . ' lower bound')) ?>
+              title="<?= h(__('Counted from when the value was added to'
+                  . ' MISP, not from when it was seen, so the elapsed'
+                  . ' time above is a minimum.')) ?>">
+            <?= h(sprintf(
+                __('timeline uncertain — %s'),
+                $runway['uncertain_note']
+            )) ?>
+        </span>
+    <?php elseif ($lagDays !== null && $lagDays > 0): ?>
+        <?php
+        /*
+         * A lag that did not trip is still the reading the threshold is
+         * set against, and a pane that only ever shows the number when
+         * it has already failed cannot be used to choose the number.
+         */
+        ?>
+        <span class="ax-runway-t wb-sub">
+            <?= h(sprintf(
+                __n(
+                    'added %1$s day after its event\'s date, inside the'
+                        . ' %2$s-day limit',
+                    'added %1$s days after its event\'s date, inside the'
+                        . ' %2$s-day limit',
+                    $lagDays
+                ),
+                $lagDays,
+                $lagLimit
+            )) ?>
         </span>
     <?php endif; ?>
 </div>

@@ -1084,16 +1084,25 @@ class AnalystProfileFormTool
                         ),
                         array(
                             'key' => 'aging_fraction',
-                            'label' => __('Aging from'),
+                            'label' => __('Aging starts with this much'
+                                . ' left'),
                             'type' => 'float',
+                            'unit' => __('of the shelf life'),
                             'value' => isset($section['aging_fraction'])
                                 ? $section['aging_fraction']
                                 : null,
                             'default' => 0.33,
-                            'help' => __(
-                                'The share of the TTL left when a value'
-                                . ' stops reading as current.'
-                            ),
+                            /*
+                             * `Aging from` beside a box holding `0.33`
+                             * reads as a date the box cannot take, and
+                             * *the share of the TTL left* explained the
+                             * units without ever saying what the number
+                             * does. The label is the sentence now, and
+                             * the help is the one thing a fraction
+                             * cannot show on its own: which day it
+                             * lands on, at the shelf life next to it.
+                             */
+                            'help' => $this->agingHelp(),
                             'path' => array('relevance', 'aging_fraction'),
                         ),
                         array(
@@ -1211,6 +1220,33 @@ class AnalystProfileFormTool
             'very_long' => __('Very long'),
         );
         return isset($labels[$bucket]) ? $labels[$bucket] : $bucket;
+    }
+
+    /**
+     * What `aging_fraction` means.
+     *
+     * `Aging from` beside a box holding `0.33` read as a date the box
+     * cannot take, and *the share of the TTL left* explained the units
+     * without saying what the number did. The label carries the
+     * sentence now, and this carries the units.
+     *
+     * **The day it lands on is deliberately not here.** It is what a
+     * reader actually wants — and it is not `day 30` of 90 either,
+     * because the decay speed bends the curve between the fraction and
+     * the day — but this help is rendered once with the section, while
+     * the curve beside it now redraws on every edit. A number printed
+     * here would be right until the first keystroke and then argue with
+     * the mark it is describing. It lives on the figure, which moves.
+     *
+     * @return string
+     */
+    private function agingHelp()
+    {
+        return __(
+            'A fraction of the shelf life, not a number of days —'
+            . ' it applies to every bucket at once. The curve beside'
+            . ' this marks the day it works out to.'
+        );
     }
 
     /**

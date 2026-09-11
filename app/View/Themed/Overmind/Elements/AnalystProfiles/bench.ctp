@@ -284,3 +284,25 @@ $carry = array(
         </a>
     <?php endif; ?>
 </div>
+<?php if (!empty($curveBlock) && !empty($curveSection)): ?>
+    <?php
+    /*
+     * The TTL curve, redrawn from the posted document and riding back
+     * with the bench.
+     *
+     * It belongs to the relevance section, not to this pane — but the
+     * recompute is the only thing on this page that already knows what
+     * the unsaved form says, and adding a second endpoint to redraw one
+     * polyline would be a second request per keystroke for a figure
+     * this one is regenerating anyway. The editor lifts it out of here
+     * and drops it where it lives; this carrier is never displayed.
+     */
+    ?>
+    <div hidden data-ap-curve>
+        <?= $this->element('AnalystProfiles/ttl_curve', array(
+            'block' => $curveBlock,
+            'section' => $curveSection,
+            'runway' => isset($curveRunway) ? $curveRunway : null,
+        )) ?>
+    </div>
+<?php endif; ?>
