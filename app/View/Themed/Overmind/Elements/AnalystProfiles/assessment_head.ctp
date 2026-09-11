@@ -72,15 +72,37 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
     </div>
 </div>
 <p class="bench-rel">
-    <?= h(__('Three readings, not one score.')) ?>
+    <?php
+    /*
+     * One line on screen, the rest behind the `i` — 09b-revisions §3.7
+     * asked for that length and this is it. The wording is the plain
+     * one: *points × polarity* and *anchored sum* are exact and they
+     * are also the two phrases a reader has to already know the model
+     * to parse, which is the wrong way round for the sentence whose
+     * job is teaching the model.
+     */
+    ?>
     <?= sprintf(
-        h(__('The %1$slean%2$s anchors the ledger — every row is points ×'
-            . ' polarity and %1$squality%2$s is that anchored sum, with the'
-            . ' band cut from it. %1$sRelevance%2$s is the clock, and'
-            . ' touches neither.')),
+        h(__('Three readings, not one score: %1$slean%2$s is what the'
+            . ' record says this value is, %1$squality%2$s is how well'
+            . ' backed up that is, and %1$srelevance%2$s is whether it'
+            . ' still holds.')),
         '<b>',
         '</b>'
     ) ?>
+    <a href="#" class="wb-i" onclick="return false;"
+       title="<?= h(__("The lean is decided first, by counting how many"
+           . " organisations reported this value as a threat and how many"
+           . " called it harmless. No points are involved.\n\n"
+           . "Then the quality is counted. Every signal scores the value"
+           . " on one scale, where a plus means it looks dangerous and a"
+           . " minus means it looks harmless. If the lean came out"
+           . " benign, that whole scale is flipped — so a plus always"
+           . " means the evidence supports the lean, and a minus always"
+           . " means it argues with it.\n\n"
+           . "The quality is those numbers added up, and the band is cut"
+           . " from the total. Relevance is a clock and touches"
+           . " neither.")) ?>">i</a>
     <?php if ($lean['after'] === 'contested'): ?>
         <?= h(__('This value is contested, so there is no polarity and'
             . ' the ledger renders threat-signed.')) ?>

@@ -152,6 +152,88 @@ function boot() {
     var pending = null;
     var inflight = null;
 
+    /*
+     * The recompute answers the bench and nothing else, so the
+     * contribution column in the signals pane would keep the numbers
+     * the page loaded with — a confident `+7` beside a quality that had
+     * just moved to 48. The fragment carries the new ledger back and
+     * this writes it into the cells, which is the whole reason the
+     * column can be trusted enough to colour.
+     *
+     * No arithmetic here either: the numbers, the labels and the
+     * direction pair all arrive computed.
+     */
+    function repaintLedger() {
+        if (!bench) {
+            return;
+        }
+        var carrier = bench.querySelector('[data-ap-ledger]');
+        if (!carrier) {
+            return;
+        }
+        var carry;
+        try {
+            carry = JSON.parse(carrier.getAttribute('data-ap-ledger'));
+        } catch (error) {
+            return;
+        }
+        var rows = carry.rows || {};
+        var labels = carry.labels || {};
+
+        var table = document.querySelector(
+            '.wb-sec[data-sec="signals"] table.wb-tbl');
+        if (table) {
+            /*
+             * Editing a weight can move the lean itself, and the pair
+             * is *with* and *against* it — so the swap is re-applied,
+             * not assumed to be the one the page rendered with.
+             */
+            if (carry.direction) {
+                table.setAttribute('style', carry.direction);
+            } else {
+                table.removeAttribute('style');
+            }
+        }
+        var anchor = document.querySelector('[data-ap-anchor]');
+        if (anchor) {
+            anchor.textContent = carry.anchor || '';
+            anchor.hidden = !carry.anchor;
+        }
+
+        Array.prototype.forEach.call(
+            document.querySelectorAll('[data-ap-contrib]'),
+            function (cell) {
+                var id = cell.getAttribute('data-ap-contrib');
+                var has = Object.prototype.hasOwnProperty.call(rows, id);
+                while (cell.firstChild) {
+                    cell.removeChild(cell.firstChild);
+                }
+                if (!carry.benched) {
+                    cell.appendChild(sub(labels.none || '—'));
+                    return;
+                }
+                if (!has) {
+                    cell.appendChild(sub(labels.no_row || ''));
+                    cell.appendChild(sub(labels.no_row_sub || ''));
+                    return;
+                }
+                var points = rows[id];
+                var box = document.createElement('div');
+                box.className = 'num fw-bold '
+                    + (points > 0 ? 'd-up' : (points < 0 ? 'd-dn' : 'd-0'));
+                box.textContent = points > 0 ? '+' + points : String(points);
+                cell.appendChild(box);
+            }
+        );
+    }
+
+    function sub(text) {
+        var node = document.createElement('div');
+        node.className = 'wb-sub';
+        node.textContent = text;
+        return node;
+    }
+
     function refresh() {
         if (!form || !bench) {
             return;
@@ -173,6 +255,7 @@ function boot() {
             bench.classList.remove('is-recomputing');
             if (request.status >= 200 && request.status < 300) {
                 bench.innerHTML = request.responseText;
+                repaintLedger();
             }
         };
         request.onerror = function () {

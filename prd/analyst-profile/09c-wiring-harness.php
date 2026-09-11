@@ -745,6 +745,32 @@ class AnalystWiringShell extends AppShell
             'the rendered editor carries a direction pair at all');
         $this->ok(strpos($html, 'toward') !== false,
             'and the contribution column says what a + is toward');
+
+        /*
+         * The recompute answers the bench alone, so the contribution
+         * column can only keep up if the fragment carries the new
+         * ledger and the cells are addressable. Both halves asserted:
+         * one missing is a column that silently goes stale again.
+         */
+        $this->ok(strpos($html, 'data-ap-contrib="') !== false,
+            'the contribution cells are addressed by signal id');
+        $this->ok(strpos($html, 'data-ap-ledger="') !== false,
+            'and the bench fragment carries the ledger back to them');
+        $this->ok(strpos($html, 'data-ap-anchor') !== false,
+            'with the anchor line always present, so it can be rewritten');
+        $js = file_get_contents(WWW_ROOT . 'js' . DS . 'analyst-profile.js');
+        $this->ok(strpos($js, 'repaintLedger') !== false
+            && preg_match('/innerHTML = request\.responseText;\s*\n\s*repaintLedger/', $js),
+            'and the editor repaints them on every recompute');
+
+        /*
+         * The explanation a reader needs before any of the above means
+         * anything: the scale, and why it flips.
+         */
+        $this->ok(strpos($html, 'looks dangerous') !== false,
+            'the signals pane explains the scale in plain words');
+        $this->ok(strpos($html, 'decided separately') !== false,
+            'and says the verdict is decided before the points are');
     }
 
     /* ============================================================

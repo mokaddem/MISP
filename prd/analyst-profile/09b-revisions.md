@@ -207,6 +207,12 @@ sentence. The remaining work is **length**: the current relation
 paragraph is five lines. Cut to one sentence visible, the rest behind an
 `i` tooltip, per §4.2. Keep the wording faithful:
 
+> **Closed 2026-09-11** (`09c-wiring.md` §7.19). One sentence visible,
+> the rest behind the `i` — and rewritten plainly: the faithful wording
+> below is exact and is also the version a reader has to already know
+> the model to parse.
+
+
 - **lean** — what the record asserts (`threat`/`benign`/`contested`/`none`); categorical, no ordering.
 - **relevance** — whether it still holds; a clock and a shelf life.
 - **quality** — how well evidenced it is; **the only axis that sums**.

@@ -127,11 +127,20 @@ $columns = $isSignals ? 5 : 3;
                      * looking.
                      */
                     ?>
-                    <?php if ($lean !== null && $lean !== 'none'): ?>
-                        <div class="wb-tbl-sub">
-                            <?= h(sprintf(__('+ toward %s'), $lean)) ?>
-                        </div>
-                    <?php endif; ?>
+                    <?php
+                    /*
+                     * Always drawn, hidden when empty: the recompute
+                     * rewrites it, and a node that is sometimes absent
+                     * is a node the update has to create rather than
+                     * fill.
+                     */
+                    $anchor = $lean !== null && $lean !== 'none'
+                        ? sprintf(__('+ toward %s'), $lean)
+                        : '';
+                    ?>
+                    <div class="wb-tbl-sub" data-ap-anchor
+                         <?= $anchor === '' ? 'hidden' : '' ?>><?=
+                        h($anchor) ?></div>
                 </th>
             <?php endif; ?>
         </tr>
@@ -296,7 +305,17 @@ $columns = $isSignals ? 5 : 3;
                     <?php endforeach; ?>
                 </td>
                 <?php if ($isSignals): ?>
-                    <td class="r">
+                    <?php
+                    /*
+                     * Addressed by signal id so the recompute can write
+                     * the new contribution straight into it. A `missing`
+                     * row is not addressed: the instance not
+                     * implementing a signal is not something editing a
+                     * weight can change.
+                     */
+                    ?>
+                    <td class="r"<?= $state === 'missing'
+                        ? '' : ' data-ap-contrib="' . h($item['id']) . '"' ?>>
                         <?php if ($state === 'missing'): ?>
                             <span class="wb-sub"><?= h(__('not counted')) ?></span>
                         <?php elseif ($benchValue === null): ?>

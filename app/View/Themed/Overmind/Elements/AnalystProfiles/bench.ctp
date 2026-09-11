@@ -52,8 +52,40 @@ $dispositions = ValueVerdictTool::LEAN_DISPOSITION;
 $directionStyle = $leanNow !== null && isset($dispositions[$leanNow])
     ? ValueDisposition::directionStyle($dispositions[$leanNow])
     : '';
+/*
+ * What the signals pane needs to catch up.
+ *
+ * The recompute answers this fragment and nothing else, so the
+ * contribution column beside it used to keep whatever the page loaded
+ * with — a confident `+7` next to a quality that had just moved to 48.
+ * The numbers ride back with the fragment and the editor writes them
+ * into the cells; the labels come too, because the column's wording is
+ * translated and the script has no business holding a copy.
+ */
+$ledgerNow = array();
+if ($detail !== null) {
+    foreach ($detail['rows'] as $row) {
+        if ($row['after'] !== null) {
+            $ledgerNow[$row['id']] = (int)$row['after'];
+        }
+    }
+}
+$carry = array(
+    'benched' => $benched !== null,
+    'direction' => $directionStyle,
+    'anchor' => $leanNow !== null && $leanNow !== 'none'
+        ? sprintf(__('+ toward %s'), $leanNow)
+        : '',
+    'labels' => array(
+        'none' => "â",
+        'no_row' => __('no row'),
+        'no_row_sub' => __('on this value'),
+    ),
+    'rows' => $ledgerNow,
+);
 ?>
 <div class="wb-bench-inner" data-ap-bench-url="<?= h($benchUrl) ?>"
+     data-ap-ledger="<?= h(json_encode($carry)) ?>"
      <?= $directionStyle === ''
          ? '' : 'style="' . h($directionStyle) . '"' ?>>
     <?php

@@ -189,10 +189,25 @@ class AnalystProfileFormTool
         return array(
             'id' => 'signals',
             'title' => __('Signals'),
+            /*
+             * The second sentence onward goes behind the `i`, so what
+             * is always on screen stays one line. What is behind it is
+             * the question every reader of this table asks first, in
+             * the words they would ask it in: *why is this number
+             * negative, and negative toward what?*
+             */
             'blurb' => __(
-                'What each kind of evidence is worth. The contributions'
-                . ' sum to the quality exactly — nothing is normalised,'
-                . ' so the ledger is the number.'
+                'What each kind of evidence is worth. Every signal scores'
+                . ' the value on the same scale: a plus means it looks'
+                . ' dangerous, a minus means it looks harmless. The verdict'
+                . ' itself is decided separately, by counting how many'
+                . ' organisations called it one or the other — so when the'
+                . ' verdict comes out benign, the whole column is flipped,'
+                . ' and a plus then means the evidence agrees with it.'
+                . ' Either way, a plus supports the verdict and a minus'
+                . ' argues with it, and the column adds up to the quality'
+                . ' exactly — nothing is normalised, so the ledger is the'
+                . ' number.'
             ),
             'blocks' => array(
                 array(

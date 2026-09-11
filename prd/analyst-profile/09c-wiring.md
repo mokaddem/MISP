@@ -607,20 +607,56 @@ instance it answers `UNKNOWN` for every value the editor scores and its
 ledger draws no rows to colour. The helper and its consumers are
 verified; the rendering is not, and cannot be until phase 9.
 
-### 7.18 The contribution column is stale after an edit
+### 7.18 The contribution column catches up with the recompute
 
-Found while colouring it, not fixed. The bench recomputes on every
-change; the signals pane does not. Setting `per_org` from 7 to 40 moves
-the bench's quality from 27 to 48 and leaves the column reading `+7`,
-because `simulate` answers the bench fragment alone and the JS swaps
-only `.wb-bench`.
+The bench recomputed on every change; the signals pane beside it did
+not. Setting `per_org` from 7 to 40 moved the bench's quality from 27 to
+48 and left the column reading `+7`, because `simulate` answers the
+bench fragment alone and the editor swapped only `.wb-bench`. True since
+the column existed, and colour made it worse rather than caused it: a
+confidently red `+7` next to a quality that had just moved reads as a
+number that means something.
 
-It has been true since the column existed and colour does not create it
-— but colour makes it louder, because a confidently red `+7` beside a
-quality that just moved reads as a number that means something. The fix
-is for the fragment to carry the new ledger and the JS to write it into
-the cells, which is a second thing for the recompute to do and wants
-its own pass.
+The fragment now carries the new ledger back — the contributions, the
+direction pair, the anchor line and the column's own labels — and the
+editor writes them into cells addressed by signal id. **The labels
+travel with it** because the column's wording is translated and a script
+holding its own copy is a second place for it to be wrong. **No
+arithmetic travels**, which is the rule this feature is built on: the
+numbers arrive computed by the one engine that computes them.
+
+Re-applying the direction pair is part of it rather than an extra.
+Editing a weight can move the lean itself — drive one signal to `-40`
+and the ledger sums against the lean it was anchored to, so the verdict
+comes back `contested` — and the column has to repaint its swap and its
+`+ toward …` line when that happens. Checked by doing exactly that.
+
+A signal the instance does not implement is not addressed and not
+repainted: *not counted* is a fact about the instance, and editing a
+weight cannot change it.
+
+### 7.19 The page says what a plus means, in plain words
+
+The model this page rests on is genuinely surprising the first time —
+**the lean is decided before any of these numbers exist**, by counting
+how many organisations called the value a threat and how many called it
+harmless, and only then is the ledger anchored to it. So on a benign
+verdict the whole column is flipped, and a warninglist hit worth `-38`
+on the *is it dangerous* scale arrives as `+38` of support for *benign*.
+
+Two places said so and neither said it plainly. The signals blurb had
+the exact-sum invariant and not the scale; the bench had *"the lean
+anchors the ledger — every row is points × polarity and quality is that
+anchored sum"*, which is precise and is also two phrases you have to
+already know the model to parse. That is the wrong way round for the one
+sentence whose job is teaching it.
+
+Both are rewritten in the words a reader would ask the question in — *a
+plus means it looks dangerous, a minus means it looks harmless; the
+verdict is decided separately, and when it comes out benign the whole
+column is flipped* — with one line on screen and the rest behind the
+`i`, which is the length [`09b-revisions.md`](09b-revisions.md) §3.7
+asked for and never got.
 
 ## 8. What 8c deliberately did not do
 
