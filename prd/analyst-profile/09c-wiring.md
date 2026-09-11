@@ -548,6 +548,34 @@ sets it.
 Both tints are `color-mix` over a token rather than a fixed grey, so
 they hold their weight against either theme's ground — checked in both.
 
+### 7.16 The contribution column says which way it pushed
+
+The signals pane's last column is the one number on the page that is
+about the value rather than the document — the points this row put into
+the quality of the value on the bench — and it was rendering as an
+undifferentiated bold figure. It now carries `d-up` / `d-dn`, the pair
+the bench's delta column beside it already uses, **and prints the
+sign**: colour is the fastest way to read it and the only way to miss
+it, and this is a column people read while deciding whether a weight
+did what they meant.
+
+**A split this uncovered, left alone on purpose.** `--vp-dir-with` and
+`--vp-dir-against` mean *with* and *against the lean*, not red and
+green — on a benign value the row supporting the verdict is the green
+one, and the value page swaps the pair per card through
+`ValueDisposition::directionStyle()`. **The editor swaps nowhere**: the
+diff table, the totals and now this column all take the `:root` default,
+which is the malicious reading. So on a benign-leaning value the two
+surfaces disagree about the same number.
+
+Threading the lean into this one column was written and then backed
+out. It would have left the signals pane swapping while the bench two
+inches to its right did not, which is worse than either surface being
+consistently wrong — and the dark-theme rules (`.d-up` → `--vp-mal-ink`)
+bypass the custom properties entirely, so a real fix needs an ink pair
+as well, across both surfaces. That is phase 9's, with the rest of the
+reconciliation between the editor and the value page (§4.3).
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships

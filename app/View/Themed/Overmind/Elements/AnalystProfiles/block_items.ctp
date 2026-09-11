@@ -274,7 +274,38 @@ $columns = $isSignals ? 5 : 3;
                             <div class="wb-sub"><?= h(__('no row')) ?></div>
                             <div class="wb-sub"><?= h(__('on this value')) ?></div>
                         <?php else: ?>
-                            <div class="num fw-bold"><?= h($contribution) ?></div>
+                            <?php
+                            /*
+                             * Which way this row pushed, in the pair the
+                             * bench's delta column beside it already
+                             * uses — `d-up` and `d-dn` resolve to
+                             * `--vp-dir-with` / `--vp-dir-against`, so
+                             * the two halves of the editor colour the
+                             * same contribution the same way.
+                             *
+                             * Those tokens default to the *malicious*
+                             * reading and the value page swaps them per
+                             * card for a benign verdict
+                             * (`ValueDisposition::directionStyle`). The
+                             * editor does not, anywhere — so this column
+                             * matches the pane it sits beside rather
+                             * than half-fixing a split that runs through
+                             * both surfaces. See 09c-wiring.md §7.16.
+                             *
+                             * The sign is printed as well as coloured.
+                             * A hue is the fastest way to see it and the
+                             * only way to miss it, and this column is
+                             * read by people deciding whether a weight
+                             * did what they meant.
+                             */
+                            ?>
+                            <div class="num fw-bold <?= $contribution > 0
+                                    ? 'd-up'
+                                    : ($contribution < 0 ? 'd-dn' : 'd-0') ?>">
+                                <?= h($contribution > 0
+                                    ? '+' . $contribution
+                                    : $contribution) ?>
+                            </div>
                         <?php endif; ?>
                     </td>
                 <?php endif; ?>
