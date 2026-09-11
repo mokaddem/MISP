@@ -360,11 +360,27 @@ class AnalystProfileFormTool
             'fields' => array(),
         );
         /*
-         * The toggle and the group come first, then the generated maps.
-         * There is no editorial band: D16 removed it, because what a
-         * signal is worth in principle is `points.cap` in the next
-         * column, in points, and *band* now means the quality band and
-         * nothing else.
+         * The toggle comes first, then the generated maps. There is no
+         * editorial band: D16 removed it, because what a signal is worth
+         * in principle is `points.cap` in the next column, in points,
+         * and *band* now means the quality band and nothing else.
+         *
+         * **And there is no ledger group.** It was a select on every
+         * signal row and it is the one control here that cannot change
+         * an assessment: `group` picks the heading a row is read under
+         * and touches no arithmetic. The default is already right —
+         * every signal declares its own in its implementation — and
+         * overriding it puts a row under a heading whose note
+         * (`ValueVerdictTool::groupNote()`) then describes something
+         * else, or under a custom heading with no note at all. So the
+         * densest pane in the editor paid eleven selects for an outcome
+         * that was either invisible or wrong.
+         *
+         * The **document** keeps the key: `anchor()` still resolves
+         * `$entry['group'] ?: $signal->group`, so a profile that arrives
+         * by import or by the Raw JSON pane with a `group` set is still
+         * honoured. What went away is the control, not the schema —
+         * `$item['group']` below still groups this pane's own rows.
          */
         $item['fields'][] = array(
             'key' => 'enabled',
@@ -373,15 +389,6 @@ class AnalystProfileFormTool
             'value' => $enabled,
             'default' => true,
             'path' => array('signals', $id, 'enabled'),
-        );
-        $item['fields'][] = array(
-            'key' => 'group',
-            'label' => __('Ledger group'),
-            'type' => 'select',
-            'options' => $this->groupOptions($config),
-            'value' => $item['group'],
-            'default' => $config === null ? null : $config['group'],
-            'path' => array('signals', $id, 'group'),
         );
         foreach (array('points', 'config') as $map) {
             $schema = $config === null
@@ -408,25 +415,6 @@ class AnalystProfileFormTool
             }
         }
         return $item;
-    }
-
-    /**
-     * The four shipped groups plus whichever fifth a custom signal named
-     * — because `GROUPS` is the shipped set and a custom signal is
-     * explicitly allowed to name its own.
-     *
-     * @param array|null $config
-     * @return array
-     */
-    private function groupOptions($config)
-    {
-        $options = $this->baseGroups();
-        if ($config !== null && !empty($config['group'])
-            && !in_array($config['group'], $options, true)
-        ) {
-            $options[] = $config['group'];
-        }
-        return $options;
     }
 
     /**

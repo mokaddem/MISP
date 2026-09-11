@@ -224,8 +224,10 @@ than one JSON textarea. Though **a raw JSON editor is also offered**, because
 every profile is one document and an analyst who wants to paste one should be
 able to — with validation on save (phase 1 §3).
 
-**`signals`** — a table, one row per signal: enabled, group, and its `points`
-fields. The points columns differ per signal, which the table has to tolerate;
+**`signals`** — a table, one row per signal: enabled and its `points`
+fields, under the heading of the ledger group the signal declares. The
+group is a heading, not a control — `09c-wiring.md` §7.13 says why it has
+no select. The points columns differ per signal, which the table has to tolerate;
 `points` has no fixed schema by design (`03-signals.md` §3). Each row links to
 its implementation's description of what it reads and what its keys mean,
 because `per_org` and `cap` are not self-explanatory. There is no editorial

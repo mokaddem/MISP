@@ -90,13 +90,11 @@ $columns = $isSignals ? 5 : 4;
                 : null;
 
             /*
-             * The row's own controls come out of the field list, so the
-             * checkbox and the group select are not drawn twice as
-             * chips. Everything else is a chip, grouped by the map it
-             * writes to.
+             * The row's own control comes out of the field list, so the
+             * checkbox is not drawn twice as a chip. Everything else is
+             * a chip, grouped by the map it writes to.
              */
             $switch = null;
-            $groupField = null;
             $chips = array();
             $seen = array();
             foreach ($item['fields'] as $field) {
@@ -107,10 +105,6 @@ $columns = $isSignals ? 5 : 4;
                 $seen[$address] = true;
                 if ($field['key'] === 'enabled' && $field['type'] === 'bool') {
                     $switch = $field;
-                    continue;
-                }
-                if ($isSignals && $field['key'] === 'group') {
-                    $groupField = $field;
                     continue;
                 }
                 $map = isset($field['map']) ? $field['map'] : '';
@@ -158,15 +152,6 @@ $columns = $isSignals ? 5 : 4;
                     <?php endif; ?>
                     <?php if (!empty($item['description'])): ?>
                         <div class="wb-sub"><?= h($item['description']) ?></div>
-                    <?php endif; ?>
-                    <?php if ($groupField !== null && $editable): ?>
-                        <div class="wb-inline mt-1">
-                            <span class="wb-sub"><?= h(__('ledger group')) ?></span>
-                            <?= $this->element('AnalystProfiles/field', array(
-                                'field' => $groupField,
-                                'editable' => true,
-                            )) ?>
-                        </div>
                     <?php endif; ?>
                 </td>
                 <td>

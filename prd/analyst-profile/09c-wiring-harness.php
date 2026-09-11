@@ -125,6 +125,29 @@ class AnalystWiringShell extends AppShell
         if ($this->canonical($merged) !== $this->canonical($stored)) {
             $this->diffDocuments($stored, $merged);
         }
+
+        /*
+         * `group` is the case that makes the round-trip load-bearing
+         * rather than decorative. The editor draws no control for it —
+         * it decides a heading and no arithmetic, so it was removed —
+         * while the engine still reads `$entry['group'] ?: $signal->group`
+         * for documents that arrive by import or by the Raw JSON pane.
+         * That only holds while a section save *merges*: the moment it
+         * starts replacing, a key with no field silently leaves the
+         * document, and the assertion above is what notices.
+         */
+        $this->ok(strpos($html, 'signals][group]') === false
+            && strpos($html, '[group]') === false,
+            'the editor draws no ledger-group control');
+        $grouped = 0;
+        foreach ($merged['signals'] as $entry) {
+            if (!empty($entry['group'])) {
+                $grouped++;
+            }
+        }
+        $this->ok($grouped > 0, sprintf(
+            'and a save still keeps the %d group keys the document holds,'
+                . ' which is what the import path depends on', $grouped));
     }
 
     /* ============================================================

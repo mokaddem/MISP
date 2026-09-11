@@ -237,6 +237,14 @@ group heading, and expose "move to group" as a row action or an inline
 control that only shows the value when it differs from the
 implementation's default.
 
+> **Superseded 2026-09-11 — the control is cut** (`09c-wiring.md`
+> §7.13). Everything above is still true about the *field*; what it
+> never argued is that the **control** earns a select on eleven rows.
+> It cannot change an assessment, the per-implementation default is
+> already right, and overriding it files a row under a heading whose
+> note then describes something else. The field stays in the schema and
+> the engine still resolves it — only the select is gone.
+
 ### 3.9 — `strong` / `moderate` is **cut** · **decided** (§7.5)
 
 > "There's also a level 'strong'/'moderate', I don't know where this is

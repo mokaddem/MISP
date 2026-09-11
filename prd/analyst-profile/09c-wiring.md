@@ -448,6 +448,50 @@ rather than emptying the pane the press was made from, and a save now
 carries `?value=` through the redirect, because *the bench never
 leaves* is a claim the save was breaking.
 
+### 7.13 The ledger-group select is cut, the field is kept
+
+Asked what changing a signal's **Ledger group** does, the honest answer
+turned out to be *almost nothing a reader can see*, and that is the
+argument against it rather than a defect to fix.
+
+`group` decides which heading a row is read under —
+`ValueVerdictTool::anchor()` resolves `$entry['group'] ?: $signal->group`
+into `kind`, and `group()` buckets the ledger by it. It touches no
+arithmetic, so it is **the one control in the editor that cannot change
+an assessment**. The page's premise is *change a number, look at what it
+did*; this control could never participate, which is exactly why it read
+as dead.
+
+Three more, in order of weight:
+
+- **The default is already right.** Every signal declares its own group
+  in its implementation (`ValueSignalBase::$group`), and the shipped set
+  is deliberate rather than derived — §3.8 of `09b-revisions.md` makes
+  the point with `record.temporal_precision`, which is filed under
+  `Lifecycle`. There is no wrong default here for an analyst to correct.
+- **Using it makes the ledger worse.** `groupNote()` is a switch over
+  the four shipped names, so a reporting signal moved to `Sightings`
+  lands under *"who has seen it, and how recently"* — a caption that is
+  now false for that row. A fifth, custom group gets no caption at all.
+  The reachable outcomes were *invisible* and *mislabelled*.
+- **It cost the densest pane eleven selects**, one per signal row, for
+  a cosmetic result.
+
+**The schema keeps the key.** `anchor()` is unchanged, so a profile that
+arrives by `import` or through the Raw JSON pane with a `group` set is
+still honoured and the signals pane still files it under that heading.
+What went away is the control, not the field — which is what lets a site
+running custom signal drop-ins re-shelve them without the editor
+offering the same move to every analyst.
+
+That split only holds while a section save **merges** rather than
+replaces: a key with no field would otherwise leave the document the
+first time anybody pressed Save. `mergeAssoc()` merges, and a signal
+entry posts no `__present`, so it survives — asserted now in the
+round-trip section, which reads the shipped default's own `group` keys
+back out after a merge, and confirmed in the browser by setting a group
+through Raw JSON and then saving a different section.
+
 ## 8. What 8c deliberately did not do
 
 - **Suggestions under the bench's value box.** The box itself ships
