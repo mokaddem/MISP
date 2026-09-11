@@ -853,9 +853,18 @@ class ValueRelevanceTool
      * One line per axis and the cheapest one, so this answers the
      * question the state raises rather than every question it could:
      * a value that is current says how long it has, an aging one says
-     * the same, an expired one says what would bring it back, and an
-     * uncertain one says what measurement would settle it — which is
-     * the only case where the answer is not a number of days.
+     * it is already past the line and what puts it back, an expired one
+     * says what would bring it back, and an uncertain one says what
+     * measurement would settle it — which is the only case where the
+     * answer is not a number of days.
+     *
+     * **`aging` had no line of its own until 2026-09-11.** It fell
+     * through to `current`'s, so a value the profile had just flagged
+     * for re-checking was told *no corroboration for 12 more days and
+     * the assessment expires* — a countdown, when the thing worth
+     * saying is that the countdown has already passed the mark the
+     * reader set. The state was a chip and nothing else; this is the
+     * one place it can say what it is for.
      *
      * @param array $relevance
      * @return array|null `axis`, `direction`, `text`
@@ -888,6 +897,32 @@ class ValueRelevanceTool
             );
         }
         $days = (int)ceil($relevance['runway_days']);
+        if ($relevance['state'] === 'aging') {
+            /*
+             * `up`, like `expired`'s: the line names something a reader
+             * can go and do, where `current`'s names what happens if
+             * nobody does anything. An aging value has both available
+             * and the action is the useful half — it is already below
+             * the mark, so counting its remaining days down is the
+             * question it has stopped raising.
+             */
+            return array(
+                'axis' => 'relevance',
+                'direction' => 'up',
+                'text' => sprintf(
+                    __n(
+                        'Already aging, with %s day left before it'
+                            . ' expires. One independent corroboration'
+                            . ' puts it back to current.',
+                        'Already aging, with %s days left before it'
+                            . ' expires. One independent corroboration'
+                            . ' puts it back to current.',
+                        $days
+                    ),
+                    $days
+                ),
+            );
+        }
         return array(
             'axis' => 'relevance',
             'direction' => 'down',

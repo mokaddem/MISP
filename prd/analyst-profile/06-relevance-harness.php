@@ -502,6 +502,35 @@ is_true(
 );
 
 /*
+ * `aging` fell through to `current`'s line until 2026-09-11, so the one
+ * state that exists to prompt a re-check was the one state that never
+ * said so. Asserted per branch, because the bug was invisible to every
+ * check above: the line was well-formed, carried the right number, and
+ * answered a question the reader had already stopped asking.
+ */
+$currentLine = ValueRelevanceTool::changerFor($states[45]);
+$agingLine = ValueRelevanceTool::changerFor($states[72]);
+is_same('aging', $states[72]['state'],
+    'the fixture at 72 of 90 days is the aging state');
+is_true(
+    $agingLine['text'] !== $currentLine['text'],
+    'and an aging value no longer borrows the current one\'s line');
+is_same('down', $currentLine['direction'],
+    'a current value is told what happens if nobody acts');
+is_same('up', $agingLine['direction'],
+    'and an aging value is told what to do, like an expired one');
+is_true(
+    strpos($agingLine['text'], '18') !== false,
+    'the aging line still carries the days it has left');
+is_true(
+    !preg_match('/-\d/', $agingLine['text']),
+    'and no negative number — the bare hyphen check the expired line'
+        . ' uses would have failed on a hyphenated word');
+is_true(
+    strpos($agingLine['text'], 'current') !== false,
+    'and names the state one corroboration would put it back to');
+
+/*
  * ======================================================================
  * §6 item 3b — temporal precision, the case that forced D11
  * ======================================================================

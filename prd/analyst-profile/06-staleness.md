@@ -706,6 +706,46 @@ rest. The stored document and the engine's own vocabulary are not what
 changed; only what a reader is shown. Recorded in
 [`09-editor.md`](09-editor.md) §7e.4 with the editor half.
 
+### 7.10 `aging` was a chip and nothing else. Fixed 2026-09-11
+
+Asked what `aging` *does*, the honest answer was: changes a word and a
+colour. Measured on `2.2.2.2` with two profiles differing in
+`aging_fraction` alone — 0.33 against 0.85, which flips the state and
+moves no input to anything else:
+
+```
+relevance.state   current           →  aging
+quality           55                =  55
+lean              threat            =  threat
+band              medium            =  medium
+ledger sha1       c81465d71a412f2a  =  c81465d71a412f2a
+composition       1b71cdd5dee33949  =  1b71cdd5dee33949
+```
+
+**That much is D11 working.** The verdict must not read relevance, and
+this is the invariant holding on real rows rather than in a comment.
+
+What was *not* by design is that `changerFor()` had no `aging` branch
+either. It fell through to `current`'s line, so the one state that
+exists to prompt a re-check said *"No independent corroboration for 12
+more days — the assessment expires"* — a countdown, to a reader who has
+just been told the countdown is already past the mark they set. The
+falsifiability card is the only surface where a state can say what it
+is *for*, and `aging` was using it to repeat `current`.
+
+It now reads **"Already aging, with 18 days left before it expires. One
+independent corroboration puts it back to current."** — `direction: up`
+like `expired`'s, because the line names something a reader can go and
+do, where `current`'s names what happens if nobody does. Three states,
+three lines; `aging` and `current` are no longer the same sentence.
+
+The harness asserts the branch rather than the shape, because the bug
+was invisible to every check that existed: the line was well-formed,
+carried the right number, and answered a question the reader had
+stopped asking. Its *no negative number* assertion needed a `-\d`
+match too — the bare hyphen check the expired line uses passes only
+because that sentence happens to contain no hyphenated word.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
