@@ -1,13 +1,13 @@
 /*
  * The Analyst Profile editor.
  *
- * Three jobs and no arithmetic: switch the open section, mark the
- * fields this session has changed, and ask the server what the changed
- * document does to the value on the bench.
+ * Four jobs and no arithmetic: switch the open section, mark the
+ * fields this session has changed, put a value on the bench, and ask
+ * the server what the changed document does to it.
  *
- * The third is what makes the bench recomputed rather than a reading
- * of the saved document, and it is the only network call the page
- * makes. Nothing here re-implements the ledger: a second scoring
+ * The last is what makes the bench recomputed rather than a reading
+ * of the saved document, and it is the only kind of network call the
+ * page makes. Nothing here re-implements the ledger: a second scoring
  * engine in JavaScript is exactly the thing this feature exists to
  * avoid having, so every number on the bench arrives from the one
  * that already exists.
@@ -15,21 +15,45 @@
 (function () {
     'use strict';
 
+    /*
+     * `assetLoader` echoes the script tag where the view runs, which is
+     * above the markup this file drives — so at the moment it executes
+     * there is no `#ap-rail` to find, and a lookup here answers null.
+     * Waiting for the document is the whole difference between an
+     * editor and a page that shipped no JS at all.
+     */
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+function boot() {
     var form = document.getElementById('ap-form');
     var rail = document.getElementById('ap-rail');
-    if (!rail) {
+    var bench = document.querySelector('.wb-bench');
+    if (!rail && !bench) {
         return;
     }
 
     var raw = document.getElementById('ap-raw');
-    var bench = document.querySelector('.wb-bench');
-    var body = rail.parentNode;
+    var body = rail ? rail.parentNode : null;
+    /*
+     * The editor and the read-only viewer carry the form, so their
+     * bench recomputes in place. The expanded simulator is a page with
+     * no form: there the same controls navigate instead.
+     */
+    var carried = document.getElementById('ap-bench-value');
+    var live = !!(form && bench && carried);
 
     /* ------------------------------------------------------------ *
      * One section open at a time
      * ------------------------------------------------------------ */
 
     function open(section) {
+        if (!rail || !body) {
+            return;
+        }
         Array.prototype.forEach.call(
             rail.querySelectorAll('.wb-rail-item'),
             function (item) {
@@ -56,15 +80,17 @@
         }
     }
 
-    rail.addEventListener('click', function (event) {
-        var item = event.target.closest
-            ? event.target.closest('.wb-rail-item')
-            : null;
-        if (!item || !item.getAttribute('data-sec')) {
-            return;
-        }
-        open(item.getAttribute('data-sec'));
-    });
+    if (rail) {
+        rail.addEventListener('click', function (event) {
+            var item = event.target.closest
+                ? event.target.closest('.wb-rail-item')
+                : null;
+            if (!item || !item.getAttribute('data-sec')) {
+                return;
+            }
+            open(item.getAttribute('data-sec'));
+        });
+    }
 
     /* ------------------------------------------------------------ *
      * What this session has changed, and where
@@ -107,12 +133,15 @@
                 }
             }
         );
-        Array.prototype.forEach.call(
-            rail.querySelectorAll('[data-ap-dirty-mark]'),
-            function (glyph) {
-                glyph.hidden = !dirty[glyph.getAttribute('data-ap-dirty-mark')];
-            }
-        );
+        if (rail) {
+            Array.prototype.forEach.call(
+                rail.querySelectorAll('[data-ap-dirty-mark]'),
+                function (glyph) {
+                    glyph.hidden =
+                        !dirty[glyph.getAttribute('data-ap-dirty-mark')];
+                }
+            );
+        }
         return count;
     }
 
@@ -161,6 +190,133 @@
         mark();
         window.clearTimeout(pending);
         pending = window.setTimeout(refresh, 250);
+    });
+
+    /* ------------------------------------------------------------ *
+     * Putting a value on the bench, and keeping one there
+     * ------------------------------------------------------------ */
+
+    /*
+     * The URL-safe base64 `ValueUrlTool` mints, so a value holding a
+     * slash survives the trip. `btoa` takes bytes, not characters, and
+     * a value can hold any of them.
+     */
+    function encodeValue(value) {
+        var bytes = new TextEncoder().encode(value);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+    }
+
+    /*
+     * Benching is not navigation. The bench exists to be read while a
+     * weight is being changed, so swapping the value under it must not
+     * throw away the edits that have not been saved — the value rides
+     * in a hidden field the recompute already posts, and the address
+     * bar is corrected afterwards so a reload lands on the same value.
+     *
+     * The expanded simulator has no form to post, and nothing unsaved
+     * to lose, so there the same press is a link.
+     */
+    function benchValue(value) {
+        if (!live) {
+            var inner = document.querySelector('[data-ap-bench-url]');
+            var target = inner
+                ? inner.getAttribute('data-ap-bench-url')
+                : null;
+            if (target) {
+                window.location.href = target
+                    + (target.indexOf('?') === -1 ? '?' : '&')
+                    + 'value=' + encodeURIComponent(encodeValue(value));
+            }
+            return;
+        }
+        carried.value = value === '' ? '' : encodeValue(value);
+        if (window.history && window.history.replaceState) {
+            var url = new URL(window.location.href);
+            if (carried.value === '') {
+                url.searchParams.delete('value');
+            } else {
+                url.searchParams.set('value', carried.value);
+            }
+            window.history.replaceState(null, '', url.toString());
+        }
+        refresh();
+    }
+
+    document.addEventListener('click', function (event) {
+        var press = event.target.closest
+            ? event.target.closest('[data-ap-bench]')
+            : null;
+        if (!press) {
+            return;
+        }
+        event.preventDefault();
+        var value = press.getAttribute('data-ap-bench');
+        if (value === '') {
+            var input = document.querySelector('[data-ap-bench-input]');
+            value = input ? input.value.trim() : '';
+            if (value === '') {
+                if (input) {
+                    input.focus();
+                }
+                return;
+            }
+        }
+        benchValue(value);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter'
+            || !event.target.hasAttribute
+            || !event.target.hasAttribute('data-ap-bench-input')
+        ) {
+            return;
+        }
+        /* Inside the editor's form, so Enter would otherwise save. */
+        event.preventDefault();
+        var value = event.target.value.trim();
+        if (value !== '') {
+            benchValue(value);
+        }
+    });
+
+    /*
+     * Pinning writes a user setting, never the profile — so it is a
+     * POST, and the token that authenticates it is the editor form's.
+     * Re-rendering the bench afterwards rather than following the
+     * redirect is what keeps the unsaved document on screen.
+     */
+    document.addEventListener('click', function (event) {
+        var press = event.target.closest
+            ? event.target.closest('[data-ap-pin]')
+            : null;
+        if (!press || !form) {
+            return;
+        }
+        event.preventDefault();
+        /*
+         * Unpinning is not un-benching. Without this the last pinned
+         * value is what the bench was reading, so dropping it from the
+         * set would empty the pane the press was made from.
+         */
+        var keep = press.getAttribute('data-ap-value');
+        var request = new XMLHttpRequest();
+        request.open('POST', press.getAttribute('data-ap-pin'), true);
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        press.disabled = true;
+        request.onload = function () {
+            if (live && keep) {
+                carried.value = encodeValue(keep);
+            }
+            refresh();
+        };
+        request.onerror = function () {
+            press.disabled = false;
+        };
+        request.send(new FormData(form));
     });
 
     /* ------------------------------------------------------------ *
@@ -290,4 +446,5 @@
     };
 
     mark();
+}
 })();

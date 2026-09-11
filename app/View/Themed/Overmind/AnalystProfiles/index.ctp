@@ -336,10 +336,11 @@ $this->set('headerActions', array(array(
                             <div class="fw-semibold"><?= h(__('Nothing pinned yet')) ?></div>
                             <p class="mb-0 mt-1">
                                 <?= h(__('Pin a value and its two columns appear'
-                                    . ' here. Arriving from a value page'
-                                    . ' benches that value for the visit — it'
-                                    . ' does not pin it, which takes the press'
-                                    . ' in the simulator.')) ?>
+                                    . ' here. Open a profile, put a value on'
+                                    . ' the bench and press Pin — arriving'
+                                    . ' from a value page benches that value'
+                                    . ' for the visit, and does not pin'
+                                    . ' it.')) ?>
                             </p>
                         </div>
                     <?php else: ?>

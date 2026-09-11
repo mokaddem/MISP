@@ -23,59 +23,108 @@ $focus = $bench['focus'];
 $values = $bench['values'];
 $pinned = $bench['comparison_set'];
 $benched = !empty($values) ? $values[0] : null;
+/*
+ * The editor and the viewer carry the document beside the bench, so
+ * benching and pinning happen in place and the unsaved edits survive.
+ * The expanded simulator is a page of its own with nothing unsaved,
+ * and the same presses are a navigation there.
+ */
+$live = !$full;
+$benchUrl = $this->Html->url(array(
+    'action' => $this->request->params['action'], $profileId));
+$pinUrl = function ($value, $pin) {
+    return array('action' => $pin ? 'pin' : 'unpin',
+        ValueUrlTool::encode($value));
+};
 ?>
-<div class="wb-bench-inner">
+<div class="wb-bench-inner" data-ap-bench-url="<?= h($benchUrl) ?>">
+    <?php
+    /*
+     * The picker, and it comes before everything including the empty
+     * state. An instruction to pin a value with no control that pins
+     * one is the state a reader who has not arrived from a value page
+     * actually lands in, and it was a dead end.
+     */
+    ?>
+    <div class="bench-pick">
+        <div class="input-group input-group-sm">
+            <input type="text" class="form-control form-control-sm"
+                   data-ap-bench-input autocomplete="off" spellcheck="false"
+                   placeholder="<?= h(__('bench a value — an IP, a domain,'
+                       . ' a hash')) ?>">
+            <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-ap-bench=""><?= h(__('Bench it')) ?></button>
+        </div>
+        <?php if (!empty($values)): ?>
+            <div class="bench-quick">
+                <span class="wb-sub"><?= h(__('yours:')) ?></span>
+                <?php foreach ($values as $candidate): ?>
+                    <button type="button"
+                            class="chip <?= $candidate === $benched
+                                ? 'is-on' : '' ?>"
+                            data-ap-bench="<?= h($candidate) ?>"><?=
+                        h($candidate) ?></button>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
     <?php if ($benched === null): ?>
         <div class="wb-empty">
             <div class="fw-semibold"><?= h(__('Nothing on the bench')) ?></div>
             <p class="mb-0 mt-1">
-                <?= h(__('Pin a value and it appears here, scored under the'
-                    . ' profile you are editing beside the one in force.'
-                    . ' Arriving from a value page benches that value for'
-                    . ' the visit — it does not pin it, which takes a'
+                <?= h(__('Put a value in the box above and it appears here,'
+                    . ' scored under the profile you are editing beside the'
+                    . ' one in force. Arriving from a value page benches'
+                    . ' that value for the visit; pinning it keeps it here'
+                    . ' for every profile you edit, and that takes a'
                     . ' press.')) ?>
             </p>
         </div>
     <?php else: ?>
         <div class="bench-value">
             <span class="v"><?= h($benched) ?></span>
-            <?php if ($focus !== null && $focus === $benched
-                && !in_array($benched, $pinned, true)): ?>
-                <span class="wb-sub"><?= h(__('benched, not pinned —'
-                    . ' arrived with you from its value page')) ?></span>
-                <form method="post" class="d-inline"
-                      action="<?= h($this->Html->url(array(
-                          'action' => 'pin',
-                          ValueUrlTool::encode($benched),
-                      ))) ?>">
-                    <button type="submit"
+            <?php if (!in_array($benched, $pinned, true)): ?>
+                <span class="wb-sub"><?= $focus !== null && $focus === $benched
+                    ? h(__('benched, not pinned'))
+                    : h(__('benched')) ?></span>
+                <?php if ($live): ?>
+                    <button type="button" data-ap-value="<?= h($benched) ?>"
+                            data-ap-pin="<?= h($this->Html->url(
+                                $pinUrl($benched, true))) ?>"
                             class="btn btn-sm btn-outline-primary py-0 px-2">
                         <?= h(__('Pin')) ?>
                     </button>
-                </form>
+                <?php else: ?>
+                    <?php
+                    /*
+                     * No form to borrow a token from on this page, so
+                     * the helper mints its own — a raw POST form here
+                     * carries none and trips the CSRF check.
+                     */
+                    ?>
+                    <?= $this->Form->postLink(__('Pin'),
+                        $pinUrl($benched, true),
+                        array('class' => 'btn btn-sm btn-outline-primary'
+                            . ' py-0 px-2')) ?>
+                <?php endif; ?>
             <?php else: ?>
                 <span class="wb-sub"><?= h(__('pinned')) ?></span>
+                <?php if ($live): ?>
+                    <button type="button" data-ap-value="<?= h($benched) ?>"
+                            data-ap-pin="<?= h($this->Html->url(
+                                $pinUrl($benched, false))) ?>"
+                            class="btn btn-sm btn-outline-secondary py-0 px-2">
+                        <?= h(__('Unpin')) ?>
+                    </button>
+                <?php else: ?>
+                    <?= $this->Form->postLink(__('Unpin'),
+                        $pinUrl($benched, false),
+                        array('class' => 'btn btn-sm btn-outline-secondary'
+                            . ' py-0 px-2')) ?>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
-
-        <?php if (count($values) > 1): ?>
-            <div class="bench-pick">
-                <div class="bench-quick">
-                    <span class="wb-sub"><?= h(__('yours:')) ?></span>
-                    <?php foreach ($values as $candidate): ?>
-                        <a class="chip <?= $candidate === $benched
-                                ? 'is-on' : '' ?>"
-                           href="<?= h($this->Html->url(array(
-                               'action' => $this->request->params['action'],
-                               $profileId,
-                               '?' => array(
-                                   'value' => ValueUrlTool::encode($candidate),
-                               ),
-                           ))) ?>"><?= h($candidate) ?></a>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        <?php endif; ?>
 
         <div class="bench-live">
             <?= h(sprintf(__n(

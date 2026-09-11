@@ -175,6 +175,11 @@ row is labelled *benched, not pinned* and carries the Pin button, and
 the empty state is drawn rather than avoided. The mockup already draws
 this, so the drawing, the code and now the spec agree.
 
+A set the analyst chooses needs somewhere to choose from, which is why
+the empty state carries the value box rather than only the sentence
+describing it (§7.12). Arriving from a value page is one way in, not
+the only one.
+
 ### 4.5 What the scaffolding leaves behind
 
 The three `.vp-board` frames, their URL tags and the dimmed navbar are
@@ -190,12 +195,16 @@ removed, and shipped as `analyst-profile.css` rather than appended to
 `value-profile.css`: the two pages share a palette and nothing else, and
 the value page already carries 267KB it loads on every tab.
 
-**The JS is small and does three things**: switch the open section from
+**The JS is small and does four things**: switch the open section from
 the rail, mark a field the session has edited and keep a count of them,
-and refresh the bench by posting the dirty document to `simulate` and
-swapping in the fragment it answers. The third is what makes the bench
-*"recomputed on every change"* rather than a reading of the saved
-document, and it is the only network call the editor makes.
+put a value on the bench (and pin or unpin it), and refresh the bench by
+posting the dirty document to `simulate` and swapping in the fragment it
+answers. The last is what makes the bench *"recomputed on every change"*
+rather than a reading of the saved document.
+
+**It waits for the document before reading it.** The script tag is
+echoed above the markup it drives, so every lookup at load time answers
+`null` — §7.12 is what that costs, and it costs it silently.
 
 No client-side arithmetic. The bench's numbers come from the engine or
 they do not appear: a JavaScript re-implementation of the ledger is a
@@ -391,13 +400,61 @@ default was therefore in the pre-bucket shape, which is why §7.6 could
 hide: the pane had no bucket assignments to lose. Copied in and loaded;
 the default is version 8.
 
+### 7.12 The editor's JavaScript never ran, and pinning had no door
+
+Four defects in one report, all on the first page a reader who did not
+arrive from a value page actually sees. The first hid the rest.
+
+**The script executed above the markup it drives.** `assetLoader`
+echoes `<script src>` where the view runs, which is before the
+workbench — so `document.getElementById('ap-rail')` answered `null` on
+the first line and the file returned. Nothing in §5 worked: the rail
+did not switch panes, the dirty marks never appeared, the bench never
+recomputed, and the header's Save called a function that was never
+defined. It is the worst shape a bug can take here, because the page
+still draws perfectly. Fixed by waiting for `DOMContentLoaded`.
+
+**The CSRF key is spent by the first POST.** `csrfUseOnce` defaults on,
+and the editor posts repeatedly by design — every field change
+recomputes the bench. So the *second* post of any page was a blackhole.
+`ValuesController::beforeFilter()` had already met and documented this
+and the fix is the same one: a stable per-session key, which is the
+synchroniser-token pattern rather than a weakening. Worth stating that
+this was only reachable once the JS ran at all.
+
+**The Pin button was markup a browser discards.** `bench.ctp` drew a
+`<form method="post">` for it, and the bench sits *inside* the editor's
+form — the parser drops the inner one, so the press submitted the
+editor instead. On the simulator, where the nesting does not arise, the
+same form carried no token and tripped CSRF. Neither page could pin.
+The editor now posts its own form to `pin`/`unpin` over XHR and redraws
+the bench, which is also what keeps the unsaved document on screen; the
+simulator uses `postLink`, which mints a token. `pin`/`unpin` join the
+`validatePost` exemption for the reason `edit` is on it — the hash that
+arrives was minted for a different URL.
+
+**And there was no way to put a value on the bench.** The set is a
+`UserSetting` written only by `pin`, `pin` was reachable only from a
+value already benched, and a value was benched only by arriving with
+`?value=`. A reader opening the editor from the index therefore read
+*"pin a value and it appears here"* beside no control that pins one —
+§8's deferral of the search had quietly taken the only door with it.
+The bench now opens with a box: type a value, press **Bench it**, and
+it is scored. Benching does not navigate — the value rides in a hidden
+field the recompute already posts, so swapping it does not throw away
+unsaved edits — and `history.replaceState` corrects the address bar so
+a reload lands on the same value. Unpinning keeps the value benched
+rather than emptying the pane the press was made from, and a save now
+carries `?value=` through the redirect, because *the bench never
+leaves* is a claim the save was breaking.
+
 ## 8. What 8c deliberately did not do
 
-- **`?value=` search on the bench.** The mockup draws a search box for
-  benching a value the analyst is not pinned to. The quick-switch chips
-  are built; the search is not, because the endpoint that would answer
-  it is the value page's own and pointing the editor at it is a wiring
-  decision phase 9 should take.
+- **Suggestions under the bench's value box.** The box itself ships
+  (§7.12): what it does not do is *complete* what is typed, because the
+  endpoint that would answer that is the value page's own and pointing
+  the editor at it is a wiring decision phase 9 should take. A value is
+  benched by name; nothing offers to find it for you.
 - **A drag to move a signal between ledger groups.** The mockup's
   `wb-grp-drop` is drawn; the control that ships is the select on the
   row, which does the same thing and needs no pointer.

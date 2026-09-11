@@ -60,6 +60,7 @@ class AnalystWiringShell extends AppShell
         $this->sectionPalette();
         $this->sectionVerdictLinks($user, $value);
         $this->sectionReadOnly($user, $value);
+        $this->sectionTheWayIn($user, $value);
 
         $this->out('');
         $this->out(sprintf('%d checks, %d failures',
@@ -621,6 +622,52 @@ class AnalystWiringShell extends AppShell
         $this->ok(substr_count($editable, 'data-ap-field') > 40,
             sprintf('the editable page carries %d fields',
                 substr_count($editable, 'data-ap-field')));
+    }
+
+    /* ============================================================
+     * §7.12 — the bench can be filled, and the editor can run
+     * ============================================================ */
+
+    /**
+     * Four defects the rendered arrays cannot see, and one the markup
+     * cannot: an editor whose script never executes draws perfectly.
+     */
+    private function sectionTheWayIn(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the way onto the bench ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+
+        /*
+         * The whole file is inert unless it waits: `assetLoader` echoes
+         * the script above the markup, so a lookup at load time answers
+         * null and the editor silently ships without JavaScript.
+         */
+        $js = file_get_contents(WWW_ROOT . 'js' . DS . 'analyst-profile.js');
+        $this->ok(strpos($js, 'DOMContentLoaded') !== false,
+            'the editor waits for the document before reading it');
+
+        $empty = $this->renderWorkbench($user, $profile, null, true);
+        $this->ok(strpos($empty, 'data-ap-bench-input') !== false,
+            'an empty bench carries the box that fills it');
+        $this->ok(strpos($empty, 'Nothing on the bench') !== false,
+            'and still says it is empty');
+        $this->ok(strpos($empty, 'id="ap-bench-value"') !== false,
+            'the benched value rides in a field the recompute posts');
+        $this->ok(!preg_match('/data-ap-simulate="[^"]*\?value=/', $empty),
+            'and not in the query, which would outrank it');
+
+        $filled = $this->renderWorkbench($user, $profile, $value, true);
+        $this->ok(strpos($filled, 'data-ap-pin=') !== false,
+            'a benched value carries the press that pins it');
+        /*
+         * A `<form>` for it would sit inside the editor's form, and a
+         * browser discards the inner one — so the press submitted the
+         * editor instead of pinning. This is the assertion that says
+         * the markup is one form deep.
+         */
+        $this->ok(substr_count($filled, '<form') === 1,
+            'and the editor is one form deep, so the press is not swallowed');
     }
 
     /* ============================================================

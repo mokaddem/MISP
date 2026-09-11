@@ -71,12 +71,17 @@ $parse = isset($parse) ? $parse : null;
 
         <?= $this->Form->create('AnalystProfile', array(
             'id' => 'ap-form',
+            /*
+             * No `?value=` on it. The value under assessment rides in
+             * the hidden field below, which the recompute posts — one
+             * place to change when the bench is handed another value,
+             * and `__requestedValue()` prefers the query when there is
+             * one, so a query here would pin the bench to whatever the
+             * page loaded with.
+             */
             'data-ap-simulate' => $this->Html->url(array(
                 'action' => 'simulate',
                 $profile['id'],
-                '?' => $value === null
-                    ? array()
-                    : array('value' => ValueUrlTool::encode($value)),
             )),
             /*
              * The URL as a string, from the same helper every link on
@@ -94,6 +99,10 @@ $parse = isset($parse) ? $parse : null;
                     : array('value' => ValueUrlTool::encode($value)),
             )),
         )) ?>
+            <input type="hidden" id="ap-bench-value"
+                   name="data[AnalystProfile][value]"
+                   value="<?= $value === null
+                       ? '' : h(ValueUrlTool::encode($value)) ?>">
             <div class="wb">
                 <div class="wb-panehead wb-panehead-left">
                     <span><?= h(__('The profile')) ?></span>

@@ -76,16 +76,35 @@ class AnalystProfilesController extends AppController
      * **CSRF stays on**: it is the check that matters here, and it is
      * checked separately from the field hash.
      *
+     * `pin` and `unpin` are on the list for a second reason. The
+     * editor pins without leaving the page, so its press posts the
+     * editor's own form — that is where the CSRF token is, and a
+     * separate form for it inside the editor's form is markup a
+     * browser discards. The hash that arrives is therefore the one
+     * `edit` minted, over a different URL, and it cannot match.
+     *
      * @return void
      */
     public function beforeFilter()
     {
         parent::beforeFilter();
         if (in_array($this->request->params['action'],
-            array('edit', 'import', 'simulate'), true)
+            array('edit', 'import', 'simulate', 'pin', 'unpin'), true)
         ) {
             $this->Security->validatePost = false;
         }
+        /*
+         * The editor posts more than once per page: every field change
+         * recomputes the bench, and a pin posts beside it. A single-use
+         * CSRF key makes the *first* of those spend the token the rest
+         * need, so the second press is a blackhole — which is exactly
+         * what the Value Profile page hit
+         * (`ValuesController::beforeFilter()`), and this is the same
+         * fix. A stable per-session key is the synchroniser-token
+         * pattern; CSRF turns on an attacker being unable to read the
+         * token cross-origin, never on its being fresh.
+         */
+        $this->Security->csrfUseOnce = false;
     }
 
     /**
@@ -204,6 +223,7 @@ class AnalystProfilesController extends AppController
         $posted = isset($this->request->data['AnalystProfile'])
             ? $this->request->data['AnalystProfile']
             : $this->request->data;
+        $benched = $this->__requestedValue();
         $form = new AnalystProfileFormTool();
         $stored = is_array($row['parameters']) ? $row['parameters'] : array();
 
@@ -289,7 +309,15 @@ class AnalystProfilesController extends AppController
                 )
                 : __('Saved. Nothing in the document changed, so the'
                     . ' revision did not move.'),
-            array('action' => 'edit', $row['id'])
+            /*
+             * The bench never leaves, and a save is the moment it
+             * would: the redirect carries the value back so the pane
+             * the edit was judged against is still under it.
+             */
+            array('action' => 'edit', $row['id'],
+                '?' => $benched === null
+                    ? array()
+                    : array('value' => ValueUrlTool::encode($benched)))
         );
     }
 
@@ -969,13 +997,23 @@ class AnalystProfilesController extends AppController
         $this->loadModel('UserSetting');
         $this->UserSetting->setSettingInternal($user['id'],
             self::COMPARISON_SETTING, $set);
+        $written = array(
+            'pinned' => $pinned,
+            'value' => $value,
+            'comparison_set' => $set,
+            'limit' => self::COMPARISON_LIMIT,
+        );
+        /*
+         * The editor pins from beside the document it is editing and
+         * redraws the bench itself, so following a redirect back would
+         * re-render the whole page to throw it away — and throw the
+         * unsaved edits away with it.
+         */
+        if (!$this->_isRest() && $this->request->is('ajax')) {
+            return $this->RestResponse->viewData($written, 'application/json');
+        }
         return $this->__wrote(
-            array(
-                'pinned' => $pinned,
-                'value' => $value,
-                'comparison_set' => $set,
-                'limit' => self::COMPARISON_LIMIT,
-            ),
+            $written,
             $pinned
                 ? sprintf(
                     __('%s is pinned, and every profile change is now'
