@@ -12102,13 +12102,21 @@ class ValueProfile extends AppModel
     private function enrichmentRun(array $user, $value, $name, $type)
     {
         /*
-         * No profile, deliberately. The catalogue is read here as an
-         * ACL band — which modules this reader would have been offered
-         * — and a declaration plays no part in that: a profile can
-         * only ever narrow what the instance allows, so resolving one
-         * could only ever refuse a run the instance permits, on the
-         * strength of a preference. Passing `null` also keeps the run
-         * path free of the profile read and its second `GET /modules`.
+         * The catalogue is built with no profile, deliberately: it is
+         * read here as an ACL band — which modules this reader would
+         * have been offered — and a *selection* plays no part in that.
+         * A profile can only ever narrow what the instance allows, so
+         * resolving one to decide what is offered could only refuse a
+         * run the instance permits on the strength of a preference.
+         * Passing `null` also keeps the run path free of the
+         * catalogue's own profile read and its second `GET /modules`.
+         *
+         * **One part of the declaration is not a preference** (D17).
+         * `never` is the reader saying this module must not be asked,
+         * and the run endpoint takes a module name from the request —
+         * so an unticked or disabled checkbox is not a guard. That
+         * check is made below, against the plan alone, which needs no
+         * modules service.
          */
         $catalogue = $this->enrichmentCatalogue(
             $user,
@@ -12160,6 +12168,19 @@ class ValueProfile extends AppModel
         $run['type'] = $type;
         $run['format'] = $row['format'];
         $run['kinds'] = $row['kinds'];
+
+        /*
+         * D17's `never`, enforced where the run happens. Checked
+         * against the resolved type rather than the posted one,
+         * because that is the type the module would be asked about.
+         */
+        $plan = ValueEnrichmentTool::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
+        if (ValueEnrichmentTool::refuses($plan, $name, $type)) {
+            $run['state'] = 'profile_refused';
+            return $run;
+        }
 
         /*
          * D3: the run is backed by one of the reader's own

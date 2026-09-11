@@ -84,10 +84,19 @@ Every **field** carries:
 
 ```
 key label type       type is int | float | string | bool | select
-                     | multiselect
-value                what the profile says, or null for "unset"
+                     | module_states
+value                what the profile says, or null for "unset".
+                     A module_states field's value is a
+                     {module: state} map (D17)
 default              what the code falls back to when unset
-options[]            for select / multiselect
+options[]            for select; the candidate modules for
+                     module_states
+state_options[]      module_states only: ticked | never | auto
+states_built[]       module_states only: the subset that is
+                     implemented — `auto` is declarable and inert
+unit                 the suffix a numeric field is counted in
+                     (hours, days, points), where it has one
+inert                true when the setting governs nothing yet
 help                 one sentence; worth showing somewhere
 path[]               the segments a form posts it under, e.g.
                      ["signals","reporting.independent_orgs",

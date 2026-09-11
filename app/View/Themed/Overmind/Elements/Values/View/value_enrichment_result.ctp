@@ -6,15 +6,19 @@
  * run came from. **Nothing here is stored** — this markup is the whole
  * of the result's existence, and leaving the page loses it.
  *
- * Seven outcomes, deliberately not interchangeable. Phase 12 named
- * four and the live path adds three: *refused*, which is MISP
- * declining to ask on the instance's behalf, *ineligible*, which is
- * this page declining a module the reader was never offered, and
- * *unreachable*, which is nothing answering at all — distinct from
- * *timeout*, where the module was asked and ran out of time. The
- * distinction that matters most is still the old one: **silent is not
- * failure.** A module that answered with nothing has done its job and
- * reported no knowledge of this value, which is a finding.
+ * Eight outcomes, deliberately not interchangeable. Phase 12 named
+ * four, the live path added three — *refused*, which is MISP declining
+ * to ask on the instance's behalf, *ineligible*, which is this page
+ * declining a module the reader was never offered, and *unreachable*,
+ * which is nothing answering at all, distinct from *timeout*, where
+ * the module was asked and ran out of time — and D17 adds
+ * *profile_refused*, which is the reader's own declaration saying
+ * never. That last one is worded as the reader's own choice rather
+ * than as a restriction, because it is the only refusal here they can
+ * lift themselves. The distinction that matters most is still the old
+ * one: **silent is not failure.** A module that answered with nothing
+ * has done its job and reported no knowledge of this value, which is a
+ * finding.
  *
  * **`Already in MISP` is the one piece of §8.3's provenance that
  * survives having no store**, and the one that does the most work: it
@@ -48,6 +52,7 @@ $headings = array(
     'error' => __('%s could not do the job.'),
     'timeout' => __('%s ran out of time.'),
     'refused' => __('MISP did not send the query.'),
+    'profile_refused' => __('Your profile says never run %s.'),
     'unreachable' => __('The enrichment service did not answer.'),
     'ineligible' => __('That module was not offered for this value.'),
 );
@@ -70,6 +75,7 @@ $marks = array(
     'error' => array('fa-triangle-exclamation', 'vp-e-mark-bad'),
     'timeout' => array('fa-hourglass-half', 'vp-e-mark-warn'),
     'refused' => array('fa-ban', 'vp-e-mark-bad'),
+    'profile_refused' => array('fa-ban', 'vp-e-mark-quiet'),
     'unreachable' => array('fa-plug-circle-xmark', 'vp-e-mark-bad'),
     'ineligible' => array('fa-circle-question', 'vp-e-mark-quiet'),
 );
@@ -96,6 +102,11 @@ $prose = array(
         'The query was stopped before it left the instance. An'
         . ' `enrichment-before-query` workflow can decline a query,'
         . ' and nothing was sent to anybody.'
+    ),
+    'profile_refused' => __(
+        'Nothing was sent anywhere. This is your own declaration,'
+        . ' not a restriction the instance placed on you — change'
+        . ' the state in your Analyst Profile to run it.'
     ),
     'unreachable' => __(
         'Nothing answered at the configured address. Nothing was sent'

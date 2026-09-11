@@ -2398,12 +2398,11 @@
               "type": "select",
               "options": [
                 "local_only",
-                "allow_external",
-                "ask"
+                "allow_external"
               ],
               "value": "local_only",
               "default": "local_only",
-              "help": "Local only offers nothing that leaves the instance \u2014 which on a platform where enrichment means asking somebody else selects very little, and says so.",
+              "help": "Whether a module that would tell somebody outside this instance the value is being looked at may be offered. Local only selects very little on a platform where enrichment mostly means asking somebody else, and says so. Not a cost setting: nothing a module declares says anything about money or rate limits.",
               "path": [
                 "enrichment",
                 "locality_posture"
@@ -2413,6 +2412,7 @@
               "key": "max_age_hours",
               "label": "Reuse an answer for",
               "type": "int",
+              "unit": "hours",
               "value": 24,
               "default": 24,
               "help": "Inert: there is no store of module answers, so nothing is reused and this window governs nothing yet.",
@@ -2430,7 +2430,7 @@
           "title": "Modules per type",
           "key_label": "Attribute type",
           "value_label": "Modules",
-          "value_type": "multiselect",
+          "value_type": "module_states",
           "path": [
             "enrichment",
             "auto_run"
@@ -2439,16 +2439,25 @@
             {
               "key": "ip-src",
               "label": "ip-src",
-              "value": [
-                "circl_passivedns",
-                "virustotal_public"
-              ],
-              "type": "multiselect",
+              "value": {
+                "circl_passivedns": "ticked",
+                "virustotal_public": "ticked"
+              },
+              "type": "module_states",
               "options": [
                 "circl_passivedns",
                 "dns",
                 "virustotal_public",
                 "countrycode"
+              ],
+              "state_options": [
+                "ticked",
+                "never",
+                "auto"
+              ],
+              "states_built": [
+                "ticked",
+                "never"
               ],
               "unavailable": [],
               "path": [
@@ -2460,15 +2469,24 @@
             {
               "key": "domain",
               "label": "domain",
-              "value": [
-                "dns"
-              ],
-              "type": "multiselect",
+              "value": {
+                "dns": "ticked"
+              },
+              "type": "module_states",
               "options": [
                 "circl_passivedns",
                 "dns",
                 "virustotal_public",
                 "countrycode"
+              ],
+              "state_options": [
+                "ticked",
+                "never",
+                "auto"
+              ],
+              "states_built": [
+                "ticked",
+                "never"
               ],
               "unavailable": [],
               "path": [

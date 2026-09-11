@@ -288,14 +288,79 @@ is_same(
     'planFor does not touch the profile it was handed'
 );
 is_same(
-    array('circl_passivedns'),
+    array('circl_passivedns' => 'ticked'),
     $plan['auto_run']['ip-dst'],
-    'a bare string becomes a one-module list'
+    'a bare string becomes one ticked module — D17 normalises to'
+        . ' name => state, and a list has always meant ticked'
 );
 is_same(
-    array('dns'),
+    array('dns' => 'ticked'),
     $plan['auto_run']['domain'],
     'the type key is trimmed, and the names deduplicated'
+);
+
+/*
+ * ------------------------------------------------------------------
+ * D17: three states, two of them built
+ * ------------------------------------------------------------------
+ * The shape is `type => {module: state}`. A bare list still means
+ * every module in it is `ticked`, which is what it meant before the
+ * states existed, and the two shapes may be mixed inside one type
+ * because a hand-edited document can mix them.
+ */
+out('');
+out('the three run states');
+$stated = declaredProfile(array(
+    'ip-dst' => array(
+        'circl_passivedns' => 'ticked',
+        'virustotal' => 'never',
+        'dns' => 'auto',
+    ),
+    'domain' => array('dns', 'circl_passivedns' => 'never'),
+));
+$statedPlan = ValueEnrichmentTool::planFor($stated);
+is_same(
+    array('circl_passivedns' => 'ticked', 'virustotal' => 'never',
+        'dns' => 'auto'),
+    $statedPlan['auto_run']['ip-dst'],
+    'all three states survive normalisation, `auto` included — it is'
+        . ' declarable and inert, and dropping it would mean migrating'
+        . ' twice when it lands'
+);
+is_same(
+    array('dns' => 'ticked', 'circl_passivedns' => 'never'),
+    $statedPlan['auto_run']['domain'],
+    'and a list entry beside a stated one is read as ticked'
+);
+is_same('never',
+    ValueEnrichmentTool::stateFor($statedPlan, 'virustotal', 'ip-dst'),
+    'the state is per type and module');
+is_same('ticked',
+    ValueEnrichmentTool::stateFor($statedPlan, 'virustotal', 'domain'),
+    'so the same module can be refused for one type and ticked for'
+        . ' another');
+is_same('ticked',
+    ValueEnrichmentTool::stateFor($statedPlan, 'hashlookup', 'md5'),
+    'a module the profile never named is ticked, not refused — the'
+        . ' instance decides that, and a profile may only narrow');
+is_true(ValueEnrichmentTool::refuses($statedPlan, 'virustotal', 'ip-dst'),
+    'and `refuses()` is the check the run path makes, because the run'
+        . ' endpoint takes a module name from the request');
+is_true(!ValueEnrichmentTool::refuses($statedPlan, 'dns', 'ip-dst'),
+    'an `auto` is not a refusal');
+is_same(array('ticked', 'never', 'auto'), ValueEnrichmentTool::states(),
+    'three states are declarable');
+is_same(array('ticked', 'never'), ValueEnrichmentTool::statesBuilt(),
+    'and two of them do what they say');
+$garbage = declaredProfile(array(
+    'ip-dst' => array('circl_passivedns' => 'whenever'),
+));
+is_same(
+    array('circl_passivedns' => 'ticked'),
+    ValueEnrichmentTool::planFor($garbage)['auto_run']['ip-dst'],
+    'a state this version does not know reads as ticked rather than'
+        . ' silently refusing the module — the failure mode of'
+        . ' strictness here is a page that will not render'
 );
 is_same(
     false,
@@ -741,6 +806,80 @@ is_same(
     ValueEnrichmentTool::leavingCount($external),
     'two of the three leave the instance'
 );
+
+/*
+ * ------------------------------------------------------------------
+ * D17 at resolution: a refusal, and an inert `auto`
+ * ------------------------------------------------------------------
+ * `never` lands in its own bucket, not in `withheld` — `withheld` is
+ * the locality posture holding something back and carries a locality
+ * reason, which would answer a question the reader did not ask about a
+ * module they said never to run.
+ */
+out('');
+out('a refusal, and an inert auto');
+$refusing = declaredProfile(array(
+    'ip-dst' => array(
+        'extract_url_components' => 'never',
+        'circl_passivedns' => 'ticked',
+    ),
+), 'allow_external');
+$refused = ValueEnrichmentTool::resolve(
+    ValueEnrichmentTool::planFor($refusing), facts());
+is_same(
+    array('extract_url_components'),
+    array_map(function ($e) { return $e['name']; }, $refused['refused']),
+    'the module the profile refused is in `refused`'
+);
+is_same(
+    array(),
+    array_map(function ($e) { return $e['name']; }, $refused['withheld']),
+    'and not in `withheld`, which is the posture bucket'
+);
+is_same(
+    array('circl_passivedns'),
+    array_map(function ($e) { return $e['name']; }, $refused['selected']),
+    'while the ticked one is still selected'
+);
+$neverCondition = null;
+foreach ($refused['conditions'] as $condition) {
+    if ($condition['id'] === ValueEnrichmentTool::C_STATE_NEVER) {
+        $neverCondition = $condition;
+    }
+}
+is_true($neverCondition !== null,
+    'with a stated condition rather than a silent omission');
+is_true(
+    $neverCondition !== null
+        && strpos($neverCondition['note'], 'refused') !== false,
+    'saying it is refused rather than merely unticked, because that is'
+        . ' the difference the run path enforces'
+);
+is_same(2, $refused['applicable'],
+    'a refused module still counts as applicable — the reader declared'
+        . ' it, and hiding it would make the count disagree with the'
+        . ' document');
+
+$autoRunning = declaredProfile(array(
+    'ip-dst' => array('circl_passivedns' => 'auto'),
+), 'allow_external');
+$autoResolved = ValueEnrichmentTool::resolve(
+    ValueEnrichmentTool::planFor($autoRunning), facts());
+is_same(
+    array('circl_passivedns'),
+    array_map(function ($e) { return $e['name']; },
+        $autoResolved['selected']),
+    'an `auto` resolves as selected, because nothing runs on its own'
+);
+$autoCondition = null;
+foreach ($autoResolved['conditions'] as $condition) {
+    if ($condition['id'] === ValueEnrichmentTool::C_STATE_AUTO_INERT) {
+        $autoCondition = $condition;
+    }
+}
+is_true($autoCondition !== null,
+    'and says so — a declaration drawn as working when it is inert is'
+        . ' the one thing D15 exists to prevent');
 
 /*
  * **The retired `ask`, and the renamed key.** `ask` was byte-identical

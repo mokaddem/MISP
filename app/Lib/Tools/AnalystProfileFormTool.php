@@ -38,7 +38,10 @@ App::uses('WarninglistCategory', 'Tools');
  * - **`map`** — key→value pairs with an *add* affordance and a named
  *   source for the keys. `relevance.ttl_days`, `reference.org_trust`,
  *   `enrichment.locality`. Never a row per candidate key: the source is
- *   what the picker searches, not what the table lists (§4).
+ *   what the picker searches, not what the table lists (§4). A row's
+ *   value may itself be a map — `enrichment.auto_run` is a module→state
+ *   one (D17), which is why it is no longer a multiselect: a checklist
+ *   has two states and the declaration has three.
  * - **`items`** — a list of togglable entries, each with its own fields.
  *   `signals`, `escalations`, `exclusions`. An item carries its state as
  *   well as its values, because a profile may name a signal this
@@ -1163,17 +1166,32 @@ class AnalystProfileFormTool
             ? $sources['attribute_types']
             : array();
 
+        /*
+         * D17: a declaration names a state per module, so the value is
+         * a map and not a checklist — a checklist cannot express three
+         * states, and `never` is the one that has to be expressible
+         * because it is enforced where a run happens.
+         *
+         * `planFor()` is the one place that reads both the current
+         * shape and the pre-D17 list, so the entries are built from
+         * its output rather than from the raw section.
+         */
+        $statesByType = ValueEnrichmentTool::planFor(
+            array('enrichment' => $section)
+        )['auto_run'];
         $autoEntries = array();
-        foreach ($autoRun as $type => $names) {
-            $names = is_array($names) ? $names : array($names);
+        foreach ($statesByType as $type => $states) {
+            $names = array_keys($states);
             $autoEntries[] = array(
                 'key' => (string)$type,
                 'label' => (string)$type,
-                'value' => $names,
-                'type' => 'multiselect',
+                'value' => $states,
+                'type' => 'module_states',
                 'options' => empty($modules)
                     ? $names
                     : array_keys($modules),
+                'state_options' => ValueEnrichmentTool::states(),
+                'states_built' => ValueEnrichmentTool::statesBuilt(),
                 'unavailable' => empty($modules)
                     ? array()
                     : array_values(array_diff($names,
@@ -1262,7 +1280,7 @@ class AnalystProfileFormTool
                     'title' => __('Modules per type'),
                     'key_label' => __('Attribute type'),
                     'value_label' => __('Modules'),
-                    'value_type' => 'multiselect',
+                    'value_type' => 'module_states',
                     'path' => array('enrichment', 'auto_run'),
                     'entries' => $autoEntries,
                     'add' => array(
@@ -1879,8 +1897,33 @@ class AnalystProfileFormTool
             if (!is_array($names) && !is_string($names)) {
                 $errors[] = sprintf(
                     __('`enrichment.auto_run.%s` must be a list of'
-                        . ' module names.'),
+                        . ' module names, or a map of names to run'
+                        . ' states.'),
                     $type
+                );
+                continue;
+            }
+            if (!is_array($names)) {
+                continue;
+            }
+            foreach ($names as $name => $state) {
+                /*
+                 * An integer key is a list entry, which means
+                 * `ticked` and carries no state to check.
+                 */
+                if (is_int($name)) {
+                    continue;
+                }
+                if (in_array($state, ValueEnrichmentTool::states(), true)) {
+                    continue;
+                }
+                $errors[] = sprintf(
+                    __('`enrichment.auto_run.%1$s.%2$s`: `%3$s` is not'
+                        . ' a run state. One of: %4$s.'),
+                    $type,
+                    $name,
+                    is_scalar($state) ? (string)$state : gettype($state),
+                    implode(', ', ValueEnrichmentTool::states())
                 );
             }
         }

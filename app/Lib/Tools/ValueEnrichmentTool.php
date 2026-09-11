@@ -105,6 +105,20 @@ class ValueEnrichmentTool
     const POSTURE_KEY_LEGACY = 'cost_posture';
 
     /**
+     * The run states a declaration may put a module in (D17).
+     *
+     * `ticked` is what a bare list has always meant. `never` is the
+     * profile refusing a module outright, and is the first setting
+     * here that has to be enforced where a run happens rather than
+     * where a box is drawn. `auto` is declared and **not
+     * implemented**: D15's missing last-run store is still missing, so
+     * nothing runs without a press and `auto` resolves as `ticked`.
+     */
+    const STATE_TICKED = 'ticked';
+    const STATE_NEVER = 'never';
+    const STATE_AUTO = 'auto';
+
+    /**
      * The only defensible default for a setting one person can apply
      * to a whole organisation.
      */
@@ -127,6 +141,8 @@ class ValueEnrichmentTool
     const C_UNRESOLVED = 'module.unresolved';
     const C_TYPE_UNUSED = 'type.unused';
     const C_POSTURE = 'posture.external';
+    const C_STATE_NEVER = 'state.never';
+    const C_STATE_AUTO_INERT = 'state.auto_inert';
 
     /**
      * The `enrichment` section, whichever shape the profile arrived
@@ -198,16 +214,33 @@ class ValueEnrichmentTool
             if (!is_array($names)) {
                 continue;
             }
+            /*
+             * Two shapes arrive here. `[name, name]` is what every
+             * profile written before D17 carries and means *every one
+             * of these is ticked*; `{name: state}` is the current one.
+             * A list entry is a value with an integer key, so the two
+             * are told apart per entry rather than per type — a
+             * hand-edited document can mix them.
+             */
             $clean = array();
-            foreach ($names as $name) {
+            foreach ($names as $key => $value) {
+                if (is_int($key)) {
+                    $name = $value;
+                    $state = self::STATE_TICKED;
+                } else {
+                    $name = $key;
+                    $state = $value;
+                }
                 if (!is_string($name) && !is_numeric($name)) {
                     continue;
                 }
                 $name = trim((string)$name);
-                if ($name === '' || in_array($name, $clean, true)) {
+                if ($name === '' || isset($clean[$name])) {
                     continue;
                 }
-                $clean[] = $name;
+                $clean[$name] = in_array($state, self::states(), true)
+                    ? $state
+                    : self::STATE_TICKED;
                 if (!isset($declared[$name])) {
                     $declared[$name] = array();
                 }
@@ -279,6 +312,75 @@ class ValueEnrichmentTool
     }
 
     /**
+     * Every state a declaration may name, including the one that is
+     * not implemented — a stored `auto` is a valid document and must
+     * not be normalised away, or adding the behaviour later means
+     * migrating twice.
+     *
+     * @return array
+     */
+    public static function states()
+    {
+        return array(
+            self::STATE_TICKED,
+            self::STATE_NEVER,
+            self::STATE_AUTO,
+        );
+    }
+
+    /**
+     * The states that do what they say. `auto` is declarable and
+     * inert, so an editor offering it must say so.
+     *
+     * @return array
+     */
+    public static function statesBuilt()
+    {
+        return array(
+            self::STATE_TICKED,
+            self::STATE_NEVER,
+        );
+    }
+
+    /**
+     * The state a declaration puts one module in for one type.
+     *
+     * `ticked` where the profile says nothing, because a module the
+     * profile never named is not refused by it — the instance decides
+     * that, and this section may only ever narrow.
+     *
+     * @param array $plan From planFor
+     * @param string $name
+     * @param string|null $type
+     * @return string
+     */
+    public static function stateFor(array $plan, $name, $type)
+    {
+        if ($type === null
+            || !isset($plan['auto_run'][$type][$name])
+        ) {
+            return self::STATE_TICKED;
+        }
+        return $plan['auto_run'][$type][$name];
+    }
+
+    /**
+     * Whether this declaration refuses a run of this module for this
+     * type — the check `ValueProfile::enrichmentRun()` has to make,
+     * because the run endpoint takes a module name from the request
+     * and a disabled checkbox is not a guard (D17).
+     *
+     * @param array $plan From planFor
+     * @param string $name
+     * @param string|null $type
+     * @return bool
+     */
+    public static function refuses(array $plan, $name, $type)
+    {
+        return self::stateFor($plan, $name, $type) === self::STATE_NEVER;
+    }
+
+    /**
      * @param array $section
      * @return int
      */
@@ -316,7 +418,7 @@ class ValueEnrichmentTool
             if (empty($plan['auto_run'][$type])) {
                 continue;
             }
-            foreach ($plan['auto_run'][$type] as $name) {
+            foreach ($plan['auto_run'][$type] as $name => $state) {
                 if (!isset($out[$name])) {
                     $out[$name] = array();
                 }
@@ -391,6 +493,7 @@ class ValueEnrichmentTool
             'applicable' => 0,
             'selected' => array(),
             'withheld' => array(),
+            'refused' => array(),
             'conditions' => array(),
         );
         if (empty($plan['in_force'])) {
@@ -463,13 +566,37 @@ class ValueEnrichmentTool
                 $name,
                 $plan['locality']
             );
+            $runType = self::runType($eligible[$name], $decTypes);
+            $state = self::stateFor($plan, $name, $runType);
             $entry = array(
                 'name' => $name,
-                'type' => self::runType($eligible[$name], $decTypes),
+                'type' => $runType,
                 'declared_for' => $decTypes,
+                'state' => $state,
                 'locality' => $locality['locality'],
                 'locality_source' => $locality['source'],
             );
+            /*
+             * `never` is checked before the posture, because it is the
+             * reader's own refusal and stating a locality reason for a
+             * module they said never to run would answer a question
+             * they did not ask.
+             */
+            if ($state === self::STATE_NEVER) {
+                $out['refused'][] = $entry;
+                $out['conditions'][] = self::condition(
+                    self::C_STATE_NEVER,
+                    $name,
+                    $decTypes,
+                    sprintf(
+                        __('Your profile says never run %s. It is not'
+                            . ' selected here and a run of it is'
+                            . ' refused, not just unticked.'),
+                        $name
+                    )
+                );
+                continue;
+            }
             if ($plan['posture'] === self::POSTURE_LOCAL
                 && $locality['locality'] !== ModuleLocality::LOCAL
             ) {
@@ -483,6 +610,38 @@ class ValueEnrichmentTool
                 continue;
             }
             $out['selected'][] = $entry;
+        }
+        /*
+         * One note for every `auto` in the selection, not one each:
+         * they all failed for the same reason and it is not about any
+         * particular module (D17, D15).
+         */
+        $autos = array();
+        foreach ($out['selected'] as $entry) {
+            if ($entry['state'] === self::STATE_AUTO) {
+                $autos[] = $entry['name'];
+            }
+        }
+        if (!empty($autos)) {
+            $out['conditions'][] = self::condition(
+                self::C_STATE_AUTO_INERT,
+                null,
+                $autos,
+                sprintf(
+                    __n(
+                        'Your profile asks for %s to run on its own.'
+                        . ' Nothing runs on its own on this version —'
+                        . ' it arrives ticked and a run still takes a'
+                        . ' press.',
+                        'Your profile asks for %s to run on their own.'
+                        . ' Nothing runs on its own on this version —'
+                        . ' they arrive ticked and a run still takes a'
+                        . ' press.',
+                        count($autos)
+                    ),
+                    implode(', ', $autos)
+                )
+            );
         }
         return $out;
     }

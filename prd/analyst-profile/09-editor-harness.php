@@ -495,6 +495,133 @@ is_true(
 
 /*
  * ------------------------------------------------------------------
+ * 2e. A checklist cannot hold three states
+ * ------------------------------------------------------------------
+ * `09b-revisions.md` 3.16, D17. `enrichment.auto_run` was a
+ * multiselect per type, which has two states — in the list or not —
+ * and the declaration now has three. The block stays a `map`; its
+ * row value becomes a map of its own.
+ */
+out('');
+out('== the declaration has three states, so it is not a checklist ==');
+/*
+ * The shipped default declares nothing — that is its whole point
+ * (D15) — so the states need a profile that has been edited.
+ */
+$declaring = $parameters;
+$declaring['enrichment']['auto_run'] = array(
+    'ip-src' => array('dns' => 'ticked', 'circl_passivedns' => 'never'),
+);
+$stateSections = $form->sections($declaring, array(
+    'attribute_types' => array('ip-src', 'domain', 'md5'),
+    'modules' => array('dns' => array(), 'circl_passivedns' => array()),
+));
+$autoBlock = null;
+foreach ($stateSections['enrichment']['blocks'] as $candidate) {
+    if (isset($candidate['id']) && $candidate['id'] === 'auto_run') {
+        $autoBlock = $candidate;
+    }
+}
+is_same('map', $autoBlock['kind'],
+    'still one of the four block kinds — no fifth was invented for'
+        . ' this');
+is_same('module_states', $autoBlock['value_type'],
+    'but its row value is a module-to-state map, not a checklist');
+$row = $autoBlock['entries'][0];
+is_same(array('ticked', 'never', 'auto'), $row['state_options'],
+    'three states are offered');
+is_same(array('ticked', 'never'), $row['states_built'],
+    'and the row says which two are implemented, so a design cannot'
+        . ' draw `auto` as though it worked');
+is_true(is_array($row['value']) && !isset($row['value'][0]),
+    'the value is a map rather than a list');
+is_same(array('dns' => 'ticked', 'circl_passivedns' => 'never'),
+    $row['value'],
+    'each module carries its own state, which is the thing a'
+        . ' multiselect could not say');
+
+/*
+ * A pre-D17 profile is the common case, not the exotic one: every
+ * existing fork carries a bare list.
+ */
+$listed = $parameters;
+$listed['enrichment']['auto_run'] = array('ip-src' => array('dns'));
+$listedSections = $form->sections($listed, array(
+    'attribute_types' => array('ip-src'),
+    'modules' => array('dns' => array()),
+));
+foreach ($listedSections['enrichment']['blocks'] as $candidate) {
+    if (isset($candidate['id']) && $candidate['id'] === 'auto_run') {
+        is_same(array('dns' => 'ticked'),
+            $candidate['entries'][0]['value'],
+            'a fork carrying the pre-D17 list renders as ticked, so the'
+                . ' editor does not need a migration to open it');
+    }
+}
+
+/*
+ * The POST semantics for the nested shape. `__present` on the inner
+ * map means *these are all the modules for this type*, so a module the
+ * analyst removed goes rather than lingering — the same rule the flat
+ * maps already follow, checked here because the shape is new.
+ */
+$storedStates = array('enrichment' => array('auto_run' => array(
+    'ip-src' => array('dns' => 'ticked', 'circl_passivedns' => 'never'),
+    'domain' => array('dns' => 'ticked'),
+)));
+$postedStates = array('enrichment' => array('auto_run' => array(
+    '__present' => 1,
+    'ip-src' => array('__present' => 1, 'dns' => 'never'),
+)));
+$mergedStates = $form->merge($storedStates, $postedStates);
+is_same(
+    array('ip-src' => array('dns' => 'never')),
+    $mergedStates['enrichment']['auto_run'],
+    'a posted declaration replaces: the module dropped from the type'
+        . ' goes, the type not posted at all goes, and the state that'
+        . ' changed is the one stored'
+);
+$keepOthers = $form->merge($storedStates, array(
+    'enrichment' => array('auto_run' => array(
+        'ip-src' => array('__present' => 1, 'dns' => 'auto'),
+    )),
+));
+is_same(
+    array(
+        'ip-src' => array('dns' => 'auto'),
+        'domain' => array('dns' => 'ticked'),
+    ),
+    $keepOthers['enrichment']['auto_run'],
+    'while without `__present` on the outer map the types that were'
+        . ' not posted survive — a section the form never showed must'
+        . ' not be rewritten'
+);
+
+$refusing = $parameters;
+$refusing['enrichment']['auto_run'] = array(
+    'ip-src' => array('dns' => 'never'),
+);
+is_same(array(), $form->validate($refusing)['errors'],
+    '`never` validates');
+$autoing = $parameters;
+$autoing['enrichment']['auto_run'] = array(
+    'ip-src' => array('dns' => 'auto'),
+);
+is_same(array(), $form->validate($autoing)['errors'],
+    'and so does the unimplemented `auto` — it is a valid document,'
+        . ' which is the whole point of landing the schema early');
+$bogus = $parameters;
+$bogus['enrichment']['auto_run'] = array(
+    'ip-src' => array('dns' => 'whenever'),
+);
+$bogusErrors = $form->validate($bogus)['errors'];
+is_same(1, count($bogusErrors), 'a state that is not one is refused');
+is_true(strpos($bogusErrors[0], 'ticked, never, auto') !== false,
+    'and the message lists the three, because a reader hand-editing'
+        . ' JSON has no select to look at');
+
+/*
+ * ------------------------------------------------------------------
  * 3. The parse error and its line
  * ------------------------------------------------------------------
  * §7a item 9. `json_decode` reports what went wrong and never where,

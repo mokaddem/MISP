@@ -232,6 +232,46 @@ name from the request, so a view-only guard is not a guard.
 **Back-compat:** a bare list keeps meaning *"every module named here is
 `ticked`"*, which is exactly what it means today. Read both shapes.
 
+#### Built 2026-09-10
+
+`planFor()` normalises to `type => {module: state}` and reads both
+shapes **per entry**, not per type, because a hand-edited document can
+mix them: an integer key is a list entry and means `ticked`. A state
+this version does not recognise reads as `ticked` rather than refusing
+the module — the failure mode of strictness here is a page that will
+not render, which is the rule the rest of this normalisation already
+follows.
+
+`resolve()` gains a **third bucket, `refused`**, beside `selected` and
+`withheld`. `never` is checked *before* the locality posture, so a
+module the reader said never to run is not also given a locality
+reason — that would answer a question they did not ask. A refused
+module still counts as `applicable`, because they declared it and a
+count that disagreed with the document would be the worse lie.
+
+An `auto` resolves as `selected` and adds **one** condition
+(`state.auto_inert`) naming all of them, not one each: they all failed
+for the same reason and it is not about any particular module.
+
+**The run guard.** `enrichmentRun()` built its catalogue with no
+profile deliberately — a *selection* is a preference and must not
+decide what the instance offers. `never` is the exception, and the
+comment there now says why: it is the reader's own refusal, and the
+endpoint takes a module name from the request. The check needs the plan
+only, not the modules service, so it costs one profile read and no
+second `GET /modules`. A refused run returns the new state
+**`profile_refused`**, worded in the result pane as the reader's own
+choice rather than a restriction — it is the only refusal there they
+can lift themselves.
+
+**The editor.** `enrichment.auto_run` stays a `map` block; no fifth
+block kind was invented. Its `value_type` moves from `multiselect` to
+`module_states`, and a row carries `state_options` (all three) beside
+`states_built` (the two that work), so a design cannot draw `auto` as
+though it ran. POST semantics are unchanged and now asserted: with
+`__present` on a type's map the modules not posted are removed, and
+without it on the outer map the types the form never showed survive.
+
 ## 3. Locality: which modules answer from inside
 
 ### 3.1 The knowledge ships as code, and cannot be derived
@@ -371,7 +411,7 @@ being paid only where a condition needs explaining.
 
 ## 6. How it is verified
 
-- **`08-enrichment-harness.php`** — 105 checks, no database and no
+- **`08-enrichment-harness.php`** — 123 checks, no database and no
   modules service. The resolution arithmetic, every condition id, the
   normalisation of a hand-edited document, and the two invariants that
   are structural rather than numeric: an empty declaration produces
