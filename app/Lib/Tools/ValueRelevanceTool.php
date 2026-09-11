@@ -989,10 +989,26 @@ class ValueRelevanceTool
             return array(
                 'axis' => 'relevance',
                 'direction' => 'up',
-                'text' => __(
-                    'A first_seen on any occurrence would date the'
-                    . ' observation rather than its encoding — the'
-                    . ' timeline stops being uncertain.'
+                /*
+                 * Not `first_seen` and not *encoding*: the column name
+                 * is `First seen` on MISP's own attribute form, and
+                 * there is no encoding date in MISP to contrast it
+                 * with (§7.11). What the reader gains is concrete —
+                 * the assumed days stop being added.
+                 */
+                'text' => sprintf(
+                    __n(
+                        'A first-seen date on any occurrence would say'
+                            . ' when this was observed — the timeline'
+                            . ' stops being uncertain and the %s'
+                            . ' assumed day comes off.',
+                        'A first-seen date on any occurrence would say'
+                            . ' when this was observed — the timeline'
+                            . ' stops being uncertain and the %s'
+                            . ' assumed days come off.',
+                        (int)($relevance['assumed_days'] ?? 0)
+                    ),
+                    (int)($relevance['assumed_days'] ?? 0)
                 ),
             );
         }
