@@ -1082,6 +1082,29 @@ input.num[type="number"]::-webkit-inner-spin-button {
     outline: 1px solid var(--bs-primary);
     outline-offset: 1px;
 }
+
+/*
+ * A select in a chip sizes to its options and keeps its caret.
+ *
+ * The width above is a cap on free text, which is unbounded — `4.6` and
+ * a category name are the same box, and the box has to suit the one
+ * that could be anything. A select's options are known and finite, so
+ * it is as wide as its longest one instead of truncating
+ * `false_positive` to `false_po`. The caret comes back for the same
+ * reason it was lost: the rule above zeroes the background to flatten
+ * the control into the chip, and that takes Bootstrap's arrow with it,
+ * leaving a picker drawn exactly like the text boxes beside it.
+ */
+.kv select.form-select {
+    width: auto;
+    max-width: none;
+    padding-right: .8rem;
+    text-align: left;
+    background-image: var(--bs-form-select-bg-img);
+    background-repeat: no-repeat;
+    background-position: right center;
+    background-size: .55rem .45rem;
+}
 .kv k label { cursor: text; margin: 0; }
 
 /* Removing a map row. A map is written whole on save, so this is the

@@ -1338,19 +1338,15 @@ class AnalystProfileFormTool
     /**
      * The warninglist categories a profile may assert.
      *
-     * Taken from `WarninglistCategory` where it is available, so the
-     * editor and the resolution agree; the fallback is the three the
-     * upstream schema defines, because a class that has not loaded is
-     * not a reason to offer no options.
+     * Taken from `WarninglistCategory` so the editor and the resolution
+     * agree, and so the reference pane's override map and both conflict
+     * rules' `when` offer one list rather than three copies of it.
      *
      * @return array
      */
     private function categoryOptions()
     {
-        return array(
-            WarninglistCategory::KNOWN,
-            WarninglistCategory::FALSE_POSITIVE,
-        );
+        return WarninglistCategory::CATEGORIES;
     }
 
     /**

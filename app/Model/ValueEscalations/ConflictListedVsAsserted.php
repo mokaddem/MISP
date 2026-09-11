@@ -1,6 +1,7 @@
 <?php
 
 App::uses('ValueLeanTool', 'Tools');
+App::uses('WarninglistCategory', 'Tools');
 
 /**
  * A list says the value is not an indicator, and nearly everyone
@@ -41,7 +42,8 @@ class ConflictListedVsAsserted extends ValueEscalationBase
         $this->when_schema = array(
             'warninglist_category' => array(
                 'type' => 'string',
-                'default' => 'false_positive',
+                'default' => WarninglistCategory::FALSE_POSITIVE,
+                'options' => WarninglistCategory::CATEGORIES,
                 'label' => __('The category of list that must match'),
             ),
             'threat_share_at_least' => array(

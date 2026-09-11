@@ -231,6 +231,24 @@ abstract class ValueEscalationBase
                 $key
             );
         }
+        /*
+         * A schema that names its options is drawn as a select, and a
+         * document that arrived by import rather than through the form
+         * has to meet the same set. Otherwise a rule configured with a
+         * category nothing resolves to is accepted and then never
+         * fires, which is the quietest way for a conflict rule to be
+         * wrong.
+         */
+        if (isset($spec['options'])
+            && !in_array($given, $spec['options'], true)
+        ) {
+            return sprintf(
+                __('%1$s: `when.%2$s` must be one of: %3$s.'),
+                $this->id,
+                $key,
+                implode(', ', $spec['options'])
+            );
+        }
         return null;
     }
 

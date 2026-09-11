@@ -67,6 +67,13 @@ require_once APP . 'Lib/Tools/ValueStatsTool.php';
  * file moving.
  */
 require_once APP . 'Lib/Tools/ValueTrustTool.php';
+/*
+ * Loaded because both conflict rules name their category vocabulary
+ * from it. `App::uses` is a no-op here, so without this they fail to
+ * construct and every escalation check below goes quiet rather than
+ * red.
+ */
+require_once APP . 'Lib/Tools/WarninglistCategory.php';
 
 require_once APP . 'Lib/Tools/ValueSignalLoader.php';
 require_once APP . 'Lib/Tools/ValueLeanTool.php';

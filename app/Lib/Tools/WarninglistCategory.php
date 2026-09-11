@@ -80,6 +80,18 @@ class WarninglistCategory
     const KNOWN = 'known';
 
     /**
+     * The whole vocabulary, in the order a reader meets it: `known` is
+     * the distinction this file exists for, and `false_positive` is the
+     * column's default that everything else falls through to.
+     *
+     * The pair is what `warninglists.category` validates against, so
+     * anything offering a choice of category — the reference pane's
+     * override map, both conflict rules' `when` — offers exactly this
+     * and nothing else.
+     */
+    const CATEGORIES = array(self::KNOWN, self::FALSE_POSITIVE);
+
+    /**
      * Where an answer came from, in the resolution order
      * `07-reference.md` §3.2 sets out. Carried per hit so the panel can
      * name it — the answer to the name-keying risk above, and to §5

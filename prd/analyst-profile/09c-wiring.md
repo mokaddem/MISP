@@ -701,12 +701,17 @@ fraction *or* the word `supermajority`. Both are `string` in their
 `when_schema` and both draw as prose fields, without the monospace
 right-aligned styling the numbers carry.
 
+**Half of that was wrong, and §7.22 fixes it.** `warninglist_category`
+is a category name out of a set of two — it is a select, not prose.
+`threat_share_at_least` stays text, because *a fraction or one
+particular word* is not a set anything can enumerate.
+
 **Still open, same shape, different pane.** A map whose values are a
-`select` — `org_trust`'s grades, `warninglist_category`'s three
-meanings — has its existing rows drawn as selects and the row the page
-adds drawn as a free-text box. The fix is the option list carried to
-the add control the way `value_type` now is; it is the reference pane,
-not the signals one, and it is not in this change.
+`select` — `org_trust`'s grades, `warninglist_category`'s two meanings
+— has its existing rows drawn as selects and the row the page adds
+drawn as a free-text box. The fix is the option list carried to the add
+control the way `value_type` now is; it is the reference pane, not the
+signals one, and it is not in this change.
 
 ### 7.21 The thresholds pane said what it does in its own language
 
@@ -751,6 +756,54 @@ which is the right default and was hiding two things that did not earn
 it — a floating-point aside about 34-of-100, and half of the section
 blurb. Both sentences are now one sentence each, so the pane has no `i`
 left to hover. The mechanism is untouched; the other panes keep theirs.
+
+### 7.22 `warninglist_category` is a set of two, drawn as a text box
+
+*When it fires* on the conflict rules pane offered `warninglist_category`
+as free text on both rules — a box you could type `banana` into, next to
+a rule whose entire precondition is that the category resolves. §7.20
+looked at the same two boxes and classed them with
+`threat_share_at_least` as *prose fields, right to stay text*. Only one
+of the two deserved that: a fraction **or** the word `supermajority` is
+not an enumerable set, while a warninglist category is exactly two
+values and always has been — `warninglists.category` validates against
+`['false_positive', 'known']` and nothing else can reach the column.
+
+The schema already had the extension point. `generatedFields()` turns a
+spec's `options` key into a select, so the fix is the `when_schema`
+declaring what it accepts, and the vocabulary moves to one place:
+`WarninglistCategory::CATEGORIES`, which the reference pane's override
+map now reads too instead of rebuilding the pair from the constants.
+
+**A select the server did not enforce would have been half a fix.**
+`AnalystProfileFormTool::checkScalar()` has honoured `options` since it
+was written, but that path validates *exclusions*; an escalation's
+`when` goes through `ValueEscalationBase::checkValue()`, which checked
+type and nothing else. So a document arriving by import — the path that
+has no form in front of it — could still set a category nothing
+resolves to, and the rule would be accepted and then never fire, which
+is the quietest way for a conflict rule to be wrong. `checkValue()` now
+refuses a value outside a declared `options`, naming the set.
+
+**Two smaller things came with it.**
+
+- **A chip's select sizes to its options.** The chip caps its control at
+  `5rem` because free text is unbounded, and that truncated
+  `false_positive` to `false_po`. A select's options are known, so it is
+  as wide as its longest one.
+- **And keeps its caret.** The chip flattens its control into the chip
+  by zeroing the background, which took Bootstrap's arrow with it — a
+  picker drawn exactly like the text boxes beside it. It is drawn again
+  from `--bs-form-select-bg-img`, so the dark theme's lighter arrow
+  follows for free. No chip rendered a select before this change, so
+  neither was a regression; both were waiting for the first one.
+
+**`04-lean-bands-harness.php` needed a `require_once`.** It stubs
+`App::uses` to a no-op, so a rule naming `WarninglistCategory` in its
+constructor failed to construct, and 13 escalation checks went quiet
+rather than red. Worth recording as a property of the harness pattern:
+a rule that cannot construct disappears from the catalogue rather than
+raising, so a missing `require` reads as a behaviour change.
 
 ## 8. What 8c deliberately did not do
 

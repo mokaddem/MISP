@@ -1,5 +1,7 @@
 <?php
 
+App::uses('WarninglistCategory', 'Tools');
+
 /**
  * MISP knows the value as shared infrastructure, and organisations
  * report it as a threat anyway.
@@ -41,7 +43,8 @@ class ConflictKnownInfrastructure extends ValueEscalationBase
         $this->when_schema = array(
             'warninglist_category' => array(
                 'type' => 'string',
-                'default' => 'known',
+                'default' => WarninglistCategory::KNOWN,
+                'options' => WarninglistCategory::CATEGORIES,
                 'label' => __('The category of list that must match'),
             ),
             'min_independent_reports' => array(
