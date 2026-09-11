@@ -106,13 +106,27 @@ wrong thing on every page.
 | Section | Axis it configures | Source |
 |---|---|---|
 | Signals | quality | contributions sum to quality (`12-assessment.md` §2.3) |
-| Thresholds | quality — the bands | the banding is cut from the quality score and the fired count (§2.3) |
+| Thresholds | **lean + quality** | the bands are cut from the quality score and the fired count (§2.3) — **and `lean_supermajority` lives here too** (`AnalystProfileFormTool::sectionThresholds()`) |
 | Conflict rules | **lean** | an enabled escalation fires → `contested`, named (`04-dispositions.md` §3, rule list) |
 | Exclusions | quality | they remove ledger rows; the ledger still sums to the score (`05-exclusions.md`) |
 | Relevance | **relevance** | its own axis, never points (`06-staleness.md` §1, D11) |
-| Reference data | quality — trust weighting | applies to signals declaring `trust_weighted` (`07-reference.md` §3) |
-| Enrichment | none — context | it narrows which modules run; it emits no ledger row and no axis |
+| Sources & reputation | quality — trust weighting | applies to signals declaring `trust_weighted` (`07-reference.md` §3) |
+| Enrichment | none — context | it declares which modules are ticked; it emits no ledger row and no axis |
 | Raw JSON | all three | it is the whole document |
+
+**Corrected 2026-09-11** (`09b-revisions.md` §9.1). This table said
+Thresholds was `quality — the bands`, and it is not: the pane holds the
+lean's supermajority as well, which is precisely why a reviewer hunting
+for *how is the lean decided* found neither of the two panes that decide
+it. The lean has no single home — the threshold is here and the
+escalations are in Conflict rules — so both panes now carry an axis tag
+of their own rather than leaving the rail to say it. *Reference data* was
+renamed *Sources & reputation* in the same round.
+
+**One thing this map cannot say, and should not be read as saying:**
+that a section configures an axis does not mean the axis reads that
+section. Relevance reads none of the others and none of them reads it
+(D11), and Enrichment reads and is read by nothing at all.
 
 ## 5. Vocabulary, reconciled against what is built
 

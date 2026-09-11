@@ -109,6 +109,23 @@ to from the simulator itself. An empty set is an honest state with an
 instruction in it — *"pin a value and its two columns appear here"* — not a
 blank table.
 
+> **Spec/build gap, recorded 2026-09-11** (`09b-revisions.md` 3.5).
+> *"Seeded from the value they arrived from"* is not what 8a built, and
+> the difference is visible to a new analyst. Arriving from a value
+> **benches** it — `focus` is merged into the scored list for that
+> request only — and does **not** pin it: `__setPinned()` is the only
+> writer, and only `pin`/`unpin` call it. So a new analyst's set stays
+> empty until they press Pin, and the empty state is what they see on
+> their first visit rather than a one-row set.
+>
+> Both readings are defensible and neither is built by accident, so this
+> is a decision owed rather than a bug: seeding on arrival makes the
+> first simulation non-empty, and not seeding keeps the set something the
+> analyst chose rather than something a page load did to them. The
+> mockup draws what is built — the arrived-from row is labelled
+> *benched, not pinned* and carries the Pin button — so the drawing and
+> the code agree while the spec sentence does not.
+
 What §2.1 asked for survives that, because the property it wanted was never
 the specific addresses: it was **more than one value, spanning more than one
 shape, scored in one screen**. An analyst who pins the four values they

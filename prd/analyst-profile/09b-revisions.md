@@ -843,6 +843,62 @@ done, explicitly deferred with a reason, or listed in §7 as waiting on
 the reviewer. **An item silently dropped is the one failure mode this
 document exists to prevent.**
 
+### 8.1 The round, closed 2026-09-11
+
+Every §3 item, and what happened to it.
+
+| Item | State |
+|---|---|
+| 3.1 fork | **done** — both confirms drawn, the org one naming a measured count |
+| 3.2 import / export | **done** — the create menu, and Export on every row that can |
+| 3.3 index actions | **done** — the default row loses Edit and gains View; the disabled one gains Simulate and Export |
+| 3.4 add / create | **closed** by §7.1; the create control is drawn |
+| 3.5 pinned values | **done** — kept, explained at the point of use, empty state drawn, pin put in the simulator. The spec/build gap is recorded in `09-editor.md` §2.2 |
+| 3.6 value picker | **done** — a search plus the pinned set as quick-switches |
+| 3.7 the three axes | **done** — the relation paragraph is one sentence and a tooltip |
+| 3.8 group column | **done** — the repetition gone, the control kept as a row action |
+| 3.9 cut the band | **done** — product, shipped default, fixtures, mockup |
+| 3.10 thresholds pane | **done** — order matches the strip, each input under its segment, and the IA error fixed in both the rail and `09b-decision.md` §4 |
+| 3.11 conflict rules | **done** — what it moves, and the ledger's anchoring as the second-order effect |
+| 3.12 TTL buckets | **done** — D18 built, with the read shim and its own harness section |
+| 3.13 `type_rule` + two bugs | **done** — both divergences fixed in a separate commit, `decay_speed` made a float and given a validator, both mockup selects corrected |
+| 3.14 curve chart | **done** — inline SVG, no client JS, with the aging tick and this value's position |
+| 3.15 where the lean is configured | **done** — both panes carry an axis tag, and the supermajority states its inputs |
+| 3.16 enrichment run states | **done** — D17 built; `auto` declared and inert, `never` enforced in the run path |
+| 3.17 cost posture | **done** — D19: renamed, `ask` retired, both read as shims |
+| 3.18 reuse window | **done** — a general `unit` on the field spec, and the setting drawn as inert |
+| 3.19 modules per type | **done** — rebuilt module-first against real `mispattributes` |
+| 3.20 reference naming | **done** — *Sources & reputation*, in the form tool and the mockup |
+| 4.1 strip scaffolding | **done** — and `check-1280.sh` replaces the inset it removed |
+| 4.2 one-sentence copy | **done** — nine blurbs cut, the rest behind `i` |
+
+**Three defects this round found that it had not predicted**, all fixed:
+
+1. **The shipped default still carried eleven `band` keys** after D16
+   removed the field. Nothing read them, so nothing broke — the
+   instance default was simply asserting a value the engine had stopped
+   carrying. Version 5 → 6.
+2. **D18's first implementation let the two TTL shapes blend.** A
+   legacy `ttl_days` entry became an override, and overrides beat
+   bucket assignments, so a fork the editor had upgraded — with a stale
+   flat map still beside its new buckets — would have had the stale
+   entry silently shadow its own assignment. The shapes no longer
+   blend, and `merge()` drops the legacy key on save.
+3. **D16's own survey undercounted.** It named two templates printing
+   the ledger's `weight`; there were three, plus a second writer in
+   `ValueVerdictDiffTool`. `03-signals.md` §5.1 records both.
+
+**Harness totals at the close**, all green: store 34, signals 98, lean
+and bands 100, exclusions 42, relevance 133, reference 114, enrichment
+123, editor 137. Fixtures 28. `check-mockup.sh` PASS in both themes and
+`check-1280.sh` OK in both.
+
+**Not done, and deliberately:** `auto` is declared and not implemented
+(D17 §7.2 — it needs a last-run store or a working queue, both bigger
+than this round), and the `max_age_hours` reuse window is still inert
+because no cache table exists. Both are drawn as inert rather than
+hidden.
+
 ## 9. Corrections this round owes the corpus
 
 Two things already written down are wrong and should be fixed as part of
@@ -851,8 +907,14 @@ this work:
 1. **`09b-decision.md` §4** — the section-to-axis map lists Thresholds
    as `quality — the bands`. It configures **the lean too**
    (`lean_supermajority`). Fix the map and the rail tag (3.10, 3.15).
+   **Done 2026-09-11**, and the table carries the correction and its
+   reason.
 2. **`mockups/workbench.html:2519-2522` and `:2542-2544`** — the clock
    and `type_rule` selects copied the form tool's wrong vocabularies,
    so the mockup offers two options the engine does not implement
    (`newest_occurrence`, `first`) and hides three it does
    (`last_sighting`, `last_occurrence`, `most_common`) (3.13).
+   **Done 2026-09-11.** The form tool no longer has its own copies of
+   either list — both use sites read `ValueRelevanceTool`'s constants,
+   the way `max_band` already read `ValueVerdictTool::BANDS` — so the
+   two lists cannot drift again.

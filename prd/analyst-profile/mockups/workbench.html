@@ -1014,6 +1014,33 @@ body {
     color: var(--bs-primary);
     font-weight: 700;
 }
+
+/*
+ * Dropping the Group column removed the repetition and the control with
+ * it. `group` is declared per implementation and overridable per signal
+ * in the profile, and it is not derived from the id prefix, so the
+ * control survives as a row action (3.8).
+ */
+.wb-move {
+    margin-top: .2rem;
+    padding: 0 .3rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .25rem;
+    background: transparent;
+    font: 600 .625rem/1.7 var(--bs-font-sans-serif, system-ui);
+    color: var(--bs-secondary-color);
+}
+.wb-move:hover {
+    color: var(--bs-body-color);
+    border-color: var(--bs-secondary-color);
+}
+.wb-grp-drop {
+    float: right;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: .45;
+}
 .chip-add {
     padding: .05rem .45rem;
     border: 1px dashed var(--bs-border-color);
@@ -2303,12 +2330,13 @@ body {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr class="wb-grp"><td colspan="5">Reporting</td></tr>
+                    <tr class="wb-grp"><td colspan="5">Reporting<span class="wb-grp-drop">drop a signal here to move it</span></td></tr>
 
                     <tr class="is-hot">
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">reporting.independent_orgs</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">&times;&nbsp;trust weighted &mdash; this profile grades four organisations, so it is live</div>
                         <div class="wb-sub">How many organisations independently report this value.</div>
                       </td>
@@ -2347,6 +2375,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">reporting.published_ratio</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">What share of the events carrying this value are published.</div>
                       </td>
                       <td>
@@ -2357,12 +2386,13 @@ body {
                       <td class="r"><div class="num fw-bold">2</div></td>
                     </tr>
 
-                    <tr class="wb-grp"><td colspan="5">Sightings</td></tr>
+                    <tr class="wb-grp"><td colspan="5">Sightings<span class="wb-grp-drop">drop a signal here to move it</span></td></tr>
 
                     <tr>
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">sightings.false_positive</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">&times;&nbsp;trust weighted &mdash; this profile grades four organisations, so it is live</div>
                         <div class="wb-sub">False-positive sightings, and how many organisations filed them.</div>
                       </td>
@@ -2379,6 +2409,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">sightings.volume_recency</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">&times;&nbsp;trust weighted &mdash; this profile grades four organisations, so it is live</div>
                         <div class="wb-sub">Sighting volume, organisation spread and recency.</div>
                       </td>
@@ -2394,12 +2425,13 @@ body {
                       <td class="r"><div class="num fw-bold">24</div></td>
                     </tr>
 
-                    <tr class="wb-grp"><td colspan="5">Attribution</td></tr>
+                    <tr class="wb-grp"><td colspan="5">Attribution<span class="wb-grp-drop">drop a signal here to move it</span></td></tr>
 
                     <tr>
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">attribution.galaxy</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">Galaxy clusters attached to this value&rsquo;s own occurrences.</div>
                       </td>
                       <td>
@@ -2418,6 +2450,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">attribution.technique</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">ATT&amp;CK techniques marked on this value&rsquo;s occurrences.</div>
                       </td>
                       <td>
@@ -2431,12 +2464,13 @@ body {
                       </td>
                     </tr>
 
-                    <tr class="wb-grp"><td colspan="5">Lifecycle</td></tr>
+                    <tr class="wb-grp"><td colspan="5">Lifecycle<span class="wb-grp-drop">drop a signal here to move it</span></td></tr>
 
                     <tr>
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">lifecycle.continuity</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">The longest run of consecutive months in which this value was reported.</div>
                       </td>
                       <td>
@@ -2451,6 +2485,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">lifecycle.feeds</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="mt-1"><span class="pill t-custom">custom</span></div>
                         <div class="wb-sub mt-1">
                           Presence in the enabled feeds and servers this instance
@@ -2472,6 +2507,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">lifecycle.recency</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">How recently this value was last reported by anybody.</div>
                       </td>
                       <td>
@@ -2489,6 +2525,7 @@ body {
                       <td><input class="form-check-input" type="checkbox"></td>
                       <td>
                         <div class="wb-id fw-semibold">lifecycle.warninglist</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button>
                         <div class="wb-sub">Whether the value hits a warninglist, and what kind of list it is.</div>
                         <div class="wb-sub mt-1"><span class="mk">&#8961;</span> switched off in this session; stored as on.</div>
                       </td>
@@ -2508,6 +2545,7 @@ body {
                       <td><input class="form-check-input" type="checkbox" checked></td>
                       <td>
                         <div class="wb-id fw-semibold">record.temporal_precision</div>
+                        <button type="button" class="wb-move">move to group <span class="wb-caret">&#9662;</span></button><div class="wb-sub mt-1">Its id says <span class="wb-id">record</span> and its group is Lifecycle: the group is declared, not derived from the id.</div>
                         <div class="wb-sub">Whether the occurrences date their own observations, or only their encoding.</div>
                       </td>
                       <td>
