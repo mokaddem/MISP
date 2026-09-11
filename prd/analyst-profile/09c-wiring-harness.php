@@ -58,6 +58,7 @@ class AnalystWiringShell extends AppShell
         $this->sectionRelevance($user, $value);
         $this->sectionEmptyStates();
         $this->sectionPalette();
+        $this->sectionVerdictLinks($user, $value);
         $this->sectionReadOnly($user, $value);
 
         $this->out('');
@@ -493,6 +494,110 @@ class AnalystWiringShell extends AppShell
             . DS . 'value-profile.css');
         $this->ok(strpos($profileCss, '--vp-mal:') === false,
             'the value page no longer declares its own copy');
+    }
+
+    /* ============================================================
+     * §5.1 — the two links back from the verdict
+     * ============================================================ */
+
+    /**
+     * The value page names the profile that weighted it and lists what
+     * a policy set aside. Both become links — and both must stay plain
+     * text when the assessment names no profile, which is what the
+     * page does today because it is still rendering the fixture.
+     */
+    private function sectionVerdictLinks(array $user, $value)
+    {
+        $this->out('');
+        $this->out('== the links back from the verdict ==');
+        $profile = $this->AnalystProfile->resolveFor($user);
+        $this->loadModel('ValueProfile');
+        $engine = new ValueVerdictTool($this->ValueProfile);
+        $verdict = $engine->verdictFor($user, $value,
+            array('profile' => $profile));
+        $this->ok(!empty($verdict['profile_id']),
+            'a computed assessment names the profile it read');
+
+        $b64 = ValueUrlTool::encode($value);
+        $html = $this->renderValueElement($user,
+            'Values/View/value_verdict_meta',
+            array('verdict' => $verdict, 'valueB64' => $b64));
+        $this->ok(strpos($html, '/analystProfiles/view/'
+            . $verdict['profile_id']) !== false,
+            'and the provenance line links to it');
+
+        $bare = $verdict;
+        unset($bare['profile_id']);
+        $html = $this->renderValueElement($user,
+            'Values/View/value_verdict_meta',
+            array('verdict' => $bare, 'valueB64' => $b64));
+        $this->ok(strpos($html, '/analystProfiles/view/') === false,
+            'an assessment naming none stays plain text');
+        $this->ok(strpos($html, h($verdict['profile'])) !== false,
+            'and still says which profile it was');
+
+        /*
+         * A `policy` entry is the analyst's own decision, so it is the
+         * one kind of not-counted row that can say where the decision
+         * lives. Synthesised rather than waited for: whether this
+         * value happens to trip an exclusion today is not something a
+         * check should depend on.
+         */
+        $withPolicy = $verdict;
+        $withPolicy['not_counted'] = array(array(
+            'id' => 'sightings.self',
+            'title' => 'Self-sightings',
+            'note' => 'Two sightings by the reporting organisation.',
+            'reason' => 'policy',
+        ), array(
+            'id' => 'attribution.galaxy',
+            'title' => 'No galaxy',
+            'note' => 'Nothing to read.',
+            'reason' => 'nodata',
+        ));
+        $html = $this->renderValueElement($user,
+            'Values/View/value_verdict_not_counted',
+            array(
+                'valueProfile' => array('verdict' => $withPolicy),
+                'valueB64' => $b64,
+            ));
+        $this->ok(strpos($html, 'section=exclusions') !== false,
+            'a policy entry links to the section that produced it');
+        $this->ok(substr_count($html, 'section=exclusions') === 1,
+            'and only the policy entry does — a nodata row has nowhere'
+                . ' to send anybody');
+    }
+
+    /**
+     * A value-page element, under the theme those live in.
+     *
+     * @param array $user
+     * @param string $element
+     * @param array $data
+     * @return string
+     */
+    private function renderValueElement(array $user, $element, array $data)
+    {
+        $controller = new Controller(new CakeRequest(null, false),
+            new CakeResponse());
+        $controller->theme = 'Overmind';
+        $controller->viewPath = 'Values';
+        $controller->layout = false;
+        $controller->set($data + array(
+            'baseurl' => '',
+            'me' => $user,
+            'isSiteAdmin' => !empty($user['Role']['perm_site_admin']),
+        ));
+        $controller->helpers = array('Html', 'Form');
+        $view = new ThemeView($controller);
+        $view->theme = 'Overmind';
+        ob_start();
+        try {
+            $html = $view->element($element, $data);
+        } catch (Exception $e) {
+            $html = 'EXCEPTION: ' . get_class($e) . ': ' . $e->getMessage();
+        }
+        return ob_get_clean() . $html;
     }
 
     /* ============================================================

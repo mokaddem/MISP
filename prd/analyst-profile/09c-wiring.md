@@ -216,11 +216,15 @@ can actually reach:
    stored `points` map is byte-identical — and so is the rest of the
    document, so `revision` does not move.
 5. **Deferred to phase 9** (§4.3): fork from the value page and watch
-   the hero move. What 8c asserts instead is that the link points at the
-   profile the verdict names, and that it is absent when the verdict
-   names none.
+   the hero move. What 8c asserts instead is that the link points at
+   the profile the verdict names — computed from the engine, so the
+   link is live the moment phase 9 hands the page a real assessment —
+   and that it stays plain text, still naming the profile, when the
+   verdict names no id.
 6. The loader's error list is on screen.
-7. A `policy` entry in `not_counted` links to its exclusion.
+7. A `policy` entry in `not_counted` links to its exclusion — and only
+   a `policy` entry does, because a row with no decision behind it has
+   nowhere to send anybody.
 
 Plus the corpus's standing checks: `parallel-lint`,
 `queryACL/findMissingFunctionNames`, a harness that renders every
@@ -366,7 +370,7 @@ that says it is about cost. `merge()` now drops it the same way.
 
 | Check | What it covers | Result |
 |---|---|---|
-| `09c-wiring-harness.php` | the markup, with no session: the round-trip, the legacy upgrade, the diff, the axes, the empty states, the palette, the read-only page | **64 checks, 0 failures** |
+| `09c-wiring-harness.php` | the markup, with no session: the round-trip, the legacy upgrade, the diff, the axes, the empty states, the palette, the two verdict links, the read-only page | **70 checks, 0 failures** |
 | `09c-wiring-http-probe.sh` | the seam: HTML for a browser and the identical JSON for REST, the confirm, the save, the refused paste, the bench fragment, enable/disable/delete | **45 checks, 0 failures** |
 | `09c-wiring-page-check.sh` | a real browser, both themes, 1600px and 1280px: the stylesheet resolves, the three axes are at one rank (spread 0px), nothing scrolls sideways | **PASS, 4 combinations** |
 | every earlier phase | store 34, signals 98, lean and bands 100, exclusions 42, relevance 133, reference 114, enrichment 123, editor 137 | **all green** |
