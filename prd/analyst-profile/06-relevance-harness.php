@@ -537,8 +537,9 @@ is_true(
     'and the note carries the lag it measured'
 );
 is_true(
-    strpos($relevance['uncertain_note'], 'first_seen') !== false,
-    'and names the missing field'
+    strpos($relevance['uncertain_note'], 'first-seen') !== false,
+    'and names the missing field the way MISP\'s own attribute form'
+        . ' names it, rather than as the column (§7.8)'
 );
 is_same(
     2,

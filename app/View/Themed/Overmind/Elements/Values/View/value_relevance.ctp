@@ -32,6 +32,20 @@
  *   - **the sighting half could not be read**, because MISP flagged the
  *     value as over-correlating and the budget left its rows unfetched.
  *
+ * **Every fact above is required; none of them was required to be a
+ * paragraph.** The card shipped with fourteen lines of explanation
+ * around ten lines of data — a TTL line that printed the engine's whole
+ * resolution (`shortest rule, over ip-src 90, text 180`), two sentences
+ * on what the neighbouring chart does, one on what does *not* move it,
+ * and `lower bound`, `encoding date` and `first_seen` where plain words
+ * exist. This pass keeps the facts and moves the second half of each to
+ * its element's `title`: the per-type day counts, the clock setting's
+ * name, the false-positive rule, what an over-correlating value is.
+ * Hovers, not sentences, so §3.4's honest state survives at a third of
+ * the height. The labels this card invented — `new organisation`,
+ * `independent sighting` — carry their definition the same way, which
+ * they never did in any form.
+ *
  * Lazily loaded from ValuesController::viewRelevance.
  *
  * @var array $valueProfile
@@ -55,6 +69,32 @@ $kindLabels = array(
     'occurrence' => __('occurrence'),
     'fallback' => __('own encoding date'),
 );
+/*
+ * Every label above is a term of art this card invented, and a reader
+ * meeting `new organisation` in a list of dates has no way to tell it
+ * from `independent sighting`. The sentence that separates them is a
+ * hover rather than a row of its own, because six rows of definitions
+ * beside six rows of data is the density this pass is removing.
+ */
+$kindHints = array(
+    'org_joined' => __('An organisation that had not reported this'
+        . ' value before now has.'),
+    'foreign_sighting' => __('A sighting from an organisation other'
+        . ' than the one that reported the value.'),
+    'sighting' => __('Somebody reported seeing this value.'),
+    'occurrence' => __('This value appeared in an event.'),
+    'fallback' => __('The value\'s own date, with nothing confirming'
+        . ' it.'),
+);
+$stateHints = array(
+    'current' => __('Inside its shelf life.'),
+    'aging' => __('Past the point where this profile starts treating it'
+        . ' as old — worth re-checking.'),
+    'expired' => __('Older than its shelf life. Re-check it before'
+        . ' acting on it.'),
+    'uncertain' => __('The age below is a minimum, not a'
+        . ' measurement.'),
+);
 
 $state = $relevance['state'];
 $clock = $relevance['clock'];
@@ -65,12 +105,24 @@ $ttl = $relevance['ttl'];
 
     <div class="vp-aside-head">
         <i class="fas fa-hourglass-half"
+           title="<?= h(__('How long this value counts as current after'
+               . ' the last time somebody confirmed it.')) ?>"
            style="color: var(--correlation);"></i>
         <span class="vp-aside-title"><?= __('Shelf life') ?></span>
         <?php if ($state !== null): ?>
-            <span class="vp-aside-meta">
+            <?php
+            /*
+             * `TTL 90 days` twice over: an acronym a reader has to
+             * expand, in front of a number the card then spends three
+             * lines accounting for. The whole length, said plainly, is
+             * what the days-left figure beside it is measured against.
+             */
+            ?>
+            <span class="vp-aside-meta"
+                  title="<?= h(__('The full shelf life. The days left'
+                      . ' below are what is unused of it.')) ?>">
                 <?= h(sprintf(
-                    __('TTL %s days'),
+                    __('%s days in total'),
                     $ttl['days']
                 )) ?>
             </span>
@@ -99,7 +151,10 @@ $ttl = $relevance['ttl'];
             <div class="vp-shelf vp-shelf-<?= h($state) ?>">
 
                 <div class="vp-shelf-head">
-                    <span class="vp-shelf-state">
+                    <span class="vp-shelf-state"<?=
+                        isset($stateHints[$state])
+                            ? ' title="' . h($stateHints[$state]) . '"'
+                            : '' ?>>
                         <?= h(ValueRelevanceTool::stateLabel($state)) ?>
                     </span>
                     <span class="vp-shelf-days">
@@ -129,7 +184,7 @@ $ttl = $relevance['ttl'];
 
                 <div class="vp-shelf-track"
                      title="<?= h(sprintf(
-                         __('%1$s days elapsed of a %2$s day TTL'),
+                         __('%1$s of %2$s days used'),
                          $relevance['elapsed_days'],
                          $ttl['days']
                      )) ?>">
@@ -161,30 +216,44 @@ $ttl = $relevance['ttl'];
                     ?>
                     <div class="vp-shelf-why">
                         <?= h(sprintf(
-                            __('The timeline is uncertain: %s. The'
-                                . ' elapsed time above is measured from'
-                                . ' an encoding date, which is later'
-                                . ' than whatever it stands for — so it'
-                                . ' is a lower bound.'),
+                            __('Counted from when this was added to'
+                                . ' MISP, not when it was seen — %s.'
+                                . ' The real age is at least this,'
+                                . ' probably more.'),
                             $relevance['uncertain_note']
                         )) ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if (!empty($clock['fallback'])): ?>
-                    <div class="vp-shelf-why">
-                        <?= h(__('Nothing has independently corroborated'
-                            . ' this value — one organisation reporting'
-                            . ' it is the claim, not its confirmation.'
-                            . ' The clock runs from the value\'s own'
-                            . ' most recent encoding instead.')) ?>
+                    <div class="vp-shelf-why"
+                         title="<?= h(__('One organisation reporting a'
+                             . ' value is the claim, not its'
+                             . ' confirmation.')) ?>">
+                        <?= h(__('Nobody else has confirmed this value,'
+                            . ' so the clock runs from the day it was'
+                            . ' last added instead.')) ?>
                     </div>
                 <?php endif; ?>
 
-                <div class="vp-shelf-prov">
+                <?php
+                /*
+                 * `clock: last independent corroboration` said the
+                 * setting's name and nothing about what it does, next
+                 * to a kind it usually repeats word for word. It is the
+                 * line's hover now — a reader who wants to know which
+                 * profile knob produced this date can still find it,
+                 * and one who does not is left with a plain sentence.
+                 */
+                $clockTitle = sprintf(
+                    __('This profile resets the clock on the %s.'),
+                    $clockLabels[$clock['setting']] ?? $clock['setting']
+                );
+                ?>
+                <div class="vp-shelf-prov" title="<?= h($clockTitle) ?>">
                     <?php if (!empty($clock['fallback'])): ?>
                         <?= h(sprintf(
-                            __('Encoded %1$s by %2$s'),
+                            __('Added %1$s by %2$s'),
                             date('Y-m-d', $clock['at']),
                             $clock['by'] === null
                                 ? __('an unnamed organisation')
@@ -192,7 +261,7 @@ $ttl = $relevance['ttl'];
                         )) ?>
                     <?php else: ?>
                         <?= h(sprintf(
-                            __('Last corroborated %1$s by %2$s — %3$s'),
+                            __('Last confirmed %1$s by %2$s (%3$s)'),
                             date('Y-m-d', $clock['at']),
                             $clock['by'] === null
                                 ? __('an unnamed organisation')
@@ -200,89 +269,85 @@ $ttl = $relevance['ttl'];
                             $kindLabels[$clock['kind']] ?? $clock['kind']
                         )) ?>
                     <?php endif; ?>
-                    ·
-                    <?= h(sprintf(
-                        __('clock: %s'),
-                        $clockLabels[$clock['setting']]
-                            ?? $clock['setting']
-                    )) ?>
                 </div>
 
-                <div class="vp-shelf-prov">
-                    <?php if ($ttl['type'] === null): ?>
-                        <?= h(sprintf(
-                            __('TTL %s days, the profile\'s default —'
-                                . ' this value has no type to take one'
-                                . ' from'),
-                            $ttl['days']
-                        )) ?>
-                    <?php else: ?>
-                        <?php
-                        /*
-                         * Where the number came from (D18). A bucket is
-                         * named because *730 days, very long* is a
-                         * setting a reader can find in the editor,
-                         * where a bare 730 is a number they then have
-                         * to go and look up. An override says so
-                         * because it is the thing the buckets could not
-                         * express.
-                         */
-                        $bucketNames = array(
-                            'short' => __('short'),
-                            'medium' => __('medium'),
-                            'long' => __('long'),
-                            'very_long' => __('very long'),
-                        );
-                        if (($ttl['from'] ?? null) === 'bucket'
-                            && isset($bucketNames[$ttl['bucket']])
-                        ) {
-                            $provenance = sprintf(
-                                __(', %s bucket'),
-                                $bucketNames[$ttl['bucket']]
-                            );
-                        } elseif (($ttl['from'] ?? null) === 'override') {
-                            $provenance = __(', its own override');
-                        } else {
-                            $provenance = __(', which the profile does'
-                                . ' not name — so this is its default');
-                        }
-                        ?>
-                        <?= h(sprintf(
-                            __('TTL %1$s days from %2$s%3$s'),
-                            $ttl['days'],
+                <?php
+                /*
+                 * This line read `TTL 90 days from ip-dst, short bucket
+                 * · shortest rule, over ip-src 90, text 180` — the
+                 * whole resolution, in the order the engine computed
+                 * it. The facts §3.4 requires are *which type supplied
+                 * the number* and *that the others disagreed*; the
+                 * per-type list proving it is the hover, because a
+                 * reader who has to parse four `type days` pairs to
+                 * learn `they disagree` has been handed the engine's
+                 * working rather than its answer.
+                 */
+                $bucketNames = array(
+                    'short' => __('short'),
+                    'medium' => __('medium'),
+                    'long' => __('long'),
+                    'very_long' => __('very long'),
+                );
+                $ruleWords = array(
+                    'shortest' => __('the shortest'),
+                    'longest' => __('the longest'),
+                    'most_common' => __('the most common'),
+                );
+                $ttlTitle = null;
+                if ($ttl['type'] === null) {
+                    $ttlLine = __('Nothing here has a type to take a'
+                        . ' shelf life from, so this is the profile\'s'
+                        . ' default.');
+                } else {
+                    if (($ttl['from'] ?? null) === 'bucket'
+                        && isset($bucketNames[$ttl['bucket']])
+                    ) {
+                        $ttlLine = sprintf(
+                            __('Set for %1$s, in the %2$s bucket'),
                             $ttl['type'],
-                            $provenance
-                        )) ?>
-                        <?php if (!empty($ttl['spread'])): ?>
-                            <?php
-                            /*
-                             * §3.4's honest state. A value occurring as
-                             * both `ip-src` and `ip-dst` has two TTLs
-                             * and the page picks one; saying which, and
-                             * what the others were, is the difference
-                             * between a number and a judgement a reader
-                             * can argue with.
-                             */
-                            $others = array();
-                            foreach ($ttl['candidates'] as $candidate) {
-                                if ($candidate['type'] === $ttl['type']) {
-                                    continue;
-                                }
-                                $others[] = sprintf(
-                                    '%s %s',
-                                    $candidate['type'],
-                                    $candidate['days']
-                                );
-                            }
-                            ?>
-                            ·
-                            <?= h(sprintf(
-                                __('%1$s rule, over %2$s'),
-                                $ttl['rule'],
-                                implode(__(', '), $others)
-                            )) ?>
-                        <?php endif; ?>
-                    <?php endif; ?>
+                            $bucketNames[$ttl['bucket']]
+                        );
+                    } elseif (($ttl['from'] ?? null) === 'override') {
+                        $ttlLine = sprintf(
+                            __('Set for %s, as its own override'),
+                            $ttl['type']
+                        );
+                    } else {
+                        $ttlLine = sprintf(
+                            __('No shelf life set for %s, so this is'
+                                . ' the profile\'s default'),
+                            $ttl['type']
+                        );
+                    }
+                    if (!empty($ttl['spread'])) {
+                        $days = array_column($ttl['candidates'], 'days');
+                        $ttlLine .= sprintf(
+                            __(' — %1$s of its %2$s types, which run'
+                                . ' %3$s to %4$s days.'),
+                            $ruleWords[$ttl['rule']] ?? $ttl['rule'],
+                            count($ttl['candidates']),
+                            min($days),
+                            max($days)
+                        );
+                        $each = array();
+                        foreach ($ttl['candidates'] as $candidate) {
+                            $each[] = sprintf(
+                                __('%1$s: %2$s days'),
+                                $candidate['type'],
+                                $candidate['days']
+                            );
+                        }
+                        $ttlTitle = implode(__(' · '), $each);
+                    } else {
+                        $ttlLine .= __('.');
+                    }
+                }
+                ?>
+                <div class="vp-shelf-prov"<?= $ttlTitle === null
+                    ? ''
+                    : ' title="' . h($ttlTitle) . '"' ?>>
+                    <?= h($ttlLine) ?>
                 </div>
 
                 <div class="vp-shelf-prov">
@@ -293,13 +358,16 @@ $ttl = $relevance['ttl'];
                 </div>
 
                 <?php if (empty($clock['rows_read'])): ?>
-                    <div class="vp-shelf-why">
-                        <?= h(__('MISP has flagged this value as too'
-                            . ' common to correlate, so its individual'
-                            . ' reports were not fetched. The clock'
-                            . ' above is the organisation half only —'
-                            . ' an independent sighting could be more'
-                            . ' recent than it says.')) ?>
+                    <div class="vp-shelf-why"
+                         title="<?= h(__('MISP flags a value as'
+                             . ' over-correlating when it appears in so'
+                             . ' many events that reading them all'
+                             . ' would cost more than the answer is'
+                             . ' worth.')) ?>">
+                        <?= h(__('This value is too common for MISP to'
+                            . ' correlate, so its individual reports'
+                            . ' were not read. A sighting could be newer'
+                            . ' than the date above.')) ?>
                     </div>
                 <?php endif; ?>
 
@@ -334,7 +402,12 @@ $ttl = $relevance['ttl'];
                                         ? __('unnamed')
                                         : $event['by']) ?>
                                 </span>
-                                <span class="vp-shelf-event-kind">
+                                <span class="vp-shelf-event-kind"<?=
+                                    isset($kindHints[$event['kind']])
+                                        ? ' title="' . h(
+                                            $kindHints[$event['kind']]
+                                        ) . '"'
+                                        : '' ?>>
                                     <?= h($kindLabels[$event['kind']]
                                         ?? $event['kind']) ?>
                                 </span>
@@ -345,9 +418,9 @@ $ttl = $relevance['ttl'];
                         <div class="vp-shelf-prov">
                             <?= h(sprintf(
                                 __n(
-                                    '%s earlier corroboration is not'
+                                    '%s earlier confirmation is not'
                                         . ' listed.',
-                                    '%s earlier corroborations are not'
+                                    '%s earlier confirmations are not'
                                         . ' listed.',
                                     count($events) - count($shown)
                                 ),
@@ -358,29 +431,37 @@ $ttl = $relevance['ttl'];
                 </div>
             <?php endif; ?>
 
-            <p class="vp-aside-note">
+            <?php
+            /*
+             * Four lines pointing at a chart in the next column, two of
+             * them spent on what *does not* move it. Kept, because the
+             * chart and this card are the same quantity drawn twice and
+             * a reader who misses that reads them as disagreeing — but
+             * at the length of a caption, with the false-positive rule
+             * on the hover rather than in its own sentence.
+             */
+            ?>
+            <p class="vp-aside-note"
+               title="<?= h(__('A false positive is drawn on that chart'
+                   . ' too. A report arguing against a value never'
+                   . ' extends its shelf life.')) ?>">
                 <?= h(__(
-                    'The line on the chart is this bar over time: its'
-                    . ' last point is the number above, and it steps'
-                    . ' back up on each of the dates listed here.'
-                )) ?>
-                <?= h(__(
-                    'A false positive or an expiration is drawn on that'
-                    . ' chart and resets nothing — a report arguing'
-                    . ' against the value cannot extend its shelf life.'
+                    'The chart plots this bar over time: it steps back'
+                    . ' up on each of the dates listed here, and never'
+                    . ' on a false positive.'
                 )) ?>
             </p>
 
             <?php if (!empty($relevance['sightings_excluded'])): ?>
-                <p class="vp-aside-note">
+                <p class="vp-aside-note"
+                   title="<?= h(__('The profile excludes sightings an'
+                       . ' organisation files on its own report.')) ?>">
                     <?= h(sprintf(
                         __n(
-                            'One self-sighting is not counted as'
-                                . ' corroboration, by this profile\'s'
-                                . ' own exclusion.',
-                            '%s self-sightings are not counted as'
-                                . ' corroboration, by this profile\'s'
-                                . ' own exclusion.',
+                            'One self-sighting does not count as a'
+                                . ' confirmation here.',
+                            '%s self-sightings do not count as'
+                                . ' confirmations here.',
                             $relevance['sightings_excluded']
                         ),
                         $relevance['sightings_excluded']
@@ -398,17 +479,20 @@ $ttl = $relevance['ttl'];
              */
             ?>
             <div class="vp-acl-note vp-acl-note-band">
-                <i class="fas fa-user-shield"></i>
+                <i class="fas fa-user-shield"
+                   title="<?= h(__('What your account is allowed to'
+                       . ' see')) ?>"></i>
                 <span><?= h($notes['policy']) ?></span>
             </div>
 
             <?php if ($relevance['profile'] !== null): ?>
-                <p class="vp-aside-note">
+                <p class="vp-aside-note"
+                   title="<?= h(__('The clock, the curve and the day'
+                       . ' counts per type are all profile'
+                       . ' settings.')) ?>">
                     <?= h(sprintf(
-                        __('Every number here comes from the %s profile:'
-                            . ' the clock, the curve and the per-type'
-                            . ' TTL are all settings an analyst can'
-                            . ' edit.'),
+                        __('Every number here is a setting of the %s'
+                            . ' profile, which an analyst can edit.'),
                         $relevance['profile']
                     )) ?>
                 </p>

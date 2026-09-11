@@ -723,11 +723,11 @@ class ValueRelevanceTool
         foreach ($reasons as $reason) {
             if ($reason['key'] === 'lag') {
                 $parts[] = sprintf(
-                    __('encoded %s days after the event\'s own dates'),
+                    __('added %s days after its event\'s date'),
                     $reason['days']
                 );
             } else {
-                $parts[] = __('no first_seen on any occurrence');
+                $parts[] = __('no first-seen date on any occurrence');
             }
         }
         return implode(__(' · '), $parts);

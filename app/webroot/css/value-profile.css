@@ -1384,6 +1384,22 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * The card trades sentences for hovers, so the hovers have to announce
+ * themselves: a `title` with a default cursor is a tooltip nobody
+ * finds. Same `help` cursor the caption glyphs and the threat figures
+ * already use.
+ */
+.vp-shelf[title],
+.vp-shelf [title],
+.vp-shelf-events [title],
+.vp-aside-note[title],
+.vp-aside-meta[title],
+.vp-aside-head > i[title],
+.vp-acl-note-band > i[title] {
+    cursor: help;
+}
+
+/*
  * The corroboration timeline: what reset this clock, most recent
  * first. §4.1 — the aggregation rule's second half is naming what
  * holds the number, and a value whose clock has moved four times is

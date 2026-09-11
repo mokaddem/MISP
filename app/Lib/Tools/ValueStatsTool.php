@@ -1377,11 +1377,15 @@ class ValueStatsTool
         }
         return array(
             'fp_moves_nothing' => $fp,
+            /*
+             * Count-neutral, because two panels print it and only one
+             * of them shows a count: the relevance card's copy claimed
+             * *this count is yours* beside no count at all.
+             */
             'policy' => __(
-                'Sightings you can see. This instance\'s sighting policy'
-                . ' hides sightings reported by other organisations on'
-                . ' events your organisation does not own, so this count'
-                . ' is yours, not the instance\'s.'
+                'Sightings you can see. This instance hides sightings'
+                . ' that other organisations reported on events your'
+                . ' organisation does not own.'
             ),
         );
     }

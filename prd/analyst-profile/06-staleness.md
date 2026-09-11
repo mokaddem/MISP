@@ -636,6 +636,54 @@ envelope more cheaply, it removed the problem the envelope existed for.
   the dips are the shelf life running down between corroborations
   rather than *"the dips between are decay"*.
 
+### 7.8 Requiring a fact is not requiring a paragraph. Revised 2026-09-11
+
+§3.4's *honest state required* and §3.6's *never a bare `uncertain`*
+were both read, while building, as instructions to print a sentence.
+They are not: they are instructions to make a fact recoverable. Read
+back on the live instance, the card carried **fourteen lines of
+explanation around ten lines of data** — and the explanation was where
+the jargon lived.
+
+Four lines were the engine's working rather than its answer:
+
+| Was | Is |
+|---|---|
+| `TTL 90 days from ip-dst, short bucket · shortest rule, over ip-src 90, text 180, ip-dst\|port 180` | `Set for ip-dst, in the short bucket — the shortest of its 4 types, which run 90 to 180 days.` (hover: the per-type list) |
+| `Last corroborated … — independent sighting · clock: last independent corroboration` | `Last confirmed … by … (independent sighting)` (hover: what the clock setting does) |
+| *"…measured from an encoding date, which is later than whatever it stands for — so it is a lower bound"* | *"Counted from when this was added to MISP, not when it was seen — … The real age is at least this, probably more."* |
+| Two sentences on the neighbouring chart, one of them on what does **not** move it | One sentence (hover: the false-positive rule) |
+
+**The rule the pass ran on:** a fact that answers *what is true* stays
+on the card; a fact that answers *how the engine got there* moves to the
+element's `title`. §3.4 is satisfied by naming the type and saying the
+others disagreed — the four `type days` pairs proving it are the hover.
+Nothing was deleted.
+
+`first_seen`, `encoding date` and `lower bound` were replaced with
+words that exist outside this codebase. MISP's own attribute form says
+**First seen**, so `no first-seen date on any occurrence` is the
+instance's vocabulary and `no first_seen on any occurrence` was never
+anything but a column name on screen. Reworded in `precisionNote()`, so
+the Lifecycle card and the profile bench inherit it.
+
+**Two defects the read-back caught, which no harness would have:**
+
+- The shared sighting policy note ended *"…so this count is yours, not
+  the instance's"*. Two panels print it and only one shows a count; on
+  the relevance card it referred to nothing. `sightingNotes()['policy']`
+  is count-neutral now.
+- `new organisation` and `independent sighting` — labels this card
+  invented, printed six to a list with no definition anywhere. They now
+  carry one on hover, which is the gap that motivated the pass rather
+  than a side effect of it.
+
+Every `title` added is paired with `cursor: help`, the affordance
+`.vp-rel-cap > i[title]` and the threat figures already use: a tooltip
+with a default cursor is a tooltip nobody finds, and this card now
+depends on being found. Card height on `8.8.8.8` fell 791px → 699px
+with no fact removed.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
