@@ -1224,6 +1224,17 @@ mentioned: a module it does not name resolves `unknown`, and every
 reader of `ModuleLocality` treats that as `external`. The tab says
 *unknown* rather than picking a side.
 
+> **Superseded 2026-09-12 (3.24).** The legend is gone. Its meanings
+> were `localityOptions()`' own labels at greater length, and both
+> halves of *what it does* had stopped being true: the tab labels no
+> module — `value_enrichment_rail.ctp` reads locality only to decide
+> which picks count toward *n queries leave this instance* — and it
+> does not say *unknown*, it counts unknown as leaving, which is what
+> every reader of `ModuleLocality` does. The one sentence that lived
+> only here, *configurable is not the same as local*, is in the
+> block's blurb; since 3.23 the meanings are on the row pills as
+> well.
+
 ### 7g.6 `inert` was dead metadata
 
 `max_age_hours` declared `'inert' => true` and no template read it, so

@@ -900,6 +900,41 @@ button reading *show all 20 types* / *show fewer*. No page errors.
 **Not done, and deliberately:** sorting unavailable rows last, and a
 picker that shows what an administrator has not enabled.
 
+### 3.24 — Enrichment: the locality legend goes · **done 2026-09-12**
+
+The glossary under *Where a module answers from* said one thing twice
+and one thing that had stopped being true.
+
+**Its meanings were the select's own labels.** `localityOptions()`
+reads `local — nothing about the value leaves this instance` and
+`external — asking tells somebody you do not control`; the legend
+restated both at greater length. That is the reverse of the run-state
+legend above it, whose labels are short on purpose because eight stack
+in one row and the effect is deferred downward (3.16). Two options
+whose labels already carry their test have nothing to defer.
+
+**Its effects had gone stale.** *Labelled local on the tab* and
+*labelled external on the tab* were written when the rail drew a
+locality beside each module. It does not:
+`value_enrichment_rail.ctp` reads locality only to decide which picks
+count toward *n queries leave this instance*. The closing note is
+worse — *the tab says unknown rather than picking a side* is the
+reverse of what the rail does, which flags unknown `1` and counts it
+as leaving, as every reader of `ModuleLocality` treats it.
+
+**One sentence was load-bearing and moved.** *Configurable is not the
+same as local: `dns` defaults to `8.8.8.8`* is the mistake this block
+invites — marking a module local because it could be — and it appeared
+nowhere a reader could see it but here. It is in the block's blurb
+now, beside the claim it is evidence for: locality cannot be derived.
+The example already there runs the other way — a module declaring no
+config that fetches a third-party site anyway — so the blurb now
+carries both directions.
+
+Since 3.23 the meanings are said where the choice is made, in the row
+pills' titles. The pane keeps the one legend under the table that
+needs one.
+
 
 ---
 

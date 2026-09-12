@@ -2120,15 +2120,17 @@ class AnalystProfileFormTool
                         'Overrides the shipped roster. Locality cannot'
                         . ' be derived — a module that declares no'
                         . ' config and no requirements may still fetch'
-                        . ' a third-party site — so it ships as'
-                        . ' knowledge and this is where you correct it.'
+                        . ' a third-party site, and configurable is not'
+                        . ' the same as local: dns defaults to 8.8.8.8,'
+                        . ' so it leaves the building on a deployment'
+                        . ' nobody has repointed. It ships as knowledge'
+                        . ' and this is where you correct it.'
                     ),
                     'key_label' => __('Module'),
                     'value_label' => __('Answers from'),
                     'empty_label' => __('No module overridden'),
                     'value_type' => 'select',
                     'value_options' => $this->localityOptions(),
-                    'value_legend' => $this->localityLegend(),
                     'path' => array('enrichment', 'locality'),
                     'entries' => $localityEntries,
                     'add' => array(
@@ -2569,65 +2571,6 @@ class AnalystProfileFormTool
             'note' => __('A module you say nothing about is not blocked'
                 . ' — it simply arrives unticked. Only "block it" takes'
                 . ' anything away.'),
-        );
-    }
-
-    /**
-     * What a locality answer means, and what it does in this profile.
-     *
-     * The same two halves `categoryLegend()` carries, for the same
-     * reason and with the same rule about where each comes from.
-     * *What it means* is a fact about the module and lives in
-     * `ModuleLocality`. *What it does* is the same in both cases and
-     * said once in the note: it labels the module wherever it is
-     * offered. Nothing here withholds anything — a locality is what a
-     * reader consults before pressing run, not a gate in front of the
-     * press.
-     *
-     * The third state is the one the map cannot hold: a module it does
-     * not name resolves `unknown`, and the tab says so rather than
-     * guessing a side.
-     *
-     * @return array
-     */
-    private function localityLegend()
-    {
-        return array(
-            'title' => __('What an answer means'),
-            'entries' => array(
-                array(
-                    'value' => ModuleLocality::LOCAL,
-                    'label' => __('local'),
-                    'meaning' => __(
-                        'Nothing about the value reaches a party the'
-                        . ' operator does not control: pure'
-                        . ' computation, a local file, or an endpoint'
-                        . ' that can only ever be their own.'
-                    ),
-                    'effect' => __('labelled local on the tab'),
-                ),
-                array(
-                    'value' => ModuleLocality::EXTERNAL,
-                    'label' => __('external'),
-                    'meaning' => __(
-                        'Asking tells somebody outside this instance'
-                        . ' that the value is being looked at.'
-                        . ' Configurable is not the same as local:'
-                        . ' dns defaults to 8.8.8.8, so it leaves the'
-                        . ' building on a deployment nobody has'
-                        . ' repointed.'
-                    ),
-                    'effect' => __('labelled external on the tab, and'
-                        . ' counted in the line that says how many of'
-                        . ' your ticked modules would leave'),
-                ),
-            ),
-            'note' => __(
-                'A module this map does not name resolves unknown, and'
-                . ' the tab says unknown rather than picking a side.'
-                . ' Correcting one here changes what the tab tells you'
-                . ' before you press run; it never decides for you.'
-            ),
         );
     }
 
