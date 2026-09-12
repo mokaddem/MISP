@@ -611,15 +611,89 @@ function boot() {
      * options ride on the add control because the block knows them and
      * the row does not yet exist.
      */
+    function jsonAttr(add, attribute) {
+        var raw = add.getAttribute(attribute);
+        if (!raw) {
+            return null;
+        }
+        try {
+            return JSON.parse(raw);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /*
+     * The option list a `<select>` gets, from a vocabulary that may be
+     * bare values or `value`/`label` pairs.
+     */
+    function fill(control, options, blank) {
+        if (blank !== null) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = blank;
+            control.appendChild(empty);
+        }
+        options.forEach(function (option) {
+            var node = document.createElement('option');
+            node.value = option && option.value !== undefined
+                ? option.value
+                : option;
+            node.textContent = option && option.label !== undefined
+                ? option.label
+                : node.value;
+            control.appendChild(node);
+        });
+    }
+
+    /*
+     * A declaration: one state per module the instance offers, drawn
+     * like the ones the server drew beside it.
+     *
+     * The map whose value is not a scalar, and so the one the fallback
+     * below could not draw — a type declared on the page got a text
+     * box, posted nothing, and was gone again by the time the page
+     * came back from the save. `__present` is what makes the row a
+     * declaration at all: the merge reads it as *this map was on
+     * screen*, and without it a row whose modules are all left at
+     * `not declared` is indistinguishable from a row never drawn.
+     */
+    function stateControl(add, name, modules, options) {
+        var box = document.createElement('div');
+        box.className = 'mod-states';
+        var present = document.createElement('input');
+        present.type = 'hidden';
+        present.name = name + '[__present]';
+        present.value = '1';
+        box.appendChild(present);
+        modules.forEach(function (module) {
+            var row = document.createElement('div');
+            row.className = 'mod-row';
+            var title = document.createElement('span');
+            title.className = 'wb-id';
+            title.textContent = module;
+            var control = document.createElement('select');
+            control.className = 'form-select form-select-sm';
+            fill(control, options, null);
+            control.name = name + '[' + module + ']';
+            control.setAttribute('data-ap-field', '1');
+            control.setAttribute('data-ap-was', '');
+            row.appendChild(title);
+            row.appendChild(control);
+            box.appendChild(row);
+        });
+        return box;
+    }
+
     function valueControl(add, name) {
         var kind = add.getAttribute('data-ap-add-type');
-        var raw = add.getAttribute('data-ap-add-options');
-        var options = null;
-        if (kind === 'select' && raw) {
-            try {
-                options = JSON.parse(raw);
-            } catch (e) {
-                options = null;
+        var options = kind === 'select' || kind === 'module_states'
+            ? jsonAttr(add, 'data-ap-add-options')
+            : null;
+        if (kind === 'module_states') {
+            var modules = jsonAttr(add, 'data-ap-add-modules');
+            if (modules && modules.length && options && options.length) {
+                return stateControl(add, name, modules, options);
             }
         }
         var control;
@@ -634,20 +708,7 @@ function boot() {
              * one. The browser refuses the save and the pane the box
              * is in opens itself — that is the `invalid` handler above.
              */
-            var blank = document.createElement('option');
-            blank.value = '';
-            blank.textContent = '—';
-            control.appendChild(blank);
-            options.forEach(function (option) {
-                var node = document.createElement('option');
-                node.value = option && option.value !== undefined
-                    ? option.value
-                    : option;
-                node.textContent = option && option.label !== undefined
-                    ? option.label
-                    : node.value;
-                control.appendChild(node);
-            });
+            fill(control, options, '—');
             control.required = true;
         } else {
             control = document.createElement('input');
@@ -742,7 +803,18 @@ function boot() {
             note.hidden = true;
         }
         add.value = '';
-        control.focus();
+        /*
+         * A declaration is a box of controls rather than one control,
+         * so the thing to put the cursor in is the first select inside
+         * it — `focus()` on a div does nothing and would leave the
+         * analyst's next keystroke in the picker they just used.
+         */
+        var first = control.matches && control.matches('select, input')
+            ? control
+            : control.querySelector('select, input:not([type=hidden])');
+        if (first) {
+            first.focus();
+        }
         mark();
         price();
         return control;

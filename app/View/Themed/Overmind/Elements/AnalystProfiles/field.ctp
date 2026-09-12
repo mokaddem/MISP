@@ -233,7 +233,9 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
     $states = is_array($value) ? $value : array();
     $built = isset($field['states_built'])
         ? $field['states_built']
-        : $field['state_options'];
+        : array_map(function ($option) {
+            return is_array($option) ? $option['value'] : $option;
+        }, $field['state_options']);
     $unavailable = isset($field['unavailable']) ? $field['unavailable'] : array();
     ?>
     <div class="mod-states">
@@ -261,21 +263,53 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                                 $path,
                                 array_merge($extra, array($module))
                             )) ?>">
-                        <option value=""><?= h(__('not declared')) ?></option>
                         <?php foreach ($field['state_options'] as $option): ?>
-                            <option value="<?= h($option) ?>"
-                                <?= $state === $option ? 'selected' : '' ?>
-                                <?= in_array($option, $built, true)
-                                    ? '' : 'data-ap-inert="1"' ?>>
-                                <?= h($option) ?><?= in_array($option, $built, true)
-                                    ? '' : ' — ' . h(__('declared, not run')) ?>
-                            </option>
+                            <?php
+                            /*
+                             * The blank is one of the options rather
+                             * than a hardcoded first row: it is a
+                             * state the document can be in, and what
+                             * it resolves to is a thing the label has
+                             * to be able to say.
+                             */
+                            $stateValue = is_array($option)
+                                ? $option['value']
+                                : $option;
+                            $stateLabel = is_array($option)
+                                && isset($option['label'])
+                                ? $option['label']
+                                : $stateValue;
+                            $runs = $stateValue === ''
+                                || in_array($stateValue, $built, true);
+                            ?>
+                            <option value="<?= h($stateValue) ?>"
+                                <?= (string)$state === (string)$stateValue
+                                    ? 'selected' : '' ?>
+                                <?= $runs ? '' : 'data-ap-inert="1"' ?>
+                                ><?= h($stateLabel) ?></option>
                         <?php endforeach; ?>
                     </select>
                 <?php else: ?>
-                    <span class="wb-sub"><?= $state === ''
-                        ? h(__('not declared'))
-                        : h($state) ?></span>
+                    <?php
+                    /*
+                     * The label the picker would have shown. A reader
+                     * deciding whether to fork a profile is owed the
+                     * same wording as the analyst editing it.
+                     */
+                    $readableState = $state === ''
+                        ? __('not declared')
+                        : (string)$state;
+                    foreach ($field['state_options'] as $option) {
+                        if (is_array($option)
+                            && (string)$option['value'] === (string)$state
+                            && isset($option['label'])
+                        ) {
+                            $readableState = $option['label'];
+                            break;
+                        }
+                    }
+                    ?>
+                    <span class="wb-sub"><?= h($readableState) ?></span>
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>

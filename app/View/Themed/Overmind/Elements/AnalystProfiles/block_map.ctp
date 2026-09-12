@@ -87,6 +87,16 @@ $valueOptions = isset($block['value_options'])
     : null;
 
 /*
+ * And the rows that control repeats. A `module_states` value is one
+ * select per module the instance offers, so the page needs the roster
+ * as well as the vocabulary before it can draw the row the server
+ * would have drawn.
+ */
+$valueModules = isset($block['value_modules'])
+    ? json_encode(array_values($block['value_modules']))
+    : null;
+
+/*
  * What each option is worth, for a map whose values are priced
  * elsewhere in the same section. Carried on the container rather than
  * per row so the page can repaint every row when the price changes,
@@ -166,10 +176,21 @@ $hasRows = !empty($block['entries']);
 $canAdd = $editable && !empty($block['add']);
 ?>
 <?php if (!$hasRows || $canAdd): ?>
+    <?php
+    /*
+     * A map says it is empty in its own words where it has any. The
+     * generated sentence is `No <value column> set`, which reads only
+     * while that column header happens to be a plain noun: *Means*
+     * gave **No means set** and *Answers from* gave **No answers from
+     * set**. The header names a column, not the thing the map holds,
+     * so a block that knows what its rows are says it.
+     */
+    $emptyLabel = !empty($block['empty_label'])
+        ? $block['empty_label']
+        : sprintf(__('No %s set'), strtolower($block['value_label']));
+    ?>
     <div class="wb-empty" data-ap-map-empty="1" <?= $hasRows ? 'hidden' : '' ?>>
-        <div class="fw-semibold"><?= h(sprintf(
-            __('No %s set'), strtolower($block['value_label'])
-        )) ?></div>
+        <div class="fw-semibold"><?= h($emptyLabel) ?></div>
         <p class="mb-0 mt-1"><?= h(__('An empty map is not a gap. It means'
             . ' this profile overrides nothing here, and everything'
             . ' takes the behaviour it would have had without the'
@@ -375,7 +396,9 @@ $canAdd = $editable && !empty($block['add']);
                         data-ap-pick-none="<?= h(__('no match')) ?>"
                     <?php endif; ?>
                     <?= $valueOptions === null ? '' :
-                        'data-ap-add-options="' . h($valueOptions) . '"' ?>>
+                        'data-ap-add-options="' . h($valueOptions) . '"' ?>
+                    <?= $valueModules === null ? '' :
+                        'data-ap-add-modules="' . h($valueModules) . '"' ?>>
                 <option value=""><?= h(__('pick one…')) ?></option>
                 <?php foreach ($block['add']['options'] as $option): ?>
                     <option value="<?= h($option) ?>"><?= h($option) ?></option>
@@ -393,6 +416,8 @@ $canAdd = $editable && !empty($block['add']);
                    data-ap-add-source="<?= h($block['add']['source']) ?>"
                    <?= $valueOptions === null ? '' :
                        'data-ap-add-options="' . h($valueOptions) . '"' ?>
+                   <?= $valueModules === null ? '' :
+                       'data-ap-add-modules="' . h($valueModules) . '"' ?>
                    placeholder="<?= h(__('search…')) ?>">
         <?php endif; ?>
         <span class="wb-sub"><?= h(__('added rows are saved with the'

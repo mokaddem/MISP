@@ -1320,7 +1320,16 @@ input.num[type="number"]::-webkit-inner-spin-button {
     gap: .4rem;
     font-size: .75rem;
 }
-.mod-row .form-select { max-width: 9rem; }
+/*
+ * The name column is fixed and the state box takes the rest. Both
+ * halves of that matter: the names run from `whois` to
+ * `circl_passivedns`, so a flex row put every select at a different x
+ * and a column of eight read as a staircase; and the 9rem cap the box
+ * had was set when a state was the single word `ticked`, so a label
+ * that says what the state *does* was cut off at `ticked — the sa`.
+ */
+.mod-row .wb-id { flex: 0 0 10.5rem; }
+.mod-row .form-select { flex: 0 1 22rem; max-width: 22rem; }
 .mod-row.is-off { opacity: .6; }
 
 /* A bucket's types, as chips that toggle. */

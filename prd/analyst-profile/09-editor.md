@@ -1134,6 +1134,138 @@ on the page. The organisation picker is unchanged through the same
 shared code — name over uuid, the full-uuid fallback still offered,
 nothing offered on an empty box.
 
+## 7g. The same pass on the enrichment section, 2026-09-12
+
+§7f's finding stated generally — *a control that takes a value is not
+finished until the page says what the value is* — applied to the one
+remaining section with real UI in it. Seven things, and the worst of
+them is not a wording problem: **declaring a type did nothing at all.**
+
+### 7g.1 A row the page added could not be saved
+
+`Declare modules for a type` picked a type, drew a row, and lost it on
+save. `valueControl()` builds the row's control from
+`data-ap-add-type`, and it knows `select`, `int` and `float`; anything
+else falls back to a text box. `auto_run`'s value is `module_states` —
+**the only map in the editor whose value is not a scalar** — so the row
+got one empty text input named `…[auto_run][hostname]`, the merge drops
+an empty value, and the type was gone by the time the page came back.
+Measured before the fix: the added row contained **0** controls, and a
+save wrote nothing.
+
+This is §7f.1's third bullet in the place it had not been looked for.
+There the row the page added took a *typed grade* where the server drew
+a select; here it takes nothing at all.
+
+**The page now draws the declaration the server would have drawn.** The
+block carries the module roster and the state vocabulary
+(`value_modules`, `value_options`), and the row is one `<select>` per
+module plus the `__present` marker that makes it a declaration rather
+than an absence. Verified by geometry rather than by presence: the
+name column and the state box in a page-built row sit at the same `x`
+and the same width as the server-drawn row above it, and the posted
+names match (`…[auto_run][url][__present]`,
+`…[auto_run][url][circl_passivedns]`).
+
+### 7g.2 The picker was 194 types in `typeDefinitions` order
+
+Worse than §7f.7's warninglists on the count and worse again on the
+order: the lists were at least alphabetical, and this select opens
+`md5, sha1, sha256, filename, pdb`, so there is no scanning strategy
+at all. It declares `search` now and gets §7f.7's narrowing box —
+`hostname` cuts 192 offered types to two.
+
+### 7g.3 Every vocabulary in the section was its stored key
+
+`local_only`, `allow_external`, `local`, `external`, `ticked`, `never`.
+Six words, one of them snake_case, none of them saying what choosing it
+does — §7f.2 and §7f.6 in a third place.
+
+The three take different amounts of wording, and the amount is set by
+the box, not by the vocabulary:
+
+- **The posture is two words and stays two words.** It sits in a 230px
+  grid cell with its own sentence underneath already saying which
+  modules the posture is about. `local only` and `allow external`
+  mislead nobody — unlike `known`, they were simply never spelt — so
+  the label de-keys them and stops.
+- **Locality carries the test**, as the category options do:
+  `external — asking tells somebody you do not control`. Its column is
+  full width and the wrong test is the one an analyst will otherwise
+  apply — `dns` runs here and asks `8.8.8.8`.
+- **The run states carry a short phrase and a legend carries the
+  rest**, because eight of them stack in one row.
+
+### 7g.4 Two of the run states are the same state
+
+`stateFor()` returns `ticked` for a module the declaration does not
+name, so the blank option and `ticked` resolve identically — the select
+offered both and said nowhere that one is a no-op you have chosen to
+write down. And `never` is not the mirror of ticked: it is checked
+again at the run endpoint, because a disabled checkbox is not a guard
+(D17), so it is the only state that takes anything away. Both facts are
+now in the labels and the legend under the table.
+
+### 7g.5 Nothing said what a locality answer does
+
+Same shape as §7f.6, same rule about where each half comes from. What
+`local` means is a fact about the module and is quoted from
+`ModuleLocality`. What it *does* is a fact about this document, and the
+setting that decides it is two fields above: under `local only` an
+external module is **withheld from the selection and still runnable by
+hand**, and under `allow external` this entire map decides nothing
+about what is offered. The legend reads the posture out of the plan and
+says which of those is true — verified by flipping the profile's
+posture and reading the legend change.
+
+The third state is the one the map cannot hold and the page never
+mentioned: a module it does not name resolves `unknown`, and
+`local only` treats that exactly as `external`. So an incomplete map
+errs towards not asking, which is the safe direction and worth saying.
+
+### 7g.6 `inert` was dead metadata
+
+`max_age_hours` declared `'inert' => true` and no template read it, so
+the reuse window was a box holding `24` that looked exactly like the
+settings around it that do something. A number nobody reads is worse
+than an absent one, because it reads as a decision somebody made. It is
+marked `not in force` beside the label now, in the grey tone and not
+the red one — a window that governs nothing yet is a fact, not a fault
+— and the flag is read out of `planFor()`'s own `reuse_inert` rather
+than asserted in the editor, so the day somebody builds the store the
+pill goes away on its own.
+
+### 7g.7 Two smaller ones
+
+**The empty note was assembled from a column header.** `No %s set`
+built from `value_label` reads only while that header happens to be a
+plain noun: *Answers from* gave **No answers from set** and *Means*
+gave **No means set**. A block says it in its own words now
+(`empty_label`), and the two that read as nonsense are fixed — the
+reference pane's included, since it is the same line of code and it was
+the example.
+
+**`Modules per type` was the only block in the section with no blurb** —
+the pane's main setting, explaining nothing. It now says the thing an
+analyst has to know before touching it: a type this map does not carry
+is not restricted, so declaring one is how you *narrow* it, not how you
+enable it.
+
+### What was checked
+
+Against the running instance, on a profile temporarily given two
+declared types and two locality overrides, then restored byte-identical
+to its snapshot: the state column lines up and no label is cut off; a
+type added through the typeahead draws 8 module selects, focuses the
+first, and survives a save and reload carrying `never`; clearing a
+module to *not declared* removes it from the declaration; a locality
+edit and a posture change round-trip and the legend follows the
+posture. With the maps empty again: the notes read *No type declared*
+and *No module overridden*, both pickers are filter boxes, the reuse
+window says *not in force*, both legends render, the reference pane
+still offers 97 warninglists, every other pane opens, and the read-only
+viewer loads. No JavaScript errors anywhere in that.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

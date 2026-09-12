@@ -1541,6 +1541,7 @@ class AnalystProfileFormTool
                     ),
                     'key_label' => __('Warninglist'),
                     'value_label' => __('Means'),
+                    'empty_label' => __('No list overridden'),
                     'value_type' => 'select',
                     'value_options' => $this->categoryLabelOptions(),
                     'value_legend' => $this->categoryLegend($parameters),
@@ -1919,9 +1920,10 @@ class AnalystProfileFormTool
          * shape and the pre-D17 list, so the entries are built from
          * its output rather than from the raw section.
          */
-        $statesByType = ValueEnrichmentTool::planFor(
+        $plan = ValueEnrichmentTool::planFor(
             array('enrichment' => $section)
-        )['auto_run'];
+        );
+        $statesByType = $plan['auto_run'];
         $autoEntries = array();
         foreach ($statesByType as $type => $states) {
             $names = array_keys($states);
@@ -1933,7 +1935,7 @@ class AnalystProfileFormTool
                 'options' => empty($modules)
                     ? $names
                     : array_keys($modules),
-                'state_options' => ValueEnrichmentTool::states(),
+                'state_options' => $this->stateOptions(),
                 'states_built' => ValueEnrichmentTool::statesBuilt(),
                 'unavailable' => empty($modules)
                     ? array()
@@ -1949,10 +1951,7 @@ class AnalystProfileFormTool
                 'label' => (string)$name,
                 'value' => $where,
                 'type' => 'select',
-                'options' => array(
-                    ModuleLocality::LOCAL,
-                    ModuleLocality::EXTERNAL,
-                ),
+                'options' => $this->localityOptions(),
                 'shipped' => ModuleLocality::shippedFor((string)$name),
                 'path' => array('enrichment', 'locality', (string)$name),
             );
@@ -1975,7 +1974,7 @@ class AnalystProfileFormTool
                             'key' => 'locality_posture',
                             'label' => __('Modules that may be offered'),
                             'type' => 'select',
-                            'options' => ValueEnrichmentTool::postures(),
+                            'options' => $this->postureOptions(),
                             'value' => isset($section['locality_posture'])
                                 ? $section['locality_posture']
                                 : (isset($section['cost_posture'])
@@ -2008,11 +2007,23 @@ class AnalystProfileFormTool
                             'default' =>
                                 ValueEnrichmentTool::DEFAULT_MAX_AGE_HOURS,
                             'help' => __(
-                                'Inert: there is no store of module'
-                                . ' answers, so nothing is reused and'
-                                . ' this window governs nothing yet.'
+                                'There is no store of module answers,'
+                                . ' so nothing is reused and this'
+                                . ' window governs nothing yet. It is'
+                                . ' kept because a document that names'
+                                . ' the window is what a store would'
+                                . ' read on the day there is one.'
                             ),
-                            'inert' => true,
+                            /*
+                             * Read out of the plan rather than
+                             * asserted here: `planFor()` is what
+                             * decides there is no cache, and a second
+                             * copy of that judgement in the editor is
+                             * a box that keeps saying *inert* for a
+                             * week after somebody builds the store.
+                             */
+                            'inert' => !empty($plan['reuse_inert']),
+                            'inert_note' => __('not in force'),
                             'path' => array('enrichment', 'max_age_hours'),
                         ),
                     ),
@@ -2021,14 +2032,49 @@ class AnalystProfileFormTool
                     'kind' => 'map',
                     'id' => 'auto_run',
                     'title' => __('Modules per type'),
+                    'blurb' => __(
+                        'A declaration names a state per module for'
+                        . ' one attribute type. A type this map does'
+                        . ' not carry is not restricted by the'
+                        . ' profile: every module the instance offers'
+                        . ' arrives ticked, so declaring a type is how'
+                        . ' you narrow it rather than how you enable'
+                        . ' it.'
+                    ),
                     'key_label' => __('Attribute type'),
                     'value_label' => __('Modules'),
+                    'empty_label' => __('No type declared'),
+                    'value_legend' => $this->stateLegend(),
                     'value_type' => 'module_states',
+                    /*
+                     * What the page needs to draw this row itself.
+                     * Without them the row it adds is a bare text box
+                     * — the control `valueControl()` falls back to
+                     * when it recognises no vocabulary — so declaring
+                     * a type posted an empty value, the merge dropped
+                     * the key, and the type was gone by the time the
+                     * page came back. Exactly §7f.1's *the row the
+                     * page added took a typed grade*, in the one map
+                     * whose value is not a scalar.
+                     */
+                    'value_options' => $this->stateOptions(),
+                    'value_modules' => array_keys($modules),
                     'path' => array('enrichment', 'auto_run'),
                     'entries' => $autoEntries,
                     'add' => array(
                         'label' => __('Declare modules for a type'),
                         'source' => 'attribute_types',
+                        /*
+                         * 194 of them, and — unlike the warninglists —
+                         * in `typeDefinitions` order rather than
+                         * alphabetical, so `md5, sha1, sha256,
+                         * filename, pdb` is where the list starts and
+                         * there is no scanning strategy at all. The
+                         * whole roster still fits in the page; what
+                         * does not fit is reading it.
+                         */
+                        'search' => true,
+                        'placeholder' => __('filter attribute types…'),
                         'options' => $this->unusedKeys($types, $autoRun),
                     ),
                 ),
@@ -2045,22 +2091,274 @@ class AnalystProfileFormTool
                     ),
                     'key_label' => __('Module'),
                     'value_label' => __('Answers from'),
+                    'empty_label' => __('No module overridden'),
                     'value_type' => 'select',
-                    'value_options' => array(
-                        ModuleLocality::LOCAL,
-                        ModuleLocality::EXTERNAL,
-                    ),
+                    'value_options' => $this->localityOptions(),
+                    'value_legend' => $this->localityLegend($plan),
                     'path' => array('enrichment', 'locality'),
                     'entries' => $localityEntries,
                     'add' => array(
                         'label' => __('Override a module'),
                         'source' => 'modules',
                         'search' => true,
+                        'placeholder' => __('filter modules…'),
                         'options' => $this->unusedKeys(
                             array_keys($modules), $locality),
                     ),
                 ),
             ),
+        );
+    }
+
+    /**
+     * The posture, as a picker can offer it.
+     *
+     * `local_only` and `allow_external` are the stored keys and they
+     * were also the whole label, which asks the reader to already know
+     * what *external* is a posture about. It is not about cost and not
+     * about the module being remote: it is about whether **asking
+     * tells somebody outside this instance that this value is being
+     * looked at**, which is the sentence the field's help gives and
+     * the option never did.
+     *
+     * Words and not the stored key, and no more than that: this box
+     * sits in a 230px grid cell with its own sentence underneath
+     * already saying which modules the posture is about, so a label
+     * carrying the test as well would only be the test with its end
+     * cut off. Unlike `known`/`false_positive`, neither word here
+     * misleads — they were simply never spelt.
+     *
+     * Separate from `ValueEnrichmentTool::postures()`, which stays a
+     * list of bare keys because the engine and `enrichmentErrors()`
+     * validate against it.
+     *
+     * @return array `value`/`label` pairs
+     */
+    private function postureOptions()
+    {
+        return array(
+            array(
+                'value' => ValueEnrichmentTool::POSTURE_LOCAL,
+                'label' => __('local only'),
+            ),
+            array(
+                'value' => ValueEnrichmentTool::POSTURE_EXTERNAL,
+                'label' => __('allow external'),
+            ),
+        );
+    }
+
+    /**
+     * The two localities, each carrying the test that decides it.
+     *
+     * `ModuleLocality`'s membership question — *does anything about
+     * this value reach a party the instance operator does not
+     * control?* — is what an analyst overriding the shipped roster is
+     * actually answering, and `local`/`external` on their own invite
+     * the wrong test: that a module is local when it runs here, when
+     * `dns` runs here and asks `8.8.8.8`.
+     *
+     * @return array `value`/`label` pairs
+     */
+    private function localityOptions()
+    {
+        return array(
+            array(
+                'value' => ModuleLocality::LOCAL,
+                'label' => __('local — nothing about the value leaves'
+                    . ' this instance'),
+            ),
+            array(
+                'value' => ModuleLocality::EXTERNAL,
+                'label' => __('external — asking tells somebody you do'
+                    . ' not control'),
+            ),
+        );
+    }
+
+    /**
+     * The run states, each saying what it actually changes.
+     *
+     * Three words that look like three behaviours and are not.
+     * `stateFor()` returns `ticked` for a module the declaration does
+     * not name, so **the blank option and `ticked` resolve to the same
+     * thing** — the select offered both and said nowhere that one of
+     * them is a no-op you have chosen to write down. `never` is the
+     * only state that takes anything away, and it is taken away at the
+     * run endpoint rather than by unticking a box
+     * (`ValueEnrichmentTool::refuses()`), which is worth saying
+     * because it is the difference between a default and a refusal.
+     * `auto` is declarable and inert (D15/D17).
+     *
+     * Short, because eight of these stack in one row and a label long
+     * enough to explain itself is a label the box cuts off. The rest
+     * goes under the table, which is `categoryLegend()`'s division
+     * again: the option carries enough to choose by, the legend
+     * carries what it does.
+     *
+     * @return array `value`/`label` pairs, blank first
+     */
+    private function stateOptions()
+    {
+        return array(
+            array(
+                'value' => '',
+                'label' => __('not declared — offered ticked'),
+            ),
+            array(
+                'value' => ValueEnrichmentTool::STATE_TICKED,
+                'label' => __('ticked — the same, written down'),
+            ),
+            array(
+                'value' => ValueEnrichmentTool::STATE_NEVER,
+                'label' => __('never — a run is refused'),
+            ),
+            array(
+                'value' => ValueEnrichmentTool::STATE_AUTO,
+                'label' => __('auto — declared, not run'),
+            ),
+        );
+    }
+
+    /**
+     * What the four run states do, under the table that offers them.
+     *
+     * Two of them are the same behaviour and one of them is not a
+     * behaviour at all, which is not a thing four words in a select
+     * can carry. The one worth reading twice is `never`: every other
+     * state decides whether a box arrives ticked, and `never` is
+     * checked again at the run endpoint, because a disabled checkbox
+     * is not a guard (D17).
+     *
+     * @return array
+     */
+    private function stateLegend()
+    {
+        return array(
+            'title' => __('What a state does'),
+            'entries' => array(
+                array(
+                    'value' => '',
+                    'label' => __('not declared'),
+                    'meaning' => __(
+                        'The profile says nothing about this module'
+                        . ' for this type, and a module it says'
+                        . ' nothing about is offered ticked. Leaving a'
+                        . ' row alone is not the same as refusing it.'
+                    ),
+                    'effect' => __('the same as ticked, and the state'
+                        . ' a saved row returns to when you clear it'),
+                ),
+                array(
+                    'value' => ValueEnrichmentTool::STATE_TICKED,
+                    'label' => __('ticked'),
+                    'meaning' => __(
+                        'The same outcome, written down. Worth writing'
+                        . ' where you want the declaration to say so'
+                        . ' rather than leave it to the default.'
+                    ),
+                    'effect' => __('offered ticked, subject to the'
+                        . ' posture above'),
+                ),
+                array(
+                    'value' => ValueEnrichmentTool::STATE_NEVER,
+                    'label' => __('never'),
+                    'meaning' => __(
+                        'The only state that takes something away, and'
+                        . ' the only one enforced away from this page:'
+                        . ' a run started by hand is refused too, not'
+                        . ' merely left unticked.'
+                    ),
+                    'effect' => __('refused, and said so on the value'
+                        . ' tab rather than silently missing'),
+                ),
+                array(
+                    'value' => ValueEnrichmentTool::STATE_AUTO,
+                    'label' => __('auto'),
+                    'meaning' => __(
+                        'Declarable and not implemented. There is no'
+                        . ' store of what ran when, so nothing runs'
+                        . ' without a press.'
+                    ),
+                    'effect' => __('stored, and read as ticked until'
+                        . ' something implements it'),
+                ),
+            ),
+            'note' => __('Only modules this instance offers are listed.'
+                . ' A declaration naming one it does not keeps its row'
+                . ' and says so — the profile may be somebody'
+                . " else's."),
+        );
+    }
+
+    /**
+     * What a locality answer means, and what it does in this profile.
+     *
+     * The same two halves `categoryLegend()` carries, for the same
+     * reason and with the same rule about where each comes from.
+     * *What it means* is a fact about the module and lives in
+     * `ModuleLocality`. *What it does* is a fact about **this**
+     * document: the posture two fields above is what turns a locality
+     * into a decision, and a profile set to `allow_external` is one
+     * where this entire map currently decides nothing about what is
+     * offered. That is the state most worth knowing before editing it,
+     * and it is invisible unless the legend reads the posture.
+     *
+     * The third state is the one the map cannot hold. A module it does
+     * not name resolves `unknown`, and `local_only` treats that
+     * exactly as `external` — so an incomplete map errs towards not
+     * asking, which is the safe direction and nowhere on the page.
+     *
+     * @param array $plan From `ValueEnrichmentTool::planFor()`
+     * @return array
+     */
+    private function localityLegend(array $plan)
+    {
+        $local = $plan['posture'] === ValueEnrichmentTool::POSTURE_LOCAL;
+        return array(
+            'title' => __('What an answer means, and what it does here'),
+            'entries' => array(
+                array(
+                    'value' => ModuleLocality::LOCAL,
+                    'label' => __('local'),
+                    'meaning' => __(
+                        'Nothing about the value reaches a party the'
+                        . ' operator does not control: pure'
+                        . ' computation, a local file, or an endpoint'
+                        . ' that can only ever be their own.'
+                    ),
+                    'effect' => $local
+                        ? __('offered for selection under the posture'
+                            . ' in force')
+                        : __('offered — as everything is, under this'
+                            . " profile's posture"),
+                ),
+                array(
+                    'value' => ModuleLocality::EXTERNAL,
+                    'label' => __('external'),
+                    'meaning' => __(
+                        'Asking tells somebody outside this instance'
+                        . ' that the value is being looked at.'
+                        . ' Configurable is not the same as local:'
+                        . ' dns defaults to 8.8.8.8, so it leaves the'
+                        . ' building on a deployment nobody has'
+                        . ' repointed.'
+                    ),
+                    'effect' => $local
+                        ? __('withheld from the selection — a run'
+                            . ' started by hand still works')
+                        : __('nothing is withheld for locality under'
+                            . " this profile's posture"),
+                ),
+            ),
+            'note' => $local
+                ? __('A module this map does not name resolves'
+                    . ' unknown, and local only treats that exactly as'
+                    . ' external. An incomplete map errs towards not'
+                    . ' asking.')
+                : __('The posture above is allow external, so this map'
+                    . ' currently changes nothing about what is'
+                    . ' offered. It still records what you know.'),
         );
     }
 

@@ -40,6 +40,32 @@
         <div class="wb-field">
             <label for="<?= h(AnalystProfileFormTool::fieldId($field['path'])) ?>">
                 <?= h($field['label']) ?>
+                <?php
+                /*
+                 * A setting nothing reads yet, marked where the eye
+                 * lands rather than only in the sentence underneath.
+                 * `inert` was declared on the field and read by
+                 * nothing, so the reuse window looked exactly like the
+                 * settings around it that do something — and a box
+                 * holding `24` that governs nothing is worse than an
+                 * absent one, because it reads as a decision somebody
+                 * made.
+                 */
+                ?>
+                <?php if (!empty($field['inert'])): ?>
+                    <?php
+                    /*
+                     * `t-off` and not `t-missing`: the red one is for
+                     * a module this instance does not have, which is a
+                     * problem. A window that governs nothing yet is
+                     * not a problem, it is a fact.
+                     */
+                    ?>
+                    <span class="pill t-off"><?= h(
+                        isset($field['inert_note'])
+                            ? $field['inert_note']
+                            : __('not in force')) ?></span>
+                <?php endif; ?>
             </label>
             <div class="wb-inline">
                 <?= $this->element('AnalystProfiles/field', array(
