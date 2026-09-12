@@ -1420,10 +1420,7 @@ class AnalystProfileFormTool
                 'missing' => !isset($orgs[$uuid]),
                 'value' => $grade,
                 'type' => 'select',
-                'options' => array_merge(
-                    ValueTrustTool::GRADES,
-                    array(ValueTrustTool::UNRATED)
-                ),
+                'options' => $this->gradeOptions(),
                 'path' => array('reference', 'org_trust', (string)$uuid),
             );
         }
@@ -1431,7 +1428,7 @@ class AnalystProfileFormTool
         foreach (ValueTrustTool::DEFAULT_SCALE as $grade => $factor) {
             $scaleFields[] = array(
                 'key' => (string)$grade,
-                'label' => (string)$grade,
+                'label' => $this->gradeLabel((string)$grade),
                 'type' => 'float',
                 'value' => isset($scale[$grade]) ? $scale[$grade] : null,
                 'default' => $factor,
@@ -1481,14 +1478,25 @@ class AnalystProfileFormTool
                     'key_label' => __('Organisation'),
                     'value_label' => __('Grade'),
                     'value_type' => 'select',
+                    'value_options' => $this->gradeOptions(),
                     'path' => array('reference', 'org_trust'),
                     'entries' => $trustEntries,
                     'add' => array(
                         'label' => __('Grade an organisation'),
                         'source' => 'orgs',
+                        /*
+                         * The only map here whose keys are not a list
+                         * the page can hold. An instance carries
+                         * thousands of organisations and the key is a
+                         * uuid, so both a picker listing them all and a
+                         * box taking one typed by hand are out — §4's
+                         * restraint about what is *rendered* applied to
+                         * what is *offered*. The names come one query
+                         * at a time and the row keeps the uuid.
+                         */
                         'search' => true,
-                        'options' => $this->unusedKeys(
-                            array_keys($orgs), $trust),
+                        'placeholder' => __('search organisations…'),
+                        'options' => array(),
                     ),
                 ),
                 array(
@@ -1514,6 +1522,7 @@ class AnalystProfileFormTool
                     'key_label' => __('Warninglist'),
                     'value_label' => __('Means'),
                     'value_type' => 'select',
+                    'value_options' => $this->categoryOptions(),
                     'path' => array('reference', 'warninglist_category'),
                     'entries' => $categoryEntries,
                     'add' => array(
@@ -1526,6 +1535,53 @@ class AnalystProfileFormTool
                 ),
             ),
         );
+    }
+
+    /**
+     * The admiralty grades, each one saying what it is.
+     *
+     * `A` through `G` and `unrated` are the whole vocabulary, and a
+     * list of eight letters is a list of eight things the analyst has
+     * to already know. The two that most need saying out loud are the
+     * two a reader guesses wrong: `F` looks like the bottom of an
+     * A–G scale and means *reliability cannot be judged*, which is
+     * neutral, and `G` looks like the step below it and is not a
+     * quality judgement at all.
+     *
+     * @return array `value`/`label` pairs, in scale order
+     */
+    private function gradeOptions()
+    {
+        $options = array();
+        $grades = array_merge(ValueTrustTool::GRADES,
+            array(ValueTrustTool::UNRATED));
+        foreach ($grades as $grade) {
+            $options[] = array(
+                'value' => $grade,
+                'label' => $this->gradeLabel($grade),
+            );
+        }
+        return $options;
+    }
+
+    /**
+     * One grade, as the letter and what it means.
+     *
+     * The letter stays in front because it is what the document
+     * stores, what the ledger's evidence line prints, and what an
+     * analyst comparing this pane against the `admiralty-scale`
+     * taxonomy is looking for.
+     *
+     * @param string $grade
+     * @return string
+     */
+    private function gradeLabel($grade)
+    {
+        if (!isset(ValueTrustTool::GRADE_LABELS[$grade])) {
+            return (string)$grade;
+        }
+        return sprintf('%s — %s', $grade,
+            __(ValueTrustTool::GRADE_LABELS[$grade]));
     }
 
     /**
@@ -1726,6 +1782,10 @@ class AnalystProfileFormTool
                     'key_label' => __('Module'),
                     'value_label' => __('Answers from'),
                     'value_type' => 'select',
+                    'value_options' => array(
+                        ModuleLocality::LOCAL,
+                        ModuleLocality::EXTERNAL,
+                    ),
                     'path' => array('enrichment', 'locality'),
                     'entries' => $localityEntries,
                     'add' => array(

@@ -36,6 +36,41 @@ if (($block['value_type'] ?? null) === 'types') {
  * belonged to was to print the bucket's name again.
  */
 $keyField = !empty($block['key_field_label']);
+
+/*
+ * A source too large to offer as a list is offered as a query instead.
+ * Organisations are the one: the key is a uuid, the instance holds
+ * thousands, and the control that was here asked the analyst to type
+ * the uuid — a picker in name and a free-text box in fact.
+ *
+ * The endpoint is the dashboard's, already ACL'd to every user and
+ * already capped at fifty rows, rather than a second one written to
+ * say the same thing. A source with no entry here keeps the list it
+ * had; only the ones named are queried.
+ */
+$searchUrl = null;
+if (!empty($block['add']['search']) && !empty($block['add']['source'])) {
+    $endpoints = array(
+        'orgs' => array(
+            'controller' => 'dashboards',
+            'action' => 'searchOrganisations',
+            'ext' => 'json',
+        ),
+    );
+    $source = $block['add']['source'];
+    if (isset($endpoints[$source])) {
+        $searchUrl = $this->Html->url($endpoints[$source]);
+    }
+}
+
+/*
+ * The control a row's value gets when the page adds the row, as
+ * against when the server draws it. Without this the row added on the
+ * page is the one place in the editor where a grade is typed.
+ */
+$valueOptions = isset($block['value_options'])
+    ? json_encode($block['value_options'])
+    : null;
 ?>
 <div class="ap-map">
 <?php if ($datalist !== null): ?>
@@ -88,8 +123,19 @@ $keyField = !empty($block['key_field_label']);
            value="1">
 <?php endif; ?>
 
-<?php if (empty($block['entries'])): ?>
-    <div class="wb-empty">
+<?php
+/*
+ * An empty map still draws its table, folded away, wherever a row can
+ * be added: the page adds a row by appending to a `tbody`, and a map
+ * with no rows had no `tbody` to append to — so on the profile that
+ * most needs the control, the control did nothing at all. The note and
+ * the table trade places when the first row arrives.
+ */
+$hasRows = !empty($block['entries']);
+$canAdd = $editable && !empty($block['add']);
+?>
+<?php if (!$hasRows || $canAdd): ?>
+    <div class="wb-empty" data-ap-map-empty="1" <?= $hasRows ? 'hidden' : '' ?>>
         <div class="fw-semibold"><?= h(sprintf(
             __('No %s set'), strtolower($block['value_label'])
         )) ?></div>
@@ -98,8 +144,9 @@ $keyField = !empty($block['key_field_label']);
             . ' takes the behaviour it would have had without the'
             . ' section.')) ?></p>
     </div>
-<?php else: ?>
-    <table class="wb-tbl">
+<?php endif; ?>
+<?php if ($hasRows || $canAdd): ?>
+    <table class="wb-tbl" <?= $hasRows ? '' : 'hidden' ?>>
         <thead>
             <tr>
                 <th style="width:<?= $keyField ? '11rem' : '34%' ?>">
@@ -130,7 +177,16 @@ $keyField = !empty($block['key_field_label']);
                     $rowClass = trim($rowClass . ' ' . $entry['class']);
                 }
                 ?>
-                <tr class="<?= h($rowClass) ?>">
+                <?php
+                /*
+                 * The key, on the row, so the picker can leave out
+                 * what the map already carries. A search answers
+                 * whatever it matches; the rows on screen are what
+                 * says which of those are still a choice.
+                 */
+                ?>
+                <tr class="<?= h($rowClass) ?>"
+                    data-ap-key="<?= h($entry['key']) ?>">
                     <td>
                         <div class="fw-semibold"><?= h($entry['label']) ?></div>
                         <?php if (!empty($entry['sub_label'])): ?>
@@ -211,14 +267,51 @@ $keyField = !empty($block['key_field_label']);
             $block['path'], array('add'))) ?>">
             <?= h($block['add']['label']) ?>
         </label>
-        <?php if (!empty($block['add']['options'])): ?>
+        <?php if ($searchUrl !== null): ?>
+            <?php
+            /*
+             * A box that finds rather than a box that accepts. It posts
+             * nothing itself — the row it produces carries the key —
+             * so it is deliberately outside the naming scheme the merge
+             * reads, and a browser with no JS gets a control that does
+             * nothing rather than one that writes a uuid-shaped typo
+             * into the document.
+             */
+            ?>
+            <div class="ap-pick">
+                <input class="form-control form-control-sm" type="search"
+                       autocomplete="off" role="combobox"
+                       aria-expanded="false" aria-autocomplete="list"
+                       id="<?= h(AnalystProfileFormTool::fieldId(
+                           $block['path'], array('add'))) ?>"
+                       data-ap-add="<?= h(implode('.', $block['path'])) ?>"
+                       data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
+                       data-ap-add-name="<?= h(
+                           AnalystProfileFormTool::fieldName(
+                               $block['path'])) ?>"
+                       data-ap-add-source="<?= h($block['add']['source']) ?>"
+                       data-ap-add-url="<?= h($searchUrl) ?>"
+                       <?= $valueOptions === null ? '' :
+                           'data-ap-add-options="' . h($valueOptions) . '"' ?>
+                       data-ap-pick-hint="<?= h(__('type to search')) ?>"
+                       data-ap-pick-none="<?= h(__('no match')) ?>"
+                       data-ap-pick-unknown="<?= h(__('not an organisation'
+                           . ' on this instance')) ?>"
+                       placeholder="<?= h(isset($block['add']['placeholder'])
+                           ? $block['add']['placeholder']
+                           : __('search…')) ?>">
+                <div class="ap-pick-list" role="listbox" hidden></div>
+            </div>
+        <?php elseif (!empty($block['add']['options'])): ?>
             <select class="form-select form-select-sm" style="max-width:16rem"
                     id="<?= h(AnalystProfileFormTool::fieldId($block['path'],
                         array('add'))) ?>"
                     data-ap-add="<?= h(implode('.', $block['path'])) ?>"
                     data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
                     data-ap-add-name="<?= h(AnalystProfileFormTool::fieldName(
-                        $block['path'])) ?>">
+                        $block['path'])) ?>"
+                    <?= $valueOptions === null ? '' :
+                        'data-ap-add-options="' . h($valueOptions) . '"' ?>>
                 <option value=""><?= h(__('pick one…')) ?></option>
                 <?php foreach ($block['add']['options'] as $option): ?>
                     <option value="<?= h($option) ?>"><?= h($option) ?></option>
@@ -234,6 +327,8 @@ $keyField = !empty($block['key_field_label']);
                    data-ap-add-name="<?= h(AnalystProfileFormTool::fieldName(
                        $block['path'])) ?>"
                    data-ap-add-source="<?= h($block['add']['source']) ?>"
+                   <?= $valueOptions === null ? '' :
+                       'data-ap-add-options="' . h($valueOptions) . '"' ?>
                    placeholder="<?= h(__('search…')) ?>">
         <?php endif; ?>
         <span class="wb-sub"><?= h(__('added rows are saved with the'

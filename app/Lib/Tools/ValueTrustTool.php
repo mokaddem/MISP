@@ -124,6 +124,35 @@ class ValueTrustTool
     );
 
     /**
+     * What each letter means, in the shipped taxonomy's own words.
+     *
+     * A letter is not a grade anybody can read. `admiralty-scale`'s
+     * `source-reliability` entries carry an `expanded` column — *B* is
+     * *Usually reliable* — and a picker offering `A B C D E F G` asks
+     * the analyst to have the taxonomy memorised before they can say
+     * anything about a source. The wording is copied rather than read
+     * out of the taxonomy at render time because a profile must still
+     * be gradeable on an instance that never enabled `admiralty-scale`,
+     * and because `F` and `G` are the two the reader most needs told:
+     * `F` reads as *nearly failing* and means *cannot be judged*.
+     *
+     * `unrated` is not in the taxonomy. It is what every organisation
+     * the map does not name already is, and it is offered so that
+     * taking an opinion back is a choice in the list rather than a
+     * deleted row.
+     */
+    const GRADE_LABELS = array(
+        'A' => 'Completely reliable',
+        'B' => 'Usually reliable',
+        'C' => 'Fairly reliable',
+        'D' => 'Not usually reliable',
+        'E' => 'Unreliable',
+        'F' => 'Reliability cannot be judged',
+        'G' => 'Deliberately deceptive',
+        self::UNRATED => 'No opinion recorded',
+    );
+
+    /**
      * The `reference` section, whichever shape the profile arrived in.
      *
      * `ValueVerdictTool::section()`'s twin, duplicated for the same

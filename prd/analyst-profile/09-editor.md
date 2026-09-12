@@ -863,6 +863,112 @@ chips moves the right types, and a save writes `ttl_buckets.short`,
 `ttl_default` and both `ttl_types` edits — then the same pane put every
 one of them back.
 
+## 7f. What reading the reference section back found, 2026-09-12
+
+One finding, in the one place §4 called *the only section that needs
+real UI work*: **grading an organisation was free text at both ends.**
+
+### 7f.1 *Grade an organisation* meant *type a uuid*
+
+The `org_trust` block declared everything it needed. The entries carried
+`type: select` with the seven grades, the `add` descriptor carried
+`search: true` and `source: 'orgs'`, and §4 had asked for "an org picker
+plus a grade select … with a search to add more". None of it reached the
+page:
+
+- **`block_map.ctp` drew the search box and nothing behind it.** Its add
+  control branched on `add.options`, and `__gradedOrgs()` answers *only
+  the organisations this profile already grades* — deliberately, so a
+  response about four organisations does not carry nine hundred. So the
+  unused-key list for `org_trust` is always empty, always took the
+  fallback branch, and the fallback branch is an `<input type="search">`
+  whose value becomes the map key. The key is `organisations.uuid`
+  (§2.2). The control asked the analyst to type a uuid from memory.
+- **`search: true` was dead metadata.** Nothing read it. Warninglists
+  set it too and never noticed, because their catalogue is small enough
+  to send whole, so they take the select branch and the flag is ignored.
+- **The row the page added took a typed grade.** The add handler built
+  an `<input>` for every map whose values were not `int` or `float`, so
+  a row added on the page accepted `usually reliable`, `b`, or anything
+  else, and learned on save that it is not an admiralty grade. The
+  server has always drawn a `<select>` for the same row; only the row
+  the page built was different.
+- **On an empty map the control did nothing at all.** The page adds a
+  row by appending to a `tbody`, and a map with no rows rendered the
+  *no grades set* note **instead of** the table. So on the default
+  profile — where nobody has graded anybody, which is every profile
+  before the first grade — picking an organisation appended to nothing
+  and the box simply cleared itself.
+
+### 7f.2 A letter is not a grade anybody can read
+
+`A B C D E F G` was the whole vocabulary the picker offered, and the
+multiplier fields under it were labelled the same way. Two of the seven
+read backwards without their wording: **F** looks like the bottom of an
+A–G scale and is `Reliability cannot be judged` — neutral, worth 1.00,
+the semantic twin of `unrated` — and **G** looks like the step below it
+and is not a quality judgement at all but an accusation of deception.
+The block's blurb already said both, in a tooltip, beside a picker that
+made the reader hold seven letters in their head to use it.
+
+The taxonomy's own `expanded` column is the wording, and it now lives on
+`ValueTrustTool::GRADE_LABELS` beside `GRADES` and `DEFAULT_SCALE` —
+copied rather than read out of `admiralty-scale` at render time, because
+a profile must stay gradeable on an instance that never enabled the
+taxonomy. Both the grade picker and *What a grade is worth* read it, so
+the multipliers are now labelled `E — Unreliable 0.25` rather than
+`E 0.25`.
+
+### 7f.3 What was built
+
+**The picker queries; it does not list.** The endpoint is
+`/dashboards/searchOrganisations`, already ACL'd to every user and
+already capped at fifty rows — the dashboard's org filter faced the same
+catalogue and answered it the same way. No second endpoint, no ACL
+entry. The suggestion list shows the name over the uuid, because the
+uuid is what the document stores and what an exported profile is read
+in. Organisations the map already carries are left out of the list;
+`data-ap-key` on the row is what says which those are.
+
+**A uuid typed in full is still offerable.** A profile written elsewhere
+is what import exists for, and §4 already keeps a graded uuid this
+instance cannot name. Offered only on a complete uuid and only when
+nothing else matched, so it cannot be reached by a slip.
+
+**The added row is the row the server would have drawn** — the name, the
+uuid under it, a `<select>` of the same labelled grades, and the cross
+that takes it back off. Nothing is preselected and the box is
+`required`: a grade the analyst did not choose is an opinion the
+document would record on their behalf, and `A` is the worst available
+guess at one. The browser refuses the save and §7c's `invalid` handler
+opens the pane holding the box.
+
+**The empty map keeps its table, folded away.** `wb-empty` and the table
+now trade places rather than excluding each other, in both directions —
+removing the last row brings the note back, which matters because *an
+empty map overrides nothing* is exactly what the analyst who just
+removed it needs told.
+
+**Two other maps were carrying the same defect** and are fixed by the
+same mechanism: a block may now declare `value_options`, and
+`warninglist_category` and `enrichment.locality` declare theirs, so a
+row added on the page to either of them gets its vocabulary instead of a
+text box.
+
+**Enter never submits from the picker.** It is a lone text input in a
+form, so a return pressed halfway through an organisation's name used to
+save the profile.
+
+Verified in the browser against the running instance: searching `ci`
+offers two organisations by name, picking one writes
+`reference.org_trust.<uuid>`, saving with no grade chosen is refused by
+the box, grading `B` and saving stores
+`{"581b5fea-…":"B"}` — and the reloaded pane puts the name, the uuid and
+`B — Usually reliable` back. Arrow keys and Enter pick; Escape closes;
+an organisation already graded is not offered twice; removing the row
+restores the note. No JavaScript errors on the editor, the read-only
+viewer or the simulator.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

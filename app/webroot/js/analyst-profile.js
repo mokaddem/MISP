@@ -472,7 +472,23 @@ function boot() {
          */
         var row = drop.closest('tr');
         if (row) {
+            var map = row.closest ? row.closest('.ap-map') : null;
+            var table = row.closest('table');
             row.parentNode.removeChild(row);
+            /*
+             * Back to the note the map started with. An empty table
+             * with its headings still up says the map has columns; the
+             * note says an empty map overrides nothing, which is the
+             * thing the analyst who just removed the last row needs
+             * told.
+             */
+            if (map && table && !table.querySelector('tbody tr')) {
+                table.hidden = true;
+                var note = map.querySelector('[data-ap-map-empty]');
+                if (note) {
+                    note.hidden = false;
+                }
+            }
             mark();
             refresh();
         }
@@ -509,15 +525,82 @@ function boot() {
         open(pane.getAttribute('data-sec'));
     }, true);
 
-    document.addEventListener('change', function (event) {
-        var add = event.target;
-        if (!add.hasAttribute || !add.hasAttribute('data-ap-add')) {
-            return;
+    /*
+     * The control a value gets, decided the same way the server
+     * decides it. A map whose values are days gets a `number`; a map
+     * whose values are a closed vocabulary gets that vocabulary. The
+     * options ride on the add control because the block knows them and
+     * the row does not yet exist.
+     */
+    function valueControl(add, name) {
+        var kind = add.getAttribute('data-ap-add-type');
+        var raw = add.getAttribute('data-ap-add-options');
+        var options = null;
+        if (kind === 'select' && raw) {
+            try {
+                options = JSON.parse(raw);
+            } catch (e) {
+                options = null;
+            }
         }
-        var key = add.value.trim();
+        var control;
+        if (options && options.length) {
+            control = document.createElement('select');
+            control.className = 'form-select form-select-sm';
+            /*
+             * Nothing is preselected, and the box is `required`. A
+             * grade the analyst did not choose is an opinion the
+             * document would be recording on their behalf, and the
+             * first letter of the scale is the worst possible guess at
+             * one. The browser refuses the save and the pane the box
+             * is in opens itself — that is the `invalid` handler above.
+             */
+            var blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = '—';
+            control.appendChild(blank);
+            options.forEach(function (option) {
+                var node = document.createElement('option');
+                node.value = option && option.value !== undefined
+                    ? option.value
+                    : option;
+                node.textContent = option && option.label !== undefined
+                    ? option.label
+                    : node.value;
+                control.appendChild(node);
+            });
+            control.required = true;
+        } else {
+            control = document.createElement('input');
+            control.className = 'form-control form-control-sm num text-end';
+            control.type = kind === 'int' || kind === 'float'
+                ? 'number'
+                : 'text';
+            if (control.type === 'number') {
+                control.step = kind === 'int' ? '1' : 'any';
+            }
+        }
+        control.name = name;
+        control.setAttribute('data-ap-field', '1');
+        control.setAttribute('data-ap-was', '');
+        return control;
+    }
+
+    /*
+     * One row, drawn like the ones the server drew beside it — the
+     * label, the key underneath when they differ, the control, and the
+     * cross that takes it back off. A row added and not removable is a
+     * mistake that needs a page reload to undo.
+     *
+     * `key` is what the document stores; `label` is what the analyst
+     * recognises. For a graded organisation those are a uuid and a
+     * name, and conflating them is how the key came to be typed by
+     * hand in the first place.
+     */
+    function addRow(add, key, label) {
         var prefix = add.getAttribute('data-ap-add-name');
-        if (key === '' || !prefix) {
-            return;
+        if (!key || !prefix) {
+            return null;
         }
         /*
          * The map this control belongs to, not the first table in the
@@ -525,38 +608,328 @@ function boot() {
          * buckets table is the one that comes first.
          */
         var map = add.closest ? add.closest('.ap-map') : null;
-        var table = map ? map.querySelector('table.wb-tbl tbody') : null;
-        if (!table) {
-            return;
+        var table = map ? map.querySelector('table.wb-tbl') : null;
+        var body = table ? table.querySelector('tbody') : null;
+        if (!body) {
+            return null;
+        }
+        if (body.querySelector('tr[data-ap-key="' + cssEscape(key) + '"]')) {
+            return null;
         }
         var row = document.createElement('tr');
+        row.setAttribute('data-ap-key', key);
         var name = document.createElement('td');
-        name.innerHTML = '<div class="fw-semibold"></div>';
-        name.firstChild.textContent = key;
-        var value = document.createElement('td');
-        var input = document.createElement('input');
-        input.className = 'form-control form-control-sm num text-end';
-        /*
-         * The same box the server would have drawn for this row. A map
-         * whose values are days gets a `number`; without the type the
-         * row added on the page is the one place in the editor where a
-         * numeric setting still takes a word.
-         */
-        var kind = add.getAttribute('data-ap-add-type');
-        input.type = kind === 'int' || kind === 'float' ? 'number' : 'text';
-        if (input.type === 'number') {
-            input.step = kind === 'int' ? '1' : 'any';
+        var title = document.createElement('div');
+        title.className = 'fw-semibold';
+        title.textContent = label || key;
+        name.appendChild(title);
+        if (label && label !== key) {
+            var sub = document.createElement('div');
+            sub.className = 'wb-sub';
+            sub.textContent = key;
+            name.appendChild(sub);
         }
-        input.name = prefix + '[' + key + ']';
-        input.setAttribute('data-ap-field', '1');
-        input.setAttribute('data-ap-was', '');
-        value.appendChild(input);
+        var value = document.createElement('td');
+        var control = valueControl(add, prefix + '[' + key + ']');
+        value.appendChild(control);
+        var drop = document.createElement('td');
+        drop.className = 'r';
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'wb-drop';
+        button.setAttribute('data-ap-drop', key);
+        button.innerHTML = '&times;';
+        drop.appendChild(button);
         row.appendChild(name);
         row.appendChild(value);
-        row.appendChild(document.createElement('td'));
-        table.appendChild(row);
+        row.appendChild(drop);
+        body.appendChild(row);
+        /*
+         * The table was folded away while the map was empty, and the
+         * note beside it said so. The first row swaps them.
+         */
+        table.hidden = false;
+        var note = map.querySelector('[data-ap-map-empty]');
+        if (note) {
+            note.hidden = true;
+        }
         add.value = '';
-        input.focus();
+        control.focus();
+        mark();
+        return control;
+    }
+
+    /*
+     * `CSS.escape` where it exists, and a key that cannot carry a
+     * quote otherwise. Every key a map takes is a uuid, an attribute
+     * type or a warninglist name, so this only has to be safe rather
+     * than complete.
+     */
+    function cssEscape(value) {
+        if (window.CSS && window.CSS.escape) {
+            return window.CSS.escape(value);
+        }
+        return String(value).replace(/["\\\]]/g, '\\$&');
+    }
+
+    document.addEventListener('change', function (event) {
+        var add = event.target;
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-add')
+            || add.hasAttribute('data-ap-add-url')
+        ) {
+            return;
+        }
+        addRow(add, add.value.trim(), '');
+    });
+
+    /* ------------------------------------------------------------ *
+     * Finding a key that is too numerous to offer as a list
+     * ------------------------------------------------------------ */
+
+    /*
+     * Organisations are the only map key the page cannot hold: an
+     * instance carries thousands of them and the document stores the
+     * uuid, so the control that was here was a search box with nothing
+     * behind it — which made *grade an organisation* mean *type a
+     * uuid*. The endpoint answers fifty at a time and the row keeps
+     * the uuid the name resolved to.
+     */
+    var UUID =
+        /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+    var lookup = null;
+    var typing = null;
+
+    function panel(add) {
+        var box = add.closest ? add.closest('.ap-pick') : null;
+        return box ? box.querySelector('.ap-pick-list') : null;
+    }
+
+    function close(add) {
+        var list = panel(add);
+        if (list) {
+            list.hidden = true;
+            list.innerHTML = '';
+        }
+        add.setAttribute('aria-expanded', 'false');
+    }
+
+    function taken(add) {
+        var map = add.closest ? add.closest('.ap-map') : null;
+        var keys = {};
+        if (!map) {
+            return keys;
+        }
+        Array.prototype.forEach.call(
+            map.querySelectorAll('tbody tr[data-ap-key]'),
+            function (row) {
+                keys[row.getAttribute('data-ap-key')] = true;
+            }
+        );
+        return keys;
+    }
+
+    function offer(add, rows, query) {
+        var list = panel(add);
+        if (!list) {
+            return;
+        }
+        var already = taken(add);
+        list.innerHTML = '';
+        var drawn = 0;
+        rows.forEach(function (row) {
+            if (!row || !row.uuid || already[row.uuid]) {
+                return;
+            }
+            var option = document.createElement('button');
+            option.type = 'button';
+            option.className = 'ap-pick-opt';
+            option.setAttribute('role', 'option');
+            option.setAttribute('data-value', row.uuid);
+            option.setAttribute('data-label', row.name || row.uuid);
+            var title = document.createElement('span');
+            title.className = 'ap-pick-name';
+            title.textContent = row.name || row.uuid;
+            var sub = document.createElement('span');
+            sub.className = 'ap-pick-uuid';
+            sub.textContent = row.uuid;
+            option.appendChild(title);
+            option.appendChild(sub);
+            list.appendChild(option);
+            drawn += 1;
+        });
+        /*
+         * A uuid this instance has no organisation for is still worth
+         * grading: a profile written elsewhere is exactly what import
+         * exists for, and the row the server draws for one already
+         * says it does not recognise it. Offered only when it was
+         * typed in full, so it cannot be reached by accident.
+         */
+        if (UUID.test(query) && !already[query.toLowerCase()] && drawn === 0) {
+            var raw = document.createElement('button');
+            raw.type = 'button';
+            raw.className = 'ap-pick-opt';
+            raw.setAttribute('role', 'option');
+            raw.setAttribute('data-value', query.toLowerCase());
+            raw.setAttribute('data-label', '');
+            var label = document.createElement('span');
+            label.className = 'ap-pick-name';
+            label.textContent = query.toLowerCase();
+            var note = document.createElement('span');
+            note.className = 'ap-pick-uuid';
+            note.textContent = add.getAttribute('data-ap-pick-unknown') || '';
+            raw.appendChild(label);
+            raw.appendChild(note);
+            list.appendChild(raw);
+            drawn += 1;
+        }
+        if (drawn === 0) {
+            var none = document.createElement('div');
+            none.className = 'ap-pick-none';
+            none.textContent = add.getAttribute(query === ''
+                ? 'data-ap-pick-hint'
+                : 'data-ap-pick-none') || '';
+            list.appendChild(none);
+        }
+        list.hidden = false;
+        add.setAttribute('aria-expanded', 'true');
+    }
+
+    function search(add) {
+        var url = add.getAttribute('data-ap-add-url');
+        var query = add.value.trim();
+        if (!url) {
+            return;
+        }
+        if (lookup) {
+            lookup.abort();
+        }
+        var request = new XMLHttpRequest();
+        lookup = request;
+        request.open('GET',
+            url + (url.indexOf('?') === -1 ? '?' : '&')
+                + 'q=' + encodeURIComponent(query),
+            true);
+        request.setRequestHeader('Accept', 'application/json');
+        request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        request.onload = function () {
+            lookup = null;
+            var rows = [];
+            if (request.status >= 200 && request.status < 300) {
+                try {
+                    rows = JSON.parse(request.responseText);
+                } catch (e) {
+                    rows = [];
+                }
+            }
+            offer(add, Array.isArray(rows) ? rows : [], query);
+        };
+        request.onerror = function () {
+            lookup = null;
+            offer(add, [], query);
+        };
+        request.send();
+    }
+
+    document.addEventListener('input', function (event) {
+        var add = event.target;
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-add-url')) {
+            return;
+        }
+        window.clearTimeout(typing);
+        typing = window.setTimeout(function () {
+            search(add);
+        }, 200);
+    });
+
+    document.addEventListener('focusin', function (event) {
+        var add = event.target;
+        if (add.hasAttribute && add.hasAttribute('data-ap-add-url')
+            && add.value.trim() !== ''
+        ) {
+            search(add);
+        }
+    });
+
+    /*
+     * `mousedown` and not `click`: the box loses focus first, and a
+     * handler that closed the list on blur would take the option away
+     * before the click landed on it.
+     */
+    document.addEventListener('mousedown', function (event) {
+        var option = event.target.closest
+            ? event.target.closest('.ap-pick-opt')
+            : null;
+        if (!option) {
+            return;
+        }
+        event.preventDefault();
+        var box = option.closest('.ap-pick');
+        var add = box ? box.querySelector('[data-ap-add-url]') : null;
+        if (!add) {
+            return;
+        }
+        addRow(add, option.getAttribute('data-value'),
+            option.getAttribute('data-label'));
+        close(add);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        var add = event.target;
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-add-url')) {
+            return;
+        }
+        /*
+         * Enter never submits from this box, list open or not. It is
+         * not a field of the document — it names one — and a return
+         * pressed halfway through a name would otherwise save the
+         * profile, because a lone text input in a form submits it.
+         */
+        if (event.key === 'Enter') {
+            event.preventDefault();
+        }
+        var list = panel(add);
+        if (!list || list.hidden) {
+            return;
+        }
+        var options = list.querySelectorAll('.ap-pick-opt');
+        var active = list.querySelector('.ap-pick-opt.is-on');
+        var index = Array.prototype.indexOf.call(options, active);
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            if (!options.length) {
+                return;
+            }
+            index += event.key === 'ArrowDown' ? 1 : -1;
+            if (index < 0) {
+                index = options.length - 1;
+            }
+            if (index >= options.length) {
+                index = 0;
+            }
+            if (active) {
+                active.classList.remove('is-on');
+            }
+            options[index].classList.add('is-on');
+            options[index].scrollIntoView({block: 'nearest'});
+        } else if (event.key === 'Enter') {
+            var pick = active || (options.length === 1 ? options[0] : null);
+            if (pick) {
+                addRow(add, pick.getAttribute('data-value'),
+                    pick.getAttribute('data-label'));
+                close(add);
+            }
+        } else if (event.key === 'Escape') {
+            close(add);
+        }
+    });
+
+    document.addEventListener('focusout', function (event) {
+        var add = event.target;
+        if (add.hasAttribute && add.hasAttribute('data-ap-add-url')) {
+            window.setTimeout(function () {
+                close(add);
+            }, 120);
+        }
     });
 
     /* ------------------------------------------------------------ *

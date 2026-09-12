@@ -1168,6 +1168,64 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
+ * Picking a map key out of a catalogue too large to draw. The list is
+ * taken out of flow so the pane below it does not jump every time a
+ * query comes back, and it is capped at a scroll rather than sized to
+ * the fifty rows the endpoint may answer with.
+ */
+.ap-pick { position: relative; }
+.ap-pick > .form-control { max-width: 16rem; }
+.ap-pick-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + .2rem);
+    left: 0;
+    min-width: 20rem;
+    max-width: 26rem;
+    max-height: 14rem;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .35rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .4rem 1rem rgba(0, 0, 0, .12);
+    padding: .2rem;
+}
+.ap-pick-opt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .05rem;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: .3rem .45rem;
+    border-radius: .25rem;
+    color: var(--bs-body-color);
+}
+.ap-pick-opt:hover,
+.ap-pick-opt.is-on {
+    background: color-mix(in srgb, var(--bs-primary) 12%, transparent);
+}
+.ap-pick-name { font-size: .8125rem; font-weight: 600; }
+/*
+ * The uuid is what the document stores, so it stays visible under the
+ * name rather than being hidden behind it — an analyst comparing this
+ * pane against an exported profile is reading uuids.
+ */
+.ap-pick-uuid {
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-size: .6875rem;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+.ap-pick-none {
+    padding: .35rem .45rem;
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
  * The bench while the engine is recomputing it. Dimmed rather than
  * replaced: the previous numbers are still true of the previous
  * document, and blanking them would make every keystroke flash.
