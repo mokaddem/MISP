@@ -250,20 +250,75 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
     $goneLabel = isset($field['unavailable_label'])
         ? $field['unavailable_label']
         : __('not enabled here');
+    /*
+     * Past this many names the row stops being a list and becomes a
+     * wall — `farsight_passivedns` accepts 21 attribute types. The
+     * ones past the cap are rendered and hidden rather than dropped,
+     * so they still post their stored state and a reader with no
+     * JavaScript sees the whole row.
+     */
+    $collapseAfter = isset($field['collapse_after'])
+        ? (int)$field['collapse_after']
+        : 0;
+    $collapses = $collapseAfter > 0
+        && count($field['options']) > $collapseAfter;
+    $shown = 0;
     ?>
-    <div class="mod-states">
+    <div class="mod-states"<?= $collapses ? ' data-ap-collapse="1"' : '' ?>>
         <?php if ($editable): ?>
             <input type="hidden"
                    name="<?= h(AnalystProfileFormTool::fieldName($path,
                        array_merge($extra, array('__present')))) ?>"
                    value="1">
         <?php endif; ?>
+        <?php
+        /*
+         * One control that writes every select below it. Most rows are
+         * *this module, for everything it accepts* — six identical
+         * choices for `circl_passivedns` — and there was no way to say
+         * that except six times. It posts nothing itself: it is a
+         * writer of the fields that do, which is why it carries no
+         * `name` and is hidden until the page can drive it.
+         */
+        ?>
+        <?php if ($editable && !empty($field['bulk_label'])
+            && count($field['options']) > 1): ?>
+            <div class="mod-row mod-bulk" hidden data-ap-bulk-wrap>
+                <span class="wb-id"><?= h($field['bulk_label']) ?></span>
+                <select class="form-select form-select-sm"
+                        data-ap-bulk="1">
+                    <option value="">&mdash;</option>
+                    <?php foreach ($field['state_options'] as $option): ?>
+                        <?php
+                        $bulkValue = is_array($option)
+                            ? $option['value']
+                            : $option;
+                        $bulkLabel = is_array($option)
+                            && isset($option['label'])
+                            ? $option['label']
+                            : $bulkValue;
+                        ?>
+                        <option value="<?= h($bulkValue) ?>"
+                            ><?= h($bulkLabel) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        <?php endif; ?>
         <?php foreach ($field['options'] as $rowName): ?>
             <?php
             $state = isset($states[$rowName]) ? $states[$rowName] : '';
             $gone = in_array($rowName, $unavailable, true);
+            /*
+             * A name the reader has an opinion about is never hidden,
+             * whatever its position: collapsing a declared type would
+             * hide the declaration itself.
+             */
+            $shown++;
+            $folded = $collapses && $shown > $collapseAfter
+                && $state === '' && !$gone;
             ?>
-            <div class="mod-row <?= $gone ? 'is-off' : '' ?>">
+            <div class="mod-row <?= $gone ? 'is-off' : '' ?><?=
+                $folded ? ' mod-folded' : '' ?>"
                 <span class="wb-id"><?= h($rowName) ?></span>
                 <?php if ($gone): ?>
                     <span class="pill t-missing"><?= h($goneLabel) ?></span>
@@ -326,6 +381,15 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                 <?php endif; ?>
             </div>
         <?php endforeach; ?>
+        <?php if ($collapses): ?>
+            <button type="button" class="btn btn-link btn-sm mod-more"
+                    hidden data-ap-more="1"
+                    data-ap-more-less="<?= h(__('show fewer')) ?>"
+                    data-ap-more-label="<?= h(sprintf(
+                        __('show all %d types'),
+                        count($field['options'])
+                    )) ?>"></button>
+        <?php endif; ?>
     </div>
 <?php else: ?>
     <?php if ($editable): ?>

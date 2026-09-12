@@ -3,6 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
 App::uses('ValueUrlTool', 'Tools');
 App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('ModuleCredentials', 'Tools');
 App::uses('ValueSignalLoader', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
 App::uses('ValueVerdictDiffTool', 'Tools');
@@ -1511,15 +1512,84 @@ class AnalystProfilesController extends AppController
                 'Enrichment',
                 $module
             );
+            /*
+             * A module's own one-line description. Carried because the
+             * editor is a list of names otherwise, and `ipasn`,
+             * `mmdb_lookup` and `circl_passivedns` are not
+             * self-describing to anybody who has not read
+             * misp-modules.
+             */
+            $declared = isset($module['meta']['config'])
+                && is_array($module['meta']['config'])
+                ? $module['meta']['config']
+                : array();
             $catalogue[$name] = array(
                 'accepts' => $accepts,
                 'kinds' => $kinds,
                 'enabled' => $enabled,
                 'restricted' => $restricted,
+                'description' => $this->__moduleBlurb(
+                    isset($module['meta']['description'])
+                        ? $module['meta']['description']
+                        : ''
+                ),
+                /*
+                 * Enabled and unconfigured is the quietest failure
+                 * here — the row looks healthy and the run errors —
+                 * so it is read once, where every other instance fact
+                 * about a module is read. `ModuleCredentials` decides
+                 * which settings are *required*, because introspection
+                 * does not say and the obvious guess would warn about
+                 * `mmdb_lookup`, which works unconfigured.
+                 */
+                'unset_required' => $enabled
+                    ? ModuleCredentials::unsetFor($name, $declared)
+                    : array(),
             );
         }
         ksort($catalogue);
         return array('reachable' => true, 'catalogue' => $catalogue);
+    }
+
+    /**
+     * A module's own description, cut down to one line under a name.
+     *
+     * The raw field is a developer's README sentence: a median of 53
+     * characters, a maximum of **379**, seven of them carrying a
+     * GitHub or project URL, and one opening with a deprecation notice
+     * and a blank line. Printed as-is under a table row it is a
+     * paragraph where a caption belongs.
+     *
+     * Cut rather than rewritten — the text is the module author's and
+     * editorialising 146 of them is a maintenance burden nobody would
+     * keep up. First sentence, whitespace collapsed, a bare
+     * parenthesised URL dropped, and a hard cap with an ellipsis so
+     * that the one 379-character outlier cannot set the row height for
+     * the table.
+     *
+     * @param string $raw `meta.description`
+     * @return string
+     */
+    private function __moduleBlurb($raw)
+    {
+        $text = trim(preg_replace('/\s+/', ' ', (string)$raw));
+        if ($text === '') {
+            return '';
+        }
+        $text = trim(preg_replace('/\s*\(\s*https?:\/\/[^)]*\)/', '',
+            $text));
+        /*
+         * Capped, not cut to the first sentence. Taking sentence one
+         * looked tidier and lost the point: `onion_lookup` opens *MISP
+         * module using the MISP standard* and says what it does in the
+         * sentence after. The cap is for the 379-character outlier
+         * setting the row height, and at a median of 53 it leaves most
+         * descriptions alone.
+         */
+        if (mb_strlen($text) > 150) {
+            $text = mb_substr($text, 0, 149) . '…';
+        }
+        return $text;
     }
 
     /**

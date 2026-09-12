@@ -1978,7 +1978,8 @@ class AnalystProfileFormTool
                 $name,
                 $states,
                 $catalogue,
-                $reachable
+                $reachable,
+                $locality
             );
         }
         $localityEntries = array();
@@ -2050,7 +2051,9 @@ class AnalystProfileFormTool
                         . ' decides which boxes arrive ticked on the'
                         . ' Enrichment tab — nothing here runs a'
                         . ' module, and a module you leave alone is'
-                        . ' still there to tick by hand.'
+                        . ' still there to tick by hand. Assume asking'
+                        . ' a module tells somebody outside this'
+                        . ' instance unless its row says otherwise.'
                     ),
                     'key_label' => __('Module'),
                     'value_label' => __('Attribute types'),
@@ -2076,6 +2079,16 @@ class AnalystProfileFormTool
                     'value_options' => $this->stateOptions(),
                     'value_rows' => $this->acceptedTypes($catalogue),
                     'unavailable_label' => __('not accepted'),
+                    /*
+                     * Past a dozen rows the table stops being
+                     * scannable. The number is the point where the
+                     * shipped default lands — twelve modules — so a
+                     * profile that has only ever been forked from it
+                     * does not get a control it has no use for.
+                     */
+                    'row_filter' => 12,
+                    'row_filter_placeholder' => __('filter these'
+                        . ' modules…'),
                     'path' => array('enrichment', 'auto_run_modules'),
                     'entries' => $autoEntries,
                     'add' => array(
@@ -2190,7 +2203,7 @@ class AnalystProfileFormTool
      * @return array
      */
     private function moduleEntry($name, array $states, array $catalogue,
-        $reachable
+        $reachable, array $locality = array()
     ) {
         $declared = array_keys($states);
         $facts = isset($catalogue[$name]) ? $catalogue[$name] : null;
@@ -2214,17 +2227,110 @@ class AnalystProfileFormTool
                 : array_values(array_diff($declared, $accepts)),
             'path' => array('enrichment', 'auto_run_modules',
                 (string)$name),
+            /*
+             * One control that writes every select in the row. Most
+             * declarations are *this module, for everything it
+             * accepts* — `circl_passivedns` alone is six identical
+             * choices — and setting them one at a time was the bulk of
+             * the work the table asked for.
+             */
+            'bulk_label' => __('set every type to…'),
+            /*
+             * Past this many, the row is a wall. Most are nowhere near
+             * it (median 3), and the handful that are — 21 for
+             * `farsight_passivedns` — are what the threshold is for.
+             */
+            'collapse_after' => 6,
         );
         $note = $this->moduleNote($facts, $reachable);
         if ($note !== null) {
             $entry['missing'] = true;
             $entry['missing_note'] = $note;
         }
-        $sub = $this->moduleSubLabel($facts);
-        if ($sub !== null) {
-            $entry['sub_label'] = $sub;
+        if ($facts !== null && !empty($facts['description'])) {
+            $entry['sub_label'] = $facts['description'];
         }
+        $entry['tags'] = $this->moduleTags($name, $facts, $locality);
         return $entry;
+    }
+
+    /**
+     * The two things worth knowing beside a module's name while you
+     * are deciding about it.
+     *
+     * **Where it answers from**, because *does asking this tell
+     * somebody outside* is the question being answered at the moment
+     * of choosing, and it lived two blocks further down. The reader's
+     * own `enrichment.locality` override is applied here for the same
+     * reason the tab applies it: an operator who repointed their
+     * resolver knows something the shipped roster cannot.
+     *
+     * **Whether it can answer at all**, for a module that is enabled
+     * and missing the settings it cannot work without. That one is the
+     * quietest failure the page has — the row looks healthy and the
+     * error arrives on press — and `ModuleCredentials` is deliberately
+     * silent wherever it cannot defend the claim.
+     *
+     * @param string $name
+     * @param array|null $facts
+     * @param array $locality The profile's override map
+     * @return array `label` and `tone` pairs
+     */
+    private function moduleTags($name, $facts, array $locality)
+    {
+        $tags = array();
+        $where = ModuleLocality::resolve($name, $locality);
+        /*
+         * **`unknown` gets no pill**, and that is the common case
+         * rather than an edge: `ModuleLocality` names the local
+         * modules and almost none of them are ones a *value* page has
+         * a type for, so every row of the shipped default resolved
+         * `unknown` and wore the same words. A badge that says the
+         * same thing on every row is wallpaper — the reader stops
+         * seeing it, including on the row where it differs.
+         *
+         * So the presumption is stated once, in the block's blurb —
+         * asking a module tells somebody outside unless it says
+         * otherwise — and the pill marks only the two cases somebody
+         * has actually established.
+         */
+        if ($where['locality'] === ModuleLocality::LOCAL) {
+            $tags[] = array(
+                'label' => __('stays local'),
+                'tone' => 'plain',
+                'title' => $where['source'] === ModuleLocality::SOURCE_PROFILE
+                    ? __('Your profile says this one answers from'
+                        . ' inside the instance.')
+                    : __('Nothing about the value leaves this instance'
+                        . ' when this module is asked.'),
+            );
+        } elseif ($where['locality'] === ModuleLocality::EXTERNAL) {
+            $tags[] = array(
+                'label' => __('leaves the instance'),
+                'tone' => 'over',
+                'title' => __('Asking this tells somebody outside this'
+                    . ' instance that the value is being looked at.'),
+            );
+        }
+        if ($facts !== null && !empty($facts['unset_required'])) {
+            $tags[] = array(
+                'label' => __('needs settings'),
+                'tone' => 'missing',
+                'title' => sprintf(
+                    __n(
+                        'Enabled here, but %s is not set. It will fail'
+                        . ' when run until an administrator fills it'
+                        . ' in under Plugin settings.',
+                        'Enabled here, but %s are not set. It will'
+                        . ' fail when run until an administrator fills'
+                        . ' them in under Plugin settings.',
+                        count($facts['unset_required'])
+                    ),
+                    implode(', ', $facts['unset_required'])
+                ),
+            );
+        }
+        return $tags;
     }
 
     /**
@@ -2269,25 +2375,6 @@ class AnalystProfileFormTool
             );
         }
         return null;
-    }
-
-    /**
-     * Where a module answers from and what it answers for, on one line
-     * under its name.
-     *
-     * `hover` and `expansion` are not a detail: the tab draws both and
-     * a reader who declared a hover-only module is owed the fact that
-     * it answers on hover rather than on the run they were expecting.
-     *
-     * @param array|null $facts
-     * @return string|null
-     */
-    private function moduleSubLabel($facts)
-    {
-        if ($facts === null || empty($facts['kinds'])) {
-            return null;
-        }
-        return implode(', ', $facts['kinds']);
     }
 
     /**

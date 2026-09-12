@@ -1332,6 +1332,41 @@ input.num[type="number"]::-webkit-inner-spin-button {
 .mod-row .form-select { flex: 0 1 22rem; max-width: 22rem; }
 .mod-row.is-off { opacity: .6; }
 
+/*
+ * The row-wide setter sits above the names it writes and is separated
+ * from them, because it is a control *over* the list rather than the
+ * first item in it.
+ */
+.mod-bulk {
+    padding-bottom: .3rem;
+    margin-bottom: .1rem;
+    border-bottom: 1px dashed var(--bs-border-color);
+}
+.mod-bulk .wb-id { font-style: italic; opacity: .85; }
+
+/* Hidden by the fold, not by the server: the fields still post. */
+.mod-row.is-folded { display: none; }
+.mod-more {
+    align-self: flex-start;
+    padding: 0;
+    font-size: .72rem;
+    text-decoration: none;
+}
+
+/*
+ * Where a module answers from, and whether it can answer at all, on
+ * the row that asks you to decide about it.
+ */
+.ap-tags { display: flex; flex-wrap: wrap; gap: .25rem; margin: .15rem 0; }
+
+/* Narrowing the rows already in the table, above the table. */
+.ap-row-filter {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: .35rem 0 .2rem;
+}
+
 /* A bucket's types, as chips that toggle. */
 .ttl-chips { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
 .ttl-chips label.chip { cursor: pointer; }

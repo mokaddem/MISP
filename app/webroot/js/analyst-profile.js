@@ -1297,6 +1297,159 @@ function boot() {
      * inside a pane refuses it. A button that is the page's main one
      * cannot be the one that validates least.
      */
+    /* ------------------------------------------------------------ *
+     * One choice for a whole row
+     * ------------------------------------------------------------ */
+
+    /*
+     * A module row is one select per attribute type it accepts, and
+     * the usual declaration is the same answer for all of them —
+     * `circl_passivedns` is six identical choices. This writes them
+     * all and then hands back to `mark()`, so the row lights up as
+     * edited exactly as it would have done one select at a time.
+     *
+     * Revealed here rather than rendered visible, because it writes
+     * fields instead of being one: without this script it would be a
+     * control that silently does nothing.
+     */
+    Array.prototype.forEach.call(
+        document.querySelectorAll('[data-ap-bulk-wrap]'),
+        function (wrap) { wrap.hidden = false; }
+    );
+
+    document.addEventListener('change', function (event) {
+        var bulk = event.target.closest
+            ? event.target.closest('[data-ap-bulk]')
+            : null;
+        if (!bulk) {
+            return;
+        }
+        var box = bulk.closest('.mod-states');
+        if (!box) {
+            return;
+        }
+        var written = box.querySelectorAll('select[data-ap-field]');
+        Array.prototype.forEach.call(written, function (control) {
+            control.value = bulk.value;
+        });
+        /*
+         * Back to the dash, so the control reads as an action taken
+         * rather than as a state the row is now in — nothing stores
+         * what it was set to.
+         */
+        bulk.value = '';
+        /* A folded row that was just written to has something to show. */
+        expand(box, true);
+        /*
+         * One synthetic `change` rather than a call to `mark()` here:
+         * the handler above already marks, re-prices and debounces the
+         * bench, and a second copy of that sequence is how the two
+         * come to disagree. Dispatched once, from the last field
+         * written, because the handler does not care which.
+         */
+        if (written.length) {
+            written[written.length - 1].dispatchEvent(
+                new Event('change', {bubbles: true})
+            );
+        }
+    });
+
+    /* ------------------------------------------------------------ *
+     * Long rows fold
+     * ------------------------------------------------------------ */
+
+    function expand(box, open) {
+        var button = box.querySelector('[data-ap-more]');
+        if (!button) {
+            return;
+        }
+        Array.prototype.forEach.call(
+            box.querySelectorAll('.mod-folded'),
+            function (row) { row.classList.toggle('is-folded', !open); }
+        );
+        button.textContent = open
+            ? button.getAttribute('data-ap-more-less')
+            : button.getAttribute('data-ap-more-label');
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    Array.prototype.forEach.call(
+        document.querySelectorAll('.mod-states[data-ap-collapse]'),
+        function (box) {
+            var button = box.querySelector('[data-ap-more]');
+            if (button) {
+                button.hidden = false;
+            }
+            expand(box, false);
+        }
+    );
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest
+            ? event.target.closest('[data-ap-more]')
+            : null;
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        var box = button.closest('.mod-states');
+        if (box) {
+            expand(box, button.getAttribute('aria-expanded') !== 'true');
+        }
+    });
+
+    /* ------------------------------------------------------------ *
+     * Narrowing the rows already in a table
+     * ------------------------------------------------------------ */
+
+    /*
+     * Not the picker above it: that one finds a row to *add*, this
+     * finds one you already have. It matches the key and whatever the
+     * row says under it — a module's description, so `geolocation`
+     * finds `mmdb_lookup` without the reader knowing the name.
+     */
+    Array.prototype.forEach.call(
+        document.querySelectorAll('[data-ap-rowfilter-wrap]'),
+        function (wrap) { wrap.hidden = false; }
+    );
+
+    document.addEventListener('input', function (event) {
+        var box = event.target.closest
+            ? event.target.closest('[data-ap-rowfilter]')
+            : null;
+        if (!box) {
+            return;
+        }
+        var map = box.closest('.ap-map');
+        var body = map ? map.querySelector('table.wb-tbl tbody') : null;
+        if (!body) {
+            return;
+        }
+        var query = box.value.trim().toLowerCase();
+        var hidden = 0;
+        var rows = body.querySelectorAll('tr[data-ap-key]');
+        Array.prototype.forEach.call(rows, function (row) {
+            var key = (row.getAttribute('data-ap-key') || '').toLowerCase();
+            var sub = row.querySelector('.wb-sub');
+            var text = key + ' ' + (sub ? sub.textContent.toLowerCase() : '');
+            var match = query === '' || text.indexOf(query) !== -1;
+            row.hidden = !match;
+            if (!match) {
+                hidden++;
+            }
+        });
+        var count = map.querySelector('[data-ap-rowfilter-count]');
+        if (count) {
+            if (query === '') {
+                count.textContent = '';
+            } else if (hidden === rows.length) {
+                count.textContent = box.getAttribute('data-ap-rowfilter-empty');
+            } else {
+                count.textContent = (rows.length - hidden) + '/' + rows.length;
+            }
+        }
+    });
+
     window.analystProfileSave = function () {
         if (!form) {
             return;

@@ -201,6 +201,30 @@ $canAdd = $editable && !empty($block['add']);
             . ' section.')) ?></p>
     </div>
 <?php endif; ?>
+<?php
+/*
+ * A box that narrows the rows already in the table, which is a
+ * different thing from the picker above: that one finds a row to
+ * *add*, this one finds a row you already have. Worth drawing only
+ * past the point where scanning stops working, and hidden until the
+ * page can drive it — a search box that does nothing is worse than
+ * none.
+ */
+$rowFilter = !empty($block['row_filter'])
+    && count($block['entries']) >= (int)$block['row_filter'];
+?>
+<?php if ($rowFilter): ?>
+    <div class="ap-row-filter" hidden data-ap-rowfilter-wrap>
+        <input class="form-control form-control-sm" type="search"
+               style="max-width:16rem"
+               data-ap-rowfilter="1"
+               data-ap-rowfilter-empty="<?= h(__('no row matches')) ?>"
+               placeholder="<?= h(!empty($block['row_filter_placeholder'])
+                   ? $block['row_filter_placeholder']
+                   : __('filter the rows below…')) ?>">
+        <span class="wb-sub" data-ap-rowfilter-count></span>
+    </div>
+<?php endif; ?>
 <?php if ($hasRows || $canAdd): ?>
     <table class="wb-tbl" <?= $hasRows ? '' : 'hidden' ?>>
         <thead>
@@ -245,6 +269,24 @@ $canAdd = $editable && !empty($block['add']);
                     data-ap-key="<?= h($entry['key']) ?>">
                     <td>
                         <div class="fw-semibold"><?= h($entry['label']) ?></div>
+                        <?php
+                        /*
+                         * What a reader needs beside the name while
+                         * they are choosing, rather than two blocks
+                         * further down: where the module answers from,
+                         * and whether it can answer at all.
+                         */
+                        ?>
+                        <?php if (!empty($entry['tags'])): ?>
+                            <div class="ap-tags">
+                                <?php foreach ($entry['tags'] as $tag): ?>
+                                    <span class="pill t-<?= h($tag['tone']) ?>"
+                                        <?= empty($tag['title']) ? '' :
+                                            'title="' . h($tag['title']) . '"' ?>
+                                    ><?= h($tag['label']) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                         <?php if (!empty($entry['sub_label'])): ?>
                             <div class="wb-sub"><?= h($entry['sub_label']) ?></div>
                         <?php endif; ?>

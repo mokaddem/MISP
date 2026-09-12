@@ -835,6 +835,72 @@ edits to the default profile when the shipped version rises, so v10
 discards whatever an admin changed since v8.
 
 
+### 3.23 — Enrichment: the module row earns its place · **done 2026-09-12**
+
+Six follow-ons to 3.19, once the table was module-keyed and could be
+looked at properly.
+
+**One control per row, not one per type.** The usual declaration is
+*this module, for everything it accepts*, and `circl_passivedns` alone
+was six identical choices — 36 selects across the shipped default's
+twelve rows. A row-wide setter writes them all and dispatches a single
+synthetic `change`, so the existing handler marks, re-prices and
+debounces the bench exactly as it would have one select at a time. It
+posts nothing itself and is hidden until the page can drive it: a
+control that writes fields rather than being one.
+
+**The module says what it does.** `meta.description` was in the
+introspection payload all along and thrown away, leaving a column of
+identifiers — `ipasn`, `mmdb_lookup`, `circl_passivedns` are not
+self-describing to anybody who has not read misp-modules. Capped rather
+than rewritten: median 53 characters, maximum **379**, seven carrying a
+project URL. The first-sentence cut that looked tidier was withdrawn
+when it turned `onion_lookup` into *"MISP module using the MISP
+standard."* — the boilerplate opener, with the meaning in the sentence
+after. The filter box reads it too, so *geolocation* finds
+`mmdb_lookup` without knowing the name.
+
+**Enabled and unconfigured is now visible.** The quietest failure the
+page had: the declaration saves, the row looks healthy, the box arrives
+ticked, and the analyst learns by pressing Run. `ModuleCredentials`
+ships the roster, because introspection carries `meta.config` and
+**nothing that says which keys are required** — and the obvious guess
+would warn about `mmdb_lookup`, which declares three settings and works
+unconfigured against `ip.circl.lu`. Membership cites the module's own
+`requirements` text; where there is nothing to cite, the file is
+silent. `passive_ssh` is the entry that documents the rule by being
+absent.
+
+**Locality moved onto the row** — *does asking this tell somebody
+outside* is the question being answered at the moment of choosing, and
+it lived two blocks down. **Only where it is known.** Drawn for all
+three states it read `may leave the instance` on all twelve rows of the
+shipped default, because `ModuleLocality` names the local modules and a
+value page rarely has a type for one. A badge that says the same thing
+on every row is wallpaper, including on the row where it differs — so
+the presumption is stated once in the blurb and the pill marks only
+what somebody established.
+
+**`expansion, hover` is gone** from the row. It is misp-modules
+vocabulary in a place an analyst reads for meaning.
+
+**Long rows fold and the table filters.** `farsight_passivedns` accepts
+20 types; past six a row is a wall. Folded rows are rendered and hidden
+rather than dropped, so they still post their stored state and a reader
+without JavaScript sees all of it — and **a type the reader has an
+opinion about is never folded**, since hiding a declared type would
+hide the declaration. The filter appears at twelve rows, which is where
+the shipped default lands.
+
+Verified in a browser rather than asserted: filter 12 → 1 on a name and
+12 → 1 on a description, a bulk setter writing six selects and lighting
+the section's unsaved-changes mark, and the fold moving 6 ↔ 20 with the
+button reading *show all 20 types* / *show fewer*. No page errors.
+
+**Not done, and deliberately:** sorting unavailable rows last, and a
+picker that shows what an administrator has not enabled.
+
+
 ---
 
 ## 4. Two cross-cutting passes

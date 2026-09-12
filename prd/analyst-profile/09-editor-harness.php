@@ -705,6 +705,111 @@ foreach ($importedBlocks as $candidate) {
 }
 
 /*
+ * What a row says beside the module's name, which is the difference
+ * between a list of 146 identifiers and something an analyst can
+ * choose from.
+ *
+ * Three separate facts, and each is only drawn where it is *known* —
+ * the rule the locality pill exists to obey. `ModuleLocality` names
+ * the local modules and almost none of them are ones a value page has
+ * a type for, so a pill on every row said the same words everywhere
+ * and stopped being read. The presumption lives in the blurb instead.
+ */
+out('');
+out('== a row says what the module is, and what it costs ==');
+$rowFacts = $parameters;
+$rowFacts['enrichment']['auto_run'] = array(
+    'ip-src' => array(
+        'circl_passivedns' => 'ticked',
+        'geoip_city' => 'ticked',
+        'ipasn' => 'ticked',
+    ),
+);
+$rowFacts['enrichment']['locality'] = array('ipasn' => 'external');
+$rowCatalogue = array(
+    'circl_passivedns' => array(
+        'accepts' => array('ip-src', 'ip-dst'),
+        'kinds' => array('expansion'),
+        'enabled' => true, 'restricted' => false,
+        'description' => 'Module to access CIRCL Passive DNS.',
+        'unset_required' => array('username', 'password'),
+    ),
+    'geoip_city' => array(
+        'accepts' => array('ip-src', 'ip-dst'),
+        'kinds' => array('expansion'),
+        'enabled' => true, 'restricted' => false,
+        'description' => "A local copy of Maxmind's Geolite database.",
+        'unset_required' => array(),
+    ),
+    'ipasn' => array(
+        'accepts' => array('ip-src', 'ip-dst'),
+        'kinds' => array('expansion'),
+        'enabled' => true, 'restricted' => false,
+        'description' => 'Module to query an IP ASN history service.',
+        'unset_required' => array(),
+    ),
+);
+$rows = array();
+foreach ($form->sections($rowFacts, array(
+    'attribute_types' => array('ip-src'),
+    'modules' => array('reachable' => true,
+        'catalogue' => $rowCatalogue),
+))['enrichment']['blocks'] as $candidate) {
+    if (($candidate['id'] ?? null) === 'auto_run') {
+        foreach ($candidate['entries'] as $entry) {
+            $rows[$entry['key']] = $entry;
+        }
+        $autoRunBlock = $candidate;
+    }
+}
+$labels = function ($entry) {
+    return array_map(function ($tag) { return $tag['label']; },
+        $entry['tags']);
+};
+is_same(
+    'Module to access CIRCL Passive DNS.',
+    $rows['circl_passivedns']['sub_label'],
+    "the module's own description sits under its name, so a roster of"
+        . ' identifiers becomes a roster of answers'
+);
+is_same(
+    array('needs settings'),
+    $labels($rows['circl_passivedns']),
+    'a module nobody has classified gets no locality pill — the'
+        . ' presumption is in the blurb, and a pill on every row is'
+        . ' one nobody reads'
+);
+is_true(
+    strpos($rows['circl_passivedns']['tags'][0]['title'], 'username')
+        !== false,
+    'and the settings it is missing are named, because that is the'
+        . ' quietest failure this page has'
+);
+is_same(array('stays local'), $labels($rows['geoip_city']),
+    'a module the shipped roster calls local says so');
+is_same(array('leaves the instance'), $labels($rows['ipasn']),
+    "and the reader's own override is read here too");
+is_true(
+    strpos($rows['ipasn']['tags'][0]['title'], 'outside') !== false,
+    'with the sentence that says what that means'
+);
+
+/*
+ * The two controls that exist because the table asks for repetition:
+ * one answer for a whole row, and a fold for the rows that are a wall.
+ * Both are declared by the block and drawn by the page, so what is
+ * asserted here is the declaration.
+ */
+is_same(6, $rows['ipasn']['collapse_after'],
+    'a row folds past six types — the median module accepts three, so'
+        . ' this is for the 21-type outliers and nothing else');
+is_true(!empty($rows['ipasn']['bulk_label']),
+    'and carries one control that writes every type in it');
+is_same(12, $autoRunBlock['row_filter'],
+    'the rows get their own filter once there are as many as the'
+        . ' shipped default declares');
+
+/*
  * The transpose round-trips: the form posts module-keyed and the
  * document stores type-keyed, and `auto_run_modules` never reaches
  * storage.
