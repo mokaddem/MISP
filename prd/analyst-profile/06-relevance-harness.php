@@ -604,6 +604,69 @@ is_true(
 );
 
 /*
+ * ----------------------------------------------------------------------
+ * A sighting is an observation date (§3.6, revised 2026-09-12)
+ * ----------------------------------------------------------------------
+ *
+ * The rule read `first_seen` on occurrences and nothing else, so a
+ * value whose clock had just been reset by a sighting was told its
+ * timeline could not be trusted — while the elapsed time the warning
+ * qualified was measured from that sighting's own `date_sighting`. The
+ * same undated occurrences, with one foreign sighting on them.
+ */
+out('');
+out('a sighting dates the observation the clock measures from');
+
+$sighted = context(array(
+    'types' => array(array('type' => 'url', 'count' => 1)),
+    'occurrences' => array('total' => 1, 'events' => 1, 'orgs' => 1,
+        'oldest' => NOW - 20 * DAY, 'newest' => NOW - 20 * DAY),
+    'orgs' => array(org(9, 'ACME', 1, NOW - 20 * DAY, NOW - 20 * DAY)),
+    'temporal' => array('occurrences' => 1, 'with_first_seen' => 0),
+    'publication' => array('events' => 1, 'published' => 1,
+        'unpublished' => 0),
+    'corroboration' => ValueRelevanceTool::corroborationFrom(
+        array(sighting(4, 71, NOW - 3 * DAY)),
+        occurrences(array(71 => array('at' => NOW - 20 * DAY, 'org' => 9)))
+    ),
+));
+$sightedRelevance = ValueRelevanceTool::relevanceFor($sighted, $profile);
+is_same(
+    'foreign_sighting',
+    $sightedRelevance['clock']['kind'],
+    'the clock is the sighting, reported by an organisation other than'
+        . ' the one holding the occurrence'
+);
+is_true(
+    !$sightedRelevance['uncertain'],
+    'so the timeline is not uncertain, even with first_seen on none of'
+        . ' the occurrences — the date it measures from is somebody'
+        . ' saying when they saw it'
+);
+is_same(
+    'current',
+    $sightedRelevance['state'],
+    'and the state is the one the runway earns');
+is_same(
+    0,
+    $sightedRelevance['assumed_days'],
+    'with nothing assumed, because nothing had to be');
+is_true(
+    $sightedRelevance['precision']['clock_is_dated'],
+    'and the reading says which of the two answered it');
+
+/*
+ * The contrast that makes the rule a rule rather than a special case:
+ * the same undated occurrences with the sighting removed fall back to
+ * `Attribute.timestamp`, which is a row write.
+ */
+is_true(
+    $relevance['uncertain'],
+    'while the fallback clock on the same undated occurrences stays'
+        . ' uncertain — a row-write date is not an observation'
+);
+
+/*
  * The other half of item 3b: the same two facts deduct in the quality
  * ledger. Two readings, two homes, one pair of measurements.
  */

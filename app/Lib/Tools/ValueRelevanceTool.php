@@ -106,6 +106,16 @@ class ValueRelevanceTool
     const STATES = array('current', 'aging', 'expired', 'uncertain');
 
     /**
+     * Clock kinds whose date is an observation rather than a row write.
+     *
+     * A sighting carries `date_sighting` — an organisation saying *I
+     * saw this, at this time*. `org_joined`, `occurrence` and
+     * `fallback` all read `Attribute.timestamp`, which is when a row
+     * was last written and says nothing about when anything was seen.
+     */
+    const SIGHTED_CLOCK_KINDS = array('sighting', 'foreign_sighting');
+
+    /**
      * The shelf-life buckets a type may be assigned to (D18).
      *
      * Four, not three, and the reason is arithmetic rather than taste:
@@ -163,7 +173,7 @@ class ValueRelevanceTool
         $now = isset($context['now']) ? (int)$context['now'] : time();
         $ttl = self::ttlFor($context, $section);
         $clock = self::clockFor($context, $section);
-        $precision = self::precisionFor($context, $section);
+        $precision = self::precisionFor($context, $section, $clock);
 
         /*
          * No occurrence this viewer can see is not a stale value and
@@ -268,8 +278,18 @@ class ValueRelevanceTool
             'recorded_runway' => $recordedRunway,
             'assumed_days' => $assumed,
             'assumed_setting' => (int)$precision['assumed_days'],
+            /*
+             * Only where the cap actually bit on a live value. Past
+             * the lifetime the clamp drives `assumed` to zero as a
+             * matter of arithmetic, and `1.1.1.1` — 115 days over —
+             * printed *the profile would have assumed 30 days; the
+             * rest is not applied, because an assumption may never
+             * expire a value* about a value real time had expired
+             * months earlier.
+             */
             'assumed_capped' => !empty($precision['uncertain'])
-                && $assumed < (int)$precision['assumed_days'],
+                && $assumed < (int)$precision['assumed_days']
+                && $elapsedDays < $ttl['days'],
             /*
              * Both of these are the record's, not the assumption's.
              * They were the assumption's for one draft and the card
@@ -822,25 +842,48 @@ class ValueRelevanceTool
      * here and from `record.temporal_precision`, which is the only
      * place it reached the ledger.
      *
-     * What survives is the fact the rows can answer: **does any
-     * occurrence carry `first_seen`.** Where the lag was a bad
-     * estimate of how much older the value really is,
-     * `undated_assumed_days` is a declared assumption about the same
-     * thing — visible, editable, and never pretending to be a reading.
+     * What survives is the question the rows can answer: **is the date
+     * the clock measures from an observation date, or a row-write
+     * date?** Where the lag was a bad estimate of how much older the
+     * value really is, `undated_assumed_days` is a declared assumption
+     * about the same thing — visible, editable, and never pretending to
+     * be a reading.
+     *
+     * **A sighting answers it. Added 2026-09-12.** The rule read
+     * `first_seen` on occurrences and nothing else, so a value whose
+     * clock had just been reset by a sighting was told its timeline
+     * could not be trusted — while the number the warning qualified was
+     * measured from that sighting's own `date_sighting`, which is an
+     * organisation stating *I saw this, at this time*. `8.8.8.8` is the
+     * case: last confirmed 2026-08-23 by an independent sighting, and
+     * flagged uncertain because none of its 26 occurrences set a field
+     * on a different table.
+     *
+     * So the flag now asks about the clock it qualifies. A
+     * sighting-based clock is dated by definition; an occurrence-based
+     * one reads `Attribute.timestamp`, which is a row write, and is
+     * uncertain unless the occurrences carry `first_seen` to show MISP
+     * holds real observation dates for this value at all.
      *
      * @param array $context
      * @param array $section
+     * @param array|null $clock From `clockFor()`, when the caller has it
      * @return array `uncertain`, `reasons`, `note`, plus the raw counts
      */
-    public static function precisionFor(array $context, array $section)
-    {
+    public static function precisionFor(array $context, array $section,
+        $clock = null
+    ) {
         $temporal = isset($context['temporal'])
             ? $context['temporal']
             : array();
         $occurrences = (int)($temporal['occurrences'] ?? 0);
         $dated = (int)($temporal['with_first_seen'] ?? 0);
+        $kind = is_array($clock) && isset($clock['kind'])
+            ? $clock['kind']
+            : null;
+        $sighted = in_array($kind, self::SIGHTED_CLOCK_KINDS, true);
         $reasons = array();
-        if ($occurrences > 0 && $dated === 0) {
+        if ($occurrences > 0 && $dated === 0 && !$sighted) {
             $reasons[] = array('key' => 'no_first_seen');
         }
         return array(
@@ -849,6 +892,7 @@ class ValueRelevanceTool
             'note' => self::precisionNote($reasons),
             'occurrences' => $occurrences,
             'with_first_seen' => $dated,
+            'clock_is_dated' => $sighted,
             'assumed_days' => (int)$section['undated_assumed_days'],
         );
     }

@@ -840,6 +840,49 @@ setting."* The only thing that clears the state is a `first_seen` on any
 one occurrence, which is what the falsifiability line has always
 offered.
 
+### 7.12 A sighting is an observation date. Fixed 2026-09-12
+
+Asked *"what if it has a sighting?"*, and the answer was that the rule
+never looked. `precisionFor()` read `with_first_seen` — a `SUM` over
+`Attribute.first_seen` — and nothing else, so the flag was about one
+column on one table.
+
+**`8.8.8.8` is the case, and it was contradicting itself.** Its clock
+read *last confirmed 2026-08-23 by CthulhuSPRL.be (independent
+sighting)* — a `date_sighting`, which is an organisation stating *I saw
+this, at this time* — while the card beside it said the timeline could
+not be trusted, because none of its 26 occurrences set a field on a
+different table. The warning was qualifying a number it had not looked
+at.
+
+**The flag now asks about the clock it qualifies:**
+
+| clock kind | date it reads | dated? |
+|---|---|---|
+| `sighting`, `foreign_sighting` | `Sighting.date_sighting` | **yes** — an observation |
+| `org_joined`, `occurrence`, `fallback` | `Attribute.timestamp` | no — a row write |
+
+So `uncertain` is *the clock is not sighting-based **and** no occurrence
+carries `first_seen`*. A strict superset of the old rule: `first_seen`
+still clears it, and a sighting clock now clears it too. `8.8.8.8` reads
+**current, 70 days left**, with nothing assumed — which is what its own
+clock had been saying all along.
+
+`1.1.1.1` is the contrast that keeps it a rule rather than a special
+case: its clock is `new organisation`, an `Attribute.timestamp`, so it
+stays flagged.
+
+**`record.temporal_precision` is deliberately not changed.** It asks
+whether *the record* dates its own observations, and a sighting is
+another organisation's assertion rather than the occurrence dating
+itself. Different question, different axis, and the `-6` stands.
+
+One bug of this pass's own making, caught rendering `1.1.1.1`: the
+capped-assumption note fired on a value 115 days past its lifetime,
+where the clamp drives `assumed` to zero as arithmetic rather than as a
+cap. `assumed_capped` now also requires the value to still be inside
+its lifetime.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
