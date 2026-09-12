@@ -455,6 +455,31 @@ class ValueRelevanceTool
     }
 
     /**
+     * A clock setting, in words.
+     *
+     * The companion to `stateLabel()`, and here for the same reason:
+     * the value card, the editor's bench and the profile viewer all
+     * name the setting, and three copies of three strings is how one of
+     * them came to print the stored key.
+     *
+     * @param string|null $setting
+     * @return string
+     */
+    public static function clockLabel($setting)
+    {
+        $labels = array(
+            'last_independent_corroboration' => __('last independent'
+                . ' corroboration'),
+            'last_sighting' => __('last sighting'),
+            'last_occurrence' => __('last occurrence'),
+        );
+        if ($setting === null || !isset($labels[$setting])) {
+            return (string)$setting;
+        }
+        return $labels[$setting];
+    }
+
+    /**
      * The TTL in force, and every candidate it was chosen from.
      *
      * `185.234.219.24` occurs as both `ip-src` and `ip-dst`, and MISP's

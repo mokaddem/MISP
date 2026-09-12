@@ -1173,3 +1173,20 @@ input.num[type="number"]::-webkit-inner-spin-button {
 /* A bucket's types, as chips that toggle. */
 .ttl-chips { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
 .ttl-chips label.chip { cursor: pointer; }
+
+/*
+ * The dates table on the bench. The rules are in `value-palette.css`,
+ * which both pages load; this is only the room it needs here — it sits
+ * below the three-axis strip at the bench's full width, after the first
+ * attempt put it inside the relevance column and gave a three-column
+ * table 125 pixels.
+ */
+.bench-dates {
+    margin: 0 0 10px;
+}
+
+.bench-dates .vp-dates-tbl th:nth-child(2),
+.bench-dates .vp-dates-tbl td:nth-child(2) { width: 32%; }
+
+.bench-dates .vp-dates-tbl th:last-child,
+.bench-dates .vp-dates-tbl td:last-child { width: 28%; }

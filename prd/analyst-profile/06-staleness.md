@@ -959,6 +959,55 @@ rail width: the source names break at the dot via a `wbr` rather than
 one character from their end, and the summary's sub-label reads on from
 the title instead of being stranded right by a `margin-left: auto`.
 
+### 7.15 The table nobody could find, and the pane it was missing from
+
+Reported as *"I cannot find the table on the page?"* — and it was
+rendering, in one place, behind a fold.
+
+**Two failures, both mine.** Closed, the summary was grey text on the
+card's own background: one small line, easy to scroll past, and the
+whole table's usefulness resting on noticing it. It reads as a control
+now — its own tinted, bordered strip, bold label, hover that picks up
+the card's state colour. Still folded, because §7.8 spent three passes
+shortening this card and a table competing with the answer would undo
+that; but a fold has to look like one.
+
+**And it was on the wrong pane, or rather on only one of two.**
+*"Relevance pane"* has meant the value page's Lifetime card and the
+profile editor's Relevance section at different points in this
+feature's life, and the table went to the first. The second is where an
+analyst sets `undated_assumed_days` — so the reader tuning the
+assumption could not see whether the value in front of them declared a
+`first_seen` at all.
+
+`value_date_sources.ctp` is the element both render, and the sharing is
+the point rather than a convenience: two panes describing the same
+seven columns in two hands is exactly how §7.11 and §7.12 happened.
+Three things followed from making it shared:
+
+- **`value-palette.css` holds the styling**, not `value-profile.css`.
+  The editor loads the palette and not the profile sheet, and the
+  palette exists for this — *"two pages speak it"*. Every colour falls
+  back from `--vp-shelf-colour` to `--correlation`, because the bench
+  has no shelf to take a state colour from.
+- **`ValueRelevanceTool::clockLabel()` joins `stateLabel()`.** Both
+  panes name the clock setting, and the card was holding the only copy
+  of the three strings.
+- **`simulate.ctp` rebuilds the bench array key by key**, so the
+  expanded simulator showed one thing less than the editor until
+  `dates` was named there too. Worth knowing: a key added to
+  `__simulation()` lands in two places.
+
+**Two layout findings, from rendering rather than reasoning.** The
+first attempt put the table inside the bench's relevance column — one
+third of the strip, 125px for three columns, with
+`Attribute.first_seen` overlapping the cell beside it. It sits below
+the strip at full bench width now. And the bench counted sighting
+*clock events* for its `date_sighting` note, which are folded to one a
+day and capped: `14 sightings` under a value page reading `53`. The
+bench shows the date and no count — a date with no count is honest, a
+count that disagrees with the other pane is not.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in

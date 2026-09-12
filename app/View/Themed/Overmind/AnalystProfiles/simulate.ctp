@@ -56,6 +56,13 @@ $bench = array(
     'comparison' => $comparison,
     'comparison_set' => $comparison_set,
     'context_builds' => $context_builds,
+    /*
+     * This page rebuilds the bench array from the payload's own keys
+     * rather than receiving it whole, so a key added to `__simulation`
+     * has to be named here too or the expanded bench quietly shows one
+     * thing less than the editor's.
+     */
+    'dates' => isset($dates) ? $dates : null,
 );
 ?>
 <div class="ap-page">

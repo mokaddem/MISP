@@ -21,6 +21,35 @@ App::uses('ValueVerdictTool', 'Tools');
 
 $full = isset($full) ? $full : false;
 $detail = $bench['detail'];
+/*
+ * The newest sighting, for the dates table's `Sighting.date_sighting`
+ * row. It comes off the clock's own events rather than from a second
+ * query the bench does not otherwise need.
+ *
+ * **The count does not, and the bench shows none.** The clock folds
+ * sightings to one entry a day and caps them, so counting those events
+ * gave `14 sightings` under a value page reading `53` — a number that
+ * is not wrong about anything so much as about nothing, since it counts
+ * days the clock kept. A date with no count is honest; a count that
+ * disagrees with the other pane is not.
+ */
+$benchSightingLast = null;
+$benchClock = $detail !== null
+    && isset($detail['axes']['relevance']['runway']['clock']['events'])
+        ? $detail['axes']['relevance']['runway']['clock']['events']
+        : array();
+foreach ($benchClock as $event) {
+    if (!in_array($event['kind'], array('sighting', 'foreign_sighting'),
+        true)
+    ) {
+        continue;
+    }
+    if ($benchSightingLast === null
+        || (int)$event['at'] > $benchSightingLast
+    ) {
+        $benchSightingLast = (int)$event['at'];
+    }
+}
 $focus = $bench['focus'];
 $values = $bench['values'];
 $pinned = $bench['comparison_set'];
@@ -192,6 +221,14 @@ $carry = array(
             <?= $this->element('AnalystProfiles/assessment_head', array(
                 'axes' => $detail['axes'],
                 'moved' => $detail['changed'],
+                /*
+                 * The benched value's dates, for the provenance table
+                 * under the relevance line. Absent on a bench with no
+                 * value, and the element draws nothing then.
+                 */
+                'dates' => $bench['dates'] ?? null,
+                'lastSighting' => $benchSightingLast,
+                'sightingTotal' => 0,
             )) ?>
 
             <div class="bench-sec">

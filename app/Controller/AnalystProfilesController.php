@@ -950,6 +950,19 @@ class AnalystProfilesController extends AppController
             'values' => $values,
             'focus' => $focus,
             'detail' => $detail,
+            /*
+             * The dates the benched value's axis is built on, for the
+             * same table the value page's Lifetime card draws. Only for
+             * the benched value — it is one aggregate, and the other
+             * rows of the comparison are headlines rather than
+             * explanations.
+             */
+            'dates' => empty($values)
+                ? null
+                : ClassRegistry::init('Value')->timelineFactsFor(
+                    $user,
+                    $values[0]
+                ),
             'comparison' => $rows,
             'comparison_set' => $this->__comparisonSet($user),
             'context_builds' => $builds,

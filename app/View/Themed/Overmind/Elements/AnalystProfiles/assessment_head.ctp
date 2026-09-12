@@ -13,6 +13,7 @@
  * @var array $axes From the diff — each axis as before/after/changed
  * @var bool $moved Whether anything moved at all
  */
+App::uses('ValueRelevanceTool', 'Tools');
 $lean = $axes['lean'];
 $relevance = $axes['relevance'];
 $quality = $axes['quality'];
@@ -49,6 +50,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
         <?= $this->element('AnalystProfiles/runway', array(
             'runway' => $runway,
         )) ?>
+
     </div>
     <div class="ax ax-led">
         <span class="ax-n"><?= h(__('quality')) ?></span>
@@ -111,3 +113,32 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
             . ' at all.')) ?>
     <?php endif; ?>
 </p>
+<?php
+/*
+ * The dates the relevance axis is built on — the same element the value
+ * page's Lifetime card draws, because a reader tuning
+ * `undated_assumed_days` three fields away is exactly the reader who
+ * needs to know whether this value declares a `first_seen` at all.
+ *
+ * **Below the strip, not inside it.** The first attempt put it in the
+ * relevance column, which is one third of the bench: 125px for three
+ * columns, and `Attribute.first_seen` overlapped the cell beside it.
+ * The strip is three readings side by side; this is one table about
+ * one of them, and it needs the width.
+ *
+ * Folded shut. The bench is a verdict, not a reference table.
+ */
+?>
+<?php if (!empty($dates) && !empty($runway['clock'])): ?>
+    <div class="bench-dates">
+        <?= $this->element('Values/View/value_date_sources', array(
+            'facts' => $dates,
+            'clockKind' => $runway['clock']['kind'] ?? null,
+            'clockLabel' => ValueRelevanceTool::clockLabel(
+                $runway['clock']['setting'] ?? null
+            ),
+            'lastSighting' => $lastSighting ?? null,
+            'sightingTotal' => $sightingTotal ?? 0,
+        )) ?>
+    </div>
+<?php endif; ?>

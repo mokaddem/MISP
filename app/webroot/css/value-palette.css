@@ -62,3 +62,181 @@
     --vp-mal-ink: #f1919b;
     --vp-ben-ink: #8fd0a7;
 }
+
+/* ==================================================================
+ * The dates behind the relevance axis
+ * ------------------------------------------------------------------
+ * Here rather than in `value-profile.css` for this file's own stated
+ * reason: two pages speak it. The Value Profile's Lifetime card and the
+ * Analyst Profile editor's bench render the same element, and the
+ * editor does not load `value-profile.css`.
+ *
+ * `--vp-shelf-colour` is the card's own state colour and is only set
+ * inside a `.vp-shelf`; on the bench there is none, so every use
+ * carries `--correlation` as the fallback.
+ * ================================================================== */
+
+/*
+ * The dates behind the axis: what each column means and what this value
+ * has in it. Folded shut, and styled as the footnote it is — the card
+ * above is the answer, this is the working, and a table that competed
+ * with the answer for attention would have been the wrong fix for a
+ * card this pass spent three rounds shortening.
+ */
+.vp-dates {
+    margin-top: 2px;
+    font-size: 0.68rem;
+}
+
+/*
+ * A line somebody can find. Closed, this was grey text on the card
+ * background and the first reader of it scrolled past — which is the
+ * whole table's usefulness resting on noticing one word. It reads as a
+ * control now: its own tinted strip, a border, and a hover that lifts.
+ */
+.vp-dates > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 4px;
+    background: var(--bs-secondary-bg, rgba(128, 128, 128, 0.08));
+    color: var(--bs-body-color);
+    font-weight: 600;
+    list-style: none;
+}
+
+.vp-dates[open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.vp-dates > summary::-webkit-details-marker { display: none; }
+
+/* A disclosure arrow that turns, rather than a glyph font. */
+.vp-dates > summary::before {
+    content: "";
+    flex: none;
+    width: 0;
+    height: 0;
+    border: 3.5px solid transparent;
+    border-left-color: currentColor;
+    transform: translateY(1px);
+    transition: transform 0.12s ease;
+}
+
+.vp-dates[open] > summary::before {
+    transform: translateY(1px) rotate(90deg);
+}
+
+.vp-dates > summary:hover {
+    border-color: var(--vp-shelf-colour, var(--correlation));
+}
+
+/*
+ * Reads on from the title rather than being pushed to the right edge:
+ * at rail width it wrapped, and `margin-left: auto` then stranded it
+ * alone on a right-aligned second line.
+ */
+.vp-dates-sub {
+    opacity: 0.75;
+    font-size: 0.64rem;
+    font-weight: 400;
+}
+
+
+.vp-dates-tbl {
+    width: 100%;
+    margin: 0;
+    padding: 0 8px 4px;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.vp-dates-tbl th {
+    padding: 2px 6px 3px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+    text-align: left;
+}
+
+.vp-dates-tbl td {
+    padding: 3px 6px 3px 0;
+    border-bottom: 1px solid color-mix(in srgb,
+        var(--bs-border-color) 45%, transparent);
+    vertical-align: top;
+    color: var(--bs-body-color);
+}
+
+.vp-dates-tbl tr:last-child td { border-bottom: 0; }
+
+.vp-dates-tbl th:nth-child(2),
+.vp-dates-tbl td:nth-child(2) { width: 37%; }
+
+.vp-dates-tbl th:last-child,
+.vp-dates-tbl td:last-child { width: 31%; }
+
+.vp-dates-tbl code {
+    font-size: 0.62rem;
+    color: var(--bs-secondary-color);
+    background: none;
+    padding: 0;
+    /*
+     * `normal`, not `break-word`: the only break point is the `wbr`
+     * the template puts after the dot, so a name too long for the
+     * column wraps as `Sighting.` / `date_sighting` rather than one
+     * character short of its end.
+     */
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+/* The row the clock read. The only one a reader has to find. */
+.vp-dates-tbl tr.is-held td {
+    background: color-mix(in srgb, var(--vp-shelf-colour, var(--correlation))
+        10%, transparent);
+}
+
+.vp-dates-tbl tr.is-held td:first-child { font-weight: 600; }
+
+.vp-dates-held {
+    margin-left: 5px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--vp-shelf-colour, var(--correlation));
+    color: var(--bs-body-bg);
+    font-size: 0.56rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: help;
+}
+
+.vp-dates-tbl tr.is-absent td { color: var(--bs-secondary-color); }
+
+.vp-dates-when {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.vp-dates-note,
+.vp-dates-none {
+    display: block;
+    font-size: 0.62rem;
+    line-height: 1.35;
+    color: var(--bs-secondary-color);
+}
+
+.vp-dates-foot {
+    margin: 6px 0 0;
+    font-size: 0.63rem;
+    line-height: 1.45;
+    color: var(--bs-secondary-color);
+}
