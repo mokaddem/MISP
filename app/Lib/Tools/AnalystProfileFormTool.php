@@ -969,6 +969,7 @@ class AnalystProfileFormTool
                 'label' => $this->bucketLabel($bucket),
                 'type' => 'int',
                 'unit' => __('days'),
+                'min' => 1,
                 'value' => isset($buckets[$bucket])
                     ? $buckets[$bucket]
                     : null,
@@ -1025,6 +1026,7 @@ class AnalystProfileFormTool
                 'value' => $days,
                 'type' => 'int',
                 'unit' => __('days'),
+                'min' => 1,
                 'path' => array('relevance', 'ttl_overrides',
                     (string)$type),
             );
@@ -1068,6 +1070,14 @@ class AnalystProfileFormTool
                             'key' => 'decay_speed',
                             'label' => __('Decay speed'),
                             'type' => 'float',
+                            /*
+                             * `min` is inclusive, so it cannot say
+                             * *above zero* — the server still refuses
+                             * exactly 0. What it can do is stop the
+                             * negatives, which is the case nothing was
+                             * stopping.
+                             */
+                            'min' => 0,
                             'value' => isset($section['decay_speed'])
                                 ? $section['decay_speed']
                                 : null,
@@ -1086,6 +1096,8 @@ class AnalystProfileFormTool
                             'key' => 'aging_fraction',
                             'label' => __('Call it aging below'),
                             'type' => 'float',
+                            'min' => 0,
+                            'max' => 1,
                             'unit' => __('of the lifetime left'),
                             'value' => isset($section['aging_fraction'])
                                 ? $section['aging_fraction']
@@ -1110,6 +1122,14 @@ class AnalystProfileFormTool
                                 . ' older by'),
                             'type' => 'int',
                             'unit' => __('days'),
+                            /*
+                             * Zero is a real answer — *assume nothing*
+                             * — so the bound is 0 and not 1. Negative
+                             * is not: it would read a value as younger
+                             * than its own record, which is the one
+                             * direction the missing date cannot go.
+                             */
+                            'min' => 0,
                             /*
                              * Reads the old key too, so a fork written
                              * before the rename opens with the number
@@ -1139,7 +1159,10 @@ class AnalystProfileFormTool
                                 . ' date its lifetime ends, because'
                                 . ' expiring on a guess would drop'
                                 . ' indicators nobody chose to drop.'
-                                . ' Set it to 0 to assume nothing.'
+                                . ' Set it to 0 to add nothing — the'
+                                . ' value still reads timeline'
+                                . ' uncertain, because that is a fact'
+                                . ' about the data and not a setting.'
                             ),
                             'path' => array('relevance',
                                 'undated_assumed_days'),
@@ -1186,6 +1209,7 @@ class AnalystProfileFormTool
                                 'label' => __('Every other type'),
                                 'type' => 'int',
                                 'unit' => __('days'),
+                                'min' => 1,
                                 'value' => $shelf['ttl_default'],
                                 'default' =>
                                     ValueRelevanceTool::DEFAULTS['ttl_default'],
@@ -2221,6 +2245,30 @@ class AnalystProfileFormTool
                     '`relevance.aging_fraction` must be above 0 and'
                     . ' below 1 — it is the share of the TTL still'
                     . ' left when a value stops reading as current.'
+                );
+            }
+        }
+        /*
+         * Never validated under either name — `lag_uncertain_days` had
+         * no rule here and neither did its replacement, so the form
+         * accepted `-5` and a word alike. The engine clamps at zero, so
+         * nothing broke; the field simply displayed a number that did
+         * nothing, which is its own kind of wrong.
+         */
+        foreach (array('undated_assumed_days', 'lag_uncertain_days')
+            as $key
+        ) {
+            if (!isset($section[$key])) {
+                continue;
+            }
+            if (!is_int($section[$key]) || $section[$key] < 0) {
+                $errors[] = sprintf(
+                    __('`relevance.%s` must be a whole number of days,'
+                        . ' zero or above — it is how much older than'
+                        . ' its record an undated value is assumed to'
+                        . ' be, and a value cannot be younger than its'
+                        . ' own record. Zero assumes nothing.'),
+                    $key
                 );
             }
         }

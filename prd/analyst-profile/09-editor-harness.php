@@ -390,6 +390,38 @@ is_same(1, count($form->validate($zero)['errors']),
     'while zero is refused rather than silently swapped for the default');
 
 /*
+ * `undated_assumed_days` had no validator either, under this name or
+ * under `lag_uncertain_days` before it — reported by a user who typed a
+ * negative number into the box and watched it save. The engine clamps
+ * at zero, so nothing broke; the field just showed a number that did
+ * nothing, which is the kind of wrong a form is supposed to prevent.
+ */
+$negative = $parameters;
+$negative['relevance']['undated_assumed_days'] = -5;
+is_same(1, count($form->validate($negative)['errors']),
+    'a negative assumed age is refused — a value cannot be younger than'
+        . ' its own record');
+$noAssumption = $parameters;
+$noAssumption['relevance']['undated_assumed_days'] = 0;
+is_same(array(), $form->validate($noAssumption)['errors'],
+    'while zero is accepted, because assuming nothing is an answer');
+$legacyNegative = $parameters;
+unset($legacyNegative['relevance']['undated_assumed_days']);
+$legacyNegative['relevance']['lag_uncertain_days'] = -5;
+is_same(1, count($form->validate($legacyNegative)['errors']),
+    'and the retired key is validated too, since a fork still stores'
+        . ' it and the engine still reads it');
+$assumedField = null;
+foreach ($relevanceSection['blocks'][0]['fields'] as $field) {
+    if ($field['key'] === 'undated_assumed_days') {
+        $assumedField = $field;
+    }
+}
+is_same(0, isset($assumedField['min']) ? $assumedField['min'] : null,
+    'and the box itself refuses one, through a min/max the renderer has'
+        . ' always supported and no field had ever declared');
+
+/*
  * ------------------------------------------------------------------
  * 2c. A numeric field says what it counts
  * ------------------------------------------------------------------

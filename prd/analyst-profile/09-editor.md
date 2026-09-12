@@ -778,6 +778,39 @@ between current and expired, not the end of the lifetime.* Units come
 second — a reader who has the states wrong is not helped by getting the
 units right.
 
+### 7e.7 Four numeric settings, no bounds, one with no validator at all
+
+Reported as *"this lag input accepts negative numbers"*, and the box was
+the smaller half.
+
+**`undated_assumed_days` had no server validator** — and neither did
+`lag_uncertain_days` before it, so the gap predates the rename by the
+whole life of the setting. Every numeric neighbour has one:
+`decay_speed` must be above zero, `aging_fraction` between 0 and 1,
+`ttl_default` and each bucket a whole number of days above zero. This
+one took `-5`, took a word, and saved. Nothing broke, because the engine
+clamps the assumption at zero — the field simply displayed a number that
+did nothing, which is the failure mode a form exists to prevent.
+
+Now refused with a reason, and **zero is explicitly allowed**: assuming
+nothing is an answer, so the bound is `>= 0` rather than `> 0`. The
+retired key is validated too, since a fork still stores it and the
+engine still reads it.
+
+**`field.ctp` has supported `min`/`max` since it was written and no
+field had ever declared one.** Dead code in a renderer is a fix nobody
+has to build; four declarations turn it on:
+
+| field | bound |
+|---|---|
+| `undated_assumed_days` | `min 0` — zero is *assume nothing*, negative would read a value as younger than its own record |
+| `aging_fraction` | `min 0`, `max 1` |
+| `ttl_default`, each bucket, each override | `min 1` |
+| `decay_speed` | `min 0` — `min` is inclusive so it cannot say *above zero*; the server still refuses exactly 0 |
+
+Verified in the browser: typing `-5` now yields *"Value must be greater
+than or equal to 0."* before anything is posted.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

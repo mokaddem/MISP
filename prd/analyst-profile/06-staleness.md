@@ -822,6 +822,24 @@ because an assumption has no reading to fall back on. So:
 days left, expiring 2026-11-21 — the same date as before, because the
 assumption never moved it.
 
+**Zero assumes nothing; it does not clear the state.** Reported by the
+user who set the field to 0 and still read *timeline uncertain*. That is
+correct and the help was not: `uncertain` is a fact about the data —
+**no occurrence carries a first-seen date** — and a policy knob cannot
+make MISP able to date an observation it never recorded. At 0 the bench
+line drops the arithmetic and states the fact instead:
+
+```
+30 →  timeline uncertain — 20 days on the record plus 30 assumed
+ 0 →  timeline uncertain — no occurrence records when it was first seen
+```
+
+The help now ends *"Set it to 0 to add nothing — the value still reads
+timeline uncertain, because that is a fact about the data and not a
+setting."* The only thing that clears the state is a `first_seen` on any
+one occurrence, which is what the falsifiability line has always
+offered.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
