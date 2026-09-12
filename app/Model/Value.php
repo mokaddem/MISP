@@ -441,6 +441,92 @@ class Value extends AppModel
      * @return array
      */
     /**
+     * Every date MISP holds for this value, side by side, in one row.
+     *
+     * The relevance card's provenance table. Its point is that the axis
+     * is built on dates whose meanings differ, and that a reader who
+     * cannot see which is which cannot argue with the answer — three
+     * separate bugs in this feature were a column being read as
+     * something it is not (`06-staleness.md` §7.11, §7.12).
+     *
+     * One aggregate over the same conditions the rest of the panel
+     * uses, so it costs one indexed scan and no per-row work.
+     *
+     * `first_seen` and `last_seen` are `bigint` microseconds and are
+     * returned in seconds; `Event.date` is a `date` and is returned as
+     * its string, because a day is all it holds and rendering it as a
+     * timestamp would invent an hour.
+     *
+     * **`created_at` is absent, deliberately reported as absent.** MISP
+     * stores no attribute creation date; the card draws the row anyway
+     * so the gap is visible rather than merely unmentioned, and so that
+     * the day it exists there is one obvious place to fill in.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function timelineFactsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'MIN(FLOOR(Attribute.first_seen / 1000000)) AS first_seen',
+                'MAX(FLOOR(Attribute.last_seen / 1000000)) AS last_seen',
+                'SUM(Attribute.first_seen IS NOT NULL) AS with_first_seen',
+                'SUM(Attribute.last_seen IS NOT NULL) AS with_last_seen',
+                'MIN(Attribute.timestamp) AS written_first',
+                'MAX(Attribute.timestamp) AS written_last',
+                'MIN(Event.date) AS event_date_first',
+                'MAX(Event.date) AS event_date_last',
+                'MAX(Event.publish_timestamp) AS published_last',
+                'COUNT(DISTINCT CASE WHEN Event.published = 1'
+                    . ' THEN Event.id END) AS published_events',
+                'COUNT(DISTINCT Event.id) AS events',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+        ));
+        $found = empty($row[0]) ? array() : $row[0];
+        $stamp = function ($key) use ($found) {
+            return isset($found[$key]) && $found[$key] !== null
+                && (int)$found[$key] > 0
+                    ? (int)$found[$key]
+                    : null;
+        };
+        return array(
+            'occurrences' => (int)($found['occurrences'] ?? 0),
+            'events' => (int)($found['events'] ?? 0),
+            'first_seen' => $stamp('first_seen'),
+            'last_seen' => $stamp('last_seen'),
+            'with_first_seen' => (int)($found['with_first_seen'] ?? 0),
+            'with_last_seen' => (int)($found['with_last_seen'] ?? 0),
+            'written_first' => $stamp('written_first'),
+            'written_last' => $stamp('written_last'),
+            'event_date_first' => empty($found['event_date_first'])
+                ? null
+                : (string)$found['event_date_first'],
+            'event_date_last' => empty($found['event_date_last'])
+                ? null
+                : (string)$found['event_date_last'],
+            'published_last' => $stamp('published_last'),
+            'published_events' => (int)($found['published_events'] ?? 0),
+            /*
+             * The column MISP does not have. Reported rather than
+             * omitted — see the docblock.
+             */
+            'created_at' => null,
+        );
+    }
+
+    /**
      * **Which column is "when this was reported" — the open question.**
      *
      * Every aggregate on this model that means *when* currently reads

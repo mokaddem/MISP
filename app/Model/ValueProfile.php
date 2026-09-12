@@ -1131,6 +1131,17 @@ class ValueProfile extends AppModel
             'sighting_notes' => ValueStatsTool::sightingNotes(
                 $context['totals']
             ),
+            /*
+             * The dates the axis is built on, side by side. One
+             * aggregate, and it belongs to this panel rather than to
+             * the shared context: nothing else reads it, and the
+             * verdict must keep working when it is not there.
+             */
+            'timeline_facts' => $this->model('Value')->timelineFactsFor(
+                $user,
+                $value,
+                $options
+            ),
         );
     }
 
@@ -1325,6 +1336,14 @@ class ValueProfile extends AppModel
                 $totals['last_stamp'],
                 time()
             ),
+            /*
+             * The stamp as well as the phrase. `last` is *16 days ago*,
+             * which is the right thing beside a count and the wrong
+             * thing in a column of dates — the relevance card's
+             * provenance table prints `date_sighting` next to
+             * `Attribute.timestamp` and the two have to be comparable.
+             */
+            'last_stamp' => $totals['last_stamp'],
         );
     }
 

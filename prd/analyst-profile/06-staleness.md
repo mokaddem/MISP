@@ -883,6 +883,82 @@ where the clamp drives `assumed` to zero as arithmetic rather than as a
 cap. `assumed_capped` now also requires the value to still be inside
 its lifetime.
 
+### 7.13 Every date aggregate reads the observation now. 2026-09-12, D20
+
+Finding 2 and the clock chain are one substitution, so they landed
+together. Four aggregates on the `Value` model read
+`Attribute.timestamp` — a **last-modified** column — as if it meant
+when something was observed:
+
+| aggregate | fed | was |
+|---|---|---|
+| `orgStanceFor` `oldest` | the clock's `org_joined` half | an edit moved an org's join date forward |
+| `orgStanceFor` `newest` / summaries | the fallback clock, `reporting.independent_orgs` | ditto |
+| `recordSummaryFor` `oldest`/`newest` | `lifecycle.recency` (±12) | *"Last reported N days ago"* off a row write |
+| `activityMonthsFor` | `lifecycle.continuity` (+12) | an edit invented a month of activity |
+
+Two of those **score**, so this reached the verdict where §7.11's half
+only reached a label.
+
+**`Value::OBSERVED_AT` and `OBSERVED_FROM` are the chain as SQL**, one
+definition each so the clock, the recency signal and the continuity
+months cannot disagree about what a date means:
+
+```
+OBSERVED_AT    last_seen → first_seen → [created_at] → timestamp
+OBSERVED_FROM  first_seen → last_seen → [created_at] → timestamp
+```
+
+Two directions, because the same declared window answers two questions.
+`Attribute.created_at` goes in the bracketed slot when MISP has one —
+above the row write because it is a real creation date, below the seen
+dates because it is still a recording date — and nowhere else.
+
+**The worked example.** `vmbuz2698.com`: seven occurrences, all seven
+declaring `first_seen` 2026-03-03 and `last_seen` 2026-03-25, rows
+rewritten 2026-06-29.
+
+| | before | after |
+|---|---|---|
+| clock | 2026-06-29 | **2026-03-25** |
+| state | current, 105 days left | **aging, 9 days left** |
+| `lifecycle.recency` | ~two months | **six months** |
+
+`8.8.8.8` is unchanged: none of its 26 occurrences declares a seen
+date, so the chain falls through to the row write and the card still
+says so. That is the honest half of the result — 84% of attributes
+declare nothing, and for them this changes nothing at all.
+
+### 7.14 The provenance table, and why the card earns one
+
+Three bugs in this feature were one column being read as another
+(§7.11, §7.12, §7.13), and all three were **invisible from the card**,
+because the card showed conclusions and the conclusions looked
+reasonable. So the relevance card now carries the working: *what it is*
+/ *where it comes from* / *this value*, seven rows, folded shut.
+
+`Value::timelineFactsFor()` is one aggregate over the same conditions —
+`first_seen`, `last_seen`, `timestamp`, `Event.date`,
+`publish_timestamp`, the last sighting, and the count of occurrences
+declaring each — and the row the clock actually read is marked. **The
+mark follows the same two directions**: `org_joined` marks `first_seen`,
+the fallback and `occurrence` mark `last_seen`. Marking `first_seen` for
+both put the badge on 2026-03-03 beside a card reading *added
+2026-03-25* — the table contradicting the line it exists to explain,
+caught rendering `vmbuz2698.com`.
+
+**`Attribute.created_at` is drawn as a row and reported as absent** —
+*"MISP stores no creation date for an attribute yet"*. A gap somebody
+can see is a gap somebody can plan around, and when the column lands
+there is one obvious cell to fill.
+
+Folded shut, at footnote size, below the answer: this card spent three
+passes getting shorter (§7.8) and a table competing with the answer for
+attention would have undone that. Two layout fixes from rendering it at
+rail width: the source names break at the dot via a `wbr` rather than
+one character from their end, and the summary's sub-label reads on from
+the title instead of being stranded right by a `margin-left: auto`.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in
