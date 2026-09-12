@@ -811,6 +811,58 @@ has to build; four declarations turn it on:
 Verified in the browser: typing `-5` now yields *"Value must be greater
 than or equal to 0."* before anything is posted.
 
+### 7e.8 The buckets and their types were two blocks saying one thing
+
+The pane printed every day count twice. **Lifetime** was five number
+boxes in a column — short, medium, long, very long, every other type —
+and **Which types go in which bucket** was a table underneath whose key
+column read `Short — 90 days`, `Medium — 120 days`, four hundred pixels
+from the box that decides the 90. Change a bucket's length and the
+label repeating it only catches up on the next save.
+
+A bucket is a **length and a membership**, and neither half is legible
+without the other: the question an analyst is answering is *how long do
+I keep an IP address*, which the old pane split across two headings.
+
+**One table now, one row per bucket:**
+
+| Bucket | Days | Attribute types |
+|---|---|---|
+| Short | `90` | `ip-dst ×` `ip-src ×` `+ add types` |
+| … | | |
+| Every other type | `180` | everything not named above |
+
+The default is the last row rather than a field of its own — it is a
+lifetime with no bucket, so the table becomes the whole answer to *how
+long does this instance keep a type*. Nothing is assigned to it by
+hand, so its types cell states rather than takes (`note` on the entry).
+
+**No new block kind and no new field type.** A `map` entry may carry a
+`key_field` — a setting on the key itself — and `block_map.ctp` draws a
+column for it when the block names one in `key_field_label`. Every POST
+name is what it was: the days still post to
+`relevance.ttl_buckets.<bucket>` and `relevance.ttl_default`, the chips
+still post type-first under `relevance.ttl_types` with `__present`
+marking the map as drawn (§7.6 of `09c-wiring.md`). **A layout change,
+not a schema change** — which is what the harness asserts, rather than
+asserting the layout.
+
+**The curve wraps on its own width, not the window's.** It sits beside
+the table, and the pane here is the window minus a rail and, above some
+widths, minus a 468px bench — so it is *narrower* at 1440 than at 1280.
+A viewport media query would put the curve beside a 320px table on
+exactly the screens with the least room for it. A flex basis is the
+measurement that matters: below it the curve takes the line under the
+table and the chips get the whole pane. Measured at eight widths from
+1280 to 2560; every bucket is one 44px row at all of them but 1440,
+where `medium`'s three chips wrap once.
+
+Verified in the browser: editing `short` to 45 redraws the figure's
+caption (the recompute already carried it, §7e.1), adding and dropping
+chips moves the right types, and a save writes `ttl_buckets.short`,
+`ttl_default` and both `ttl_types` edits — then the same pane put every
+one of them back.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

@@ -22,7 +22,10 @@ $count = function (array $section) {
         } elseif ($block['kind'] === 'fields') {
             $n += count($block['fields']);
         } elseif ($block['kind'] === 'map') {
-            $n += count($block['entries']);
+            foreach ($block['entries'] as $entry) {
+                /* A row whose key is a setting too counts as both. */
+                $n += empty($entry['key_field']) ? 1 : 2;
+            }
         }
     }
     return $n;

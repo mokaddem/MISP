@@ -807,8 +807,15 @@ class AnalystWiringShell extends AppShell
         $this->ok(strpos($html, 'data-ap-anchor') !== false,
             'with the anchor line always present, so it can be rewritten');
         $js = file_get_contents(WWW_ROOT . 'js' . DS . 'analyst-profile.js');
+        /*
+         * Anything the swap hands over may be repainted beside the
+         * ledger — the curve already is — so what this asserts is that
+         * the ledger is repainted *from the same handler*, not that it
+         * is the only line after it.
+         */
         $this->ok(strpos($js, 'repaintLedger') !== false
-            && preg_match('/innerHTML = request\.responseText;\s*\n\s*repaintLedger/', $js),
+            && preg_match('/innerHTML = request\.responseText;'
+                . '(?:\s*\n\s*\w+\(\);)*\s*\n\s*repaintLedger/', $js),
             'and the editor repaints them on every recompute');
 
         /*

@@ -991,15 +991,30 @@ input.num[type="number"]::-webkit-inner-spin-button {
     border-color: var(--bs-secondary-color);
 }
 
-/* The bucket table and the curve, side by side until there is no room. */
+/*
+ * The bucket table and the curve, side by side until there is no room.
+ * The table leads: it holds the chips, and the curve is a fixed figure
+ * that neither gains nor needs the extra width.
+ *
+ * It wraps on its own width rather than the window's. The pane here is
+ * the window minus a rail and, above some widths, minus a bench — so
+ * it is *narrower* at 1440 than at 1280, and a media query set to the
+ * viewport puts the curve beside a 320px table on exactly the screens
+ * that have the least room for it. A flex basis is the measurement
+ * that matters: below it the curve takes the line under the table and
+ * the chips get the whole pane.
+ */
 .ttl-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 1rem 1.4rem;
-    align-items: start;
+    align-items: flex-start;
 }
+.ttl-buckets { flex: 1 1 40rem; min-width: 0; }
 .ttl-def td, .ttl-def .fw-semibold { color: var(--bs-secondary-color); }
-.ttl-curve { margin: 0; max-width: 24rem; }
+/* The column head says `days`, so the box only has to hold the number. */
+.ap-map-key-field .form-control { max-width: 5rem; }
+.ttl-curve { margin: 0; flex: 0 1 24rem; max-width: 24rem; }
 .ttl-curve figcaption {
     display: flex;
     flex-wrap: wrap;

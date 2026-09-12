@@ -28,6 +28,14 @@ $datalist = null;
 if (($block['value_type'] ?? null) === 'types') {
     $datalist = AnalystProfileFormTool::fieldId($block['path'], array('list'));
 }
+
+/*
+ * A map whose keys are themselves a setting gets a column for it. The
+ * TTL buckets are the case: a bucket *is* a number of days, and the
+ * days lived in a separate block whose only way of saying which row it
+ * belonged to was to print the bucket's name again.
+ */
+$keyField = !empty($block['key_field_label']);
 ?>
 <div class="ap-map">
 <?php if ($datalist !== null): ?>
@@ -35,7 +43,7 @@ if (($block['value_type'] ?? null) === 'types') {
         <?php
         $offered = array();
         foreach ($block['entries'] as $entry) {
-            foreach ($entry['options'] as $option) {
+            foreach (($entry['options'] ?? array()) as $option) {
                 if (!isset($entry['taken'][$option])) {
                     $offered[$option] = true;
                 }
@@ -94,7 +102,14 @@ if (($block['value_type'] ?? null) === 'types') {
     <table class="wb-tbl">
         <thead>
             <tr>
-                <th style="width:34%"><?= h($block['key_label']) ?></th>
+                <th style="width:<?= $keyField ? '11rem' : '34%' ?>">
+                    <?= h($block['key_label']) ?>
+                </th>
+                <?php if ($keyField): ?>
+                    <th style="width:6.5rem">
+                        <?= h($block['key_field_label']) ?>
+                    </th>
+                <?php endif; ?>
                 <th><?= h($block['value_label']) ?></th>
                 <?php if ($editable && !empty($block['add'])): ?>
                     <th style="width:3rem"></th>
@@ -110,8 +125,12 @@ if (($block['value_type'] ?? null) === 'types') {
                  * types and a module state map.
                  */
                 $field = $entry + array('label' => $entry['key']);
+                $rowClass = empty($entry['missing']) ? '' : 'is-off';
+                if (!empty($entry['class'])) {
+                    $rowClass = trim($rowClass . ' ' . $entry['class']);
+                }
                 ?>
-                <tr class="<?= empty($entry['missing']) ? '' : 'is-off' ?>">
+                <tr class="<?= h($rowClass) ?>">
                     <td>
                         <div class="fw-semibold"><?= h($entry['label']) ?></div>
                         <?php if (!empty($entry['sub_label'])): ?>
@@ -125,12 +144,35 @@ if (($block['value_type'] ?? null) === 'types') {
                                 . ' how it got here.')) ?></div>
                         <?php endif; ?>
                     </td>
+                    <?php if ($keyField): ?>
+                    <td class="ap-map-key-field">
+                        <?php if (empty($entry['key_field'])): ?>
+                            <span class="wb-sub">&mdash;</span>
+                        <?php else: ?>
+                            <?= $this->element('AnalystProfiles/field', array(
+                                'field' => $entry['key_field'],
+                                'editable' => $editable,
+                            )) ?>
+                        <?php endif; ?>
+                    </td>
+                    <?php endif; ?>
                     <td>
-                        <?= $this->element('AnalystProfiles/field', array(
-                            'field' => $field,
-                            'editable' => $editable,
-                            'datalist' => $datalist,
-                        )) ?>
+                        <?php
+                        /*
+                         * A row that states rather than takes. The
+                         * default lifetime holds every type nobody
+                         * assigned, which is not a list anybody edits.
+                         */
+                        ?>
+                        <?php if (isset($entry['note'])): ?>
+                            <span class="wb-sub"><?= h($entry['note']) ?></span>
+                        <?php else: ?>
+                            <?= $this->element('AnalystProfiles/field', array(
+                                'field' => $field,
+                                'editable' => $editable,
+                                'datalist' => $datalist,
+                            )) ?>
+                        <?php endif; ?>
                     </td>
                     <?php
                     /*

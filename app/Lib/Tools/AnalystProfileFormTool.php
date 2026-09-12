@@ -962,32 +962,19 @@ class AnalystProfileFormTool
         $assigned = $shelf['ttl_types'];
         $overrides = $shelf['ttl_overrides'];
 
-        $bucketFields = array();
-        foreach (ValueRelevanceTool::BUCKETS as $bucket) {
-            $bucketFields[] = array(
-                'key' => $bucket,
-                'label' => $this->bucketLabel($bucket),
-                'type' => 'int',
-                'unit' => __('days'),
-                'min' => 1,
-                'value' => isset($buckets[$bucket])
-                    ? $buckets[$bucket]
-                    : null,
-                'default' => ValueRelevanceTool::BUCKET_DAYS[$bucket],
-                'path' => array('relevance', 'ttl_buckets', $bucket),
-            );
-        }
-
         /*
          * One row per bucket, each holding the types assigned to it —
          * not one row per attribute type. MISP has 194 types and the
          * old picker offered all of them, so an analyst saying *hashes
          * keep longer than IPs* had to say it once per type.
+         *
+         * **The day count is in the row too.** It used to be a column
+         * of five number boxes above the table, and the table then
+         * spent its key column repeating them — `Short — 90 days`
+         * beside the chips, four hundred pixels from the box that
+         * decides the 90. One row now carries the bucket, its length
+         * and what is in it, which is the whole of what a bucket is.
          */
-        $bucketOptions = array();
-        foreach (ValueRelevanceTool::BUCKETS as $bucket) {
-            $bucketOptions[$bucket] = $this->bucketLabel($bucket);
-        }
         $byBucket = array();
         foreach (ValueRelevanceTool::BUCKETS as $bucket) {
             $byBucket[$bucket] = array();
@@ -1003,12 +990,16 @@ class AnalystProfileFormTool
             sort($members);
             $assignmentEntries[] = array(
                 'key' => $bucket,
-                'label' => sprintf(
-                    __('%1$s — %2$d days'),
-                    $this->bucketLabel($bucket),
-                    isset($buckets[$bucket])
+                'label' => $this->bucketLabel($bucket),
+                'key_field' => array(
+                    'key' => $bucket,
+                    'type' => 'int',
+                    'min' => 1,
+                    'value' => isset($buckets[$bucket])
                         ? $buckets[$bucket]
-                        : ValueRelevanceTool::BUCKET_DAYS[$bucket]
+                        : null,
+                    'default' => ValueRelevanceTool::BUCKET_DAYS[$bucket],
+                    'path' => array('relevance', 'ttl_buckets', $bucket),
                 ),
                 'value' => $members,
                 'type' => 'types',
@@ -1017,6 +1008,27 @@ class AnalystProfileFormTool
                 'path' => array('relevance', 'ttl_types'),
             );
         }
+        /*
+         * The default is a lifetime with no bucket, so it is the last
+         * row rather than a field of its own: the table is then the
+         * whole answer to *how long does this instance keep a type*,
+         * and nothing is assigned to it by hand — what it holds is
+         * everything the four rows above do not.
+         */
+        $assignmentEntries[] = array(
+            'key' => 'ttl_default',
+            'label' => __('Every other type'),
+            'class' => 'ttl-def',
+            'key_field' => array(
+                'key' => 'ttl_default',
+                'type' => 'int',
+                'min' => 1,
+                'value' => $shelf['ttl_default'],
+                'default' => ValueRelevanceTool::DEFAULTS['ttl_default'],
+                'path' => array('relevance', 'ttl_default'),
+            ),
+            'note' => __('everything not named above'),
+        );
 
         $entries = array();
         foreach ($overrides as $type => $days) {
@@ -1193,41 +1205,17 @@ class AnalystProfileFormTool
                     ),
                 ),
                 array(
-                    'kind' => 'fields',
+                    'kind' => 'map',
                     'id' => 'ttl_buckets',
                     'title' => __('Lifetime'),
                     'blurb' => __(
                         'How long a report stays current without'
-                        . ' corroboration. Four buckets, and a type is'
-                        . ' assigned to one of them below.'
-                    ),
-                    'fields' => array_merge(
-                        $bucketFields,
-                        array(
-                            array(
-                                'key' => 'ttl_default',
-                                'label' => __('Every other type'),
-                                'type' => 'int',
-                                'unit' => __('days'),
-                                'min' => 1,
-                                'value' => $shelf['ttl_default'],
-                                'default' =>
-                                    ValueRelevanceTool::DEFAULTS['ttl_default'],
-                                'path' => array('relevance',
-                                    'ttl_default'),
-                            ),
-                        )
-                    ),
-                ),
-                array(
-                    'kind' => 'map',
-                    'id' => 'ttl_types',
-                    'title' => __('Which types go in which bucket'),
-                    'blurb' => __(
-                        'Only the types you have an opinion about;'
-                        . ' everything else follows the default.'
+                        . ' corroboration, and which types keep that'
+                        . ' long. Only the types you have an opinion'
+                        . ' about; everything else takes the last row.'
                     ),
                     'key_label' => __('Bucket'),
+                    'key_field_label' => __('Days'),
                     'value_label' => __('Attribute types'),
                     'value_type' => 'types',
                     'path' => array('relevance', 'ttl_types'),

@@ -1239,7 +1239,7 @@ class AnalystProfilesController extends AppController
                 continue;
             }
             foreach ($section['blocks'] as $block) {
-                if ($block['kind'] !== 'fields'
+                if ($block['kind'] !== 'map'
                     || $block['id'] !== 'ttl_buckets'
                 ) {
                     continue;

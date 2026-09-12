@@ -1214,7 +1214,6 @@ is_same(array('fields' => true, 'items' => true, 'map' => true,
         . ' shapes renders the whole document');
 
 $shelf = null;
-$assignment = null;
 $overrides = null;
 foreach ($sections['relevance']['blocks'] as $block) {
     if (!isset($block['id'])) {
@@ -1222,36 +1221,52 @@ foreach ($sections['relevance']['blocks'] as $block) {
     }
     if ($block['id'] === 'ttl_buckets') {
         $shelf = $block;
-    } elseif ($block['id'] === 'ttl_types') {
-        $assignment = $block;
     } elseif ($block['id'] === 'ttl_overrides') {
         $overrides = $block;
     }
 }
 is_true($shelf !== null, 'relevance carries its shelf life (D18)');
-is_same(5, count($shelf['fields']),
-    'as four buckets and a default, not a row per attribute type');
-is_same('days', $shelf['fields'][0]['unit'],
-    'each in days, said rather than smuggled into a key name');
-
-is_true($assignment !== null, 'and a bucket assignment beside it');
-is_same('map', $assignment['kind'], 'still one of the four block kinds');
-is_same(4, count($assignment['entries']),
-    'with one row per bucket — four rows, not 194');
-is_same('types', $assignment['value_type'],
+is_same('map', $shelf['kind'], 'as one of the four block kinds');
+is_same(5, count($shelf['entries']),
+    'four buckets and a default, not a row per attribute type');
+is_same('types', $shelf['value_type'],
     'whose value is a list of types, so the interaction is'
         . ' select-many-types-into-a-bucket');
+/*
+ * The day count is *in* the row. It was a second block of five number
+ * boxes, which left the assignment table restating them in its row
+ * labels — `Short — 90 days` beside the chips, nowhere near the box
+ * that sets the 90. A bucket is a length and a membership, and one row
+ * now carries both.
+ */
+is_same('Days', $shelf['key_field_label'],
+    'each row carrying its own length, in days, said rather than'
+        . ' smuggled into a key name');
 $shortRow = null;
-foreach ($assignment['entries'] as $entry) {
+$defaultRow = null;
+foreach ($shelf['entries'] as $entry) {
     if ($entry['key'] === 'short') {
         $shortRow = $entry;
+    } elseif ($entry['key'] === 'ttl_default') {
+        $defaultRow = $entry;
     }
 }
 is_same(array('ip-dst', 'ip-src'), $shortRow['value'],
     'the shipped default puts both IP types in `short`');
-is_true(strpos($shortRow['label'], '90') !== false,
-    'and the row names its day count, so a reader picking a bucket'
-        . ' knows what they are picking');
+is_same(90, $shortRow['key_field']['value'],
+    'and the row holds the days it is worth, so a reader picking a'
+        . ' bucket sets what they are picking in the same place');
+is_same(array('relevance', 'ttl_buckets', 'short'),
+    $shortRow['key_field']['path'],
+    'which still posts to `ttl_buckets`, so the merge is a layout and'
+        . ' not a schema change');
+is_true($defaultRow !== null,
+    'and the default is the last row rather than a field of its own');
+is_same(array('relevance', 'ttl_default'), $defaultRow['key_field']['path'],
+    'posting to `ttl_default`, the lifetime with no bucket');
+is_true(!isset($defaultRow['value']),
+    'with nothing assigned to it by hand — what it holds is whatever'
+        . ' the four rows above do not');
 
 is_true($overrides !== null, 'and a short override table');
 is_same(1, count($overrides['entries']),

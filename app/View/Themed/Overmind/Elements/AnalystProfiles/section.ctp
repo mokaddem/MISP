@@ -95,10 +95,15 @@ foreach ($section['blocks'] as $block) {
                 'lean' => $lean,
             )) ?>
         <?php elseif ($block['kind'] === 'fields'): ?>
+            <?= $this->element('AnalystProfiles/block_fields', array(
+                'block' => $block,
+                'editable' => $editable,
+            )) ?>
+        <?php elseif ($block['kind'] === 'map'): ?>
             <?php $curve = $section['id'] === 'relevance'
                 && $block['id'] === 'ttl_buckets'; ?>
             <?php if ($curve): ?><div class="ttl-grid"><div class="ttl-buckets"><?php endif; ?>
-            <?= $this->element('AnalystProfiles/block_fields', array(
+            <?= $this->element('AnalystProfiles/block_map', array(
                 'block' => $block,
                 'editable' => $editable,
             )) ?>
@@ -111,11 +116,6 @@ foreach ($section['blocks'] as $block) {
                 )) ?>
                 </div>
             <?php endif; ?>
-        <?php elseif ($block['kind'] === 'map'): ?>
-            <?= $this->element('AnalystProfiles/block_map', array(
-                'block' => $block,
-                'editable' => $editable,
-            )) ?>
         <?php elseif ($block['kind'] === 'strip'): ?>
             <?= $this->element('AnalystProfiles/block_strip', array(
                 'strip' => $block,

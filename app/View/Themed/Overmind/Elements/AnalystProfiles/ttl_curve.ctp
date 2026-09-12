@@ -30,13 +30,17 @@
  * stays flat on zero out there, and `current` / `aging` / `expired` are
  * each named under the stretch they own.
  *
- * @var array $block The `ttl_buckets` fields
+ * @var array $block The `ttl_buckets` map, a row per bucket
  * @var array $section
  * @var array|null $runway The bench value's relevance, when there is one
  */
 App::uses('ValueRelevanceTool', 'Tools');
 $numbers = array();
-foreach ($block['fields'] as $field) {
+foreach ($block['entries'] as $entry) {
+    if (empty($entry['key_field'])) {
+        continue;
+    }
+    $field = $entry['key_field'];
     $numbers[$field['key']] = $field['value'] === null
         ? $field['default']
         : $field['value'];
