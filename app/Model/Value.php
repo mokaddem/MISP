@@ -395,6 +395,85 @@ class Value extends AppModel
      * @param array $options As conditionsFor
      * @return array
      */
+    /**
+     * **Which column is "when this was reported" — the open question.**
+     *
+     * Every aggregate on this model that means *when* currently reads
+     * `Attribute.timestamp`, and that column is **last-modified**: an
+     * edit, a tag, a sync update or a delete bumps it, and it is what
+     * sync compares to decide which copy is newer. MISP stores **no
+     * creation date for an attribute**, so there is nothing to swap it
+     * for today.
+     *
+     * What that costs, measured on this instance:
+     *
+     *   - the relevance clock's occurrence half is `MIN(timestamp)` per
+     *     organisation, so **editing an old occurrence moves that
+     *     organisation's "join" date forward** and the value reads as
+     *     freshly corroborated. `8.8.8.8` shows 223 days of drift
+     *     between DECEA's earliest event date and its computed join
+     *     date, and 5 of its 26 occurrences were written after their
+     *     event was published. Nothing in the data separates *reported
+     *     later* from *edited later*;
+     *   - `lifecycle.recency` says *"Last reported N days ago"* off
+     *     `MAX(timestamp)`, and `lifecycle.continuity` counts a month
+     *     of activity for a month that only contains an edit. Both
+     *     score, so this reaches the verdict.
+     *
+     * **The agreed chain, for when the columns exist.** Prefer a
+     * declared observation over a row write, and fall through:
+     *
+     * ```
+     * recency   ← Sighting.date_sighting        (already its own clock event)
+     *           ← Attribute.last_seen
+     *           ← Attribute.first_seen
+     *           ← Attribute.created_at          (when it lands)
+     *           ← Attribute.timestamp           (last resort)
+     *
+     * earliest  ← Attribute.first_seen
+     *           ← Attribute.last_seen
+     *           ← Attribute.created_at          (when it lands)
+     *           ← Attribute.timestamp           (last resort)
+     * ```
+     *
+     * Two directions rather than one list, because the same window
+     * answers two questions: *when did this organisation first report
+     * it* wants the start, and *how recently was it recorded* wants the
+     * end.
+     *
+     * **`created_at` slots in above `timestamp` and below the seen
+     * dates** — it is a real creation date, so it beats a row write,
+     * and it is still a recording date, so a declared observation beats
+     * it. When it lands, the fallbacks in this file and in
+     * `ValueRelevanceTool::joinEvents()` are the sites to change, and
+     * §3.6's uncertainty rule gains a fourth answer: a value with a
+     * `created_at` and no seen dates is datable to its record, which is
+     * not the same as datable to its observation.
+     *
+     * **Units differ and the comparison must convert.** `first_seen`
+     * and `last_seen` are `bigint` **microseconds**; `timestamp` and
+     * `date_sighting` are seconds. So `last_seen / 1000000`.
+     *
+     * **Availability, and why `last_seen` leads the recency chain**
+     * (2.92M live attributes on the dev instance):
+     *
+     * | column | set | note |
+     * |---|---|---|
+     * | `last_seen` | 473,327 (16.2%) | 295,924 of them carry **no** `first_seen` |
+     * | `first_seen` | 179,878 (6.2%) | only 2,475 without a `last_seen` |
+     *
+     * **And the substitution is safe in the conservative direction.**
+     * 472,749 of 473,327 `last_seen` values (99.88%) precede the row
+     * write, by 4 days on average and 226 at most; 578 follow it and
+     * **none** is in the future. So reading the observation instead of
+     * the write moves the clock *earlier* — values read staler, never
+     * fresher, which is the direction §3.5's asymmetry asks for.
+     *
+     * Recorded rather than built: the chain changes what every value on
+     * an instance reads, and `06-staleness.md` §7.11 is the standing
+     * example of why a date this load-bearing gets decided before it
+     * gets written.
+     */
     public function recordSummaryFor(array $user, $value,
         array $options = array()
     ) {
@@ -511,6 +590,12 @@ class Value extends AppModel
                  */
                 'MIN(Attribute.timestamp) AS oldest',
             ),
+            /*
+             * Both aggregates here are row-write dates, and this is the
+             * site an `Attribute.created_at` and the seen-date chain
+             * would land on first — `recordSummaryFor()`'s docblock
+             * carries the chain and the measurements behind it.
+             */
             'conditions' => $conditions,
             'recursive' => -1,
             'contain' => array('Event', 'Object'),
@@ -546,6 +631,12 @@ class Value extends AppModel
         $conditions['AND'][] = array('Attribute.deleted' => 0);
         $rows = $attributes->find('all', array(
             'fields' => array(
+                /*
+                 * A month here is a month in which a row was *written*,
+                 * so an edit invents one — `lifecycle.continuity`
+                 * scores this. Same chain, same pending `created_at`:
+                 * see `recordSummaryFor()`.
+                 */
                 "DATE_FORMAT(FROM_UNIXTIME(Attribute.timestamp),"
                     . " '%Y-%m') AS month",
                 'COUNT(DISTINCT Attribute.id) AS occurrences',

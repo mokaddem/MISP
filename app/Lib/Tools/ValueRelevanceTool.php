@@ -705,6 +705,16 @@ class ValueRelevanceTool
     /**
      * When each organisation other than the first one joined.
      *
+     * **`at` is a row-write date, and that is the open problem.**
+     * `org['oldest']` is `MIN(Attribute.timestamp)`, so editing one old
+     * occurrence moves an organisation's join date forward and this
+     * event — which the clock may take as the most recent corroboration
+     * — moves with it. `Value::recordSummaryFor()`'s docblock carries
+     * the measurements, the agreed `last_seen` / `first_seen` fallback
+     * chain, and where an `Attribute.created_at` slots in once MISP has
+     * one. This function reads whatever that query produces, so the
+     * change lands there and not here.
+     *
      * @param array $context
      * @return array
      */
