@@ -761,10 +761,16 @@ function boot() {
         return String(value).replace(/["\\\]]/g, '\\$&');
     }
 
+    /*
+     * A picker is not one of these. Both comboboxes below name a key
+     * by choosing one, and a `type=search` box fires `change` on its
+     * way out — so without the guard, tabbing away from a half-typed
+     * warninglist name would add a row for a list nobody has.
+     */
     document.addEventListener('change', function (event) {
         var add = event.target;
         if (!add.hasAttribute || !add.hasAttribute('data-ap-add')
-            || add.hasAttribute('data-ap-add-url')
+            || add.hasAttribute('data-ap-pick')
         ) {
             return;
         }
@@ -772,16 +778,21 @@ function boot() {
     });
 
     /* ------------------------------------------------------------ *
-     * Finding a key that is too numerous to offer as a list
+     * Naming a key out of a list nobody reads to the bottom of
      * ------------------------------------------------------------ */
 
     /*
-     * Organisations are the only map key the page cannot hold: an
-     * instance carries thousands of them and the document stores the
-     * uuid, so the control that was here was a search box with nothing
-     * behind it — which made *grade an organisation* mean *type a
-     * uuid*. The endpoint answers fifty at a time and the row keeps
-     * the uuid the name resolved to.
+     * Two kinds of list, one control. Organisations are the key the
+     * page cannot hold: an instance carries thousands of them and the
+     * document stores the uuid, so what was here was a search box with
+     * nothing behind it — which made *grade an organisation* mean
+     * *type a uuid*. The endpoint answers fifty at a time and the row
+     * keeps the uuid the name resolved to.
+     *
+     * The warninglists are the other kind: the whole roster is already
+     * in the page, as the options of a select. Nothing needs fetching
+     * there and the box narrows what is on screen instead — same list,
+     * same keys, same keyboard.
      */
     var UUID =
         /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -817,6 +828,32 @@ function boot() {
         return keys;
     }
 
+    /*
+     * One option. `key` is what the document stores and `label` is
+     * what the analyst recognises; `sub` is the second line, drawn
+     * only where the two differ enough to be worth printing both. A
+     * warninglist is its own name, so it gets one line.
+     */
+    function option(key, label, sub) {
+        var node = document.createElement('button');
+        node.type = 'button';
+        node.className = 'ap-pick-opt';
+        node.setAttribute('role', 'option');
+        node.setAttribute('data-value', key);
+        node.setAttribute('data-label', label || '');
+        var title = document.createElement('span');
+        title.className = 'ap-pick-name';
+        title.textContent = label || key;
+        node.appendChild(title);
+        if (sub) {
+            var line = document.createElement('span');
+            line.className = 'ap-pick-uuid';
+            line.textContent = sub;
+            node.appendChild(line);
+        }
+        return node;
+    }
+
     function offer(add, rows, query) {
         var list = panel(add);
         if (!list) {
@@ -826,24 +863,10 @@ function boot() {
         list.innerHTML = '';
         var drawn = 0;
         rows.forEach(function (row) {
-            if (!row || !row.uuid || already[row.uuid]) {
+            if (!row || !row.key || already[row.key]) {
                 return;
             }
-            var option = document.createElement('button');
-            option.type = 'button';
-            option.className = 'ap-pick-opt';
-            option.setAttribute('role', 'option');
-            option.setAttribute('data-value', row.uuid);
-            option.setAttribute('data-label', row.name || row.uuid);
-            var title = document.createElement('span');
-            title.className = 'ap-pick-name';
-            title.textContent = row.name || row.uuid;
-            var sub = document.createElement('span');
-            sub.className = 'ap-pick-uuid';
-            sub.textContent = row.uuid;
-            option.appendChild(title);
-            option.appendChild(sub);
-            list.appendChild(option);
+            list.appendChild(option(row.key, row.label, row.sub));
             drawn += 1;
         });
         /*
@@ -851,24 +874,16 @@ function boot() {
          * grading: a profile written elsewhere is exactly what import
          * exists for, and the row the server draws for one already
          * says it does not recognise it. Offered only when it was
-         * typed in full, so it cannot be reached by accident.
+         * typed in full, so it cannot be reached by accident — and
+         * only by the box that asks the server, because the other one
+         * is showing the entire list it has and a miss there is a
+         * name that does not exist.
          */
-        if (UUID.test(query) && !already[query.toLowerCase()] && drawn === 0) {
-            var raw = document.createElement('button');
-            raw.type = 'button';
-            raw.className = 'ap-pick-opt';
-            raw.setAttribute('role', 'option');
-            raw.setAttribute('data-value', query.toLowerCase());
-            raw.setAttribute('data-label', '');
-            var label = document.createElement('span');
-            label.className = 'ap-pick-name';
-            label.textContent = query.toLowerCase();
-            var note = document.createElement('span');
-            note.className = 'ap-pick-uuid';
-            note.textContent = add.getAttribute('data-ap-pick-unknown') || '';
-            raw.appendChild(label);
-            raw.appendChild(note);
-            list.appendChild(raw);
+        if (add.hasAttribute('data-ap-add-url') && UUID.test(query)
+            && !already[query.toLowerCase()] && drawn === 0
+        ) {
+            list.appendChild(option(query.toLowerCase(), '',
+                add.getAttribute('data-ap-pick-unknown') || ''));
             drawn += 1;
         }
         if (drawn === 0) {
@@ -910,7 +925,13 @@ function boot() {
                     rows = [];
                 }
             }
-            offer(add, Array.isArray(rows) ? rows : [], query);
+            offer(add, (Array.isArray(rows) ? rows : []).map(function (row) {
+                return {
+                    key: row && row.uuid,
+                    label: (row && row.name) || (row && row.uuid),
+                    sub: row && row.uuid
+                };
+            }), query);
         };
         request.onerror = function () {
             lookup = null;
@@ -919,23 +940,66 @@ function boot() {
         request.send();
     }
 
+    /*
+     * The same list, narrowed. Every word has to land somewhere in the
+     * name, in any order: the lists are named as sentences, and *azure
+     * ip* is how somebody looking for `List of known Microsoft Azure
+     * Datacenter IP Ranges` actually asks for it. An empty box matches
+     * everything, which is the select this replaced.
+     */
+    function narrow(add) {
+        var rows = add.apRows || [];
+        var words = add.value.trim().toLowerCase().split(/\s+/)
+            .filter(function (word) {
+                return word !== '';
+            });
+        return rows.filter(function (row) {
+            var haystack = row.key.toLowerCase();
+            return words.every(function (word) {
+                return haystack.indexOf(word) !== -1;
+            });
+        });
+    }
+
+    function suggest(add) {
+        if (add.hasAttribute('data-ap-add-url')) {
+            search(add);
+        } else {
+            offer(add, narrow(add), add.value.trim());
+        }
+    }
+
     document.addEventListener('input', function (event) {
         var add = event.target;
-        if (!add.hasAttribute || !add.hasAttribute('data-ap-add-url')) {
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-pick')) {
+            return;
+        }
+        /*
+         * The wait belongs to the network, not to the reader. A list
+         * the page is already holding is narrowed on the keystroke.
+         */
+        if (!add.hasAttribute('data-ap-add-url')) {
+            suggest(add);
             return;
         }
         window.clearTimeout(typing);
         typing = window.setTimeout(function () {
-            search(add);
+            suggest(add);
         }, 200);
     });
 
     document.addEventListener('focusin', function (event) {
         var add = event.target;
-        if (add.hasAttribute && add.hasAttribute('data-ap-add-url')
-            && add.value.trim() !== ''
-        ) {
-            search(add);
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-pick')) {
+            return;
+        }
+        /*
+         * A held list opens whole: it is a select, and a select shows
+         * its options the moment you reach it. The box that asks the
+         * server has nothing to show until there is something to ask.
+         */
+        if (!add.hasAttribute('data-ap-add-url') || add.value.trim() !== '') {
+            suggest(add);
         }
     });
 
@@ -953,7 +1017,7 @@ function boot() {
         }
         event.preventDefault();
         var box = option.closest('.ap-pick');
-        var add = box ? box.querySelector('[data-ap-add-url]') : null;
+        var add = box ? box.querySelector('[data-ap-pick]') : null;
         if (!add) {
             return;
         }
@@ -964,7 +1028,7 @@ function boot() {
 
     document.addEventListener('keydown', function (event) {
         var add = event.target;
-        if (!add.hasAttribute || !add.hasAttribute('data-ap-add-url')) {
+        if (!add.hasAttribute || !add.hasAttribute('data-ap-pick')) {
             return;
         }
         /*
@@ -1014,12 +1078,82 @@ function boot() {
 
     document.addEventListener('focusout', function (event) {
         var add = event.target;
-        if (add.hasAttribute && add.hasAttribute('data-ap-add-url')) {
+        if (add.hasAttribute && add.hasAttribute('data-ap-pick')) {
             window.setTimeout(function () {
                 close(add);
             }, 120);
         }
     });
+
+    /*
+     * The select the server drew, swapped for the box that narrows it.
+     *
+     * Done here rather than in the template because the select is the
+     * answer for a browser that never runs this file: the options are
+     * really there, `change` on one really adds the row, and the
+     * warninglist override is not a feature that should need
+     * JavaScript to exist. So the markup ships the working control and
+     * the page upgrades it — which also means the options are read
+     * from the one place that already has them rather than printed
+     * twice into the document.
+     */
+    function upgrade(select) {
+        var pick = document.createElement('div');
+        pick.className = 'ap-pick';
+        var box = document.createElement('input');
+        box.type = 'search';
+        box.className = 'form-control form-control-sm';
+        box.autocomplete = 'off';
+        box.setAttribute('role', 'combobox');
+        box.setAttribute('aria-expanded', 'false');
+        box.setAttribute('aria-autocomplete', 'list');
+        box.setAttribute('data-ap-pick', '1');
+        /*
+         * Everything the row builder reads — the name prefix, the
+         * value options, the id the label points at — carried over as
+         * it stands. Only what described the select itself is left
+         * behind.
+         */
+        var scaffolding = {
+            'class': true,
+            'style': true,
+            'data-ap-add-filter': true,
+            'data-ap-pick-placeholder': true
+        };
+        Array.prototype.forEach.call(select.attributes, function (attr) {
+            if (!scaffolding[attr.name]) {
+                box.setAttribute(attr.name, attr.value);
+            }
+        });
+        box.placeholder =
+            select.getAttribute('data-ap-pick-placeholder') || '';
+        /*
+         * On the element and not in an attribute: the roster is a
+         * hundred names long, and a second copy of it serialised into
+         * the DOM would be a hundred names nobody reads.
+         */
+        box.apRows = [];
+        Array.prototype.forEach.call(select.options, function (node) {
+            var key = node.value.trim();
+            if (key !== '') {
+                box.apRows.push({key: key, label: key});
+            }
+        });
+        var list = document.createElement('div');
+        list.className = 'ap-pick-list';
+        list.setAttribute('role', 'listbox');
+        list.hidden = true;
+        pick.appendChild(box);
+        pick.appendChild(list);
+        select.parentNode.replaceChild(pick, select);
+    }
+
+    Array.prototype.forEach.call(
+        document.querySelectorAll('select[data-ap-add-filter]'),
+        function (select) {
+            upgrade(select);
+        }
+    );
 
     /* ------------------------------------------------------------ *
      * A bucket's types: chips in, chips out

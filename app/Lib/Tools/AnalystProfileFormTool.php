@@ -1549,7 +1549,18 @@ class AnalystProfileFormTool
                     'add' => array(
                         'label' => __('Override a list'),
                         'source' => 'warninglists',
+                        /*
+                         * Small enough to send, too long to read. The
+                         * whole roster fits in the page — unlike the
+                         * organisations above — but a warninglist is
+                         * named as a sentence and an instance carries
+                         * a hundred of them, so the control offers the
+                         * list and narrows it as you type rather than
+                         * asking anybody to scroll to `Top 1000
+                         * website from Alexa`.
+                         */
                         'search' => true,
+                        'placeholder' => __('filter warninglists…'),
                         'options' => $this->unusedKeys(
                             array_keys($lists), $categories),
                     ),

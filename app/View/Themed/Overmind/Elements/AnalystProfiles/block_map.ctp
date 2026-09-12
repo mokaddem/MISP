@@ -64,6 +64,20 @@ if (!empty($block['add']['search']) && !empty($block['add']['source'])) {
 }
 
 /*
+ * A list the page can hold, but not one anybody reads to the bottom
+ * of. `search` on a source with no endpoint means the options are all
+ * here already and the box narrows them: the warninglists are named as
+ * sentences — *List of known Microsoft Azure Datacenter IP Ranges* —
+ * and a hundred of those in a select is a scroll, not a choice.
+ *
+ * The select is still what the server draws, and the page swaps it for
+ * the combobox. Unlike the organisations above there *is* something
+ * behind the control without JS, so the fallback is the thing it
+ * enhances rather than a box that does nothing.
+ */
+$filter = $searchUrl === null && !empty($block['add']['search']);
+
+/*
  * The control a row's value gets when the page adds the row, as
  * against when the server draws it. Without this the row added on the
  * page is the one place in the editor where a grade is typed.
@@ -322,6 +336,7 @@ $canAdd = $editable && !empty($block['add']);
                        aria-expanded="false" aria-autocomplete="list"
                        id="<?= h(AnalystProfileFormTool::fieldId(
                            $block['path'], array('add'))) ?>"
+                       data-ap-pick="1"
                        data-ap-add="<?= h(implode('.', $block['path'])) ?>"
                        data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
                        data-ap-add-name="<?= h(
@@ -348,6 +363,17 @@ $canAdd = $editable && !empty($block['add']);
                     data-ap-add-type="<?= h($block['value_type'] ?? '') ?>"
                     data-ap-add-name="<?= h(AnalystProfileFormTool::fieldName(
                         $block['path'])) ?>"
+                    <?php if ($filter): ?>
+                        data-ap-add-filter="1"
+                        data-ap-pick-placeholder="<?= h(
+                            isset($block['add']['placeholder'])
+                                ? $block['add']['placeholder']
+                                : __('type to filter…')) ?>"
+                        data-ap-pick-hint="<?= h(sprintf(
+                            __('every %s is already in the table'),
+                            strtolower($block['key_label']))) ?>"
+                        data-ap-pick-none="<?= h(__('no match')) ?>"
+                    <?php endif; ?>
                     <?= $valueOptions === null ? '' :
                         'data-ap-add-options="' . h($valueOptions) . '"' ?>>
                 <option value=""><?= h(__('pick one…')) ?></option>

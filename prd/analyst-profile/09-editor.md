@@ -1071,6 +1071,69 @@ profile's own `-38` and `0` and names both rules. The save round trip,
 both harnesses (149 and 114 checks) and the read-only viewer are
 unchanged.
 
+### 7f.7 The warninglist picker was a select of ninety-seven sentences
+
+§7f.1 recorded `search: true` as dead metadata and gave the reason it
+did not matter for warninglists: *their catalogue is small enough to
+send whole, so they take the select branch and the flag is ignored.*
+Small enough to send is not the same as small enough to read. The
+running instance carries **97 warninglists**, named as sentences up to
+115 characters long — `List of known Microsoft Azure US Government
+Cloud Datacenter IP Ranges` — and *Override a list* was a native select
+holding all of them in alphabetical order. Finding the Azure one means
+scrolling past every `List of known …` there is.
+
+**So `search` now means the second thing too.** On a source with an
+endpoint it still queries, as organisations do. On a source without
+one it says *the options are already here, narrow them* — same list
+panel, same arrow keys, same row builder, no network at all.
+
+**Matching is per word and order-free.** `azure ip` finds `List of
+known Microsoft Azure Datacenter IP Ranges`, because that is how
+somebody who half-remembers a name asks for it. An empty box matches
+everything, which is the select it replaced.
+
+**The select is still what the server draws.** The page upgrades it on
+load, which is the opposite of §7f.3's organisation box — there the
+markup had nothing behind it and a browser without JavaScript was
+better served by a control that does nothing than by one that writes a
+uuid-shaped typo into the document. Here the options are really there
+and `change` on one really adds the row, so the fallback is the working
+control and the enhancement is only the narrowing. It also means the
+roster is written into the page once rather than twice: the box reads
+the options off the select it replaces.
+
+**A list already in the table is not offered**, which the select never
+managed — it kept every option it was rendered with, so picking one
+twice silently did nothing. The picker reads `data-ap-key` off the rows
+like the organisation one does, so a row added a moment ago drops out
+of the list.
+
+Two details the shared control had to be taught. The *this uuid is not
+an organisation on this instance* fallback belongs to the box that
+**asks**: the box that holds the whole list knows a miss is a name that
+does not exist, and offering to add it would invent a warninglist. And
+a `type=search` box fires `change` on its way out, so the handler that
+adds a row from a select now skips pickers — otherwise tabbing away
+from a half-typed name added a row for a list nobody has.
+
+`enrichment.locality` declared the same flag and gets the same control
+by declaring it. The attribute-type maps declare none and stay selects:
+194 types is a worse list to scroll and a separate decision, not one to
+make by side effect.
+
+Verified against the running instance (profile 72, editor open on
+*Sources & reputation*): the select is gone, the box opens all 97 lists
+on focus, `azure ip` narrows to the four Azure ranges, arrow-and-Enter
+and a mouse click both write
+`reference.warninglist_category[List of known …]`, the added row
+carries the labelled category select with nothing preselected, the
+picked list stops being offered, tabbing away from `half typed
+nonsense` adds nothing, Enter never submits, and no JavaScript errors
+on the page. The organisation picker is unchanged through the same
+shared code — name over uuid, the full-uuid fallback still offered,
+nothing offered on an empty box.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with
