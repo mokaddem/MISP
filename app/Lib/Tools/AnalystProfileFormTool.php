@@ -2390,7 +2390,7 @@ class AnalystProfileFormTool
         return array(
             array(
                 'value' => '',
-                'label' => __('don\'t pre-select it'),
+                'label' => __('nothing'),
             ),
             array(
                 'value' => ValueEnrichmentTool::STATE_TICKED,
@@ -2435,11 +2435,12 @@ class AnalystProfileFormTool
             'entries' => array(
                 array(
                     'value' => '',
-                    'label' => __('don\'t pre-select it'),
+                    'label' => __('nothing'),
                     'meaning' => __(
-                        'The module still appears on the tab for this'
-                        . ' type, with its box empty. You can tick it'
-                        . ' and run it whenever you want.'
+                        'The profile has no opinion about this module'
+                        . ' for this type. It still appears on the tab'
+                        . ' with its box empty, and you can tick it and'
+                        . ' run it whenever you want.'
                     ),
                     'effect' => __('box empty, running it is up to you'),
                 ),

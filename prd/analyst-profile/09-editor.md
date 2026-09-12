@@ -1283,9 +1283,9 @@ types its module accepts; the six modules this instance has not
 enabled draw dimmed with *this instance has this module turned off*;
 the picker offers the eight that are usable, not the 118 the build
 carries. Each dimmed row says *Defined in the profile, disabled on
-this instance*, and the state select reads *don't pre-select it /
-pre-select it, ready to run / block it — running is refused / run it
-automatically (not built yet)*. The value tab for `8.8.8.8` says
+this instance*, and the state select reads *nothing / pre-select it,
+ready to run / block it — running is refused / run it automatically
+(not built yet)*. The value tab for `8.8.8.8` says
 *Selected 3 of the 5
 modules your profile names for this value's types* under *3 of these
 would leave the instance*, with the two disabled modules named as
