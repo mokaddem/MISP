@@ -694,28 +694,13 @@ foreach ($importedBlocks as $candidate) {
         is_true(!empty($importedRow['missing']),
             'a declared module this instance disabled is still a row');
         is_true(
-            strpos($importedRow['missing_note'], 'turned off') !== false,
-            'saying the instance turned it off, which is what an'
-                . ' imported profile needs to be told');
+            strpos($importedRow['missing_note'], 'disabled on this')
+                !== false,
+            'saying it is disabled here, which is what an imported'
+                . ' profile needs to be told');
         is_true(
             !in_array('virustotal', $candidate['add']['options'], true),
             'while the picker will not offer it as a new choice');
-    }
-    /*
-     * 3.19's payment: keyed by module, *narrowing a type* happens off
-     * screen, so the derived block states it per type.
-     */
-    if (($candidate['id'] ?? null) === 'auto_run_by_type') {
-        is_true(!empty($candidate['read_only']),
-            'the derived table is read-only — posting `__present` from'
-                . ' it would clear the key it derives from');
-        is_same('domain', $candidate['entries'][0]['key'],
-            'and it reads back per attribute type');
-        is_true(
-            strpos($candidate['entries'][0]['note'],
-                'not available here') !== false,
-            'naming what was declared and cannot answer here'
-        );
     }
 }
 

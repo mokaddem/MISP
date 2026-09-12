@@ -20,17 +20,6 @@
 App::uses('AnalystProfileFormTool', 'Tools');
 
 /*
- * A block that shows a reading rather than holding one. It draws no
- * `__present` marker and no picker, which is not cosmetic: `__present`
- * means *this map was on screen and these are all its rows*, so a
- * derived block that posted it would clear the stored key it derives
- * from the moment anybody saved the section.
- */
-if (!empty($block['read_only'])) {
-    $editable = false;
-}
-
-/*
  * One picker list per map rather than one per row: the four TTL
  * buckets offer the same 194 attribute types, and four copies of that
  * list is three copies too many.
@@ -260,11 +249,23 @@ $canAdd = $editable && !empty($block['add']);
                             <div class="wb-sub"><?= h($entry['sub_label']) ?></div>
                         <?php endif; ?>
                         <?php if (!empty($entry['missing'])): ?>
-                            <div class="wb-sub"><?= h(__('Not an'
-                                . ' identifier this instance knows. The'
-                                . ' entry is kept — it may be somebody'
-                                . " else's, and importing a profile is"
-                                . ' how it got here.')) ?></div>
+                            <?php
+                            /*
+                             * Why the row is dimmed, in the block's own
+                             * words where it has them. One hardcoded
+                             * sentence could only ever be right for one
+                             * map: a graded organisation this instance
+                             * has never heard of and a module it has
+                             * merely switched off are different facts,
+                             * and the reader's next move differs too.
+                             */
+                            ?>
+                            <div class="wb-sub"><?= h(
+                                !empty($entry['missing_note'])
+                                    ? $entry['missing_note']
+                                    : __('Defined in the profile,'
+                                        . ' unknown on this instance.')
+                            ) ?></div>
                         <?php endif; ?>
                     </td>
                     <?php if ($keyField): ?>

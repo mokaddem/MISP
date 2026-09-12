@@ -96,7 +96,7 @@ module is local for them — which is why `locality` exists and why the
 profile sits above the shipped roster.
 
 **Revised 2026-09-12 (3.22): the shipped default is no longer empty.**
-`default-v1.json` v9 declares thirteen types and twelve modules,
+`default-v1.json` v10 declares thirteen types and twelve modules,
 CIRCL-first. It still runs nothing and enables nothing; what it does is
 **narrow** — a type it names arrives with those modules ticked and
 every other module for that type unticked. The sentence this paragraph

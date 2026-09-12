@@ -1916,17 +1916,26 @@ class AnalystProfileFormTool
      *   have meant anything, and offering them was offering a
      *   declaration that could not resolve.
      *
-     * ## What the transpose costs, and the block that pays it
+     * ## The transpose costs nothing, once the tab is read correctly
      *
-     * A type this map does not carry is **not narrowed** — every
-     * enabled module arrives ticked for it. So declaring one module
-     * under `ip-dst` silently unticks every other module for `ip-dst`.
-     * Keyed by type that consequence was on screen; keyed by module it
-     * is invisible, and an invisible consequence is exactly what
-     * `01-profile.md` §1.3 forbids. The read-only *What each type
-     * resolves to* block below is not a convenience: it is where the
-     * transpose is paid for, and it is why this section has three
-     * blocks rather than two.
+     * It looked like it did. The argument was that a type this map
+     * does not carry keeps every enabled module *ticked*, so naming
+     * one module for `ip-dst` would silently untick the rest — a
+     * consequence visible keyed by type and invisible keyed by module,
+     * which would need a second block to state.
+     *
+     * **The premise was false, and the old block blurb said it too.**
+     * `value_enrichment_rail.ctp` builds `$picked` from
+     * `$enrichment['profile']['selected']` and checks a box only for a
+     * name in it, and `selected` holds exactly what the profile
+     * declared for the types this value has. Measured on `8.8.8.8`
+     * with the shipped default: **5 eligible modules, 3 ticked** — the
+     * three declared, not five minus the declared. A module the
+     * profile says nothing about arrives **unticked**, always.
+     *
+     * So the declaration adds ticks rather than removing them, there
+     * is no hidden un-ticking to disclose, and a per-type summary
+     * would have been restating the rows above it.
      *
      * @param array $parameters
      * @param array $sources
@@ -2037,12 +2046,11 @@ class AnalystProfileFormTool
                         . ' asked about'),
                     'blurb' => __(
                         'One row per module, offering only the'
-                        . ' attribute types that module accepts.'
-                        . ' Declaring a module for a type narrows that'
-                        . ' type to what you name: a type no row'
-                        . ' mentions keeps every enabled module ticked,'
-                        . ' so the table below is where you check what'
-                        . ' a declaration did.'
+                        . ' attribute types that module accepts. This'
+                        . ' decides which boxes arrive ticked on the'
+                        . ' Enrichment tab — nothing here runs a'
+                        . ' module, and a module you leave alone is'
+                        . ' still there to tick by hand.'
                     ),
                     'key_label' => __('Module'),
                     'value_label' => __('Attribute types'),
@@ -2089,28 +2097,6 @@ class AnalystProfileFormTool
                             $this->usableModules($catalogue),
                             $byModule
                         ),
-                    ),
-                ),
-                array(
-                    'kind' => 'map',
-                    'id' => 'auto_run_by_type',
-                    'title' => __('What each type resolves to'),
-                    'blurb' => __(
-                        'Read-only, and derived from the rows above.'
-                        . ' This is what the Enrichment tab will arrive'
-                        . ' with for a value of each type. A type is'
-                        . ' listed here only once some row narrows it;'
-                        . ' every other type keeps all of its modules.'
-                    ),
-                    'key_label' => __('Attribute type'),
-                    'value_label' => __('Arrives as'),
-                    'empty_label' => __('No type is narrowed'),
-                    'value_type' => 'note',
-                    'read_only' => true,
-                    'path' => array('enrichment', 'auto_run'),
-                    'entries' => $this->typeSummary(
-                        $plan['auto_run'],
-                        $catalogue
                     ),
                 ),
                 array(
@@ -2259,33 +2245,27 @@ class AnalystProfileFormTool
     {
         if (!$reachable) {
             return __(
-                'The modules service did not answer, so nothing here'
-                . ' could be checked against what this instance'
-                . ' offers. The declaration stands and is drawn as'
-                . ' written.'
+                'Defined in the profile. The modules service is not'
+                . ' answering, so it could not be checked.'
             );
         }
         if ($facts === null) {
             return __(
-                'This instance offers no enrichment module by that'
-                . ' name — a module build without it, or a name that'
-                . ' has changed. The row is kept: a profile written'
-                . ' elsewhere is how it most likely got here.'
+                'Defined in the profile, unknown on this instance —'
+                . ' not in this modules build, or renamed.'
             );
         }
         if (empty($facts['enabled'])) {
             return __(
-                'This instance has this module turned off. An'
-                . ' administrator enables it under Plugin settings;'
-                . ' until then the declaration stands and does'
-                . ' nothing.'
+                'Defined in the profile, disabled on this instance.'
+                . ' An administrator turns it on under Plugin'
+                . ' settings.'
             );
         }
         if (!empty($facts['restricted'])) {
             return __(
-                'This instance reserves this module for one'
-                . ' organisation, which is not yours. The declaration'
-                . ' stands and does nothing for you.'
+                'Defined in the profile, reserved for another'
+                . ' organisation on this instance.'
             );
         }
         return null;
@@ -2356,135 +2336,6 @@ class AnalystProfileFormTool
     }
 
     /**
-     * What the rows above did, read back per attribute type.
-     *
-     * **The block that pays for the transpose.** Keyed by module, the
-     * consequence of a declaration is off screen: naming one module
-     * for `ip-dst` narrows `ip-dst` to that module and unticks the
-     * other three the instance offers, and nothing in the row says so.
-     * This says so — per type, in the tab's own words, derived from
-     * the same `auto_run` the tab will read rather than from a second
-     * reading of the form.
-     *
-     * A type nobody narrowed is absent rather than listed as
-     * *everything*: 71 types have a module on the dev instance and
-     * listing the untouched ones would be the 194-row table coming
-     * back through the door it was shown out of.
-     *
-     * @param array $autoRun From `planFor()`
-     * @param array $catalogue
-     * @return array
-     */
-    private function typeSummary(array $autoRun, array $catalogue)
-    {
-        $entries = array();
-        foreach ($autoRun as $type => $states) {
-            if (empty($states)) {
-                continue;
-            }
-            $ticked = array();
-            $refused = array();
-            $inert = array();
-            foreach ($states as $name => $state) {
-                if ($state === ValueEnrichmentTool::STATE_NEVER) {
-                    $refused[] = $name;
-                    continue;
-                }
-                /*
-                 * A module that cannot answer here is not *ticked*,
-                 * and saying it was would be this line telling the
-                 * reader their declaration works. It is the case an
-                 * imported profile is full of, so it gets its own
-                 * word rather than being folded into either side.
-                 */
-                $facts = isset($catalogue[$name])
-                    ? $catalogue[$name]
-                    : null;
-                if ($facts === null
-                    || empty($facts['enabled'])
-                    || !empty($facts['restricted'])
-                    || !in_array((string)$type, $facts['accepts'], true)
-                ) {
-                    $inert[] = $name;
-                    continue;
-                }
-                $ticked[] = $name;
-            }
-            /*
-             * A type nothing here can answer about is a different
-             * sentence, not a count of zero out of zero. It is the
-             * common case for an imported profile, so it still names
-             * what was declared — the names are the whole reason a
-             * reader is looking.
-             */
-            $offered = $this->modulesForType($catalogue, (string)$type);
-            if ($offered === 0) {
-                $note = __('no module this instance offers accepts this'
-                    . ' type, so the declaration does nothing');
-            } else {
-                $note = empty($ticked)
-                    ? __('nothing arrives ticked')
-                    : sprintf(__('ticked: %s'), implode(', ', $ticked));
-            }
-            if (!empty($refused)) {
-                $note .= sprintf(
-                    __(' · refused: %s'),
-                    implode(', ', $refused)
-                );
-            }
-            if (!empty($inert)) {
-                $note .= sprintf(
-                    __(' · declared but not available here: %s'),
-                    implode(', ', $inert)
-                );
-            }
-            /*
-             * The count is the point of the line: *2 of 4* is what
-             * tells a reader their declaration turned two modules off
-             * without ever naming them.
-             */
-            if ($offered !== null && $offered !== 0) {
-                $note .= sprintf(
-                    __(' · %1$d of the %2$d this instance offers'),
-                    count($ticked),
-                    $offered
-                );
-            }
-            $entries[] = array(
-                'key' => (string)$type,
-                'label' => (string)$type,
-                'note' => $note,
-            );
-        }
-        return $entries;
-    }
-
-    /**
-     * How many enabled modules accept a type, or null when the
-     * catalogue is empty and the honest answer is *not known*.
-     *
-     * @param array $catalogue
-     * @param string $type
-     * @return int|null
-     */
-    private function modulesForType(array $catalogue, $type)
-    {
-        if (empty($catalogue)) {
-            return null;
-        }
-        $n = 0;
-        foreach ($catalogue as $facts) {
-            if (empty($facts['enabled']) || !empty($facts['restricted'])) {
-                continue;
-            }
-            if (in_array($type, $facts['accepts'], true)) {
-                $n++;
-            }
-        }
-        return $n;
-    }
-
-    /**
      * The two localities, each carrying the test that decides it.
      *
      * `ModuleLocality`'s membership question — *does anything about
@@ -2539,19 +2390,19 @@ class AnalystProfileFormTool
         return array(
             array(
                 'value' => '',
-                'label' => __('not declared — offered ticked'),
+                'label' => __('don\'t pre-select it'),
             ),
             array(
                 'value' => ValueEnrichmentTool::STATE_TICKED,
-                'label' => __('ticked — the same, written down'),
+                'label' => __('pre-select it, ready to run'),
             ),
             array(
                 'value' => ValueEnrichmentTool::STATE_NEVER,
-                'label' => __('never — a run is refused'),
+                'label' => __('block it — running is refused'),
             ),
             array(
                 'value' => ValueEnrichmentTool::STATE_AUTO,
-                'label' => __('auto — declared, not run'),
+                'label' => __('run it automatically (not built yet)'),
             ),
         );
     }
@@ -2566,63 +2417,70 @@ class AnalystProfileFormTool
      * checked again at the run endpoint, because a disabled checkbox
      * is not a guard (D17).
      *
+     * **The labels name the effect, not the stored key.** They read
+     * `ticked — the same, written down` and `not declared — offered
+     * ticked` until 2026-09-12, which asked the reader to hold the
+     * storage format in their head *and* was wrong: a module the
+     * profile does not name is not offered ticked, it arrives
+     * unticked. Both halves are fixed here, and the note under the
+     * table says the thing the blank state is actually for — leaving a
+     * module alone does not block it.
+     *
      * @return array
      */
     private function stateLegend()
     {
         return array(
-            'title' => __('What a state does'),
+            'title' => __('What each choice does on the Enrichment tab'),
             'entries' => array(
                 array(
                     'value' => '',
-                    'label' => __('not declared'),
+                    'label' => __('don\'t pre-select it'),
                     'meaning' => __(
-                        'The profile says nothing about this module'
-                        . ' for this type, and a module it says'
-                        . ' nothing about is offered ticked. Leaving a'
-                        . ' row alone is not the same as refusing it.'
+                        'The module still appears on the tab for this'
+                        . ' type, with its box empty. You can tick it'
+                        . ' and run it whenever you want.'
                     ),
-                    'effect' => __('the same as ticked, and the state'
-                        . ' a saved row returns to when you clear it'),
+                    'effect' => __('box empty, running it is up to you'),
                 ),
                 array(
                     'value' => ValueEnrichmentTool::STATE_TICKED,
-                    'label' => __('ticked'),
+                    'label' => __('pre-select it, ready to run'),
                     'meaning' => __(
-                        'The same outcome, written down. Worth writing'
-                        . ' where you want the declaration to say so'
-                        . ' rather than leave it to the default.'
+                        'The box arrives already ticked, so running it'
+                        . ' is one press instead of two. Ticking is not'
+                        . ' running: nothing is sent anywhere until you'
+                        . ' press Run.'
                     ),
-                    'effect' => __('offered ticked'),
+                    'effect' => __('box ticked, still waits for your'
+                        . ' press'),
                 ),
                 array(
                     'value' => ValueEnrichmentTool::STATE_NEVER,
-                    'label' => __('never'),
+                    'label' => __('block it — running is refused'),
                     'meaning' => __(
-                        'The only state that takes something away, and'
-                        . ' the only one enforced away from this page:'
-                        . ' a run started by hand is refused too, not'
-                        . ' merely left unticked.'
+                        'The only choice that takes something away. The'
+                        . ' box is empty and ticking it by hand will'
+                        . ' not work either — the run is refused and'
+                        . ' the tab says why.'
                     ),
-                    'effect' => __('refused, and said so on the value'
-                        . ' tab rather than silently missing'),
+                    'effect' => __('cannot be run at all for this type'),
                 ),
                 array(
                     'value' => ValueEnrichmentTool::STATE_AUTO,
-                    'label' => __('auto'),
+                    'label' => __('run it automatically (not built yet)'),
                     'meaning' => __(
-                        'Declarable and not implemented. There is no'
-                        . ' store of what ran when, so nothing runs'
-                        . ' without a press.'
+                        'Records that you would want this to run on its'
+                        . ' own. Nothing in MISP remembers what ran'
+                        . ' when, so nothing can run on its own yet and'
+                        . ' this behaves exactly like pre-select.'
                     ),
-                    'effect' => __('stored, and read as ticked until'
-                        . ' something implements it'),
+                    'effect' => __('same as pre-select, for now'),
                 ),
             ),
-            'note' => __('Only modules this instance offers are listed.'
-                . ' A declaration naming one it does not keeps its row'
-                . ' and says so — the profile may be somebody'
-                . " else's."),
+            'note' => __('A module you say nothing about is not blocked'
+                . ' — it simply arrives unticked. Only "block it" takes'
+                . ' anything away.'),
         );
     }
 

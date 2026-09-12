@@ -288,6 +288,15 @@ class ValueEnrichmentTool
      * profile never named is not refused by it — the instance decides
      * that, and this section may only ever narrow.
      *
+     * **That default is about refusal, not about the checkbox.** This
+     * is what `refuses()` reads, and `never` is the only answer it
+     * acts on. Whether a box arrives ticked is decided elsewhere: the
+     * rail ticks the names in `resolve()`'s `selected`, which holds
+     * only what the profile declared, so an unnamed module arrives
+     * **unticked** however this reads. Do not use it to answer *does
+     * this arrive ticked* — the editor's labels did, and said the
+     * opposite of what the tab does.
+     *
      * @param array $plan From planFor
      * @param string $name
      * @param string|null $type

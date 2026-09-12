@@ -694,20 +694,32 @@ tab, the shipped default and every hand-written profile speak it — and
 knows the editor's axis is not the document's. The form posts
 `auto_run_modules`; nothing else ever sees it.
 
-What shipped, in three blocks where there were two:
+What shipped, in the same two blocks there were before:
 
 1. **Modules, and the types you want them asked about.** One row per
    module, offering only the types that module accepts, each with the
    three D17 states. On the dev instance: nine rows of one to six
    selects.
-2. **What each type resolves to** — read-only, derived. **This block is
-   not a convenience.** A type no row mentions is not narrowed, so
-   declaring one module for `ip-dst` unticks every other module for
-   `ip-dst`; keyed by type that consequence was on screen and keyed by
-   module it is invisible. The line reads *"ticked: mmdb_lookup, ipasn,
-   circl_passivedns · 3 of the 4 this instance offers"*, and names
-   anything declared that cannot answer here.
-3. **Where a module answers from** — unchanged.
+2. **Where a module answers from** — unchanged.
+
+**A third block was built and then removed, on a false premise.** The
+argument for *What each type resolves to* was that a type no row
+mentions keeps every enabled module ticked, so naming one module for
+`ip-dst` would silently untick the rest — a consequence visible keyed
+by type and invisible keyed by module, needing a derived table to
+disclose it.
+
+The premise came from the old block's own blurb and **the tab does not
+do that.** `value_enrichment_rail.ctp` builds `$picked` from
+`profile.selected` and ticks a box only for a name in it, and
+`selected` holds exactly what the profile declared for the types this
+value has. Measured on `8.8.8.8` with the shipped default: **5
+eligible modules, 3 ticked** — the three declared. A module the
+profile says nothing about arrives **unticked**, always. So a
+declaration adds ticks rather than removing them, there was no hidden
+un-ticking to disclose, and the table restated the rows above it.
+Removed 2026-09-12 at the reviewer's request; the blurb that carried
+the false claim is corrected with it.
 
 **A declared module is drawn whatever its state** (see 3.21's second
 half), which is the half that only matters for an imported profile.
@@ -819,7 +831,7 @@ read twice:
 
 **The reviewer waived the version-bump cost** ("I don't care. We're
 developping things right now"): `updateDefaults()` overwrites local
-edits to the default profile when the shipped version rises, so v9
+edits to the default profile when the shipped version rises, so v10
 discards whatever an admin changed since v8.
 
 

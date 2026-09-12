@@ -1253,11 +1253,13 @@ not carry is not restricted, so declaring one is how you *narrow* it,
 not how you enable it.
 
 > **Superseded 2026-09-12 (3.19).** The block is gone, replaced by one
-> keyed by module — the blurb was true and the table was still
-> unreadable at 194 types × 146 modules. The fact the blurb carried is
-> now carried by a block instead: *What each type resolves to* states
-> the narrowing per type, because keyed by module the consequence is
-> off screen.
+> keyed by module — the table was unreadable at 194 types × 146
+> modules whatever its blurb said. And **the blurb was wrong**: it
+> claimed a type the map does not carry keeps every enabled module
+> ticked, where the rail ticks only what the profile declared — 5
+> eligible, 3 ticked on `8.8.8.8`. The replacement says what the
+> section actually decides: which boxes arrive ticked, with a module
+> left alone still there to tick by hand.
 
 ### What was checked
 
@@ -1280,13 +1282,16 @@ occasion. The modules block draws twelve rows, each offering only the
 types its module accepts; the six modules this instance has not
 enabled draw dimmed with *this instance has this module turned off*;
 the picker offers the eight that are usable, not the 118 the build
-carries. *What each type resolves to* reads e.g. **`ip-src` — ticked:
-mmdb_lookup, ipasn, circl_passivedns · declared but not available
-here: circl_passivessl, reversedns · 3 of the 4 this instance
-offers**. The value tab for `8.8.8.8` says *Selected 3 of the 5
+carries. Each dimmed row says *Defined in the profile, disabled on
+this instance*, and the state select reads *don't pre-select it /
+pre-select it, ready to run / block it — running is refused / run it
+automatically (not built yet)*. The value tab for `8.8.8.8` says
+*Selected 3 of the 5
 modules your profile names for this value's types* under *3 of these
 would leave the instance*, with the two disabled modules named as
-conditions. No posture anywhere, and no PHP notice on any of it.
+conditions. No posture anywhere, and no PHP notice on any of it. A
+save replayed over HTTP round-trips all thirteen types and carries a
+changed state back.
 
 ## 8. Out of scope
 
