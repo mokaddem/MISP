@@ -705,15 +705,18 @@ class ValueRelevanceTool
     /**
      * When each organisation other than the first one joined.
      *
-     * **`at` is a row-write date, and that is the open problem.**
-     * `org['oldest']` is `MIN(Attribute.timestamp)`, so editing one old
-     * occurrence moves an organisation's join date forward and this
-     * event — which the clock may take as the most recent corroboration
-     * — moves with it. `Value::recordSummaryFor()`'s docblock carries
-     * the measurements, the agreed `last_seen` / `first_seen` fallback
-     * chain, and where an `Attribute.created_at` slots in once MISP has
-     * one. This function reads whatever that query produces, so the
-     * change lands there and not here.
+     * **`at` is a declared observation where one exists.**
+     * `org['oldest']` is `MIN(Value::OBSERVED_FROM)` — `first_seen`,
+     * then `last_seen`, then the row write — so an organisation's join
+     * date is when it says it saw the value rather than when it last
+     * touched the row. On `MIN(Attribute.timestamp)` an edit moved that
+     * date forward and the value read as freshly corroborated;
+     * `8.8.8.8` carried 223 days of drift on it.
+     *
+     * The fallback is still a row write, because 84% of attributes
+     * declare no seen date at all. `Attribute.created_at` slots in
+     * above it when MISP has one, in `Value::OBSERVED_FROM` and nowhere
+     * else.
      *
      * @param array $context
      * @return array

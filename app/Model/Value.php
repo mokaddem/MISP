@@ -105,6 +105,51 @@ class Value extends AppModel
      * not, and a value table landing later has to answer *which rows
      * are dates* from whichever table holds them.
      */
+    /**
+     * *When was this occurrence observed*, in seconds, as SQL.
+     *
+     * The one definition every *when* aggregate on this model reads, so
+     * that the clock, the recency signal and the continuity months
+     * cannot disagree about what a date means — and so that
+     * `Attribute.created_at` lands in two strings rather than in eight
+     * queries once MISP has one.
+     *
+     * `Attribute.timestamp` is **last-modified**: an edit, a tag, a
+     * sync update or a delete bumps it, and it is what sync compares to
+     * decide which copy is newer. It stays as the last resort because
+     * every row has one, and it is the last resort because a row write
+     * is not an observation. `first_seen` and `last_seen` are `bigint`
+     * **microseconds**, hence the divisor.
+     *
+     * **`_AT` is the recency end, `_FROM` the earliest.** The same
+     * declared window answers two questions — *how recently was this
+     * observed* wants `last_seen`, *when did this organisation first
+     * report it* wants `first_seen` — so the two orders are the same
+     * chain read from opposite ends.
+     *
+     * **When `Attribute.created_at` lands** it goes immediately before
+     * `Attribute.timestamp` in both: a real creation date beats a row
+     * write, and a declared observation still beats a creation date.
+     * Nothing else in this file needs to change.
+     *
+     * Measured on 2.92M live attributes: `last_seen` is set on 16.2%
+     * against `first_seen`'s 6.2%, and 295,924 `last_seen` values carry
+     * no `first_seen` at all — which is why it leads `_AT`. 99.88% of
+     * them precede the row write, by 4 days on average and 226 at most,
+     * and none is in the future, so reading the observation moves every
+     * date **earlier**: values read staler, never fresher.
+     */
+    const OBSERVED_AT = 'COALESCE('
+        . 'FLOOR(Attribute.last_seen / 1000000),'
+        . ' FLOOR(Attribute.first_seen / 1000000),'
+        . ' Attribute.timestamp)';
+
+    /** The same chain from the other end — see `OBSERVED_AT`. */
+    const OBSERVED_FROM = 'COALESCE('
+        . 'FLOOR(Attribute.first_seen / 1000000),'
+        . ' FLOOR(Attribute.last_seen / 1000000),'
+        . ' Attribute.timestamp)';
+
     const DATE_TYPE = 'datetime';
 
     const CONTEXT_FIELDS = array(
@@ -342,8 +387,8 @@ class Value extends AppModel
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
                 'COUNT(DISTINCT Event.id) AS events',
                 'COUNT(DISTINCT Event.orgc_id) AS orgs',
-                'MIN(Attribute.timestamp) AS oldest',
-                'MAX(Attribute.timestamp) AS newest',
+                'MIN(' . self::OBSERVED_FROM . ') AS oldest',
+                'MAX(' . self::OBSERVED_AT . ') AS newest',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -486,8 +531,8 @@ class Value extends AppModel
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
                 'COUNT(DISTINCT Event.id) AS events',
                 'COUNT(DISTINCT Event.orgc_id) AS orgs',
-                'MIN(Attribute.timestamp) AS oldest',
-                'MAX(Attribute.timestamp) AS newest',
+                'MIN(' . self::OBSERVED_FROM . ') AS oldest',
+                'MAX(' . self::OBSERVED_AT . ') AS newest',
                 'COUNT(DISTINCT CASE WHEN Event.published = 1'
                     . ' THEN Event.id END) AS published',
                 /*
@@ -578,7 +623,7 @@ class Value extends AppModel
                     . ' AS to_ids_yes',
                 'SUM(CASE WHEN Attribute.to_ids = 0 THEN 1 ELSE 0 END)'
                     . ' AS to_ids_no',
-                'MAX(Attribute.timestamp) AS newest',
+                'MAX(' . self::OBSERVED_AT . ') AS newest',
                 /*
                  * When this organisation first held the value, which is
                  * the relevance clock's occurrence half: the most
@@ -588,13 +633,16 @@ class Value extends AppModel
                  * query that is already grouped by organisation, so it
                  * costs nothing the stances did not already cost.
                  */
-                'MIN(Attribute.timestamp) AS oldest',
+                'MIN(' . self::OBSERVED_FROM . ') AS oldest',
             ),
             /*
-             * Both aggregates here are row-write dates, and this is the
-             * site an `Attribute.created_at` and the seen-date chain
-             * would land on first — `recordSummaryFor()`'s docblock
-             * carries the chain and the measurements behind it.
+             * `OBSERVED_FROM`, not `Attribute.timestamp`: this is the
+             * relevance clock's occurrence half, and on a row-write
+             * date **editing one old occurrence moved an
+             * organisation's join date forward** and the value read as
+             * freshly corroborated. `8.8.8.8` carried 223 days of drift
+             * between DECEA's earliest event date and its computed
+             * join date.
              */
             'conditions' => $conditions,
             'recursive' => -1,
@@ -632,12 +680,13 @@ class Value extends AppModel
         $rows = $attributes->find('all', array(
             'fields' => array(
                 /*
-                 * A month here is a month in which a row was *written*,
-                 * so an edit invents one — `lifecycle.continuity`
-                 * scores this. Same chain, same pending `created_at`:
-                 * see `recordSummaryFor()`.
+                 * A month in which the value was **observed**. On
+                 * `Attribute.timestamp` an edit invented one — a value
+                 * untouched since 2022 grew a 2026 month of "activity"
+                 * for a tag — and `lifecycle.continuity` scores this,
+                 * so it reached the verdict.
                  */
-                "DATE_FORMAT(FROM_UNIXTIME(Attribute.timestamp),"
+                'DATE_FORMAT(FROM_UNIXTIME(' . self::OBSERVED_AT . "),"
                     . " '%Y-%m') AS month",
                 'COUNT(DISTINCT Attribute.id) AS occurrences',
             ),
