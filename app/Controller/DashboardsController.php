@@ -804,6 +804,80 @@ class DashboardsController extends AppController
     }
 
     /**
+     * Typeahead search for the `org_filter` canonical picker and the
+     * analyst profile's organisation grading. Returns up to 50
+     * organisations matching the optional `q` substring query, against
+     * the name or the uuid.
+     *
+     *   [{ id:   int,
+     *      uuid: string,
+     *      name: string }, ...]
+     *
+     * **The name match is case-insensitive, and has to be forced to
+     * be.** `organisations.name` is `utf8mb3_bin`, so a plain `LIKE`
+     * compares bytes: `%CIRCL%` finds CIRCL and `%circl%` finds
+     * nothing. A typeahead where the answer depends on the shift key
+     * reads as *this organisation is not on the instance*.
+     *
+     * **The uuid is matched too**, because it is what a profile stores
+     * and what an exported one is read in, so pasting one is a way
+     * people arrive here.
+     *
+     * **Scoped to what the caller may see.** Names and uuids are not
+     * sensitive on an instance that lets its users read the
+     * organisation index — but `Security.hide_organisation_index_from_users`
+     * exists to make an instance where they are, and a picker that
+     * enumerated every organisation 50 at a time would be a way round
+     * it. The rule is the index's own, so what this offers is what
+     * `/organisations` would have listed; where the index is closed,
+     * the caller's own organisation is all that is left, and grading
+     * your own is still a thing you may do. Per-org event and
+     * attribute ACL is enforced downstream, on the consumer's query.
+     *
+     * Result order: name ASC for deterministic UX.
+     */
+    public function searchOrganisations()
+    {
+        $named = isset($this->request->params['named']) ? $this->request->params['named'] : [];
+        $query = isset($this->request->query) ? $this->request->query : [];
+        $q = isset($query['q'])
+            ? (string)$query['q']
+            : (isset($named['q']) ? (string)$named['q'] : '');
+        $this->loadModel('Organisation');
+        $conditions = [];
+        if ($q !== '') {
+            // Same LIKE-wildcard scrub as the galaxy cluster search.
+            $cleanQ = str_replace(['%', '_'], '', $q);
+            $conditions['OR'] = [
+                'LOWER(Organisation.name) LIKE' => '%' . mb_strtolower($cleanQ) . '%',
+                'LOWER(Organisation.uuid) LIKE' => '%' . mb_strtolower($cleanQ) . '%',
+            ];
+        }
+        $user = $this->Auth->user();
+        if (Configure::read('Security.hide_organisation_index_from_users')
+            && empty($user['Role']['perm_sharing_group'])
+        ) {
+            $conditions['Organisation.id'] = $user['org_id'];
+        }
+        $rows = $this->Organisation->find('all', [
+            'recursive'  => -1,
+            'fields'     => ['Organisation.id', 'Organisation.uuid', 'Organisation.name'],
+            'conditions' => $conditions,
+            'order'      => 'Organisation.name ASC',
+            'limit'      => 50,
+        ]);
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'id'   => (int)$row['Organisation']['id'],
+                'uuid' => (string)$row['Organisation']['uuid'],
+                'name' => (string)$row['Organisation']['name'],
+            ];
+        }
+        return $this->RestResponse->viewData($out, 'json');
+    }
+
+    /**
      * Typeahead-style search for galaxy clusters, scoped by galaxy
      * type. Returns up to 50 matching clusters per query, ordered
      * alphabetically by value.
@@ -829,54 +903,6 @@ class DashboardsController extends AppController
      * Read-only public endpoint; same '*' ACL policy as the other
      * dashboard read endpoints.
      */
-    /**
-     * Typeahead search for the `org_filter` canonical picker. Returns
-     * up to 50 organisations matching the optional `q` substring query
-     * (matched against `Organisation.name`).
-     *
-     *   [{ id:   int,
-     *      uuid: string,
-     *      name: string }, ...]
-     *
-     * Read-only; same '*' ACL policy as the other dashboard picker
-     * endpoints. Organisation names + UUIDs are not sensitive (any
-     * MISP user can already see them via the org index page); per-
-     * org event/attribute ACL is enforced downstream by the
-     * consumer widget's query path against an already-ACL-filtered
-     * base set. Result order: name ASC for deterministic UX.
-     */
-    public function searchOrganisations()
-    {
-        $named = isset($this->request->params['named']) ? $this->request->params['named'] : [];
-        $query = isset($this->request->query) ? $this->request->query : [];
-        $q = isset($query['q'])
-            ? (string)$query['q']
-            : (isset($named['q']) ? (string)$named['q'] : '');
-        $this->loadModel('Organisation');
-        $conditions = [];
-        if ($q !== '') {
-            // Same LIKE-wildcard scrub as the galaxy cluster search.
-            $cleanQ = str_replace(['%', '_'], '', $q);
-            $conditions['Organisation.name LIKE'] = '%' . $cleanQ . '%';
-        }
-        $rows = $this->Organisation->find('all', [
-            'recursive'  => -1,
-            'fields'     => ['Organisation.id', 'Organisation.uuid', 'Organisation.name'],
-            'conditions' => $conditions,
-            'order'      => 'Organisation.name ASC',
-            'limit'      => 50,
-        ]);
-        $out = [];
-        foreach ($rows as $row) {
-            $out[] = [
-                'id'   => (int)$row['Organisation']['id'],
-                'uuid' => (string)$row['Organisation']['uuid'],
-                'name' => (string)$row['Organisation']['name'],
-            ];
-        }
-        return $this->RestResponse->viewData($out, 'json');
-    }
-
     public function searchGalaxyClusters()
     {
         $named = isset($this->request->params['named']) ? $this->request->params['named'] : [];

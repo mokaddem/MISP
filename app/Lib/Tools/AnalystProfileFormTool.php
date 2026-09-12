@@ -1408,6 +1408,16 @@ class AnalystProfileFormTool
         $lists = isset($sources['warninglists'])
             ? $sources['warninglists']
             : array();
+        /*
+         * The scale as the engine will read it — the shipped defaults
+         * with whatever this profile overrode — so the row can print
+         * what the grade beside it is actually worth. A grade is a
+         * letter until the number is next to it, and the number lives
+         * in the block underneath, where nothing connects it to the
+         * organisation it applies to.
+         */
+        $plan = ValueTrustTool::planFor($parameters);
+        $factors = $plan['scale'];
 
         $trustEntries = array();
         foreach ($trust as $uuid => $grade) {
@@ -1421,6 +1431,7 @@ class AnalystProfileFormTool
                 'value' => $grade,
                 'type' => 'select',
                 'options' => $this->gradeOptions(),
+                'factor' => $this->factorLabel($factors, $grade),
                 'path' => array('reference', 'org_trust', (string)$uuid),
             );
         }
@@ -1444,7 +1455,7 @@ class AnalystProfileFormTool
                 'missing' => !empty($lists) && !isset($lists[$name]),
                 'value' => $category,
                 'type' => 'select',
-                'options' => $this->categoryOptions(),
+                'options' => $this->categoryLabelOptions(),
                 'path' => array('reference', 'warninglist_category',
                     (string)$name),
             );
@@ -1479,6 +1490,15 @@ class AnalystProfileFormTool
                     'value_label' => __('Grade'),
                     'value_type' => 'select',
                     'value_options' => $this->gradeOptions(),
+                    'value_factors' => $factors,
+                    /*
+                     * Where the page reads a factor back from once the
+                     * analyst edits one. The block below posts to this
+                     * path, so the row's multiplier follows an edit to
+                     * the scale instead of arguing with it.
+                     */
+                    'value_factor_path' => array('reference',
+                        'org_trust_scale'),
                     'path' => array('reference', 'org_trust'),
                     'entries' => $trustEntries,
                     'add' => array(
@@ -1522,7 +1542,8 @@ class AnalystProfileFormTool
                     'key_label' => __('Warninglist'),
                     'value_label' => __('Means'),
                     'value_type' => 'select',
-                    'value_options' => $this->categoryOptions(),
+                    'value_options' => $this->categoryLabelOptions(),
+                    'value_legend' => $this->categoryLegend($parameters),
                     'path' => array('reference', 'warninglist_category'),
                     'entries' => $categoryEntries,
                     'add' => array(
@@ -1562,6 +1583,238 @@ class AnalystProfileFormTool
             );
         }
         return $options;
+    }
+
+    /**
+     * What a grade is worth, as the row should print it.
+     *
+     * Two decimals always, so a column of them lines up and `1` and
+     * `1.0` do not read as different numbers. A grade the scale has no
+     * entry for prints nothing rather than `0.00` — an unresolvable
+     * grade weights nothing *because it is dropped*
+     * (`ValueTrustTool::planFor()` puts it in `invalid`), and printing
+     * a zero would claim the organisation was deliberately zeroed.
+     *
+     * @param array $factors grade => float, the scale in force
+     * @param mixed $grade
+     * @return string|null
+     */
+    private function factorLabel(array $factors, $grade)
+    {
+        $key = ValueTrustTool::normaliseGrade($grade);
+        if ($key === null || !isset($factors[$key])) {
+            return null;
+        }
+        return '×' . number_format((float)$factors[$key], 2);
+    }
+
+
+    /**
+     * The two warninglist categories, as a picker can offer them.
+     *
+     * `known` and `false_positive` are the column's own words and they
+     * are the wrong way round for a reader: `known` sounds like *known
+     * bad* and means *known infrastructure*, and a value can be both
+     * that and malicious at once. The label carries the test rather
+     * than the noun — `WarninglistCategory`'s *can a competent report
+     * naming this value be simultaneously true?* — so the option says
+     * which way the hit cuts without anybody having to look it up.
+     *
+     * Separate from `categoryOptions()`, which stays a list of bare
+     * values because `referenceErrors()` validates against it.
+     *
+     * @return array `value`/`label` pairs
+     */
+    private function categoryLabelOptions()
+    {
+        return array(
+            array(
+                'value' => WarninglistCategory::FALSE_POSITIVE,
+                'label' => __('false positive — the hit refutes the'
+                    . ' report'),
+            ),
+            array(
+                'value' => WarninglistCategory::KNOWN,
+                'label' => __('known infrastructure — the hit explains'
+                    . ' the report'),
+            ),
+        );
+    }
+
+    /**
+     * What the two categories mean, and what choosing one does.
+     *
+     * The map let an analyst override a category and said nowhere what
+     * either one was, so the control asked a question whose answer was
+     * in a class docblock. Both halves are needed and they are
+     * different halves: *what it means* is a fact about warninglists,
+     * and *what it does* is a fact about **this** profile — the points
+     * and the two rules are settings a few panes away, and quoting
+     * them is the difference between explaining the mechanism and
+     * describing it.
+     *
+     * So the numbers are read out of the document rather than written
+     * here. A profile that zeroes `false_positive_hit` gets a legend
+     * saying so, and one that disables the signal gets told that a
+     * category currently decides nothing at all — which is the state
+     * in which this whole map is a no-op, and the state most worth
+     * being told about before editing it.
+     *
+     * @param array $parameters
+     * @return array
+     */
+    private function categoryLegend(array $parameters)
+    {
+        $signals = $this->entriesById($parameters, 'signals');
+        $rules = $this->entriesById($parameters, 'escalations');
+        $signal = isset($signals['lifecycle.warninglist'])
+            ? $signals['lifecycle.warninglist']
+            : array();
+        $on = !array_key_exists('enabled', $signal)
+            || !empty($signal['enabled']);
+        $points = isset($signal['points']) && is_array($signal['points'])
+            ? $signal['points']
+            : array();
+
+        $entries = array(
+            array(
+                'value' => WarninglistCategory::FALSE_POSITIVE,
+                'label' => __('false positive'),
+                'meaning' => __(
+                    'The list says the value is not an indicator at'
+                    . ' all — a resolver address, an RFC1918 range, a'
+                    . ' top-1000 domain. A competent report naming it'
+                    . ' as malicious cannot also be true, so the hit'
+                    . ' refutes the report.'
+                ),
+                'effect' => $this->categoryEffect(
+                    $on,
+                    $this->signalPoints($points, 'false_positive_hit'),
+                    'conflict:listed-vs-asserted',
+                    $rules,
+                    __('flags the value contested, so the disagreement'
+                        . ' is named rather than scored away')
+                ),
+            ),
+            array(
+                'value' => WarninglistCategory::KNOWN,
+                'label' => __('known infrastructure'),
+                'meaning' => __(
+                    'The list says the value is shared infrastructure —'
+                    . ' a CDN front, a hosting range. It does not argue'
+                    . ' the value is harmless, only that it cannot be'
+                    . ' attributed to one tenant, so a report naming it'
+                    . ' can be true at the same time and the hit'
+                    . ' explains the report rather than refuting it.'
+                ),
+                'effect' => $this->categoryEffect(
+                    $on,
+                    $this->signalPoints($points, 'known_hit'),
+                    'conflict:known-infrastructure-vs-reporting',
+                    $rules,
+                    __('flags the value contested when enough'
+                        . ' organisations still report it, rather than'
+                        . ' the hit and the reporting netting off')
+                ),
+            ),
+        );
+
+        return array(
+            'title' => __('What a category means, and what it does here'),
+            'entries' => $entries,
+            /*
+             * Why the map exists at all, said where the map is. §3.1
+             * verified that no shipped warninglist sets the column and
+             * that core drops the field on import, so every list on
+             * this instance is a false positive until somebody
+             * disagrees — and the row that disagrees is this one.
+             */
+            'note' => __(
+                'A list this map does not name reads as a false'
+                . ' positive: no shipped warninglist sets the column'
+                . ' and MISP drops the field on import, so the'
+                . ' instance ships a map of the lists it knows to be'
+                . ' infrastructure and this is where you override it.'
+            ),
+        );
+    }
+
+    /**
+     * One sentence on what a hit in this category is worth.
+     *
+     * @param bool $on Whether `lifecycle.warninglist` is enabled
+     * @param int|null $points What the profile scores such a hit
+     * @param string $rule The escalation keyed on this category
+     * @param array $rules The profile's rules, by id
+     * @param string $emits What that rule does when it fires
+     * @return string
+     */
+    private function categoryEffect($on, $points, $rule, array $rules,
+        $emits)
+    {
+        if (!$on) {
+            return sprintf(
+                __('Nothing, in this profile: lifecycle.warninglist is'
+                    . ' switched off, so a hit scores no points at all.'
+                    . ' The rule %s still reads the category.'),
+                $rule
+            );
+        }
+        $scored = $points === null
+            ? __('Scores whatever lifecycle.warninglist is set to.')
+            : sprintf(
+                $points === 0
+                    ? __('Scores %s on lifecycle.warninglist — counted'
+                        . ' for neither side.')
+                    : __('Scores %s on lifecycle.warninglist.'),
+                $this->signed($points)
+            );
+        $enabled = !array_key_exists('enabled', isset($rules[$rule])
+            ? $rules[$rule]
+            : array())
+            || !empty($rules[$rule]['enabled']);
+        return $scored . ' ' . sprintf(
+            $enabled
+                ? __('The rule %1$s then %2$s.')
+                : __('The rule %1$s would then %2$s, but it is switched'
+                    . ' off in this profile.'),
+            $rule,
+            $emits
+        );
+    }
+
+    /**
+     * A points entry from the profile, or the signal's own default
+     * where the profile names none.
+     *
+     * @param array $points
+     * @param string $key
+     * @return int|null
+     */
+    private function signalPoints(array $points, $key)
+    {
+        if (isset($points[$key]) && is_numeric($points[$key])) {
+            return (int)$points[$key];
+        }
+        $signal = ValueSignalLoader::get('lifecycle.warninglist');
+        if ($signal === null || !isset($signal->points_schema[$key])
+            || !isset($signal->points_schema[$key]['default'])
+        ) {
+            return null;
+        }
+        return (int)$signal->points_schema[$key]['default'];
+    }
+
+    /**
+     * A points figure with its sign, because the direction is the
+     * whole point of the sentence it sits in.
+     *
+     * @param int $points
+     * @return string
+     */
+    private function signed($points)
+    {
+        return $points > 0 ? '+' . $points : (string)$points;
     }
 
     /**

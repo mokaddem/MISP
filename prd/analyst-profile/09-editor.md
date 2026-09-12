@@ -865,8 +865,14 @@ one of them back.
 
 ## 7f. What reading the reference section back found, 2026-09-12
 
-One finding, in the one place §4 called *the only section that needs
-real UI work*: **grading an organisation was free text at both ends.**
+Two rounds on the one place §4 called *the only section that needs real
+UI work*. The first found that **grading an organisation was free text
+at both ends** (§7f.1–3). Reading the result back found three more
+(§7f.4–6), and they are the same finding in three places: **a control
+that takes a value is not finished until the page says what the value
+is.** A picker that cannot find CIRCL, a grade whose price is in another
+block, and a category column whose two words are nowhere defined are all
+the pane knowing something the analyst using it does not.
 
 ### 7f.1 *Grade an organisation* meant *type a uuid*
 
@@ -968,6 +974,102 @@ the box, grading `B` and saving stores
 an organisation already graded is not offered twice; removing the row
 restores the note. No JavaScript errors on the editor, the read-only
 viewer or the simulator.
+
+### 7f.4 The picker could not find CIRCL
+
+Reported from the running instance: *I tried CIRCL and saw no result.*
+CIRCL is organisation 9 on that instance, local, and the typeahead
+answered nothing.
+
+**`organisations.name` is `utf8mb3_bin`.** A `LIKE` against a binary
+collation compares bytes, so `%CIRCL%` matches and `%circl%` does not —
+the answer depended on the shift key. `searchOrganisations()` had
+inherited the galaxy-cluster search's wildcard scrub and none of its
+case handling, and the dashboard's `org_filter` picker has been carrying
+the same defect since it shipped; both are fixed at the endpoint.
+`LOWER()` on both sides, which costs nothing that was not already lost:
+a leading-wildcard `LIKE` cannot use an index either way.
+
+**The uuid is matched too.** It is what the document stores and what an
+exported profile is read in, so pasting one is a way people arrive at
+this box — and without it §7f.3's *this uuid is not an organisation on
+this instance* fallback would have offered itself for organisations that
+are, which is a worse answer than none.
+
+**And the catalogue is scoped to the caller.** The endpoint's own
+docblock argued that names and uuids are not sensitive because *any MISP
+user can already see them via the org index* — which is untrue on an
+instance running `Security.hide_organisation_index_from_users`, and that
+setting exists to make such instances. A picker enumerating every
+organisation fifty at a time was a way round it. The rule applied is the
+index's own (`ACLComponent`'s `organisation_index`), so the picker
+offers what `/organisations` would have listed; where the index is
+closed, the caller's own organisation is what is left, and grading your
+own is still a thing you may do.
+
+### 7f.5 A grade was a letter with its price four hundred pixels away
+
+The row said `B — Usually reliable` and the block underneath said
+`B 1.1`, and nothing on the row connected them. **The multiplier is now
+on the row**, right of the select — which is §7e.8's finding about the
+TTL buckets in a second place: a setting and the number it decides
+belong in the same row, not in two blocks that each print half of it.
+
+The number is not a constant printed once. The prices are editable in
+the block below, so the row reads the box that sets it and falls back to
+the scale the server resolved (`ValueTrustTool::planFor()`, defaults
+plus this profile's overrides). Typing `0.9` into **D — Not usually
+reliable** moves every row graded `D` on the keystroke. A printed
+constant would have been right until the first edit and then argued with
+the field describing it — §7e.2's lesson, which is now general enough
+that a map block carries `value_factors` and `value_factor_path` rather
+than the reference section carrying a special case.
+
+A grade the scale cannot resolve prints nothing rather than `×0.00`:
+such a grade weights nothing *because `planFor()` drops it into
+`invalid`*, and a zero would claim the organisation had been
+deliberately zeroed, which is what `G` means and this is not.
+
+### 7f.6 The category column asked a question it never answered
+
+Reported with the pane open: *I can override with the "means" column,
+but nowhere is explained what being fp or known means or what it affects
+and how.* The select offered `known` and `false_positive`, raw, and both
+readings a first-time reader takes are wrong — `known` reads as *known
+bad* and means *known infrastructure*, which is compatible with the
+value being malicious and is the entire distinction the section exists
+to carry.
+
+**The option carries the test, and a legend carries the rest.** The
+labels are `false positive — the hit refutes the report` and `known
+infrastructure — the hit explains the report`, which is
+`WarninglistCategory`'s membership question (*can a competent report
+naming this value be simultaneously true?*) written as a choice. Under
+the table, each category gets what it means and what it does.
+
+**What it does is read out of this document, not written into the
+template.** The meaning of a category is a fact about warninglists; its
+effect is a fact about *this profile*, and the settings that decide it
+are two panes away. So the legend quotes them: `Scores -38 on
+lifecycle.warninglist. The rule conflict:listed-vs-asserted then flags
+the value contested…` — the −38 is the profile's own
+`false_positive_hit`, and a profile that zeroed it says zero. A profile
+with the signal disabled is told that a category currently decides
+nothing at all, which is the state in which this whole map is a no-op
+and the one most worth knowing before editing it. A rule switched off is
+named as switched off rather than described as if it fired.
+
+The legend is a block-level affordance (`value_legend`), not a
+reference-section special case, so the next map whose values are a
+vocabulary nobody can read gets it by declaring one.
+
+Verified in the browser: lowercase `circl` now returns CIRCL and
+pasting its uuid returns it too; the grade row prints `×1.25` through
+`×0.00` across the scale and follows an edit to **D** from `×0.75` to
+`×0.90` and back when the box is emptied; the legend prints this
+profile's own `-38` and `0` and names both rules. The save round trip,
+both harnesses (149 and 114 checks) and the read-only viewer are
+unchanged.
 
 ## 8. Out of scope
 

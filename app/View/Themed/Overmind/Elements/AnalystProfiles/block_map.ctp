@@ -71,8 +71,25 @@ if (!empty($block['add']['search']) && !empty($block['add']['source'])) {
 $valueOptions = isset($block['value_options'])
     ? json_encode($block['value_options'])
     : null;
+
+/*
+ * What each option is worth, for a map whose values are priced
+ * elsewhere in the same section. Carried on the container rather than
+ * per row so the page can repaint every row when the price changes,
+ * and `value_factor_path` names the block that sets it — the prices
+ * are editable, and a number that stopped following the box that sets
+ * it would be worse than no number.
+ */
+$factors = isset($block['value_factors'])
+    ? json_encode($block['value_factors'])
+    : null;
+$factorName = isset($block['value_factor_path'])
+    ? AnalystProfileFormTool::fieldName($block['value_factor_path'])
+    : null;
 ?>
-<div class="ap-map">
+<div class="ap-map"<?= $factors === null ? '' :
+    ' data-ap-factors="' . h($factors) . '"' ?><?= $factorName === null ? '' :
+    ' data-ap-factor-name="' . h($factorName) . '"' ?>>
 <?php if ($datalist !== null): ?>
     <datalist id="<?= h($datalist) ?>">
         <?php
@@ -223,11 +240,32 @@ $canAdd = $editable && !empty($block['add']);
                         <?php if (isset($entry['note'])): ?>
                             <span class="wb-sub"><?= h($entry['note']) ?></span>
                         <?php else: ?>
-                            <?= $this->element('AnalystProfiles/field', array(
-                                'field' => $field,
-                                'editable' => $editable,
-                                'datalist' => $datalist,
-                            )) ?>
+                            <div class="ap-map-val">
+                                <?= $this->element('AnalystProfiles/field',
+                                    array(
+                                        'field' => $field,
+                                        'editable' => $editable,
+                                        'datalist' => $datalist,
+                                    )) ?>
+                                <?php
+                                /*
+                                 * What the chosen option is worth,
+                                 * beside the option. The select says
+                                 * `B — Usually reliable` and the
+                                 * number it multiplies by was four
+                                 * hundred pixels below in a block of
+                                 * its own; a grade is a letter until
+                                 * this is next to it.
+                                 */
+                                ?>
+                                <?php if ($factors !== null): ?>
+                                    <span class="ap-factor" data-ap-factor><?=
+                                        h(isset($entry['factor'])
+                                            && $entry['factor'] !== null
+                                            ? $entry['factor']
+                                            : '') ?></span>
+                                <?php endif; ?>
+                            </div>
                         <?php endif; ?>
                     </td>
                     <?php
@@ -333,6 +371,42 @@ $canAdd = $editable && !empty($block['add']);
         <?php endif; ?>
         <span class="wb-sub"><?= h(__('added rows are saved with the'
             . ' section')) ?></span>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($block['value_legend']['entries'])): ?>
+    <?php
+    /*
+     * What the options in this map's value column actually are. A map
+     * whose values are a closed vocabulary can be edited without the
+     * reader knowing what either word means — `known` reads as *known
+     * bad* and means *known infrastructure* — so the vocabulary is
+     * spelled out under the table rather than in a tooltip on it.
+     *
+     * Under rather than over: it is reference, read once, and a reader
+     * who already knows the words should reach the control first.
+     */
+    $legend = $block['value_legend'];
+    ?>
+    <div class="ap-legend">
+        <?php if (!empty($legend['title'])): ?>
+            <p class="ap-legend-h"><?= h($legend['title']) ?></p>
+        <?php endif; ?>
+        <dl>
+            <?php foreach ($legend['entries'] as $item): ?>
+                <dt><?= h($item['label']) ?></dt>
+                <dd>
+                    <?= h($item['meaning']) ?>
+                    <?php if (!empty($item['effect'])): ?>
+                        <span class="ap-legend-does"><?=
+                            h($item['effect']) ?></span>
+                    <?php endif; ?>
+                </dd>
+            <?php endforeach; ?>
+        </dl>
+        <?php if (!empty($legend['note'])): ?>
+            <p class="ap-legend-note"><?= h($legend['note']) ?></p>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 </div>

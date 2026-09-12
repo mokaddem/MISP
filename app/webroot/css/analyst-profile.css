@@ -1168,6 +1168,86 @@ input.num[type="number"]::-webkit-inner-spin-button {
 }
 
 /*
+ * A map row's control, with what the chosen option is worth beside it.
+ * The multiplier is a fixed column on the right so a table of them
+ * lines up, and the control takes whatever is left — the grade labels
+ * run from `A — Completely reliable` to `F — Reliability cannot be
+ * judged`, and a select sized to its content would step about.
+ */
+.ap-map-val {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+}
+.ap-map-val > .form-select,
+.ap-map-val > .form-control { min-width: 0; flex: 1 1 auto; }
+.ap-factor {
+    flex: 0 0 auto;
+    min-width: 3.2rem;
+    font-family: var(--bs-font-monospace, ui-monospace, monospace);
+    font-variant-numeric: tabular-nums;
+    font-size: .75rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * A map's value vocabulary, spelled out under the table. Two voices on
+ * purpose: the term and what it means read as prose, and what it does
+ * *in this profile* is set apart, because one is a fact about
+ * warninglists and the other is a reading of settings the analyst can
+ * go and change.
+ */
+.ap-legend {
+    margin-top: .7rem;
+    padding: .55rem .7rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .35rem;
+    background: var(--bs-tertiary-bg);
+}
+.ap-legend-h {
+    font: 600 .625rem/1.6 var(--bs-font-sans-serif, system-ui);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+    margin: 0 0 .35rem;
+}
+.ap-legend dl {
+    display: grid;
+    grid-template-columns: minmax(6rem, 9rem) minmax(0, 1fr);
+    gap: .3rem .8rem;
+    margin: 0;
+    font-size: .75rem;
+    line-height: 1.5;
+}
+.ap-legend dt {
+    font-weight: 600;
+    color: var(--bs-body-color);
+}
+.ap-legend dd {
+    margin: 0;
+    color: var(--bs-secondary-color);
+}
+.ap-legend-does {
+    display: block;
+    margin-top: .15rem;
+    color: var(--bs-body-color);
+}
+.ap-legend-note {
+    margin: .5rem 0 0;
+    padding-top: .4rem;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: .6875rem;
+    line-height: 1.5;
+    color: var(--bs-secondary-color);
+}
+/* The pane is narrow under a bench; one column reads better than two
+ * with nine characters in the first. */
+@container wb (max-width: 900px) {
+    .ap-legend dl { grid-template-columns: minmax(0, 1fr); gap: .15rem; }
+    .ap-legend dd { margin-bottom: .35rem; }
+}
+
+/*
  * Picking a map key out of a catalogue too large to draw. The list is
  * taken out of flow so the pane below it does not jump every time a
  * query comes back, and it is capped at a scroll rather than sized to

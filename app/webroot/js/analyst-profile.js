@@ -316,14 +316,93 @@ function boot() {
         request.send(new FormData(form));
     }
 
+    /* ------------------------------------------------------------ *
+     * What the chosen option is worth, beside the option
+     * ------------------------------------------------------------ */
+
+    /*
+     * A grade is a letter until the multiplier is next to it, and the
+     * multipliers are themselves editable — so the number on the row
+     * is read from the box that sets it, and falls back to the scale
+     * the server resolved. A printed constant would be right until the
+     * first keystroke and then argue with the field it describes,
+     * which is §7e.2's lesson about the aging fraction in a new place.
+     */
+    function priceRow(row, factors, prefix) {
+        var cell = row.querySelector('[data-ap-factor]');
+        var control = row.querySelector('[data-ap-field]');
+        if (!cell || !control) {
+            return;
+        }
+        var grade = control.value;
+        var factor = null;
+        if (grade !== '') {
+            if (prefix) {
+                var box = document.querySelector(
+                    '[name="' + prefix + '[' + grade + ']"]');
+                if (box && box.value !== '' && isFinite(Number(box.value))) {
+                    factor = Number(box.value);
+                }
+            }
+            if (factor === null && factors
+                && Object.prototype.hasOwnProperty.call(factors, grade)
+            ) {
+                factor = Number(factors[grade]);
+            }
+        }
+        cell.textContent = factor === null || !isFinite(factor)
+            ? ''
+            : '×' + factor.toFixed(2);
+    }
+
+    function price() {
+        Array.prototype.forEach.call(
+            document.querySelectorAll('.ap-map[data-ap-factors]'),
+            function (map) {
+                var factors;
+                try {
+                    factors = JSON.parse(map.getAttribute('data-ap-factors'));
+                } catch (error) {
+                    factors = null;
+                }
+                var prefix = map.getAttribute('data-ap-factor-name');
+                Array.prototype.forEach.call(
+                    map.querySelectorAll('tbody tr'),
+                    function (row) {
+                        priceRow(row, factors, prefix);
+                    }
+                );
+            }
+        );
+    }
+
     document.addEventListener('change', function (event) {
         if (!event.target.hasAttribute
             || !event.target.hasAttribute('data-ap-field')) {
             return;
         }
         mark();
+        /*
+         * Every priced row, not the one that changed: the box that
+         * moved may be a price rather than a grade, and one price is
+         * read by every row carrying that grade.
+         */
+        price();
         window.clearTimeout(pending);
         pending = window.setTimeout(refresh, 250);
+    });
+
+    /*
+     * A price is a number box, and a number box is edited by typing
+     * rather than by committing — so the row follows the keystroke
+     * instead of waiting for the focus to leave.
+     */
+    document.addEventListener('input', function (event) {
+        if (event.target.hasAttribute
+            && event.target.hasAttribute('data-ap-field')
+        ) {
+            price();
+        }
     });
 
     /* ------------------------------------------------------------ *
@@ -631,7 +710,16 @@ function boot() {
         }
         var value = document.createElement('td');
         var control = valueControl(add, prefix + '[' + key + ']');
-        value.appendChild(control);
+        var holder = document.createElement('div');
+        holder.className = 'ap-map-val';
+        holder.appendChild(control);
+        if (map.hasAttribute('data-ap-factors')) {
+            var priced = document.createElement('span');
+            priced.className = 'ap-factor';
+            priced.setAttribute('data-ap-factor', '');
+            holder.appendChild(priced);
+        }
+        value.appendChild(holder);
         var drop = document.createElement('td');
         drop.className = 'r';
         var button = document.createElement('button');
@@ -656,6 +744,7 @@ function boot() {
         add.value = '';
         control.focus();
         mark();
+        price();
         return control;
     }
 
