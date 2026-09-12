@@ -1369,7 +1369,7 @@ class AnalystProfilesController extends AppController
             'attribute_types' => $this->__attributeTypes(),
             'orgs' => $this->__gradedOrgs($parameters),
             'warninglists' => $this->__warninglistNames(),
-            'modules' => $this->__enabledModules($user),
+            'modules' => $this->__moduleCatalogue($user),
         );
     }
 
@@ -1436,33 +1436,90 @@ class AnalystProfilesController extends AppController
     }
 
     /**
-     * What this instance actually offers, or nothing at all.
+     * Every enrichment module this instance knows of, what each accepts,
+     * and whether this reader could actually use it.
      *
-     * The modules service is a third party and may be down. An empty
-     * list is the honest answer for that, and the enrichment section
-     * renders what the profile declares rather than pretending the
-     * declaration is unknown — which is phase 7 §7.1's lesson stated in
-     * a new place: *"nothing is selected"* is also true when the service
-     * is unreachable, so the two must not look the same.
+     * **The whole roster, not the usable part of it**, which is the
+     * difference between this and `getEnabledModules()`. That method
+     * applies three filters and then throws away which one bit, and the
+     * editor needs the difference twice over: to offer only modules a
+     * reader can pick, and — for a declaration already in the document,
+     * typically one written on another instance and imported here — to
+     * say *this instance has it turned off* rather than drop the row or
+     * leave it looking fine. A profile whose gaps are invisible is the
+     * quiet lie `01-profile.md` §1.3 forbids, and an imported profile is
+     * mostly gaps.
+     *
+     * `accepts` is `mispattributes.input`, which is how a module states
+     * the attribute types it can answer about. It is the one fact that
+     * makes the declaration editable at all: 146 modules on the dev
+     * instance accept 71 distinct types between them, median 3 each, so
+     * filtering by it turns a 194-key × 146-option table into a handful
+     * of short rows. A module declaring no input is not an enrichment
+     * module in any sense this page can use — the import and export
+     * families come back on the same endpoint — and is dropped here
+     * rather than offered as a row that could never match a type.
+     *
+     * The modules service is a third party and may be down, or switched
+     * off entirely (`Enrichment_services_enable` ships `false`).
+     * `reachable` says which, because *the service did not answer* and
+     * *the service answered with nothing* must not look the same.
      *
      * @param array $user
-     * @return array name => name
+     * @return array `reachable`, and `catalogue` as name => facts
      */
-    private function __enabledModules(array $user)
+    private function __moduleCatalogue(array $user)
     {
         $this->loadModel('Module');
-        $enabled = $this->Module->getEnabledModules($user);
-        if (!is_array($enabled) || empty($enabled['modules'])) {
-            return array();
+        $all = $this->Module->getModules('Enrichment');
+        if (!is_array($all)) {
+            return array('reachable' => false, 'catalogue' => array());
         }
-        $out = array();
-        foreach ($enabled['modules'] as $module) {
-            if (!empty($module['name'])) {
-                $out[$module['name']] = $module['name'];
+        $catalogue = array();
+        foreach ($all as $module) {
+            if (empty($module['name'])) {
+                continue;
             }
+            $accepts = empty($module['mispattributes']['input'])
+                ? array()
+                : array_values($module['mispattributes']['input']);
+            if (empty($accepts)) {
+                continue;
+            }
+            /*
+             * Absent `module-type` reads as `expansion`, which is what
+             * `getEnabledModules()` does with it — stated the same way
+             * here so the editor and the tab cannot disagree about
+             * which modules are in the family.
+             */
+            $kinds = isset($module['meta']['module-type'])
+                && is_array($module['meta']['module-type'])
+                ? array_values(array_intersect(
+                    $module['meta']['module-type'],
+                    array('hover', 'expansion')
+                ))
+                : array('expansion');
+            if (empty($kinds)) {
+                continue;
+            }
+            $name = $module['name'];
+            $enabled = (bool)Configure::read(
+                'Plugin.Enrichment_' . $name . '_enabled'
+            );
+            $restricted = !$this->Module->canUse(
+                $user,
+                'Enrichment',
+                $module
+            );
+            $catalogue[$name] = array(
+                'accepts' => $accepts,
+                'kinds' => $kinds,
+                'enabled' => $enabled,
+                'restricted' => $restricted,
+            );
         }
-        ksort($out);
-        return $out;
+        ksort($catalogue);
+        return array('reachable' => true, 'catalogue' => $catalogue);
     }
 
     /**

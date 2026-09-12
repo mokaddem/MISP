@@ -1184,11 +1184,9 @@ does — §7f.2 and §7f.6 in a third place.
 The three take different amounts of wording, and the amount is set by
 the box, not by the vocabulary:
 
-- **The posture is two words and stays two words.** It sits in a 230px
-  grid cell with its own sentence underneath already saying which
-  modules the posture is about. `local only` and `allow external`
-  mislead nobody — unlike `known`, they were simply never spelt — so
-  the label de-keys them and stops.
+- ~~**The posture is two words and stays two words.**~~ **Withdrawn
+  2026-09-12 (`09b-revisions.md` 3.21)** together with the setting it
+  labelled. Four words survive it, and the finding stands for them.
 - **Locality carries the test**, as the category options do:
   `external — asking tells somebody you do not control`. Its column is
   full width and the wrong test is the one an analyst will otherwise
@@ -1210,18 +1208,21 @@ now in the labels and the legend under the table.
 
 Same shape as §7f.6, same rule about where each half comes from. What
 `local` means is a fact about the module and is quoted from
-`ModuleLocality`. What it *does* is a fact about this document, and the
-setting that decides it is two fields above: under `local only` an
-external module is **withheld from the selection and still runnable by
-hand**, and under `allow external` this entire map decides nothing
-about what is offered. The legend reads the posture out of the plan and
-says which of those is true — verified by flipping the profile's
-posture and reading the legend change.
+`ModuleLocality`.
+
+**What it *does* was the interesting half, and it has changed.** The
+legend used to read the posture out of the plan to say whether an
+external module would be withheld. With the posture withdrawn
+(3.21), the answer is the same in both cases and is said once: a
+locality **labels** the module wherever it is offered, and an external
+one is counted in the strip's *"n of these would leave the instance"*.
+Nothing here withholds anything — it is what a reader consults before
+pressing run.
 
 The third state is the one the map cannot hold and the page never
-mentioned: a module it does not name resolves `unknown`, and
-`local only` treats that exactly as `external`. So an incomplete map
-errs towards not asking, which is the safe direction and worth saying.
+mentioned: a module it does not name resolves `unknown`, and every
+reader of `ModuleLocality` treats that as `external`. The tab says
+*unknown* rather than picking a side.
 
 ### 7g.6 `inert` was dead metadata
 
@@ -1246,10 +1247,17 @@ reference pane's included, since it is the same line of code and it was
 the example.
 
 **`Modules per type` was the only block in the section with no blurb** —
-the pane's main setting, explaining nothing. It now says the thing an
-analyst has to know before touching it: a type this map does not carry
-is not restricted, so declaring one is how you *narrow* it, not how you
-enable it.
+the pane's main setting, explaining nothing. It gained one saying the
+thing an analyst has to know before touching it: a type this map does
+not carry is not restricted, so declaring one is how you *narrow* it,
+not how you enable it.
+
+> **Superseded 2026-09-12 (3.19).** The block is gone, replaced by one
+> keyed by module — the blurb was true and the table was still
+> unreadable at 194 types × 146 modules. The fact the blurb carried is
+> now carried by a block instead: *What each type resolves to* states
+> the narrowing per type, because keyed by module the consequence is
+> off screen.
 
 ### What was checked
 
@@ -1259,12 +1267,26 @@ to its snapshot: the state column lines up and no label is cut off; a
 type added through the typeahead draws 8 module selects, focuses the
 first, and survives a save and reload carrying `never`; clearing a
 module to *not declared* removes it from the declaration; a locality
-edit and a posture change round-trip and the legend follows the
-posture. With the maps empty again: the notes read *No type declared*
-and *No module overridden*, both pickers are filter boxes, the reuse
-window says *not in force*, both legends render, the reference pane
-still offers 97 warninglists, every other pane opens, and the read-only
-viewer loads. No JavaScript errors anywhere in that.
+edit round-trips. With the maps empty again: the notes read *No type
+declared* and *No module overridden*, both pickers are filter boxes,
+the reuse window says *not in force*, both legends render, the
+reference pane still offers 97 warninglists, every other pane opens,
+and the read-only viewer loads. No JavaScript errors anywhere in that.
+
+**Re-checked 2026-09-12 after 3.19, 3.21 and 3.22**, against the same
+instance with the shipped default at v9 — which now declares thirteen
+types, so the pane has rows to draw without one being authored for the
+occasion. The modules block draws twelve rows, each offering only the
+types its module accepts; the six modules this instance has not
+enabled draw dimmed with *this instance has this module turned off*;
+the picker offers the eight that are usable, not the 118 the build
+carries. *What each type resolves to* reads e.g. **`ip-src` — ticked:
+mmdb_lookup, ipasn, circl_passivedns · declared but not available
+here: circl_passivessl, reversedns · 3 of the 4 this instance
+offers**. The value tab for `8.8.8.8` says *Selected 3 of the 5
+modules your profile names for this value's types* under *3 of these
+would leave the instance*, with the two disabled modules named as
+conditions. No posture anywhere, and no PHP notice on any of it.
 
 ## 8. Out of scope
 

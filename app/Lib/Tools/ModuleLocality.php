@@ -52,11 +52,15 @@
  *
  * ## An omission is the safe direction, and it is a real one
  *
- * A module this map does not name resolves `unknown`, and
- * `locality_posture: local_only` treats `unknown` exactly as it treats
- * `external`: it does not auto-run. So the failure mode of an
- * incomplete map is *a local module that does not run by itself*,
- * never *a value quietly sent somewhere*.
+ * A module this map does not name resolves `unknown`, and every reader
+ * of this class treats `unknown` as `external` — `leavesInstance()`
+ * says so in one place so that no caller has to remember it. So the
+ * failure mode of an incomplete map is *a local module described as
+ * though it might not be*, never *a value quietly sent somewhere*.
+ *
+ * Nothing here withholds a module. This map labels; the reader decides
+ * and presses. The `locality_posture` setting that once turned a label
+ * into a refusal has been withdrawn.
  *
  * That the map *is* incomplete is measured rather than hoped: the
  * roster is the modules whose source was read, and reading source is
@@ -141,9 +145,9 @@ class ModuleLocality
      *
      * Null rather than `external`, so that `resolve()` can tell *this
      * module is known to leave the building* from *nobody has read
-     * this module's source*. The posture treats them the same and the
-     * tab does not: one is a fact about the module, the other is a gap
-     * in the map, and a reader deciding whether to widen their posture
+     * this module's source*. `leavesInstance()` treats them the same
+     * and the tab does not: one is a fact about the module, the other
+     * is a gap in the map, and a reader deciding whether to press run
      * is owed the difference.
      *
      * @param string|null $name The module's `name`, exactly
@@ -205,10 +209,10 @@ class ModuleLocality
     /**
      * Whether asking this module tells anybody outside the instance.
      *
-     * **`unknown` counts as yes**, which is the whole reason the
-     * posture is safe to ship with an incomplete map. Stated as its
-     * own method so that no caller has to remember it, and so that the
-     * two states stay distinguishable everywhere else.
+     * **`unknown` counts as yes**, which is what makes an incomplete
+     * map safe to ship. Stated as its own method so that no caller has
+     * to remember it, and so that the two states stay distinguishable
+     * everywhere else.
      *
      * @param string|null $name
      * @param array $overrides

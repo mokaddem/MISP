@@ -31,7 +31,7 @@ App::uses('WarninglistCategory', 'Tools');
  * including a section a later phase adds.
  *
  * - **`fields`** — labelled scalars. `thresholds`' supermajority,
- *   `relevance`'s clock, `enrichment`'s posture. A numeric field may
+ *   `relevance`'s clock, `enrichment`'s reuse window. A numeric field may
  *   carry a `unit` — the suffix a design draws after the input — because
  *   without one the settings smuggle their unit into the key name
  *   (`ttl_days`, `undated_assumed_days`) and the ones that do not are
@@ -1882,13 +1882,51 @@ class AnalystProfileFormTool
     }
 
     /**
-     * `enrichment` — which modules the profile declares, and the cost
-     * posture that decides whether asking them is allowed.
+     * `enrichment` — which modules the profile declares, for which
+     * attribute types, and where each of them answers from.
      *
      * Nothing auto-runs (D15): the tab arrives with these ticked and a
      * run still takes a press, because MISP records nowhere that a
      * module has run and "run the defaults on page open" therefore
      * means running them on every page open.
+     *
+     * ## Keyed by module, though the document is keyed by type
+     *
+     * `auto_run` stores `type => {module: state}` and this block draws
+     * `module => {type: state}`. The transpose is the whole redesign,
+     * and it is arithmetic rather than taste. Measured on the dev
+     * instance: **194 attribute types, 146 modules**, and the block
+     * drawn the other way round was a 194-key map whose every row
+     * offered all 146 — a table nobody could read and nobody could
+     * maintain.
+     *
+     * Three facts make the transposed one small:
+     *
+     * - **A module declares what it accepts.** `mispattributes.input`
+     *   has been there all along and the editor never read it, so a
+     *   reader could file `virustotal` under `pdb` and hear about it
+     *   only from the value tab, as `C_TYPE_MISMATCH`, long after.
+     *   Median module accepts **3** types; 80 of 112 accept four or
+     *   fewer. A row is short.
+     * - **Rows are bounded by what an administrator enabled**, not by
+     *   what MISP can store. Nine modules are enabled on the dev
+     *   instance; the whole editable surface is nine rows.
+     * - **Most types have no module at all.** The 146 accept 71
+     *   distinct types between them, so 123 of the 194 could never
+     *   have meant anything, and offering them was offering a
+     *   declaration that could not resolve.
+     *
+     * ## What the transpose costs, and the block that pays it
+     *
+     * A type this map does not carry is **not narrowed** — every
+     * enabled module arrives ticked for it. So declaring one module
+     * under `ip-dst` silently unticks every other module for `ip-dst`.
+     * Keyed by type that consequence was on screen; keyed by module it
+     * is invisible, and an invisible consequence is exactly what
+     * `01-profile.md` §1.3 forbids. The read-only *What each type
+     * resolves to* block below is not a convenience: it is where the
+     * transpose is paid for, and it is why this section has three
+     * blocks rather than two.
      *
      * @param array $parameters
      * @param array $sources
@@ -1897,18 +1935,19 @@ class AnalystProfileFormTool
     private function sectionEnrichment(array $parameters, array $sources)
     {
         $section = $this->section($parameters, 'enrichment');
-        $autoRun = isset($section['auto_run'])
-            && is_array($section['auto_run'])
-            ? $section['auto_run']
-            : array();
         $locality = isset($section['locality'])
             && is_array($section['locality'])
             ? $section['locality']
             : array();
-        $modules = isset($sources['modules']) ? $sources['modules'] : array();
-        $types = isset($sources['attribute_types'])
-            ? $sources['attribute_types']
+        $source = isset($sources['modules']) && is_array($sources['modules'])
+            ? $sources['modules']
             : array();
+        $catalogue = isset($source['catalogue'])
+            && is_array($source['catalogue'])
+            ? $source['catalogue']
+            : array();
+        $reachable = !isset($source['reachable'])
+            || !empty($source['reachable']);
 
         /*
          * D17: a declaration names a state per module, so the value is
@@ -1923,25 +1962,14 @@ class AnalystProfileFormTool
         $plan = ValueEnrichmentTool::planFor(
             array('enrichment' => $section)
         );
-        $statesByType = $plan['auto_run'];
+        $byModule = $this->modulesByName($plan['auto_run']);
         $autoEntries = array();
-        foreach ($statesByType as $type => $states) {
-            $names = array_keys($states);
-            $autoEntries[] = array(
-                'key' => (string)$type,
-                'label' => (string)$type,
-                'value' => $states,
-                'type' => 'module_states',
-                'options' => empty($modules)
-                    ? $names
-                    : array_keys($modules),
-                'state_options' => $this->stateOptions(),
-                'states_built' => ValueEnrichmentTool::statesBuilt(),
-                'unavailable' => empty($modules)
-                    ? array()
-                    : array_values(array_diff($names,
-                        array_keys($modules))),
-                'path' => array('enrichment', 'auto_run', (string)$type),
+        foreach ($byModule as $name => $states) {
+            $autoEntries[] = $this->moduleEntry(
+                $name,
+                $states,
+                $catalogue,
+                $reachable
             );
         }
         $localityEntries = array();
@@ -1967,35 +1995,9 @@ class AnalystProfileFormTool
             'blocks' => array(
                 array(
                     'kind' => 'fields',
-                    'id' => 'posture',
-                    'title' => __('Modules that leave the instance'),
+                    'id' => 'reuse',
+                    'title' => __('Reusing an answer'),
                     'fields' => array(
-                        array(
-                            'key' => 'locality_posture',
-                            'label' => __('Modules that may be offered'),
-                            'type' => 'select',
-                            'options' => $this->postureOptions(),
-                            'value' => isset($section['locality_posture'])
-                                ? $section['locality_posture']
-                                : (isset($section['cost_posture'])
-                                    ? $section['cost_posture']
-                                    : null),
-                            'default' => ValueEnrichmentTool::DEFAULT_POSTURE,
-                            'help' => __(
-                                'Whether a module that would tell'
-                                . ' somebody outside this instance the'
-                                . ' value is being looked at may be'
-                                . ' offered. Local only selects very'
-                                . ' little on a platform where'
-                                . ' enrichment mostly means asking'
-                                . ' somebody else, and says so. Not a'
-                                . ' cost setting: nothing a module'
-                                . ' declares says anything about money'
-                                . ' or rate limits.'
-                            ),
-                            'path' => array('enrichment',
-                                'locality_posture'),
-                        ),
                         array(
                             'key' => 'max_age_hours',
                             'label' => __('Reuse an answer for'),
@@ -2031,51 +2033,84 @@ class AnalystProfileFormTool
                 array(
                     'kind' => 'map',
                     'id' => 'auto_run',
-                    'title' => __('Modules per type'),
+                    'title' => __('Modules, and the types you want them'
+                        . ' asked about'),
                     'blurb' => __(
-                        'A declaration names a state per module for'
-                        . ' one attribute type. A type this map does'
-                        . ' not carry is not restricted by the'
-                        . ' profile: every module the instance offers'
-                        . ' arrives ticked, so declaring a type is how'
-                        . ' you narrow it rather than how you enable'
-                        . ' it.'
+                        'One row per module, offering only the'
+                        . ' attribute types that module accepts.'
+                        . ' Declaring a module for a type narrows that'
+                        . ' type to what you name: a type no row'
+                        . ' mentions keeps every enabled module ticked,'
+                        . ' so the table below is where you check what'
+                        . ' a declaration did.'
                     ),
-                    'key_label' => __('Attribute type'),
-                    'value_label' => __('Modules'),
-                    'empty_label' => __('No type declared'),
+                    'key_label' => __('Module'),
+                    'value_label' => __('Attribute types'),
+                    'empty_label' => __('No module declared'),
                     'value_legend' => $this->stateLegend(),
-                    'value_type' => 'module_states',
+                    'value_type' => 'state_map',
                     /*
                      * What the page needs to draw this row itself.
                      * Without them the row it adds is a bare text box
                      * — the control `valueControl()` falls back to
                      * when it recognises no vocabulary — so declaring
-                     * a type posted an empty value, the merge dropped
-                     * the key, and the type was gone by the time the
-                     * page came back. Exactly §7f.1's *the row the
-                     * page added took a typed grade*, in the one map
-                     * whose value is not a scalar.
+                     * a module posted an empty value, the merge
+                     * dropped the key, and the module was gone by the
+                     * time the page came back. Exactly §7f.1's *the
+                     * row the page added took a typed grade*, in the
+                     * one map whose value is not a scalar.
+                     *
+                     * Keyed by module rather than one flat list,
+                     * because the sub-rows now differ per row: every
+                     * type row offered the same 146 modules, and no
+                     * two module rows offer the same types.
                      */
                     'value_options' => $this->stateOptions(),
-                    'value_modules' => array_keys($modules),
-                    'path' => array('enrichment', 'auto_run'),
+                    'value_rows' => $this->acceptedTypes($catalogue),
+                    'unavailable_label' => __('not accepted'),
+                    'path' => array('enrichment', 'auto_run_modules'),
                     'entries' => $autoEntries,
                     'add' => array(
-                        'label' => __('Declare modules for a type'),
-                        'source' => 'attribute_types',
+                        'label' => __('Declare a module'),
+                        'source' => 'modules',
                         /*
-                         * 194 of them, and — unlike the warninglists —
-                         * in `typeDefinitions` order rather than
-                         * alphabetical, so `md5, sha1, sha256,
-                         * filename, pdb` is where the list starts and
-                         * there is no scanning strategy at all. The
-                         * whole roster still fits in the page; what
-                         * does not fit is reading it.
+                         * Only modules this reader could actually use:
+                         * present in the build, enabled here, and not
+                         * reserved for another organisation. A module
+                         * the instance has turned off is still drawn
+                         * as a row when the profile already names it —
+                         * see `moduleEntry()` — but offering it as a
+                         * new choice would be offering a declaration
+                         * that cannot resolve.
                          */
                         'search' => true,
-                        'placeholder' => __('filter attribute types…'),
-                        'options' => $this->unusedKeys($types, $autoRun),
+                        'placeholder' => __('filter modules…'),
+                        'options' => $this->unusedKeys(
+                            $this->usableModules($catalogue),
+                            $byModule
+                        ),
+                    ),
+                ),
+                array(
+                    'kind' => 'map',
+                    'id' => 'auto_run_by_type',
+                    'title' => __('What each type resolves to'),
+                    'blurb' => __(
+                        'Read-only, and derived from the rows above.'
+                        . ' This is what the Enrichment tab will arrive'
+                        . ' with for a value of each type. A type is'
+                        . ' listed here only once some row narrows it;'
+                        . ' every other type keeps all of its modules.'
+                    ),
+                    'key_label' => __('Attribute type'),
+                    'value_label' => __('Arrives as'),
+                    'empty_label' => __('No type is narrowed'),
+                    'value_type' => 'note',
+                    'read_only' => true,
+                    'path' => array('enrichment', 'auto_run'),
+                    'entries' => $this->typeSummary(
+                        $plan['auto_run'],
+                        $catalogue
                     ),
                 ),
                 array(
@@ -2094,7 +2129,7 @@ class AnalystProfileFormTool
                     'empty_label' => __('No module overridden'),
                     'value_type' => 'select',
                     'value_options' => $this->localityOptions(),
-                    'value_legend' => $this->localityLegend($plan),
+                    'value_legend' => $this->localityLegend(),
                     'path' => array('enrichment', 'locality'),
                     'entries' => $localityEntries,
                     'add' => array(
@@ -2102,8 +2137,15 @@ class AnalystProfileFormTool
                         'source' => 'modules',
                         'search' => true,
                         'placeholder' => __('filter modules…'),
+                        /*
+                         * Every module the build offers, not only the
+                         * ones enabled here: locality is knowledge
+                         * about a module, and an operator correcting
+                         * the shipped roster is right to do it before
+                         * they turn the module on rather than after.
+                         */
                         'options' => $this->unusedKeys(
-                            array_keys($modules), $locality),
+                            array_keys($catalogue), $locality),
                     ),
                 ),
             ),
@@ -2111,41 +2153,335 @@ class AnalystProfileFormTool
     }
 
     /**
-     * The posture, as a picker can offer it.
+     * The stored `type => {module: state}` read the other way up.
      *
-     * `local_only` and `allow_external` are the stored keys and they
-     * were also the whole label, which asks the reader to already know
-     * what *external* is a posture about. It is not about cost and not
-     * about the module being remote: it is about whether **asking
-     * tells somebody outside this instance that this value is being
-     * looked at**, which is the sentence the field's help gives and
-     * the option never did.
+     * Both orderings are stable: `planFor()` hands the types over in
+     * document order and each module keeps the types in the order it
+     * was declared for them, so a document that did not change does
+     * not draw differently on the next load.
      *
-     * Words and not the stored key, and no more than that: this box
-     * sits in a 230px grid cell with its own sentence underneath
-     * already saying which modules the posture is about, so a label
-     * carrying the test as well would only be the test with its end
-     * cut off. Unlike `known`/`false_positive`, neither word here
-     * misleads — they were simply never spelt.
-     *
-     * Separate from `ValueEnrichmentTool::postures()`, which stays a
-     * list of bare keys because the engine and `enrichmentErrors()`
-     * validate against it.
-     *
-     * @return array `value`/`label` pairs
+     * @param array $autoRun From `planFor()`
+     * @return array module => type => state
      */
-    private function postureOptions()
+    private function modulesByName(array $autoRun)
     {
-        return array(
-            array(
-                'value' => ValueEnrichmentTool::POSTURE_LOCAL,
-                'label' => __('local only'),
-            ),
-            array(
-                'value' => ValueEnrichmentTool::POSTURE_EXTERNAL,
-                'label' => __('allow external'),
-            ),
+        $out = array();
+        foreach ($autoRun as $type => $states) {
+            foreach ($states as $name => $state) {
+                if (!isset($out[$name])) {
+                    $out[$name] = array();
+                }
+                $out[$name][(string)$type] = $state;
+            }
+        }
+        ksort($out);
+        return $out;
+    }
+
+    /**
+     * One row: a module, the types it accepts, and what this instance
+     * has to say about it.
+     *
+     * **A declared module is drawn whatever its state**, which is the
+     * half of this that only matters for a profile somebody else
+     * wrote. Import is how most profiles arrive, the instance that
+     * wrote one had a different set of modules enabled, and a row that
+     * vanished — or worse, one that looked fine — would hide exactly
+     * the gaps the reader needs to see before trusting the document.
+     * So the four states `Module::getEnabledModules()` collapses are
+     * kept apart here, in the order it applies them, and each says
+     * what a reader would have to do about it.
+     *
+     * The types offered are the module's own `accepts`, plus any the
+     * profile already filed it under that it does not accept — those
+     * are flagged rather than dropped, for the same reason: a
+     * declaration that cannot resolve is worth seeing.
+     *
+     * @param string $name
+     * @param array $states type => state, from `modulesByName()`
+     * @param array $catalogue From the controller
+     * @param bool $reachable Whether the modules service answered
+     * @return array
+     */
+    private function moduleEntry($name, array $states, array $catalogue,
+        $reachable
+    ) {
+        $declared = array_keys($states);
+        $facts = isset($catalogue[$name]) ? $catalogue[$name] : null;
+        $accepts = $facts === null ? array() : $facts['accepts'];
+        $options = $accepts;
+        foreach ($declared as $type) {
+            if (!in_array($type, $options, true)) {
+                $options[] = $type;
+            }
+        }
+        $entry = array(
+            'key' => (string)$name,
+            'label' => (string)$name,
+            'value' => $states,
+            'type' => 'state_map',
+            'options' => $options,
+            'state_options' => $this->stateOptions(),
+            'states_built' => ValueEnrichmentTool::statesBuilt(),
+            'unavailable' => $facts === null
+                ? array()
+                : array_values(array_diff($declared, $accepts)),
+            'path' => array('enrichment', 'auto_run_modules',
+                (string)$name),
         );
+        $note = $this->moduleNote($facts, $reachable);
+        if ($note !== null) {
+            $entry['missing'] = true;
+            $entry['missing_note'] = $note;
+        }
+        $sub = $this->moduleSubLabel($facts);
+        if ($sub !== null) {
+            $entry['sub_label'] = $sub;
+        }
+        return $entry;
+    }
+
+    /**
+     * Why a declared module would not answer here, or null when it
+     * would.
+     *
+     * The order is `getEnabledModules()`'s own, so the sentence a
+     * reader gets names the first thing that actually stopped the
+     * module rather than the most interesting one — the same rule
+     * `ValueEnrichmentTool::explain()` follows, because the two say
+     * the same things in different places and must not disagree.
+     *
+     * @param array|null $facts
+     * @param bool $reachable
+     * @return string|null
+     */
+    private function moduleNote($facts, $reachable)
+    {
+        if (!$reachable) {
+            return __(
+                'The modules service did not answer, so nothing here'
+                . ' could be checked against what this instance'
+                . ' offers. The declaration stands and is drawn as'
+                . ' written.'
+            );
+        }
+        if ($facts === null) {
+            return __(
+                'This instance offers no enrichment module by that'
+                . ' name — a module build without it, or a name that'
+                . ' has changed. The row is kept: a profile written'
+                . ' elsewhere is how it most likely got here.'
+            );
+        }
+        if (empty($facts['enabled'])) {
+            return __(
+                'This instance has this module turned off. An'
+                . ' administrator enables it under Plugin settings;'
+                . ' until then the declaration stands and does'
+                . ' nothing.'
+            );
+        }
+        if (!empty($facts['restricted'])) {
+            return __(
+                'This instance reserves this module for one'
+                . ' organisation, which is not yours. The declaration'
+                . ' stands and does nothing for you.'
+            );
+        }
+        return null;
+    }
+
+    /**
+     * Where a module answers from and what it answers for, on one line
+     * under its name.
+     *
+     * `hover` and `expansion` are not a detail: the tab draws both and
+     * a reader who declared a hover-only module is owed the fact that
+     * it answers on hover rather than on the run they were expecting.
+     *
+     * @param array|null $facts
+     * @return string|null
+     */
+    private function moduleSubLabel($facts)
+    {
+        if ($facts === null || empty($facts['kinds'])) {
+            return null;
+        }
+        return implode(', ', $facts['kinds']);
+    }
+
+    /**
+     * The types each module accepts, for the page to draw a row it
+     * adds itself.
+     *
+     * **Only the modules the picker can offer.** The page reads this
+     * when a row is added and never otherwise, and the picker offers
+     * what a reader can use — so carrying the whole roster put 118
+     * modules and their type lists into an attribute on every editor
+     * load to answer at most one of them. §4's rule about not sending
+     * 900 organisations to say something about four, in the block that
+     * had quietly started doing it.
+     *
+     * @param array $catalogue
+     * @return array name => list of types
+     */
+    private function acceptedTypes(array $catalogue)
+    {
+        $out = array();
+        foreach ($catalogue as $name => $facts) {
+            if (empty($facts['enabled']) || !empty($facts['restricted'])) {
+                continue;
+            }
+            $out[$name] = $facts['accepts'];
+        }
+        return $out;
+    }
+
+    /**
+     * The modules a reader could pick today: offered, enabled here,
+     * and not reserved elsewhere.
+     *
+     * @param array $catalogue
+     * @return array
+     */
+    private function usableModules(array $catalogue)
+    {
+        $out = array();
+        foreach ($catalogue as $name => $facts) {
+            if (!empty($facts['enabled']) && empty($facts['restricted'])) {
+                $out[] = $name;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * What the rows above did, read back per attribute type.
+     *
+     * **The block that pays for the transpose.** Keyed by module, the
+     * consequence of a declaration is off screen: naming one module
+     * for `ip-dst` narrows `ip-dst` to that module and unticks the
+     * other three the instance offers, and nothing in the row says so.
+     * This says so — per type, in the tab's own words, derived from
+     * the same `auto_run` the tab will read rather than from a second
+     * reading of the form.
+     *
+     * A type nobody narrowed is absent rather than listed as
+     * *everything*: 71 types have a module on the dev instance and
+     * listing the untouched ones would be the 194-row table coming
+     * back through the door it was shown out of.
+     *
+     * @param array $autoRun From `planFor()`
+     * @param array $catalogue
+     * @return array
+     */
+    private function typeSummary(array $autoRun, array $catalogue)
+    {
+        $entries = array();
+        foreach ($autoRun as $type => $states) {
+            if (empty($states)) {
+                continue;
+            }
+            $ticked = array();
+            $refused = array();
+            $inert = array();
+            foreach ($states as $name => $state) {
+                if ($state === ValueEnrichmentTool::STATE_NEVER) {
+                    $refused[] = $name;
+                    continue;
+                }
+                /*
+                 * A module that cannot answer here is not *ticked*,
+                 * and saying it was would be this line telling the
+                 * reader their declaration works. It is the case an
+                 * imported profile is full of, so it gets its own
+                 * word rather than being folded into either side.
+                 */
+                $facts = isset($catalogue[$name])
+                    ? $catalogue[$name]
+                    : null;
+                if ($facts === null
+                    || empty($facts['enabled'])
+                    || !empty($facts['restricted'])
+                    || !in_array((string)$type, $facts['accepts'], true)
+                ) {
+                    $inert[] = $name;
+                    continue;
+                }
+                $ticked[] = $name;
+            }
+            /*
+             * A type nothing here can answer about is a different
+             * sentence, not a count of zero out of zero. It is the
+             * common case for an imported profile, so it still names
+             * what was declared — the names are the whole reason a
+             * reader is looking.
+             */
+            $offered = $this->modulesForType($catalogue, (string)$type);
+            if ($offered === 0) {
+                $note = __('no module this instance offers accepts this'
+                    . ' type, so the declaration does nothing');
+            } else {
+                $note = empty($ticked)
+                    ? __('nothing arrives ticked')
+                    : sprintf(__('ticked: %s'), implode(', ', $ticked));
+            }
+            if (!empty($refused)) {
+                $note .= sprintf(
+                    __(' · refused: %s'),
+                    implode(', ', $refused)
+                );
+            }
+            if (!empty($inert)) {
+                $note .= sprintf(
+                    __(' · declared but not available here: %s'),
+                    implode(', ', $inert)
+                );
+            }
+            /*
+             * The count is the point of the line: *2 of 4* is what
+             * tells a reader their declaration turned two modules off
+             * without ever naming them.
+             */
+            if ($offered !== null && $offered !== 0) {
+                $note .= sprintf(
+                    __(' · %1$d of the %2$d this instance offers'),
+                    count($ticked),
+                    $offered
+                );
+            }
+            $entries[] = array(
+                'key' => (string)$type,
+                'label' => (string)$type,
+                'note' => $note,
+            );
+        }
+        return $entries;
+    }
+
+    /**
+     * How many enabled modules accept a type, or null when the
+     * catalogue is empty and the honest answer is *not known*.
+     *
+     * @param array $catalogue
+     * @param string $type
+     * @return int|null
+     */
+    private function modulesForType(array $catalogue, $type)
+    {
+        if (empty($catalogue)) {
+            return null;
+        }
+        $n = 0;
+        foreach ($catalogue as $facts) {
+            if (empty($facts['enabled']) || !empty($facts['restricted'])) {
+                continue;
+            }
+            if (in_array($type, $facts['accepts'], true)) {
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /**
@@ -2257,8 +2593,7 @@ class AnalystProfileFormTool
                         . ' where you want the declaration to say so'
                         . ' rather than leave it to the default.'
                     ),
-                    'effect' => __('offered ticked, subject to the'
-                        . ' posture above'),
+                    'effect' => __('offered ticked'),
                 ),
                 array(
                     'value' => ValueEnrichmentTool::STATE_NEVER,
@@ -2297,26 +2632,22 @@ class AnalystProfileFormTool
      * The same two halves `categoryLegend()` carries, for the same
      * reason and with the same rule about where each comes from.
      * *What it means* is a fact about the module and lives in
-     * `ModuleLocality`. *What it does* is a fact about **this**
-     * document: the posture two fields above is what turns a locality
-     * into a decision, and a profile set to `allow_external` is one
-     * where this entire map currently decides nothing about what is
-     * offered. That is the state most worth knowing before editing it,
-     * and it is invisible unless the legend reads the posture.
+     * `ModuleLocality`. *What it does* is the same in both cases and
+     * said once in the note: it labels the module wherever it is
+     * offered. Nothing here withholds anything — a locality is what a
+     * reader consults before pressing run, not a gate in front of the
+     * press.
      *
-     * The third state is the one the map cannot hold. A module it does
-     * not name resolves `unknown`, and `local_only` treats that
-     * exactly as `external` — so an incomplete map errs towards not
-     * asking, which is the safe direction and nowhere on the page.
+     * The third state is the one the map cannot hold: a module it does
+     * not name resolves `unknown`, and the tab says so rather than
+     * guessing a side.
      *
-     * @param array $plan From `ValueEnrichmentTool::planFor()`
      * @return array
      */
-    private function localityLegend(array $plan)
+    private function localityLegend()
     {
-        $local = $plan['posture'] === ValueEnrichmentTool::POSTURE_LOCAL;
         return array(
-            'title' => __('What an answer means, and what it does here'),
+            'title' => __('What an answer means'),
             'entries' => array(
                 array(
                     'value' => ModuleLocality::LOCAL,
@@ -2327,11 +2658,7 @@ class AnalystProfileFormTool
                         . ' computation, a local file, or an endpoint'
                         . ' that can only ever be their own.'
                     ),
-                    'effect' => $local
-                        ? __('offered for selection under the posture'
-                            . ' in force')
-                        : __('offered — as everything is, under this'
-                            . " profile's posture"),
+                    'effect' => __('labelled local on the tab'),
                 ),
                 array(
                     'value' => ModuleLocality::EXTERNAL,
@@ -2344,21 +2671,17 @@ class AnalystProfileFormTool
                         . ' building on a deployment nobody has'
                         . ' repointed.'
                     ),
-                    'effect' => $local
-                        ? __('withheld from the selection — a run'
-                            . ' started by hand still works')
-                        : __('nothing is withheld for locality under'
-                            . " this profile's posture"),
+                    'effect' => __('labelled external on the tab, and'
+                        . ' counted in the line that says how many of'
+                        . ' your ticked modules would leave'),
                 ),
             ),
-            'note' => $local
-                ? __('A module this map does not name resolves'
-                    . ' unknown, and local only treats that exactly as'
-                    . ' external. An incomplete map errs towards not'
-                    . ' asking.')
-                : __('The posture above is allow external, so this map'
-                    . ' currently changes nothing about what is'
-                    . ' offered. It still records what you know.'),
+            'note' => __(
+                'A module this map does not name resolves unknown, and'
+                . ' the tab says unknown rather than picking a side.'
+                . ' Correcting one here changes what the tab tells you'
+                . ' before you press run; it never decides for you.'
+            ),
         );
     }
 
@@ -3038,29 +3361,14 @@ class AnalystProfileFormTool
     {
         $errors = array();
         $section = $this->section($parameters, 'enrichment');
-        foreach (array('locality_posture',
-            ValueEnrichmentTool::POSTURE_KEY_LEGACY) as $postureKey
-        ) {
-            if (!isset($section[$postureKey])) {
-                continue;
-            }
-            $given = $section[$postureKey];
-            /*
-             * A pasted document may carry the retired `ask`, which the
-             * engine reads as `allow_external`. Refusing it would
-             * refuse a profile that works.
-             */
-            if ($given === ValueEnrichmentTool::POSTURE_ASK_LEGACY
-                || in_array($given, ValueEnrichmentTool::postures(), true)
-            ) {
-                continue;
-            }
-            $errors[] = sprintf(
-                __('`enrichment.%1$s`: `%2$s` is not a posture.'),
-                $postureKey,
-                $given
-            );
-        }
+        /*
+         * The retired posture keys are not validated and not an error.
+         * A document that carries one is a document somebody wrote
+         * against an older version — refusing it would refuse a
+         * profile whose every other section still works, and nothing
+         * reads the key any more. `legacyShapes()` says it is there
+         * and saving takes it out.
+         */
         if (isset($section['max_age_hours'])
             && (!is_int($section['max_age_hours'])
                 || $section['max_age_hours'] <= 0)
@@ -3293,9 +3601,9 @@ class AnalystProfileFormTool
      * version wrote, and what saving will do to them.
      *
      * Two sections are read through a shim — `relevance` since D18
-     * gave TTLs four buckets, `enrichment` since D19 renamed the
-     * posture — and a shim is a *read*: the stored document keeps the
-     * old keys until something writes it. The editor is that
+     * gave TTLs four buckets, `enrichment` since the posture was
+     * withdrawn — and a shim is a *read*: the stored document keeps
+     * the old keys until something writes it. The editor is that
      * something. It renders the shimmed reading, so posting any
      * section back rewrites both sections into the current shape and
      * moves `revision`, on a save the analyst may believe changed
@@ -3327,13 +3635,19 @@ class AnalystProfileFormTool
             && is_array($parameters['enrichment'])
             ? $parameters['enrichment']
             : array();
-        if (isset($enrichment[ValueEnrichmentTool::POSTURE_KEY_LEGACY])) {
+        foreach (array('locality_posture', 'cost_posture') as $retired) {
+            if (!isset($enrichment[$retired])) {
+                continue;
+            }
             $notes[] = sprintf(
-                __('This profile still calls the module posture `%1$s`.'
-                    . ' It is read as `%2$s`, which is what it always'
-                    . ' did, and saving any section renames it.'),
-                ValueEnrichmentTool::POSTURE_KEY_LEGACY,
-                'locality_posture'
+                __('This profile carries `enrichment.%s`, the setting'
+                    . ' that decided whether a module leaving the'
+                    . ' instance could be offered. It has been'
+                    . ' withdrawn — nothing was ever withheld that a'
+                    . ' press could not reach, and locality is now a'
+                    . ' label rather than a gate. The key is ignored'
+                    . ' and saving any section drops it.'),
+                $retired
             );
         }
         foreach ($this->followedWords($parameters) as $note) {
@@ -3500,20 +3814,80 @@ class AnalystProfileFormTool
             }
         }
         /*
-         * D19's rename, for the same reason. `ValueEnrichmentTool`
-         * reads `locality_posture` and falls back to `cost_posture`,
-         * so a document carrying both is not ambiguous — but the old
-         * key is then a setting nothing reads, sitting in the raw
-         * document under a name that says it is about cost. A save
-         * that wrote the new name takes the old one out with it.
+         * The withdrawn posture, under either of the two names it
+         * had. Nothing reads them, so leaving them in the document
+         * would leave a setting that looks like one and is not — the
+         * exact shape of the quiet lie `01-profile.md` §1.3 forbids.
+         * A save on any section takes them out.
          */
-        if (isset($merged['enrichment']['locality_posture'])
-            && isset($merged['enrichment'][
-                ValueEnrichmentTool::POSTURE_KEY_LEGACY])
+        if (isset($merged['enrichment'])
+            && is_array($merged['enrichment'])
         ) {
-            unset($merged['enrichment'][
-                ValueEnrichmentTool::POSTURE_KEY_LEGACY]);
+            unset(
+                $merged['enrichment']['locality_posture'],
+                $merged['enrichment']['cost_posture']
+            );
         }
+        $merged = $this->transposeModules($merged, $posted);
+        return $merged;
+    }
+
+    /**
+     * The module-keyed map the form posts, written back as the
+     * type-keyed one the document stores.
+     *
+     * **The editor's axis is not the document's**, and this is the one
+     * place that knows it. `auto_run_modules` never reaches storage;
+     * `auto_run` is what every reader — the engine, the tab, the
+     * shipped default, every profile written by hand — has always
+     * spoken, and changing the stored shape to match a form would have
+     * been the form deciding the contract.
+     *
+     * A blank state is *not declared* and writes nothing, so a type
+     * every row left blank disappears from `auto_run` entirely, which
+     * is exactly right: a type no module names is a type the profile
+     * does not narrow.
+     *
+     * Only on a post that carried the block. The map's `__present`
+     * marker is what says it was on screen, and without that check a
+     * save of some other section would read `auto_run_modules`'
+     * absence as *every module cleared* and wipe the declaration.
+     *
+     * @param array $merged The document so far
+     * @param array $posted The `parameters` sub-array of the request
+     * @return array
+     */
+    private function transposeModules(array $merged, array $posted)
+    {
+        if (!isset($merged['enrichment'])
+            || !is_array($merged['enrichment'])
+        ) {
+            return $merged;
+        }
+        if (!isset($posted['enrichment']['auto_run_modules'])) {
+            unset($merged['enrichment']['auto_run_modules']);
+            return $merged;
+        }
+        $byModule = isset($merged['enrichment']['auto_run_modules'])
+            && is_array($merged['enrichment']['auto_run_modules'])
+            ? $merged['enrichment']['auto_run_modules']
+            : array();
+        unset($merged['enrichment']['auto_run_modules']);
+        $autoRun = array();
+        foreach ($byModule as $name => $states) {
+            if (!is_array($states)) {
+                continue;
+            }
+            foreach ($states as $type => $state) {
+                if ($type === '__present' || $state === ''
+                    || $state === null
+                ) {
+                    continue;
+                }
+                $autoRun[(string)$type][(string)$name] = $state;
+            }
+        }
+        $merged['enrichment']['auto_run'] = $autoRun;
         return $merged;
     }
 

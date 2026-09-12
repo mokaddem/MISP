@@ -1,8 +1,8 @@
 {
     "uuid": "6e2679bc-ebb0-417f-90d8-16cb1d0144ba",
     "name": "default-v1",
-    "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. Phase 6 added reference.org_trust_scale, the admiralty grade multipliers, with both override maps still empty: an empty org_trust map switches trust weighting off entirely, so this profile scores exactly as it did before the section existed. Phase 7 completed the enrichment section: an empty auto_run declares no module, which is the switch — the Enrichment tab is byte-identical to the one that shipped without this section — and the empty locality map defers to the shipped ModuleLocality roster. Nothing in this file causes a module to run: a run takes a press, because nothing in MISP records that a module ran. See prd/analyst-profile/03-signals.md section 7, 06-staleness.md section 3, 07-reference.md section 2.3 and 08-enrichment.md section 3.",
-    "version": 8,
+    "description": "The instance default Analyst Profile. Phase 2 authored the eleven-signal catalogue and its weights against the regression set: the four demo values anchor the shape, the median value (one org, no sightings) fixes the calibration rule. Phase 5 completed the relevance section: the clock, the curve at decay_speed 1, and the per-type TTL table, which errs generous because a short TTL drops indicators silently and a long one merely fails to flag a stale one. Phase 6 added reference.org_trust_scale, the admiralty grade multipliers, with both override maps still empty: an empty org_trust map switches trust weighting off entirely, so this profile scores exactly as it did before the section existed. Phase 7 completed the enrichment section. Version 9 fills enrichment.auto_run, which was empty until now, with a starting mapping for the thirteen attribute types an analyst meets most: geolocation and ASN for addresses, passive DNS and passive SSL for addresses and names, DNS and whois for names, hash lookup for the three digests, vulnerability lookup for CVEs, and the onion and SSH services for their own types. CIRCL's services are preferred where one exists, because they are the reference deployments of the formats MISP ships. Three things this mapping does not do. It does not run anything: a run takes a press, because nothing in MISP records that a module ran. It does not enable anything: a module named here that an administrator has not turned on under Plugin settings stays off, and the editor says so rather than hiding the row. And it narrows rather than widens \u2014 a type listed here arrives with these modules ticked and every other module for that type unticked, which is the point of a curated default and is worth knowing before forking one. The editor's \"What each type resolves to\" table states that narrowing per type. The empty locality map defers to the shipped ModuleLocality roster. Version 9 also drops locality_posture: the setting decided whether a module that leaves the instance could be offered, which under D15 withheld a checkbox rather than a query, and locality is now drawn as a label instead. See prd/analyst-profile/03-signals.md section 7, 06-staleness.md section 3, 07-reference.md section 2.3 and 08-enrichment.md section 3.",
+    "version": 9,
     "parameters": {
         "format": 1,
         "signals": [
@@ -165,8 +165,54 @@
             "warninglist_category": {}
         },
         "enrichment": {
-            "auto_run": {},
-            "locality_posture": "local_only",
+            "auto_run": {
+                "ip-src": {
+                    "mmdb_lookup": "ticked",
+                    "ipasn": "ticked",
+                    "circl_passivedns": "ticked",
+                    "circl_passivessl": "ticked",
+                    "reversedns": "ticked"
+                },
+                "ip-dst": {
+                    "mmdb_lookup": "ticked",
+                    "ipasn": "ticked",
+                    "circl_passivedns": "ticked",
+                    "circl_passivessl": "ticked",
+                    "reversedns": "ticked"
+                },
+                "ip-src|port": {
+                    "mmdb_lookup": "ticked",
+                    "circl_passivedns": "ticked",
+                    "circl_passivessl": "ticked"
+                },
+                "ip-dst|port": {
+                    "mmdb_lookup": "ticked",
+                    "circl_passivedns": "ticked",
+                    "circl_passivessl": "ticked"
+                },
+                "hostname": {
+                    "circl_passivedns": "ticked",
+                    "dns": "ticked"
+                },
+                "domain": {
+                    "circl_passivedns": "ticked",
+                    "dns": "ticked",
+                    "whois": "ticked"
+                },
+                "domain|ip": {
+                    "dns": "ticked",
+                    "reversedns": "ticked"
+                },
+                "md5": { "hashlookup": "ticked" },
+                "sha1": { "hashlookup": "ticked" },
+                "sha256": { "hashlookup": "ticked" },
+                "vulnerability": {
+                    "vulnerability_lookup": "ticked",
+                    "cve": "ticked"
+                },
+                "onion-address": { "onion_lookup": "ticked" },
+                "ssh-fingerprint": { "passive_ssh": "ticked" }
+            },
             "locality": {},
             "max_age_hours": 24
         }

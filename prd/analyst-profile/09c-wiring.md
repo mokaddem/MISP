@@ -348,6 +348,12 @@ equivalent, so a saved document carried `locality_posture` *and*
 but a setting nothing reads sitting in the raw document under a name
 that says it is about cost. `merge()` now drops it the same way.
 
+> **Overtaken 2026-09-12 (`09b-revisions.md` 3.21).** The posture was
+> withdrawn entirely, so there is no rename left to shim. `merge()`
+> drops *both* names now, `legacyShapes()` says the key is ignored
+> rather than renamed, and nothing reads either one. The finding above
+> stands for `relevance`, which still upgrades through a shim.
+
 ### 7.9 Smaller things worth the line
 
 - **`Form->create` underscored its own controller.** Given the URL as
@@ -889,7 +895,10 @@ holding a legacy one now fails it for a reason that has nothing to do
 with the round trip, so the section upgrades once, asserts the notice
 was empty afterwards, and then asks about identity. The legacy section
 builds the word deliberately, like it already builds the flat TTL map
-and the old posture name.
+and the old posture name. (Both posture names were withdrawn on
+2026-09-12 — `09b-revisions.md` 3.21 — so what `legacyShapes()` says
+about them now is that they are ignored and will be dropped, rather
+than that they will be renamed.)
 
 ### 7.25 The exclusions pane printed the name of a hook
 

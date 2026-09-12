@@ -73,7 +73,9 @@ admiralty-shaped: org trust grades (source reliability) go in, the assessment
 | D16 | **The weight band is removed, not renamed.** It changes no arithmetic, and the number it gestures at — the most a signal could ever contribute — is already computed per signal and already shown, as the attainable bound. Against that ceiling the labelling overlaps (`weak` at 9 beside `moderate` at 9) and calls a purely subtractive signal `moderate`. Supersedes D14 | `03-signals.md` §5.1 |
 | D17 | **The enrichment declaration gains a third state; two are built.** Per module: `ticked`, `never`, `auto`. `auto` is declared and not implemented — D15's missing last-run store is still missing, the queued path is dead code, and auto-running *widens* what a profile does, against §2.1. The schema lands now so adding it later needs no second migration. D15 stands | `08-enrichment.md` §2.3 |
 | D18 | **TTL becomes four named buckets plus per-type overrides**, not a row per attribute type — short/medium/long/very long at 90/120/365/730, `url` at 60 the one shipped override, `default` 180. Four rather than three because three cannot express the shipped table without changing real shelf life on every instance. Forks carry the flat map and need a read-time shim or they lose their TTLs silently | `06-staleness.md` §3.7 |
-| D19 | **The cost posture was never about cost, and `ask` did nothing.** Renamed `cost_posture` to `locality_posture` — the one thing it does is withhold a module whose resolved locality is not local, and no module in MISP or misp-modules declares anything about money or rate limits. `ask` is retired: it was byte-identical to `allow_external`, because under D15 every run already takes a press. Both are read shims, not migrations — `updateDefaults()` never touches a fork | `08-enrichment.md` §7.5 |
+| D19 | **The posture was never about cost, then never about anything.** `cost_posture` was renamed `locality_posture` on 2026-09-10 — the one thing it did was withhold a module whose resolved locality is not local, and no module in MISP or misp-modules declares anything about money or rate limits — and `ask` was retired as byte-identical to `allow_external`. On **2026-09-12 the whole setting was withdrawn**: under D15 every run takes a press, so it withheld a checkbox rather than a query. Locality survives as a **label** — the per-module chip, and the strip's *"n of these would leave the instance"*. A stored key of either name is ignored, not migrated | `08-enrichment.md` §7.4–7.5, `09b-revisions.md` 3.21 |
+| D20 | **The enrichment editor is keyed by module; the document stays keyed by type.** 194 attribute types × 146 modules was unreadable and unmaintainable as a type-keyed map offering every module for every type. A module declares what it accepts (`mispattributes.input`, median 3 types), so one row per module offering only its own types is small — and bounded by what an administrator enabled, not by what MISP can store. `transposeModules()` is the single place the two axes meet. The cost is that narrowing a type becomes invisible, which the derived *What each type resolves to* block pays | `09b-revisions.md` 3.19 |
+| D21 | **The shipped default declares a CIRCL-first mapping.** `default-v1.json` v9 fills `auto_run` for thirteen types and twelve modules, nine of them CIRCL-operated. It runs nothing and enables nothing; it **narrows** — a type it names arrives with those modules ticked and the rest unticked | `09b-revisions.md` 3.22 |
 
 ## Stress-tested
 
@@ -365,7 +367,7 @@ five rendered states of the tab. Seven findings are in `08-enrichment.md`
   lesson, where a stopped query log reported *"0 queries"* (§7.1).
 - **`local_only` selects almost nothing on an ordinary value**: 1 of the 5
   modules eligible for `8.8.8.8` answers from inside, because the local
-  roster is attachment readers and syntax validators. That is the posture
+  roster is attachment readers and syntax validators. That was the posture
   doing exactly what it says on a platform where enrichment means asking
   somebody else (§7.4).
 
@@ -391,8 +393,8 @@ own recorded recommendation:
 - **Q10 → D15** (2026-09-07). The enrichment plumbing stays out of scope and
   the profile declares rather than triggers — the recommendation held, and
   building it added the part the recommendation had missed: *inert* was not
-  available, because a cost posture that cannot tell a local module from an
-  external one is not a posture.
+  available, because the tab cannot say a module leaves the instance
+  without a map that knows which ones do.
 
 External prerequisites: the `misp-warninglists` category PR and the MISP
 core import fix (V2 above). A third would retire `ModuleLocality` the same

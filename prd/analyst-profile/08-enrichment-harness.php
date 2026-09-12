@@ -18,7 +18,7 @@
  * tool sees them as facts either way — plus the mechanism the items do
  * not name: the union over a value's types, which type a run would
  * use, the precedence between four reasons a module is missing, and
- * the posture's treatment of a module nobody has classified.
+ * the locality a selection carries for the tab to draw.
  *
  * What needs an instance is every fact this file hands over as a
  * literal: that `Module::getEnabledModules()` really does filter the
@@ -93,16 +93,23 @@ function section($title)
 }
 
 /**
- * The shipped default's section, as `default-v1.json` carries it.
+ * A profile whose enrichment section declares nothing.
+ *
+ * This was `default-v1.json` until version 9 filled `auto_run`.
+ * It is kept because the *mechanism* it exercises is the one
+ * `01-profile.md` §1.3 names — an empty declaration takes the
+ * section out of the path rather than resolving to an empty
+ * answer — and that has to hold for every profile, not only for
+ * whichever one happens to ship. What the shipped default now
+ * carries is asserted against the file itself, below.
  */
-function shippedProfile()
+function emptyProfile()
 {
     return array(
         'name' => 'default-v1',
         'parameters' => array(
             'enrichment' => array(
                 'auto_run' => array(),
-                'locality_posture' => 'local_only',
                 'max_age_hours' => 24,
             ),
         ),
@@ -112,15 +119,13 @@ function shippedProfile()
 /**
  * A profile an analyst has actually edited.
  */
-function declaredProfile($autoRun, $posture = 'allow_external',
-    $locality = array()
-) {
+function declaredProfile($autoRun, $locality = array())
+{
     return array(
         'name' => 'analyst fork',
         'parameters' => array(
             'enrichment' => array(
                 'auto_run' => $autoRun,
-                'locality_posture' => $posture,
                 'max_age_hours' => 24,
                 'locality' => $locality,
             ),
@@ -226,9 +231,9 @@ out('========================================================');
 
 section('1. A profile that declares nothing');
 
-$plan = ValueEnrichmentTool::planFor(shippedProfile());
-is_same(false, $plan['in_force'], 'the shipped default is not in force');
-is_same('local_only', $plan['posture'], 'and its posture is local only');
+$plan = ValueEnrichmentTool::planFor(emptyProfile());
+is_same(false, $plan['in_force'],
+    'an empty declaration is not in force');
 
 $resolved = ValueEnrichmentTool::resolve($plan, facts());
 is_same(array(), $resolved['selected'], 'nothing is selected');
@@ -238,9 +243,10 @@ is_same(false, $resolved['in_force'], 'and the block says so');
 
 /*
  * The load-bearing one: `needsFacts()` is what decides whether the
- * page pays a second `GET /modules`, and on the shipped default it
- * must never say yes — otherwise every value page on every instance
- * gains an outbound call for a feature nobody has configured.
+ * page pays a second `GET /modules`, and on a declaration that
+ * resolves cleanly it must never say yes — the call is for
+ * explaining a module that did not resolve, and a page that paid
+ * it anyway would add an outbound call to every value view.
  */
 is_same(
     array(),
@@ -251,11 +257,6 @@ is_same(
 /* A profile with no `enrichment` section at all is the same case. */
 $bare = ValueEnrichmentTool::planFor(array('parameters' => array()));
 is_same(false, $bare['in_force'], 'a profile with no section is inert');
-is_same(
-    'local_only',
-    $bare['posture'],
-    'and still carries the default posture'
-);
 is_same(24, $bare['max_age_hours'], 'and the default reuse window');
 is_same(true, $bare['reuse_inert'], 'which is carried as inert');
 
@@ -267,6 +268,90 @@ is_same(
     ValueEnrichmentTool::resolve($none, facts())['conditions'],
     'and states nothing'
 );
+
+/*
+ * ------------------------------------------------------------------
+ * What the shipped default actually carries, read off the file
+ * ------------------------------------------------------------------
+ * **Version 9 is the first one that declares anything**, so the
+ * sentence *the shipped default changes nothing* is no longer true
+ * of this section and is not quietly left standing. It is read off
+ * `default-v1.json` rather than restated here, because a copy of the
+ * mapping in the harness would pass forever after the file changed.
+ *
+ * Every pair is checked against what the module says it accepts —
+ * `mispattributes.input`, the fact the editor now filters on — using
+ * a roster captured from the dev instance. A shipped default that
+ * filed a module under a type it cannot answer about would be the
+ * one profile nobody edits and everybody inherits.
+ */
+out('');
+out('what the shipped default declares');
+$shipped = json_decode(file_get_contents(
+    APP . 'files/analyst-profiles/default-v1.json'), true);
+$shippedPlan = ValueEnrichmentTool::planFor($shipped);
+is_true($shippedPlan['in_force'],
+    'the shipped default declares a mapping and is in force');
+is_same(
+    array('ip-src', 'ip-dst', 'ip-src|port', 'ip-dst|port',
+        'hostname', 'domain', 'domain|ip', 'md5', 'sha1', 'sha256',
+        'vulnerability', 'onion-address', 'ssh-fingerprint'),
+    array_keys($shippedPlan['auto_run']),
+    'for the thirteen types an analyst meets most'
+);
+$circl = array('mmdb_lookup', 'ipasn', 'circl_passivedns',
+    'circl_passivessl', 'hashlookup', 'vulnerability_lookup', 'cve',
+    'onion_lookup', 'passive_ssh');
+is_same(
+    array(),
+    array_values(array_diff(array_keys($shippedPlan['declared']),
+        array_merge($circl, array('dns', 'whois', 'reversedns')))),
+    'naming CIRCL services and the three protocol basics, nothing else'
+);
+$states = array();
+foreach ($shippedPlan['auto_run'] as $type => $byName) {
+    foreach ($byName as $name => $state) {
+        $states[$state] = true;
+    }
+}
+is_same(array('ticked'), array_keys($states),
+    'every one of them ticked — a default that refused a module'
+        . ' would be deciding something the analyst never asked about');
+
+/*
+ * The roster the pairs are checked against. Captured rather than
+ * fetched: a harness that needed a modules service would not run
+ * where this one has to.
+ */
+$accepts = array(
+    'mmdb_lookup' => array('ip-src', 'ip-src|port', 'ip-dst',
+        'ip-dst|port'),
+    'ipasn' => array('ip-src', 'ip-dst', 'ip'),
+    'circl_passivedns' => array('hostname', 'domain', 'ip-src',
+        'ip-dst', 'ip-src|port', 'ip-dst|port'),
+    'circl_passivessl' => array('ip-src', 'ip-dst', 'ip-src|port',
+        'ip-dst|port'),
+    'reversedns' => array('ip-src', 'ip-dst', 'domain|ip'),
+    'dns' => array('hostname', 'domain', 'domain|ip'),
+    'whois' => array('domain', 'ip-src', 'ip-dst'),
+    'hashlookup' => array('md5', 'sha1', 'sha256'),
+    'vulnerability_lookup' => array('vulnerability'),
+    'cve' => array('vulnerability'),
+    'onion_lookup' => array('onion-address'),
+    'passive_ssh' => array('ip-src', 'ip-dst', 'ssh-fingerprint'),
+);
+$mismatched = array();
+foreach ($shippedPlan['auto_run'] as $type => $byName) {
+    foreach ($byName as $name => $state) {
+        if (!isset($accepts[$name])
+            || !in_array((string)$type, $accepts[$name], true)
+        ) {
+            $mismatched[] = $name . ' under ' . $type;
+        }
+    }
+}
+is_same(array(), $mismatched,
+    'and every module accepts every type it is filed under');
 
 /* ==================================================================
  * 2. What a hand-edited document can get wrong
@@ -371,11 +456,6 @@ is_same(
     false,
     isset($plan['auto_run']['md5']),
     'and so is a null list'
-);
-is_same(
-    'local_only',
-    $plan['posture'],
-    'an unknown posture falls back to the safe one'
 );
 is_same(
     array('circl_passivedns', 'dns'),
@@ -677,96 +757,110 @@ is_true(
 );
 
 /* ==================================================================
- * 7. The posture
+ * 7. Locality, carried and not enforced
  * ================================================================== */
 
-section('7. What local_only withholds');
+section('7. Locality is a label, not a gate');
 
+/*
+ * **The posture is gone**, and this section is what it leaves behind.
+ * `locality_posture` decided whether a module that tells somebody
+ * outside the instance could be *offered*, and under D15 that was a
+ * decision about a tick rather than about a query: nothing runs
+ * without a press either way, so the setting withheld a checkbox and
+ * called it privacy. What survives is the fact — every selection
+ * carries where it answers from — and the count the strip names
+ * before the reader presses anything.
+ */
 $declaration = array(
     'ip-dst' => array('circl_passivedns', 'extract_url_components'),
     'ip-src' => array('dns'),
 );
-$local = ValueEnrichmentTool::resolve(
-    ValueEnrichmentTool::planFor(
-        declaredProfile($declaration, 'local_only')
-    ),
+$resolved = ValueEnrichmentTool::resolve(
+    ValueEnrichmentTool::planFor(declaredProfile($declaration)),
     facts()
 );
 is_same(
-    array('extract_url_components'),
-    selectedNames($local),
-    'local_only selects only what answers from inside'
+    array('circl_passivedns', 'dns', 'extract_url_components'),
+    selectedNames($resolved),
+    'every declared module is selected, wherever it answers from'
 );
 is_same(
-    array('circl_passivedns', 'dns'),
-    array_map(
-        function ($entry) {
-            return $entry['name'];
-        },
-        $local['withheld']
-    ),
-    'and withholds the external one and the unclassified one alike'
+    array(),
+    conditionIds($resolved),
+    'and locality states no condition — there is nothing to excuse'
 );
-is_same(
-    array('posture.external', 'posture.external'),
-    conditionIds($local),
-    'each withholding is stated'
-);
-/*
- * The two sentences differ, and they have to: *asking it tells
- * somebody* and *nobody has established whether asking it tells
- * somebody* are different facts, and only one of them is a reason to
- * go and classify the module.
- */
-$notes = array();
-foreach ($local['conditions'] as $condition) {
-    $notes[$condition['module']] = $condition['note'];
+$localities = array();
+foreach ($resolved['selected'] as $entry) {
+    $localities[$entry['name']] = $entry['locality'];
 }
-is_true(
-    $notes['circl_passivedns'] !== $notes['dns'],
-    'and an unclassified module is not told it leaks'
+is_same(
+    array(
+        'circl_passivedns' => 'external',
+        'dns' => 'unknown',
+        'extract_url_components' => 'local',
+    ),
+    $localities,
+    'each selection carries its own locality for the tab to draw'
 );
-is_true(
-    strpos($notes['dns'], 'Nothing records') !== false,
-    'it is told the classification is missing'
+is_same(
+    2,
+    ValueEnrichmentTool::leavingCount($resolved),
+    'and the count the strip names is of the selection, not a setting'
 );
-is_same(0, ValueEnrichmentTool::leavingCount($local), 'nothing leaves');
 
 /*
- * **One fact, one producer.** The two sentences above are only
- * different because the catalogue row said `external` for one module
- * and `unknown` for the other — the shipped map names neither, so a
- * tool that resolved the map itself would have called both unknown
- * and told a reader their passive DNS lookup was merely unclassified.
- * The rail chips the row's answer and the tray counts it; the
- * withholding decision has to be the same value, not a second opinion
- * that happens to agree.
+ * A stored posture is ignored rather than migrated. There is nothing
+ * to carry: the setting selected nothing that a press could not
+ * reach, so reading it would only let a retired key change an answer.
+ */
+foreach (array('locality_posture', 'cost_posture') as $retired) {
+    $stale = declaredProfile($declaration);
+    $stale['parameters']['enrichment'][$retired] = 'local_only';
+    is_same(
+        json_encode($resolved),
+        json_encode(ValueEnrichmentTool::resolve(
+            ValueEnrichmentTool::planFor($stale), facts())),
+        sprintf('a document still carrying `%s` resolves identically',
+            $retired)
+    );
+}
+
+/*
+ * **One fact, one producer.** The locality a selection reports is the
+ * catalogue row's, not a second reading of the map — the rail chips
+ * the row's answer and the tray counts it, and a tool that resolved
+ * the map itself would be the page's oldest hazard in a new place.
  */
 $rows = eligibleRows();
 $rows[0]['locality'] = 'local';
 $rows[0]['locality_source'] = 'profile';
 $rowWins = ValueEnrichmentTool::resolve(
-    ValueEnrichmentTool::planFor(
-        declaredProfile($declaration, 'local_only')
-    ),
+    ValueEnrichmentTool::planFor(declaredProfile($declaration)),
     facts(array('eligible' => $rows))
 );
-is_true(
-    in_array('circl_passivedns', selectedNames($rowWins), true),
-    'the catalogue row is where locality comes from'
-);
+$fromRow = array();
+foreach ($rowWins['selected'] as $entry) {
+    $fromRow[$entry['name']] = $entry['locality'];
+}
+is_same('local', $fromRow['circl_passivedns'],
+    'the catalogue row is where locality comes from');
 is_same(
     'profile',
     $rowWins['selected'][0]['locality_source'],
     'and it carries the row source through'
+);
+is_same(
+    1,
+    ValueEnrichmentTool::leavingCount($rowWins),
+    'so correcting a row changes the count the reader is shown'
 );
 
 /* With no row to read — phase 8's editor, resolving against no value
  * — the map answers. */
 $noRow = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor(
-        declaredProfile(array('ip-dst' => array('geoip_city')),
-            'local_only')
+        declaredProfile(array('ip-dst' => array('geoip_city')))
     ),
     facts(array('eligible' => array(array(
         'name' => 'geoip_city',
@@ -777,44 +871,27 @@ $noRow = ValueEnrichmentTool::resolve(
 is_same(
     array('geoip_city'),
     selectedNames($noRow),
-    'and a row with no locality falls back to the shipped map'
+    'a row with no locality falls back to the shipped map'
 );
 is_same(
     'shipped',
     $noRow['selected'][0]['locality_source'],
     'saying so'
 );
-
-$external = ValueEnrichmentTool::resolve(
-    ValueEnrichmentTool::planFor(
-        declaredProfile($declaration, 'allow_external')
-    ),
-    facts()
-);
 is_same(
-    array('circl_passivedns', 'dns', 'extract_url_components'),
-    selectedNames($external),
-    'allow_external selects all three'
-);
-is_same(
-    array(),
-    conditionIds($external),
-    'and has nothing to state about them'
-);
-is_same(
-    2,
-    ValueEnrichmentTool::leavingCount($external),
-    'two of the three leave the instance'
+    0,
+    ValueEnrichmentTool::leavingCount($noRow),
+    'and a module the shipped map calls local does not count as leaving'
 );
 
 /*
  * ------------------------------------------------------------------
  * D17 at resolution: a refusal, and an inert `auto`
  * ------------------------------------------------------------------
- * `never` lands in its own bucket, not in `withheld` — `withheld` is
- * the locality posture holding something back and carries a locality
- * reason, which would answer a question the reader did not ask about a
- * module they said never to run.
+ * `never` is the one state that takes something away, and it is the
+ * reader's own refusal rather than a fact about the module — which is
+ * why it survived the posture. It is enforced where a run happens,
+ * not merely drawn unticked.
  */
 out('');
 out('a refusal, and an inert auto');
@@ -823,7 +900,7 @@ $refusing = declaredProfile(array(
         'extract_url_components' => 'never',
         'circl_passivedns' => 'ticked',
     ),
-), 'allow_external');
+));
 $refused = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor($refusing), facts());
 is_same(
@@ -832,14 +909,18 @@ is_same(
     'the module the profile refused is in `refused`'
 );
 is_same(
-    array(),
-    array_map(function ($e) { return $e['name']; }, $refused['withheld']),
-    'and not in `withheld`, which is the posture bucket'
-);
-is_same(
     array('circl_passivedns'),
     array_map(function ($e) { return $e['name']; }, $refused['selected']),
     'while the ticked one is still selected'
+);
+is_true(
+    ValueEnrichmentTool::refuses(
+        ValueEnrichmentTool::planFor($refusing),
+        'extract_url_components',
+        'ip-dst'
+    ),
+    'and the run path refuses it, which is what makes `never` a state'
+        . ' and not a checkbox'
 );
 $neverCondition = null;
 foreach ($refused['conditions'] as $condition) {
@@ -862,7 +943,7 @@ is_same(2, $refused['applicable'],
 
 $autoRunning = declaredProfile(array(
     'ip-dst' => array('circl_passivedns' => 'auto'),
-), 'allow_external');
+));
 $autoResolved = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor($autoRunning), facts());
 is_same(
@@ -882,62 +963,13 @@ is_true($autoCondition !== null,
         . ' the one thing D15 exists to prevent');
 
 /*
- * **The retired `ask`, and the renamed key.** `ask` was byte-identical
- * to `allow_external` except for the posture it reported — while every
- * run takes a press, the page is already asking — so it is no longer
- * offered and is read as `allow_external`. That makes the identity
- * exact, posture included, which is a stronger check than the one it
- * replaces.
- *
- * Both of these are read-time shims, and they matter because
- * `updateDefaults()` never touches a fork: without them every existing
- * fork would silently fall back to `local_only` and stop offering the
- * modules its owner declared.
- */
-$ask = ValueEnrichmentTool::resolve(
-    ValueEnrichmentTool::planFor(declaredProfile($declaration, 'ask')),
-    facts()
-);
-is_same(
-    json_encode($external),
-    json_encode($ask),
-    'a stored `ask` resolves byte-identically to allow_external, the'
-        . ' posture it reports included'
-);
-is_same(
-    array('local_only', 'allow_external'),
-    ValueEnrichmentTool::postures(),
-    'and `ask` is not offered — two options that differ, not three of'
-        . ' which two behave the same'
-);
-
-$legacyKey = declaredProfile($declaration, 'allow_external');
-$legacyKey['parameters']['enrichment']['cost_posture'] =
-    $legacyKey['parameters']['enrichment']['locality_posture'];
-unset($legacyKey['parameters']['enrichment']['locality_posture']);
-is_same(
-    json_encode($external),
-    json_encode(ValueEnrichmentTool::resolve(
-        ValueEnrichmentTool::planFor($legacyKey), facts())),
-    'a fork still carrying `cost_posture` keeps its setting — the'
-        . ' rename is a read shim, not a migration'
-);
-$bothKeys = declaredProfile($declaration, 'allow_external');
-$bothKeys['parameters']['enrichment']['cost_posture'] = 'local_only';
-is_same(
-    'allow_external',
-    ValueEnrichmentTool::planFor($bothKeys)['posture'],
-    'and where a document carries both, the current key wins'
-);
-
-/*
  * The profile's own locality override, which is the only way an
  * operator who repointed their resolver can say so — **applied where
  * the rows are built**, which is `ValueProfile::enrichmentEligible()`
  * and is modelled here rather than assumed. Applying it in the tool as
  * well is precisely the second opinion `localityOf()` exists to
  * refuse, so the two checks below are the same invariant from both
- * sides: the override reaches the decision through the row, and only
+ * sides: the override reaches the report through the row, and only
  * through the row.
  */
 function stampLocality(array $rows, array $overrides)
@@ -954,7 +986,6 @@ $overrides = array('dns' => 'local');
 $overridden = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor(declaredProfile(
         array('ip-src' => array('dns')),
-        'local_only',
         $overrides
     )),
     facts(array(
@@ -962,8 +993,8 @@ $overridden = ValueEnrichmentTool::resolve(
     ))
 );
 is_same(
-    array('dns'),
-    selectedNames($overridden),
+    'local',
+    $overridden['selected'][0]['locality'],
     'an override makes a module local for this profile'
 );
 is_same(
@@ -971,20 +1002,25 @@ is_same(
     $overridden['selected'][0]['locality_source'],
     'and the selection says where that came from'
 );
+is_same(
+    0,
+    ValueEnrichmentTool::leavingCount($overridden),
+    'so an operator who repointed their resolver is not told it leaks'
+);
 
 $ignored = ValueEnrichmentTool::resolve(
     ValueEnrichmentTool::planFor(declaredProfile(
         array('ip-src' => array('dns')),
-        'local_only',
         $overrides
     )),
     facts()
 );
 is_same(
-    array(),
-    selectedNames($ignored),
+    'unknown',
+    $ignored['selected'][0]['locality'],
     'and an override the rows did not carry does not sneak in later'
 );
+
 
 /* ==================================================================
  * 8. The locality map itself
@@ -1096,7 +1132,7 @@ $plan = ValueEnrichmentTool::planFor(declaredProfile(array(
     'ip-dst' => array('circl_passivedns', 'virustotal'),
     'ip-src' => array('dns'),
     'md5' => array('virustotal'),
-), 'local_only'));
+)));
 $resolved = ValueEnrichmentTool::resolve($plan, facts(array(
     'offered' => array('circl_passivedns', 'dns',
         'extract_url_components'),
@@ -1107,17 +1143,20 @@ $resolved = ValueEnrichmentTool::resolve($plan, facts(array(
 )));
 is_same(3, $resolved['declared'], 'three modules named');
 is_same(3, $resolved['applicable'], 'all three apply to some type here');
-is_same(array(), selectedNames($resolved), 'and none is selected');
 is_same(
-    array('type.unused', 'posture.external', 'posture.external',
-        'module.not_offered'),
-    conditionIds($resolved),
-    'with four conditions saying exactly why'
+    array('circl_passivedns', 'dns'),
+    selectedNames($resolved),
+    'the two the instance offers are selected'
 );
 is_same(
-    'local_only',
-    $resolved['posture'],
-    'the posture is carried for the strip to name'
+    array('type.unused', 'module.not_offered'),
+    conditionIds($resolved),
+    'with two conditions saying exactly why the third is not'
+);
+is_same(
+    2,
+    ValueEnrichmentTool::leavingCount($resolved),
+    'and the strip can say both of them would leave the instance'
 );
 is_same(
     true,

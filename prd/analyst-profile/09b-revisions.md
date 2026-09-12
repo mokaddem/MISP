@@ -657,22 +657,64 @@ spec (**P**, small), draw the unit, and either mark the setting plainly
 as inert or hide it until the cache exists — **do not draw an inert
 setting as though it works.**
 
-### 3.19 — Enrichment: "Modules per type" does not scale · bucket M (after 3.16)
+### 3.19 — Enrichment: "Modules per type" does not scale · **done 2026-09-12**
 
 > "given the amount of type and module, the current UI doesn't scale.
 > Redo that section from scratch"
 
-Confirmed, with numbers: **194 attribute types × ~146 enabled modules**,
-and the current widget is a 194-key map whose every value is a
-146-option multiselect. Every enabled module is offered for every type,
-with **no validation that the module even accepts that type**
-(`enrichmentErrors()` only checks list-ness).
+Confirmed, with numbers: **194 attribute types × 146 modules**, and the
+widget was a 194-key map whose every value offered all 146. Every
+enabled module was offered for every type, with **no check that the
+module even accepts that type** — `enrichmentErrors()` only checked
+list-ness.
 
-Redesign from the module's side rather than the type's — a module is
-picked once and the types it applies to are chosen against
-`mispattributes`, which is data MISP already has and which would also
-make the "does this module accept this type" check possible. Do this
-**after** 3.16 settles the state shape, or it will be drawn twice.
+**The data to fix it was already in hand and never read.** A module
+declares the attribute types it answers about in
+`mispattributes.input`, which `ValueProfile::enrichmentModuleFacts()`
+reads at *resolution* time — that is what `C_TYPE_MISMATCH` is — while
+the editor offered a free choice and let the value tab complain
+afterwards.
+
+Measured on the dev instance 2026-09-12, against the running
+misp-modules:
+
+| | |
+|---|---|
+| modules on the service | 146 |
+| distinct types they accept between them | **71** |
+| types with no enrichment module at all | **123 of 194** |
+| median types a module accepts | **3** (80 of 112 accept ≤ 4) |
+| worst type | `ip-src` / `ip-dst`, 48 modules each |
+| modules *enabled* on the dev instance | 8–9 |
+
+**Built: the block is keyed by module and the document is not.**
+`auto_run` still stores `type => {module: state}` — the engine, the
+tab, the shipped default and every hand-written profile speak it — and
+`AnalystProfileFormTool::transposeModules()` is the single place that
+knows the editor's axis is not the document's. The form posts
+`auto_run_modules`; nothing else ever sees it.
+
+What shipped, in three blocks where there were two:
+
+1. **Modules, and the types you want them asked about.** One row per
+   module, offering only the types that module accepts, each with the
+   three D17 states. On the dev instance: nine rows of one to six
+   selects.
+2. **What each type resolves to** — read-only, derived. **This block is
+   not a convenience.** A type no row mentions is not narrowed, so
+   declaring one module for `ip-dst` unticks every other module for
+   `ip-dst`; keyed by type that consequence was on screen and keyed by
+   module it is invisible. The line reads *"ticked: mmdb_lookup, ipasn,
+   circl_passivedns · 3 of the 4 this instance offers"*, and names
+   anything declared that cannot answer here.
+3. **Where a module answers from** — unchanged.
+
+**A declared module is drawn whatever its state** (see 3.21's second
+half), which is the half that only matters for an imported profile.
+
+`value_type` was renamed `module_states` → `state_map` in the same
+pass: the value holds types now, and a key that says otherwise is the
+quiet lie §1.3 forbids in the one place nobody would look for it.
 
 ### 3.20 — "Reference data" naming · bucket M
 
@@ -690,6 +732,96 @@ and rewrite the org-trust blurb to use the word **reputation**.
 Two facts the copy should not contradict: a `0.00` grade is *"an
 accusation of deception, not a quality judgement"* (`07-reference.md:114`),
 and trust weighting is **inert until the map is non-empty**.
+### 3.21 — Enrichment: the locality posture is withdrawn · **decided 2026-09-12**
+
+> "That whole posture thing. I don't think I want that feature anymore.
+> Get rid of it both frontend and backend."
+
+**Gone**: `locality_posture`, its `cost_posture` predecessor (3.17's
+rename), the retired `ask`, `DEFAULT_POSTURE`, `postures()`,
+`postureNote()`, the `C_POSTURE` condition, the `withheld` bucket in
+`resolve()`, the editor pane and the label on the tab.
+
+**Why it was never worth its vocabulary.** Under D15 nothing runs
+without a press. So a module arriving unticked and a module arriving
+ticked both send exactly nothing until the reader acts, and the setting
+bought a whole grammar of refusal — a bucket, a condition id, two
+sentences, a pane, a legend that read the posture to say what a
+locality *did* — in exchange for saving one click. 3.17 had already
+found it was misnamed; the honest conclusion was one step further on.
+
+**What is kept, and the distinction that matters.** `ModuleLocality`
+stays, the `enrichment.locality` override map stays, and the tab still
+says per module whether asking it leaves the building. **Locality is a
+label, not a gate**: it is what a reader consults before pressing run.
+Where the posture label sat on the strip there is now
+`leavingCount()`'s number — *"3 of these would leave the instance"* —
+which is the fact the posture was reached for, computed from the
+selection in front of the reader rather than from a setting they set
+once.
+
+`never` survives untouched. It is the reader's own refusal rather than
+a fact about a module, and it is enforced at the run endpoint, not
+merely drawn unticked (D17).
+
+**A stored key is ignored rather than migrated**: it selected nothing,
+so there is nothing to carry. `legacyShapes()` names it once and the
+next save of any section drops it.
+
+### 3.22 — Enrichment: the shipped default declares a mapping · **decided 2026-09-12**
+
+> "I think it would make a lot of sense to - by default - provide some
+> mapping on the default profile. Like geo-lookup, passive-dns, dns
+> resolution, ... prioritise modules using CIRCL's services"
+
+`default-v1.json` shipped `"auto_run": {}` through version 8, which was
+§1.3's *"empty means as before"* applied to this section. **Version 9
+fills it**, for thirteen types and twelve modules, CIRCL-first:
+
+| Types | Modules |
+|---|---|
+| `ip-src`, `ip-dst` | `mmdb_lookup`, `ipasn`, `circl_passivedns`, `circl_passivessl`, `reversedns` |
+| `ip-src\|port`, `ip-dst\|port` | `mmdb_lookup`, `circl_passivedns`, `circl_passivessl` |
+| `hostname` | `circl_passivedns`, `dns` |
+| `domain` | `circl_passivedns`, `dns`, `whois` |
+| `domain\|ip` | `dns`, `reversedns` |
+| `md5`, `sha1`, `sha256` | `hashlookup` |
+| `vulnerability` | `vulnerability_lookup`, `cve` |
+| `onion-address` | `onion_lookup` |
+| `ssh-fingerprint` | `passive_ssh` |
+
+Nine of the twelve are CIRCL-operated. Five need no credentials at all
+(`mmdb_lookup`, `hashlookup`, `vulnerability_lookup`, `cve`,
+`onion_lookup`); `circl_passivedns`/`circl_passivessl` want a CIRCL
+account and `passive_ssh` an API key, which is why the credential-free
+one leads each row.
+
+Two deliberate omissions. **`url` gets nothing** — no CIRCL URL service
+is in the roster, and a gap is better than reaching for a vendor.
+**`geoip_*` is not the geo default** despite being the only *local* geo
+option, because it needs a Maxmind Geolite file MISP does not ship;
+`mmdb_lookup` against `ip.circl.lu` is the answer that works out of the
+box.
+
+**Three things this mapping does not do**, and the third is the one to
+read twice:
+
+- It does not **run** anything. A run takes a press (D15).
+- It does not **enable** anything. A module an administrator has not
+  turned on stays off — `Enrichment_services_enable` itself ships
+  `false` — and the editor draws the row saying so rather than hiding
+  it.
+- It **narrows**. A type listed here arrives with these modules ticked
+  and every other module for that type unticked. That is the point of a
+  curated default and it is a real behaviour change: on an instance
+  with 48 modules accepting `ip-dst`, 43 of them stop arriving ticked.
+  3.19's derived table is where a reader sees it.
+
+**The reviewer waived the version-bump cost** ("I don't care. We're
+developping things right now"): `updateDefaults()` overwrites local
+edits to the default profile when the shipped version rises, so v9
+discards whatever an admin changed since v8.
+
 
 ---
 

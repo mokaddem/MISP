@@ -20,6 +20,17 @@
 App::uses('AnalystProfileFormTool', 'Tools');
 
 /*
+ * A block that shows a reading rather than holding one. It draws no
+ * `__present` marker and no picker, which is not cosmetic: `__present`
+ * means *this map was on screen and these are all its rows*, so a
+ * derived block that posted it would clear the stored key it derives
+ * from the moment anybody saved the section.
+ */
+if (!empty($block['read_only'])) {
+    $editable = false;
+}
+
+/*
  * One picker list per map rather than one per row: the four TTL
  * buckets offer the same 194 attribute types, and four copies of that
  * list is three copies too many.
@@ -87,13 +98,17 @@ $valueOptions = isset($block['value_options'])
     : null;
 
 /*
- * And the rows that control repeats. A `module_states` value is one
- * select per module the instance offers, so the page needs the roster
- * as well as the vocabulary before it can draw the row the server
- * would have drawn.
+ * And the sub-rows that control repeats. A `state_map` value is one
+ * select per name the row admits, so the page needs those names as
+ * well as the vocabulary before it can draw the row the server would
+ * have drawn.
+ *
+ * Keyed by the row's own key rather than one list for the whole map:
+ * the modules block draws a module per row and the types each module
+ * accepts underneath it, and no two modules accept the same types.
  */
-$valueModules = isset($block['value_modules'])
-    ? json_encode(array_values($block['value_modules']))
+$valueRows = isset($block['value_rows'])
+    ? json_encode($block['value_rows'])
     : null;
 
 /*
@@ -397,8 +412,8 @@ $canAdd = $editable && !empty($block['add']);
                     <?php endif; ?>
                     <?= $valueOptions === null ? '' :
                         'data-ap-add-options="' . h($valueOptions) . '"' ?>
-                    <?= $valueModules === null ? '' :
-                        'data-ap-add-modules="' . h($valueModules) . '"' ?>>
+                    <?= $valueRows === null ? '' :
+                        'data-ap-add-rows="' . h($valueRows) . '"' ?>>
                 <option value=""><?= h(__('pick one…')) ?></option>
                 <?php foreach ($block['add']['options'] as $option): ?>
                     <option value="<?= h($option) ?>"><?= h($option) ?></option>
@@ -416,8 +431,8 @@ $canAdd = $editable && !empty($block['add']);
                    data-ap-add-source="<?= h($block['add']['source']) ?>"
                    <?= $valueOptions === null ? '' :
                        'data-ap-add-options="' . h($valueOptions) . '"' ?>
-                   <?= $valueModules === null ? '' :
-                       'data-ap-add-modules="' . h($valueModules) . '"' ?>
+                   <?= $valueRows === null ? '' :
+                       'data-ap-add-rows="' . h($valueRows) . '"' ?>
                    placeholder="<?= h(__('search…')) ?>">
         <?php endif; ?>
         <span class="wb-sub"><?= h(__('added rows are saved with the'

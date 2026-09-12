@@ -59,10 +59,17 @@ anybody outside the instance.
 
 The cost half stays out of scope and stays where
 `../value-profile-tabs/04-enrichment.md` §11 puts it — *"next to the
-module list, not in this page"*. The **locality** half turned out to be
-this phase's own prerequisite, because a posture that cannot tell a
-local module from an external one is not a posture. §3.1 is what
-shipped for it.
+module list, not in this page"*. The **locality** half is what §3.1
+shipped: a hand-maintained roster saying whether asking a module tells
+anybody outside the instance.
+
+> **Revised 2026-09-12 (`09b-revisions.md` 3.21).** Locality was built
+> as the prerequisite for a *posture* — a setting that withheld a
+> module whose locality was not local. The posture has been withdrawn,
+> because under D15 nothing runs without a press and so it withheld a
+> checkbox rather than a query. Locality stays and is drawn as a
+> **label**: the reader consults it before pressing run. Every
+> paragraph below that describes the posture as in force is marked.
 
 ## 2. What the profile declares
 
@@ -76,28 +83,28 @@ The section, and its resolution against instance policy.
     "domain":  ["dns"],
     "md5":     []
   },
-  "locality_posture": "allow_external",
   "locality":         { "dns": "local" },
   "max_age_hours":    24
 }
 ```
 
-The example says `allow_external` because its `auto_run` names modules
-that leave the instance — the first draft paired those modules with
-`local_only`, which is this document's own defined conflict state (§5,
-verification 4) presented as the normal shape
-(`review-2026-09-02.md`, C-series). And the reading is now measured
-rather than assumed: **`dns` resolves through Google's `8.8.8.8`**
-unless `Plugin.Enrichment_dns_nameserver` says otherwise
-(`dns.py:55`), so a profile pairing it with `local_only` really is in
-conflict — which is also why `locality` exists.
+The `locality` override is measured rather than assumed: **`dns`
+resolves through Google's `8.8.8.8`** unless
+`Plugin.Enrichment_dns_nameserver` says otherwise (`dns.py:55`), so an
+operator who repointed their resolver is the only party who can say the
+module is local for them — which is why `locality` exists and why the
+profile sits above the shipped roster.
 
-The *shipped default's* section is `local_only` with an empty
-`auto_run`: nothing is declared, nothing conflicts, and the tab is the
-one phase 28 shipped, until someone chooses otherwise.
+**Revised 2026-09-12 (3.22): the shipped default is no longer empty.**
+`default-v1.json` v9 declares thirteen types and twelve modules,
+CIRCL-first. It still runs nothing and enables nothing; what it does is
+**narrow** — a type it names arrives with those modules ticked and
+every other module for that type unticked. The sentence this paragraph
+used to carry, *the tab is the one phase 28 shipped until someone
+chooses otherwise*, is no longer true and is not left standing.
 
-**`auto_run` is keyed by attribute type**, because module validity is
-type-scoped — `Module::getEnabledModules($user, $type)` filters on
+**`auto_run` is keyed by attribute type in the document**, because
+module validity is type-scoped — `Module::getEnabledModules($user, $type)` filters on
 `meta.module-type` and the tab's own header names the type for exactly
 this reason (*"9 modules valid for ip-dst"*). A value with several
 types resolves the union, deduplicated, and a module declared under two
@@ -109,24 +116,33 @@ the module accepts it, not the value's most common: an analyst filing
 falls back to the row's default type when the declaration cannot be
 honoured.
 
-**`locality_posture`** is `local_only` (default) | `allow_external`.
-`local_only` auto-selects nothing that leaves the instance, which is
-the only defensible default for a setting that can be set by one person
-and applied to their whole organisation.
+**The editor is keyed by module** since 3.19, and the document is not:
+one row per module, offering only the types `mispattributes.input`
+says it accepts. `AnalystProfileFormTool::transposeModules()` is the
+single place that knows the two axes differ. The stored shape is
+unchanged — every reader still speaks `auto_run`.
 
-It was called `cost_posture` until 2026-09-10 and it never gated cost —
-nothing a module declares, in MISP or in misp-modules, says anything
-about money or rate limits (§2.1), so there was never a cost to read.
-What it does is withhold a module whose resolved locality is not local.
-The old key is still read, because `updateDefaults()` never touches a
-fork and a rename without a shim would silently reset every fork to
-`local_only`.
+### The posture, withdrawn 2026-09-12
 
-**`ask` was dropped in the same pass.** It was byte-identical to
-`allow_external` — under D15 nothing runs without a press, so a page
-where every run needs a press is already asking — and a three-option
-select where two options behave the same is its own defect. A stored
-`ask` reads as `allow_external`, which is what it did.
+**`locality_posture`** was `local_only` (default) | `allow_external`,
+and `local_only` withheld any module whose resolved locality was not
+local. It was called `cost_posture` until 2026-09-10 and never gated
+cost (3.17); `ask` was dropped in the same pass for being
+byte-identical to `allow_external`.
+
+**All of it is gone (3.21.)** The setting decided whether a module
+arrived ticked, and under D15 a module that arrives unticked and one
+that arrives ticked both send nothing until the reader presses — so it
+bought a bucket, a condition id, a pane and a legend in exchange for
+saving a click. `withheld` is gone from `resolve()`, `C_POSTURE` from
+the conditions, and the pane from the editor. A stored
+`locality_posture` or `cost_posture` key is **ignored, not migrated**:
+it selected nothing, so there is nothing to carry. `legacyShapes()`
+names it and the next save drops it.
+
+What the strip says where the posture label sat is `leavingCount()`'s
+number — *"3 of these would leave the instance"* — a fact about the
+selection in front of the reader rather than a setting.
 
 **`locality`** is the override map §3.1 needs — a module name to
 `local` or `external`, empty by default, deferring to the shipped
@@ -160,10 +176,9 @@ building it found two more — and none may be a silent drop:
 | `module.not_offered` | no module of that name is in this build |
 | `module.type_mismatch` | it is enabled and usable and does not accept the type it was filed under |
 
-Plus three that are not about a single module: `type.unused` (the
-profile names modules for types this value is not), `posture.external`
-(withheld by `local_only`), and `service.unreachable` (nothing could be
-checked this visit). And `module.unresolved`, which is the honest
+Plus two that are not about a single module: `type.unused` (the
+profile names modules for types this value is not) and
+`service.unreachable` (nothing could be checked this visit). And `module.unresolved`, which is the honest
 non-answer when a caller did not fetch the facts — see §4.2.
 
 Silently dropping any of them would mean a profile whose stated
@@ -185,11 +200,10 @@ which declares nothing, can never pay it. Measured in §6.
 **The declaration gains a third state per module. Two ship; the third is
 declared and not implemented.**
 
-Today `auto_run` is `type => [module names]` and yields two outcomes:
-**selected** (the box arrives ticked, a human still presses) and
-**withheld** (declared, but held back by the locality posture). "Cannot
-be run" is not a profile decision at all — only the instance can forbid a
-module.
+Before D17 `auto_run` was `type => [module names]` and yielded one
+outcome: **selected** — the box arrives ticked, a human still presses.
+"Cannot be run" is not a profile decision at all — only the instance
+can forbid a module.
 
 The shape becomes `type => {module: state}`, with three states:
 
@@ -242,11 +256,9 @@ the module — the failure mode of strictness here is a page that will
 not render, which is the rule the rest of this normalisation already
 follows.
 
-`resolve()` gains a **third bucket, `refused`**, beside `selected` and
-`withheld`. `never` is checked *before* the locality posture, so a
-module the reader said never to run is not also given a locality
-reason — that would answer a question they did not ask. A refused
-module still counts as `applicable`, because they declared it and a
+`resolve()` gains a **second bucket, `refused`**, beside `selected`.
+(It was a third until the posture's `withheld` was withdrawn in 3.21.)
+A refused module still counts as `applicable`, because they declared it and a
 count that disagreed with the document would be the worse lie.
 
 An `auto` resolves as `selected` and adds **one** condition
@@ -394,9 +406,12 @@ can do about it. Two deliberate refusals:
    with the site admin's reading asserted beside it, because `canUse()`
    passes them through every restriction and telling them the module
    was reserved away would be false.
-4. `locality_posture: local_only` with an external module in `auto_run`:
-   the condition states the conflict rather than silently ignoring one
-   of the two. **Live probe**, on `circl_passivedns`.
+4. ~~`locality_posture: local_only` with an external module in
+   `auto_run`~~ — **withdrawn 2026-09-12 (3.21)**, along with the
+   posture itself. There is no conflict left to state: an external
+   module is selected like any other and carries its locality for the
+   tab to draw. What replaced the check is that every selection
+   reports `locality` and `locality_source`, asserted in the harness.
 5. Nothing runs. No third-party request is made by any page load.
    **Asserted three ways**: the row counts either side of every call,
    the modules service's own request log read from outside the process
@@ -411,15 +426,16 @@ being paid only where a condition needs explaining.
 
 ## 6. How it is verified
 
-- **`08-enrichment-harness.php`** — 123 checks, no database and no
+- **`08-enrichment-harness.php`** — 121 checks, no database and no
   modules service. The resolution arithmetic, every condition id, the
-  normalisation of a hand-edited document, and the two invariants that
-  are structural rather than numeric: an empty declaration produces
-  nothing at all, and a stored `ask` resolves **byte-identically** to
-  `allow_external` — posture included, now that it is read as one. The
-  two read shims are asserted here too: a fork carrying `cost_posture`
-  keeps its setting, and where a document carries both keys the current
-  one wins.
+  normalisation of a hand-edited document, and the invariants that are
+  structural rather than numeric: an empty declaration produces nothing
+  at all, a document still carrying either retired posture key resolves
+  **byte-identically** to one without it, and what the shipped default
+  declares is read off `default-v1.json` rather than restated — every
+  module checked against the types it says it accepts, because a
+  shipped default that filed a module under a type it cannot answer
+  about would be the one profile nobody edits and everybody inherits.
 - **`08-enrichment-live-probe.php`** — 46 checks under `run` and 9
   under `unreachable`, against real rows, real settings and the real
   modules service. Writes no profile: every declaration goes through
@@ -481,43 +497,52 @@ design runs on. An enrichment module enriches from somewhere else
 unless it is known not to.
 
 So the tray has two states and rounds `unknown` into *leaves*, while
-the posture keeps all three: its two sentences differ, because *asking
-it tells somebody* and *nobody has established whether asking it tells
-somebody* are different facts and only one of them is a reason to go
-and classify a module. The rounding is in the safe direction and it is
-the claim the tab was already making about every module before this
-map existed.
+the per-module chip keeps all three: *asking it tells somebody* and
+*nobody has established whether asking it tells somebody* are
+different facts, and only one of them is a reason to go and classify a
+module. The rounding is in the safe direction and it is the claim the
+tab was already making about every module before this map existed.
 
-### 7.4 `local_only` selects almost nothing, and that is the platform
+### 7.4 `local_only` selected almost nothing, which is why it is gone
 
 The local roster is dominated by attachment readers and syntax
 validators, which a *value* page rarely has a type for. On `8.8.8.8`,
-with 5 eligible modules, exactly one is local — and it is on the rail
+with 5 eligible modules, exactly one was local — and it was on the rail
 only because the value happens to carry two `text` occurrences, which
-is what makes `convert_markdown_to_pdf` eligible.
+is what made `convert_markdown_to_pdf` eligible.
 
-So the shipped posture will select nothing at all on most values. That
-is not a calibration error to tune away: it is `local_only` doing
-precisely what it says on a platform where enrichment means asking
-somebody else. An analyst who wants a default selection sets
-`allow_external` deliberately, which is the point of the setting
-existing.
+This was written up as *`local_only` doing precisely what it says on a
+platform where enrichment means asking somebody else*. **Read again in
+2026-09-12's light, it is the finding that condemned the setting.** A
+default that selects nothing on almost every value is not a safe
+default, it is an inert one: the reader ticks the boxes by hand, sends
+exactly the same queries, and the only thing the posture achieved was
+the clicking. Under D15 it could never have achieved more, because
+**a tick is not a query** — the press is.
 
-### 7.5 The posture has two values, and `ask` is not one of them
+What the finding really established is that locality is worth
+*knowing* and not worth *gating*, which is what shipped: the chip on
+the rail, and `leavingCount()`'s line on the strip.
 
-`ask` meant *check with me before spending this*, and a page where every
-run takes a press is already asking. It was kept as a separate value on
-the argument that it would diverge the moment anything ran without a
-press — which is what §1.1's missing store would unblock.
+### 7.5 `ask`, and then the whole setting
 
-**Retired 2026-09-10.** The argument was for a divergence that never
-arrived, and meanwhile a three-option select where two options behave
-identically is its own defect: a reader who picks `ask` believes they
-have constrained something. `ask` is no longer offered, and a stored one
-is read as `allow_external`, which is what it did. The byte-equality is
-still asserted — it is now exact rather than posture-aside — so if the
-store ever lands, the check fails and the difference has to be designed
-rather than discovered.
+`ask` meant *check with me before spending this*, and a page where
+every run takes a press is already asking. It was kept as a separate
+value on the argument that it would diverge the moment anything ran
+without a press — which is what §1.1's missing store would unblock.
+
+**Retired 2026-09-10**, because the argument was for a divergence that
+never arrived and a three-option select where two options behave
+identically is its own defect.
+
+**The other two followed on 2026-09-12 (3.21)**, and for the same
+reason one step further on: if `ask` was `allow_external` because the
+press is the asking, then `local_only` was `allow_external` with extra
+clicking, because the press is also the sending. The setting is
+withdrawn entirely. A stored key of either name is ignored — it
+selected nothing, so there is nothing to migrate — and named once by
+`legacyShapes()` so a reader is not left wondering where their setting
+went.
 
 ### 7.6 A diagnostic that counts prose is worse than none
 

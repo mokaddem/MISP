@@ -493,54 +493,78 @@ is_same(array('none' => true), $configUnits,
 
 /*
  * ------------------------------------------------------------------
- * 2d. The posture is about locality, and the editor refuses neither
- *     name
+ * 2d. The posture is withdrawn, and a document still carrying it is
+ *     told so rather than refused
  * ------------------------------------------------------------------
- * `09b-revisions.md` 3.17. `cost_posture` never gated cost, and `ask`
- * was byte-identical to `allow_external`. The setting is renamed and
- * `ask` retired — but a pasted document may carry either, and the
- * engine reads both, so validation that refused them would refuse a
- * profile that works.
+ * `locality_posture` — and the `cost_posture` it was renamed from —
+ * decided whether a module that leaves the instance could be offered.
+ * Under D15 nothing runs without a press either way, so it withheld a
+ * checkbox rather than a query. It is gone, and what replaces it on
+ * the tab is the count of how many ticked modules would leave. A
+ * pasted document may still carry the key: it is ignored, said once
+ * in `legacyShapes()`, and dropped by the next save.
  */
 out('');
-out('== the posture is locality, under either name ==');
-$postureSection = $form->sections($parameters, array(
+out('== the posture is gone, and a stored one is named not refused ==');
+$enrichmentSection = $form->sections($parameters, array(
     'attribute_types' => array('ip-dst'),
     'modules' => array(),
 ))['enrichment'];
-$postureBlock = $postureSection['blocks'][0];
-is_same('Modules that leave the instance', $postureBlock['title'],
-    'the pane is named for what it does, not for the cost it never'
-        . ' read');
-is_same('locality_posture', $postureBlock['fields'][0]['key'],
-    'and so is the setting');
-is_same(array('local_only', 'allow_external'),
-    $postureBlock['fields'][0]['options'],
-    'two options, both of which do something different');
-
-$legacy = $parameters;
-$legacy['enrichment']['cost_posture'] =
-    $legacy['enrichment']['locality_posture'];
-unset($legacy['enrichment']['locality_posture']);
-is_same(array(), $form->validate($legacy)['errors'],
-    'a document carrying the old key validates — the engine reads it,'
-        . ' so refusing it would refuse a working profile');
-$asked = $parameters;
-$asked['enrichment']['locality_posture'] = 'ask';
-is_same(array(), $form->validate($asked)['errors'],
-    'and so does a retired `ask`, which the engine reads as'
-        . ' allow_external');
-$nonsense = $parameters;
-$nonsense['enrichment']['locality_posture'] = 'whenever';
-is_same(1, count($form->validate($nonsense)['errors']),
-    'while a posture that never existed is still refused');
-$legacyNonsense = $parameters;
-$legacyNonsense['enrichment']['cost_posture'] = 'whenever';
+$titles = array();
+foreach ($enrichmentSection['blocks'] as $block) {
+    $titles[] = $block['title'];
+}
 is_true(
-    strpos($form->validate($legacyNonsense)['errors'][0],
-        'cost_posture') !== false,
-    'and a bad value under the old key is reported under the name the'
-        . ' reader actually typed'
+    !in_array('Modules that leave the instance', $titles, true),
+    'the posture pane is gone from the section'
+);
+$keys = array();
+foreach ($enrichmentSection['blocks'] as $block) {
+    if (($block['kind'] ?? null) !== 'fields') {
+        continue;
+    }
+    foreach ($block['fields'] as $field) {
+        $keys[] = $field['key'];
+    }
+}
+is_true(
+    !in_array('locality_posture', $keys, true),
+    'and so is the setting itself'
+);
+is_true(
+    in_array('max_age_hours', $keys, true),
+    'while the reuse window it shared a pane with is still drawn'
+);
+
+foreach (array('locality_posture', 'cost_posture') as $retired) {
+    $stale = $parameters;
+    unset($stale['enrichment']['locality_posture']);
+    $stale['enrichment'][$retired] = 'local_only';
+    is_same(array(), $form->validate($stale)['errors'],
+        sprintf('a document carrying `%s` validates — the key is dead,'
+            . ' not wrong, and the rest of the profile works', $retired));
+    $notes = $form->legacyShapes($stale);
+    $named = false;
+    foreach ($notes as $note) {
+        if (strpos($note, $retired) !== false) {
+            $named = true;
+        }
+    }
+    is_true($named, sprintf('and the page says `%s` is there and'
+        . ' ignored', $retired));
+}
+
+/*
+ * A save on any section takes both keys out, so the document stops
+ * carrying a setting that looks like one and is not.
+ */
+$stale = $parameters;
+$stale['enrichment']['cost_posture'] = 'local_only';
+$saved = $form->merge($stale, array('signals' => array()));
+is_true(
+    !isset($saved['enrichment']['locality_posture'])
+        && !isset($saved['enrichment']['cost_posture']),
+    'and saving drops both names'
 );
 
 /*
@@ -562,9 +586,26 @@ $declaring = $parameters;
 $declaring['enrichment']['auto_run'] = array(
     'ip-src' => array('dns' => 'ticked', 'circl_passivedns' => 'never'),
 );
+$catalogue = array(
+    'dns' => array(
+        'accepts' => array('hostname', 'domain', 'domain|ip'),
+        'kinds' => array('expansion', 'hover'),
+        'enabled' => true, 'restricted' => false,
+    ),
+    'circl_passivedns' => array(
+        'accepts' => array('hostname', 'domain', 'ip-src', 'ip-dst'),
+        'kinds' => array('expansion', 'hover'),
+        'enabled' => true, 'restricted' => false,
+    ),
+    'virustotal' => array(
+        'accepts' => array('ip-src', 'ip-dst', 'domain'),
+        'kinds' => array('expansion'),
+        'enabled' => false, 'restricted' => false,
+    ),
+);
 $stateSections = $form->sections($declaring, array(
     'attribute_types' => array('ip-src', 'domain', 'md5'),
-    'modules' => array('dns' => array(), 'circl_passivedns' => array()),
+    'modules' => array('reachable' => true, 'catalogue' => $catalogue),
 ));
 $autoBlock = null;
 foreach ($stateSections['enrichment']['blocks'] as $candidate) {
@@ -575,20 +616,137 @@ foreach ($stateSections['enrichment']['blocks'] as $candidate) {
 is_same('map', $autoBlock['kind'],
     'still one of the four block kinds — no fifth was invented for'
         . ' this');
-is_same('module_states', $autoBlock['value_type'],
-    'but its row value is a module-to-state map, not a checklist');
+is_same('state_map', $autoBlock['value_type'],
+    'but its row value is a name-to-state map, not a checklist');
+/*
+ * Keyed by module since 3.19, so the first row is `circl_passivedns`
+ * and its states are per attribute type. The transpose is the whole
+ * redesign: 194 types × 146 modules drawn the other way round was the
+ * table nobody could read.
+ */
+is_same('Module', $autoBlock['key_label'],
+    'and the map is keyed by module, not by attribute type');
+is_same(array('circl_passivedns', 'dns'),
+    array_map(function ($e) { return $e['key']; },
+        $autoBlock['entries']),
+    'one row per declared module');
 $row = $autoBlock['entries'][0];
-is_same(array('ticked', 'never', 'auto'), $row['state_options'],
-    'three states are offered');
+is_same(
+    array('', 'ticked', 'never', 'auto'),
+    array_map(function ($o) { return $o['value']; },
+        $row['state_options']),
+    'three states are offered, plus the blank a cleared row returns to'
+);
 is_same(array('ticked', 'never'), $row['states_built'],
     'and the row says which two are implemented, so a design cannot'
         . ' draw `auto` as though it worked');
 is_true(is_array($row['value']) && !isset($row['value'][0]),
     'the value is a map rather than a list');
-is_same(array('dns' => 'ticked', 'circl_passivedns' => 'never'),
-    $row['value'],
-    'each module carries its own state, which is the thing a'
-        . ' multiselect could not say');
+is_same(array('ip-src' => 'never'), $row['value'],
+    'each type under a module carries its own state, which is the'
+        . ' thing a multiselect could not say');
+
+/*
+ * The eligibility filter, which is 3.19's other half: a row offers
+ * the types its own module accepts and nothing else, and a type the
+ * profile filed it under anyway is kept and flagged rather than
+ * dropped — the editor stops letting a reader create the mismatch the
+ * value tab would later complain about (`C_TYPE_MISMATCH`).
+ */
+is_same(
+    array('hostname', 'domain', 'ip-src', 'ip-dst'),
+    $row['options'],
+    'a row offers only the types its module accepts'
+);
+is_same(array(), $row['unavailable'],
+    'and flags none of them while the declaration is honest');
+$mismatch = $parameters;
+$mismatch['enrichment']['auto_run'] = array(
+    'pdb' => array('circl_passivedns' => 'ticked'),
+);
+foreach ($form->sections($mismatch, array(
+    'attribute_types' => array('pdb'),
+    'modules' => array('reachable' => true, 'catalogue' => $catalogue),
+))['enrichment']['blocks'] as $candidate) {
+    if (($candidate['id'] ?? null) !== 'auto_run') {
+        continue;
+    }
+    is_same(array('pdb'), $candidate['entries'][0]['unavailable'],
+        'a type the module does not accept is kept and flagged');
+}
+
+/*
+ * And the state of the instance, which is what an imported profile is
+ * mostly made of: a module this instance has turned off is drawn as a
+ * row that says so, rather than dropped or drawn as though it worked.
+ */
+$imported = $parameters;
+$imported['enrichment']['auto_run'] = array(
+    'domain' => array('virustotal' => 'ticked'),
+);
+$importedBlocks = $form->sections($imported, array(
+    'attribute_types' => array('domain'),
+    'modules' => array('reachable' => true, 'catalogue' => $catalogue),
+))['enrichment']['blocks'];
+foreach ($importedBlocks as $candidate) {
+    if (($candidate['id'] ?? null) === 'auto_run') {
+        $importedRow = $candidate['entries'][0];
+        is_true(!empty($importedRow['missing']),
+            'a declared module this instance disabled is still a row');
+        is_true(
+            strpos($importedRow['missing_note'], 'turned off') !== false,
+            'saying the instance turned it off, which is what an'
+                . ' imported profile needs to be told');
+        is_true(
+            !in_array('virustotal', $candidate['add']['options'], true),
+            'while the picker will not offer it as a new choice');
+    }
+    /*
+     * 3.19's payment: keyed by module, *narrowing a type* happens off
+     * screen, so the derived block states it per type.
+     */
+    if (($candidate['id'] ?? null) === 'auto_run_by_type') {
+        is_true(!empty($candidate['read_only']),
+            'the derived table is read-only — posting `__present` from'
+                . ' it would clear the key it derives from');
+        is_same('domain', $candidate['entries'][0]['key'],
+            'and it reads back per attribute type');
+        is_true(
+            strpos($candidate['entries'][0]['note'],
+                'not available here') !== false,
+            'naming what was declared and cannot answer here'
+        );
+    }
+}
+
+/*
+ * The transpose round-trips: the form posts module-keyed and the
+ * document stores type-keyed, and `auto_run_modules` never reaches
+ * storage.
+ */
+$posted = $form->merge($declaring, array('enrichment' => array(
+    'auto_run_modules' => array(
+        '__present' => 1,
+        'circl_passivedns' => array('__present' => 1,
+            'domain' => 'ticked', 'ip-src' => '', 'ip-dst' => 'never'),
+    ),
+)));
+is_same(
+    array(
+        'domain' => array('circl_passivedns' => 'ticked'),
+        'ip-dst' => array('circl_passivedns' => 'never'),
+    ),
+    $posted['enrichment']['auto_run'],
+    'a module-keyed post is stored type-keyed, and a blank declares'
+        . ' nothing'
+);
+is_true(!isset($posted['enrichment']['auto_run_modules']),
+    'and the form-only key never reaches the document');
+$untouched = $form->merge($declaring, array('signals' => array()));
+is_same($declaring['enrichment']['auto_run'],
+    $untouched['enrichment']['auto_run'],
+    'while a save of another section leaves the declaration alone —'
+        . ' absence is not every module cleared');
 
 /*
  * A pre-D17 profile is the common case, not the exotic one: every
@@ -598,11 +756,11 @@ $listed = $parameters;
 $listed['enrichment']['auto_run'] = array('ip-src' => array('dns'));
 $listedSections = $form->sections($listed, array(
     'attribute_types' => array('ip-src'),
-    'modules' => array('dns' => array()),
+    'modules' => array('reachable' => true, 'catalogue' => $catalogue),
 ));
 foreach ($listedSections['enrichment']['blocks'] as $candidate) {
     if (isset($candidate['id']) && $candidate['id'] === 'auto_run') {
-        is_same(array('dns' => 'ticked'),
+        is_same(array('ip-src' => 'ticked'),
             $candidate['entries'][0]['value'],
             'a fork carrying the pre-D17 list renders as ticked, so the'
                 . ' editor does not need a migration to open it');

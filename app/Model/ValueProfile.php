@@ -12033,9 +12033,9 @@ class ValueProfile extends AppModel
      * Since phase 7 each row also carries whether **asking it leaves
      * the instance** (`ModuleLocality`), which is what lets the tray
      * price a selection in the only currency that has a source. The
-     * profile's `enrichment.locality` overrides are consulted here for
-     * the same reason they are consulted for the posture: an operator
-     * who repointed their resolver knows something no shipped map can.
+     * profile's `enrichment.locality` overrides are consulted here
+     * because an operator who repointed their resolver knows something
+     * no shipped map can.
      *
      * @param array|string $enabled `getEnabledModules` output
      * @param array $types `typesFor` output

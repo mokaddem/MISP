@@ -311,9 +311,9 @@ $shipped = json_decode(file_get_contents(APP . 'files/analyst-profiles/default-v
 assertSame(true, is_array($shipped), 'default-v1.json parses');
 assertSame('default-v1', $shipped['name'], 'named default-v1, not default-v3');
 assertSame(true, Validation::uuid($shipped['uuid']), 'carries a uuid');
-assertSame(array(), $shipped['parameters']['enrichment']['auto_run'], 'auto_run is empty');
-assertSame('local_only', $shipped['parameters']['enrichment']['locality_posture'], 'locality_posture is local_only');
-assertSame(false, isset($shipped['parameters']['enrichment']['cost_posture']), 'and does not still carry the cost name it never earned');
+assertSame(13, count($shipped['parameters']['enrichment']['auto_run']), 'auto_run declares the thirteen types version 9 added');
+assertSame(false, isset($shipped['parameters']['enrichment']['locality_posture']), 'the withdrawn posture is not shipped');
+assertSame(false, isset($shipped['parameters']['enrichment']['cost_posture']), 'nor the cost name it never earned');
 assertSame(true, is_array($shipped['parameters']['signals']), 'has a signals list');
 assertSame(array(), $shipped['parameters']['reference']['org_trust'], 'reference maps are empty overrides');
 

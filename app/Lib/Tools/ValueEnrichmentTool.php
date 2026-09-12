@@ -54,26 +54,23 @@ App::uses('ModuleLocality', 'Tools');
  * asked. It falls back to the row's own default type when the
  * declaration cannot be honoured.
  *
- * ## The posture: locality, not cost
+ * ## Locality is a badge, not a gate
  *
- * `locality_posture` is `local_only` (the shipped default) or
- * `allow_external`. `local_only` withholds any module that would tell
- * somebody outside the instance that this value is being looked at —
- * `ModuleLocality` decides which, and treats *unknown* as *outside*, so
- * an incomplete map fails towards not sending.
+ * `ModuleLocality` still says whether asking a module tells somebody
+ * outside the instance, and the tab still shows it per module, because
+ * a reader deciding whether to press run is owed that. It no longer
+ * withholds anything.
  *
- * **It was called `cost_posture` and it never gated cost.** Nothing in
- * module introspection says anything about money or rate limits, in
- * MISP or in misp-modules, so there was no cost to gate; the one thing
- * the setting does is decide whether a non-local module is withheld.
- * The old key is still read, so a fork that carries it keeps its
- * setting.
- *
- * **`ask` is gone.** It was byte-identical to `allow_external` — under
- * D15 nothing runs without a press, so a page where every run needs a
- * press is already asking — and a three-option select where two options
- * behave the same is its own defect. A stored `ask` reads as
- * `allow_external`, which is what it did.
+ * **The posture is gone** — `locality_posture`, its `cost_posture`
+ * predecessor and the `withheld` bucket it filled. It gated the one
+ * thing that never needed gating: under D15 nothing runs without a
+ * press, so a module arriving unticked and a module arriving ticked
+ * both send exactly nothing until the reader acts, and the setting
+ * bought a whole vocabulary of refusal in exchange for saving a
+ * click. `never` remains, because that is the reader refusing a module
+ * outright and it is enforced where a run happens. A stored
+ * `locality_posture` or `cost_posture` key is ignored rather than
+ * migrated: it selected nothing, so there is nothing to carry.
  *
  * ## `max_age_hours` is carried and inert
  *
@@ -89,21 +86,6 @@ App::uses('ModuleLocality', 'Tools');
  */
 class ValueEnrichmentTool
 {
-    /** Auto-run nothing that leaves the instance. The default. */
-    const POSTURE_LOCAL = 'local_only';
-
-    /** Offer whatever is declared, wherever it answers from. */
-    const POSTURE_EXTERNAL = 'allow_external';
-
-    /**
-     * Retired. It behaved exactly as `POSTURE_EXTERNAL` and is read as
-     * that, so a fork that stored it keeps working. Not offered.
-     */
-    const POSTURE_ASK_LEGACY = 'ask';
-
-    /** The key this setting had while it claimed to be about cost. */
-    const POSTURE_KEY_LEGACY = 'cost_posture';
-
     /**
      * The run states a declaration may put a module in (D17).
      *
@@ -117,12 +99,6 @@ class ValueEnrichmentTool
     const STATE_TICKED = 'ticked';
     const STATE_NEVER = 'never';
     const STATE_AUTO = 'auto';
-
-    /**
-     * The only defensible default for a setting one person can apply
-     * to a whole organisation.
-     */
-    const DEFAULT_POSTURE = self::POSTURE_LOCAL;
 
     /** The reuse window a store would honour. */
     const DEFAULT_MAX_AGE_HOURS = 24;
@@ -140,7 +116,6 @@ class ValueEnrichmentTool
     const C_TYPE_MISMATCH = 'module.type_mismatch';
     const C_UNRESOLVED = 'module.unresolved';
     const C_TYPE_UNUSED = 'type.unused';
-    const C_POSTURE = 'posture.external';
     const C_STATE_NEVER = 'state.never';
     const C_STATE_AUTO_INERT = 'state.auto_inert';
 
@@ -181,7 +156,7 @@ class ValueEnrichmentTool
      * Everything a hand-edited JSON document can get wrong is absorbed
      * here and nowhere else: a type key holding a bare string rather
      * than a list, a null, a name repeated, whitespace around a name,
-     * a posture that is not one of the three. None of them is an
+     * a state that is not one of the three. None of them is an
      * error — a profile is data an analyst edits with a text editor,
      * and the failure mode of strictness is a page that will not
      * render.
@@ -255,7 +230,6 @@ class ValueEnrichmentTool
         return array(
             'auto_run' => $autoRun,
             'declared' => $declared,
-            'posture' => self::posture($section),
             'locality' => $locality,
             'max_age_hours' => self::maxAgeHours($section),
             /*
@@ -273,41 +247,6 @@ class ValueEnrichmentTool
              * byte-identical to the one phase 28 shipped.
              */
             'in_force' => !empty($declared),
-        );
-    }
-
-    /**
-     * @param array $section
-     * @return string
-     */
-    private static function posture(array $section)
-    {
-        $posture = null;
-        if (isset($section['locality_posture'])) {
-            $posture = $section['locality_posture'];
-        } elseif (isset($section[self::POSTURE_KEY_LEGACY])) {
-            // A fork carries the old key; `updateDefaults()` never
-            // touches a fork, so reading it is the whole migration.
-            $posture = $section[self::POSTURE_KEY_LEGACY];
-        }
-        if ($posture === self::POSTURE_ASK_LEGACY) {
-            $posture = self::POSTURE_EXTERNAL;
-        }
-        return in_array($posture, self::postures(), true)
-            ? $posture
-            : self::DEFAULT_POSTURE;
-    }
-
-    /**
-     * The two that differ. `ask` is not here: see the class note.
-     *
-     * @return array
-     */
-    public static function postures()
-    {
-        return array(
-            self::POSTURE_LOCAL,
-            self::POSTURE_EXTERNAL,
         );
     }
 
@@ -470,8 +409,8 @@ class ValueEnrichmentTool
     }
 
     /**
-     * The declaration met with the instance: what to tick, what is
-     * withheld, and every place the two disagree.
+     * The declaration met with the instance: what to tick, what the
+     * reader refused, and every place the two disagree.
      *
      * @param array $plan From planFor
      * @param array $facts `service.reachable`, `types`, `eligible`
@@ -485,14 +424,12 @@ class ValueEnrichmentTool
     public static function resolve(array $plan, array $facts)
     {
         $out = array(
-            'posture' => $plan['posture'],
             'in_force' => !empty($plan['in_force']),
             'max_age_hours' => $plan['max_age_hours'],
             'reuse_inert' => true,
             'declared' => 0,
             'applicable' => 0,
             'selected' => array(),
-            'withheld' => array(),
             'refused' => array(),
             'conditions' => array(),
         );
@@ -576,12 +513,6 @@ class ValueEnrichmentTool
                 'locality' => $locality['locality'],
                 'locality_source' => $locality['source'],
             );
-            /*
-             * `never` is checked before the posture, because it is the
-             * reader's own refusal and stating a locality reason for a
-             * module they said never to run would answer a question
-             * they did not ask.
-             */
             if ($state === self::STATE_NEVER) {
                 $out['refused'][] = $entry;
                 $out['conditions'][] = self::condition(
@@ -594,18 +525,6 @@ class ValueEnrichmentTool
                             . ' refused, not just unticked.'),
                         $name
                     )
-                );
-                continue;
-            }
-            if ($plan['posture'] === self::POSTURE_LOCAL
-                && $locality['locality'] !== ModuleLocality::LOCAL
-            ) {
-                $out['withheld'][] = $entry;
-                $out['conditions'][] = self::condition(
-                    self::C_POSTURE,
-                    $name,
-                    $decTypes,
-                    self::postureNote($name, $locality)
                 );
                 continue;
             }
@@ -849,36 +768,6 @@ class ValueEnrichmentTool
     }
 
     /**
-     * The posture's sentence, which has to name **why** the module
-     * counts as leaving the building — a reader looking at a withheld
-     * `dns` is owed the fact that it resolves through Google's
-     * `8.8.8.8` unless somebody configured otherwise, and a reader
-     * looking at a withheld module nobody has classified is owed the
-     * different fact that the classification is missing.
-     *
-     * @param string $name
-     * @param array $locality From ModuleLocality::resolve
-     * @return string
-     */
-    private static function postureNote($name, array $locality)
-    {
-        if ($locality['locality'] === ModuleLocality::UNKNOWN) {
-            return __(
-                'Your profile names this module and your posture is'
-                . ' local only. Nothing records whether asking it'
-                . ' leaves this instance, and "not known" is treated'
-                . ' as "it does". Selecting it by hand still works.'
-            );
-        }
-        return __(
-            'Your profile names this module and your posture is local'
-            . ' only. Asking it tells somebody outside this instance'
-            . ' that this value is being looked at. Selecting it by'
-            . ' hand still works.'
-        );
-    }
-
-    /**
      * The row's locality, and only the map's when the row has none.
      *
      * **One fact, one producer.** The catalogue row already carries
@@ -889,8 +778,8 @@ class ValueEnrichmentTool
      * (`../value-profile-page.md` §1.4). They would agree today,
      * because both would call `ModuleLocality` with the same
      * overrides, and *"they agree today"* is what that hazard sounds
-     * like every time before it stops being true. So the withholding
-     * decision and the chip beside it are literally the same value.
+     * like every time before it stops being true. So the chip on the
+     * rail and the count in the tray are literally the same value.
      *
      * The fall-back is for a caller with no catalogue — phase 8's
      * editor resolves a declaration against no value at all.
@@ -995,16 +884,15 @@ class ValueEnrichmentTool
     }
 
     /**
-     * Whether the reader's posture leaves anything for the tab to say
-     * about spending, given what got selected.
+     * How much of what arrived ticked would leave the instance if the
+     * reader pressed run.
      *
      * Used by the strip, and separate from `resolve()` because it is a
      * statement about the **selection** rather than about the
-     * declaration: a `local_only` profile whose every selection is
-     * local has nothing to warn about, and one with an
-     * `allow_external` posture and an external selection is the case
-     * where the tray's own "queries leave this instance" line is the
-     * whole warning.
+     * declaration: a selection that is entirely local has nothing to
+     * warn about, and one carrying an external module is where the
+     * tray's own "queries leave this instance" line is the whole
+     * warning.
      *
      * @param array $resolved From resolve
      * @return int How many pre-selected modules leave the instance

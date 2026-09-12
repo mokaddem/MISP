@@ -87,7 +87,7 @@ $step = $type === 'int' ? '1' : 'any';
  * one-character box is not a target, and an over-long stored value must
  * not push the table out.
  *
- * `types` and `module_states` hold arrays and draw their own controls,
+ * `types` and `state_map` hold arrays and draw their own controls,
  * so they never reach the box this sizes and must not be measured as
  * though they did.
  */
@@ -221,14 +221,17 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                    ), count($free))) ?>">
         <?php endif; ?>
     </div>
-<?php elseif ($type === 'module_states'): ?>
+<?php elseif ($type === 'state_map'): ?>
     <?php
     /*
-     * Three states per module, so a checklist will not do (D17): a
-     * module can be ticked, declared never, or left to the default.
-     * `auto` is offered only where it is built — the schema carries it
-     * and the run path does not, and an editor that offered it anyway
-     * would be promising a behaviour nothing implements.
+     * Three states per name, so a checklist will not do (D17): a
+     * module can be ticked for a type, declared never, or left to the
+     * default. `auto` is offered only where it is built — the schema
+     * carries it and the run path does not, and an editor that offered
+     * it anyway would be promising a behaviour nothing implements.
+     *
+     * The names are the row's own: the modules block draws one row per
+     * module and one select per attribute type that module accepts.
      */
     $states = is_array($value) ? $value : array();
     $built = isset($field['states_built'])
@@ -237,6 +240,16 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
             return is_array($option) ? $option['value'] : $option;
         }, $field['state_options']);
     $unavailable = isset($field['unavailable']) ? $field['unavailable'] : array();
+    /*
+     * What the pill says about a name the row keeps but the instance
+     * cannot honour. It is a different fact per block — a module this
+     * instance does not enable, against a type this module does not
+     * accept — and one hardcoded sentence could only ever be right in
+     * one of them.
+     */
+    $goneLabel = isset($field['unavailable_label'])
+        ? $field['unavailable_label']
+        : __('not enabled here');
     ?>
     <div class="mod-states">
         <?php if ($editable): ?>
@@ -245,15 +258,15 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                        array_merge($extra, array('__present')))) ?>"
                    value="1">
         <?php endif; ?>
-        <?php foreach ($field['options'] as $module): ?>
+        <?php foreach ($field['options'] as $rowName): ?>
             <?php
-            $state = isset($states[$module]) ? $states[$module] : '';
-            $gone = in_array($module, $unavailable, true);
+            $state = isset($states[$rowName]) ? $states[$rowName] : '';
+            $gone = in_array($rowName, $unavailable, true);
             ?>
             <div class="mod-row <?= $gone ? 'is-off' : '' ?>">
-                <span class="wb-id"><?= h($module) ?></span>
+                <span class="wb-id"><?= h($rowName) ?></span>
                 <?php if ($gone): ?>
-                    <span class="pill t-missing"><?= h(__('not enabled here')) ?></span>
+                    <span class="pill t-missing"><?= h($goneLabel) ?></span>
                 <?php endif; ?>
                 <?php if ($editable): ?>
                     <select class="form-select form-select-sm"
@@ -261,7 +274,7 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                             data-ap-was="<?= h($state) ?>"
                             name="<?= h(AnalystProfileFormTool::fieldName(
                                 $path,
-                                array_merge($extra, array($module))
+                                array_merge($extra, array($rowName))
                             )) ?>">
                         <?php foreach ($field['state_options'] as $option): ?>
                             <?php

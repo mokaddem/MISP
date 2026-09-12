@@ -177,12 +177,14 @@ them **ticked rather than run**, and the badge waits for the per-value
 per-module store that does not exist — because without it, *"run the
 defaults on page open"* means running them on every page open
 ([`08-enrichment.md`](08-enrichment.md) §1.1). Building it needed one
-thing the specification had filed under *out of scope*: a posture that
-cannot tell a local module from an external one is not a posture, so
-`ModuleLocality` ships the same way phase 6's warninglist categories
-did — as code, with a mechanical retirement criterion — and for the
-same reason, which is that introspection carries no such field and the
-obvious heuristic is wrong in both directions (§3.1 there).
+thing the specification had filed under *out of scope*: whether asking
+a module tells anybody outside the instance. `ModuleLocality` ships
+that the same way phase 6's warninglist categories did — as code, with
+a mechanical retirement criterion — and for the same reason, which is
+that introspection carries no such field and the obvious heuristic is
+wrong in both directions (§3.1 there). It was built to feed a
+*posture*; since 2026-09-12 it feeds a **label** instead
+(`09b-revisions.md` 3.21).
 
 Three findings there are worth knowing from here. **The instance's
 modules port was wrong and the first probe run nearly passed anyway**:
@@ -192,11 +194,13 @@ preflight that refuses to continue (§7.1). **One fact needs one
 producer** — `resolve()`'s first version computed each module's
 locality itself rather than reading the row the rail already carried,
 and a harness check about *wording* caught it (§7.2). And
-**`local_only` selects almost nothing on an ordinary value**: 1 of the
+**`local_only` selected almost nothing on an ordinary value**: 1 of the
 5 modules eligible for `8.8.8.8` answers from inside, because the local
-roster is attachment readers and syntax validators. That is the
-posture doing exactly what it says on a platform where enrichment means
-asking somebody else, not a calibration error (§7.4).
+roster is attachment readers and syntax validators. Written up as the
+posture doing exactly what it says; read again on 2026-09-12 it is the
+finding that condemned the setting, because a default that selects
+nothing is not safe but inert — the reader ticks the same boxes by
+hand and sends the same queries (§7.4).
 
 **What remains before the tab can go live is nothing in this feature's
 dependency chain.** Phase 9 is next in build order, and it is now the only
@@ -284,7 +288,7 @@ the reasoning and the rejected alternatives; D10 and D11 were taken
 
 | D13 | **No new permission flag gates profile ownership.** A user profile needs no grant — it changes only its owner's page, the reasoning that leaves `user_settings` ungated; an org profile needs `perm_admin`; the default stays site-admin only. `perm_decaying` rejected because riding it silently widens every existing grant. Chosen partly as the reversible direction: adding a flag later is additive, withdrawing one is a migration. Closes Q7 | `02-store.md` §3.3 |
 | D14 | **A signal's weight band is editorial, declared per signal — not derived from its contribution.** The fixture forecloses "derived": `7` appears in both `moderate` and `weak`, and `17` (strong) sits above `16` (moderate), so no threshold reproduces the labelling. The band says how much this *kind* of evidence matters in principle; the contribution says what it produced here. Closes Q5 | `03-signals.md` §5 |
-| D15 | **The profile declares enrichment modules; nothing auto-runs.** Q10's shape B: `auto_run` is a per-type declaration, the Enrichment tab pre-selects it, and the badge waits for `../value-profile-writes.md` §6.4's last-run store. Shape A rejected — it makes this feature's schedule depend on fixing `Event::enrichmentRouter()`; shape C rejected — the ask names enrichment explicitly. Two consequences the specification did not carry: locality has to ship as a map (`ModuleLocality`), because a posture needs it and introspection has no such field, and `ask` cannot differ from `allow_external` while every run takes a press | `08-enrichment.md` §1, §3 |
+| D15 | **The profile declares enrichment modules; nothing auto-runs.** Q10's shape B: `auto_run` is a per-type declaration, the Enrichment tab pre-selects it, and the badge waits for `../value-profile-writes.md` §6.4's last-run store. Shape A rejected — it makes this feature's schedule depend on fixing `Event::enrichmentRouter()`; shape C rejected — the ask names enrichment explicitly. Two consequences the specification did not carry: locality has to ship as a map (`ModuleLocality`), because introspection has no such field, and no posture over it can differ from `allow_external` while every run takes a press — which is why D19 first retired `ask` and then, on 2026-09-12, the posture itself (`09b-revisions.md` 3.21) | `08-enrichment.md` §1, §3 |
 
 Still open: Q9 and Q13 — the `includeVerdict` exposure gate — see §8.
 **Q11 closed 2026-09-07 as D12, Q7 as D13, Q5 as D14 and Q10 as D15**, so
@@ -374,7 +378,6 @@ start and is not part of any of them.
 
   "enrichment": {
     "auto_run":         { "ip-dst": ["virustotal"], "domain": ["dns"] },
-    "locality_posture": "allow_external",
     "locality":         { "dns": "local" }
   }
 }
@@ -588,7 +591,7 @@ answer is the recommendation the phase document had already made: none of it.
 The profile declares, the tab pre-selects, and the badge waits for the
 last-run store — which is still specified by `../value-profile-writes.md` §6.4
 and built by nobody. What the closure added to the recommendation is that
-*inert* was not available: the posture needs to know which modules leave the
+*inert* was not available: the tab has to say which modules leave the
 instance, nothing in MISP records that, and so `ModuleLocality` ships the
 knowledge as code ([`08-enrichment.md`](08-enrichment.md) §3).
 

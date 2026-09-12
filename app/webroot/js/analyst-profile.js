@@ -647,18 +647,18 @@ function boot() {
     }
 
     /*
-     * A declaration: one state per module the instance offers, drawn
-     * like the ones the server drew beside it.
+     * A declaration: one state per name the row admits, drawn like the
+     * ones the server drew beside it.
      *
      * The map whose value is not a scalar, and so the one the fallback
-     * below could not draw — a type declared on the page got a text
+     * below could not draw — a row declared on the page got a text
      * box, posted nothing, and was gone again by the time the page
      * came back from the save. `__present` is what makes the row a
      * declaration at all: the merge reads it as *this map was on
-     * screen*, and without it a row whose modules are all left at
+     * screen*, and without it a row whose names are all left at
      * `not declared` is indistinguishable from a row never drawn.
      */
-    function stateControl(add, name, modules, options) {
+    function stateControl(add, name, names, options) {
         var box = document.createElement('div');
         box.className = 'mod-states';
         var present = document.createElement('input');
@@ -666,16 +666,16 @@ function boot() {
         present.name = name + '[__present]';
         present.value = '1';
         box.appendChild(present);
-        modules.forEach(function (module) {
+        names.forEach(function (rowName) {
             var row = document.createElement('div');
             row.className = 'mod-row';
             var title = document.createElement('span');
             title.className = 'wb-id';
-            title.textContent = module;
+            title.textContent = rowName;
             var control = document.createElement('select');
             control.className = 'form-select form-select-sm';
             fill(control, options, null);
-            control.name = name + '[' + module + ']';
+            control.name = name + '[' + rowName + ']';
             control.setAttribute('data-ap-field', '1');
             control.setAttribute('data-ap-was', '');
             row.appendChild(title);
@@ -685,15 +685,22 @@ function boot() {
         return box;
     }
 
-    function valueControl(add, name) {
+    /*
+     * `key` is what the row is being added for, and for a `state_map`
+     * it decides the sub-rows: the modules block draws one row per
+     * module and one select per attribute type *that module* accepts,
+     * so there is no single list the whole map could share.
+     */
+    function valueControl(add, name, key) {
         var kind = add.getAttribute('data-ap-add-type');
-        var options = kind === 'select' || kind === 'module_states'
+        var options = kind === 'select' || kind === 'state_map'
             ? jsonAttr(add, 'data-ap-add-options')
             : null;
-        if (kind === 'module_states') {
-            var modules = jsonAttr(add, 'data-ap-add-modules');
-            if (modules && modules.length && options && options.length) {
-                return stateControl(add, name, modules, options);
+        if (kind === 'state_map') {
+            var rows = jsonAttr(add, 'data-ap-add-rows');
+            var names = rows && key && rows[key] ? rows[key] : null;
+            if (names && names.length && options && options.length) {
+                return stateControl(add, name, names, options);
             }
         }
         var control;
@@ -770,7 +777,7 @@ function boot() {
             name.appendChild(sub);
         }
         var value = document.createElement('td');
-        var control = valueControl(add, prefix + '[' + key + ']');
+        var control = valueControl(add, prefix + '[' + key + ']', key);
         var holder = document.createElement('div');
         holder.className = 'ap-map-val';
         holder.appendChild(control);

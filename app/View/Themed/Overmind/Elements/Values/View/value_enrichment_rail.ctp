@@ -50,8 +50,8 @@ if (!empty($enrichment['profile']['selected'])) {
  * What a selection costs, in the one currency that has a source.
  *
  * **Two states here, though `ModuleLocality` has three.** Its third —
- * *nobody has classified this module* — is a real distinction and the
- * posture states it, but the tray cannot: an *at least 0 of 3* line
+ * *nobody has classified this module* — is a real distinction the
+ * per-module chip keeps, but the tray cannot: an *at least 0 of 3* line
  * understates the presumption the whole design runs on, which is that
  * an enrichment module enriches from somewhere else unless it is
  * known not to. So a box reads `0` only for a module known to answer

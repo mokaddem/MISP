@@ -5,8 +5,8 @@
  *
  * **Phase 7 of prd/analyst-profile/, and it runs nothing.** The
  * profile names modules per attribute type; this strip says which of
- * them the rail arrived with ticked, which it withheld, and which
- * could not be honoured at all. The press is still the reader's — a
+ * them the rail arrived with ticked, which the reader refused outright,
+ * and which could not be honoured at all. The press is still theirs — a
  * declaration is not a trigger, because nothing in MISP records that a
  * module ran and *"run the defaults on page open"* therefore means
  * *"run them on every page open"* (`08-enrichment.md` §1.1).
@@ -36,18 +36,15 @@ $applicable = (int)$declaration['applicable'];
 $declared = (int)$declaration['declared'];
 
 /*
- * The posture, in the reader's words. Two options, because the retired
- * third — `ask` — behaved exactly as `allow_external`: while every run
- * needs a press, the press is the asking. A stored `ask` arrives here
- * already read as `allow_external`.
+ * What the posture label used to occupy, doing the job the posture was
+ * reached for: telling the reader, before they press anything, how much
+ * of what arrived ticked would leave the building. A fact about this
+ * selection, not a setting — the number is `leavingCount()`'s, so it
+ * cannot drift from the chips on the rail.
  */
-$postures = array(
-    'local_only' => __('local only'),
-    'allow_external' => __('external allowed'),
-);
-$posture = isset($postures[$declaration['posture']])
-    ? $postures[$declaration['posture']]
-    : $declaration['posture'];
+$leaving = isset($declaration['leaving'])
+    ? (int)$declaration['leaving']
+    : 0;
 
 if ($applicable === 0) {
     $headline = sprintf(
@@ -99,7 +96,8 @@ $icons = array(
     'module.type_mismatch' => 'fa-shuffle',
     'module.unresolved' => 'fa-circle-question',
     'type.unused' => 'fa-filter-circle-xmark',
-    'posture.external' => 'fa-arrow-up-right-from-square',
+    'state.never' => 'fa-ban',
+    'state.auto_inert' => 'fa-hand-pointer',
 );
 ?>
 <div class="vp-e-profile">
@@ -116,10 +114,16 @@ $icons = array(
                 <?= h(__('Your Analyst Profile')) ?>
             <?php endif; ?>
         </span>
-        <span class="vp-e-profile-posture"><?= h(sprintf(
-            __('modules that leave the instance: %s'),
-            $posture
-        )) ?></span>
+        <?php if ($leaving > 0): ?>
+            <span class="vp-e-profile-leaving"><?= h(sprintf(
+                __n(
+                    '%d of these would leave the instance',
+                    '%d of these would leave the instance',
+                    $leaving
+                ),
+                $leaving
+            )) ?></span>
+        <?php endif; ?>
     </div>
 
     <div class="vp-e-profile-line"><?= h($headline) ?></div>
