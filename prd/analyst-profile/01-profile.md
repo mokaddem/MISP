@@ -297,6 +297,18 @@ What it reaches that nothing else did is rule 6: a value drawn as contested
 because *neither side reached the bar*, which the page had never said on any
 value an escalation did not happen to catch.
 
+**Quality closed the set, and it was the smallest of the three** (§19 there),
+because quality is the axis that always had its working: the ledger prints
+every signal and its points and §5.1 is that they sum to the hero's number.
+What it never said is where the boundary is — `low` against a `medium` floor
+of 30 — or, on two records in four, that the points are not what decided the
+band at all: the thin-record clamp lowers it and `quality_high_min_signals`
+holds it, both deliberately, both leaving a number and a band that contradict
+each other with nothing reconciling them. It is a foot on the ledger rather
+than a fourth band, because the table above it is the working. The clamp is
+detected by banding twice rather than by re-reading the profile's conditions,
+and `qualityBand()` keeps the signature its three other callers use.
+
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
 same login: `ValuesController` set its theme only when the reader had
@@ -342,7 +354,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Assessment tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **built 2026-09-13.** Read back first — eight findings in §7 — then six increments: the spine (§8), the five derivable keys (§9), the copy pass (§11), D11's rename (§12), the hero's sentence (§13), the contested layout (§14), the query counts (§15), the opinion aggregate (§16), the clock band (§17) and the lean band (§18). §2.2's thirteen unproduced keys close as **eleven produced, two deliberately empty** — `resolutions` and `changer_actions` are writes this feature does not do. **All three of D11's axes now show their working**: the ledger, the clock and the split. 87 checks over HTTP on the flagship and 85 on each of three others, up from 43; the harnesses at 890, the render harness at 98 and a browser harness at 28. Nine findings of its own, the sharpest being two panels drawing opposite readings of the relevance axis (§14.3), a `reason` no caller had branched on since phase 5 (§17.2), and six of the lean's seven exits reaching the page as nothing at all (§18) |
+| 9 | **Wiring the Assessment tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **built 2026-09-13.** Read back first — eight findings in §7 — then six increments: the spine (§8), the five derivable keys (§9), the copy pass (§11), D11's rename (§12), the hero's sentence (§13), the contested layout (§14), the query counts (§15), the opinion aggregate (§16), the clock band (§17), the lean band (§18) and the band's floor (§19). §2.2's thirteen unproduced keys close as **eleven produced, two deliberately empty** — `resolutions` and `changer_actions` are writes this feature does not do. **All three of D11's axes now show their working, and each names the profile setting that decided it**: the split against its supermajority, the ledger against its floor, the runway against its TTL. 89 checks over HTTP on the flagship and 85 to 87 on each of three others, up from 43; the harnesses at 907, the render harness at 98 and a browser harness at 28. Nine findings of its own, the sharpest being two panels drawing opposite readings of the relevance axis (§14.3), a `reason` no caller had branched on since phase 5 (§17.2), and six of the lean's seven exits reaching the page as nothing at all (§18) |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table

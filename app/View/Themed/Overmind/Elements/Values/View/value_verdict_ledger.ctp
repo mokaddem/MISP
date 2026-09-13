@@ -25,6 +25,8 @@
  * @var string $uid      Namespace for the collapse targets
  * @var string $noWrites Why the actions inside a conflict are disabled
  */
+App::uses('ValueBandReasonTool', 'Tools');
+
 $ledger = $verdict['ledger'] ?? array();
 $conflicts = $verdict['conflicts'] ?? array();
 
@@ -231,4 +233,28 @@ foreach ($ledger as $group) {
             </tbody>
         </table>
     </div>
+
+    <?php
+    /*
+     * The band, under the arithmetic that produced it.
+     *
+     * A foot rather than a band of its own, which is the difference
+     * between this axis and the other two: relevance and lean needed
+     * somewhere to show their working and got `vp-vc-clock` and
+     * `vp-vc-lean`, while quality's working is the table directly
+     * above. What it never said is where the boundary is — `low`
+     * against a `medium` floor of 30 — or, twice over, that the points
+     * are not what decided the band at all. That sentence belongs
+     * against the rows it is about, not in a fifth band.
+     *
+     * `10-wiring.md` §19.
+     */
+    ?>
+    <?php $bandReason = ValueBandReasonTool::reasonFor($verdict); ?>
+    <?php if ($bandReason !== null): ?>
+        <div class="vp-ledger-foot">
+            <i class="fas fa-ruler-horizontal"></i>
+            <span><?= h($bandReason) ?></span>
+        </div>
+    <?php endif; ?>
 <?php endif; ?>

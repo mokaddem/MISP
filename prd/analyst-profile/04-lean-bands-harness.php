@@ -86,6 +86,7 @@ require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
 require_once APP . 'Lib/Tools/ValueSummaryTool.php';
 require_once APP . 'Lib/Tools/ValueLeanReasonTool.php';
+require_once APP . 'Lib/Tools/ValueBandReasonTool.php';
 require_once APP . 'Lib/Tools/ValueContestedTool.php';
 
 $GLOBALS['checks'] = 0;
@@ -1811,6 +1812,172 @@ is_same(
 is_true(
     $reasonThreat !== $reasonSplit,
     'and a different exit writes a different one'
+);
+
+/*
+ * ------------------------------------------------------------------
+ * What the band was decided against (`10-wiring.md` §19)
+ * ------------------------------------------------------------------
+ * The ledger has always printed the arithmetic and the hero the band;
+ * between them sat the floor, which nothing said. Two of the four
+ * reasons are also not reachable on the verification instance at all:
+ * the clamp needs a single-source record scoring past 30 and the best
+ * one there scores 9, and `min_signals` needs points past 60 on a
+ * value that has none.
+ *
+ * Every case runs through `ValueVerdictTool`'s own two functions, so a
+ * threshold that changed meaning would break the sentence rather than
+ * leaving this file agreeing with itself.
+ */
+function bandVerdict($quality, $fired, $profile, array $context)
+{
+    return array(
+        'band' => ValueVerdictTool::qualityBand(
+            $quality, $fired, $profile, $context),
+        'quality' => $quality,
+        'signals' => array('fired' => $fired),
+        'band_reason' => ValueVerdictTool::bandReason(
+            $quality, $fired, $profile, $context),
+    );
+}
+
+out('');
+out('the band, and what decided it');
+
+$bandCtx = leanContext(3, 0);
+$thin = leanContext(1, 0);
+$thin['sightings'] = array('total' => 0);
+
+is_same(
+    'no_signal',
+    ValueVerdictTool::bandReason(0, 0, $rules, $bandCtx)['reason'],
+    'no signal fired is its own reason, not a band of zero'
+);
+is_same(
+    'points',
+    ValueVerdictTool::bandReason(19, 5, $rules, $bandCtx)['reason'],
+    'an ordinary record is banded by its points'
+);
+is_same(
+    'clamped',
+    ValueVerdictTool::bandReason(45, 5, $rules, $thin)['reason'],
+    'a single-source record past the floor is clamped, not banded'
+);
+is_same(
+    'medium',
+    ValueVerdictTool::bandReason(45, 5, $rules, $thin)
+        ['floors']['would_be'],
+    'and the band its points alone would have reached is carried'
+);
+is_same(
+    'min_signals',
+    ValueVerdictTool::bandReason(70, 2, $rules, $bandCtx)['reason'],
+    'points past the high floor on too few signals is held, not high'
+);
+is_same(
+    30,
+    ValueVerdictTool::bandReason(19, 5, $rules, $bandCtx)
+        ['floors']['medium'],
+    'the floors travel with the reason, read from the profile'
+);
+
+out('');
+out('and the sentence written for it');
+
+is_same(
+    null,
+    ValueBandReasonTool::reasonFor(
+        bandVerdict(0, 0, $rules, $bandCtx)
+    ),
+    'no signal writes no sentence — the ledger\'s empty state says it'
+);
+
+$low = ValueBandReasonTool::reasonFor(
+    bandVerdict(19, 5, $rules, $bandCtx)
+);
+is_true(
+    strpos($low, 'Under this profile\'s medium floor of 30.') !== false,
+    'a low record is told where medium starts'
+);
+
+$mid = ValueBandReasonTool::reasonFor(
+    bandVerdict(45, 5, $rules, $bandCtx)
+);
+is_true(
+    strpos($mid, 'Past this profile\'s medium floor of 30') !== false
+        && strpos($mid, 'high starts at 60') !== false,
+    'a medium record is told both boundaries it sits between'
+);
+
+$high = ValueBandReasonTool::reasonFor(
+    bandVerdict(80, 6, $rules, $bandCtx)
+);
+is_true(
+    strpos($high, 'high floor of 60') !== false
+        && strpos($high, 'the top band') !== false,
+    'and the top band says it is the top, rather than naming a'
+        . ' boundary above it'
+);
+
+/*
+ * The two the instance cannot show. Both are records where the number
+ * printed on the page and the band printed beside it are not the same
+ * statement, which is the whole reason this sentence exists.
+ */
+$clamped = ValueBandReasonTool::reasonFor(
+    bandVerdict(45, 5, $rules, $thin)
+);
+is_true(
+    strpos($clamped, 'would band this medium') !== false,
+    'the clamped record is told what its points alone would reach'
+);
+is_true(
+    strpos($clamped, 'holds it at low') !== false
+        && strpos($clamped, 'one source with no sightings') !== false,
+    'and what is holding it, in the profile\'s own condition'
+);
+is_true(
+    strpos($clamped, 'however much that source reports') !== false,
+    'including that more of the same evidence will not move it'
+);
+
+$held = ValueBandReasonTool::reasonFor(
+    bandVerdict(70, 2, $rules, $bandCtx)
+);
+is_true(
+    strpos($held, 'past the high floor of 60') !== false,
+    'the held record is told its points are not the problem'
+);
+is_true(
+    strpos($held, 'needs 4 signals and 2 fired') !== false,
+    'and what the count actually is'
+);
+
+/*
+ * Read from the profile, never from this file. An analyst who moves
+ * the floors sees the sentence move with them, which is the property
+ * that makes it worth printing a number at all.
+ */
+$moved = profileOf(array(
+    'thresholds' => array_merge(shippedThresholds(), array(
+        'quality_bands' => array('high' => 90, 'medium' => 45),
+    )),
+    'escalations' => shippedEscalations(),
+));
+is_true(
+    strpos(
+        ValueBandReasonTool::reasonFor(
+            bandVerdict(19, 5, $moved, $bandCtx)
+        ),
+        'medium floor of 45'
+    ) !== false,
+    'an edited floor is the floor the sentence names'
+);
+
+is_same(
+    'low',
+    ValueBandReasonTool::bandWord('low'),
+    'a band word is written once, where three surfaces read it'
 );
 
 out('');

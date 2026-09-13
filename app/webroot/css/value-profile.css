@@ -2066,6 +2066,29 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * The ledger's foot: what its total banded as, and against what.
+ *
+ * Not a band — the table above it is quality's working, and this is a
+ * caption on that table rather than a fourth section of the argument.
+ * So it takes the ledger's own left margin and the muted weight of a
+ * note, where `vp-vc-lean` and `vp-vc-clock` take the card's full
+ * width and a heading.
+ */
+.vp-ledger-foot {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 16px 12px;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-ledger-foot > i {
+    flex: 0 0 auto;
+    opacity: 0.7;
+}
+
+/*
  * The lean: how the reading was decided, above the evidence for it.
  *
  * The clock band's chrome without its colour. Relevance borrows the

@@ -763,6 +763,11 @@ outside this corpus:
     of `leanFor()`'s seven said nothing, and `stances` reached no
     template at all.
 
+11. **The band's floor** — **done, §19.** The smallest of the three
+    axis passes, because quality's working was already the ledger.
+    What it never said is where the boundary is, or — twice over —
+    that the points are not what decided the band.
+
 Q9 is unchanged and still recommends C, now at a known cost (§4).
 
 
@@ -1495,3 +1500,111 @@ measures both bands rather than one: **28 checks** across light and
 dark, including that each bar is a different colour from its own
 ground — a lean split drawn in one colour is a picture of nothing — and
 that every threshold mark sits on the track it marks.
+\n
+
+## 19. The band's floor, built 2026-09-13
+
+**The third axis pass, and the smallest, because quality is the axis
+that always had its working.** The ledger has printed every signal and
+its points since §8, and §5.1's invariant is that those rows sum to the
+hero's number exactly. Nothing about the arithmetic was missing.
+
+The **band** was. A reader met `Quality low · 19 / 100` over a ledger
+summing to 19, and nothing said what `low` means — where `medium`
+starts, or how far off this record is. Lean has named its supermajority
+since §18 and relevance its TTL since §17, which left quality as the
+only axis not naming the profile setting that decided its state.
+
+**And twice over, the band is not the points at all.** The thin-record
+clamp lowers it — one source, no sightings, no passage past `low`
+however well the record scores — and `quality_high_min_signals` holds
+it, so points past the `high` floor on too few independent readings
+stay `medium`. Both are deliberate, both are stated in the profile, and
+a reader meeting either sees a number and a band that contradict each
+other with nothing on the page reconciling them. The falsifiability
+card says what would **change** the band, which is a different sentence
+from what **happened**.
+
+Live, on the instance's own values:
+
+> `2.2.2.2` — *Quality medium · 55 / 100*
+> **Past this profile's medium floor of 30; high starts at 60.**
+>
+> `3pqw.farjoran.in.net` — *Quality low · 19 / 100*
+> **Under this profile's medium floor of 30.**
+
+It costs no query: `viewVerdictCard` is **27** on `8.8.8.8` and
+`viewVerdict`/`viewVerdictAside` **36**, both unchanged from §17 and
+§18. `bandReason()` is arithmetic over numbers the engine already had.
+
+### 19.1 A foot, not a fourth band
+
+Relevance and lean needed somewhere to show their working and got one
+each — `vp-vc-clock` and `vp-vc-lean`, headed bands at the rank of the
+argument. Quality's working is the table directly above this sentence,
+and wrapping a one-line caption in a fifth headed band would make the
+card's structure say that the floor is a peer of the ledger rather than
+a note on it. So it is a foot: the ledger's own margin, the muted
+weight of a caption, and no heading.
+
+The difference is visible in the built card — two headings and a
+caption, in argument order: *how this reading was decided*, the rows,
+*what they band as*, *how long this reading holds*.
+
+### 19.2 The clamp is detected, not re-read
+
+`bandReason()` computes the band twice, once with the context and once
+without, and a difference is the clamp. The alternative — reading
+`thin_record_clamp`'s three conditions here and deciding whether they
+hold — would be a second implementation of a rule that lives in the
+profile, which is §18.1's argument and
+`ValueChangersTool::clampPhrase()`'s existing trick.
+
+`qualityBand()` keeps its signature. It has three callers that want
+only the answer, and a phase that changed the shape of a widely-read
+function to add an explanation would be paying for this sentence with
+everybody else's call site.
+
+### 19.3 The contested layout has no floor to name
+
+A contested value prints two case totals and no quality — D11's reading
+of a record that contradicts itself, and §14's layout. There is no
+single number for a floor to be about, so the foot is absent there.
+That is the design rather than an oversight, and the probe asserts the
+absence rather than assuming it: a band floor drawn beside two case
+totals is a failure.
+
+### 19.4 Two of the four reasons cannot be seen on this instance
+
+`clamped` needs a single-source record scoring past 30, and the
+instance's best single-source record scores **9** — measured, across
+every value with one organisation and six or more occurrences.
+`min_signals` needs points past 60 on a value that has none. Both are
+asserted in `04-lean-bands-harness.php` against the engine's own two
+functions, which is §13.1's pattern for the third time: the branches
+that ship wrong are the ones no value on the development instance
+happens to occupy.
+
+Neither is exotic in production. A feed-only indicator reported
+hundreds of times by one source is exactly the first case, and it is
+the shape `04-dispositions.md` §6 built the clamp for.
+
+### 19.5 Verification
+
+`04-lean-bands-harness.php` goes **157 → 174**, covering all four
+reasons and all five sentences, and asserting that an edited floor is
+the floor the sentence names. The eight harnesses are at **907**, the
+render harness unchanged at **98**.
+
+Over HTTP: **89 checks** on `8.8.8.8`, **87** on `2.2.2.2` (medium) and
+on `3pqw.farjoran.in.net` (low), **85** on `_bsdbd.pyw`. The check that
+matters is not that a sentence appeared — it is that the boundary the
+foot names and the band the hero prints are the same statement, read
+out of one response: `medium` at 55 against a floor of 30, `low` at 19
+against the same floor. A record printed `low` under a sentence saying
+`medium` starts at 30, with 45 points between them, is what this
+assertion exists to catch.
+
+**No defect was found building it.** The engine was right and silent,
+which is the third time this phase has shipped an increment whose whole
+content is a fact the page was already holding.

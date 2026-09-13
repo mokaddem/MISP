@@ -458,6 +458,20 @@ class ValueVerdictTool
             'quality' => $quality,
             'band' => $parts['band'],
             /*
+             * Assembled here rather than beside either `band`, because
+             * there are two of those — the scored path and the
+             * no-signal one — and a key computed in one of them is a
+             * key a template reads as missing on the other. §8's
+             * lesson about defaulting in one place, applied to a key
+             * that is produced rather than defaulted.
+             */
+            'band_reason' => self::bandReason(
+                $parts['quality'],
+                $parts['counts']['fired'],
+                $parts['profile'],
+                $parts['context']
+            ),
+            /*
              * The second axis, assembled beside the quality and not out
              * of it. It reads the same context and the same profile,
              * emits no ledger row, and is computed here rather than by
@@ -907,6 +921,80 @@ class ValueVerdictTool
             $band = 'low';
         }
         return self::clamped($band, $thresholds, $context);
+    }
+
+    /**
+     * Which of the band's four ways out produced this band, and the
+     * numbers it was decided against.
+     *
+     * `qualityBand()` answers *what* and has three callers that only
+     * want that; this answers *why* without changing its signature.
+     * The ledger has printed the arithmetic since §8 and the hero the
+     * band since the skeleton pass, and between them sat the one thing
+     * neither said: the floor. Lean names its supermajority and
+     * relevance names its TTL since `10-wiring.md` §17 and §18 — the
+     * profile setting that decided the state belongs on the page, and
+     * quality was the axis still not naming one.
+     *
+     * **`clamped` is detected, not predicted.** The band is computed
+     * twice, once with the context and once without, and a difference
+     * is the clamp — the same trick `ValueChangersTool::clampPhrase()`
+     * uses, and for the same reason: the clamp's conditions live in
+     * the profile and re-reading them here would be a second
+     * implementation of them.
+     *
+     * @param int $quality
+     * @param int $fired
+     * @param array|null $profile
+     * @param array $context
+     * @return array `reason` — `no_signal`, `clamped`, `min_signals`
+     *               or `points` — and `floors`, the numbers in force
+     */
+    public static function bandReason($quality, $fired, $profile,
+        array $context = array()
+    ) {
+        $thresholds = self::section($profile, 'thresholds');
+        $bands = isset($thresholds['quality_bands'])
+            ? $thresholds['quality_bands']
+            : array();
+        $clamp = isset($thresholds['thin_record_clamp'])
+            && is_array($thresholds['thin_record_clamp'])
+            ? $thresholds['thin_record_clamp']
+            : array();
+        $floors = array(
+            'medium' => isset($bands['medium']) ? (int)$bands['medium'] : 30,
+            'high' => isset($bands['high']) ? (int)$bands['high'] : 60,
+            'min_signals' => isset($thresholds['quality_high_min_signals'])
+                ? (int)$thresholds['quality_high_min_signals']
+                : 4,
+            'clamp_band' => isset($clamp['max_band'])
+                ? $clamp['max_band']
+                : null,
+            'clamp_orgs' => isset($clamp['max_orgs'])
+                ? (int)$clamp['max_orgs']
+                : null,
+            'clamp_sightings' => isset($clamp['max_sightings'])
+                ? (int)$clamp['max_sightings']
+                : null,
+        );
+
+        if ((int)$fired === 0) {
+            return array('reason' => 'no_signal', 'floors' => $floors);
+        }
+        $withContext = self::qualityBand($quality, $fired, $profile,
+            $context);
+        $unclamped = self::qualityBand($quality, $fired, $profile);
+        if ($withContext !== $unclamped) {
+            $floors['would_be'] = $unclamped;
+            return array('reason' => 'clamped', 'floors' => $floors);
+        }
+        if ($quality >= $floors['high'] && $fired < $floors['min_signals']) {
+            return array(
+                'reason' => 'min_signals',
+                'floors' => $floors,
+            );
+        }
+        return array('reason' => 'points', 'floors' => $floors);
     }
 
     /**

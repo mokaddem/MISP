@@ -174,16 +174,17 @@ after the tab had stopped — a full ledger beside a zero-byte column,
 and a 200 with an empty body passes every assertion that does not
 measure a size.
 
-**Eight increments followed, all on 2026-09-13** — the five derivable
+**Nine increments followed, all on 2026-09-13** — the five derivable
 keys (§9), the copy pass (§11), D11's rename (§12), the hero (§13), the
 contested layout (§14), the query counts (§15), the opinion
-aggregate (§16), the clock band (§17) and the lean band (§18). §2.2's
-thirteen unproduced keys close as **eleven produced, two deliberately
-empty**: `resolutions` and `changer_actions` are writes this feature
-does not do, and neither is drawn as an inert promise. **87 checks over
-HTTP** on the flagship value and **85** on each of three others, up
-from 43; the eight harnesses at **890**, the render harness at **98**,
-and a browser harness at **28** across both themes.
+aggregate (§16), the clock band (§17), the lean band (§18) and the
+band's floor (§19). §2.2's thirteen unproduced keys close as **eleven
+produced, two deliberately empty**: `resolutions` and `changer_actions`
+are writes this feature does not do, and neither is drawn as an inert
+promise. **89 checks over HTTP** on the flagship value and **85 to 87**
+on each of three others, up from 43; the eight harnesses at **907**,
+the render harness at **98**, and a browser harness at **28** across
+both themes.
 
 **The last of them gave relevance its working back** (§17). The tab had
 three axes and could show its work for two: lean had its rule and its
@@ -211,6 +212,20 @@ reading it reaches that nothing else did is rule 6 — *neither side
 reaches this profile's supermajority of 66% — the split is 1 to 1 — so
 the record contradicts itself* — which is a contested value explaining
 itself without an escalation having to catch it.
+
+**The last of the three was the smallest** (§19), because quality is
+the axis that always had its working — the ledger, and §5.1's rule that
+its rows sum to the hero's number exactly. What it never said is where
+the boundary is: `Quality low · 19 / 100` over a table summing to 19,
+with nothing naming the floor that made it `low`. The ledger gained a
+foot rather than a fourth band, since the table above it is the
+working. And on two records in four the band is not the points at all —
+the thin-record clamp lowers it and `quality_high_min_signals` holds
+it, both deliberate, both leaving a number and a band that contradict
+each other until something says so. Neither is reachable on the
+verification instance, whose best single-source record scores **9**
+against a floor of 30, so both are asserted in the harness — §13.1's
+pattern for the third time in one phase.
 
 The headline reading, on the flagship value:
 

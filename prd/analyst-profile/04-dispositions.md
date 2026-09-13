@@ -499,3 +499,31 @@ The reading this reaches that none of §11's earlier work did is **rule
 Until now that value drew two cases side by side and said nothing about
 why, because the only prose in the derivation belonged to an exit it
 had not taken.
+
+### 11.8 The clamp decided bands and said so nowhere. Fixed 2026-09-13
+
+§6 states the thin-record clamp as its own threshold precisely so that
+a reader can see the condition and an analyst can edit it. On the page
+it was invisible: the ledger printed points, the hero printed a band,
+and the one case where those two are deliberately not the same
+statement had nothing reconciling them. The same held for
+`quality_high_min_signals`, which turns points past the `high` floor
+into a `medium` band on too few independent readings.
+
+Both are named now, in the ledger's own foot — *the points alone would
+band this medium; this profile holds it at low* — alongside the
+ordinary case, which simply names the floor. `10-wiring.md` §19 is the
+build.
+
+The falsifiability card already carried the clamp, and carrying it was
+not the same as explaining it: *a second source would move this* is
+what a reader should do next, not what happened. Both sentences exist
+now and they are asserted against each other over HTTP, because a band
+the foot calls clamped and the card does not is the §14.3 shape again.
+
+**Neither case is reachable on the verification instance**: the clamp
+needs a single-source record scoring past 30 and the best one there
+scores 9, measured across every value with one organisation and six or
+more occurrences. Both are asserted in `04-lean-bands-harness.php`
+instead, which is where §11.1's boundary cases already live for the
+same reason.

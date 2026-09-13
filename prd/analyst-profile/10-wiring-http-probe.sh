@@ -963,6 +963,112 @@ else
     ok "no lean band where there is no lean"
 fi
 
+# ------------------------------------------- 10. the ledger's foot
+# Quality is the axis that always had its working, so the check here is
+# not that an argument appeared — it is that the boundary the foot
+# names and the band the hero prints are the same statement. A record
+# printed `low` under a sentence saying `medium` starts at 30, with 45
+# points between them, would be three surfaces of one response
+# disagreeing.
+echo "--- the band's floor, against the number it bands"
+python3 - "$TAB" <<'PY'
+import re
+import sys
+
+tab = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+fails = 0
+
+
+def strip(html):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html)).strip()
+
+
+i = tab.find('vp-ledger-foot')
+if 'vp-vc-cases' in tab:
+    # The contested layout prints two case totals and no quality at
+    # all — D11's reading of a record that contradicts itself — so
+    # there is no single number for a floor to be about. The absence
+    # is the design, and it is asserted rather than assumed.
+    if i < 0:
+        print('ok   the contested layout has no band to caption')
+    else:
+        print('FAIL the contested layout drew a band floor beside two'
+              ' case totals')
+        fails += 1
+    sys.exit(1 if fails else 0)
+
+if i < 0:
+    print('FAIL the ledger drew no foot on a scored value')
+    sys.exit(1)
+foot = strip(tab[i:i + 600])
+print('foot: %s' % foot[:150])
+
+hero = re.search(r'Quality (\w+).*?([+-]?\d+)\s*/\s*100', tab, re.S)
+if hero is None:
+    print('FAIL could not read the band and quality off the hero')
+    fails += 1
+else:
+    band, quality = hero.group(1), int(hero.group(2))
+    medium = re.search(r'medium floor of (\d+)', foot)
+    high = re.search(r'high (?:floor of|starts at) (\d+)', foot)
+    print('hero: %s / %s, floors: medium=%s high=%s'
+          % (band, quality,
+             medium and medium.group(1), high and high.group(1)))
+
+    if 'holds it at' in foot:
+        # A clamped record is the one case where the points and the
+        # band are deliberately not the same statement.
+        print('ok   the band is clamped, and the foot says so instead'
+              ' of naming a floor')
+    elif medium is None:
+        print('FAIL the foot names no floor')
+        fails += 1
+    else:
+        floor = int(medium.group(1))
+        if band == 'low' and quality < floor:
+            print('ok   low, and the quality is under the floor the'
+                  ' foot names (%d < %d)' % (quality, floor))
+        elif band == 'medium' and quality >= floor:
+            print('ok   medium, and the quality is at or past the floor'
+                  ' the foot names (%d >= %d)' % (quality, floor))
+        elif band == 'high' and high is not None \
+                and quality >= int(high.group(1)):
+            print('ok   high, and the quality is past the top floor')
+        else:
+            print('FAIL band %s at %d against a floor of %d'
+                  % (band, quality, floor))
+            fails += 1
+
+        # A medium record is told both boundaries; a low one only
+        # needs the one it has not reached.
+        if band == 'medium' and high is None:
+            print('FAIL a medium record was not told where high starts')
+            fails += 1
+        elif band == 'medium':
+            print('ok   and where the band above it starts')
+
+sys.exit(1 if fails else 0)
+PY
+if [ $? -eq 0 ]; then ok "the band's floor, against the number it"\
+" bands"; else no "the band's floor, against the number it bands"; fi
+
+# The clamp is stated in two voices on two panels — what happened, in
+# the ledger's foot, and what would change it, on the falsifiability
+# card. A record clamped in one and not the other is the §14.3 shape
+# again.
+echo "--- and the clamp, where one is holding a band down"
+if grep -qF 'holds it at' "$TAB"; then
+    if grep -qF 'No amount of further evidence' "$ASIDE"; then
+        ok "a clamped band and its falsifier agree, two requests apart"
+    else
+        no "the foot says the clamp holds this band and the"\
+" falsifiability card does not mention it"
+    fi
+else
+    ok "no band on $SUBJECT is clamped (the instance's best"\
+" single-source record scores 9, so this is the expected state)"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]
