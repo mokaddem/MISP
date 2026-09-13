@@ -1084,14 +1084,14 @@ tr.vp-occ-deleted td {
  * weighs the same under either reading.
  */
 .vp-signal-up {
-    --vp-ledger-adds: var(--bs-body-color);
-    --vp-ledger-cuts: var(--bs-secondary-color);
+    --vp-ledger-adds: var(--vp-weighs-carries);
+    --vp-ledger-cuts: var(--vp-weighs-lacks);
     border-left-color: var(--vp-ledger-adds);
 }
 
 .vp-signal-down {
-    --vp-ledger-adds: var(--bs-body-color);
-    --vp-ledger-cuts: var(--bs-secondary-color);
+    --vp-ledger-adds: var(--vp-weighs-carries);
+    --vp-ledger-cuts: var(--vp-weighs-lacks);
     border-left-color: var(--vp-ledger-cuts);
 }
 
@@ -2918,23 +2918,14 @@ tr.vp-occ-deleted td {
 }
 
 /*
- * The ledger's own pair, and it is deliberately **not** the lean's.
- *
- * `--vp-dir-with` / `--vp-dir-against` swap hue with the lean, which
- * was right while every row argued about the lean and is wrong now
- * that this table holds only the rows that weigh the record
- * (`review-2026-09-13.md` §D1). *Four organisations reported it* is
- * the same fact on a threat value and a benign one; painting it red on
- * one and green on the other would put the anchoring back in the ink
- * after taking it out of the arithmetic.
- *
- * So: present and absent, not good and bad. A row the record carries
- * takes the body ink; a row it does not takes the muted one. The glyph
- * and the sign carry the direction, and the bar carries the shape.
+ * The ledger's own pair, and it is deliberately **not** the lean's —
+ * the argument is on `--vp-weighs-carries` in `value-palette.css`,
+ * which declares it. Present and absent, in the quality's own colour,
+ * rather than good and bad in the lean's.
  */
 .vp-ledger-table {
-    --vp-ledger-adds: var(--bs-body-color);
-    --vp-ledger-cuts: var(--bs-secondary-color);
+    --vp-ledger-adds: var(--vp-weighs-carries);
+    --vp-ledger-cuts: var(--vp-weighs-lacks);
 }
 
 .vp-ledger-line-up .vp-ledger-dir {

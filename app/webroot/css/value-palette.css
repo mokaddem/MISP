@@ -55,12 +55,53 @@
      */
     --vp-dir-with-ink: var(--vp-mal-ink);
     --vp-dir-against-ink: var(--vp-ben-ink);
+
+    /*
+     * The quality axis's own pair, and the reason it is a fourth role
+     * rather than a reuse of the third (`review-2026-09-13.md` §D1).
+     *
+     * The `dir` pair above swaps with the lean, which is right for a
+     * row that argues about the lean and wrong for one that weighs the
+     * record: *four independent organisations reported it* is the same
+     * fact whether the record concluded threat or benign, and painting
+     * it red on one and green on the other puts the anchoring back in
+     * the ink after the arithmetic stopped doing it. Red and green are
+     * also spoken for on this page — they *are* the two readings — so
+     * a fixed red/green pair would say benign about a corroboration
+     * row just as loudly.
+     *
+     * So the ledger speaks in the quality's own colour. `--primary` is
+     * already the Assessment panel's hue and the quality band's
+     * segments, which ties the rows to the number they sum to; the
+     * absence tone is the palette's quiet grey, the one declared above
+     * as fill-safe in both themes.
+     *
+     *   carries → the record has this
+     *   lacks   → it does not, and that is a gap rather than a verdict
+     */
+    --vp-weighs-carries: var(--primary);
+    --vp-weighs-lacks: var(--vp-unknown);
 }
 
 [data-bs-theme="dark"] {
     --vp-conflict-ink: #f0b657;
     --vp-mal-ink: #f1919b;
     --vp-ben-ink: #8fd0a7;
+    /*
+     * `--primary` is a mid teal that sits on the light ground and goes
+     * muddy on the dark one, and `--bs-gray-600` is nearly the dark
+     * theme's own background. So: a lighter tint of `--primary`
+     * itself, and a grey that reads as text rather than as ground.
+     *
+     * **A tint of `--primary`, and not `--vp-rel-current`'s `#67e8f9`,
+     * which is what this first was.** The relevance clock is a band on
+     * the same card as the ledger, so the two would have been the same
+     * hue for two different meanings a few rows apart — the thing this
+     * file exists to stop. `#67e8f9` is the brighter, more saturated
+     * cyan; this stays in `--primary`'s own family.
+     */
+    --vp-weighs-carries: #74bdd4;
+    --vp-weighs-lacks: var(--bs-gray-500);
 }
 
 /* ==================================================================
