@@ -85,6 +85,7 @@ require_once APP . 'Lib/Tools/ValueChangersTool.php';
 require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
 require_once APP . 'Lib/Tools/ValueSummaryTool.php';
+require_once APP . 'Lib/Tools/ValueContestedTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;
@@ -908,9 +909,10 @@ is_same(
     'and the two differ by exactly the quality'
 );
 is_same(
-    0,
-    $disputing['tug']['unresolved'],
-    'the fixture\'s third wedge is retired, not recomputed'
+    array('support', 'dispute'),
+    array_keys($disputing['tug']),
+    'two keys and no more — the fixture\'s third wedge is gone rather'
+        . ' than zeroed, and so are the two aliases D11 renamed'
 );
 
 /*
@@ -1303,6 +1305,152 @@ is_true(
  * are never rendered until a real analyst meets one is exactly the
  * shape of copy that ships wrong.
  */
+/*
+ * ------------------------------------------------------------------
+ * The two cases (D11 §4, `10-wiring.md` §14)
+ * ------------------------------------------------------------------
+ * `value_verdict_conflicted` reads `$cases[0]` and `$cases[1]`
+ * positionally and its tug has two feet, so a producer returning one
+ * case or three does not degrade — it throws. A pair or nothing is the
+ * contract, and it is asserted here rather than trusted.
+ */
+out('');
+out('the two cases');
+
+/*
+ * §9.3's own value, reused: rule 7 fired on it, so its ledger is
+ * re-anchored threat-signed and carries both signs — which is exactly
+ * the record the two-column layout exists for.
+ */
+$contested = $disputing;
+$cases = ValueContestedTool::casesFor($contested);
+is_same(2, count($cases), 'a contested record gets exactly two cases');
+is_same(
+    array('threat', 'benign'),
+    array_column($cases, 'side'),
+    'threat first, because the layout draws the left column first and'
+        . ' paints it in the threat colour'
+);
+is_same(
+    $contested['tug']['support'],
+    (int)$cases[0]['weight'],
+    'the threat case weighs what the tug says it does'
+);
+is_same(
+    $contested['tug']['dispute'],
+    (int)$cases[1]['weight'],
+    'and so does the benign one — one fold of one ledger, which is why'
+        . ' a reader can add either column up and arrive at the bar'
+);
+is_same(
+    $contested['quality'],
+    (int)$cases[0]['weight'] - (int)$cases[1]['weight'],
+    'and the two differ by the quality, which is the exact-sum'
+        . ' invariant in its contested shape'
+);
+$ordered = array_column($cases[0]['rows'], 'points');
+$sorted = $ordered;
+rsort($sorted);
+is_same($sorted, $ordered, 'rows come heaviest first');
+is_true(
+    !in_array(0, array_column($cases[0]['rows'], 'points'), true)
+        && !in_array(0, array_column($cases[1]['rows'], 'points'), true),
+    'and a row worth nothing is in neither column, because a zero'
+        . ' argues for no side'
+);
+
+/*
+ * The two ways there is no pair to draw. Both fall back to the agreeing
+ * layout, which carries a ledger and says the same thing in the shape
+ * that fits it.
+ */
+$agreeing = $tool->assess($context, $shipped, array('lean' => 'threat'));
+is_same('threat', $agreeing['lean'], 'the agreeing control really does'
+    . ' lean threat, so the next check is about the cases and not about'
+    . ' the lean');
+is_same(
+    array(),
+    ValueContestedTool::casesFor($agreeing),
+    'a record whose ledger agrees on balance gets no cases — a couple'
+        . ' of negative rows is not an opposed case'
+);
+$oneSided = $agreeing;
+$oneSided['lean'] = 'contested';
+foreach ($oneSided['ledger'] as $g => $group) {
+    foreach ($group['signals'] as $r => $row) {
+        $oneSided['ledger'][$g]['signals'][$r]['contribution'] =
+            abs((int)$row['contribution']);
+    }
+}
+is_same(
+    array(),
+    ValueContestedTool::casesFor($oneSided),
+    'and neither does a contested lean whose every row falls one way,'
+        . ' which rule 7 can produce'
+);
+
+/*
+ * What neither case could take. Two facts survive scoring without being
+ * scored, and both are resolutions by rule rather than by evidence —
+ * anything the ledger netted off is already a row and naming it here
+ * again would be double-counting in prose.
+ */
+out('');
+out('and what neither case could take');
+
+is_same(
+    array(),
+    ValueContestedTool::unresolvedFor($context),
+    'a record nothing is split about has nothing unresolved'
+);
+
+$split = $context;
+$split['orgs'][0]['to_ids_no'] = 2;
+$items = ValueContestedTool::unresolvedFor($split);
+is_same(1, count($items), 'an organisation holding it both ways is one'
+    . ' item');
+is_true(
+    strpos($items[0]['title'], 'One organisation') === 0,
+    'named in the singular when there is one of them'
+);
+is_true(
+    strpos($items[0]['note'], 'Counted with the asserters') === 0,
+    'and the note says where it went, because it did go somewhere —'
+        . ' the heading this card used to carry said *counted for'
+        . ' neither side*, which was the one thing it is not'
+);
+
+$split['orgs'][1]['to_ids_no'] = 1;
+$items = ValueContestedTool::unresolvedFor($split);
+is_true(
+    strpos($items[0]['title'], '2 organisations') === 0,
+    'and in the plural when there are two'
+);
+
+$twoLists = $context;
+$twoLists['warninglist']['hits'] = array(
+    array('name' => 'A resolver list', 'category' => 'false_positive'),
+    array('name' => 'A CDN list', 'category' => 'known'),
+);
+$items = ValueContestedTool::unresolvedFor($twoLists);
+is_same(1, count($items), 'lists disagreeing about the kind of listing'
+    . ' is the other one');
+is_true(
+    strpos($items[0]['note'], 'A false-positive listing outranks') === 0,
+    'and it says which reading won and that the other is carried by no'
+        . ' signal'
+);
+$oneList = $context;
+$oneList['warninglist']['hits'] = array(
+    array('name' => 'A resolver list', 'category' => 'false_positive'),
+    array('name' => 'Another resolver list', 'category' => 'false_positive'),
+);
+is_same(
+    array(),
+    ValueContestedTool::unresolvedFor($oneList),
+    'two lists that agree are not a disagreement'
+);
+
 out('');
 out('the hero sentence, every branch');
 

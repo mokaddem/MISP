@@ -392,10 +392,16 @@ class ValueVerdictTool
      *
      * Both come out of the same rows the other leans render — there is
      * no third bucket and no separate computation, which is what lets a
-     * reader add the ledger up by hand and arrive at the bar. The
-     * fixture's third *unresolved* wedge was never derivable from
-     * anything and is retired; it stays in the return as a zero until
-     * the layout stops reading it.
+     * reader add the ledger up by hand and arrive at the bar.
+     *
+     * **Two keys, not five.** The fixture's third *unresolved* wedge
+     * was never derivable from anything (`review-2026-09-02.md` B3) and
+     * it stayed here as a hard zero until the layout stopped reading
+     * it, which it did in phase 9; the `malicious` / `benign` aliases
+     * went with D11's rename in the same pass. What made the zero worth
+     * chasing rather than leaving is `10-wiring.md` §7.8: the wedge and
+     * the foot printed directly under it counted *different things*
+     * under one word, and the fixture concealed it by supplying both.
      *
      * @param array $rows
      * @param int $polarity
@@ -416,9 +422,6 @@ class ValueVerdictTool
         return array(
             'support' => $support,
             'dispute' => $dispute,
-            'malicious' => $support,
-            'benign' => $dispute,
-            'unresolved' => 0,
         );
     }
 

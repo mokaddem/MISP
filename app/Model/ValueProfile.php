@@ -10,6 +10,7 @@ App::uses('ValueTrustTool', 'Tools');
 App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
 App::uses('ValueSummaryTool', 'Tools');
+App::uses('ValueContestedTool', 'Tools');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
@@ -12862,6 +12863,22 @@ class ValueProfile extends AppModel
             $options,
             array('profile' => $profile, 'context' => $context)
         ));
+        /*
+         * The analyst union, and only where a panel draws it. It is the
+         * Collaboration tab's own read — 7 to 28 queries, §14.12 — so
+         * the two endpoints that show an opinion ask for it and
+         * `viewVerdictCard`, which shows none, does not.
+         *
+         * **The same union, never a cheaper one.** A histogram built
+         * from opinions on the attributes alone would count a subset of
+         * what the Collaboration tab counts and the two panels would
+         * disagree about how many opinions a value has — which is the
+         * bug §14.3 had just finished fixing on the relevance axis. The
+         * price of not having it twice is paying for it twice.
+         */
+        $standing = empty($options['with_opinions'])
+            ? null
+            : $this->analystContext($user, $value)['standing'];
         return array(
             'value' => $value,
             /*
@@ -12875,7 +12892,8 @@ class ValueProfile extends AppModel
             'verdict' => array_merge(
                 self::VERDICT_UNPRODUCED,
                 $verdict,
-                $this->verdictPanels($verdict, $context, $profile)
+                $this->verdictPanels($verdict, $context, $profile,
+                    $standing)
             ),
         );
     }
@@ -12897,14 +12915,36 @@ class ValueProfile extends AppModel
      * @param array $verdict What the engine returned
      * @param array $context The context it scored
      * @param array|null $profile The profile in force
+     * @param array|null $standing The Collaboration tab's own analyst
+     *                             standing, where a caller asked for it
      * @return array The keys this method can answer, and only those
      */
     private function verdictPanels(array $verdict, array $context,
-        $profile
+        $profile, $standing = null
     ) {
+        /*
+         * One derivation, two placements: the ledger's *Contradictions*
+         * block on the agreeing layout and the card under the two cases
+         * on the contested one show the same facts, so they are folded
+         * once and handed out twice rather than computed apart.
+         */
+        $unresolved = ValueContestedTool::unresolvedFor($context);
         $panels = array(
             'summary' => ValueSummaryTool::summaryFor($verdict),
-            'orgs' => $this->verdictOrgTable($context),
+            'cases' => ValueContestedTool::casesFor($verdict),
+            'conflicts' => $unresolved,
+            'ambiguities' => $unresolved,
+            /*
+             * `aggregate` is null when nobody has opined, and the
+             * histogram's own guard reads that as *no card* rather than
+             * as an empty chart. Its shape is `analystAggregate()`'s
+             * unchanged — `n`, `mean_label`, `buckets`, `note` — which
+             * is what the two panels sharing one producer buys.
+             */
+            'opinions' => $standing === null
+                ? null
+                : $standing['aggregate'],
+            'orgs' => $this->verdictOrgTable($context, $standing),
             'warninglist' => $this->verdictWarninglistBand($context),
             'composition_note' => $this->verdictCompositionNote($verdict,
                 $profile),
@@ -13001,10 +13041,31 @@ class ValueProfile extends AppModel
      * belongs with the conflicted layout's cases.
      *
      * @param array $context
+     * @param array|null $standing The Collaboration tab's standing,
+     *                             where the caller paid for it
      * @return array One row per organisation, widest reporter first
      */
-    private function verdictOrgTable(array $context)
+    private function verdictOrgTable(array $context, $standing = null)
     {
+        /*
+         * An organisation's strongest opinion, keyed by its id.
+         * `analystStanding()` orders each organisation's opinions
+         * strongest first and lists them all, so the first row per id
+         * is the one this column wants — and it is the same row the
+         * Collaboration tab puts at the top of that organisation's
+         * lane.
+         */
+        $opinions = array();
+        if ($standing !== null) {
+            foreach ($standing['orgs'] as $row) {
+                if (empty($row['org_id'])
+                    || isset($opinions[(int)$row['org_id']])
+                ) {
+                    continue;
+                }
+                $opinions[(int)$row['org_id']] = $row;
+            }
+        }
         $orgs = isset($context['orgs']) ? $context['orgs'] : array();
         if (empty($orgs)) {
             return array();
@@ -13024,7 +13085,17 @@ class ValueProfile extends AppModel
                 'occurrences' => (int)$org['occurrences'],
                 'sightings' => isset($byOrg[$id]) ? (int)$byOrg[$id] : 0,
                 'fp' => isset($byOrgFp[$id]) ? (int)$byOrgFp[$id] : 0,
-                'opinion' => null,
+                /*
+                 * Still `null` where nobody from this organisation has
+                 * opined, which the template draws as *none stated*.
+                 * Zero is an opinion — the strongest available
+                 * disagreement — so a value nobody has opined on must
+                 * not read as one eight organisations thought
+                 * worthless (§9.2).
+                 */
+                'opinion' => isset($opinions[$id])
+                    ? (int)$opinions[$id]['score']
+                    : null,
                 'to_ids' => $this->verdictStanceWord($org),
                 /*
                  * The grade the engine weighted this organisation

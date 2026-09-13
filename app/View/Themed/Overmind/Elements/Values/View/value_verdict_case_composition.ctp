@@ -2,7 +2,7 @@
 /**
  * How the two weights were reached, as a rail card.
  *
- * The same arithmetic the agreeing layout shows for its score, except
+ * The same arithmetic the agreeing layout shows for its quality, except
  * there are two of them and they are never added together. Each case
  * gets its own strip and its own total, so the tug-of-war bar in the
  * hero can be checked against the signals that produced it.
@@ -79,7 +79,9 @@ foreach ($cases as $case) {
                 $span = max($side['total'], 1);
                 ?>
                 <div class="vp-case-comp vp-case-comp-<?=
-                    h($side['side']) ?>">
+                    $side['side'] === 'threat'
+                        ? 'malicious'
+                        : 'benign' ?>">
 
                     <div class="vp-case-comp-head">
                         <span class="vp-case-comp-title">
@@ -135,6 +137,20 @@ foreach ($cases as $case) {
                     . ' incompatible readings.'
                 ) ?>
             </p>
+
+            <?php /*
+             * The same scope sentence the agreeing rail carries. This
+             * card stands in for `value_verdict_composition` on a
+             * contested value, and a reader who wants to argue with a
+             * weight needs to know whose weights they are on both
+             * layouts — it went missing on this one for exactly as long
+             * as the contested layout had no value that could reach it.
+             */ ?>
+            <?php if (!empty($verdict['composition_note'])): ?>
+                <p class="vp-comp-note">
+                    <?= h($verdict['composition_note']) ?>
+                </p>
+            <?php endif; ?>
 
         </div>
 

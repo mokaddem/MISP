@@ -931,7 +931,15 @@ class ValuesController extends AppController
      */
     public function viewVerdict($b64value = null)
     {
-        $profile = $this->__verdictFor($b64value);
+        /*
+         * *Who says what*'s fifth column is an opinion per
+         * organisation, and the only thing that knows one is the
+         * Collaboration tab's union — 7 to 28 queries (§14.12). The tab
+         * asks for it; the Overview card, which has no such column,
+         * does not.
+         */
+        $profile = $this->__verdictFor($b64value,
+            array('with_opinions' => true));
         /*
          * `ValueLean` rather than a condition here, because
          * `value_verdict_aside.ctp` picks the same branch for the rail
@@ -959,8 +967,17 @@ class ValuesController extends AppController
      */
     public function viewVerdictAside($b64value = null)
     {
+        /*
+         * The same union, for the opinion histogram — which is on the
+         * contested branch of this rail only. Asked for unconditionally
+         * rather than behind a lean test, because the branch is picked
+         * inside the element from a verdict this line has to build
+         * first, and a second assessment to decide whether to pay for
+         * the first would cost more than it saved.
+         */
         $this->__renderPanel(
-            $this->__verdictFor($b64value),
+            $this->__verdictFor($b64value,
+                array('with_opinions' => true)),
             'value_verdict_aside'
         );
     }
@@ -991,12 +1008,13 @@ class ValuesController extends AppController
      * @param string $b64value
      * @return array
      */
-    private function __verdictFor($b64value)
+    private function __verdictFor($b64value, array $options = array())
     {
         $this->loadModel('ValueProfile');
         return $this->ValueProfile->forVerdict(
             $this->Auth->user(),
-            $this->__decodeValue($b64value)
+            $this->__decodeValue($b64value),
+            $options
         );
     }
 

@@ -1895,9 +1895,11 @@ tr.vp-occ-deleted td {
 }
 
 /*
- * The tug of war. Two weights pushing against each other with the
- * unresolved wedge between them — striped, because it belongs to
- * neither side and should not read as a third party's territory.
+ * The tug of war: two weights pushing against each other, and only
+ * two. A striped third wedge sat between them for the artboard's sake
+ * and the engine never produced the quantity it drew — it retired in
+ * phase 9 along with the foot beneath it, which had been counting
+ * something else entirely under the same word.
  */
 .vp-tug-block {
     flex: 0 1 430px;
@@ -1936,7 +1938,6 @@ tr.vp-occ-deleted td {
 }
 
 .vp-tug-mal,
-.vp-tug-none,
 .vp-tug-ben {
     flex: 0 0 auto;
 }
@@ -1947,13 +1948,6 @@ tr.vp-occ-deleted td {
 
 .vp-tug-ben {
     background: var(--vp-ben);
-}
-
-.vp-tug-none {
-    background: repeating-linear-gradient(45deg,
-        var(--vp-conflict) 0 4px,
-        color-mix(in srgb, var(--vp-conflict) 45%, var(--bs-body-bg))
-            4px 8px);
 }
 
 .vp-tug-feet {

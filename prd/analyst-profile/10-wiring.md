@@ -740,20 +740,18 @@ outside this corpus:
 4. ~~**The hero**~~ — **done, §13.** `summary` composes the three axes
    in one sentence, and relevance reaches the tab in words for the
    first time.
-5. **The conflicted layout** — `cases`, `conflicts`, `ambiguities`, and
-   retiring the dead wedge (§7.8). Until it lands, a contested value
-   reads the agreeing layout and `hasConflictedLayout()` is the switch
-   that turns it back on.
-6. **The query counts.** `../value-profile-live/00-contract.md` §14.12's
-   four verdict rows now name a phase and still carry `—` in `Q`, which
-   is a state that board did not have before this phase put them in it.
-   Every other live phase measured; this one owes it — and §9 added a
-   query to the context on the values that hit a warninglist, so the
-   measurement wants taking after the copy pass rather than before.
-7. **A per-organisation opinion aggregate**, if *Who says what*'s fifth
-   column is to say anything (§9.2). Small, and the rows exist; it is
-   listed last because *none stated* is already true rather than a
-   placeholder.
+5. ~~**The conflicted layout**~~ — **done, §14.** `8.8.8.8` draws it,
+   the wedge is gone, and `hasConflictedLayout()` retired its own
+   second condition.
+6. ~~**The query counts**~~ — **done, §15.** 9–27 for the card, 12–44
+   for the two endpoints that show an opinion, and the board's
+   *converted, unmeasured* state is retired with them.
+7. ~~**A per-organisation opinion aggregate**~~ — **done, §16.** Both
+   panels read the Collaboration tab's union rather than a cheaper one
+   of their own, which is what the spread in item 6 is.
+8. **`changer_actions` stays empty, like `resolutions`** (§16.2). The
+   fixture's three buttons are writes and `01-profile.md` §7 says this
+   feature performs none.
 
 Q9 is unchanged and still recommends C, now at a known cost (§4).
 
@@ -995,3 +993,250 @@ thing.
 **73 checks** over HTTP, up from 67 — including the sentence's days
 against the relevance card's days, **69 and 69**, two requests apart.
 The harnesses are at **839**, up from 828.
+
+
+## 14. The contested layout, built 2026-09-13
+
+`8.8.8.8` draws it. Three keys, one new tool, and the switch that had
+been holding the layout shut since the skeleton pass —
+`ValueLean::hasConflictedLayout()`'s second condition, *"and `cases` is
+non-empty"* — now opens on its own, exactly as its docblock said it
+would.
+
+> **Contested**
+> *What is recorded here contradicts itself. The record behind that is
+> thin, and it has 69 days of shelf life left.*
+> Threat case **70**  ·  **71** benign case  ·  6 signals / 4 signals
+> Conflict rule: *A warninglist marks this as a false positive and 8 of
+> 8 organisations report it as a threat regardless…*
+> **Reads as a threat — 70** │ **Reads as benign — 71**
+> ◆ Settled by rule, not by evidence — *2 organisations hold it both
+> ways*
+
+### 14.1 The cases are the ledger, read twice
+
+Rule 7 re-anchors a contested ledger threat-signed before it is banded
+(`04-dispositions.md` §2), which means **the ledger already holds both
+arguments**: its positive rows are what says this is a threat and its
+negative rows are what says it is not. `ValueContestedTool::casesFor()`
+folds them apart and does nothing else. `04-dispositions.md` §5 asked
+for exactly this — *two derivable quantities, no third bucket, no
+separate computation* — and the payoff is that a reader can add up
+either column by hand and arrive at the bar above it.
+
+**The exact-sum invariant survives the layout change and gets stronger
+in it.** The agreeing layout prints a ledger and a quality and the rows
+have to sum to it; the contested one prints two totals and **no
+quality at all**, because a single number would be the mean of two
+incompatible readings. `support − dispute` is that number, and the
+Overview card still prints it — in its own request, off its own
+context. So the probe now asserts `70 − 71 = −1` **across two
+templates and two requests**, which is a check neither could pass
+alone.
+
+**A pair or nothing.** The layout reads `$cases[0]` and `$cases[1]`
+positionally and its tug has two feet, so one case or three throws
+rather than degrades (§2.2). `casesFor()` returns two or zero, and the
+zero has two causes: a lean that is not contested, and a contested lean
+whose every row falls one way — which rule 7 can produce. Both fall
+back to the agreeing layout, which carries a ledger and says the same
+thing in the shape that fits it.
+
+### 14.2 `conflicts` and `ambiguities` were never two facts
+
+The finding that made them cheap. The fixture carried two keys and they
+hold **one derivation shown in two places**: a contradiction the engine
+settled by rule rather than by evidence belongs under the ledger on the
+agreeing layout and under the two cases on the contested one, and it is
+the same contradiction either way. One producer, handed out twice, and
+the two cannot disagree.
+
+What does *not* go in them is anything the ledger netted off — the
+exact-sum invariant means a fact that moved the quality is already
+visible as a row, and naming it again here would be double-counting in
+prose. Only two facts on this page survive scoring without being
+scored:
+
+- **An organisation holding the value both ways.** Some of its
+  occurrences carry `to_ids` and some do not. `ValueLeanTool` counts it
+  with the asserters, because one occurrence carrying the flag is an
+  assertion — and its other occurrences are netted off nowhere.
+  `8.8.8.8` has two.
+- **Warninglists disagreeing about the kind of listing.** When hits
+  resolve to more than one category the context settles on
+  `false_positive`, and the `known` reading is then carried by no
+  signal at all.
+
+**The heading had to change with them.** It read *"Unresolved — counted
+for neither side"*, which is the one thing these items are not: a split
+organisation **is** counted, and a reader taking that heading literally
+would go looking for points that are in the column above. What is true
+of all of them is that a rule decided where they went, so that is what
+it says now.
+
+### 14.3 A panel said `expired` while another said `current`
+
+The sharpest finding of the phase, and it came out of §9.5's shape
+rather than out of reading any code.
+
+`github.com` is flagged by MISP as **over-correlating**, so the evidence
+budget leaves its rows unfetched — which the Assessment tab says
+plainly, in `not_counted`, for the four signals that could not run. What
+nothing said is that **the relevance clock was degraded by the same
+give-up**: with no sighting rows to read it fell back to
+`Attribute.timestamp`, 153 days against a 120-day TTL, and the tab drew
+*expired, 33 days over*. The Sightings tab reads the same value with no
+budget, finds an independent sighting 56 days old, and draws *64 days
+left*.
+
+Two panels, one axis, opposite answers. Neither said so.
+
+A clock missing its sighting half **can only run slow**, so the state it
+produces can only be too stale — which is not a caveat, it is an answer
+that is wrong in one direction. `ValueRelevanceTool::relevanceFor()`
+now stands the axis down instead: no state, reason `rows_not_read`, no
+chart, and the hero's sentence ends after the band. §13.2's *"a record
+with no clock to run ends after the band"* was written a commit before
+anything could reach it.
+
+Deliberately narrower than the clock's own `rows_read`, which is also
+false when a **sighting policy** hides rows. That case keeps its state
+and its caveat on the relevance card: rows the reader may not see are a
+caveat, rows nobody read are an absence.
+
+### 14.4 The wedge and the word retired together
+
+§7.8, closed. `tug()` returned five keys — `support`, `dispute`, two
+D11-era aliases, and `unresolved` as a hard zero — and the layout drew
+the zero as a striped middle wedge while the foot **directly beneath
+it** printed *"%s unresolved"* from `count($ambiguities)`, a different
+quantity with a different producer. One word over two sources, and the
+fixture concealed it by supplying both.
+
+The tug is two keys now, the bar is two wedges, and the feet are two
+signal counts. What the middle foot was reaching for is a card of its
+own further down the page, where it can say what each item is instead
+of how many there are.
+
+### 14.5 The scope note went missing on the layout it had never met
+
+`composition_note` (§11.1) is drawn by `value_verdict_composition`,
+which is the **agreeing** rail's card. The contested rail draws
+`value_verdict_case_composition` instead — so the moment a value could
+actually reach the contested layout, the sentence saying whose weights
+these are stopped being drawn for it. It is on both cards now. A reader
+who wants to argue with a weight needs to know whose it is on either
+layout, and this is the kind of gap that only appears the first time a
+branch is reachable.
+
+**75 checks** over HTTP on the contested value and 73 on an agreeing
+one, up from 73/71; the harnesses are at **862**, up from 839, with the
+pair contract and both unresolved derivations asserted there rather
+than on whichever value the instance happens to have.
+
+
+## 15. The query counts, measured 2026-09-13
+
+`../value-profile-live/00-contract.md` §14.12's four rows, filled.
+`10-query-counts.php` is the measurement, counting the way every other
+live phase counted — the datasource's own log, cleared between
+endpoints, with the model and the profile store dropped so each run pays
+what a cold request pays.
+
+| Endpoint | Q | What it grows with |
+|---|---|---|
+| `viewVerdictCard` | **9–27** | organisations, not occurrences |
+| `viewVerdict` | **12–44** | the same, **+2 to 27 for the analyst union** |
+| `viewVerdictAside` | **12–44** | the same |
+
+Measured across six values chosen to occupy different branches: a bare
+one (10), an over-correlating one whose rows the budget leaves unread
+(9), a two-organisation threat (13), a warninglist-hitting contested one
+(20), and `8.8.8.8` at the top (27).
+
+**The spread is one option, not one value.** The two endpoints that
+show an opinion ask for the Collaboration tab's own union; the card,
+which shows none, does not — §16 is why they ask rather than count for
+themselves.
+
+### 15.1 Three ways the harness lied before it told the truth
+
+Worth recording, because a query counter that is wrong is worse than
+none — it produces a number with a table under it.
+
+- **The log is a ring buffer.** `getLog()` keeps the last 200
+  statements, so a delta taken across `count($log)` stops growing when
+  the buffer fills and then *shrinks*. A six-value run reported `3
+  queries` and then `0` for endpoints that had just taken twenty. The
+  count comes from `getLog()['count']`, which is cumulative; the log is
+  read only for the per-table breakdown, and only its tail.
+- **The profile resolution is memoised per request.** Leaving
+  `AnalystProfile` in the registry between values handed every value
+  after the first a lookup a real request pays for — the first read 27
+  and the second 8, and one of the nineteen was the profile.
+- **The harness changed the number it was measuring.**
+  `Configure::write('CurrentUserId')` is needed for the analyst union to
+  run in a console at all, and with it set from the start the card's own
+  count came out one higher. It is scoped to the run that needs it.
+
+### 15.2 An N+1 that is not this phase's
+
+The breakdown shows `8.8.8.8` taking **five `organisations` statements**,
+one per sighting organisation, each `WHERE id = N LIMIT 1`. They come
+from core's `Sighting::listSightings`, which the four already-measured
+Sightings rows share — which is why every one of them reads
+*organisations, not occurrences* in the board's `Scales` column.
+
+Recorded rather than fixed. The fix is in a core model four converted
+endpoints depend on, and phase 9's business is the Assessment tab.
+
+## 16. The opinion aggregate, built 2026-09-13
+
+*Who says what*'s fifth column had no source (§9.2) and the contested
+rail's histogram had no producer. Both have one now, and it is **the
+Collaboration tab's own union** — `analystContext()`, unchanged, read
+through an option the two endpoints that show an opinion pass and
+`viewVerdictCard` does not.
+
+`8.8.8.8` draws the histogram at **mean 72.5** over four opinions, which
+is the number the Collaboration tab prints, and ADMIN's row in *Who says
+what* reads **100** — its strongest, the same opinion at the top of its
+lane one tab across.
+
+### 16.1 The expensive one, on purpose
+
+A cheaper aggregate was available and was the wrong answer. Opinions
+anchored to the value's attributes alone is one query; the Collaboration
+tab's union walks five anchor kinds over two tables at 7 to 28. On the
+verification instance the difference is not academic — of 43 opinions,
+**one** is on an attribute and 28 are on events, so the cheap version
+would have drawn *no opinions* under a tab reading *four opinions from
+one organisation*.
+
+That is the bug §14.3 had just finished fixing on the relevance axis,
+and §9.5's cross-panel check exists because phase 5 shipped it once
+before that. Three instances of one class of defect in one corpus is
+enough to pay for the union rather than approximate it. The probe now
+reads the rail's mean and the Collaboration tab's mean **three requests
+apart** and compares them.
+
+What it costs is in §15 and on the board: 2 to 27 queries, and the whole
+reason the assessment rows carry the widest spread on it.
+
+### 16.2 `changer_actions` joins `resolutions`
+
+The last of §2.2's thirteen, and it is **out of scope rather than
+unbuilt**. The fixture's three buttons — *Mark false positive*, *Record
+an opinion*, *Add a sighting* — are writes, and `01-profile.md` §7 says
+this feature writes nothing. The key stays on the skeleton, the
+template's `?? array()` guard keeps the row of buttons from rendering,
+and neither is drawn as an inert promise — which is D23's rule applied
+to the one surface D23 did not name.
+
+So §2.2's thirteen close as **eleven produced, two deliberately empty**.
+`resolutions` waits on `../value-profile-writes.md`; `changer_actions`
+waits on the same thing, and both should be built by whatever phase
+gives this page a write.
+
+**77 checks** over HTTP on `8.8.8.8`, up from 75; the harnesses are
+unchanged at **862** and the render harness at **98**.

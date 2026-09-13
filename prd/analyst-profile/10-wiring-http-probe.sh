@@ -101,48 +101,119 @@ ASIDE="$WORK/scored-viewVerdictAside.html"
 CARD="$WORK/scored-viewVerdictCard.html"
 
 # ------------------------------------------------ 2. the exact-sum rule
-echo "--- the ledger on the page sums to the score on the page"
-python3 - "$TAB" "$ASIDE" <<'PY'
+# Two layouts, one invariant. The agreeing one prints a ledger and a
+# quality and the rows have to sum to it; the contested one prints two
+# case totals and no quality at all, and `support − dispute` is the same
+# number — which the Overview card, in its own request, still prints.
+# So the contested form of the check is stronger than the agreeing one:
+# it crosses two templates instead of staying inside one.
+echo "--- the ledger on the page sums to the quality on the page"
+python3 - "$TAB" "$ASIDE" "$CARD" <<'PY'
 import re
 import sys
 
 tab = open(sys.argv[1], encoding='utf-8', errors='replace').read()
 aside = open(sys.argv[2], encoding='utf-8', errors='replace').read()
-
-rows = [int(m) for m in re.findall(
-    r'vp-ledger-contribution[^>]*>\s*([+-]?\d+)', tab)]
-if not rows:
-    rows = [int(m.replace('−', '-')) for m in re.findall(
-        r'class="vp-ledger-points[^"]*"[^>]*>\s*([+−-]?\d+)', tab)]
-
-score = re.search(r'vp-vc-score-value"[^>]*>\s*([+-]?\d+)\s*/\s*100', tab)
-total = re.search(r'How ([+-]?\d+) was reached', aside)
-
-print('rows: %s' % rows)
-print('score on the tab: %s' % (score.group(1) if score else None))
-print('total on the rail: %s' % (total.group(1) if total else None))
-
+card = open(sys.argv[3], encoding='utf-8', errors='replace').read()
 fails = 0
-if not rows:
-    print('FAIL could not read any ledger row out of the markup')
-    fails += 1
-if score is None:
-    print('FAIL could not read the score out of the markup')
-    fails += 1
-if rows and score is not None:
-    if sum(rows) == int(score.group(1)):
-        print('ok   ledger sums to the score (%d)' % sum(rows))
-    else:
-        print('FAIL ledger sums to %d, score reads %s'
-              % (sum(rows), score.group(1)))
+
+if 'vp-vc-cases' in tab:
+    # ---------------------------------------------- contested layout
+    heads = re.search(r'Threat case\s*([+-]?\d+)', tab)
+    tail = re.search(r'([+-]?\d+)\s*benign case', tab)
+    # The Overview card prints the quality the tab does not.
+    quality = re.search(r'vp-disposition-score">\s*([+-]?\d+)', card)
+    print('threat case: %s, benign case: %s, card quality: %s'
+          % (heads and heads.group(1), tail and tail.group(1),
+             quality and quality.group(1)))
+    if heads is None or tail is None:
+        print('FAIL could not read the two case totals off the tug')
         fails += 1
-if total is not None and score is not None:
-    if total.group(1) == score.group(1):
-        print('ok   the rail and the tab print the same total')
-    else:
-        print('FAIL rail total %s, tab score %s'
-              % (total.group(1), score.group(1)))
+    elif quality is None:
+        print('FAIL the Overview card printed no quality to check them'
+              ' against')
         fails += 1
+    else:
+        support, dispute = int(heads.group(1)), int(tail.group(1))
+        if support - dispute == int(quality.group(1)):
+            print('ok   support - dispute is the quality (%d - %d = %s),'
+                  ' across two requests'
+                  % (support, dispute, quality.group(1)))
+        else:
+            print('FAIL %d - %d is %d, the card reads %s'
+                  % (support, dispute, support - dispute,
+                     quality.group(1)))
+            fails += 1
+        # Each case's own rows sum to its total. The row bars carry the
+        # points in their title attribute, which is the only place a
+        # per-row number is printed on this layout.
+        cases = re.findall(
+            r'vp-vc-case vp-vc-case-(\w+)(.*?)(?=vp-vc-case vp-vc-case-|$)',
+            tab, re.S)
+        sums = []
+        for side, blob in cases:
+            pts = [int(m) for m in re.findall(
+                r'title="(\d+) points?"', blob)]
+            sums.append((side, sum(pts), len(pts)))
+        print('per-case sums: %s' % sums)
+        if len(sums) != 2:
+            print('FAIL the layout drew %d cases, and it reads two'
+                  ' positionally' % len(sums))
+            fails += 1
+        elif [sums[0][1], sums[1][1]] == [support, dispute]:
+            print('ok   each column sums to the head above it (%d, %d)'
+                  % (sums[0][1], sums[1][1]))
+        else:
+            print('FAIL columns sum to %d and %d, heads read %d and %d'
+                  % (sums[0][1], sums[1][1], support, dispute))
+            fails += 1
+        # And the rail's card names the same two totals.
+        rail = re.search(r'How ([+-]?\d+) and ([+-]?\d+) were reached',
+                         aside)
+        if rail is None:
+            print('FAIL the rail drew no case composition')
+            fails += 1
+        elif [int(rail.group(1)), int(rail.group(2))] == [support, dispute]:
+            print('ok   and the rail names the same two totals')
+        else:
+            print('FAIL rail says %s and %s' % rail.groups())
+            fails += 1
+else:
+    # ----------------------------------------------- agreeing layout
+    rows = [int(m) for m in re.findall(
+        r'vp-ledger-contribution[^>]*>\s*([+-]?\d+)', tab)]
+    if not rows:
+        rows = [int(m.replace('−', '-')) for m in re.findall(
+            r'class="vp-ledger-points[^"]*"[^>]*>\s*([+−-]?\d+)', tab)]
+
+    score = re.search(
+        r'vp-vc-score-value"[^>]*>\s*([+-]?\d+)\s*/\s*100', tab)
+    total = re.search(r'How ([+-]?\d+) was reached', aside)
+
+    print('rows: %s' % rows)
+    print('quality on the tab: %s' % (score.group(1) if score else None))
+    print('total on the rail: %s' % (total.group(1) if total else None))
+
+    if not rows:
+        print('FAIL could not read any ledger row out of the markup')
+        fails += 1
+    if score is None:
+        print('FAIL could not read the quality out of the markup')
+        fails += 1
+    if rows and score is not None:
+        if sum(rows) == int(score.group(1)):
+            print('ok   ledger sums to the quality (%d)' % sum(rows))
+        else:
+            print('FAIL ledger sums to %d, quality reads %s'
+                  % (sum(rows), score.group(1)))
+            fails += 1
+    if total is not None and score is not None:
+        if total.group(1) == score.group(1):
+            print('ok   the rail and the tab print the same total')
+        else:
+            print('FAIL rail total %s, tab quality %s'
+                  % (total.group(1), score.group(1)))
+            fails += 1
 sys.exit(1 if fails else 0)
 PY
 if [ $? -eq 0 ]; then ok "exact-sum on the rendered page"; \
@@ -172,7 +243,15 @@ score() {
         | sed 's/.*>//;s/\/ *100//' | tr -d ' ' | head -1
 }
 is "lean" "$(word "$CARD")" "$(word "$TAB")"
-is "quality" "$(score "$CARD")" "$(score "$TAB")"
+# The contested tab prints no single quality — that is the layout's
+# whole point (`04-dispositions.md` §5: a single number would be the
+# mean of two incompatible readings) — so the agreement check for it is
+# the arithmetic one in section 2 instead.
+if grep -qF 'vp-vc-cases' "$TAB"; then
+    ok "the contested tab prints no single quality, by design"
+else
+    is "quality" "$(score "$CARD")" "$(score "$TAB")"
+fi
 is "profile named" "$(profile "$CARD")" "$(profile "$TAB")"
 # ...and neither is blank, because two empty strings compare equal and
 # an agreement check that passes by reading nothing is worse than none
@@ -183,7 +262,9 @@ else
     no "the profile name extractor read nothing — the check above"\
 " compared two empty strings"
 fi
-if [ -n "$(score "$TAB")" ]; then
+if grep -qF 'vp-vc-cases' "$TAB"; then
+    ok "the Overview card carries the quality ($(score "$CARD"))"
+elif [ -n "$(score "$TAB")" ]; then
     ok "the quality read is a number ($(score "$TAB"))"
 else
     no "the quality extractor read nothing"
@@ -237,10 +318,11 @@ if grep -qE 'Computed at render, </?[^>]*>?[0-9]{9,}' "$TAB"; then
 else
     ok "computed_at is formatted"
 fi
-if grep -qE 'vp-vc-score-fill"[^>]*width: *-' "$TAB"; then
-    no "quality bar width is clamped (negative width emitted)"
+if grep -qE 'vp-(vc-score|tug-mal|tug-ben)[^"]*"[^>]*width: *-' "$TAB"; then
+    no "a bar width went negative — the browser drops the declaration"\
+" and the fill keeps whatever width it inherits"
 else
-    ok "quality bar width is clamped"
+    ok "no bar on the tab draws a negative width"
 fi
 
 # ------------------------------------------- 6. the derived display keys
@@ -466,11 +548,26 @@ else
     esac
     # The number is the one the hero has nowhere else. `−1 / 100` is
     # beside the badge; days appear only here and in the rail's chart.
+    #
+    # And it is asserted as an *agreement* rather than as a presence:
+    # the sentence talks about time exactly when the rail draws the
+    # chart. A value whose rows the budget left unread has no relevance
+    # to state (`ValueRelevanceTool`, reason `rows_not_read`) — so both
+    # must fall silent together, and a sentence that kept talking would
+    # be the assessment asserting a shelf life the page declined to
+    # draw.
+    SAYS_TIME=no
     case "$HERO" in
-        *"shelf life"*|*"expires today"*|*"Nothing you can see records"*)
-            ok "and carries relevance, which reached this tab in no"\
-" other words before the hero" ;;
-        *) no "the sentence says nothing about relevance" ;;
+        *"shelf life"*|*"expires today"*) SAYS_TIME=yes ;;
+    esac
+    DRAWS_TIME=no
+    grep -qF 'Shelf life' "$ASIDE" && DRAWS_TIME=yes
+    case "$HERO" in
+        *"Nothing you can see records"*)
+            ok "nothing recorded, so the sentence states no axis at"\
+" all" ;;
+        *) is "the sentence and the rail agree about whether there is"\
+" a shelf life to state" "$SAYS_TIME" "$DRAWS_TIME" ;;
     esac
 fi
 
@@ -492,6 +589,27 @@ if [ "$(fetch viewRelevance "$SUBJECT" "$RELV")" = "200" ]; then
     fi
 fi
 
+# The contested layout's third key. `conflicts` and `ambiguities` are
+# one derivation shown in two places — under the ledger on the agreeing
+# layout, under the two cases on the contested one — so whichever layout
+# this value drew, the card is the same card and it must not claim the
+# items were counted for neither side. A split organisation *is*
+# counted, with the asserters, and the heading said otherwise until
+# phase 9.
+echo "--- what neither case could take"
+absent "the card does not claim 'counted for neither side'" "$TAB" \
+    "counted for neither side"
+if grep -qF 'Settled by rule, not by evidence' "$TAB"; then
+    if grep -qE 'organisations? holds? it both ways|warninglists disagree' \
+        "$TAB"; then
+        ok "it names what was settled and how"
+    else
+        no "the card is drawn with no item in it"
+    fi
+else
+    ok "nothing on $SUBJECT was settled by rule (not a failure)"
+fi
+
 # And the sparse value, which is where `summary` is read first: the
 # Overview card prints prose only when there are no ledger rows to list
 # instead, so the one-clause sentence is the whole card.
@@ -502,6 +620,45 @@ if grep -qF 'Nothing you can see records this value' "$BARE_CARD"; then
 else
     no "the bare card drew no sentence — which is the branch that had"\
 " no producer at all before the hero pass"
+fi
+
+# The opinion aggregate. Both panels that show one read the Collaboration
+# tab's own union rather than a cheaper count of their own — so the check
+# that matters is not that a histogram appeared, it is that it agrees
+# with the tab the union belongs to, three requests apart.
+echo "--- the opinions, against the tab that owns them"
+STAND="$WORK/scored-viewAnalystStanding.html"
+if [ "$(fetch viewAnalystStanding "$SUBJECT" "$STAND")" = "200" ]; then
+    RAIL_MEAN=$(tr '\n' ' ' < "$ASIDE" \
+        | grep -o 'opinions · mean [0-9.]*' | grep -o '[0-9.]*$' | head -1)
+    TAB_MEAN=$(tr '\n' ' ' < "$STAND" \
+        | grep -o 'vpa-mean-value">[^<]*' | sed 's/.*>//' \
+        | tr -d ' ' | head -1)
+    if [ -z "$RAIL_MEAN" ] && [ -z "$TAB_MEAN" ]; then
+        ok "nobody has opined on $SUBJECT, so neither panel draws one"
+    elif [ -z "$RAIL_MEAN" ]; then
+        ok "no histogram on this layout (the card is the contested"\
+" rail's), and the Collaboration tab has the mean"
+    else
+        is "the rail's histogram and the Collaboration tab's mean" \
+            "$RAIL_MEAN" "$TAB_MEAN"
+    fi
+else
+    no "viewAnalystStanding did not answer"
+fi
+
+# And the fifth column of *Who says what*, which had no source at all
+# until the union arrived. `none stated` is still the right answer where
+# nobody has opined — a zero there would read as the strongest possible
+# disagreement (§9.2).
+if grep -qE 'vp-orgs-opinion|Opinion' "$TAB"; then
+    if grep -qF 'none stated' "$TAB" \
+        || grep -qE 'vp-orgs-op[^"]*"[^>]*>\s*[0-9]+' "$TAB"; then
+        ok "the opinion column says a number or says nothing, never"\
+" zero-by-default"
+    else
+        no "the opinion column drew neither a score nor 'none stated'"
+    fi
 fi
 
 echo

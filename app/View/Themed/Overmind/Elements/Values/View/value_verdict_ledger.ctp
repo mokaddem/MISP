@@ -44,7 +44,7 @@ foreach ($ledger as $group) {
 <?php if (empty($ledger) && empty($conflicts)): ?>
     <div class="vp-empty">
         <i class="fas fa-list-check"></i>
-        <span><?= __('No signal contributed to this verdict.') ?></span>
+        <span><?= __('No signal contributed to this assessment.') ?></span>
     </div>
 <?php else: ?>
     <div class="table-responsive">
@@ -143,10 +143,11 @@ foreach ($ledger as $group) {
                 <?php if (!empty($conflicts)): ?>
                     <tr class="vp-ledger-group vp-ledger-group-conflict">
                         <td colspan="6">
-                            <?= __('Contradictions &amp; conflicts') ?>
+                            <?= __('Settled by rule, not by evidence') ?>
                             <span class="vp-ledger-group-note">
                                 <?= __(
-                                    'not netted off — shown as unresolved'
+                                    'contradictions no signal carries,'
+                                    . ' so no row nets them off'
                                 ) ?>
                             </span>
                         </td>
@@ -193,7 +194,7 @@ foreach ($ledger as $group) {
                             </td>
                             <td>
                                 <span class="vp-ledger-unresolved">
-                                    <?= __('unresolved') ?>
+                                    <?= __('no points') ?>
                                 </span>
                             </td>
                             <td class="vp-ledger-panel">

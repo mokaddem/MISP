@@ -158,6 +158,43 @@ class ValueRelevanceTool
     );
 
     /**
+     * The axis with nothing to say, and why.
+     *
+     * Two paths reach it — no record at all, and a record whose rows
+     * the budget did not read — and they return the same shape so a
+     * caller can branch on `reason` rather than on which fields
+     * happen to be null.
+     *
+     * @param string $reason `no_record` or `rows_not_read`
+     * @param array $clock
+     * @param array $ttl
+     * @param array $precision
+     * @return array
+     */
+    private static function noClock($reason, array $clock, array $ttl,
+        array $precision
+    ) {
+        return array(
+            'state' => null,
+            'reason' => $reason,
+            'clock' => $clock,
+            'ttl' => $ttl,
+            'precision' => $precision,
+            'runway' => null,
+            'elapsed_days' => null,
+            'recorded_days' => null,
+            'recorded_runway' => null,
+            'assumed_days' => 0,
+            'assumed_setting' => (int)$precision['assumed_days'],
+            'assumed_capped' => false,
+            'runway_days' => null,
+            'expires_at' => null,
+            'uncertain' => false,
+            'uncertain_note' => null,
+        );
+    }
+
+    /**
      * The relevance axis for one value.
      *
      * @param array $context From the context builder — `now`, `types`,
@@ -174,6 +211,39 @@ class ValueRelevanceTool
         $ttl = self::ttlFor($context, $section);
         $clock = self::clockFor($context, $section);
         $precision = self::precisionFor($context, $section, $clock);
+
+        /*
+         * A clock whose sighting half was never fetched can only run
+         * slow, and a slow clock on this axis says `expired` about a
+         * value that is current.
+         *
+         * `github.com` is the case: MISP flags it as over-correlating,
+         * so the evidence budget leaves its rows unread and the clock
+         * falls back to `Attribute.timestamp` — 153 days elapsed
+         * against a 120-day TTL, **33 days over**. The Sightings tab
+         * reads the same value with no budget, finds an independent
+         * sighting 56 days old, and draws **64 days left**. Two panels,
+         * one axis, opposite answers, and `10-wiring.md` §9.5's
+         * cross-panel check is what caught it.
+         *
+         * So the axis stands down rather than guessing. `not_counted`
+         * already names the budget on the page — *"this value is
+         * flagged as over-correlating, so the rows this signal reads
+         * were not fetched"* — and a shelf life computed around that
+         * absence was the one part of the assessment presenting a
+         * degraded read as a measurement. No state means no chart, and
+         * the hero's sentence ends after the band.
+         *
+         * Deliberately narrower than the clock's own `rows_read`, which
+         * is also false when a sighting policy hides rows. That case
+         * keeps its caveat on the relevance card: rows exist and the
+         * date may be older than the truth, which is a caveat rather
+         * than an absence.
+         */
+        if (!empty($context['budget']['hot'])) {
+            return self::noClock('rows_not_read', $clock, $ttl,
+                $precision);
+        }
 
         /*
          * No occurrence this viewer can see is not a stale value and

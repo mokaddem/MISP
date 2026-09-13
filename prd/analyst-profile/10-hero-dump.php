@@ -55,6 +55,17 @@ class HeroDumpShell extends AppShell
             $this->out('ledger groups   ' . count($v['ledger']));
             $this->out('changers        ' . json_encode($v['changers']));
             $this->out("summary         " . json_encode($v["summary"]));
+            $this->out("ledger[0]       " . json_encode($v["ledger"][0] ?? null));
+            $rel2 = $this->ValueProfile->forRelevance($user, $value)["relevance"] ?? null;
+            $this->out("SIGHT relevance " . json_encode(array($rel2["state"] ?? null, $rel2["runway_days"] ?? null, $rel2["clock"]["at"] ?? null, $rel2["clock"]["kind"] ?? null, $rel2["elapsed_days"] ?? null)));
+            $this->out("ASSESS clock    " . json_encode(array($r["clock"]["at"], $r["clock"]["kind"], $r["clock"]["by"] ?? null)));
+            $ctx = $this->ValueProfile->verdictContextFor($user, $value, null);
+            $this->out("ASSESS sightings " . json_encode($ctx["sightings"]));
+            $this->out("ASSESS notcount " . json_encode($v["not_counted"]));
+            $this->out("ASSESS budget   " . json_encode($ctx["budget"] ?? $ctx["evidence"] ?? null));
+            $this->out("ASSESS excluded  " . json_encode($ctx["excluded"] ?? null));
+            $this->out("ASSESS clockevts " . json_encode(array_slice($r["clock"]["events"] ?? array(), -6)));
+            $this->out("warninglist ctx " . json_encode(array_map(function ($h) { return array($h["name"], $h["category"]); }, $this->ValueProfile->verdictContextFor($user, $value, null)["warninglist"]["hits"] ?? array())));
         }
     }
 }

@@ -924,6 +924,55 @@ is_same(
 );
 
 /*
+ * And the axis stands down rather than running on the half it has.
+ *
+ * A clock missing its sighting half can only run **slow**, so the state
+ * it produces can only be too stale — which is not a caveat, it is an
+ * answer that is wrong in one direction. `github.com` on the
+ * verification instance is the case that found it: the Assessment tab
+ * read `expired, 33 days over` from a fallback date while the Sightings
+ * tab, which reads the same value with no budget, drew `64 days left`
+ * from an independent sighting 56 days old. Two panels, one axis,
+ * opposite answers (`10-wiring.md` §14.3).
+ */
+is_same(
+    null,
+    $hotAnswer['state'],
+    'so an over-correlating value gets no relevance state at all —'
+        . ' a clock that can only run slow would only ever say expired'
+);
+is_same(
+    'rows_not_read',
+    $hotAnswer['reason'],
+    'and the reason separates it from a value with no record, because'
+        . ' this one has a record nobody read'
+);
+is_same(
+    null,
+    $hotAnswer['runway_days'],
+    'with no day count to print, which is what makes the hero sentence'
+        . ' end after the band and the rail draw no chart'
+);
+/*
+ * Deliberately narrower than the clock's own `rows_read`, which is also
+ * false when a sighting policy hides rows. That case keeps a state and
+ * a caveat: the rows exist, the reader may not see them, and the
+ * relevance card says the date may be older than the truth.
+ */
+$hidden = context(array('missing' => array('sightings' => true)));
+$hiddenAnswer = ValueRelevanceTool::relevanceFor($hidden, $profile);
+is_same(
+    false,
+    $hiddenAnswer['clock']['rows_read'],
+    'a sighting policy also leaves the clock short of its sighting half'
+);
+is_true(
+    $hiddenAnswer['state'] !== null,
+    'but that one keeps its state and its caveat — rows the reader may'
+        . ' not see are a caveat, rows nobody read are an absence'
+);
+
+/*
  * ======================================================================
  * §6 item 6 — a value with two types and two TTLs
  * ======================================================================

@@ -529,13 +529,13 @@ document that filled it.
 | Overview | `viewOccurrences` | `value_occurrences` | — | — | — | — |
 | Overview | `viewContext` | `value_context` | — | — | — | — |
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |
-| Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
+| Overview | `viewVerdictCard` | `value_verdict_card` | **9–27** | organisations, not occurrences | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | 10 — the `forRelevance` call, nothing else | organisations, not occurrences | 1, one aggregate at 2 | **partly — analyst-profile phase 5**: the freshness third only, see below |
 | Overview | `viewExternal` | `value_external` | 4 | nothing — flat in cached sources; 2 on a miss | none of the three, see below | **24**, Q by **24b** |
-| Verdict | `viewVerdict` | `value_verdict` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
-| Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **live but unreachable.** Phase 9's spine routes a contested value to `value_verdict` instead, because this layout is built around two opposed cases and nothing produces them (`../analyst-profile/10-wiring.md` §2.2). `ValueDisposition::hasConflictedLayout()` is the switch that turns it back on |
-| Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
+| Assessment | `viewVerdict` | `value_verdict` | **12–44** | organisations, not occurrences; **+2 to 27 for the analyst union** | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
+| Assessment | `viewVerdict` | `value_verdict_conflicted` | **12–44** | as `value_verdict` — same endpoint, same build | 1, three aggregates at 2 | **analyst-profile phase 9** §14. Reachable since 2026-09-13: `ValueContestedTool::casesFor()` produces the two cases and `ValueLean::hasConflictedLayout()` opens on its own |
+| Assessment | `viewVerdictAside` | `value_verdict_aside` | **12–44** | organisations, not occurrences; **+2 to 27 for the analyst union** | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
 | Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | **11** | organisations, not occurrences | 1, three aggregates at 2 | **23**, Q re-measured by **analyst-profile phase 5** |
 | Sightings | `viewSightingList` | `value_sighting_list` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
@@ -558,16 +558,33 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Twenty-two rows carry numbers; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Twenty-six rows carry numbers — twenty-two until 2026-09-13, when the four assessment rows were measured; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 
-**The four verdict rows are the board's one exception, since 2026-09-13**, and
-it is recorded rather than hidden: they name a phase and still carry `—` in
-`Q`. Analyst-profile phase 9 wired them and did not measure them, so they are
-*converted, unmeasured* — a third state the `Phase` cell now has to carry
-because the rule above only distinguishes two. `../analyst-profile/10-wiring.md`
-§9 owes the measurement.
+**The four assessment rows were the board's one exception for six hours on
+2026-09-13** — *converted, unmeasured*, a third state the `Phase` cell had to
+carry because the rule above only distinguishes two. They are measured now
+(`../analyst-profile/10-wiring.md` §15) and the exception is retired with
+them; the paragraph stays because the state is a real one and the next phase
+to wire a row without measuring it should find the name already here.
+
+**They are also the board's widest spread, and the reason is one option.**
+`viewVerdictCard` costs 9 to 27; the two endpoints that show an opinion cost
+12 to 44, and the difference is the **Collaboration tab's own analyst union**,
+which they ask for rather than reimplement. A cheaper count built from the
+attributes alone would have been four queries and would have disagreed with
+`viewAnalystStanding` about how many opinions a value has — the class of bug
+phase 9 spent §14.3 fixing on the relevance axis. `viewVerdictCard` shows no
+opinion and does not ask, which is why it is the one assessment row that did
+not move.
+
+**One N+1 is visible in the breakdown and is not phase 9's**: `8.8.8.8` takes
+five `organisations` statements, one per sighting organisation, from core's
+`Sighting::listSightings`. It is shared with the four Sightings rows above,
+which is why they all read *organisations, not occurrences* in `Scales`, and
+it is recorded here rather than fixed because the fix is in a core model four
+converted endpoints depend on.
 
 **Two rows got cheaper rather than newer, and one row is the board's
 first partial.** `prd/analyst-profile/06-staleness.md` retired the page's

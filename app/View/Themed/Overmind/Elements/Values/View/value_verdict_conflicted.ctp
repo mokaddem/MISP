@@ -1,16 +1,19 @@
 <?php
 /**
- * The Verdict tab for a value whose signals contradict each other.
+ * The Assessment tab for a value whose record contradicts itself.
  *
- * One card, not five. The disposition, what it rests on, the
- * warninglist hit that causes half the trouble, the two cases and the
- * ambiguities between them are a single argument, and splitting them
- * into separate cards made the reader reassemble it. They are bands of
- * one card here, in the order the argument is made.
+ * One card, not five. The lean, what it rests on, the warninglist hit
+ * that causes half the trouble, the two cases and what neither case
+ * could take are a single argument, and splitting them into separate
+ * cards made the reader reassemble it. They are bands of one card here,
+ * in the order the argument is made.
  *
- * There is deliberately no score. The tug-of-war bar puts the two
- * weights against each other with the unresolved wedge between them,
- * striped because it belongs to neither side.
+ * There is deliberately no single quality. The tug-of-war bar puts the
+ * two weights against each other — **two wedges, not three**. The
+ * fixture's striped middle one counted an `unresolved` the engine never
+ * produced, while the foot printed directly under it counted the
+ * ambiguities, a different quantity entirely; one word over two sources
+ * is `10-wiring.md` §7.8, and they retired together in phase 9.
  *
  * `Who says what` stays its own card: it is the same argument counted
  * a different way, by organisation rather than by signal.
@@ -31,10 +34,7 @@ $noWrites = __(
 );
 
 $tug = $verdict['tug'];
-$tugTotal = max(
-    array_sum(array($tug['malicious'], $tug['benign'], $tug['unresolved'])),
-    1
-);
+$tugTotal = max($tug['support'] + $tug['dispute'], 1);
 
 $cases = $verdict['cases'];
 $ambiguities = $verdict['ambiguities'] ?? array();
@@ -70,7 +70,6 @@ foreach ($cases as $case) {
             </span>
         </span>
 
-        <?php /* No producer yet; see `value_verdict.ctp`. */ ?>
         <?php if (!empty($verdict['summary'])): ?>
             <p class="vp-vc-prose"><?= h($verdict['summary']) ?></p>
         <?php endif; ?>
@@ -79,42 +78,43 @@ foreach ($cases as $case) {
             <div class="vp-tug-heads">
                 <span class="vp-tug-head-mal">
                     <?= h(sprintf(
-                        __('Malicious case %s'),
-                        $tug['malicious']
+                        __('Threat case %s'),
+                        $tug['support']
                     )) ?>
                 </span>
                 <span class="vp-tug-head-ben">
                     <?= h(sprintf(
                         __('%s benign case'),
-                        $tug['benign']
+                        $tug['dispute']
                     )) ?>
                 </span>
             </div>
             <div class="vp-tug">
                 <span class="vp-tug-mal" style="width: <?= round(
-                    $tug['malicious'] / $tugTotal * 100,
-                    2
-                ) ?>%;"></span>
-                <span class="vp-tug-none" style="width: <?= round(
-                    $tug['unresolved'] / $tugTotal * 100,
+                    $tug['support'] / $tugTotal * 100,
                     2
                 ) ?>%;"></span>
                 <span class="vp-tug-ben" style="width: <?= round(
-                    $tug['benign'] / $tugTotal * 100,
+                    $tug['dispute'] / $tugTotal * 100,
                     2
                 ) ?>%;"></span>
             </div>
-            <div class="vp-tug-feet">
+            <?php /*
+             * Two feet under two wedges. The middle one printed
+             * *"%s unresolved"* from a count that had nothing to do
+             * with the wedge above it (§7.8), and what it was reaching
+             * for is now a card of its own further down — where it can
+             * say what each item is instead of how many there are.
+             */ ?>
+            <div class="vp-tug-feet vp-tug-feet-pair">
                 <span><?= h(sprintf(
-                    __('%s signals'),
+                    __n('%d signal', '%d signals',
+                        count($cases[0]['rows'])),
                     count($cases[0]['rows'])
                 )) ?></span>
                 <span><?= h(sprintf(
-                    __('%s unresolved'),
-                    count($ambiguities)
-                )) ?></span>
-                <span><?= h(sprintf(
-                    __('%s signals'),
+                    __n('%d signal', '%d signals',
+                        count($cases[1]['rows'])),
                     count($cases[1]['rows'])
                 )) ?></span>
             </div>
@@ -159,9 +159,11 @@ foreach ($cases as $case) {
     ?>
     <div class="vp-vc-cases">
         <?php foreach ($cases as $case):
-            $mal = $case['side'] === 'malicious';
+            $mal = $case['side'] === 'threat';
             ?>
-            <div class="vp-vc-case vp-vc-case-<?= h($case['side']) ?>">
+            <div class="vp-vc-case vp-vc-case-<?= $mal
+                ? 'malicious'
+                : 'benign' ?>">
                 <div class="vp-vc-case-head">
                     <span class="vp-vc-case-arrow">
                         <?= $mal ? '&#9650;' : '&#9660;' ?>
@@ -215,16 +217,22 @@ foreach ($cases as $case) {
     <?php
     /*
      * ----------------------------------------------------------
-     * 5. Unresolved
+     * 5. What neither case could take
      * ----------------------------------------------------------
-     * Splits that could fall either way, named rather than assigned.
+     * Contradictions the engine settled by rule rather than by
+     * evidence. The heading used to read *counted for neither side*,
+     * which was the one thing these items are not: a split
+     * organisation **is** counted, with the asserters, and saying
+     * otherwise would have a reader looking for points that are in the
+     * column above. What is true of all of them is that a rule decided
+     * where they went, so that is what the heading says.
      */
     ?>
     <?php if (!empty($ambiguities)): ?>
         <div class="vp-vc-unresolved">
             <div class="vp-vc-unresolved-head">
                 <span class="vp-vc-unresolved-mark">&#9670;</span>
-                <?= __('Unresolved — counted for neither side') ?>
+                <?= __('Settled by rule, not by evidence') ?>
             </div>
             <div class="vp-vc-unresolved-body">
                 <?php foreach ($ambiguities as $item): ?>
