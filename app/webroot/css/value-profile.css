@@ -2920,10 +2920,20 @@ tr.vp-occ-deleted td {
 /*
  * The ledger's own pair, and it is deliberately **not** the lean's —
  * the argument is on `--vp-weighs-carries` in `value-palette.css`,
- * which declares it. Present and absent, in the quality's own colour,
- * rather than good and bad in the lean's.
+ * which declares it. Present and absent in ink weight, rather than
+ * good and bad in the lean's hues.
+ *
+ * `--bs-table-color` with them, because Bootstrap sets every cell's
+ * colour through it at `.table > :not(caption) > * > *` — one class
+ * and three elements, which out-specifies a single class on the cell.
+ * That is why `.vp-ledger-evidence` had asked for the muted ink since
+ * it was written and rendered pure `#000` the whole time: the theme's
+ * emphasis black was landing on every cell in the table. Pointing the
+ * variable at the body ink hands the column back to the rules below,
+ * and to the theme.
  */
 .vp-ledger-table {
+    --bs-table-color: var(--bs-body-color);
     --vp-ledger-adds: var(--vp-weighs-carries);
     --vp-ledger-cuts: var(--vp-weighs-lacks);
 }
@@ -2941,7 +2951,12 @@ tr.vp-occ-deleted td {
     font-weight: 700;
 }
 
-.vp-ledger-evidence {
+/*
+ * Two classes, to clear the `.table` cell rule described above. The
+ * evidence is what the signal is claiming *from*, so it reads under
+ * the claim rather than beside it at the same weight.
+ */
+.vp-ledger-table .vp-ledger-evidence {
     font-size: 0.75rem;
     color: var(--bs-secondary-color);
 }
@@ -2960,8 +2975,18 @@ tr.vp-occ-deleted td {
     background: var(--vp-ledger-adds);
 }
 
+/*
+ * A gap is drawn as a gap. The row reports something the record does
+ * **not** have, so its bar is an outline rather than a fill — which is
+ * the cue that carries the direction once the hue is gone, alongside
+ * the glyph and the muted ink. Two greys of slightly different
+ * darkness was the version that read as flat.
+ */
 .vp-ledger-line-down .vp-vc-bar-fill {
-    background: var(--vp-ledger-cuts);
+    box-sizing: border-box;
+    background: transparent;
+    border: 1px solid var(--vp-ledger-cuts);
+    border-radius: 3px;
 }
 
 /*
