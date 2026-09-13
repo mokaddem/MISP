@@ -259,6 +259,21 @@ verification instance, whose best single-source record scores **9**
 against a floor of 30, so both are asserted in the harness — §13.1's
 pattern for the third time in one phase.
 
+**A polish pass closed the phase** (§20 there), with no engine question
+in it: nothing it changed moves a number, and it was measured on the
+rendered pane rather than argued. The finding was that **both axis
+bands were half a card wide** — the 620px cap that keeps a bar from
+stretching had been set on the band *body*, so the list beside each bar
+inherited a cap it had no use for and 570px of every band was empty.
+The cap moved to the bar and the list took the width back: the card is
+**1394px → 1219px** with nothing removed from it. The hero lost the two
+disabled buttons to the provenance strip, put its sentence next to the
+badge it explains, and gave the quality gauge the band floors — the one
+axis bar on the card that had no threshold drawn on it. And `unrated`
+stopped overflowing a chip built for a single admiralty letter, on
+every row of *Who says what* on every value, because both reference
+maps ship empty.
+
 The headline reading, on the flagship value:
 
 > **Contested** — *What is recorded here contradicts itself. The record

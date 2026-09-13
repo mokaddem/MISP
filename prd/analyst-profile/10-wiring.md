@@ -1608,3 +1608,138 @@ assertion exists to catch.
 **No defect was found building it.** The engine was right and silent,
 which is the third time this phase has shipped an increment whose whole
 content is a fact the page was already holding.
+
+---
+
+## 20. The polish pass, done 2026-09-13
+
+A pass over the built tab with no engine question in it: nothing here
+changes a number, and every finding is something the pane *draws*.
+Measured on the rendered page at 1600px rather than argued, because
+four of the six are widths and heights.
+
+### 20.1 The two axis bands were half a card wide
+
+The finding, and the largest of them. `.vp-vc-lean-body` and
+`.vp-vc-clock-body` both carried `max-width: 620px`, and the cap is
+right: both bands are a bar with a label at each end, and given the
+full column the label goes to the far margin where it reads as a
+second unrelated fact — `.vp-vc-clock-body`'s own comment says so, and
+the rail draws the same object at about 300px.
+
+But the cap was set on the **band body**, and the body holds more than
+the bar. Each band also carries the list that says where its bar came
+from — the clock's confirmations, the lean's weighted rows — and both
+inherited a cap they had no use for. Measured:
+
+| | width | content | empty |
+|---|---|---|---|
+| lean band | 1174px | 620px | **570px (49%)** |
+| clock band | 1174px | 620px | **570px (49%)** |
+
+Half of each band, on every value, on the two newest pieces of work on
+the page.
+
+*Fixed — the cap moved from the body to the bar. `.vp-vc-band-bar` is
+the capped column, `.vp-vc-band-list` is the list beside it, and above
+1400px the body is a two-column grid: bar left at its 620px, list
+right in what is left. Below that it stacks exactly as it did, and the
+list keeps the cap there, because stacked it would otherwise throw*
+independent sighting *900px from the organisation it belongs to. A
+value with no list renders one column and no grid at all, which the
+template says in markup rather than the stylesheet guessing.*
+
+Empty width per band: **570px → 16px**. Band heights **235 → 186** and
+**338 → 213**. The card is **1394px → 1219px**, 12.5% shorter, with
+nothing removed from it.
+
+`10-band-geometry.mjs` asserted the old cap on the body, so it asserted
+the defect. It now asserts the pair — the bar column capped **and** the
+body spanning the card — because either alone was true of the version
+this replaces. **28 → 32 checks.**
+
+### 20.2 The hero had four objects and no entry point
+
+The lean badge, the quality gauge, the summary sentence and two
+disabled buttons, in one flex row at one weight. Three things were
+wrong with that and only one of them is taste:
+
+- **The two buttons are inert.** *Recompute* is disabled until the page
+  writes and *view as JSON* until phase 10, and between them they held
+  the top-right corner of the card. They are drawn in the provenance
+  strip now — which ran 26% empty on every value — one notch smaller,
+  as the small print they are. They stay drawn rather than hidden,
+  which is the opposite of D23's call for the editor and for the
+  opposite reason: D23 removed an inert *control*, a state an analyst
+  could set and believe in. These set nothing, and both name the phase
+  that brings them.
+- **The gauge sat between the badge and its own sentence.** The badge
+  names the reading, the sentence is that reading in full, and a
+  number wedged between them made the eye cross a third object to
+  finish a thought. Badge, sentence, then the gauge against the far
+  margin.
+- **The gauge was the one axis bar with no threshold on it.** The lean
+  track carries both supermajority marks; the clock's carries the day
+  it expires; quality printed `Quality medium` over a plain bar, and
+  the only thing saying where `medium` starts was §19's sentence under
+  a table 500px further down. It carries the two band floors now, in
+  the lean track's own mark — same 2px, same ink, same opacity — read
+  from `band_reason.floors`, which the engine has always emitted. The
+  foot keeps the sentence, including the two cases where the floor is
+  not what decided the band.
+
+Hero height **96px → 73px**.
+
+### 20.3 `unrated` overflowed its own chip
+
+`.vp-reliability` is a 22px square, and it is right for the vocabulary
+it was drawn for: the admiralty grades are one character, `A` to `G`.
+The seventh member of that vocabulary is the word `unrated` — and
+since `07-reference.md` §7.6 ships both maps empty, **every
+organisation on this instance is unrated**. So every row of *Who says
+what* on every value drew a word breaking out of a letter-sized box,
+visible in both themes and ugly in dark.
+
+*Fixed, and not by widening the chip. A grade is something an analyst
+put there and the chip is what says so; `unrated` is its absence, and
+this card draws absences as absences everywhere else — the hollow bar
+in the ledger, `none stated` in the column beside this one. An unrated
+source is muted text; a graded one keeps the chip, and gains the
+tooltip it never had.*
+
+### 20.4 Three smaller ones
+
+- **`0 none stated`.** The false-positive count is right-aligned
+  immediately left of a column of words, so on every row where nobody
+  has stated an opinion the two joined into one phrase. 22px of
+  padding is what says they are two facts.
+- **The longest signal name wrapped.** `.vp-ledger-signal-cell` capped
+  at 290px, which broke *53 sightings from 6 orgs, last 18 days ago*
+  over two lines and pushed its bar and its points out of line with
+  every other row. The cap exists so a long name cannot starve the
+  evidence beside it; 340px is still short of that and clears the
+  longest name the catalogue has. The width came from
+  `.vp-ledger-panel-col`, which was 120px for a column whose longest
+  content is `Occurrences`.
+- **The rail was left alone, deliberately.** It runs out 700px before
+  the main column does, and the obvious fix — `position: sticky` — is
+  wrong here: the rail stack is 843px, taller than most viewports
+  minus the fixed navbar, so pinning it would strand its bottom cards
+  where no scroll can reach them. A short sidebar beside long content
+  is not a defect; an unreachable one is.
+
+### 20.5 What was checked
+
+Every harness re-run, unchanged: `02` 34, `03` 108, `04` 176, `05` 42,
+`06` 154, `07` 114, `08` 121, `09` 179, `09c` 98 — **the eight at 907
+and the render harness at 98**, all zero failures. Over HTTP: `10`'s
+probe **89**, `09c`'s **45**, the page check passing in both themes at
+both widths. `10-band-geometry.mjs` **32**, up from 28.
+
+And a pass of its own, 48 assertions across three values at 1600px and
+1280px in both themes: nothing overflows the pane, the bar column is
+capped in both layouts, the band splits only above the breakpoint, the
+gauge carries both floors, and the actions are drawn in the strip and
+nowhere else. The stacked list running the full card width was caught
+by it after the split was already working, which is the case a
+wide-only check would have shipped.
