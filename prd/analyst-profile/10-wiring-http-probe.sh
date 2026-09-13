@@ -100,6 +100,24 @@ TAB="$WORK/scored-viewVerdict.html"
 ASIDE="$WORK/scored-viewVerdictAside.html"
 CARD="$WORK/scored-viewVerdictCard.html"
 
+# Everything below reads a value that was actually scored. Handed one
+# this instance holds nothing about, the sections would report four
+# failures that are all the same fact — and that fact already has its
+# own section, run against a value randomised per run. Say so once and
+# stop, rather than letting a reader conclude the page is broken.
+if ! grep -qF 'vp-ledger-table' "$TAB" \
+    && ! grep -qF 'vp-vc-cases' "$TAB"; then
+    echo
+    echo "'$SUBJECT' has nothing this viewer can see, so there is no"\
+" assessment to check. The bare-value case is covered above, on a"\
+" value randomised per run; pass a scored value as the fourth"\
+" argument to exercise the rest."
+    echo
+    echo "passed: $PASSED   failed: $FAILED"
+    [ "$FAILED" -eq 0 ]
+    exit
+fi
+
 # ------------------------------------------------ 2. the exact-sum rule
 # Two layouts, one invariant. The agreeing one prints a ledger and a
 # quality and the rows have to sum to it; the contested one prints two
