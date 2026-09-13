@@ -69,9 +69,11 @@ $pinUrl = function ($value, $pin) {
 /*
  * Which way the direction pair points, re-stated on every recompute.
  * `--vp-dir-with` is *with the lean*, and a weight edit can move the
- * lean itself — a ledger that sums against the lean it was anchored to
- * comes back `contested` — so the swap has to arrive with the fragment
- * rather than being set once on the page around it.
+ * lean itself — a **lean** ledger that sums against the lean it was
+ * anchored to comes back `contested` (`review-2026-09-13.md` §A2; it
+ * used to be the whole ledger, which is why an ordinary thin record
+ * tripped it) — so the swap has to arrive with the fragment rather
+ * than being set once on the page around it.
  */
 $leanNow = $detail !== null && isset($detail['axes']['lean']['after'])
     ? $detail['axes']['lean']['after']

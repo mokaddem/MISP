@@ -45,16 +45,25 @@ $quality = $verdict['quality'];
 $warninglist = $verdict['warninglist'] ?? null;
 
 /*
- * Quality reads as support for the lean the card states, not as a
- * malice reading — a full bar on a `benign` record means the benign
- * assertion is well evidenced, the same way it means the threat
- * assertion is on a `threat` one. One ruler, so the two are comparable;
- * the alternative is a near-empty bar under *Asserted benign*, which
- * reads as a weak assessment rather than a confident one.
+ * Quality reads as **how much record there is**, and it says so —
+ * `review-2026-09-13.md` §D1. It used to read *how strongly the record
+ * supports <the lean>*, which was the anchoring's own claim: every row
+ * was multiplied by the lean's polarity, so the number really did
+ * measure support for the badge above it. It no longer is and no
+ * longer does. The rows that support or dispute the lean are in the
+ * band under the provenance line, summing to their own figure; this
+ * one counts corroboration, publication, attribution and temporal
+ * precision, and counts them the same whatever the reading turned out
+ * to be.
+ *
+ * One ruler either way, so two values stay comparable — which is what
+ * the sentence this replaces was really defending.
  */
-$qualityLabel = sprintf(
-    __('How strongly the record supports %s'),
-    ValueLean::label($lean)
+$qualityLabel = __(
+    'How much record stands behind this assessment — corroboration,'
+    . ' publication, attribution, temporal precision. Not how strongly'
+    . ' it supports the reading above: what argues for and against that'
+    . ' is in the band below.'
 );
 
 /*

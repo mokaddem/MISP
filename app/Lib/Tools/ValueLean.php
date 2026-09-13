@@ -171,6 +171,16 @@ class ValueLean
      * one. Painting ▲ red either way would show the benign case's
      * strongest evidence in the colour of a threat.
      *
+     * **It is the lean band's pair now, and not the ledger's**
+     * (`review-2026-09-13.md` §D1). The ledger holds the rows that
+     * weigh the record rather than read the value, and those have no
+     * side to support: *four organisations reported it* is the same
+     * fact under either reading, so it is drawn in ink weight
+     * (`--vp-weighs-carries`) and this pair does not reach it. What
+     * still uses the swap is the band that explains the reading, the
+     * Overview card's badge, and the falsifiability arrows — every
+     * surface whose subject really is the lean.
+     *
      * Red stays the colour of the malicious reading in both directions,
      * so a reader who has learnt the palette on one value does not have
      * to unlearn it on the next.

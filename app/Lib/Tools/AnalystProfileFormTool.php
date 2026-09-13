@@ -115,7 +115,20 @@ class AnalystProfileFormTool
      * reads it, and enrichment emits no ledger row at all.
      */
     const SECTION_AXIS = array(
-        'signals' => 'quality',
+        /*
+         * `lean + quality` since `review-2026-09-13.md` §D1, because the
+         * catalogue stopped being one axis. Nine signals weigh the
+         * record and two read the value — `lifecycle.warninglist`'s
+         * hits and `sightings.false_positive` — and an analyst editing
+         * either of those two is moving the reading, not the band. The
+         * chip said `quality` over a table where that was true of nine
+         * rows out of eleven.
+         *
+         * The per-row half is `sectionSignals()`, which labels each
+         * signal with its own axis; this is the header, and a header
+         * over a mixed table names both.
+         */
+        'signals' => 'lean + quality',
         'thresholds' => 'lean + quality',
         'escalations' => 'lean',
         'exclusions' => 'quality',
@@ -197,18 +210,37 @@ class AnalystProfileFormTool
              * the words they would ask it in: *why is this number
              * negative, and negative toward what?*
              */
+            /*
+             * Rewritten 2026-09-13. It described the anchoring in plain
+             * words — *when the verdict comes out benign, the whole
+             * column is flipped* — which was true of every row until
+             * `review-2026-09-13.md` §D1 and is now true of two. An
+             * analyst reading the old sentence would set a
+             * corroboration weight expecting it to invert on benign
+             * values, which is exactly the reasoning the split removed.
+             */
             'blurb' => __(
-                'What each kind of evidence is worth. Every signal scores'
-                . ' the value on the same scale: a plus means it looks'
-                . ' dangerous, a minus means it looks harmless. The verdict'
-                . ' itself is decided separately, by counting how many'
-                . ' organisations called it one or the other — so when the'
-                . ' verdict comes out benign, the whole column is flipped,'
-                . ' and a plus then means the evidence agrees with it.'
-                . ' Either way, a plus supports the verdict and a minus'
-                . ' argues with it, and the column adds up to the quality'
-                . ' exactly — nothing is normalised, so the ledger is the'
-                . ' number.'
+                'What each kind of evidence is worth. The verdict itself'
+                . ' is decided separately, before any of these points are'
+                . ' counted, by counting how many organisations called'
+                . ' the value one thing or the other — so nothing on this'
+                . ' table decides the reading on its own. Most signals'
+                . ' weigh the record instead: how widely it was reported,'
+                . ' how much of it is published, whether anyone attributed'
+                . ' it, whether it can date its own observations. A plus'
+                . ' there means the record carries something and a minus'
+                . ' that it does not, and that does not change with the'
+                . ' verdict — a value reported by four organisations is'
+                . ' equally well documented whether the verdict came out'
+                . ' threat or benign. Those points add up to the quality'
+                . ' exactly. Two signals are different and are marked'
+                . ' "reads the value": a warninglist hit and a'
+                . ' false-positive sighting say what the value is, so'
+                . ' they are scored against the verdict — a plus supports'
+                . ' it, a minus argues with it, and a big enough minus'
+                . ' turns it contested. Those add up beside the quality'
+                . ' rather than into it. Nothing is normalised either'
+                . ' way, so each column is its own ledger.'
             ),
             'blocks' => array(
                 array(
@@ -319,6 +351,32 @@ class AnalystProfileFormTool
             $state = 'active';
         }
         $badges = array();
+        /*
+         * Which axis this signal's points land on, on the row itself,
+         * because the table holds both since `review-2026-09-13.md`
+         * §D1 and the section header can only name the pair. Only the
+         * exception is badged: nine of eleven weigh the record, so a
+         * chip on every row would be noise, and the one an analyst has
+         * to think differently about is the one that says what the
+         * value *is*.
+         */
+        if ($config !== null
+            && isset($config['axis'])
+            && $config['axis'] === ValueVerdictTool::AXIS_LEAN
+        ) {
+            $badges[] = array(
+                'id' => 'lean',
+                'label' => __('reads the value'),
+                'title' => __(
+                    'This signal says what the value is, not how well'
+                    . ' documented it is, so its points are scored'
+                    . ' against the verdict — a plus supports the'
+                    . ' reading, a minus argues with it — and they sum'
+                    . ' beside the quality rather than into it. A big'
+                    . ' enough minus turns the verdict contested.'
+                ),
+            );
+        }
         if ($config !== null && !empty($config['is_custom'])) {
             $badges[] = array(
                 'id' => 'custom',
