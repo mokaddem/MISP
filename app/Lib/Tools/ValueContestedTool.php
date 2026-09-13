@@ -11,16 +11,23 @@
  * belong to neither*, and splitting the pair across two tools would let
  * the two halves drift.
  *
- * ## The cases are the ledger, read twice
+ * ## The cases are the lean ledger, read twice
  *
  * A contested lean is re-anchored threat-signed before it is banded
- * (`ValueVerdictTool` rule 7, `04-dispositions.md` §2), so the ledger
- * already holds both arguments: the positive rows are what says this is
- * a threat and the negative rows are what says it is not. The cases
- * fold out of those rows and out of nothing else, which is what lets a
- * reader add up either column by hand and arrive at the tug bar above
- * it. `04-dispositions.md` §5: *two derivable quantities, no third
- * bucket, no separate computation.*
+ * (`ValueVerdictTool` rule 7, `04-dispositions.md` §2), so the **lean**
+ * ledger already holds both arguments: the positive rows are what says
+ * this is a threat and the negative rows are what says it is not. The
+ * cases fold out of those rows and out of nothing else, which is what
+ * lets a reader add up either column by hand and arrive at the tug bar
+ * above it. `04-dispositions.md` §5: *two derivable quantities, no
+ * third bucket, no separate computation.*
+ *
+ * **The lean ledger and not the whole one.** Splitting every row by
+ * sign was `review-2026-09-13.md` §A3: it seated corroboration breadth
+ * and temporal precision inside a case titled *Reads as a threat*, and
+ * every absence penalty inside one titled *Reads as benign*. Those
+ * rows weigh the record; they do not read the value, and a case is a
+ * reading.
  *
  * **Exactly two, in order, or none at all.** `value_verdict_conflicted`
  * reads `$cases[0]` and `$cases[1]` positionally and its tug has two
@@ -176,17 +183,26 @@ class ValueContestedTool
      */
     private static function rowsOf(array $verdict)
     {
-        $rows = array();
-        $ledger = isset($verdict['ledger']) ? $verdict['ledger'] : array();
-        foreach ($ledger as $group) {
-            if (empty($group['signals'])) {
-                continue;
-            }
-            foreach ($group['signals'] as $row) {
-                $rows[] = $row;
-            }
-        }
-        return $rows;
+        /*
+         * The lean ledger, which since `review-2026-09-13.md` §A3 is a
+         * separate list rather than the positive half of the quality
+         * one. A case is *what reads the value this way*, and splitting
+         * the whole ledger by sign put five absences — no galaxy, no
+         * first-seen, no sighting, nothing recent, no feed — under a
+         * heading claiming they read the value as benign, then showed
+         * them winning 23 to 22 on a domain nobody had called harmless.
+         *
+         * On the shipped catalogue this is one-sided by construction:
+         * both lean signals argue benign, so `casesFor()` finds no
+         * second column and the agreeing layout carries the value with
+         * the dispute stated in the lean band. That is the honest
+         * shape, and the two-column layout stays for a profile whose
+         * catalogue has a lean signal arguing the other way.
+         */
+        return isset($verdict['lean_ledger'])
+            && is_array($verdict['lean_ledger'])
+                ? $verdict['lean_ledger']
+                : array();
     }
 
     /**

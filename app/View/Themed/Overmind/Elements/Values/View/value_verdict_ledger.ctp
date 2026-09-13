@@ -11,11 +11,19 @@
  * whether the sightings were counted twice wants them next to each
  * other, not scattered through a ranking.
  *
- * The direction column reads against the stated lean, not
- * against maliciousness — ▲ is a row that supports the verdict, ▼ one
- * that argues with it. That is the same thing on a MALICIOUS value and
- * the opposite on a BENIGN one, which is why the header says so on
- * hover rather than leaving the reader to infer it from the sign.
+ * **Every row here weighs the record**, since
+ * `review-2026-09-13.md` §D1: ▲ is a row where the record carries
+ * something — corroboration, publication, attribution, a datable
+ * observation — and ▼ one where it does not. The direction no longer
+ * depends on the lean, which is the point: *four organisations
+ * reported it* is the same fact about the record whether the record
+ * concluded threat or benign, and anchoring it used to render that
+ * fact as `−28` **against** a benign reading.
+ *
+ * The rows that do read the value — the warninglist's hits and
+ * false-positive sightings — are not in this table. They are in the
+ * lean band above, which is the surface that explains the reading, and
+ * keeping them out is what lets this table sum to the quality exactly.
  *
  * Contradictions are a group inside this table rather than a card of
  * their own: they are ledger rows whose contribution is `unresolved`,
@@ -58,9 +66,13 @@ foreach ($ledger as $group) {
                     <th><?= __('Evidence') ?></th>
                     <th class="vp-ledger-contrib-col"
                         title="<?= h(__(
-                            'Points for and against the stated'
-                            . ' lean, not for and against'
-                            . ' maliciousness.'
+                            'Points toward the weight of the record,'
+                            . ' not toward either reading of the'
+                            . ' value. A row adds where the record'
+                            . ' carries something and deducts where it'
+                            . ' does not, whatever the record'
+                            . ' concluded. What reads the value is in'
+                            . ' the band above.'
                         )) ?>">
                         <?= __('Contribution') ?>
                     </th>

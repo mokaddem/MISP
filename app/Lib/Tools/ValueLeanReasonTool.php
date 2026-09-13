@@ -8,9 +8,13 @@
  * functions of the array the engine returned, and none of them touches
  * a database or a view. Being the tool's side of §14.5's line is what
  * lets `04-lean-bands-harness.php` reach the exits no instance happens
- * to occupy — and this file has more of those than the hero's sentence
- * did, because a `benign` lean is unreachable on the verification
- * instance entirely.
+ * to occupy.
+ *
+ * **Eight exits, not seven.** `ValueLeanTool::leanFor()` has seven and
+ * `ValueVerdictTool`'s rule 7 is the eighth, added to the switch by
+ * `review-2026-09-13.md` §A4 — it is the only one decided *after* the
+ * ledger, and until it had a sentence it borrowed the sentence of the
+ * lean it had just overturned.
  *
  * **What was missing.** `ValueLeanTool::leanFor()` has seven exits and
  * exactly one of them — a loaded escalation — produced prose;
@@ -146,6 +150,41 @@ class ValueLeanReasonTool
                     $total,
                     $threshold
                 );
+
+            case 'lean_disputed':
+                /*
+                 * Rule 7, and the exit that had no sentence at all
+                 * until `review-2026-09-13.md` §A4. It is not one of
+                 * `leanFor()`'s seven — the lean it names was counted
+                 * there and then overturned by the ledger, which is
+                 * why `ValueVerdictTool` rewrites `decided_by` on its
+                 * way out. Without that the band printed the
+                 * *overturned* reading's sentence: a **Contested**
+                 * badge over *2 of 2 organisations report this as
+                 * harmless*.
+                 *
+                 * It names the counted lean rather than hiding it,
+                 * because that half is still true and is what the
+                 * stance bar directly above is drawing.
+                 */
+                $counted = isset($verdict['derived_lean'])
+                    ? $verdict['derived_lean']
+                    : null;
+                if ($counted === 'benign') {
+                    return __('The organisations report this as'
+                        . ' harmless, and the record\'s own evidence'
+                        . ' about the value argues the other way — so'
+                        . ' the record contradicts itself.');
+                }
+                if ($counted === 'threat') {
+                    return __('The organisations assert this is a'
+                        . ' threat, and the record\'s own evidence'
+                        . ' about the value disputes them — so the'
+                        . ' record contradicts itself.');
+                }
+                return __('The record\'s own evidence about the value'
+                    . ' disputes the reading the organisations'
+                    . ' reached, so the record contradicts itself.');
 
             case 'no_supermajority':
                 /*

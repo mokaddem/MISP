@@ -1077,12 +1077,22 @@ tr.vp-occ-deleted td {
     font-size: 0.78rem;
 }
 
+/*
+ * The Overview card lists the ledger's heaviest rows, so it takes the
+ * ledger's pair and not the lean's — same argument as
+ * `.vp-ledger-table`'s: these rows weigh the record, and the record
+ * weighs the same under either reading.
+ */
 .vp-signal-up {
-    border-left-color: var(--vp-dir-with);
+    --vp-ledger-adds: var(--bs-body-color);
+    --vp-ledger-cuts: var(--bs-secondary-color);
+    border-left-color: var(--vp-ledger-adds);
 }
 
 .vp-signal-down {
-    border-left-color: var(--vp-dir-against);
+    --vp-ledger-adds: var(--bs-body-color);
+    --vp-ledger-cuts: var(--bs-secondary-color);
+    border-left-color: var(--vp-ledger-cuts);
 }
 
 .vp-signal-arrow {
@@ -1091,11 +1101,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-signal-up .vp-signal-arrow {
-    color: var(--vp-dir-with);
+    color: var(--vp-ledger-adds);
 }
 
 .vp-signal-down .vp-signal-arrow {
-    color: var(--vp-dir-against);
+    color: var(--vp-ledger-cuts);
 }
 
 .vp-signal-text {
@@ -2174,6 +2184,97 @@ tr.vp-occ-deleted td {
     margin: 0;
 }
 
+/*
+ * The lean ledger, which sits in this band rather than in the table
+ * below because it answers *how this reading was decided* and not
+ * *how much record there is* (`review-2026-09-13.md` §D1).
+ *
+ * Deliberately not the ledger table's geometry: these are two or three
+ * rows inside a band, not a column to scan, and giving them the table's
+ * six columns would make the band read as a second ledger rather than
+ * as the working behind the sentence above it.
+ */
+.vp-vc-lean-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-vc-lean-rows-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-lean-rows-total {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.vp-vc-lean-row {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) 72px 40px;
+    align-items: center;
+    gap: 8px;
+}
+
+.vp-vc-lean-row-mark {
+    font-size: 0.6rem;
+    line-height: 1;
+    color: var(--vp-dir-with);
+}
+
+.vp-vc-lean-row-down .vp-vc-lean-row-mark {
+    color: var(--vp-dir-against);
+}
+
+.vp-vc-lean-row-signal {
+    min-width: 0;
+}
+
+.vp-vc-lean-row-evidence {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-lean-row-bar {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--bs-secondary-bg);
+    overflow: hidden;
+}
+
+.vp-vc-lean-row-fill {
+    display: block;
+    height: 100%;
+    background: var(--vp-dir-with);
+}
+
+.vp-vc-lean-row-down .vp-vc-lean-row-fill {
+    background: var(--vp-dir-against);
+}
+
+.vp-vc-lean-row-points {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--vp-dir-with);
+}
+
+.vp-vc-lean-row-down .vp-vc-lean-row-points {
+    color: var(--vp-dir-against);
+}
+
 .vp-vc-lean-errors {
     font-size: 0.72rem;
     color: var(--bs-secondary-color);
@@ -2816,12 +2917,32 @@ tr.vp-occ-deleted td {
     opacity: 0.8;
 }
 
+/*
+ * The ledger's own pair, and it is deliberately **not** the lean's.
+ *
+ * `--vp-dir-with` / `--vp-dir-against` swap hue with the lean, which
+ * was right while every row argued about the lean and is wrong now
+ * that this table holds only the rows that weigh the record
+ * (`review-2026-09-13.md` §D1). *Four organisations reported it* is
+ * the same fact on a threat value and a benign one; painting it red on
+ * one and green on the other would put the anchoring back in the ink
+ * after taking it out of the arithmetic.
+ *
+ * So: present and absent, not good and bad. A row the record carries
+ * takes the body ink; a row it does not takes the muted one. The glyph
+ * and the sign carry the direction, and the bar carries the shape.
+ */
+.vp-ledger-table {
+    --vp-ledger-adds: var(--bs-body-color);
+    --vp-ledger-cuts: var(--bs-secondary-color);
+}
+
 .vp-ledger-line-up .vp-ledger-dir {
-    color: var(--vp-dir-with);
+    color: var(--vp-ledger-adds);
 }
 
 .vp-ledger-line-down .vp-ledger-dir {
-    color: var(--vp-dir-against);
+    color: var(--vp-ledger-cuts);
 }
 
 .vp-ledger-signal-cell {
@@ -2845,11 +2966,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-vc-bar-fill {
-    background: var(--vp-dir-with);
+    background: var(--vp-ledger-adds);
 }
 
 .vp-ledger-line-down .vp-vc-bar-fill {
-    background: var(--vp-dir-against);
+    background: var(--vp-ledger-cuts);
 }
 
 /*
@@ -2867,11 +2988,11 @@ tr.vp-occ-deleted td {
 }
 
 .vp-ledger-line-up .vp-ledger-points {
-    color: var(--vp-dir-with);
+    color: var(--vp-ledger-adds);
 }
 
 .vp-ledger-line-down .vp-ledger-points {
-    color: var(--vp-dir-against);
+    color: var(--vp-ledger-cuts);
 }
 
 .vp-ledger-panel {

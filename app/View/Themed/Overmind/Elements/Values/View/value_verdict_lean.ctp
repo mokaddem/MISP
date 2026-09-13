@@ -46,6 +46,34 @@ $errors = isset($verdict['rule_errors'])
     : array();
 
 /*
+ * The lean ledger, which belongs here and used to be filed with the
+ * quality's. `review-2026-09-13.md` §D1 took the two axes apart: the
+ * warninglist's hits and false-positive sightings are the only rows
+ * that read the *value*, so they are the only rows that anchor — and
+ * that leaves them out of the table below, which now sums to the
+ * quality alone.
+ *
+ * They cannot simply disappear with it. A `−38` listing is the
+ * heaviest thing on a benign record and the band above says the
+ * reading was decided; these rows are how much weight was behind that
+ * decision, which is the one question the stance counts cannot answer.
+ */
+$leanRows = isset($verdict['lean_ledger'])
+    && is_array($verdict['lean_ledger'])
+    ? $verdict['lean_ledger']
+    : array();
+$leanWeight = (int)(isset($verdict['lean_weight'])
+    ? $verdict['lean_weight']
+    : 0);
+$leanHeaviest = 1;
+foreach ($leanRows as $leanRow) {
+    $leanHeaviest = max(
+        $leanHeaviest,
+        abs((int)$leanRow['contribution'])
+    );
+}
+
+/*
  * No sentence, no band. That is the empty record — whose hero already
  * says there is nothing to assess, and §17.4's argument applies
  * unchanged — and any exit a future rule adds without giving it words,
@@ -152,6 +180,67 @@ $supermajority = isset($stances['supermajority'])
         <?php endif; ?>
 
         <p class="vp-vc-lean-note"><?= h($reason) ?></p>
+
+        <?php
+        /*
+         * And what else reads the value. Stance counts are one
+         * organisation, one vote; these are the rows that carry a
+         * weight, so both the count and the weight are on the page and
+         * a reader can see which of the two decided.
+         *
+         * Signed against the lean, like the ledger's own rows: `+38`
+         * is a row supporting the reading stated above, `−38` one
+         * disputing it. On a contested lean the rows are threat-signed
+         * — rule 7 put them back — so a negative row is the half of
+         * the contradiction arguing benign.
+         */
+        ?>
+        <?php if (!empty($leanRows)): ?>
+            <div class="vp-vc-lean-rows">
+                <div class="vp-vc-lean-rows-head">
+                    <?= h(__('What else reads the value')) ?>
+                    <span class="vp-vc-lean-rows-total"
+                          title="<?= h(__(
+                              'These rows sum to this. They are not'
+                              . ' part of the quality below, which'
+                              . ' weighs how much record there is'
+                              . ' rather than what it says.'
+                          )) ?>">
+                        <?= h(($leanWeight > 0 ? '+' : '') . $leanWeight) ?>
+                    </span>
+                </div>
+                <?php foreach ($leanRows as $leanRow):
+                    $leanUp = (int)$leanRow['contribution'] >= 0;
+                    $leanPoints = abs((int)$leanRow['contribution']);
+                    ?>
+                    <div class="vp-vc-lean-row<?= $leanUp
+                        ? ' vp-vc-lean-row-up'
+                        : ' vp-vc-lean-row-down' ?>">
+                        <span class="vp-vc-lean-row-mark">
+                            <?= $leanUp ? '&#9650;' : '&#9660;' ?>
+                        </span>
+                        <span class="vp-vc-lean-row-signal">
+                            <?= h($leanRow['signal']) ?>
+                            <span class="vp-vc-lean-row-evidence">
+                                <?= h($leanRow['evidence']) ?>
+                            </span>
+                        </span>
+                        <span class="vp-vc-lean-row-bar">
+                            <span class="vp-vc-lean-row-fill"
+                                  style="width: <?= round(
+                                      $leanPoints / $leanHeaviest * 100,
+                                      2
+                                  ) ?>%;"></span>
+                        </span>
+                        <span class="vp-vc-lean-row-points">
+                            <?= h(((int)$leanRow['contribution'] > 0
+                                ? '+'
+                                : '') . (int)$leanRow['contribution']) ?>
+                        </span>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
 
         <?php if (!empty($errors)): ?>
             <?php
