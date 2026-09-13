@@ -684,6 +684,156 @@ if grep -qE 'vp-orgs-opinion|Opinion' "$TAB"; then
     fi
 fi
 
+# ------------------------------------------------- 8. the clock band
+# The third axis, at the rank the other two had all along. What this
+# section asserts is not that a band appeared — it is that the band and
+# the Lifetime card on the Sightings tab, computed in two requests from
+# two different facades, say the same thing about one value. §14.3 is
+# why: this tab drew `expired, 33 days over` beside `64 days left` on
+# that card, and the axis with no shared element was the axis that
+# broke. They share one element now, so the check is that nothing
+# re-introduces a second rendering.
+echo "--- the clock band, against the card that owns the same clock"
+REL="$WORK/scored-viewRelevance.html"
+REL_CODE=$(fetch viewRelevance "$SUBJECT" "$REL")
+is "viewRelevance answers" "$REL_CODE" "200"
+if [ "$REL_CODE" = "200" ]; then
+    python3 - "$TAB" "$REL" <<'PY'
+import re
+import sys
+
+tab = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+rel = open(sys.argv[2], encoding='utf-8', errors='replace').read()
+fails = 0
+
+
+def strip(html):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html)).strip()
+
+
+def band(html):
+    i = html.find('vp-vc-clock-body')
+    return html[i:i + 6000] if i >= 0 else None
+
+
+def field(html, cls):
+    m = re.search(r'class="' + cls + r'"[^>]*>(.*?)</span>', html, re.S)
+    return None if m is None else strip(m.group(1))
+
+
+b = band(tab)
+if b is None:
+    print('FAIL the Assessment tab drew no clock band on a scored value')
+    sys.exit(1)
+
+# The axis can stand down (`rows_not_read`), which is a reading and not
+# a failure — but then it must say so, and it must not claim the card
+# agrees with it.
+if 'stands down' in strip(b):
+    print('ok   the axis stands down on this value, and says why')
+    if 'carries the same clock in full' in strip(b):
+        print('FAIL a stood-down band claims the Lifetime card agrees'
+              ' with it — which is the §14.3 contradiction in a'
+              ' caption')
+        fails += 1
+    else:
+        print('ok   and it does not claim the Lifetime card agrees')
+    sys.exit(1 if fails else 0)
+
+band_state, band_days = field(b, 'vp-shelf-state'), field(b, 'vp-shelf-days')
+card_state = field(rel, 'vp-shelf-state')
+card_days = field(rel, 'vp-shelf-days')
+print('band: %s / %s' % (band_state, band_days))
+print('card: %s / %s' % (card_state, card_days))
+
+for name, got, want in (('state', band_state, card_state),
+                        ('days', band_days, card_days)):
+    if got is None or want is None:
+        print('FAIL could not read the %s off both panels' % name)
+        fails += 1
+    elif got == want:
+        print('ok   the band and the Lifetime card agree on the %s'
+              ' (%s), two requests apart' % (name, got))
+    else:
+        print('FAIL the band says %s and the card says %s' % (got, want))
+        fails += 1
+
+# The two facts §3.4 requires of any panel printing a TTL: the date the
+# clock runs from, and the type that supplied the number. A band that
+# prints a state and a day count and neither of these is the aggregate
+# this whole pass exists to replace.
+text = strip(b)
+if re.search(r'(Last confirmed|Added) \d{4}-\d\d-\d\d', text):
+    print('ok   the band names the date the clock runs from')
+else:
+    print('FAIL the band prints a day count with no date behind it')
+    fails += 1
+if re.search(r'(Set for \S+|no type to take a lifetime|No lifetime set)',
+             text):
+    print('ok   the band names where the lifetime came from')
+else:
+    print('FAIL the band does not say which type supplied the TTL')
+    fails += 1
+if re.search(r'Expires \d{4}-\d\d-\d\d', text):
+    print('ok   and the day it expires')
+else:
+    print('FAIL the band names no expiry date')
+    fails += 1
+
+# The corroboration rows are this axis's ledger. Where the clock has
+# events the newest one *is* the clock, so the first row has to carry
+# the date the provenance line named.
+if 'What has reset this clock' in text:
+    named = re.search(r'(?:Last confirmed|Added) (\d{4}-\d\d-\d\d)', text)
+    rows = re.findall(r'vp-shelf-event-date">\s*([\d-]+)', b)
+    print('rows: %s, clock names: %s'
+          % (rows[:4], named and named.group(1)))
+    if rows and named and rows[0] == named.group(1):
+        print('ok   the newest corroboration is the clock (%s)' % rows[0])
+    else:
+        print('FAIL the list\'s first row and the clock disagree')
+        fails += 1
+    if len(rows) <= 4:
+        print('ok   the band caps the list at four rows (%d drawn)'
+              % len(rows))
+    else:
+        print('FAIL the band drew %d rows, and it caps at four'
+              % len(rows))
+        fails += 1
+
+sys.exit(1 if fails else 0)
+PY
+    if [ $? -eq 0 ]; then ok "the clock band, read against the Lifetime"\
+" card"; else no "the clock band, read against the Lifetime card"; fi
+fi
+
+# The extraction's own regression guard. The Lifetime card handed three
+# of its parts to shared elements; everything it kept has to still be
+# on it, and a reader of that card would not notice a missing block
+# because the card still looks complete without one.
+echo "--- and the Lifetime card kept everything it did not hand over"
+if [ "$REL_CODE" = "200" ]; then
+    for MARK in vp-shelf-track vp-shelf-prov vp-shelf-events vp-dates \
+        vp-acl-note-band; do
+        if grep -qF "$MARK" "$REL"; then
+            ok "the Lifetime card still draws $MARK"
+        else
+            no "the Lifetime card lost $MARK in the extraction"
+        fi
+    done
+fi
+
+# The value with nothing recorded draws no band at all: the hero has
+# already said there is nothing to assess, and a second empty state
+# under the first is the gap the hero's own guard avoids.
+echo "--- the value with nothing to assess draws no clock band"
+BARE_TAB="$WORK/bare-viewVerdict.html"
+if grep -qF 'vp-vc-clock' "$BARE_TAB"; then
+    no "the bare value drew a clock band saying there is no clock"
+else
+    ok "no band where the hero has already said it"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]

@@ -753,6 +753,11 @@ outside this corpus:
    fixture's three buttons are writes and `01-profile.md` §7 says this
    feature performs none.
 
+9. **The clock band** — **done, §17.** Not on the list when the list
+   was written: relevance had reached the tab in words (§13) and in a
+   chart (§9.4) and that was read as the axis arriving. It had not
+   shown its work, and it was the only axis that had not.
+
 Q9 is unchanged and still recommends C, now at a known cost (§4).
 
 
@@ -1240,3 +1245,123 @@ gives this page a write.
 
 **77 checks** over HTTP on `8.8.8.8`, up from 75; the harnesses are
 unchanged at **862** and the render harness at **98**.
+## 17. The clock band, built 2026-09-13
+
+**The tab had three axes and showed its work for two of them.** Lean
+carried the badge, the escalation that decided it (§13.3) and *Who says
+what*; quality carried the number, the band and a ledger whose rows sum
+to it exactly. Relevance carried one clause of the hero's sentence
+(§13) and a bare 90-day line in the rail (§9.4) — a reader could see
+what the axis concluded and nothing of why, on the one axis whose
+inputs are dates they could go and check themselves.
+
+Nothing about the data required that. `$verdict['relevance']` is built
+inside `assess()` from the context the quality already read, so every
+fact the band now draws was on the tab before the band existed and was
+discarded at render. Measured after the build: `viewVerdictCard` costs
+**27** queries and `viewVerdict`/`viewVerdictAside` **36** on
+`8.8.8.8`, both inside §15's recorded ranges. The band adds **no
+query**, which is the reason it could be a band rather than a proposal.
+
+The reading, on the flagship value:
+
+> **How long this reading holds**
+> `current` · *69 days left*
+> Last confirmed 2026-08-23 by CthulhuSPRL.be (independent sighting)
+> Set for `ip-dst`, in the short bucket — the shortest of its 4 types,
+> which run 90 to 180 days. Expires 2026-11-21
+> *What has reset this clock:* four dates, 17 not listed
+
+**Not three numbers in the hero**, which D11 §7 rules out and §13
+closed by composing the axes in prose instead. What was missing was the
+axis's *working*, and the argument card is where this tab keeps
+working: the band sits after the ledger on the agreeing layout and
+after the ambiguities on the contested one, in the order the argument
+is made.
+
+### 17.1 Extracted, not written
+
+The facts and the corroboration list are the Lifetime card's own
+elements now — `value_relevance_facts.ctp` and
+`value_relevance_events.ctp` — called by both surfaces. That is the
+whole point of the increment rather than a tidiness afterthought:
+**§14.3 was this tab drawing `expired, 33 days over` beside the
+Sightings tab's `64 days left`**, §9.5's cross-panel check exists
+because phase 5 shipped the same class of defect, and §16.1 paid for
+the expensive opinion aggregate rather than approximate one. Three
+instances in one corpus, and the axis with no shared element was the
+axis that broke. A shared element cannot disagree with itself.
+
+The labels the Lifetime card invented — `new organisation`,
+`independent sighting`, and the sentence behind each — moved to
+`ValueRelevanceTool` beside `clockLabel()`, whose docblock already said
+why: they are read on three surfaces now, and the copy that does not
+get updated is the one that prints `org_joined` at a reader.
+
+The probe asserts the agreement rather than the extraction: the band's
+state and days are read off the Assessment tab and the Lifetime card's
+off `viewRelevance`, **two requests apart**, and compared —
+`current` / `69 days left` on both.
+
+### 17.2 A silence that was the wrong silence
+
+`noClock()` has returned a `reason` since phase 5, and its docblock
+says in as many words that a caller should branch on it: `no_record`
+and `rows_not_read` are not the same absence. **No caller ever did.**
+So `github.com` — flagged over-correlating, hundreds of occurrences,
+its rows left unread by the evidence budget — was told *"Nothing is
+recorded for this value, so there is no clock to run."*
+
+It is false, and it is false in the worst direction: the sentence a
+reader who knows the value will read as proof the page is broken, on
+exactly the values most likely to be looked at. The band says the
+stand-down in §14.3's own terms now — a clock missing its newest
+confirmations can only run slow, so the axis stands down rather than
+guess — and the Lifetime card takes the correction with it, because
+they are one element.
+
+Found by building the band, not by reading the code: the sentence is
+correct on every value the fixture and the flagship exercise, and only
+wrong on the third state neither of them has.
+
+### 17.3 A caption that would have re-shipped §14.3
+
+The band's first caption read *"the Sightings tab's Lifetime card
+carries the same clock in full"*. On `github.com` that is a lie with a
+precise shape: this axis stands down while that card still reads a
+clock from the rows it did fetch — **stands down here, `current`,
+`64 days left` there**, and both are correct.
+
+A reader who finds that difference unexplained files it as the bug it
+resembles, so the difference is what the caption says. Three captions,
+by state: the two panels agree and it says so; the axis stood down and
+it says why they differ; nothing is recorded and there is no second
+panel to point at, so there is no caption. The probe asserts the
+middle one — a stood-down band that claims agreement is a failure, not
+a cosmetic one.
+
+### 17.4 The one value that draws no band
+
+A record the viewer holds nothing of. `no_record` is
+`clock.at === null`, which is the condition the lean's first rule reads
+to return `none`, so the hero has already said *nothing you can see
+records this value* — and a band repeating it in the clock's words is a
+second empty state under the first. The band returns early there. The
+Lifetime card keeps its own no-record state, because it is the panel a
+reader opens *for* the clock and it is the only thing on that panel.
+
+### 17.5 Verification
+
+**85 checks** over HTTP on `8.8.8.8`, up from 77, and **83** on
+`github.com` — the stand-down value, which exercises §17.2 and §17.3
+and is the reason the probe is worth running against two values rather
+than one. The eight harnesses are unchanged at **862** and the render
+harness at **98**.
+
+A browser harness joins them: `10-clock-band-geometry.mjs`, **12
+checks** across light and dark. It measures rather than asserts, on
+§8.1's lesson that a 200 with an empty body passes every check that
+does not measure a size — the band is 338px tall in both themes, spans
+the card without overflowing it, caps its body at 620px, and draws the
+runway bar at **77%** of its track under a label reading *69 days
+left*, which is 69 of 90.

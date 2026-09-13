@@ -174,14 +174,28 @@ after the tab had stopped — a full ledger beside a zero-byte column,
 and a 200 with an empty body passes every assertion that does not
 measure a size.
 
-**Six increments followed, all on 2026-09-13** — the five derivable
+**Seven increments followed, all on 2026-09-13** — the five derivable
 keys (§9), the copy pass (§11), D11's rename (§12), the hero (§13), the
-contested layout (§14), the query counts (§15) and the opinion
-aggregate (§16). §2.2's thirteen unproduced keys close as **eleven
-produced, two deliberately empty**: `resolutions` and `changer_actions`
-are writes this feature does not do, and neither is drawn as an inert
-promise. **77 checks over HTTP**, up from 43; the eight harnesses at
-**862**, the render harness at **98**.
+contested layout (§14), the query counts (§15), the opinion
+aggregate (§16) and the clock band (§17). §2.2's thirteen unproduced
+keys close as **eleven produced, two deliberately empty**:
+`resolutions` and `changer_actions` are writes this feature does not
+do, and neither is drawn as an inert promise. **85 checks over HTTP**
+on the flagship value and **83** on the over-correlating one, up from
+43; the eight harnesses at **862**, the render harness at **98**, and a
+browser harness at **12** across both themes.
+
+**The last of them gave relevance its working back** (§17). The tab had
+three axes and could show its work for two: lean had its rule and its
+per-organisation table, quality had a ledger that sums to itself
+exactly, and relevance had one clause of the hero's sentence and a bare
+chart in the rail. The clock band draws the state, the runway, the date
+the clock runs from, the type that supplied the TTL, the day it expires
+and the four newest corroborations — all of it out of
+`$verdict['relevance']`, which the engine had been building and the
+page discarding, so it **costs no query**. It is the Lifetime card's
+own elements rather than a second rendering of them, which is the
+finding below turned into a mechanism.
 
 The headline reading, on the flagship value:
 
@@ -190,7 +204,7 @@ The headline reading, on the flagship value:
 > Threat case **70** · **71** benign case · Analyst profile
 > `default-v1`
 
-**Four findings, and the sharpest is a page contradicting itself.**
+**Six findings, and the sharpest is a page contradicting itself.**
 `github.com` is flagged over-correlating, so the evidence budget leaves
 its rows unread — and the relevance clock fell back silently, drawing
 *expired, 33 days over* on the Assessment tab beside *64 days left* on
@@ -199,7 +213,19 @@ so the axis stands down rather than guessing. It was caught by §9.5's
 cross-panel shape, which is the third time this corpus has been bitten
 by two panels computing one quantity twice — and the reason the opinion
 histogram reads the Collaboration tab's own union at 2 to 27 queries
-rather than a cheap count of its own.
+rather than a cheap count of its own, and the reason the clock band is
+the Lifetime card's element rather than a copy of it.
+
+**The same value found the other two** (§17.2, §17.3). `noClock()` has
+returned `no_record` or `rows_not_read` since phase 5 and says in its
+docblock that a caller should branch on them; **none ever did**, so a
+value with hundreds of occurrences whose rows the budget declined to
+read was told *nothing is recorded for this value* — false, on the
+values most likely to be looked at, in the words most likely to be read
+as the page being broken. And the band's first caption said the
+Sightings tab *carries the same clock in full*, which on that same
+value would have re-shipped the contradiction above as a sentence: the
+two panels genuinely differ there, and what the caption says now is why.
 
 **D11's rename landed with it** (§12): `ValueVerdictTool::LEAN_DISPOSITION`
 is gone, the page says `lean` / `quality` / `band`, and

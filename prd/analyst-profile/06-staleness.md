@@ -1008,6 +1008,34 @@ day and capped: `14 sightings` under a value page reading `53`. The
 bench shows the date and no count — a date with no count is honest, a
 count that disagrees with the other pane is not.
 
+### 7.16 The `reason` nobody read. Fixed 2026-09-13
+
+`noClock()` returns `no_record` or `rows_not_read` and its docblock has
+said since this phase shipped that the two exist *"so a caller can
+branch on `reason` rather than on which fields happen to be null"*.
+**No caller branched.** The Lifetime card printed one sentence for
+both, and that sentence was *"Nothing is recorded for this value, so
+there is no clock to run."*
+
+On a value MISP has flagged as over-correlating — hundreds of
+occurrences, rows the evidence budget declined to read — it is simply
+false. It is also the failure mode §3.4 exists to prevent, one
+paragraph further along than §3.4 was looking: a reader who knows
+`github.com` reads *nothing is recorded* and concludes the page is
+broken, and the values this lands on are exactly the ones worth
+looking at.
+
+Both surfaces say the stand-down now, in §14.3's terms — a clock
+missing its newest confirmations can only run slow, so the axis stands
+down rather than guess. They say it in one element rather than two,
+which is the other half of the fix.
+
+**Found by building a second surface, not by reading this one.** The
+sentence is correct on every value the fixture carries and on the
+flagship; the third state had no reader until the Assessment tab drew
+the axis (`10-wiring.md` §17.2), and a state with no reader is a state
+with no proofreader.
+
 ## 8. Out of scope
 
 - Gating exports on the TTL. Phase 10, and stated as out of scope in

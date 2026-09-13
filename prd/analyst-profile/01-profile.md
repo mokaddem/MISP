@@ -267,6 +267,22 @@ agrees with the Sightings tab's relevance card to the percentage point, across
 two requests, which is the bug phase 5 §7.2 shipped once and is now asserted
 across the gap.
 
+**And the axis got its working back the same day** (§17 there). The tab had
+three axes and showed its work for two: lean carried its rule and its
+per-organisation table, quality carried a ledger summing to itself exactly, and
+relevance carried one clause of a sentence and a bare chart. The clock band
+draws the state, the runway, the date the clock runs from, the type that
+supplied the TTL, the day it expires and the four newest corroborations — from
+`$verdict['relevance']`, which `assess()` had been building and the page had
+been discarding, so it costs **no query**. It is the Lifetime card's own
+elements rather than a second rendering of them, which is §14.3's lesson
+mechanised: the axis with no shared element was the axis that drew `expired`
+beside `64 days left`. Two findings came out of building it, and the sharper is
+that `noClock()` has distinguished *no record* from *rows not read* since phase
+5 and **no caller had ever branched on it** — so every over-correlating value,
+which is to say every value most worth looking at, was told that nothing was
+recorded about it.
+
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
 same login: `ValuesController` set its theme only when the reader had
@@ -312,7 +328,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Assessment tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **built 2026-09-13.** Read back first — eight findings in §7 — then six increments: the spine (§8), the five derivable keys (§9), the copy pass (§11), D11's rename (§12), the hero's sentence (§13), the contested layout (§14), the query counts (§15) and the opinion aggregate (§16). §2.2's thirteen unproduced keys close as **eleven produced, two deliberately empty** — `resolutions` and `changer_actions` are writes this feature does not do. 77 checks over HTTP, up from 43; the harnesses at 862 and the render harness at 98. Four findings of its own, the sharpest being two panels drawing opposite readings of the relevance axis (§14.3) |
+| 9 | **Wiring the Assessment tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **built 2026-09-13.** Read back first — eight findings in §7 — then six increments: the spine (§8), the five derivable keys (§9), the copy pass (§11), D11's rename (§12), the hero's sentence (§13), the contested layout (§14), the query counts (§15), the opinion aggregate (§16) and the clock band (§17). §2.2's thirteen unproduced keys close as **eleven produced, two deliberately empty** — `resolutions` and `changer_actions` are writes this feature does not do. 85 checks over HTTP on the flagship and 83 on the over-correlating one, up from 43; the harnesses at 862, the render harness at 98 and a browser harness at 12. Six findings of its own, the sharpest being two panels drawing opposite readings of the relevance axis (§14.3) and a `reason` no caller had branched on since phase 5 (§17.2) |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table

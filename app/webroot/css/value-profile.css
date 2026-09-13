@@ -2065,6 +2065,63 @@ tr.vp-occ-deleted td {
     color: inherit;
 }
 
+/*
+ * The clock: the third axis, at the rank the other two have.
+ *
+ * `vp-vc-unresolved`'s shape — a headed band inside the argument card —
+ * in the Lifetime card's colour, because this draws the Lifetime card's
+ * own element and a reader meeting the same bar twice on one page
+ * should recognise it the second time.
+ */
+.vp-vc-clock {
+    border-top: 1px solid color-mix(in srgb, var(--correlation) 20%,
+        var(--bs-border-color));
+    background: color-mix(in srgb, var(--correlation) 4%,
+        var(--bs-body-bg));
+}
+
+[data-bs-theme="dark"] .vp-vc-clock {
+    background: color-mix(in srgb, var(--correlation) 9%,
+        var(--bs-body-bg));
+}
+
+.vp-vc-clock-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px;
+    border-bottom: 1px solid color-mix(in srgb, var(--correlation) 14%,
+        var(--bs-border-color));
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.vp-vc-clock-mark {
+    color: var(--correlation);
+}
+
+/*
+ * The shelf is a bar with a label at each end. Given the full width of
+ * this column it pushes the days count to the far margin, where it
+ * reads as a second unrelated fact; the rail draws the same object at
+ * about 300px. The cap keeps the two renderings recognisably one
+ * thing.
+ */
+.vp-vc-clock-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 620px;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+}
+
+.vp-vc-clock-note {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
 /* The two cases, same width and same row shape. */
 .vp-vc-cases {
     display: flex;

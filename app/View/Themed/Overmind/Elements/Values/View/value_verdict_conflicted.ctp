@@ -249,6 +249,23 @@ foreach ($cases as $case) {
         </div>
     <?php endif; ?>
 
+    <?php
+    /*
+     * ----------------------------------------------------------
+     * 6. The clock
+     * ----------------------------------------------------------
+     * The same band as the agreeing layout, and it belongs here more
+     * rather than less: a contested value is the one a reader is most
+     * likely to go and check, and *how old is this disagreement* is the
+     * first question they ask. §13.3's lesson, one layout across — a
+     * fact that reaches only one of these two templates reaches roughly
+     * half the values on the instance.
+     */
+    ?>
+    <?= $this->element('Values/View/value_verdict_relevance', array(
+        'verdict' => $verdict,
+    )) ?>
+
 </div>
 
 <?php

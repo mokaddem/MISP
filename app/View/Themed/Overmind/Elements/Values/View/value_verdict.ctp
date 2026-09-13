@@ -136,11 +136,13 @@ foreach ($verdict['orgs'] as $org) {
         <?php /*
          * The hero's paragraph, drawn only where there is one to draw.
          * `summary` is the key D11 left open — the composition of lean,
-         * relevance and quality into a sentence — and nothing produces
-         * it yet (`prd/analyst-profile/10-wiring.md` §2.2). The bands
-         * below state the same argument in rows, so the card is
-         * complete without it; an empty paragraph would only add a gap
-         * where a reader expects a summary.
+         * relevance and quality into a sentence — and `ValueSummaryTool`
+         * has written it since 2026-09-13
+         * (`prd/analyst-profile/10-wiring.md` §13). The guard stays: a
+         * lean with nothing weighed behind it stops the sentence after
+         * one clause, and the builder returns nothing rather than a
+         * fragment. The bands below state the same argument in rows, so
+         * the card is complete without it.
          */ ?>
         <?php if (!empty($verdict['summary'])): ?>
             <p class="vp-vc-prose vp-vc-prose-wide">
@@ -215,6 +217,23 @@ foreach ($verdict['orgs'] as $org) {
         'verdict' => $verdict,
         'uid' => $uid,
         'noWrites' => $noWrites,
+    )) ?>
+
+    <?php
+    /*
+     * ----------------------------------------------------------
+     * 5. The clock
+     * ----------------------------------------------------------
+     * Last, because it is the axis that argues with neither of the
+     * others — a value can be well evidenced and out of date, and the
+     * ledger above has already finished saying how well evidenced.
+     * It is in the card rather than the rail because D11's three axes
+     * are peers, and the two that were drawn here were the two a
+     * reader could audit.
+     */
+    ?>
+    <?= $this->element('Values/View/value_verdict_relevance', array(
+        'verdict' => $verdict,
     )) ?>
 
 </div>

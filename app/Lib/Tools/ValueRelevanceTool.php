@@ -550,6 +550,83 @@ class ValueRelevanceTool
     }
 
     /**
+     * What a state means, for the hover beside the word.
+     *
+     * `stateLabel()` names the state and this says what it tells a
+     * reader to do about it. Split because the label is read in places
+     * with no room for a sentence — the hero's badge, the editor's
+     * bench — and the sentence is read in the places that have one.
+     *
+     * @param string|null $state
+     * @return string|null Null where there is nothing to add
+     */
+    public static function stateHint($state)
+    {
+        $hints = array(
+            'current' => __('Inside its lifetime.'),
+            'aging' => __('Still inside its lifetime, but past the'
+                . ' point where this profile stops calling it'
+                . ' current.'),
+            'expired' => __('Past its lifetime. Re-check it before'
+                . ' acting on it.'),
+            'uncertain' => __('The age below is a minimum, not a'
+                . ' measurement.'),
+        );
+        return isset($hints[$state]) ? $hints[$state] : null;
+    }
+
+    /**
+     * What reset the clock, in words.
+     *
+     * `new organisation` and `independent sighting` are terms this
+     * feature invented, and they are now read on three surfaces — the
+     * Lifetime card, the Assessment tab's clock band and the editor's
+     * bench. `clockLabel()`'s docblock names the failure this avoids:
+     * the copy that does not get updated is the one that prints
+     * `org_joined` at a reader.
+     *
+     * @param string|null $kind
+     * @return string The stored key where the kind is unknown
+     */
+    public static function kindLabel($kind)
+    {
+        $labels = array(
+            'org_joined' => __('new organisation'),
+            'foreign_sighting' => __('independent sighting'),
+            'sighting' => __('sighting'),
+            'occurrence' => __('occurrence'),
+            'fallback' => __('own encoding date'),
+        );
+        return isset($labels[$kind]) ? $labels[$kind] : (string)$kind;
+    }
+
+    /**
+     * The definition behind a kind's label.
+     *
+     * A reader meeting *new organisation* in a list of dates has no way
+     * to tell it from *independent sighting*, and six rows of
+     * definitions beside six rows of data is the density the Lifetime
+     * card spent a pass removing. So it is a hover.
+     *
+     * @param string|null $kind
+     * @return string|null Null where there is nothing to add
+     */
+    public static function kindHint($kind)
+    {
+        $hints = array(
+            'org_joined' => __('An organisation that had not reported'
+                . ' this value before now has.'),
+            'foreign_sighting' => __('A sighting from an organisation'
+                . ' other than the one that reported the value.'),
+            'sighting' => __('Somebody reported seeing this value.'),
+            'occurrence' => __('This value appeared in an event.'),
+            'fallback' => __('The value\'s own date, with nothing'
+                . ' confirming it.'),
+        );
+        return isset($hints[$kind]) ? $hints[$kind] : null;
+    }
+
+    /**
      * The TTL in force, and every candidate it was chosen from.
      *
      * `185.234.219.24` occurs as both `ip-src` and `ip-dst`, and MISP's
