@@ -2004,43 +2004,6 @@ class AnalystProfileFormTool
             ),
             'blocks' => array(
                 array(
-                    'kind' => 'fields',
-                    'id' => 'reuse',
-                    'title' => __('Reusing an answer'),
-                    'fields' => array(
-                        array(
-                            'key' => 'max_age_hours',
-                            'label' => __('Reuse an answer for'),
-                            'type' => 'int',
-                            'unit' => __('hours'),
-                            'value' => isset($section['max_age_hours'])
-                                ? $section['max_age_hours']
-                                : null,
-                            'default' =>
-                                ValueEnrichmentTool::DEFAULT_MAX_AGE_HOURS,
-                            'help' => __(
-                                'There is no store of module answers,'
-                                . ' so nothing is reused and this'
-                                . ' window governs nothing yet. It is'
-                                . ' kept because a document that names'
-                                . ' the window is what a store would'
-                                . ' read on the day there is one.'
-                            ),
-                            /*
-                             * Read out of the plan rather than
-                             * asserted here: `planFor()` is what
-                             * decides there is no cache, and a second
-                             * copy of that judgement in the editor is
-                             * a box that keeps saying *inert* for a
-                             * week after somebody builds the store.
-                             */
-                            'inert' => !empty($plan['reuse_inert']),
-                            'inert_note' => __('not in force'),
-                            'path' => array('enrichment', 'max_age_hours'),
-                        ),
-                    ),
-                ),
-                array(
                     'kind' => 'map',
                     'id' => 'auto_run',
                     'title' => __('Modules, and the types you want them'
@@ -2464,7 +2427,11 @@ class AnalystProfileFormTool
      * run endpoint rather than by unticking a box
      * (`ValueEnrichmentTool::refuses()`), which is worth saying
      * because it is the difference between a default and a refusal.
-     * `auto` is declarable and inert (D15/D17).
+     * **`auto` is storable and not offered.** The schema carries
+     * it and the run path does not, so an editor offering it
+     * would be selling a behaviour nothing implements; a
+     * document that already declares one still says so, because
+     * `state_map` offers any state it finds stored.
      *
      * Short, because eight of these stack in one row and a label long
      * enough to explain itself is a label the box cuts off. The rest
@@ -2489,22 +2456,17 @@ class AnalystProfileFormTool
                 'value' => ValueEnrichmentTool::STATE_NEVER,
                 'label' => __('block it — running is refused'),
             ),
-            array(
-                'value' => ValueEnrichmentTool::STATE_AUTO,
-                'label' => __('run it automatically (not built yet)'),
-            ),
         );
     }
 
     /**
-     * What the four run states do, under the table that offers them.
+     * What the three run states do, under the table that offers them.
      *
-     * Two of them are the same behaviour and one of them is not a
-     * behaviour at all, which is not a thing four words in a select
-     * can carry. The one worth reading twice is `never`: every other
-     * state decides whether a box arrives ticked, and `never` is
-     * checked again at the run endpoint, because a disabled checkbox
-     * is not a guard (D17).
+     * Two of them are the same behaviour, which is not a thing four
+     * words in a select can carry. The one worth reading twice is
+     * `never`: every other state decides whether a box arrives
+     * ticked, and `never` is checked again at the run endpoint,
+     * because a disabled checkbox is not a guard (D17).
      *
      * **The labels name the effect, not the stored key.** They read
      * `ticked — the same, written down` and `not declared — offered
@@ -2555,17 +2517,6 @@ class AnalystProfileFormTool
                         . ' the tab says why.'
                     ),
                     'effect' => __('cannot be run at all for this type'),
-                ),
-                array(
-                    'value' => ValueEnrichmentTool::STATE_AUTO,
-                    'label' => __('run it automatically (not built yet)'),
-                    'meaning' => __(
-                        'Records that you would want this to run on its'
-                        . ' own. Nothing in MISP remembers what ran'
-                        . ' when, so nothing can run on its own yet and'
-                        . ' this behaves exactly like pre-select.'
-                    ),
-                    'effect' => __('same as pre-select, for now'),
                 ),
             ),
             'note' => __('A module you say nothing about is not blocked'

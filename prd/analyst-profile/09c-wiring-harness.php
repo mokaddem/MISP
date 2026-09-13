@@ -167,6 +167,47 @@ class AnalystWiringShell extends AppShell
         $this->ok($grouped > 0, sprintf(
             'and a save still keeps the %d group keys the document holds,'
                 . ' which is what the import path depends on', $grouped));
+
+        /*
+         * The same property for the two things the editor stopped
+         * drawing when it was made production-ready: `auto`, which is
+         * storable and not offered because nothing runs on its own,
+         * and the reuse window, which governs nothing until a store
+         * exists. Neither may be rewritten by a save, and a row whose
+         * document declares `auto` has to keep offering it or the
+         * select would fall to its first option and drop it.
+         */
+        $carrying = $stored;
+        $type = key($carrying['enrichment']['auto_run']);
+        $module = key($carrying['enrichment']['auto_run'][$type]);
+        $carrying['enrichment']['auto_run'][$type][$module] = 'auto';
+        $carrying['enrichment']['max_age_hours'] = 36;
+        $autoHtml = $this->renderWorkbench($user,
+            array('parameters' => $carrying) + $profile, null, true);
+        $this->ok(
+            strpos($autoHtml, 'declared here, not offered') !== false,
+            sprintf('a row declaring `auto` still offers it, named as'
+                . ' not offered (%s on %s)', $module, $type)
+        );
+        $this->ok(
+            strpos($autoHtml, 'enrichment][max_age_hours]') === false,
+            'while the reuse window has no control — the key is still in'
+                . ' the document, and the Raw JSON pane still shows it'
+        );
+        $autoMerged = $form->merge($carrying,
+            $this->postedFrom($autoHtml));
+        $this->ok(
+            isset($autoMerged['enrichment']['auto_run'][$type][$module])
+                && $autoMerged['enrichment']['auto_run'][$type][$module]
+                    === 'auto',
+            'and a save keeps the state the editor does not offer'
+        );
+        $this->ok(
+            isset($autoMerged['enrichment']['max_age_hours'])
+                && (int)$autoMerged['enrichment']['max_age_hours'] === 36,
+            'and keeps the window no field posted, because a section'
+                . ' save merges rather than replaces'
+        );
     }
 
     /* ============================================================

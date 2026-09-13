@@ -1304,6 +1304,120 @@ conditions. No posture anywhere, and no PHP notice on any of it. A
 save replayed over HTTP round-trips all thirteen types and carries a
 changed state back.
 
+## 7h. The production pass, 2026-09-13
+
+A read of these pages for one thing only: copy or controls that are
+there because the feature is mid-build rather than because somebody
+using it needs them. Four, and the first had shipped furthest.
+
+**The rule this pass applied**, because "explanatory" is not the test:
+copy that says what a control *does* stays, however long — §7e to §7g
+added most of it and it is the reason those panes are usable. Copy that
+explains *the design, its history, or why it was built this way* goes.
+A control that promises a behaviour nothing implements goes with it.
+
+### 7h.1 The shipped profile described itself as a changelog
+
+`default-v1.json`'s `description` is printed under the profile's name
+on the index, on every instance that installs MISP. It read:
+
+> The instance default Analyst Profile. **Phase 2** authored the
+> eleven-signal catalogue and its weights against the **regression
+> set**: the **four demo values** anchor the shape, the median value
+> (one org, no sightings) fixes the calibration rule. **Phase 5**
+> completed the relevance section […] **Version 9** fills
+> enrichment.auto_run […] Version 9 also drops locality_posture: the
+> setting […] which under **D15** withheld a checkbox rather than a
+> query. See **prd/analyst-profile/03-signals.md section 7**,
+> 06-staleness.md section 3, 07-reference.md section 2.3 and
+> 08-enrichment.md section 3.
+
+Phase numbers, a decision id, the demo values and four paths into a
+document tree no installation carries. **Version 11 replaces it** with
+what the profile is and what it does: the judgements it holds, that it
+is meant to be forked, that both reference maps ship empty so trust
+weighting is off until somebody fills them, and the three things the
+enrichment mapping deliberately does not do. 232 words where there were
+380, and the first sentence — which is all the index shows before it
+truncates — now says what the row *is* instead of who authored it.
+
+### 7h.2 `auto` is storable and no longer offered
+
+D17 landed three run states and built two, and the editor offered all
+three with the third labelled **"run it automatically (not built
+yet)"** — on the shipped default that is one line of unfinished
+business in every module select on the page, and a reader who picks it
+gets nothing. §8.1 recorded the choice as *"drawn as inert rather than
+hidden"*, which is right for a reviewer reading a prototype and wrong
+for an analyst configuring an instance.
+
+**The state is gone from the editor's vocabulary and unchanged in the
+document.** `ValueEnrichmentTool::states()` still carries it, a stored
+`auto` still normalises, still resolves as selected, and the tab still
+names it inert — D17's *"the schema lands now so adding it later needs
+no second migration"* survives intact. What changed is that nothing
+offers it to a declaration that does not already have one.
+
+**The half that needed building**: a select whose stored value is not
+among its options falls back to the first one, so the next save of that
+section would have rewritten a declaration nobody touched — the exact
+failure §1.3 forbids. `state_map` now offers any state it finds stored,
+labelled *`auto` — declared here, not offered*, so a document that
+carries one keeps it through a render and a save. The render harness
+asserts both halves on a document built to carry one.
+
+### 7h.3 The reuse window is not drawn
+
+`max_age_hours` was a box holding `24`, marked *not in force*, under a
+note saying *"There is no store of module answers, so nothing is reused
+and this window governs nothing yet"* — a setting that settles nothing,
+disclosed honestly and still asking to be read. §7g.6 fixed its
+labelling; this pass takes the question away.
+
+**The key survives the control's removal for free**: `mergeAssoc()`
+starts from the stored section and only touches keys the form posted,
+so a field nobody draws is a field nobody overwrites. The shipped
+default still carries its 24, the Raw JSON pane still shows it, and
+`planFor()` still computes `reuse_inert` — the day a store exists the
+control comes back as a template change, reading a document that never
+lost the number.
+
+### 7h.4 Three blurbs explained the design rather than the control
+
+Each kept its first half and lost the sentence addressed to somebody
+reviewing the design:
+
+| Where | What went |
+|---|---|
+| The editor rail | *"— six of the seven reach only one of the three, which is the fastest way to see that a profile is not just a set of quality weights."* The axis tags are still there; the argument for them is not |
+| The index rail | *"That is the whole answer to why the one you just forked is not the one weighting your pages, and it is why every row below carries its own standing rather than one row carrying a badge."* Replaced by the fact an analyst needs — a fork is not in force yet — without the defence of the table layout |
+| The simulator | *"This half is small on purpose."* The rest of the sentence already says what the page is for |
+
+### 7h.5 What this pass deliberately left
+
+- **The Value Profile page's Enrichment tab** still draws disabled
+  write controls saying *"the Value Profile page does not write to the
+  database yet"* (`value_enrichment_result.ctp` §10). A different page,
+  under a rule of its own — *a control that would write is visibly
+  disabled, because "not implemented", "nothing to show" and "you may
+  not" are three different things*. Worth revisiting on the same
+  grounds; not this pass's to change.
+- **The Verdict tab still reads `ValueProfileFixture`.** That is phase
+  9's job (`10-wiring.md`), not a leftover to delete.
+- **Every explanation of what a control does**, including the long
+  ones. The test was demo or design, not length.
+
+### 7h.6 What was checked
+
+Editor view-model 170, enrichment 121, relevance 149, reference 114 and
+the earlier phases unchanged; the render harness **97** (93 before,
+plus the four this pass added), `09c-wiring-http-probe.sh` 45 — which
+saves a section over real CSRF, so the merge that keeps `max_age_hours`
+is exercised rather than argued — and `09c-wiring-page-check.sh` PASS
+in both themes at both widths. The shipped default was loaded into the
+dev instance (`Admin updateJSONLite`) and the index re-read: v11, rev
+68, the new first sentence in the truncated cell.
+
 ## 8. Out of scope
 
 - Comparing two arbitrary profiles. The simulator compares the candidate with

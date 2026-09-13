@@ -155,11 +155,9 @@ $bench = array(
                     <?= h(__('Back to the sections')) ?>
                 </a>
                 <p class="wb-sub mt-2 mb-0">
-                    <?= h(__('This half is small on purpose. The editor is'
-                        . ' where you change a number; this page is the same'
-                        . ' bench with the pane widths swapped, for when you'
-                        . ' want to read every row rather than the few that'
-                        . ' moved.')) ?>
+                    <?= h(__('The editor is where you change a number; this'
+                        . ' page is the same bench widened, for reading every'
+                        . ' row rather than the few that moved.')) ?>
                 </p>
             </div>
 

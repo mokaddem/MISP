@@ -58,8 +58,6 @@ $count = function (array $section) {
     <p class="wb-rail-note">
         <?= h(__('The rail is the whole document; the pane beside it is one'
             . ' section of it. Under each section is the axis it'
-            . ' configures — six of the seven reach only one of the'
-            . ' three, which is the fastest way to see that a profile is'
-            . ' not just a set of quality weights.')) ?>
+            . ' configures.')) ?>
     </p>
 </nav>

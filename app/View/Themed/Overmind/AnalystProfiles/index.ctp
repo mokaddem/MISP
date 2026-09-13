@@ -115,12 +115,9 @@ $this->set('headerActions', array(array(
                         ? h(__('Nothing is in force, so no value on this'
                             . ' instance is scored for you at all.'))
                         : h(__('Resolution walks these three in order and'
-                            . ' stops at the first enabled profile. That'
-                            . ' is the whole answer to why the one you'
-                            . ' just forked is not the one weighting your'
-                            . ' pages, and it is why every row below'
-                            . ' carries its own standing rather than one'
-                            . ' row carrying a badge.')) ?>
+                            . ' stops at the first enabled profile, which'
+                            . ' is why a profile you have just forked is'
+                            . ' not yet the one weighting your pages.')) ?>
                 </p>
             </nav>
 

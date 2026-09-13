@@ -450,10 +450,11 @@ foreach ($unitSections as $sectionId => $section) {
         }
     }
 }
-is_same('hours', isset($units['max_age_hours'])
+is_same(null, isset($units['max_age_hours'])
     ? $units['max_age_hours'] : null,
-    'the reuse window is in hours, and now says so outside a validation'
-        . ' message');
+    'the reuse window is not drawn at all: it governs nothing until a'
+        . ' store exists, and a box that governs nothing reads as a'
+        . ' setting somebody chose');
 is_same('days', isset($units['undated_assumed_days'])
     ? $units['undated_assumed_days'] : null,
     'the assumed age for an undated value is in days without the key'
@@ -532,8 +533,9 @@ is_true(
     'and so is the setting itself'
 );
 is_true(
-    in_array('max_age_hours', $keys, true),
-    'while the reuse window it shared a pane with is still drawn'
+    !in_array('max_age_hours', $keys, true),
+    'and so is the reuse window that shared a pane with it, for the'
+        . ' same reason: nothing reads it yet'
 );
 
 foreach (array('locality_posture', 'cost_posture') as $retired) {
@@ -632,14 +634,15 @@ is_same(array('circl_passivedns', 'dns'),
     'one row per declared module');
 $row = $autoBlock['entries'][0];
 is_same(
-    array('', 'ticked', 'never', 'auto'),
+    array('', 'ticked', 'never'),
     array_map(function ($o) { return $o['value']; },
         $row['state_options']),
-    'three states are offered, plus the blank a cleared row returns to'
+    'the two built states are offered, plus the blank a cleared row'
+        . ' returns to — and `auto` is not among them, because the run'
+        . ' path does not implement it'
 );
 is_same(array('ticked', 'never'), $row['states_built'],
-    'and the row says which two are implemented, so a design cannot'
-        . ' draw `auto` as though it worked');
+    'and every state offered is one that is implemented');
 is_true(is_array($row['value']) && !isset($row['value'][0]),
     'the value is a map rather than a list');
 is_same(array('ip-src' => 'never'), $row['value'],

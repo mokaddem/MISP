@@ -226,9 +226,9 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
     /*
      * Three states per name, so a checklist will not do (D17): a
      * module can be ticked for a type, declared never, or left to the
-     * default. `auto` is offered only where it is built — the schema
-     * carries it and the run path does not, and an editor that offered
-     * it anyway would be promising a behaviour nothing implements.
+     * default. `auto` is storable and not offered — the schema carries
+     * it and the run path does not — so it appears only on a row whose
+     * document already declares one, and a save keeps it.
      *
      * The names are the row's own: the modules block draws one row per
      * module and one select per attribute type that module accepts.
@@ -324,6 +324,34 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                     <span class="pill t-missing"><?= h($goneLabel) ?></span>
                 <?php endif; ?>
                 <?php if ($editable): ?>
+                    <?php
+                    /*
+                     * A state this document already holds is offered
+                     * even where the editor no longer offers it to a
+                     * new declaration. Without this the select would
+                     * fall to its first option and the next save would
+                     * rewrite a declaration nobody touched — `auto` is
+                     * the case that exists, storable and not built.
+                     */
+                    $rowOptions = $field['state_options'];
+                    $offered = array();
+                    foreach ($rowOptions as $option) {
+                        $offered[] = (string)(is_array($option)
+                            ? $option['value']
+                            : $option);
+                    }
+                    if ((string)$state !== ''
+                        && !in_array((string)$state, $offered, true)
+                    ) {
+                        $rowOptions[] = array(
+                            'value' => $state,
+                            'label' => sprintf(
+                                __('%s — declared here, not offered'),
+                                $state
+                            ),
+                        );
+                    }
+                    ?>
                     <select class="form-select form-select-sm"
                             data-ap-field="1"
                             data-ap-was="<?= h($state) ?>"
@@ -331,7 +359,7 @@ $width = $numeric ? 'max(4.6rem, ' . (int)$chars . 'ch)' : '';
                                 $path,
                                 array_merge($extra, array($rowName))
                             )) ?>">
-                        <?php foreach ($field['state_options'] as $option): ?>
+                        <?php foreach ($rowOptions as $option): ?>
                             <?php
                             /*
                              * The blank is one of the options rather

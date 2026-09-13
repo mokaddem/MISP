@@ -1238,6 +1238,13 @@ it now says so on the page rather than looking like a setting (§7g.6).
 3.23 adds two: unavailable rows are not sorted last, and the type picker
 does not offer what an administrator has not enabled.
 
+> **Superseded 2026-09-13 (`09-editor.md` §7h, D23).** The first two are
+> no longer drawn at all. Saying *not built yet* on a control is the
+> right answer for a reviewer reading a prototype and the wrong one for
+> an analyst configuring an instance, where it is an unfinished promise
+> in every module select on the page. Both remain storable, and a
+> document that carries either keeps it through a save.
+
 ## 9. Corrections this round owes the corpus
 
 Two things already written down are wrong and should be fixed as part of

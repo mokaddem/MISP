@@ -157,6 +157,13 @@ editor states that it governs nothing yet. Carried rather than dropped,
 so that adding the store later is not a format change to every stored
 profile.
 
+> **Revised 2026-09-13 (D23, `09-editor.md` §7h).** The editor no longer
+> draws it. A box that governs nothing is a question an analyst has to
+> answer for no effect, and *"not in force"* beside it does not make it
+> one worth asking. The key is untouched: a section save merges, so the
+> field nobody draws is the field nobody overwrites, and the control is
+> a template change away on the day the store exists.
+
 ### 2.1 A profile can only ever narrow, never widen
 
 `Module::getEnabledModules()` (`Module.php:111`) filters on three
@@ -278,9 +285,12 @@ can lift themselves.
 
 **The editor.** `enrichment.auto_run` stays a `map` block; no fifth
 block kind was invented. Its `value_type` moves from `multiselect` to
-`module_states`, and a row carries `state_options` (all three) beside
-`states_built` (the two that work), so a design cannot draw `auto` as
-though it ran. POST semantics are unchanged and now asserted: with
+`module_states`, and a row carries `state_options` beside `states_built`
+(the two that work), so a design cannot draw `auto` as though it ran.
+**Since 2026-09-13 `state_options` holds the built two and the blank
+(D23)**: `auto` is offered only on a row whose document already declares
+one, where dropping it from the select would have rewritten the
+declaration on the next save. POST semantics are unchanged and now asserted: with
 `__present` on a type's map the modules not posted are removed, and
 without it on the outer map the types the form never showed survive.
 
