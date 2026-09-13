@@ -10,7 +10,13 @@
  * a value is.
  *
  * @var string $disposition MALICIOUS | BENIGN | CONFLICTED | UNKNOWN
- * @var int|null $score     0-100, omitted when nothing computed one
+ * @var int|null $score     The quality. Null where nothing computed
+ *                          one; **capped at 100 and not floored at 0**,
+ *                          because the ledger sums to it exactly and a
+ *                          record whose evidence disputes its own lean
+ *                          nets negative. This element prints it; a
+ *                          caller drawing a bar off it clamps its own
+ *                          width (`value_verdict.ctp`)
  * @var string $size        'lg' for the headline, otherwise inline
  */
 App::uses('ValueDisposition', 'Tools');

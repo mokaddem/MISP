@@ -113,16 +113,39 @@ foreach ($verdict['orgs'] as $org) {
                         <?= h($score) ?> / 100
                     </span>
                 </div>
+                <?php /*
+                 * Clamped, because a quality can be negative and the
+                 * fixture's could not: the ledger sums to the score
+                 * exactly, so a record whose evidence disputes its own
+                 * lean nets below zero — `8.8.8.8` closes at −1 on the
+                 * dev instance. A negative width is an invalid
+                 * declaration the browser drops, which leaves the fill
+                 * at whatever width it inherits rather than at empty.
+                 * The number beside it is printed unclamped, because
+                 * that one is the assessment.
+                 */ ?>
                 <div class="vp-vc-score-track">
                     <span class="vp-vc-score-fill"
-                          style="width: <?= (int)$score ?>%;"></span>
+                          style="width: <?= max(0, min(100, (int)$score)) ?>%;"
+                    ></span>
                 </div>
             </div>
         <?php endif; ?>
 
-        <p class="vp-vc-prose vp-vc-prose-wide">
-            <?= h($verdict['summary']) ?>
-        </p>
+        <?php /*
+         * The hero's paragraph, drawn only where there is one to draw.
+         * `summary` is the key D11 left open — the composition of lean,
+         * relevance and quality into a sentence — and nothing produces
+         * it yet (`prd/analyst-profile/10-wiring.md` §2.2). The bands
+         * below state the same argument in rows, so the card is
+         * complete without it; an empty paragraph would only add a gap
+         * where a reader expects a summary.
+         */ ?>
+        <?php if (!empty($verdict['summary'])): ?>
+            <p class="vp-vc-prose vp-vc-prose-wide">
+                <?= h($verdict['summary']) ?>
+            </p>
+        <?php endif; ?>
 
         <div class="vp-vc-hero-actions">
             <button type="button" class="vp-vc-hero-action disabled"

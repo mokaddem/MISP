@@ -8,6 +8,7 @@ App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools');
 App::uses('ValueTrustTool', 'Tools');
 App::uses('ValueEnrichmentTool', 'Tools');
+App::uses('ValueVerdictTool', 'Tools');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
@@ -106,6 +107,48 @@ class ValueProfile extends AppModel
      * analyst's opinion belongs.
      */
     const VERDICT_RECENT_DAYS = 30;
+
+    /**
+     * The keys the verdict templates read that nothing yet produces.
+     *
+     * `prd/analyst-profile/10-wiring.md` §2.2 is the census: the fifteen
+     * `value_verdict*.ctp` files read 25 keys off the verdict array,
+     * `ValueVerdictTool` emits 23, and the two sets overlap in twelve.
+     * The thirteen below are the difference.
+     *
+     * **They are defaulted here rather than guarded there** because
+     * three of them — `summary`, `orgs`, `cases` — are read with no
+     * `??` at all, so their absence is a notice rather than an empty
+     * card. The value with nothing to assess fails first: the Overview
+     * card reads `summary` only where there is no ledger to list, which
+     * is exactly what `ValueVerdictTool::nothingToAssess()` returns.
+     *
+     * A default is a promise that the key exists, not that it is
+     * answered. `null` and `array()` both render as a card that stays
+     * dark, which is the honest reading of *nothing computes this yet*;
+     * a producer landing later overwrites one line here and deletes
+     * another.
+     *
+     * `resolutions` is the one that stays. It drives *Resolve it*,
+     * whose every control is disabled because this page does not write
+     * — `01-profile.md` §7 — so an empty list is its finished state
+     * until `value-profile-writes.md` lands.
+     */
+    const VERDICT_UNPRODUCED = array(
+        'summary' => null,
+        'orgs' => array(),
+        'cases' => array(),
+        'conflicts' => array(),
+        'ambiguities' => array(),
+        'warninglist' => null,
+        'curves' => array(),
+        'curves_span' => null,
+        'curves_note' => null,
+        'composition_note' => null,
+        'changer_actions' => array(),
+        'opinions' => null,
+        'resolutions' => array(),
+    );
 
     /**
      * How many of the value's events the co-occurrence section will
@@ -12747,12 +12790,57 @@ class ValueProfile extends AppModel
      *
      * It lives here rather than in the tool because §14.5 is explicit
      * that a `Value*` tool computes over data handed to it: the queries
-     * and the ACL are the model's, the arithmetic is the tool's. Phase
-     * 9 wraps this in `forVerdict()` and shares one build across the
-     * tab's seven panels; phase 10 swaps in a batch builder behind the
-     * same seam.
+     * and the ACL are the model's, the arithmetic is the tool's.
+     * `forVerdict()` below wraps it for the page; phase 10 swaps in a
+     * batch builder behind the same seam.
      * ------------------------------------------------------------------
      */
+
+    /**
+     * The assessment behind the Verdict tab, its rail, and the
+     * Overview's verdict card.
+     *
+     * **One context build per request, and nothing shared between
+     * them.** The three endpoints are three lazy requests in three PHP
+     * processes, so there is no build for them to share — an earlier
+     * draft of `10-wiring.md` promised *"one build, seven readers"* and
+     * §7.4 there records why that was never available. What is shared
+     * is inside a request: the rail renders five sub-elements off this
+     * one array.
+     *
+     * What makes the card and the tab agree is therefore not sharing
+     * but determinism — `assess()` returns the same array for the same
+     * context and profile, which is also what lets the profile
+     * simulator and phase 10's worker agree with the page. Any cache
+     * added later sits behind that seam or the guarantee is gone.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `profile` scores against one other than the
+     *                       viewer's — the simulator's seam; the rest
+     *                       as `verdictContextFor`
+     * @return array `value` and `verdict`, the envelope every
+     *               `value_verdict*.ctp` reads
+     */
+    public function forVerdict(array $user, $value,
+        array $options = array()
+    ) {
+        $engine = new ValueVerdictTool($this);
+        return array(
+            'value' => $value,
+            /*
+             * The engine's array wins every key it emits; the skeleton
+             * only fills the ones it does not (`VERDICT_UNPRODUCED`).
+             * Ordered this way round so a producer landing later needs
+             * no second edit here — it starts overwriting a default the
+             * moment `verdict()` carries its key.
+             */
+            'verdict' => array_merge(
+                self::VERDICT_UNPRODUCED,
+                $engine->verdictFor($user, $value, $options)
+            ),
+        );
+    }
 
     /**
      * Every fact the quality ledger reads, for one value and one

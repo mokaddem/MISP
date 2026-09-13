@@ -228,6 +228,19 @@ which means the first attempt errors rather than degrades. The sparse value is
 the one that errors first, because the Overview card reads `summary` only on
 the no-ledger path.
 
+**The spine went in the same day** (§8 there). `ValueProfile::forVerdict()`,
+the three endpoints off `ValueProfileFixture`, and the thirteen keys defaulted
+in one place so a template never reads an undefined index. What that makes
+true for the first time: **the ledger printed on the page sums to the score
+printed on the page** — `8.8.8.8` prints ten rows totalling `−1` and a hero
+reading `−1`, with the rail's *"How −1 was reached"* agreeing from a separate
+request, and the Overview card agreeing again. §5.1 has been asserted in
+arrays since phase 2; this is the first time it has been asserted anywhere a
+reader can see it. The build found four things (§8.1–8.4), the sharpest being
+that the rail kept branching on the disposition after the tab had stopped, so
+a full ledger rendered beside a zero-byte column — and that a 200 with an
+empty body passed every assertion the first probe made.
+
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
 same login: `ValuesController` set its theme only when the reader had
@@ -273,7 +286,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification — **read back against the shipped code 2026-09-13**, eight findings in §7 there. The panel list counted seven endpoints where there are three, and thirteen of the twenty-five keys the templates read have no producer, three of them unguarded |
+| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **building since 2026-09-13.** Read back first — eight findings in §7 there, the load-bearing one being that thirteen of the twenty-five keys the templates read have no producer. **The spine is in** (§8): `forVerdict()`, the three endpoints off the fixture, and the ledger summing to the score *on the rendered page*. 43 new checks over HTTP; the corpus's eight harnesses unchanged at 828. §9 is what remains |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table

@@ -72,7 +72,10 @@ foreach ($cases as $case) {
             </span>
         </span>
 
-        <p class="vp-vc-prose"><?= h($verdict['summary']) ?></p>
+        <?php /* No producer yet; see `value_verdict.ctp`. */ ?>
+        <?php if (!empty($verdict['summary'])): ?>
+            <p class="vp-vc-prose"><?= h($verdict['summary']) ?></p>
+        <?php endif; ?>
 
         <div class="vp-tug-block">
             <div class="vp-tug-heads">

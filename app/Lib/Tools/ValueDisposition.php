@@ -103,6 +103,43 @@ class ValueDisposition
     }
 
     /**
+     * Whether a verdict gets the conflicted layout — the two opposed
+     * cases — or the agreeing one.
+     *
+     * **One definition, because two readers of it disagreeing is a page
+     * that contradicts itself.** The tab and its rail are separate
+     * requests rendering separate templates, and both have to pick the
+     * same branch or a reader gets an agreeing argument beside a
+     * conflicted rail. Phase 9's first build did exactly that for one
+     * commit: the controller had learned the second half of the
+     * condition and `value_verdict_aside.ctp` had not, so `8.8.8.8`
+     * drew its ledger next to an empty column.
+     *
+     * The second half is that the layout is built around **two** cases
+     * and reads them positionally, so the disposition alone does not
+     * qualify a value for it. Nothing in phases 1 to 8 produces `cases`
+     * (`prd/analyst-profile/10-wiring.md` §2.2), which is why a
+     * contested value renders the agreeing layout today — the engine
+     * re-anchors a contested ledger to threat-signed for precisely this
+     * reading, so the rows and the word CONFLICTED are still the
+     * assessment's own. **The condition retires itself** the day `cases`
+     * has a producer.
+     *
+     * @param array $verdict
+     * @return bool
+     */
+    public static function hasConflictedLayout(array $verdict)
+    {
+        $disposition = isset($verdict['disposition'])
+            ? $verdict['disposition']
+            : null;
+        if ($disposition !== 'CONFLICTED') {
+            return false;
+        }
+        return !empty($verdict['cases']);
+    }
+
+    /**
      * The two colours a signal is drawn in: the one that supports the
      * stated disposition and the one that argues with it.
      *

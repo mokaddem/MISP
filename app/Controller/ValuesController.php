@@ -3,6 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
 App::uses('ValueProfileFixture', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
+App::uses('ValueDisposition', 'Tools');
 
 /**
  * Value Profile controller, mounted at /values/* via CakePHP's default
@@ -228,9 +229,24 @@ class ValuesController extends AppController
         );
     }
 
+    /**
+     * The Overview's verdict card.
+     *
+     * Live since phase 9, and it computes the assessment itself rather
+     * than reading one the tab left behind: the two are separate lazy
+     * requests and they agree because `assess()` is deterministic, not
+     * because either can see the other. `ValueProfile::forVerdict` says
+     * why that is the only guarantee available here.
+     *
+     * @param string $b64value
+     * @return void
+     */
     public function viewVerdictCard($b64value = null)
     {
-        $this->__renderPanel($this->__profileFor($b64value), 'value_verdict_card');
+        $this->__renderPanel(
+            $this->__verdictFor($b64value),
+            'value_verdict_card'
+        );
     }
 
     /**
@@ -897,12 +913,18 @@ class ValuesController extends AppController
      */
     public function viewVerdict($b64value = null)
     {
-        $profile = $this->__profileFor($b64value);
-        $conflicted = ($profile['verdict']['disposition'] ?? null)
-            === 'CONFLICTED';
+        $profile = $this->__verdictFor($b64value);
+        /*
+         * `ValueDisposition` rather than a condition here, because
+         * `value_verdict_aside.ctp` picks the same branch for the rail
+         * and the two are separate requests. Its docblock carries why
+         * the disposition alone no longer answers this.
+         */
         $this->__renderPanel(
             $profile,
-            $conflicted ? 'value_verdict_conflicted' : 'value_verdict'
+            ValueDisposition::hasConflictedLayout($profile['verdict'])
+                ? 'value_verdict_conflicted'
+                : 'value_verdict'
         );
     }
 
@@ -920,7 +942,7 @@ class ValuesController extends AppController
     public function viewVerdictAside($b64value = null)
     {
         $this->__renderPanel(
-            $this->__profileFor($b64value),
+            $this->__verdictFor($b64value),
             'value_verdict_aside'
         );
     }
@@ -936,6 +958,27 @@ class ValuesController extends AppController
         return ValueProfileFixture::forValue(
             $this->__decodeValue($b64value),
             $options
+        );
+    }
+
+    /**
+     * The assessment, for the three endpoints that render one.
+     *
+     * `__profileFor`'s live counterpart. Four Overview panels still
+     * read the fixture and are the Value Profile campaign's own to
+     * convert; these three no longer do. It is separate from
+     * `__renderSightingPanel` because `viewVerdict` has to read the
+     * answer before it can pick a template.
+     *
+     * @param string $b64value
+     * @return array
+     */
+    private function __verdictFor($b64value)
+    {
+        $this->loadModel('ValueProfile');
+        return $this->ValueProfile->forVerdict(
+            $this->Auth->user(),
+            $this->__decodeValue($b64value)
         );
     }
 

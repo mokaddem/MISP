@@ -1,8 +1,10 @@
 # PRD: Analyst Profile — phase 9, wiring the Verdict tab live
 
-**Specification. Nothing built.** Depends on phases 1–5. Phase 6 is not a hard
-prerequisite but the conflict escalation cannot fire without it. **Every phase
-it depends on is built**, and phase 8 landed beside them.
+**Building since 2026-09-13. The spine is in (§8); the thirteen keys, the
+copy pass, the rename and the hero are not (§9).** Depends on phases 1–5.
+Phase 6 is not a hard prerequisite but the conflict escalation cannot fire
+without it. **Every phase it depends on is built**, and phase 8 landed
+beside them.
 
 **Read back against the shipped code 2026-09-13**, because this document was
 written before the engine existed and D11 renamed its subject afterwards. What
@@ -483,3 +485,162 @@ middle wedge's width. The foot directly under that wedge prints
 *"%s unresolved"* from `count($ambiguities)`, which is a different quantity and
 has no producer either. One word, two sources, and the fixture concealed it by
 supplying both. They retire together.
+
+### 7.9 What the read-back did not need to find
+
+Three of the eight findings above are corrections to this document and
+five are facts about the code, and none of them is a defect in the
+engine. `ValueVerdictTool` does what phases 2 to 6 said it does; the
+distance between it and a live tab is display plumbing and thirteen
+keys, not arithmetic. That is worth stating because a read-back this
+long reads like a list of things that are wrong.
+
+## 8. The spine, built 2026-09-13
+
+The first increment: the three endpoints answer from the engine. The
+thirteen keys are still thirteen — this pass produced none of them — so
+what is live is the ledger, the score, the band, the composition, the
+falsifiability lines, the exclusions and the profile in force, and what
+is dark is every card that needs a key nothing computes.
+
+**What shipped.**
+
+| | |
+|---|---|
+| `ValueProfile::forVerdict()` | The facade. One engine call, the envelope every `value_verdict*.ctp` reads |
+| `ValueProfile::VERDICT_UNPRODUCED` | §2.2's thirteen keys, defaulted in one place, merged *under* the engine's array so a producer landing later overwrites a line rather than needing a second edit |
+| `ValuesController::viewVerdict`, `viewVerdictAside`, `viewVerdictCard` | Off `__profileFor()` and onto `__verdictFor()`. Four Overview panels still read the fixture and are the Value Profile campaign's own |
+| `ValueDisposition::hasConflictedLayout()` | Which layout a verdict gets, in one place because two readers of it disagreeing is a page that contradicts itself (§8.1) |
+| `value_verdict_meta.ctp` | Formats `computed_at`, which the engine emits as unix seconds (§8.2) |
+| `value_verdict.ctp`, `_conflicted`, `_card` | The hero paragraph drawn only where there is one; the score bar clamped (§8.3) |
+
+**Verified.** 828 checks across the corpus's eight standalone harnesses,
+unchanged and all green; 97 in `09c-wiring-harness.php`, which renders
+`value_verdict_meta` and is the one harness that could see these edits;
+and **43 new checks over HTTP** in
+[`10-wiring-http-probe.sh`](10-wiring-http-probe.sh), against the dev
+instance, as the reader.
+
+The three that were the point of the exercise:
+
+- **The ledger on the page sums to the score on the page.** Read out of
+  the markup rather than out of an array: `8.8.8.8` prints rows of
+  `+28, +2, +24, −20, −7, −6, −38, +4, +4, +8`, and the hero prints
+  `−1`. §5 item 2, and the first time `01-profile.md` §5.1 has been
+  asserted anywhere a reader can see it.
+- **The rail prints the same total as the tab** — *"How −1 was reached"*
+  beside `−1 / 100` — from a separate request that shares nothing with
+  it. So does the Overview card: CONFLICTED, −1, `default-v1`, all
+  three agreeing (§5 item 3).
+- **A value nobody has reported names no profile**, on the tab and on
+  the card, which says *Nothing to weigh* instead. §3.1's conditional
+  has been right since the skeleton pass and had nothing to be right
+  about until now (§5 item 4).
+
+`8.8.8.8` reads **CONFLICTED, quality −1, band low, under `default-v1`**,
+with the ledger naming 8 independent organisations, 53 sightings from 6
+orgs, 4 false-positive sightings from 3, no galaxy on any occurrence, a
+known-benign warninglist hit at −38, and *"4 months without a month of
+silence"*. That is phase 3 §11.5's reading, reached through the page
+rather than through a probe.
+
+### 8.1 The rail branched on the disposition and the tab had stopped
+
+**Found by the probe, one commit after it was introduced, and by this
+document's own §2.2.** Routing a contested value to the agreeing layout
+(because `cases` has no producer) is a controller decision, and
+`value_verdict_aside.ctp` was making the *old* decision independently —
+`$conflicted = $verdict['disposition'] === 'CONFLICTED'`. So `8.8.8.8`
+drew a full ledger in the main column beside a rail that picked the
+conflicted branch, whose five cards are all keyed to unproduced data and
+all rendered nothing: **a 200 with a zero-byte body**.
+
+This is §2's own hazard arriving by the shortest possible route — not
+two computations disagreeing, but two *readings of one computation*
+disagreeing about which layout it gets. The fix is one definition on
+`ValueDisposition` that both callers read, and the probe now asserts the
+rail is non-empty on a scored value, which is what caught it.
+
+Worth keeping: a zero-byte 200 passed every assertion the first probe
+made. It answered, it carried no notice, it carried no fixture string.
+*"Nothing rendered"* is indistinguishable from *"nothing to render"*
+unless something asserts a size — the same shape as phase 7 §7.1, where
+21 assertions held with the modules service down.
+
+### 8.2 The top of the tab printed a unix timestamp
+
+`computed_at` is emitted as unix seconds because it is the key phase
+10's materialisation stores and compares. The fixture emitted `null`,
+so `value_verdict_meta.ctp`'s `?? date('Y-m-d H:i:s')` fallback had been
+doing the formatting for every render since the skeleton pass — and the
+moment a real value arrived, the fallback stopped firing and the page
+printed `Computed at render, 1789291994`.
+
+A default that formats is not the same as a formatter. The template
+formats it now, and the probe asserts no run of nine or more digits
+follows *"Computed at render,"* — which is a check about the shape a
+reader sees rather than about the key being present.
+
+### 8.3 A quality can be negative, and the fixture's could not
+
+The fixture's four values score `84`, `91` and two nulls. The engine's
+quality is the ledger's exact sum, so a record whose evidence disputes
+its own lean nets below zero — `8.8.8.8` closes at `−1` — and the hero
+drew its bar as `style="width: -1%"`. A negative width is an invalid
+declaration, which browsers drop rather than clamp, leaving the fill at
+whatever width it inherits instead of at empty.
+
+The bar is clamped and the number is not, because the number is the
+assessment. `value_disposition.ctp`'s docblock said `0-100` and now says
+what is actually true.
+
+**What this leaves open is a reading, not a bug.** `−1 / 100` is
+honest arithmetic and an odd sentence, and the hero is exactly where
+D11's open point lives. It belongs to the composition pass rather than
+to a clamp.
+
+### 8.4 The agreement check passed by reading nothing
+
+The probe's first run reported `ok profile named ()`. Both extractors
+had missed their markup — the tab wraps the name in a span inside the
+anchor and the card does not — and two empty strings compare equal. The
+same run reported the score check passing for the same reason, because
+`grep` is line-based and the tab prints the number on its own line
+inside the span.
+
+Both are fixed, and both now carry a second assertion that what was read
+is a name and a number. This corpus has now recorded the shape four
+times — phase 5 §7.5's stopped query log, phase 7 §7.1's unreachable
+modules service, phase 7 §7.6's diagnostic counting its own prose, and
+this — which is enough that a new probe should assume it until it has
+proved otherwise.
+
+## 9. What is still ahead
+
+The spine is the phase's first increment and not the phase. In build
+order, and none of it blocked on anything outside this corpus:
+
+1. **The five derivable keys** (§2.2) — `orgs` from the stances, the
+   trust grades and the `by_org` / `by_org_fp` tallies the context
+   already carries; `warninglist` from `WarninglistCategory`; the three
+   `curves*` keys from `runwaySeries()`. The *Who says what* card is the
+   biggest of these and still needs one aggregate that does not exist:
+   a per-organisation opinion, which the Collaboration tab's rows can
+   answer.
+2. **The copy pass** (§3), which is mechanical now that the page is live
+   and the strings are countable.
+3. **D11's rename** — the Verdict tab becomes the Assessment tab and
+   `ValueVerdictTool::LEAN_DISPOSITION` goes with it (§7.7).
+4. **The hero** — `summary`, and the composition of lean · relevance ·
+   quality that D11 left to this phase. §8.3's `−1 / 100` is the same
+   question arriving from the arithmetic.
+5. **The conflicted layout** — `cases`, `conflicts`, `ambiguities`, and
+   retiring the dead wedge (§7.8). Until it lands, a contested value
+   reads the agreeing layout and `hasConflictedLayout()` is the switch
+   that turns it back on.
+6. **The query counts.** `../value-profile-live/00-contract.md` §14.12's
+   four verdict rows now name a phase and still carry `—` in `Q`, which
+   is a state that board did not have before this phase put them in it.
+   Every other live phase measured; this one owes it.
+
+Q9 is unchanged and still recommends C, now at a known cost (§4).

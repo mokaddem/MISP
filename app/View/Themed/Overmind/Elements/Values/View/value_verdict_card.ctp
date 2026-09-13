@@ -109,9 +109,19 @@ if (!empty($verdict['profile_id'])) {
         </div>
 
         <?php if (empty($top)): ?>
-            <p class="vp-verdict-summary mb-0">
-                <?= h($verdict['summary']) ?>
-            </p>
+            <?php /*
+             * The prose only where there is prose. `summary` has no
+             * producer yet (`prd/analyst-profile/10-wiring.md` §2.2)
+             * and this is the branch that reaches it first, because a
+             * value with nothing to assess has no signals to list
+             * instead. An empty paragraph here would read as a card
+             * that failed rather than one with nothing to say.
+             */ ?>
+            <?php if (!empty($verdict['summary'])): ?>
+                <p class="vp-verdict-summary mb-0">
+                    <?= h($verdict['summary']) ?>
+                </p>
+            <?php endif; ?>
         <?php else: ?>
             <div class="vp-signals">
                 <?php foreach ($top as $signal):

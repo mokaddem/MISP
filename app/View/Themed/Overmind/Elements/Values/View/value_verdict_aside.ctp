@@ -19,8 +19,17 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
+App::uses('ValueDisposition', 'Tools');
+
 $verdict = $valueProfile['verdict'];
-$conflicted = ($verdict['disposition'] ?? null) === 'CONFLICTED';
+/*
+ * The same predicate `ValuesController::viewVerdict` picks the main
+ * column's template with. Read its docblock before changing either:
+ * the rail and the tab are separate requests, and a disposition test
+ * here that disagrees with the one there puts a conflicted rail beside
+ * an agreeing argument.
+ */
+$conflicted = ValueDisposition::hasConflictedLayout($verdict);
 
 $uid = 'vp' . substr(md5($valueProfile['value'] . '-aside'), 0, 8);
 

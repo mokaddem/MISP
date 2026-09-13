@@ -496,13 +496,16 @@ account for.
 - **The value table itself.** §14.3 prepares for it; building it is another
   feature's work.
 - **A verdict scoring engine.** Still out, as §5 has it. §14 wires the display
-  of a verdict; what computes one is not decided by this contract — and because
-  nothing computes one, the four rows in §14.12 that render a verdict are
-  blocked rather than merely unstarted. **It is now designed elsewhere**:
-  [`../analyst-profile/`](../analyst-profile/), whose phase 9 claims those four
-  rows and whose D11 renames what they render to an **Assessment** on three
-  axes. Still out of scope *here* — a design landing does not move it into this
-  contract.
+  of a verdict; what computes one is not decided by this contract — and while
+  nothing computed one, the four rows in §14.12 that render a verdict were
+  blocked rather than merely unstarted. **It was designed and then built
+  elsewhere**: [`../analyst-profile/`](../analyst-profile/), whose D11 renames
+  what those rows render to an **Assessment** on three axes and whose **phase 9
+  unblocked them on 2026-09-13** — three of the four are live, and the fourth,
+  `value_verdict_conflicted`, is live but unreachable until something produces
+  its two cases. Still out of scope *here*: a verdict engine existing does not
+  move it into this contract, and the rows carry their phase in the board the
+  same way every other converted row does.
 - ~~**The decay aggregation rule.**~~ **Closed by phase 23** — the per-day
   maximum across occurrences, labelled with the occurrence holding it.
   `23-sightings.md` §5. Left listed rather than deleted, because three
@@ -526,13 +529,13 @@ document that filled it.
 | Overview | `viewOccurrences` | `value_occurrences` | — | — | — | — |
 | Overview | `viewContext` | `value_context` | — | — | — | — |
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |
-| Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **blocked** |
+| Overview | `viewVerdictCard` | `value_verdict_card` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | 10 — the `forRelevance` call, nothing else | organisations, not occurrences | 1, one aggregate at 2 | **partly — analyst-profile phase 5**: the freshness third only, see below |
 | Overview | `viewExternal` | `value_external` | 4 | nothing — flat in cached sources; 2 on a miss | none of the three, see below | **24**, Q by **24b** |
-| Verdict | `viewVerdict` | `value_verdict` | — | — | — | **blocked** |
-| Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **blocked** |
-| Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **blocked** |
+| Verdict | `viewVerdict` | `value_verdict` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
+| Verdict | `viewVerdict` | `value_verdict_conflicted` | — | — | — | **live but unreachable.** Phase 9's spine routes a contested value to `value_verdict` instead, because this layout is built around two opposed cases and nothing produces them (`../analyst-profile/10-wiring.md` §2.2). `ValueDisposition::hasConflictedLayout()` is the switch that turns it back on |
+| Verdict | `viewVerdictAside` | `value_verdict_aside` | — | — | — | **analyst-profile phase 9**, 2026-09-13 — the spine; `Q` not yet measured |
 | Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | **11** | organisations, not occurrences | 1, three aggregates at 2 | **23**, Q re-measured by **analyst-profile phase 5** |
 | Sightings | `viewSightingList` | `value_sighting_list` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
@@ -555,9 +558,16 @@ document that filled it.
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Twenty-two rows are filled; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Twenty-two rows carry numbers; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
+
+**The four verdict rows are the board's one exception, since 2026-09-13**, and
+it is recorded rather than hidden: they name a phase and still carry `—` in
+`Q`. Analyst-profile phase 9 wired them and did not measure them, so they are
+*converted, unmeasured* — a third state the `Phase` cell now has to carry
+because the rule above only distinguishes two. `../analyst-profile/10-wiring.md`
+§9 owes the measurement.
 
 **Two rows got cheaper rather than newer, and one row is the board's
 first partial.** `prd/analyst-profile/06-staleness.md` retired the page's

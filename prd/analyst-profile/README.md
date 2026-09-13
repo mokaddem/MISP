@@ -155,6 +155,22 @@ out of scope by `01-profile.md` §7 and should stay empty — and the
 remaining six, the hero's prose and the conflicted layout's pair of
 cases above all, are the phase's real work.
 
+**The spine went in the same day** (§8 there): `forVerdict()`, the
+three endpoints off the fixture, and the thirteen keys defaulted in one
+place. The Verdict tab now reads a real profile. What that makes true
+for the first time is the invariant this whole corpus rests on —
+**the ledger printed on the page sums to the score printed on the
+page**: `8.8.8.8` prints ten rows totalling `−1` under a hero reading
+`−1`, with the rail and the Overview card agreeing from two further
+requests that share nothing with it. It closes as **CONFLICTED, quality
+−1, band low, under `default-v1`**, which is phase 3 §11.5's reading
+reached through the page rather than through a probe. 43 checks over
+HTTP; the eight harnesses unchanged at 828. Four findings in §8.1–8.4,
+the sharpest being that the rail went on branching on the disposition
+after the tab had stopped — a full ledger beside a zero-byte column,
+and a 200 with an empty body passes every assertion that does not
+measure a size.
+
 **Phase 8 is three passes, split 2026-09-07** (`09-editor.md` §1.1). It is the
 first phase of this corpus whose deliverable is a *look* rather than a
 computation. **8a** is the contract — the controller, the ACL, the mechanics,
