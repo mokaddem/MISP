@@ -106,8 +106,11 @@ $supermajority = isset($stances['supermajority'])
         <i class="fas fa-scale-balanced vp-vc-lean-mark"></i>
         <?= h(__('How this reading was decided')) ?>
     </div>
-    <div class="vp-vc-lean-body">
+    <div class="vp-vc-lean-body<?= empty($leanRows)
+        ? ''
+        : ' vp-vc-band-split' ?>">
 
+        <div class="vp-vc-band-bar">
         <?php if ($total > 0): ?>
             <div class="vp-vc-lean-counts">
                 <span class="vp-vc-lean-count vp-vc-lean-threat"
@@ -180,7 +183,9 @@ $supermajority = isset($stances['supermajority'])
         <?php endif; ?>
 
         <p class="vp-vc-lean-note"><?= h($reason) ?></p>
+        </div>
 
+        <div class="vp-vc-band-list">
         <?php
         /*
          * And what else reads the value. Stance counts are one
@@ -270,6 +275,7 @@ $supermajority = isset($stances['supermajority'])
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+        </div>
 
     </div>
 </div>

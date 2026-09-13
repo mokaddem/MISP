@@ -80,10 +80,15 @@ $parts[] = $metaRule === null
     : h(__('Conflict rule:')) . ' <em>' . h($metaRule) . '</em>';
 ?>
 <div class="vp-verdict-meta">
-    <?php foreach ($parts as $i => $part): ?>
-        <?php if ($i > 0): ?>
-            <span class="vp-meta-sep">|</span>
-        <?php endif; ?>
-        <span><?= $part ?></span>
-    <?php endforeach; ?>
+    <div class="vp-verdict-meta-parts">
+        <?php foreach ($parts as $i => $part): ?>
+            <?php if ($i > 0): ?>
+                <span class="vp-meta-sep">|</span>
+            <?php endif; ?>
+            <span><?= $part ?></span>
+        <?php endforeach; ?>
+    </div>
+    <?= $this->element('Values/View/value_verdict_actions', array(
+        'valueB64' => $valueB64,
+    )) ?>
 </div>

@@ -11,10 +11,18 @@
 //
 //   1. Drawn, with height. Nothing inside either is a promise, so a
 //      zero-height band is a missing band.
-//   2. Inside the card and spanning it. Each body is capped — the
-//      clock's shelf and the lean's split are both a bar with a label
-//      at each end, and the full column pushes those apart — so the
-//      cap is only right if the band itself still fills the card.
+//   2. Inside the card and spanning it, with the bar column capped —
+//      the clock's shelf and the lean's split are both a bar with a
+//      label at each end, and the full column pushes those apart.
+//
+//      **The cap used to be measured on the band body**, which is
+//      what it was set on: 620px of content in a 1176px card, and
+//      570px of nothing beside each of the two bands. The cap belongs
+//      to the bar, so the list that says where the bar came from can
+//      take the width back — `.vp-vc-band-bar` is the capped column
+//      now and the body spans the card. Both facts are asserted,
+//      because either one alone was true of the version this
+//      replaced.
 //   3. The bar means what the words say. A fill of 0px under
 //      `69 days left`, or a lean fill indistinguishable from its own
 //      track, is the failure each of these axes shipped once already
@@ -65,6 +73,7 @@ const measure = (sel) => page.evaluate((s) => {
     const card = band.closest('.vp-vc');
     const body = band.querySelector(
         '.vp-vc-clock-body, .vp-vc-lean-body');
+    const barCol = band.querySelector('.vp-vc-band-bar');
     const track = band.querySelector(
         '.vp-shelf-track, .vp-vc-lean-track');
     const fill = band.querySelector('.vp-shelf-fill, .vp-vc-lean-fill');
@@ -77,6 +86,7 @@ const measure = (sel) => page.evaluate((s) => {
         band: box(band),
         card: box(card),
         body: box(body),
+        barCol: box(barCol),
         track: box(track),
         fill: box(fill),
         marks: marks.map((m) => box(m).left - box(track).left),
@@ -118,10 +128,24 @@ for (const theme of ['light', 'dark']) {
             no(`${tag}: ${Math.round(m.band.width)}px in a`
                 + ` ${Math.round(m.card.width)}px card, spill ${spill}px`);
         }
-        if (m.body.width <= 620 + 32 + 1) {
-            ok(`${tag}: body capped (${Math.round(m.body.width)}px)`);
+        if (m.barCol === null) {
+            no(`${tag}: the band has no bar column`);
+        } else if (m.barCol.width <= 620 + 1) {
+            ok(`${tag}: bar column capped`
+                + ` (${Math.round(m.barCol.width)}px)`);
         } else {
-            no(`${tag}: body ran to ${Math.round(m.body.width)}px`);
+            no(`${tag}: bar column ran to`
+                + ` ${Math.round(m.barCol.width)}px`);
+        }
+        // And the body is *not* capped with it: that pairing is the
+        // whole of the change, and a cap that crept back on to the
+        // body would pass the assertion above unchanged.
+        if (Math.abs(m.body.width - m.card.width) <= 2) {
+            ok(`${tag}: body spans the card`
+                + ` (${Math.round(m.body.width)}px)`);
+        } else {
+            no(`${tag}: body is ${Math.round(m.body.width)}px in a`
+                + ` ${Math.round(m.card.width)}px card`);
         }
 
         if (m.track === null) {

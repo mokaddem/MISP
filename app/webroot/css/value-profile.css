@@ -1638,6 +1638,16 @@ tr.vp-occ-deleted td {
 }
 
 /* The admiralty grade, as a letter rather than a sentence. */
+/*
+ * A right-aligned number immediately left of a column of words joins
+ * them: `0 none stated`, on every row of every value where nobody has
+ * stated an opinion. The gap is what says they are two facts.
+ */
+.vp-table th.vp-orgs-count-last,
+.vp-table td.vp-orgs-count-last {
+    padding-right: 22px;
+}
+
 .vp-reliability {
     display: inline-flex;
     align-items: center;
@@ -1970,13 +1980,33 @@ tr.vp-occ-deleted td {
 .vp-verdict-meta {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
+    gap: 18px;
     padding: 7px 18px;
     border-bottom: 1px solid var(--bs-border-color);
     background: var(--bs-secondary-bg);
     font-size: 0.7rem;
     color: var(--bs-secondary-color);
+}
+
+.vp-verdict-meta-parts {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+}
+
+/*
+ * The two disabled actions, moved down out of the hero. They sit at
+ * the end of the small print, which had a quarter of its width spare
+ * on every value.
+ */
+.vp-verdict-meta-actions {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 8px;
+    margin-left: auto;
 }
 
 .vp-meta-sep {
@@ -2107,6 +2137,72 @@ tr.vp-occ-deleted td {
  * would be the frame picking a winner. The sides are coloured inside
  * it, where they belong.
  */
+/* ==================================================================
+ * The two axis bands, side by side
+ * ------------------------------------------------------------------
+ * Both bands are a bar with a label at each end, and a list that says
+ * where the bar came from — the clock's confirmations, the lean's
+ * weighted rows. The bar must not stretch: given the full column it
+ * pushes the days count to the far margin, where it reads as a second
+ * unrelated fact, and the rail draws the same object at about 300px.
+ *
+ * That cap used to sit on the band *body*, which capped the list with
+ * it and left the right half of a 1176px card empty — 570px of nothing
+ * beside each of the two bands, measured on the rendered pane. The cap
+ * belongs on the bar alone. The list takes the width the bar gave
+ * back, and the band gets shorter by the height of the list.
+ *
+ * Only where there is a list to put there: a value with no
+ * confirmations and no lean rows renders one column, exactly as
+ * before, rather than a capped bar beside a blank half. The template
+ * sets `vp-vc-band-split`, so the markup says which case it is.
+ * ================================================================== */
+.vp-vc-band-bar {
+    display: flex;
+    flex-direction: column;
+    gap: inherit;
+    max-width: 620px;
+    min-width: 0;
+}
+
+/*
+ * The same cap as the bar, for the same reason and in both layouts.
+ * Stacked, an uncapped list runs the width of the card and throws
+ * *independent sighting* 900px from the organisation it belongs to;
+ * split, the column is usually narrower than the cap anyway, and on a
+ * very wide card the cap is what stops the pair drifting apart there
+ * too.
+ */
+.vp-vc-band-list {
+    display: flex;
+    flex-direction: column;
+    gap: inherit;
+    max-width: 620px;
+    min-width: 0;
+}
+
+/*
+ * Below this the card is too narrow to seat a 620px bar and a legible
+ * list beside it, so the band stacks and the bar keeps its cap.
+ */
+@media (min-width: 1400px) {
+    .vp-vc-lean-body.vp-vc-band-split,
+    .vp-vc-clock-body.vp-vc-band-split {
+        display: grid;
+        grid-template-columns: minmax(0, 620px) minmax(0, 1fr);
+        column-gap: 36px;
+        align-items: start;
+    }
+
+    /*
+     * The caption is about the band, not about either column, so it
+     * runs under both.
+     */
+    .vp-vc-band-split > .vp-vc-clock-note {
+        grid-column: 1 / -1;
+    }
+}
+
 .vp-vc-lean {
     border-top: 1px solid var(--bs-border-color);
 }
@@ -2129,7 +2225,6 @@ tr.vp-occ-deleted td {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-width: 620px;
     padding: 12px 16px;
     font-size: 0.78rem;
 }
@@ -2319,18 +2414,10 @@ tr.vp-occ-deleted td {
     color: var(--correlation);
 }
 
-/*
- * The shelf is a bar with a label at each end. Given the full width of
- * this column it pushes the days count to the far margin, where it
- * reads as a second unrelated fact; the rail draws the same object at
- * about 300px. The cap keeps the two renderings recognisably one
- * thing.
- */
 .vp-vc-clock-body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 620px;
     padding: 12px 16px;
     font-size: 0.78rem;
 }
@@ -2781,9 +2868,16 @@ tr.vp-occ-deleted td {
     color: var(--vp-vc-color);
 }
 
+/*
+ * Against the far margin. The badge names the reading, the sentence is
+ * that reading in full, and the gauge is the one figure the card
+ * leaves you with — so it sits where the eye lands last rather than
+ * between the two halves of a thought.
+ */
 .vp-vc-score {
     flex: 0 1 260px;
     min-width: 180px;
+    margin-left: auto;
 }
 
 .vp-vc-score-heads {
@@ -2803,39 +2897,54 @@ tr.vp-occ-deleted td {
 }
 
 .vp-vc-score-track {
+    position: relative;
     height: 9px;
     border: 1px solid var(--bs-border-color);
     border-radius: 5px;
-    overflow: hidden;
     background: var(--bs-body-bg);
 }
 
 .vp-vc-score-fill {
     display: block;
     height: 100%;
+    border-radius: 4px;
     background: var(--vp-vc-color);
+}
+
+/*
+ * The band floors, in the lean track's own mark — same width, same
+ * ink, same opacity, so a reader who has learnt what a tick means on
+ * one bar has learnt it on all three. Above the track rather than
+ * inside it, because `overflow: hidden` is what used to round the
+ * fill and a mark clipped to the track disappears at 0 and at 100.
+ */
+.vp-vc-score-mark {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 12px;
+    background: var(--bs-body-color);
+    opacity: 0.55;
 }
 
 .vp-vc-prose-wide {
     max-width: 520px;
 }
 
-.vp-vc-hero-actions {
-    display: flex;
-    flex: 0 0 auto;
-    flex-direction: column;
-    gap: 6px;
-}
-
+/*
+ * Kept under the hero's name because that is where they used to live
+ * and where the tooltips still point; they are drawn in the provenance
+ * strip now, one notch smaller so the small print stays small print.
+ */
 .vp-vc-hero-action {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    padding: 5px 10px;
+    gap: 6px;
+    padding: 3px 9px;
     border: 1px solid var(--bs-border-color);
     border-radius: 5px;
     background: var(--bs-body-bg);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     white-space: nowrap;
     color: var(--bs-body-color);
@@ -2884,8 +2993,13 @@ tr.vp-occ-deleted td {
     width: 196px;
 }
 
+/*
+ * `Occurrences` is the longest thing this column ever holds and it is
+ * not 120px wide. The width it was not using is the width the signal
+ * column needed to stop wrapping its longest row.
+ */
 .vp-ledger-panel-col {
-    width: 120px;
+    width: 96px;
 }
 
 .vp-ledger-asof-col {
@@ -2946,8 +3060,15 @@ tr.vp-occ-deleted td {
     color: var(--vp-ledger-cuts);
 }
 
+/*
+ * 290px wrapped the catalogue's longest signal name — *53 sightings
+ * from 6 orgs, last 18 days ago* — on to a second line, which pushed
+ * its bar and its points out of line with every other row's. The cap
+ * exists so a long name cannot starve the evidence beside it; 340px
+ * is still short of that and clears the longest name there is.
+ */
 .vp-ledger-signal-cell {
-    max-width: 290px;
+    max-width: 340px;
     font-weight: 700;
 }
 

@@ -19,6 +19,8 @@
  * @var string $orgsSub    The subtitle: why this table is here for
  *                         this particular value
  */
+App::uses('ValueTrustTool', 'Tools');
+
 $orgs = $verdict['orgs'] ?? array();
 $orgColumns = $orgColumns ?? array('to_ids', 'reliability');
 
@@ -46,7 +48,16 @@ $headings = array(
                         <th><?= __('Organisation') ?></th>
                         <th class="text-end"><?= __('Occurrences') ?></th>
                         <th class="text-end"><?= __('Sightings') ?></th>
-                        <th class="text-end"><?= __('False positives') ?></th>
+                        <?php /*
+                         * The last of the three counts, and the one
+                         * that sits against a column of words. Flush
+                         * right it read as part of them — *0 none
+                         * stated* on every row where nobody has
+                         * stated an opinion.
+                         */ ?>
+                        <th class="text-end vp-orgs-count-last">
+                            <?= __('False positives') ?>
+                        </th>
                         <th><?= __('Opinion') ?></th>
                         <?php foreach ($orgColumns as $column): ?>
                             <th><?= h($headings[$column] ?? $column) ?></th>
@@ -63,7 +74,8 @@ $headings = array(
                             <td class="text-end">
                                 <?= h($org['sightings']) ?>
                             </td>
-                            <td class="text-end<?= $org['fp'] > 0
+                            <td class="text-end vp-orgs-count-last<?=
+                                $org['fp'] > 0
                                 ? ' text-danger fw-semibold'
                                 : ' text-muted' ?>">
                                 <?= h($org['fp']) ?>
@@ -94,10 +106,45 @@ $headings = array(
 
                             <?php foreach ($orgColumns as $column): ?>
                                 <?php if ($column === 'reliability'): ?>
+                                    <?php
+                                    /*
+                                     * The chip is a 22px square, because
+                                     * the vocabulary it was drawn for is
+                                     * one character: the admiralty
+                                     * grades `A` to `G`. The seventh
+                                     * member of that vocabulary is the
+                                     * word `unrated`, which overflowed
+                                     * its own box on every row of every
+                                     * value on this instance — nothing
+                                     * here is graded yet.
+                                     *
+                                     * Not a wider chip. A grade is
+                                     * something an analyst put there and
+                                     * the chip is what says so; `unrated`
+                                     * is its absence, and this card draws
+                                     * absences as absences everywhere
+                                     * else — the hollow bar in the
+                                     * ledger, *none stated* in the
+                                     * column to the left of this one.
+                                     */
+                                    ?>
                                     <td>
-                                        <span class="vp-reliability">
-                                            <?= h($org['reliability']) ?>
-                                        </span>
+                                        <?php if ($org['reliability']
+                                            === ValueTrustTool::UNRATED
+                                        ): ?>
+                                            <span class="text-muted">
+                                                <?= h(__('unrated')) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="vp-reliability"
+                                                  title="<?= h(sprintf(
+                                                      __('Source'
+                                                      . ' reliability %s'),
+                                                      $org['reliability']
+                                                  )) ?>">
+                                                <?= h($org['reliability']) ?>
+                                            </span>
+                                        <?php endif; ?>
                                     </td>
                                 <?php elseif ($column === 'reads'): ?>
                                     <td>

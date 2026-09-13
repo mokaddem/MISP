@@ -112,6 +112,30 @@ foreach ($verdict['orgs'] as $org) {
             <?= h(ValueLean::label($lean)) ?>
         </span>
 
+        <?php /*
+         * The hero's paragraph, drawn only where there is one to draw.
+         * `summary` is the key D11 left open — the composition of lean,
+         * relevance and quality into a sentence — and `ValueSummaryTool`
+         * has written it since 2026-09-13
+         * (`prd/analyst-profile/10-wiring.md` §13). The guard stays: a
+         * lean with nothing weighed behind it stops the sentence after
+         * one clause, and the builder returns nothing rather than a
+         * fragment. The bands below state the same argument in rows, so
+         * the card is complete without it.
+         *
+         * **Next to the badge, not after the gauge.** The badge names
+         * the reading and this sentence is that reading in full, so a
+         * number wedged between them made the eye cross a third object
+         * to finish a thought. The gauge follows instead, against the
+         * far margin, where it reads as the one figure the card leaves
+         * you with.
+         */ ?>
+        <?php if (!empty($verdict['summary'])): ?>
+            <p class="vp-vc-prose vp-vc-prose-wide">
+                <?= h($verdict['summary']) ?>
+            </p>
+        <?php endif; ?>
+
         <?php
         /*
          * The gauge, where something was weighed. A `none` band means
@@ -144,54 +168,51 @@ foreach ($verdict['orgs'] as $org) {
                  * beside it is printed unclamped, because that one is
                  * the assessment.
                  */ ?>
+                <?php
+                /*
+                 * The band floors, on the bar the band is named above.
+                 *
+                 * Every other axis on this card draws its thresholds:
+                 * the lean's track carries both supermajority marks and
+                 * the clock's carries the day it expires. Quality
+                 * printed a word — `Quality medium` — over a bar with
+                 * nothing on it, and the only thing that said where
+                 * `medium` starts was a sentence under a table 500px
+                 * further down. Same grammar, same two-pixel mark, and
+                 * the ledger's foot still owns the sentence, including
+                 * the two cases where the floor is not what decided the
+                 * band at all (`10-wiring.md` §19).
+                 */
+                $floors = isset($verdict['band_reason']['floors'])
+                    && is_array($verdict['band_reason']['floors'])
+                    ? $verdict['band_reason']['floors']
+                    : array();
+                $marks = array(
+                    'medium' => (int)(isset($floors['medium'])
+                        ? $floors['medium'] : 30),
+                    'high' => (int)(isset($floors['high'])
+                        ? $floors['high'] : 60),
+                );
+                ?>
                 <div class="vp-vc-score-track">
                     <span class="vp-vc-score-fill"
                           style="width: <?= max(0, min(100, (int)$quality)) ?>%;"
                     ></span>
+                    <?php foreach ($marks as $band => $at): ?>
+                        <?php if ($at > 0 && $at < 100): ?>
+                            <span class="vp-vc-score-mark"
+                                  title="<?= h(sprintf(
+                                      __('%1$s starts at %2$s'),
+                                      ucfirst($band),
+                                      $at
+                                  )) ?>"
+                                  style="left: <?= $at ?>%;"></span>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
         <?php endif; ?>
 
-        <?php /*
-         * The hero's paragraph, drawn only where there is one to draw.
-         * `summary` is the key D11 left open — the composition of lean,
-         * relevance and quality into a sentence — and `ValueSummaryTool`
-         * has written it since 2026-09-13
-         * (`prd/analyst-profile/10-wiring.md` §13). The guard stays: a
-         * lean with nothing weighed behind it stops the sentence after
-         * one clause, and the builder returns nothing rather than a
-         * fragment. The bands below state the same argument in rows, so
-         * the card is complete without it.
-         */ ?>
-        <?php if (!empty($verdict['summary'])): ?>
-            <p class="vp-vc-prose vp-vc-prose-wide">
-                <?= h($verdict['summary']) ?>
-            </p>
-        <?php endif; ?>
-
-        <div class="vp-vc-hero-actions">
-            <button type="button" class="vp-vc-hero-action disabled"
-                    disabled title="<?= h($noWrites) ?>">
-                <i class="fas fa-rotate"></i>
-                <?= __('Recompute') ?>
-            </button>
-            <?php /*
-             * Its own reason, because it is not a write.
-             * `review-2026-09-13.md` §C4: both actions carried the
-             * no-writes tooltip, which *Recompute* earns and this one
-             * does not — a reader hovering it was told the wrong thing
-             * about why it is unavailable.
-             */ ?>
-            <button type="button"
-                    class="vp-vc-hero-action vp-vc-hero-action-mono
-                           disabled"
-                    disabled title="<?= h(__(
-                        'Not built yet — the assessment has no REST'
-                        . ' representation until phase 10 adds one.'
-                    )) ?>">
-                <?= __('view as JSON') ?>
-            </button>
-        </div>
     </div>
 
     <?php

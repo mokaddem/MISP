@@ -61,10 +61,14 @@ if (($verdict['lean'] ?? null) === 'none'
         <i class="fas fa-hourglass-half vp-vc-clock-mark"></i>
         <?= h(__('How long this reading holds')) ?>
     </div>
-    <div class="vp-vc-clock-body">
-        <?= $this->element('Values/View/value_relevance_facts', array(
-            'relevance' => $relevance,
-        )) ?>
+    <div class="vp-vc-clock-body<?= empty($clock['events'])
+        ? ''
+        : ' vp-vc-band-split' ?>">
+        <div class="vp-vc-band-bar">
+            <?= $this->element('Values/View/value_relevance_facts', array(
+                'relevance' => $relevance,
+            )) ?>
+        </div>
         <?php if (!empty($clock['events'])): ?>
             <?php
             /*
@@ -76,10 +80,12 @@ if (($verdict['lean'] ?? null) === 'none'
              * argument about something else.
              */
             ?>
-            <?= $this->element(
-                'Values/View/value_relevance_events',
-                array('clock' => $clock, 'cap' => 4)
-            ) ?>
+            <div class="vp-vc-band-list">
+                <?= $this->element(
+                    'Values/View/value_relevance_events',
+                    array('clock' => $clock, 'cap' => 4)
+                ) ?>
+            </div>
         <?php endif; ?>
         <?php
         /*
