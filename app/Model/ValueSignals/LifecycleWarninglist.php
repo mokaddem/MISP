@@ -44,6 +44,21 @@ class LifecycleWarninglist extends ValueSignalBase
     public $evidence_class = self::EVIDENCE_AGGREGATE;
     public $reads = array('warninglist');
     public $absence_key = 'no_hit';
+    /*
+     * The other of D11 §2.1's two ledger-borne lean sources. A hit
+     * reads the value — *this is not an indicator*, or *this is shared
+     * infrastructure* — so a hit anchors.
+     *
+     * **`no_hit` does not, and that is the whole reason the axis is
+     * per-row.** *Nothing matched, 8 lists checked* is the control
+     * case: it says the value is on no list MISP ships, which is not
+     * the same statement as *the value is a threat*. Anchored, it
+     * became one — on a benign lean its `+6` inverted to `−6` and, on
+     * its own, tipped rule 7 into calling an uncontested value
+     * contested. It is a quality row: what it measures is that the
+     * record survived the check.
+     */
+    public $axis = self::AXIS_LEAN;
     public $source = 'Lifecycle';
 
     public function __construct()
@@ -94,7 +109,9 @@ class LifecycleWarninglist extends ValueSignalBase
                         : __('%d lists checked'),
                     $checked
                 ),
-                $context
+                $context,
+                null,
+                self::AXIS_QUALITY
             );
         }
 

@@ -37,6 +37,14 @@ class SightingsFalsePositive extends ValueSignalBase
     public $group = 'Sightings';
     public $evidence_class = self::EVIDENCE_ROW;
     public $reads = array('sightings');
+    /*
+     * One of D11 §2.1's two ledger-borne lean sources, so it anchors:
+     * an organisation filing a false positive is saying what the value
+     * *is*, not how well documented it is. Its silence on absence is
+     * what makes it safe to anchor — there is no *nobody called it a
+     * false positive* pole to be read as an argument for threat.
+     */
+    public $axis = self::AXIS_LEAN;
     public $source = 'Sightings';
 
     public function __construct()

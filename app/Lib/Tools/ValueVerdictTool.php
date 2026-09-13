@@ -34,11 +34,23 @@ App::uses('ValueRelevanceTool', 'Tools');
  *     silent:         no row and no note
  *     could not run:  a not_counted entry
  *
- * polarity = +1 (threat lean) | −1 (benign lean)
- * row      = points × polarity
- * quality  = Σ anchored rows
+ * polarity    = +1 (threat lean) | −1 (benign lean)
+ * lean row    = points × polarity      reads the value
+ * quality row = points                 weighs the record
+ * quality     = Σ quality rows
+ * lean_weight = Σ lean rows
  * direction of a row = sign(row)
  * ```
+ *
+ * **Two sums, because there are two questions** — D11's whole claim is
+ * that *what the record says* and *how much record there is* are
+ * different axes, and anchoring every row to the lean re-fused them
+ * (`review-2026-09-13.md` §A1). A signal declares which axis it is on
+ * and the polarity reaches only the lean's; a signal with poles on both
+ * declares per row. Only two shipped signals read the value — the
+ * warninglist's hits and false-positive sightings — which is D11 §2.1's
+ * list minus the `to_ids` stance, and that one is not a ledger row at
+ * all.
  *
  * **The sum is the quality by construction rather than by
  * convention** (`01-profile.md` §5.1). There is no second code path
@@ -69,14 +81,22 @@ App::uses('ValueRelevanceTool', 'Tools');
  * ## The seventh rule, which lives here rather than with the lean
  *
  * The lean's categorical rules are `ValueLeanTool`'s and run before any
- * scoring. One of them cannot: **a lean whose anchored quality comes
- * out below zero becomes contested**, because a negative quality means
- * the ledger, row by row, disputes the assertion the record itself
- * makes. That can only be known after the sum, so it is applied here —
- * the rows are re-anchored threat-signed, the lean becomes contested
- * and the tug shows the two sides. It is the state the design's earlier
- * one-number model had no way to express: it would have printed a
- * negative score under the word MALICIOUS.
+ * scoring. One of them cannot: **a lean whose anchored *lean* rows sum
+ * below zero becomes contested**, because that is the record's own
+ * reading of the value disputing the assertion the record itself makes.
+ * That can only be known after the sum, so it is applied here — the
+ * lean rows go back to threat-signed, the lean becomes contested, and
+ * `decided_by` becomes `lean_disputed` so the band explaining the
+ * reading stops naming the lean this rule discarded.
+ *
+ * **It weighs the lean rows and not the whole ledger**, which is the
+ * correction `review-2026-09-13.md` §A2 measured: against the whole
+ * ledger a thin record tripped it — `−23` of absence penalties on a
+ * single-source value with no galaxy, no first-seen, no sighting,
+ * nothing recent and no feed — so 55 of 60 contested values on the
+ * verification instance were ordinary thin records rather than
+ * contradictions. A thin record is a lean with a low quality band and a
+ * full ledger, which is what D11 §4 says it should have been all along.
  *
  * ## What is still an input
  *
@@ -96,6 +116,20 @@ class ValueVerdictTool
 
     /** The quality bands, weakest first, so one can be capped to another. */
     const BANDS = array('none', 'low', 'medium', 'high');
+
+    /**
+     * `ValueSignalBase::AXIS_LEAN` and `AXIS_QUALITY`, mirrored.
+     *
+     * Mirrored rather than referenced because the signal base is
+     * `include_once`d by the loader at first scan, and the path this
+     * engine takes for a value with nothing to assess never scans —
+     * so naming the class there would make an empty record a fatal
+     * rather than an empty ledger. `03-signals-engine-harness.php`
+     * asserts the two pairs are equal, which is the cheap half of
+     * keeping a mirror honest.
+     */
+    const AXIS_LEAN = 'lean';
+    const AXIS_QUALITY = 'quality';
 
     /** Lean → the ledger's polarity. */
     const POLARITY = array(
@@ -246,33 +280,79 @@ class ValueVerdictTool
             $notCounted[] = $note;
         }
 
-        $quality = $this->sum($rows);
+        /*
+         * Two sums, because there are two questions
+         * (`review-2026-09-13.md` §D1). The quality rows sum to the
+         * quality, exactly — the invariant, narrowed to the axis it
+         * was always about. The lean rows sum to `lean_weight`, which
+         * is what the record's own evidence says the value *is*, and
+         * they stay out of the quality: a warninglist hit says nothing
+         * about how well documented a record is, which is why D11
+         * §2.3 does not list it among quality's sources.
+         *
+         * What that fixes, beyond §A1: `8.8.8.8` — eight
+         * organisations, 53 sightings, 20 events, a listing and a feed
+         * — used to band `low` because its `−58` of lean evidence was
+         * subtracted from its `+57` of record. It is a well-documented
+         * contested value and now says so.
+         */
+        $quality = $this->sum($this->onAxis($rows,
+            self::AXIS_QUALITY));
+        $leanWeight = $this->sum($this->onAxis($rows,
+            self::AXIS_LEAN));
 
         /*
-         * Rule 7. A ledger that sums below zero against the lean it was
+         * Rule 7, narrowed to what it was always trying to ask. A
+         * **lean** ledger that sums below zero against the lean it was
          * anchored to is a record disputing its own assertion, and the
-         * honest state for that is contested — not a negative gauge
-         * under a confident word. The rows go back to threat-signed,
-         * which is how a contested ledger renders, and the tug below
-         * shows the two sides that could not be reconciled.
+         * honest state for that is contested.
          *
-         * It cannot run twice: re-anchoring a negative sum with a
-         * polarity of −1 makes it positive, and a polarity of +1 leaves
-         * it where it was with the lean already contested.
+         * It used to weigh the whole ledger, which meant a thin record
+         * tripped it: no galaxy, no first-seen, no sighting, nothing
+         * recent and no feed is `−23` of absence, and on an ordinary
+         * single-source value that outweighed the record it had. 55 of
+         * the 60 contested values on the verification instance were
+         * that and not a contradiction (`review-2026-09-13.md` §A2) —
+         * a state D11 §4 says should read as *a lean with low quality
+         * and a full ledger*, which is exactly what it now does.
+         *
+         * **And it defers to a lean that is already contested.** An
+         * escalation rule reaching `contested` before any scoring has
+         * already named the contradiction, in prose written for that
+         * value's shape; rule 7 firing over the top of it replaced
+         * `decided_by` and lost the rule's own sentence — which is how
+         * `8.8.8.8`, the corpus's own contested example, briefly
+         * stopped citing the rule that decided it.
+         *
+         * It cannot run twice: there is one branch, and it sets the
+         * lean it would have been re-entered for.
          */
-        if ($quality < 0) {
+        if ($leanWeight < 0 && $lean !== 'contested') {
             $rows = $this->reanchor($rows, $polarity);
-            $quality = $this->sum($rows);
+            $leanWeight = $this->sum($this->onAxis($rows,
+                self::AXIS_LEAN));
             $lean = 'contested';
+            /*
+             * The exit gets its own name, because the band under *How
+             * this reading was decided* reads `decided_by` and rule 7
+             * used to leave it naming the lean it had just discarded —
+             * a **Contested** badge over the sentence *2 of 2
+             * organisations report this as harmless* (§A4).
+             */
+            $derived['decided_by'] = 'lean_disputed';
             $polarity = 1;
         }
-        $ledger = $this->group($rows);
+        $ledger = $this->group($this->onAxis($rows,
+            self::AXIS_QUALITY));
 
         return $this->verdict(array(
             'lean' => $lean,
             'derived' => $derived,
             'polarity' => $polarity,
             'quality' => $quality,
+            'lean_weight' => $leanWeight,
+            'lean_ledger' => $this->onAxis($rows,
+                self::AXIS_LEAN),
             'band' => self::qualityBand(
                 $quality,
                 $counts['fired'],
@@ -313,6 +393,16 @@ class ValueVerdictTool
             'rule' => null,
             'stances' => $lean->stancesFor($context, $profile),
             'rule_errors' => array(),
+            /*
+             * No exit, because none was taken: a forced lean skips the
+             * rules entirely. Stated rather than left absent — `verdict
+             * ()` reads the key unconditionally, so every caller of the
+             * simulator and every re-anchoring regression was raising a
+             * notice on the way past. `ValueLeanReasonTool` answers
+             * null here, which draws no band, which is the right
+             * answer for a reading nobody derived.
+             */
+            'decided_by' => null,
         );
     }
 
@@ -339,6 +429,8 @@ class ValueVerdictTool
             'derived' => $derived,
             'polarity' => $polarity,
             'quality' => 0,
+            'lean_weight' => 0,
+            'lean_ledger' => array(),
             'band' => 'none',
             'ledger' => array(),
             'tug' => $this->tug(array(), $polarity),
@@ -376,6 +468,19 @@ class ValueVerdictTool
     private function reanchor(array $rows, $polarity)
     {
         foreach ($rows as $index => $row) {
+            $axis = isset($row['axis'])
+                ? $row['axis']
+                : self::AXIS_QUALITY;
+            /*
+             * Quality rows were never anchored, so there is nothing to
+             * put back. Running the multiply over them anyway was
+             * harmless while every row was anchored and would now
+             * silently invert the record's weight under a lean that
+             * no longer has one.
+             */
+            if ($axis !== self::AXIS_LEAN) {
+                continue;
+            }
             $contribution = (int)$row['contribution'] * $polarity;
             $rows[$index]['contribution'] = $contribution;
             $rows[$index]['direction'] = $contribution < 0
@@ -403,6 +508,18 @@ class ValueVerdictTool
      * the foot printed directly under it counted *different things*
      * under one word, and the fixture concealed it by supplying both.
      *
+     * **The lean rows, and only those.** A tug drawn over the whole
+     * ledger put *no galaxy on any occurrence* and *the record never
+     * says when it was seen* on the benign foot of a bar the reader
+     * was invited to read as two readings of the value
+     * (`review-2026-09-13.md` §A3). Absences are not a case. What is
+     * left here is the two sides of the evidence that actually reads
+     * the value, which on the shipped catalogue is one-sided by
+     * construction — the warninglist and false-positive rows both
+     * argue benign, and the threat side of the argument is the
+     * organisation stance count, which is not a ledger row at all and
+     * is drawn as a count in the lean band.
+     *
      * @param array $rows
      * @param int $polarity
      * @return array
@@ -411,7 +528,9 @@ class ValueVerdictTool
     {
         $support = 0;
         $dispute = 0;
-        foreach ($rows as $row) {
+        foreach ($this->onAxis($rows, self::AXIS_LEAN)
+            as $row
+        ) {
             $threatSigned = (int)$row['contribution'] * $polarity;
             if ($threatSigned >= 0) {
                 $support += $threatSigned;
@@ -456,6 +575,20 @@ class ValueVerdictTool
             'decided_by' => $derived['decided_by'],
             'polarity' => $parts['polarity'],
             'quality' => $quality,
+            /*
+             * The lean's own arithmetic, beside the quality's rather
+             * than inside it. `lean_ledger` is the rows and
+             * `lean_weight` their sum, so the band that explains the
+             * reading can show its working the way the ledger shows
+             * the quality's — and so nothing has to re-derive from a
+             * sign which rows those were.
+             */
+            'lean_weight' => isset($parts['lean_weight'])
+                ? (int)$parts['lean_weight']
+                : 0,
+            'lean_ledger' => isset($parts['lean_ledger'])
+                ? $parts['lean_ledger']
+                : array(),
             'band' => $parts['band'],
             /*
              * Assembled here rather than beside either `band`, because
@@ -557,11 +690,12 @@ class ValueVerdictTool
         }
         $blocked = $this->budgetBlocks($signal, $context);
         if ($blocked !== null) {
-            return $this->cannotRun($id, $blocked, 'nodata');
+            return $this->cannotRun($id, $blocked, 'nodata', $signal);
         }
         $unreadable = $this->unreadable($signal, $context);
         if ($unreadable !== null) {
-            return $this->cannotRun($id, $unreadable, 'nodata');
+            return $this->cannotRun($id, $unreadable, 'nodata',
+                $signal);
         }
         try {
             $row = $signal->evaluate($context, $entry);
@@ -577,7 +711,8 @@ class ValueVerdictTool
                     __('The signal failed: %s'),
                     $e->getMessage()
                 ),
-                'broken'
+                'broken',
+                $signal
             );
         }
         if ($row === null) {
@@ -585,7 +720,7 @@ class ValueVerdictTool
         }
         $invalid = $this->rowFault($row);
         if ($invalid !== null) {
-            return $this->cannotRun($id, $invalid, 'broken');
+            return $this->cannotRun($id, $invalid, 'broken', $signal);
         }
         return array(
             'state' => 'fired',
@@ -706,12 +841,28 @@ class ValueVerdictTool
      * @param string $kind `unavailable`, `nodata` or `broken`
      * @return array
      */
-    private function cannotRun($id, $reason, $kind)
+    private function cannotRun($id, $reason, $kind, $signal = null)
     {
         return array(
             'state' => 'not_counted',
             'entry' => array(
-                'title' => $id,
+                /*
+                 * The signal's own sentence, and the id only where
+                 * there is no sentence to have — an unavailable signal
+                 * is precisely the one nothing can describe.
+                 *
+                 * It printed the id in every case until
+                 * `review-2026-09-13.md` §C1, which put
+                 * `sightings.volume_recency` on the page directly above
+                 * the two entries this file builds with English titles.
+                 * The id is still carried on the entry for whoever has
+                 * to fix it; what changed is which of the two a reader
+                 * meets first.
+                 */
+                'title' => $signal !== null
+                    && !empty($signal->description)
+                        ? $signal->description
+                        : $id,
                 'note' => $reason,
                 /*
                  * `reason` is the render-level grouping — what a reader
@@ -787,7 +938,24 @@ class ValueVerdictTool
 
     /**
      * Turn a fired row into a ledger row: the group and the band come
-     * from the profile, the anchoring and the direction from the lean.
+     * from the profile, the anchoring and the direction from the lean
+     * — and the anchoring only where the row has a side to take.
+     *
+     * **The polarity reaches lean rows and nothing else**
+     * (`review-2026-09-13.md` §A1). A quality row's declared points are
+     * already the right sign for the only thing it can say: more
+     * corroboration, more publication, more temporal precision is a
+     * better record, and it is a better record whether the record
+     * concluded threat or benign. Multiplying those by the lean's
+     * polarity is what made *four independent organisations reported
+     * it* render as `−28` **against** a benign reading, and what made
+     * the emptiest record the best-scoring benign one.
+     *
+     * `direction` therefore means two different things and the row says
+     * which: on a lean row it is supports/disputes the stated lean, on
+     * a quality row it is adds to/deducts from the weight of the
+     * record. The ledger draws them apart rather than leaving a reader
+     * to infer it from the sign.
      *
      * @param array $row What the implementation returned
      * @param array $entry The profile's entry
@@ -797,11 +965,18 @@ class ValueVerdictTool
      */
     private function anchor(array $row, array $entry, $signal, $polarity)
     {
-        $contribution = (int)$row['contribution'] * $polarity;
+        $axis = isset($row['axis'])
+            ? $row['axis']
+            : (isset($signal->axis)
+                ? $signal->axis
+                : self::AXIS_QUALITY);
+        $contribution = (int)$row['contribution']
+            * ($axis === self::AXIS_LEAN ? $polarity : 1);
         return array(
             'kind' => !empty($entry['group'])
                 ? $entry['group']
                 : $signal->group,
+            'axis' => $axis,
             'direction' => $contribution < 0 ? 'down' : 'up',
             'contribution' => $contribution,
             'signal' => $row['signal'],
@@ -814,6 +989,27 @@ class ValueVerdictTool
             'as_of' => isset($row['as_of']) ? $row['as_of'] : '',
             'id' => $signal->id,
         );
+    }
+
+    /**
+     * The rows on one axis.
+     *
+     * @param array $rows
+     * @param string $axis
+     * @return array
+     */
+    private function onAxis(array $rows, $axis)
+    {
+        $out = array();
+        foreach ($rows as $row) {
+            $rowAxis = isset($row['axis'])
+                ? $row['axis']
+                : self::AXIS_QUALITY;
+            if ($rowAxis === $axis) {
+                $out[] = $row;
+            }
+        }
+        return $out;
     }
 
     /**

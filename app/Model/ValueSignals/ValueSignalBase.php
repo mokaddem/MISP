@@ -24,6 +24,16 @@
  * render `+38` supporting a benign lean and `−38` disputing a threat
  * one (§2, `04-dispositions.md` §2).
  *
+ * **And it multiplies only the rows that read the value** — the axis
+ * below. A signal measuring *the record* rather than *the value* has
+ * no side to take, so its declared points are already the right sign
+ * for the only thing it can mean: more corroboration, more
+ * publication, more precision is a better record whatever the record
+ * says. Anchoring those was `review-2026-09-13.md` §A1 — it made
+ * four organisations corroborating a value read as an argument
+ * against its benign lean, and made the emptiest record the
+ * best-scoring one.
+ *
  * ## The row to return
  *
  * ```php
@@ -114,6 +124,30 @@ abstract class ValueSignalBase
      *  value makes unreadable. */
     const EVIDENCE_ROW = 'row';
 
+    /**
+     * A row that **reads the value**: it states what the record says
+     * this thing is, so it takes the lean's polarity and it is what
+     * rule 7 weighs when it asks whether a record disputes its own
+     * assertion.
+     *
+     * D11 §2.1's sources, and only those: the warninglist category and
+     * false-positive sightings. (`to_ids` stance is the third and it
+     * is not a ledger row at all — §6 promoted it out of the catalogue
+     * into the lean derivation.)
+     */
+    const AXIS_LEAN = 'lean';
+
+    /**
+     * A row that **weighs the record**: corroboration breadth, org
+     * trust, attribution, published ratio, temporal precision — D11
+     * §2.3's list. It takes no polarity, because *how much record
+     * there is* is the same question whatever the record concluded.
+     *
+     * The default, so a drop-in signal that declares nothing is
+     * treated as the thing nearly every signal is.
+     */
+    const AXIS_QUALITY = 'quality';
+
     /** The ledger's four groups. A profile may move a signal between
      *  them; a custom signal may name a fifth. */
     const GROUPS = array(
@@ -196,6 +230,17 @@ abstract class ValueSignalBase
      *  is enforceable rather than aspirational. */
     public $evidence_class = self::EVIDENCE_AGGREGATE;
 
+    /**
+     * AXIS_LEAN or AXIS_QUALITY — which of D11's axes this signal's
+     * rows belong to, and therefore whether the engine anchors them.
+     *
+     * A signal whose poles are not all one axis overrides it per row:
+     * `row()` takes an axis, and `lifecycle.warninglist` is the one
+     * shipped signal that needs it — its hits read the value, its
+     * *no hit* does not.
+     */
+    public $axis = self::AXIS_QUALITY;
+
     /** Which panel a reader should go and argue with the row in. */
     public $source = 'Occurrences';
 
@@ -226,6 +271,7 @@ abstract class ValueSignalBase
             'unit' => $this->unit,
             'reads' => $this->reads,
             'evidence_class' => $this->evidence_class,
+            'axis' => $this->axis,
             'source' => $this->source,
             'version' => $this->version,
             'is_custom' => $this->is_custom,
@@ -413,7 +459,7 @@ abstract class ValueSignalBase
      * @return array
      */
     protected function row($contribution, $signal, $evidence,
-        array $context, $asOf = null
+        array $context, $asOf = null, $axis = null
     ) {
         return array(
             'signal' => $signal,
@@ -423,6 +469,14 @@ abstract class ValueSignalBase
             'as_of' => $asOf === null
                 ? ($context['as_of'] ?? date('Y-m-d'))
                 : $asOf,
+            /*
+             * The class's axis unless this row is the exception. Stated
+             * on the row rather than looked up later because the engine
+             * must not have to know which pole an implementation took —
+             * that is exactly the kind of knowledge a drop-in signal
+             * cannot hand over.
+             */
+            'axis' => $axis === null ? $this->axis : $axis,
         );
     }
 
