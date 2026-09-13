@@ -85,6 +85,7 @@ require_once APP . 'Lib/Tools/ValueChangersTool.php';
 require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
 require_once APP . 'Lib/Tools/ValueSummaryTool.php';
+require_once APP . 'Lib/Tools/ValueLeanReasonTool.php';
 require_once APP . 'Lib/Tools/ValueContestedTool.php';
 
 $GLOBALS['checks'] = 0;
@@ -1589,6 +1590,227 @@ is_true(
         heroFor('contested', 'high', shelf('current', 69))
     ),
     'and a different band writes a different one'
+);
+
+/*
+ * ------------------------------------------------------------------
+ * How the lean was decided (`10-wiring.md` §18)
+ * ------------------------------------------------------------------
+ * `leanFor()` has seven exits and, until this pass, exactly one of
+ * them said anything a reader could see. Two things are asserted here
+ * and they are different claims: that the engine **names** the exit it
+ * took, and that `ValueLeanReasonTool` writes the right sentence for
+ * that name.
+ *
+ * Every case below runs end to end — the engine's own output is handed
+ * straight to the writer — so a rule that changed which exit it takes
+ * would break the sentence too, rather than leaving a tool agreeing
+ * with a fixture about a branch the engine no longer reaches. It is
+ * also the only place several of these can be read at all: the
+ * verification instance has no `benign` lean and nothing on a
+ * false-positive list under a minority of asserters.
+ */
+out('');
+out('the exit each rule takes');
+
+is_same(
+    'nothing_visible',
+    $lean->leanFor($nothing, $rules)['decided_by'],
+    'rule 1 names itself'
+);
+is_same(
+    'threat_supermajority',
+    $lean->leanFor(leanContext(66, 34), $rules)['decided_by'],
+    'rule 4 names itself'
+);
+is_same(
+    'benign_supermajority',
+    $lean->leanFor(leanContext(34, 66), $rules)['decided_by'],
+    'rule 5 names itself'
+);
+is_same(
+    'no_supermajority',
+    $lean->leanFor(leanContext(65, 35), $rules)['decided_by'],
+    'rule 6 names itself — the split'
+);
+is_same(
+    'false_positive_listed',
+    $lean->leanFor($listedMinority, $rules)['decided_by'],
+    'rule 3 names itself'
+);
+is_same(
+    'escalation',
+    $decided['decided_by'],
+    'and a conflict rule firing is its own exit'
+);
+
+/*
+ * Rules 3 and 5 both answer `benign`, which is why the name is carried
+ * rather than re-derived: this pair is indistinguishable from the
+ * outside, and they are two different sentences.
+ */
+is_same(
+    'benign',
+    $lean->leanFor($listedMinority, $rules)['lean'],
+    'rules 3 and 5 answer the same lean'
+);
+is_true(
+    $lean->leanFor($listedMinority, $rules)['decided_by']
+        !== $lean->leanFor(leanContext(34, 66), $rules)['decided_by'],
+    'and are still told apart by the exit they name'
+);
+
+out('');
+out('and the sentence written for it');
+
+$reasonThreat = ValueLeanReasonTool::reasonFor(
+    $lean->leanFor(leanContext(66, 34), $rules)
+);
+is_true(
+    strpos($reasonThreat, '66 of 100 organisations assert this is a'
+        . ' threat') !== false,
+    'rule 4 says who asserted and out of how many'
+);
+is_true(
+    strpos($reasonThreat, '66%') !== false,
+    'and names the threshold it cleared'
+);
+is_true(
+    strpos($reasonThreat, 'this is a threat') !== false
+        && strpos($reasonThreat, 'organisations assert') !== false,
+    'as something the organisations assert, never as what the value is'
+);
+
+$reasonBenign = ValueLeanReasonTool::reasonFor(
+    $lean->leanFor(leanContext(34, 66), $rules)
+);
+is_true(
+    strpos($reasonBenign, '66 of 100 organisations report this as'
+        . ' harmless') !== false,
+    'rule 5 counts the benign side, not the threat one'
+);
+
+$reasonSplit = ValueLeanReasonTool::reasonFor(
+    $lean->leanFor(leanContext(65, 35), $rules)
+);
+is_true(
+    strpos($reasonSplit, 'Neither side reaches') === 0,
+    'rule 6 leads with the reason there is no reading'
+);
+is_true(
+    strpos($reasonSplit, 'the split is 65 to 35') !== false,
+    'and carries both counts, because the split is the point'
+);
+/*
+ * Said as a ratio rather than as two clauses with verbs in them. The
+ * first wording read *1 of 2 assert a threat and 1 report it as
+ * harmless* on the instance's own split values, and `__n()` cannot fix
+ * it: one plural form has to serve both counts, and here they disagree
+ * about which one they want.
+ */
+is_true(
+    strpos(
+        ValueLeanReasonTool::reasonFor(
+            $lean->leanFor(leanContext(1, 1), $rules)
+        ),
+        'the split is 1 to 1'
+    ) !== false,
+    'and reads grammatically where one organisation holds each side'
+);
+
+$reasonListed = ValueLeanReasonTool::reasonFor(
+    $lean->leanFor($listedMinority, $rules)
+);
+is_true(
+    strpos($reasonListed, 'warninglist marks this a false positive')
+        !== false,
+    'rule 3 names the list as what decided it'
+);
+is_true(
+    strpos($reasonListed, 'no supermajority of organisations disputes')
+        !== false,
+    'and says the organisations were given the chance to override it'
+);
+is_true(
+    strpos($reasonListed, 'the threat stances run 1 of 2') !== false,
+    'with the minority it beat, as a ratio rather than a verb'
+);
+
+/*
+ * The escalation exit is the one that must *not* restate its own
+ * evidence: the rule's prose is already on the page, one line above
+ * this band, and §13.3 was careful about exactly this.
+ */
+$reasonRule = ValueLeanReasonTool::reasonFor($decided);
+is_true(
+    strpos($reasonRule, 'quoted in the line above') !== false,
+    'the escalation exit points at the rule rather than competing'
+);
+is_true(
+    strpos($reasonRule, '4 of 4') === false,
+    'and does not restate the counts the rule itself prints'
+);
+
+is_same(
+    null,
+    ValueLeanReasonTool::reasonFor($lean->leanFor($nothing, $rules)),
+    'the empty record gets no sentence, so the band draws nothing'
+);
+is_same(
+    null,
+    ValueLeanReasonTool::reasonFor(array()),
+    'and neither does an assessment with no exit named'
+);
+
+/*
+ * Plurals, on the median value in production: one organisation, no
+ * sightings. `1 of 1 organisations assert` is the shape that ships
+ * when a writer treats the count as decoration.
+ */
+$reasonOne = ValueLeanReasonTool::reasonFor(
+    $lean->leanFor(leanContext(1, 0), $rules)
+);
+is_true(
+    strpos($reasonOne, '1 of 1 organisation asserts') !== false,
+    'one organisation asserts, in the singular'
+);
+is_true(
+    strpos($reasonOne, 'organisations') === false,
+    'and nothing on that sentence is plural'
+);
+
+/*
+ * The threshold is printed, never spelled. `0.66` is not two thirds —
+ * §11.1 needed a tolerance for that gap — so a sentence saying *two
+ * thirds* would name a threshold the engine does not use.
+ */
+$halved = $lean->leanFor(leanContext(66, 34), $rules);
+$halved['stances']['supermajority'] = 0.5;
+is_true(
+    strpos(ValueLeanReasonTool::reasonFor($halved), '50%') !== false,
+    'the threshold is read from the profile rather than hardcoded'
+);
+unset($halved['stances']['supermajority']);
+is_true(
+    strpos(ValueLeanReasonTool::reasonFor($halved), 'supermajority')
+        !== false,
+    'and a profile with none still writes a sentence'
+);
+
+/*
+ * Same assessment, same sentence; a different exit, a different one.
+ * A writer ignoring its input passes the first of these alone.
+ */
+is_same(
+    $reasonThreat,
+    ValueLeanReasonTool::reasonFor(
+        $lean->leanFor(leanContext(66, 34), $rules)
+    ),
+    'the same assessment writes the same sentence'
+);
+is_true(
+    $reasonThreat !== $reasonSplit,
+    'and a different exit writes a different one'
 );
 
 out('');

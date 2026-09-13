@@ -834,6 +834,135 @@ else
     ok "no band where the hero has already said it"
 fi
 
+# -------------------------------------------------- 9. the lean band
+# The third band and the last axis to get its working onto the page.
+# The check that matters is the same shape as §8's: the band states an
+# arithmetic, and the rows that arithmetic is over are printed in the
+# same response — so the two have to agree. `stances` counts the
+# organisations that cast a stance and *Who says what* lists the
+# organisations with occurrences, and on a context built by the
+# engine's own query those are the same set.
+echo "--- the lean band, against the table it counts"
+python3 - "$TAB" <<'PY'
+import re
+import sys
+
+tab = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+fails = 0
+
+
+def strip(html):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', html)).strip()
+
+
+i = tab.find('vp-vc-lean-body')
+if i < 0:
+    print('FAIL the Assessment tab drew no lean band on a scored value')
+    sys.exit(1)
+band = strip(tab[i:i + 2500])
+
+# The sentence, whichever exit wrote it.
+known = (
+    'organisations assert this is a threat',
+    'organisation asserts this is a threat',
+    'report this as harmless',
+    'reports this as harmless',
+    'Neither side reaches',
+    'warninglist marks this a false positive',
+    'quoted in the line above',
+)
+hit = [k for k in known if k in band]
+print('sentence: %s' % (hit or None))
+if hit:
+    print('ok   the band names the exit that decided the lean')
+else:
+    print('FAIL the band drew no sentence this probe recognises')
+    fails += 1
+
+# The counts on the band, against the rows of *Who says what*.
+counts = re.search(r'(\d+) organisations? asserts? a threat\s+'
+                   r'(\d+) reports? it as harmless', band)
+# Anchored on the heading, and not on the first `<tbody>` in the
+# response: the agreeing layout prints the ledger as a table too, so
+# the first one belongs to quality. Its rows also carry attributes,
+# which a `<tr>` pattern misses — the first version of this check read
+# the ledger's tbody, counted nothing in it, and reported a
+# disagreement that was its own.
+head = tab.find('Who says what')
+rows = (re.search(r'<tbody>(.*?)</tbody>', tab[head:], re.S)
+        if head >= 0 else None)
+listed = len(re.findall(r'<tr[\s>]', rows.group(1))) if rows else None
+print('band counts: %s, organisations listed: %s'
+      % (counts.groups() if counts else None, listed))
+
+if counts is None:
+    print('FAIL could not read the two counts off the band')
+    fails += 1
+elif listed is None:
+    print('FAIL could not find the organisations table to check them'
+          ' against')
+    fails += 1
+else:
+    threat, benign = int(counts.group(1)), int(counts.group(2))
+    if threat + benign == listed:
+        print('ok   the band counts the organisations the table lists'
+              ' (%d + %d = %d)' % (threat, benign, listed))
+    else:
+        print('FAIL the band counts %d organisations, the table lists'
+              ' %d' % (threat + benign, listed))
+        fails += 1
+
+    # And the bar is drawn at the share those counts make, so a reader
+    # comparing the picture with the words is not being told two
+    # different things.
+    fill = re.search(r'vp-vc-lean-fill"\s*style="width: (\d+)%', tab)
+    if fill is None:
+        print('FAIL the band drew counts but no bar')
+        fails += 1
+    else:
+        want = 0 if threat + benign == 0 else round(
+            threat * 100 / (threat + benign))
+        if abs(int(fill.group(1)) - want) <= 1:
+            print('ok   and the bar is drawn at the share they make'
+                  ' (%s%%)' % fill.group(1))
+        else:
+            print('FAIL the bar reads %s%%, the counts make %d%%'
+                  % (fill.group(1), want))
+            fails += 1
+
+    # Both supermajority marks, always — one of them is the bar the
+    # other side would have had to clear.
+    marks = re.findall(r'vp-vc-lean-bar"[^>]*style="left: (\d+)%', tab)
+    if len(marks) == 2 and sum(int(m) for m in marks) in (99, 100, 101):
+        print('ok   both thresholds are marked, and they mirror (%s)'
+              % marks)
+    else:
+        print('FAIL the thresholds drew as %s' % marks)
+        fails += 1
+
+# The escalation exit must not restate the rule printed above it.
+if 'quoted in the line above' in band:
+    if 'Conflict rule' in tab:
+        print('ok   the band defers to the conflict rule, which is on'
+              ' the page to defer to')
+    else:
+        print('FAIL the band points at a rule the page does not print')
+        fails += 1
+
+sys.exit(1 if fails else 0)
+PY
+if [ $? -eq 0 ]; then ok "the lean band, read against Who says what"; \
+    else no "the lean band, read against Who says what"; fi
+
+# The same rule as the clock band, for the same reason: the hero has
+# already said there is nothing to assess.
+echo "--- the value with nothing to assess draws no lean band"
+if grep -qF 'vp-vc-lean' "$BARE_TAB"; then
+    no "the bare value drew a lean band with nothing to decide"
+else
+    ok "no lean band where there is no lean"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]

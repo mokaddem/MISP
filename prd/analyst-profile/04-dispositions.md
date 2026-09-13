@@ -469,3 +469,33 @@ both remove the penalty and add its own points, so the first unit is worth
 more than the rest; and every one of these signals is **capped**, so past some
 number of units the answer stops improving — which is exactly when that
 signal is the wrong one to name.
+
+### 11.7 Six of the seven exits reached the reader as nothing. Fixed 2026-09-13
+
+`leanFor()` answers through seven exits and exactly one of them — a
+loaded conflict rule — produced anything a reader could see. That prose
+was itself being computed and shown nowhere until `10-wiring.md` §13.3
+wired it in, and wiring it in made the gap harder to notice rather than
+easier: the verification instance's flagship value takes that exit, so
+the axis looked finished.
+
+It was not. An ordinary value asserted a threat with the page naming
+neither the organisations that asserted it nor the threshold they
+cleared, and **`stances` was read by no template in the application** —
+the counts, the share and the supermajority in force, computed on every
+value and discarded at render. `rule_errors` was in the same state,
+which is worse in kind: its whole purpose is to tell a *reader* that a
+conflict rule the profile enables could not run, and it told nobody.
+
+The exit is now named by the engine rather than inferred from its
+answer. **Rules 3 and 5 are why**: both return `benign`, and which one
+a value took is decided by the order the two conditions appear in this
+file. A caller working that out again from the lean and the stances is
+a second implementation of a precedence that was never written down —
+and the two sentences those exits want are not interchangeable.
+
+The reading this reaches that none of §11's earlier work did is **rule
+6**: a value drawn as contested because neither side reached the bar.
+Until now that value drew two cases side by side and said nothing about
+why, because the only prose in the derivation belonged to an exit it
+had not taken.

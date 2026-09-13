@@ -174,16 +174,16 @@ after the tab had stopped — a full ledger beside a zero-byte column,
 and a 200 with an empty body passes every assertion that does not
 measure a size.
 
-**Seven increments followed, all on 2026-09-13** — the five derivable
+**Eight increments followed, all on 2026-09-13** — the five derivable
 keys (§9), the copy pass (§11), D11's rename (§12), the hero (§13), the
 contested layout (§14), the query counts (§15), the opinion
-aggregate (§16) and the clock band (§17). §2.2's thirteen unproduced
-keys close as **eleven produced, two deliberately empty**:
-`resolutions` and `changer_actions` are writes this feature does not
-do, and neither is drawn as an inert promise. **85 checks over HTTP**
-on the flagship value and **83** on the over-correlating one, up from
-43; the eight harnesses at **862**, the render harness at **98**, and a
-browser harness at **12** across both themes.
+aggregate (§16), the clock band (§17) and the lean band (§18). §2.2's
+thirteen unproduced keys close as **eleven produced, two deliberately
+empty**: `resolutions` and `changer_actions` are writes this feature
+does not do, and neither is drawn as an inert promise. **87 checks over
+HTTP** on the flagship value and **85** on each of three others, up
+from 43; the eight harnesses at **890**, the render harness at **98**,
+and a browser harness at **28** across both themes.
 
 **The last of them gave relevance its working back** (§17). The tab had
 three axes and could show its work for two: lean had its rule and its
@@ -197,6 +197,21 @@ page discarding, so it **costs no query**. It is the Lifetime card's
 own elements rather than a second rendering of them, which is the
 finding below turned into a mechanism.
 
+**And the one after it finished the set** (§18). Lean looked done
+because `8.8.8.8` takes the single exit of seven that carries prose —
+a conflict rule, wired up by §13.3. The other six said nothing, so an
+ordinary value asserted a threat and named neither the organisations
+that asserted it nor the threshold they cleared, while `stances` and
+`rule_errors` were computed on every value and read by no template in
+the application. The band draws the counts, the split against both
+supermajority marks, a sentence for each exit and any conflict rule
+that could not run — for no query, again. **All three of D11's axes
+show their working now**: the ledger, the clock and the split. The
+reading it reaches that nothing else did is rule 6 — *neither side
+reaches this profile's supermajority of 66% — the split is 1 to 1 — so
+the record contradicts itself* — which is a contested value explaining
+itself without an escalation having to catch it.
+
 The headline reading, on the flagship value:
 
 > **Contested** — *What is recorded here contradicts itself. The record
@@ -204,7 +219,7 @@ The headline reading, on the flagship value:
 > Threat case **70** · **71** benign case · Analyst profile
 > `default-v1`
 
-**Six findings, and the sharpest is a page contradicting itself.**
+**Nine findings, and the sharpest is a page contradicting itself.**
 `github.com` is flagged over-correlating, so the evidence budget leaves
 its rows unread — and the relevance clock fell back silently, drawing
 *expired, 33 days over* on the Assessment tab beside *64 days left* on

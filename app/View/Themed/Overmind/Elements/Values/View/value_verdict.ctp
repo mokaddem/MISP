@@ -192,6 +192,23 @@ foreach ($verdict['orgs'] as $org) {
     <?php
     /*
      * ----------------------------------------------------------
+     * 2b. How the lean was decided
+     * ----------------------------------------------------------
+     * Directly under the provenance, because on the one exit that
+     * already had prose the band's sentence points at the line above
+     * — and because the two bands below it, the warninglist and the
+     * ledger, are both evidence this reading was reached *despite* or
+     * *because of*. The reader meets the rule before the evidence for
+     * it.
+     */
+    ?>
+    <?= $this->element('Values/View/value_verdict_lean', array(
+        'verdict' => $verdict,
+    )) ?>
+
+    <?php
+    /*
+     * ----------------------------------------------------------
      * 3. The listing, where one drives the lean
      * ----------------------------------------------------------
      * A threat-leaning value that hits no warninglist has no band here

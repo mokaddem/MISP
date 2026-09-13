@@ -447,6 +447,13 @@ class ValueVerdictTool
             'rule' => $derived['rule'],
             'rule_errors' => $derived['rule_errors'],
             'stances' => $derived['stances'],
+            /*
+             * Which of the seven exits produced the lean. Carried so a
+             * reader of this array never has to re-derive the
+             * derivation's own precedence — `ValueLeanTool::answer()`
+             * says what goes wrong when it does.
+             */
+            'decided_by' => $derived['decided_by'],
             'polarity' => $parts['polarity'],
             'quality' => $quality,
             'band' => $parts['band'],

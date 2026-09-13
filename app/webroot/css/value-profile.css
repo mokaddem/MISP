@@ -2066,6 +2066,101 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * The lean: how the reading was decided, above the evidence for it.
+ *
+ * The clock band's chrome without its colour. Relevance borrows the
+ * Lifetime card's hue because it draws that card's own element; this
+ * band has two sides and taking either one's colour for its frame
+ * would be the frame picking a winner. The sides are coloured inside
+ * it, where they belong.
+ */
+.vp-vc-lean {
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-vc-lean-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.vp-vc-lean-mark {
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-lean-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 620px;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+}
+
+.vp-vc-lean-counts {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.vp-vc-lean-threat {
+    color: var(--vp-mal);
+}
+
+.vp-vc-lean-benign {
+    color: var(--vp-ben);
+}
+
+/*
+ * One track, filled from the threat side, with the benign side as the
+ * ground it is filled against — `vp-shelf-track`'s geometry so the two
+ * bands read as the same instrument.
+ */
+.vp-vc-lean-track {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--vp-ben) 45%,
+        var(--bs-secondary-bg));
+}
+
+.vp-vc-lean-fill {
+    display: block;
+    height: 100%;
+    border-radius: 4px;
+    background: var(--vp-mal);
+}
+
+.vp-vc-lean-bar {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 12px;
+    background: var(--bs-body-color);
+    opacity: 0.55;
+}
+
+.vp-vc-lean-note {
+    margin: 0;
+}
+
+.vp-vc-lean-errors {
+    font-size: 0.72rem;
+    color: var(--bs-secondary-color);
+}
+
+.vp-vc-lean-error {
+    margin-top: 2px;
+}
+
+/*
  * The clock: the third axis, at the rank the other two have.
  *
  * `vp-vc-unresolved`'s shape — a headed band inside the argument card —

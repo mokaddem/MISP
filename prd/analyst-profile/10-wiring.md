@@ -758,6 +758,11 @@ outside this corpus:
    chart (§9.4) and that was read as the axis arriving. It had not
    shown its work, and it was the only axis that had not.
 
+10. **The lean band** — **done, §18.** The axis that looked finished
+    because the flagship value takes the one exit that had prose. Six
+    of `leanFor()`'s seven said nothing, and `stances` reached no
+    template at all.
+
 Q9 is unchanged and still recommends C, now at a known cost (§4).
 
 
@@ -1358,10 +1363,135 @@ and is the reason the probe is worth running against two values rather
 than one. The eight harnesses are unchanged at **862** and the render
 harness at **98**.
 
-A browser harness joins them: `10-clock-band-geometry.mjs`, **12
-checks** across light and dark. It measures rather than asserts, on
+A browser harness joins them: `10-clock-band-geometry.mjs` — renamed
+`10-band-geometry.mjs` by §18, which gave it a second band to
+measure — **12 checks** across light and dark. It measures rather than asserts, on
 §8.1's lesson that a 200 with an empty body passes every check that
 does not measure a size — the band is 338px tall in both themes, spans
 the card without overflowing it, caps its body at 620px, and draws the
 runway bar at **77%** of its track under a label reading *69 days
 left*, which is 69 of 90.
+## 18. The lean band, built 2026-09-13
+
+**§17 left the tab showing its work for two axes of three.** The clock
+band gave relevance its working; quality has had a ledger since §8; and
+lean had a badge. §13.3 had wired up the one exit that carried prose —
+a loaded conflict rule — which made the gap easy to miss, because the
+flagship value takes exactly that exit.
+
+`ValueLeanTool::leanFor()` has **seven exits and six of them said
+nothing**. So an ordinary value stated *Asserted threat* over a
+provenance line reading *Computed at render · Analyst profile
+default-v1* and nothing else: `3pqw.farjoran.in.net` asserted a threat
+on the strength of two organisations, and the page named neither the
+count nor the threshold it cleared. `stances` — `threat_orgs`,
+`benign_orgs`, the share and the supermajority in force — was computed
+on every value and **read by no template in the application**, which is
+the shape `$verdict['relevance']` was in before §17. So is
+`rule_errors`, whose whole purpose is to reach the reader.
+
+The band draws the two counts, the split as a bar against both
+supermajority marks, the sentence, and any conflict rule the profile
+enables that could not run. Measured after: `viewVerdictCard` **27**
+queries and `viewVerdict`/`viewVerdictAside` **36**, unchanged from
+§17's measurement — **no new query**, for the same reason as the clock
+band.
+
+Four readings, all live:
+
+> `3pqw.farjoran.in.net` — *2 of 2 organisations assert this is a
+> threat, at or past this profile's supermajority of 66%.*
+>
+> `_bsdbd.pyw` — *Neither side reaches this profile's supermajority of
+> 66% — the split is 1 to 1 — so the record contradicts itself.*
+>
+> `ve.li7ut.ru` — *1 of 1 organisation asserts this is a threat …*
+>
+> `8.8.8.8` — *A conflict rule decided this reading — it is quoted in
+> the line above.*
+
+**The second of those is why this was worth building.** A value drawn
+as contested, with two cases side by side, where the reason is *neither
+side reached the bar* — rule 6, which no surface on this page named. On
+the split values the bar now stops between the two marks, which is the
+sentence as a picture.
+
+### 18.1 The exit is named, not re-derived
+
+`decided_by` is new on `leanFor()`'s answer, and the reason is rules 3
+and 5: **both return `benign`**, and which one a value took depends on
+the order the two conditions are written in. Anything composing prose
+about *why* has to know that, and asking a tool or a template to work
+it out again from the lean and the stances is how two implementations
+of one rule drift apart — §7.2 of `08-enrichment.md` in a new place.
+
+The harness asserts the pair directly: the two exits answer the same
+lean and are still told apart.
+
+### 18.2 The exit that must not compete
+
+The escalation exit has prose already, written for that value's shape
+and better than anything a generic writer could produce — and it is
+printed one line above the band, in the provenance. So the band's
+sentence there points at it rather than restating it, and the harness
+asserts the restraint: the sentence contains *quoted in the line above*
+and does **not** contain the counts the rule itself prints. §13.3 was
+careful about exactly this, and the care has an assertion now.
+
+### 18.3 Two sentences with a verb after a count that can be 1
+
+*"1 report it as harmless"*, live on the instance's own split values.
+`__n()` cannot fix it: it picks **one** plural form for the whole
+string, and rule 6's sentence carries two counts that disagree about
+which form they want — 1 threat and 3 benign wants both at once.
+
+Rules 4 and 5 keep their verb, because a supermajority guarantees the
+numerator is plural whenever the total is. Rules 3 and 6 are the two
+where the numerator can be 1 under a plural total, and both now say the
+number as a ratio with no verb after it — *the split is 1 to 1*, *the
+threat stances run 1 of 2*. Found by reading the rendered band, not by
+reading the code.
+
+### 18.4 Two harness defects, both written against one value
+
+Neither is a page defect and both are worth recording, because they are
+§17.3's lesson about the corpus's own tools: a check written against
+the flagship encodes the flagship's shape.
+
+**The probe read the wrong table.** The cross-panel check counts the
+rows of *Who says what* against the band's counts, and it anchored on
+the first `<tbody>` in the response. On the contested layout that is
+the organisations table; on the agreeing layout the **ledger** is a
+table too and comes first. Its rows also carry attributes, which a
+`<tr>` pattern misses — so the check read the ledger's tbody, counted
+zero rows in it, and reported a disagreement that was entirely its own.
+It anchors on the heading now.
+
+**The geometry harness called every empty bar a failure.** True of
+`8.8.8.8`, where an empty runway under *69 days left* would be the
+defect phase 5 shipped once. False of `_bsdbd.pyw`, which is 2,224 days
+past its lifetime and draws `0%` correctly. The check compares the bar
+against its own label now: an empty bar is a failure only under a label
+claiming something remains.
+
+### 18.5 Verification
+
+`04-lean-bands-harness.php` goes **129 → 157**, and every sentence case
+runs end to end — the engine's own output handed straight to the
+writer, so a rule that changed which exit it takes breaks the sentence
+too. It is also the only place four of the six exits can be read at
+all: the verification instance has no `benign` lean and nothing
+false-positive-listed under a minority of asserters. The eight
+harnesses are at **890**, the render harness unchanged at **98**.
+
+Over HTTP: **87 checks** on `8.8.8.8` and **85** on both
+`3pqw.farjoran.in.net` (an ordinary threat, the agreeing layout) and
+`_bsdbd.pyw` (rule 6, the contested layout). The band's counts are
+asserted against the organisations *Who says what* lists, and its bar
+against the share those counts make.
+
+`10-clock-band-geometry.mjs` becomes **`10-band-geometry.mjs`** and
+measures both bands rather than one: **28 checks** across light and
+dark, including that each bar is a different colour from its own
+ground — a lean split drawn in one colour is a picture of nothing — and
+that every threshold mark sits on the track it marks.

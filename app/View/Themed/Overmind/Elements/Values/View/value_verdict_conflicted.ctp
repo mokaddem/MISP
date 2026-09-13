@@ -136,6 +136,22 @@ foreach ($cases as $case) {
     <?php
     /*
      * ----------------------------------------------------------
+     * 2b. How the lean was decided
+     * ----------------------------------------------------------
+     * It matters more here than on the agreeing layout. A contested
+     * value reached by rule 6 — neither side past the bar — draws two
+     * cases side by side and had no sentence anywhere saying *why*,
+     * because the only prose in the derivation belongs to the
+     * escalation exit this value did not take.
+     */
+    ?>
+    <?= $this->element('Values/View/value_verdict_lean', array(
+        'verdict' => $verdict,
+    )) ?>
+
+    <?php
+    /*
+     * ----------------------------------------------------------
      * 3. The warninglist hit
      * ----------------------------------------------------------
      * A band rather than a card, because on this value it is one of the

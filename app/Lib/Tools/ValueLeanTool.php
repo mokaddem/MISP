@@ -124,7 +124,8 @@ class ValueLeanTool
          * benign.
          */
         if ($this->nothingVisible($context, $stances)) {
-            return $this->answer('none', null, $stances, $errors);
+            return $this->answer('none', null, $stances, $errors,
+                'nothing_visible');
         }
 
         // Rule 2.
@@ -134,7 +135,8 @@ class ValueLeanTool
                 'contested',
                 $fired,
                 $stances,
-                $errors
+                $errors,
+                'escalation'
             );
         }
 
@@ -145,7 +147,8 @@ class ValueLeanTool
         if ($this->falsePositiveListed($context)
             && !self::atLeast($share, $supermajority)
         ) {
-            return $this->answer('benign', null, $stances, $errors);
+            return $this->answer('benign', null, $stances, $errors,
+                'false_positive_listed');
         }
         /*
          * Rules 4 and 5. Stated as *a supermajority on either side*
@@ -154,13 +157,16 @@ class ValueLeanTool
          * cannot come out asymmetric.
          */
         if (self::atLeast($share, $supermajority)) {
-            return $this->answer('threat', null, $stances, $errors);
+            return $this->answer('threat', null, $stances, $errors,
+                'threat_supermajority');
         }
         if (self::atLeast(1 - $share, $supermajority)) {
-            return $this->answer('benign', null, $stances, $errors);
+            return $this->answer('benign', null, $stances, $errors,
+                'benign_supermajority');
         }
         // Rule 6.
-        return $this->answer('contested', null, $stances, $errors);
+        return $this->answer('contested', null, $stances, $errors,
+            'no_supermajority');
     }
 
     /**
@@ -525,20 +531,32 @@ class ValueLeanTool
      * The return shape, in one place so the seven exits cannot drift
      * apart.
      *
+     * **`decided_by` names the exit**, because the alternative is a
+     * reader of this array re-deriving which rule fired from the lean
+     * and the stances — and the derivation has a precedence that is
+     * invisible from outside. Rules 3 and 5 both answer `benign`, and
+     * a value that is false-positive listed *and* benign by
+     * supermajority takes rule 3 because it is written first. Anything
+     * composing prose about *why* has to know that, and asking it to
+     * work it out again is how two implementations of one rule drift
+     * apart.
+     *
      * @param string $lean
      * @param array|null $rule
      * @param array $stances
      * @param array $errors
+     * @param string $decidedBy Which of the seven exits this is
      * @return array
      */
     private function answer($lean, $rule, array $stances,
-        array $errors
+        array $errors, $decidedBy
     ) {
         return array(
             'lean' => $lean,
             'rule' => $rule,
             'stances' => $stances,
             'rule_errors' => $errors,
+            'decided_by' => $decidedBy,
         );
     }
 }
