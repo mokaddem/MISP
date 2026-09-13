@@ -4,68 +4,138 @@ App::uses('ValueRelevanceTool', 'Tools');
 App::uses('ValueLean', 'Tools');
 
 /**
- * What the hero has to compose from, printed for real values.
+ * The live assessment, printed field by field.
  *
- * `summary` is D11's one open point and the only key on the Assessment
- * tab whose producer is a piece of writing rather than a fold. Writing
- * it against the fixture is how `value-profile-live/` went wrong; this
- * prints the live assessment's lean-side, quality-side and
- * relevance-side fields for whatever values are named on the command
- * line, so the sentence is drafted against arrays that exist.
+ * Written to draft the hero's sentence (§13) against arrays that exist
+ * rather than against the fixture — which is how `value-profile-live/`
+ * went wrong the first time — and kept because it earned its keep twice
+ * more:
+ *
+ *   - it found `conflict:listed-vs-asserted` writing prose that no
+ *     layout printed (§13.3), because the rule was in the array and
+ *     nowhere in the markup;
+ *   - it found the Assessment tab and the Sightings tab disagreeing
+ *     about the relevance axis (§14.3), by printing both clocks side by
+ *     side on one value.
+ *
+ * Both are the same shape of defect — something computed and not shown,
+ * or shown twice and differently — and neither is visible from a
+ * rendered page or from a harness. `--sightings` is the flag that
+ * catches the second: it prints the axis as each tab computes it.
  *
  * **Not part of the application.** Copy it in for the duration:
  *
  *   docker cp prd/analyst-profile/10-hero-dump.php \
  *     misp-core:/var/www/MISP/app/Console/Command/HeroDumpShell.php
- *   app/Console/cake HeroDump 8.8.8.8 1.1.1.1
+ *   app/Console/cake HeroDump 8.8.8.8 github.com --sightings
  */
 class HeroDumpShell extends AppShell
 {
     public $uses = array('User', 'ValueProfile');
 
+    /**
+     * @return ConsoleOptionParser
+     */
+    public function getOptionParser()
+    {
+        return parent::getOptionParser()->addOption('sightings', array(
+            'boolean' => true,
+            'help' => 'Also print the relevance axis as the Sightings'
+                . ' tab computes it, for comparison',
+        ));
+    }
+
+    /**
+     * @return void
+     */
     public function main()
     {
         $user = $this->User->getAuthUser(1, true);
+        /*
+         * `AnalystData::setUser()` reads this and nothing else, and a
+         * console has no session to fill it — without it the analyst
+         * union `with_opinions` asks for dies on a null user in
+         * `rearrangeSharingGroup`. A property of running outside a
+         * request, not of the endpoint.
+         */
+        Configure::write('CurrentUserId', (int)$user['id']);
         foreach ($this->args as $value) {
-            $out = $this->ValueProfile->forVerdict($user, $value);
-            $v = $out['verdict'];
+            $v = $this->ValueProfile->forVerdict($user, $value,
+                array('with_opinions' => true))['verdict'];
             $this->out('');
             $this->out('=== ' . $value . ' ===');
-            $this->out('lean            ' . json_encode($v['lean']));
-            $this->out('derived_lean    '
-                . json_encode($v['derived_lean'] ?? null));
-            $this->out('polarity        ' . json_encode($v['polarity']));
-            $this->out('quality         ' . json_encode($v['quality']));
-            $this->out('band            ' . json_encode($v['band']));
-            $this->out('rule            ' . json_encode($v['rule']));
-            $this->out('signals         ' . json_encode($v['signals']));
-            $this->out('stances         ' . json_encode($v['stances']));
-            $this->out('tug             ' . json_encode($v['tug']));
+
+            $this->line('summary', $v['summary']);
+            $this->out('');
+            $this->line('lean', $v['lean']);
+            $this->line('derived_lean', $v['derived_lean']);
+            $this->line('rule', $v['rule']);
+            $this->line('stances', $v['stances']);
+            $this->out('');
+            $this->line('quality', $v['quality']);
+            $this->line('band', $v['band']);
+            $this->line('polarity', $v['polarity']);
+            $this->line('tug', $v['tug']);
+            $this->line('signals', $v['signals']);
+            $this->line('ledger groups', count($v['ledger']));
+            $this->out('');
+
             $r = $v['relevance'];
-            $this->out('relevance.state ' . json_encode($r['state']));
-            $this->out('  reason        ' . json_encode($r['reason']));
-            $this->out('  runway_days   ' . json_encode($r['runway_days']));
-            $this->out('  elapsed_days  ' . json_encode($r['elapsed_days']));
-            $this->out('  ttl           ' . json_encode($r['ttl']));
-            $this->out('  clock         ' . json_encode($r['clock']));
-            $this->out('  uncertain     ' . json_encode($r['uncertain']));
-            $this->out('  unc_note      '
-                . json_encode($r['uncertain_note']));
-            $this->out('orgs rows       ' . count($v['orgs']));
-            $this->out('ledger groups   ' . count($v['ledger']));
-            $this->out('changers        ' . json_encode($v['changers']));
-            $this->out("summary         " . json_encode($v["summary"]));
-            $this->out("ledger[0]       " . json_encode($v["ledger"][0] ?? null));
-            $rel2 = $this->ValueProfile->forRelevance($user, $value)["relevance"] ?? null;
-            $this->out("SIGHT relevance " . json_encode(array($rel2["state"] ?? null, $rel2["runway_days"] ?? null, $rel2["clock"]["at"] ?? null, $rel2["clock"]["kind"] ?? null, $rel2["elapsed_days"] ?? null)));
-            $this->out("ASSESS clock    " . json_encode(array($r["clock"]["at"], $r["clock"]["kind"], $r["clock"]["by"] ?? null)));
-            $ctx = $this->ValueProfile->verdictContextFor($user, $value, null);
-            $this->out("ASSESS sightings " . json_encode($ctx["sightings"]));
-            $this->out("ASSESS notcount " . json_encode($v["not_counted"]));
-            $this->out("ASSESS budget   " . json_encode($ctx["budget"] ?? $ctx["evidence"] ?? null));
-            $this->out("ASSESS excluded  " . json_encode($ctx["excluded"] ?? null));
-            $this->out("ASSESS clockevts " . json_encode(array_slice($r["clock"]["events"] ?? array(), -6)));
-            $this->out("warninglist ctx " . json_encode(array_map(function ($h) { return array($h["name"], $h["category"]); }, $this->ValueProfile->verdictContextFor($user, $value, null)["warninglist"]["hits"] ?? array())));
+            $this->line('relevance.state', $r['state']);
+            $this->line('  reason', $r['reason']);
+            $this->line('  runway_days', $r['runway_days']);
+            $this->line('  elapsed_days', $r['elapsed_days']);
+            $this->line('  uncertain', $r['uncertain']);
+            $this->line('  clock', array(
+                $r['clock']['kind'],
+                $r['clock']['by'],
+                'rows_read' => $r['clock']['rows_read'],
+            ));
+            $this->out('');
+
+            $this->line('cases', array_map(function ($case) {
+                return $case['side'] . ' ' . $case['weight']
+                    . ' (' . count($case['rows']) . ')';
+            }, $v['cases']));
+            $this->line('conflicts', array_column($v['conflicts'],
+                'title'));
+            $this->line('orgs', count($v['orgs']));
+            $this->line('opinions', $v['opinions'] === null
+                ? null
+                : $v['opinions']['n'] . ' · mean '
+                    . $v['opinions']['mean_label']);
+            $this->line('changers', array_column($v['changers'], 'axis'));
+            $this->line('not_counted', array_column($v['not_counted'],
+                'title'));
+
+            if (empty($this->params['sightings'])) {
+                continue;
+            }
+            /*
+             * The same axis, as the other tab computes it. They read
+             * one tool and two contexts — the assessment's is bounded
+             * by the evidence budget — so a value MISP has flagged as
+             * over-correlating is where they used to part company.
+             */
+            $this->out('');
+            $other = $this->ValueProfile->forRelevance($user, $value);
+            $o = isset($other['relevance']) ? $other['relevance'] : array();
+            $this->line('Sightings tab state',
+                isset($o['state']) ? $o['state'] : null);
+            $this->line('  runway_days',
+                isset($o['runway_days']) ? $o['runway_days'] : null);
+            $this->line('  clock kind',
+                isset($o['clock']['kind']) ? $o['clock']['kind'] : null);
         }
+    }
+
+    /**
+     * @param string $label
+     * @param mixed $value
+     * @return void
+     */
+    private function line($label, $value)
+    {
+        $this->out(sprintf('%-22s %s', $label, json_encode($value)));
     }
 }

@@ -376,7 +376,12 @@ if [ $? -eq 0 ]; then ok "the organisations table"; \
 
 echo "--- the warninglist band"
 if grep -qF 'vp-vc-warninglist' "$TAB"; then
-    if grep -qE 'v[0-9]{6,}' "$TAB"; then
+    # Any digit, not a date. §9.6 is about the band printing a prefix it
+    # has no value for; `20240615` and `5` are both real versions MISP
+    # ships, and requiring six digits failed `127.0.0.1`, whose RFC 5735
+    # list is honestly at v5.
+    if tr '\n' ' ' < "$TAB" | tr -s ' ' \
+        | grep -qE 'font-monospace"> v[0-9]'; then
         ok "the band names the version it matched against"
     else
         no "the band drew 'v' with no version after it"

@@ -17,10 +17,12 @@ are recorded there against the question they answer, and consolidated here in
 
 ### 1.1 Purpose
 
-The Value Profile page displays a verdict — a disposition, a score, and a
-ledger of signals that sums to it — and **nothing computes any of it**. The
-page has said so since the skeleton pass, and the Verdict tab is the only one
-of nine whose live phase is blocked as a result.
+The Value Profile page displays an assessment — a lean, a quality, and a
+ledger of signals that sums to it — and until 2026-09-13 **nothing computed
+any of it**. The page had said so since the skeleton pass, and the Assessment
+tab was the only one of nine whose live phase was blocked as a result. It
+computes one now (phase 9); the paragraphs below are kept in the tense they
+were written in, because the problem they state is why the object exists.
 
 The blocker is not the algorithm. It is that a scoring algorithm has no
 defensible defaults: *"four independent organisations reported it"* is worth
@@ -41,9 +43,11 @@ engine can be a mechanism rather than an opinion. It defines:
 - which enrichment modules run when a value page opens.
 
 An instance ships one, enabled by default. An organisation or an analyst forks
-it and edits their copy. The Verdict tab always names the one in force, which
-it already does — `Weighting profile default-v3` is on screen today, backed by
-nothing.
+it and edits their copy. The Assessment tab always names the one in force —
+which it did before it could mean it, as `Weighting profile default-v3`,
+backed by nothing. It now reads **`Analyst profile default-v1`**, linked to
+the profile that actually weighted the rows below it, and the card beside the
+arithmetic says which of the three scopes owns it (§6, [`10-wiring.md`](10-wiring.md) §11).
 
 **What it achieves, stated as the thing that is currently impossible.** Two
 analysts looking at the same value cannot presently disagree in a way the
@@ -96,12 +100,20 @@ This feature adds a configuration object and unblocks one tab.
 
 ### 1.4 Where this stands
 
-**Phases 1 to 7 are built as of 2026-09-07**; phases 8–10 are
-specifications. Phase 10 was a recorded direction until 2026-09-03, when D10
-settled its design and it became specifiable. **Phase 9 — the tab going live —
-now has every phase it depends on**, and phase 6 was the last one that could
-still change a number under it: phase 7 changes no number at all, which is why
+**Phases 1 to 9 are built as of 2026-09-13**; phase 10 is a specification.
+Phase 10 was a recorded direction until 2026-09-03, when D10 settled its
+design and it became specifiable. Phase 6 was the last phase that could still
+change a number under phase 9: phase 7 changes no number at all, which is why
 it could land after the axis work rather than before it.
+
+**Phase 9 closed the loop the corpus was written for.** Until 2026-09-13 the
+page displayed an assessment and nothing computed one; it now computes one,
+says all three of D11's axes in the hero, and names the profile that weighted
+it with a link to the editor that owns it. What that makes true — and it is
+the invariant every other document rests on — is that **the ledger printed on
+the page sums to the quality printed on the page**, asserted on rendered
+markup rather than on an array, and on a contested value asserted across two
+templates in two requests.
 
 Phase 2 built the accumulator, the eleven-signal catalogue and D12's
 filesystem loader, and its exit criterion holds against real rows: the
@@ -300,7 +312,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **building since 2026-09-13.** Read back first — eight findings in §7 there, the load-bearing one being that thirteen of the twenty-five keys the templates read have no producer. **The spine is in** (§8) — `forVerdict()`, the three endpoints off the fixture, and the ledger summing to the score *on the rendered page* — **and five of the thirteen keys with it** (§9): the organisations table, the warninglist band and the rail's shelf-life chart. 49 checks over HTTP; the corpus's eight harnesses unchanged at 828. §10 is what remains |
+| 9 | **Wiring the Assessment tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **built 2026-09-13.** Read back first — eight findings in §7 — then six increments: the spine (§8), the five derivable keys (§9), the copy pass (§11), D11's rename (§12), the hero's sentence (§13), the contested layout (§14), the query counts (§15) and the opinion aggregate (§16). §2.2's thirteen unproduced keys close as **eleven produced, two deliberately empty** — `resolutions` and `changer_actions` are writes this feature does not do. 77 checks over HTTP, up from 43; the harnesses at 862 and the render harness at 98. Four findings of its own, the sharpest being two panels drawing opposite readings of the relevance axis (§14.3) |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table

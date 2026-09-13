@@ -1,6 +1,6 @@
 # Analyst Profile — executive summary
 
-**Snapshot, 2026-09-07.** This file is the entry point for someone who has
+**Snapshot, 2026-09-13.** This file is the entry point for someone who has
 not followed the corpus. It summarises; it decides nothing. The living state
 table is [`01-profile.md`](01-profile.md) §1.4, the decisions index is
 §2 there, and every claim below carries a pointer to the document that owns
@@ -10,7 +10,7 @@ it.
 
 MISP's Value Profile page displays an assessment of a value — what the
 record asserts it is, whether that still matters, how much the record can be
-trusted — and until 2026-09-07 **nothing computed any of it**. The **Analyst
+trusted — and until 2026-09-13 **nothing computed any of it**. The **Analyst
 Profile** is the configuration object the engine reads: a forkable JSON
 document holding every judgement the scoring engine needs — signal weights, thresholds, exclusions,
 TTLs, source trust, enrichment defaults — so the engine can be a mechanism
@@ -21,11 +21,14 @@ reads it, the lean and bands that turn its ledger into an assessment, the
 exclusions that decide what the ledger may see, the relevance axis that
 says whether any of it still matters, the reference data that says what
 the analyst believes about their sources, and the enrichment modules it
-declares — are built as of 2026-09-07**, and so is **phase 8**, the editor —
-its contract (8a), three cold prototypes of which one was picked (8b),
-and the wiring of that design into pages (8c, 2026-09-11). Phases 1 to 6
-are every phase that can change a number; phase 7 changes none. The
-corpus is nineteen documents, phase by phase.
+declares — are built**, and so is **phase 8**, the editor — its contract
+(8a), three cold prototypes of which one was picked (8b), and the wiring
+of that design into pages (8c, 2026-09-11). **Phase 9 closed 2026-09-13**:
+the Assessment tab reads a real profile, and the page that had been
+displaying an assessment since the skeleton pass now computes the one it
+displays. Phases 1 to 6 are every phase that can change a number; phase 7
+changes none. Only phase 10 — the export gate — is still a
+specification. The corpus is nineteen documents, phase by phase.
 
 ## The headline: the Assessment (D11)
 
@@ -118,10 +121,10 @@ design:
 
 ## Status and what remains
 
-Phases (living table: `01-profile.md` §1.4): **phases 1 to 8 are built;
-9 and 10 are specifications.** Build order: 1 (store) gates all → 2–7 →
-8a (the contract) → 8b (three prototypes, one picked) → 8c (the wiring)
-→ 9 (the tab goes live) → 10.
+Phases (living table: `01-profile.md` §1.4): **phases 1 to 9 are built;
+10 is a specification.** Build order: 1 (store) gates all → 2–7 → 8a
+(the contract) → 8b (three prototypes, one picked) → 8c (the wiring) →
+9 (the tab goes live) → 10.
 
 **Phase 8 closed 2026-09-11.** The editor is six pages under
 `View/Themed/Overmind/AnalystProfiles/`: an index that names the profile
@@ -132,11 +135,11 @@ the whole width, an import form and one confirm. The design is 8b's
 workbench ([`09b-decision.md`](09b-decision.md)); the build and its ten
 findings are [`09c-wiring.md`](09c-wiring.md).
 
-**Phase 9 is the only thing left before the Verdict tab reads a real
-profile.** It is also what two of 8c's deliverables are waiting on: the
-value page's verdict is still `ValueProfileFixture`, so the links from
-it to the profile that weighted it appear only once the page computes
-one.
+**Phase 9 closed 2026-09-13, and with it the corpus's whole point.**
+The Assessment tab computes an assessment, says all three of D11's axes
+in the hero, and names the profile that weighted it with a link to the
+editor that owns it — which is also what two of 8c's deliverables had
+been waiting on.
 
 **It opened 2026-09-13 with a read-back**, because `10-wiring.md` was
 written before the engine existed and D11 renamed its subject
@@ -171,7 +174,44 @@ after the tab had stopped — a full ledger beside a zero-byte column,
 and a 200 with an empty body passes every assertion that does not
 measure a size.
 
-**Five of the thirteen keys landed the same day** (§9 there) — *Who
+**Six increments followed, all on 2026-09-13** — the five derivable
+keys (§9), the copy pass (§11), D11's rename (§12), the hero (§13), the
+contested layout (§14), the query counts (§15) and the opinion
+aggregate (§16). §2.2's thirteen unproduced keys close as **eleven
+produced, two deliberately empty**: `resolutions` and `changer_actions`
+are writes this feature does not do, and neither is drawn as an inert
+promise. **77 checks over HTTP**, up from 43; the eight harnesses at
+**862**, the render harness at **98**.
+
+The headline reading, on the flagship value:
+
+> **Contested** — *What is recorded here contradicts itself. The record
+> behind that is thin, and it has 69 days of shelf life left.*
+> Threat case **70** · **71** benign case · Analyst profile
+> `default-v1`
+
+**Four findings, and the sharpest is a page contradicting itself.**
+`github.com` is flagged over-correlating, so the evidence budget leaves
+its rows unread — and the relevance clock fell back silently, drawing
+*expired, 33 days over* on the Assessment tab beside *64 days left* on
+the Sightings tab. A clock missing its sighting half can only run slow,
+so the axis stands down rather than guessing. It was caught by §9.5's
+cross-panel shape, which is the third time this corpus has been bitten
+by two panels computing one quantity twice — and the reason the opinion
+histogram reads the Collaboration tab's own union at 2 to 27 queries
+rather than a cheap count of its own.
+
+**D11's rename landed with it** (§12): `ValueVerdictTool::LEAN_DISPOSITION`
+is gone, the page says `lean` / `quality` / `band`, and
+`ValueDisposition` became `ValueLean`, keyed by the axis the engine
+computes. The internal names — `ValueVerdictTool`, the fifteen
+`value_verdict*.ctp` files, the `viewVerdict*` URLs — keep the old word
+deliberately: they rename with `value_verdicts`, `includeVerdict` and
+`minVerdictScore`, which is phase 10's table. What a reader reads is
+renamed now; what a reader cannot see renames with the table it is
+named after.
+
+**Five of the thirteen keys landed first** (§9 there) — *Who
 says what*, the warninglist band and the rail's chart, all folded from
 the context the engine scored rather than queried again. The
 organisations table and the ledger row beside it count the same eight
