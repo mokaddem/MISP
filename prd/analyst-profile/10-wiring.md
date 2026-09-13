@@ -737,9 +737,9 @@ outside this corpus:
    the fixture no longer being read.
 3. ~~**D11's rename**~~ — **done, §12.** The tab is the Assessment tab,
    the shim is gone, and the page says `lean` / `quality` / `band`.
-4. **The hero** — `summary`, and the composition of lean · relevance ·
-   quality that D11 left to this phase. §8.3's `−1 / 100` is the same
-   question arriving from the arithmetic.
+4. ~~**The hero**~~ — **done, §13.** `summary` composes the three axes
+   in one sentence, and relevance reaches the tab in words for the
+   first time.
 5. **The conflicted layout** — `cases`, `conflicts`, `ambiguities`, and
    retiring the dead wedge (§7.8). Until it lands, a contested value
    reads the agreeing layout and `hasConflictedLayout()` is the switch
@@ -899,3 +899,99 @@ that turns it into English. **828 checks, unchanged.**
 **67 checks** over HTTP, up from 66 — the new one reads the tab bar's
 pill off the whole page and compares it with the tab body's lean, two
 requests apart, which is §12.1 asserted rather than remembered.
+
+
+## 13. The hero, built 2026-09-13
+
+D11's one open point, closed: *three axes in one line without three
+competing numbers* (`12-assessment.md` §7). `summary` is one sentence
+of three clauses — what the record asserts, how much record there is,
+and whether it still holds — and it is where **relevance arrives on
+this tab in words**. Until now the second of D11's three axes reached
+the Assessment tab only as a chart in the rail (§9.4); the hero, which
+is the part of the page a reader actually reads, said nothing about it
+at all.
+
+`8.8.8.8` closes as:
+
+> **Contested** · Quality low · −1 / 100
+> *What is recorded here contradicts itself. The record behind that is
+> thin, and it has 69 days of shelf life left.*
+
+**One number, and it is the one the hero has nowhere else.** The
+quality and its band are already printed beside the badge, so a
+sentence repeating them would be D11's second and third competing
+numbers. Days appear only here. The bands are **named, never
+re-derived** — `thin` is D11 §3's own word for `low` — and
+`runway_days` is printed, never recomputed, which is what keeps the
+sentence, the relevance card and the rail's chart from drifting apart
+the way phase 5 §7.2's bar and series did.
+
+D11 §3's two other test readings fall out of the same builder: an old
+well-attested hash reads *"reads as a threat … well evidenced, and its
+shelf life ran out 400 days ago"* — **well-documented historic
+threat**, the phrase the one-number design could not say — and a
+late-encoded phishing URL reads *"thin, and its shelf life ran out 1
+day ago — on a timeline nothing records"*, which is *asserted threat ·
+thin record · likely over* in a sentence.
+
+### 13.1 It is a tool, because only a tool can be asserted
+
+`ValueSummaryTool` sits beside `ValueChangersTool` and for the same
+reason: both turn a finished assessment into English, both are pure
+functions of the array the engine returned, and §14.5 puts the
+arithmetic in a tool and the queries in the model. Prose over an array
+the model already holds is the tool's side of that line.
+
+The practical half of that is coverage. **Three of the sentence's
+branches are reachable on the verification instance and six are not**
+— it has no `benign` lean, no `high` band, no `aging` value, and
+nothing that expires today. A sentence whose rarest readings are never
+rendered until a real analyst meets one is exactly the shape of copy
+that ships wrong, so the branches are asserted in
+`04-lean-bands-harness.php` against arrays built for the purpose:
+**100 checks there became 111**, and two of the eleven are D11 §3's own
+test values quoted back.
+
+### 13.2 The two clauses that must not be assembled
+
+A lean with nothing weighed behind it stops after one clause, and a
+record with no clock to run stops after two. Both were sentences that
+ended mid-phrase in the first draft — *"The record behind that is"*
+with no band, and *"and"* with no shelf life — because the builder
+assumed three clauses always existed. They are separate assertions in
+the harness rather than one, since the two absences arrive from
+different axes and a fix for either would hide the other.
+
+The `none` lean is the third, and it is not a truncation but a
+different sentence: *"Nothing you can see records this value, so there
+is nothing to assess."* It is also **the branch `summary` is read
+first** — `value_verdict_card.ctp` prints prose only where there are no
+ledger rows to list instead, which §2.2 records as the reason the
+sparse value was the one that broke.
+
+### 13.3 A rule was being computed, given prose, and shown nowhere
+
+Found by dumping the live assessment rather than by reading the page.
+`8.8.8.8` fires `conflict:listed-vs-asserted`, and the escalation
+carries prose written for exactly this moment: *"A warninglist marks
+this as a false positive and 8 of 8 organisations report it as a threat
+regardless. Both judgements are deliberate; the page will not pick
+one."*
+
+Nothing printed it. `value_verdict_meta` takes the rule as a parameter
+and only `value_verdict_conflicted.ctp` passed one — and a contested
+value renders the **agreeing** layout whenever `cases` is empty, which
+is every contested value today (§7.8, `ValueLean::hasConflictedLayout`).
+So the one sentence that said *why* the lean was contested was
+unreachable on the only layout a contested value could reach.
+
+`value_verdict.ctp` passes it now. It is not the hero's sentence and
+should not be: the hero says the record contradicts itself, the meta
+line says which rule found the contradiction, and the two are a
+summary and its small print rather than two attempts at the same
+thing.
+
+**73 checks** over HTTP, up from 67 — including the sentence's days
+against the relevance card's days, **69 and 69**, two requests apart.
+The harnesses are at **839**, up from 828.

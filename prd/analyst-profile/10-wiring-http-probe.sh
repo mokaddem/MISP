@@ -438,6 +438,72 @@ else
     ok "nothing weighted, so no note (not a failure)"
 fi
 
+# ------------------------------------------------- 6. the hero sentence
+# D11's one open point, and the only place on the tab where all three
+# axes are read together. Two things to assert: that it is there at all,
+# and that its one number is the *same* number the relevance card
+# prints — because the sentence is a reading of the assessment and not a
+# fourth opinion about it.
+echo "--- the hero's sentence composes the three axes"
+HERO=$(tr '\n' ' ' < "$TAB" \
+    | grep -o 'vp-vc-prose[^>]*>[^<]*' | sed 's/.*>//' \
+    | sed 's/^ *//;s/ *$//' | head -1)
+if [ -z "$HERO" ]; then
+    no "the hero drew no sentence"
+else
+    ok "the hero drew a sentence (${HERO})"
+    case "$HERO" in
+        *"reads as a threat"*|*"reads as benign"*|*"contradicts itself"*|\
+        *"Nothing you can see records"*)
+            ok "it opens on the lean" ;;
+        *) no "the sentence opens on none of the four leans" ;;
+    esac
+    case "$HERO" in
+        *"well evidenced"*|*"moderately evidenced"*|*"is thin"*|\
+        *"Nothing you can see records"*)
+            ok "and names the quality band in words, not in points" ;;
+        *) no "the sentence names no band" ;;
+    esac
+    # The number is the one the hero has nowhere else. `−1 / 100` is
+    # beside the badge; days appear only here and in the rail's chart.
+    case "$HERO" in
+        *"shelf life"*|*"expires today"*|*"Nothing you can see records"*)
+            ok "and carries relevance, which reached this tab in no"\
+" other words before the hero" ;;
+        *) no "the sentence says nothing about relevance" ;;
+    esac
+fi
+
+# The same cross-panel assertion as §9.5, on the other quantity: the
+# sentence's days and the relevance card's days are one number computed
+# in two requests. Phase 5 §7.2 is the bug this shape catches.
+if [ "$(fetch viewRelevance "$SUBJECT" "$RELV")" = "200" ]; then
+    HERO_DAYS=$(printf '%s' "$HERO" \
+        | grep -o 'has [0-9]* day\|with [0-9]* day\|out [0-9]* day' \
+        | grep -o '[0-9]*' | head -1)
+    CARD_DAYS=$(tr '\n' ' ' < "$RELV" \
+        | grep -o 'vp-shelf-days"[^>]*>[^<]*' | sed 's/.*>//' \
+        | grep -o '[0-9]*' | head -1)
+    if [ -z "$HERO_DAYS" ] || [ -z "$CARD_DAYS" ]; then
+        ok "no day count on both panels for $SUBJECT (skipped)"
+    else
+        is "the sentence's days and the relevance card's days" \
+            "$HERO_DAYS" "$CARD_DAYS"
+    fi
+fi
+
+# And the sparse value, which is where `summary` is read first: the
+# Overview card prints prose only when there are no ledger rows to list
+# instead, so the one-clause sentence is the whole card.
+echo "--- and the value with nothing to assess says so in one clause"
+BARE_CARD="$WORK/bare-viewVerdictCard.html"
+if grep -qF 'Nothing you can see records this value' "$BARE_CARD"; then
+    ok "the bare card carries the sentence"
+else
+    no "the bare card drew no sentence — which is the branch that had"\
+" no producer at all before the hero pass"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]

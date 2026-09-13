@@ -84,6 +84,7 @@ require_once APP . 'Lib/Tools/ValueChangersTool.php';
  */
 require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
 require_once APP . 'Lib/Tools/ValueVerdictTool.php';
+require_once APP . 'Lib/Tools/ValueSummaryTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;
@@ -1289,6 +1290,157 @@ is_true(
         && strpos($qualityChanger['text'], 'The points are already'
             . ' there') === 0,
     'and the line says what is actually missing'
+);
+
+/*
+ * ------------------------------------------------------------------
+ * The hero's sentence (D11 §7, `10-wiring.md` §13)
+ * ------------------------------------------------------------------
+ * `ValueSummaryTool` is a pure function of a finished assessment, so
+ * every branch is reachable here and only three of them are reachable
+ * on the verification instance — which has no `benign` lean, no `high`
+ * band and no `aging` value at all. A sentence whose rarest readings
+ * are never rendered until a real analyst meets one is exactly the
+ * shape of copy that ships wrong.
+ */
+out('');
+out('the hero sentence, every branch');
+
+/**
+ * An assessment array with just the keys the sentence reads.
+ *
+ * @param string $lean
+ * @param string $band
+ * @param array|null $relevance
+ * @return array
+ */
+function heroFor($lean, $band, $relevance)
+{
+    return array(
+        'lean' => $lean,
+        'band' => $band,
+        'relevance' => $relevance === null
+            ? array('state' => null, 'runway_days' => null,
+                'uncertain' => false)
+            : $relevance,
+    );
+}
+
+/**
+ * @param string $state
+ * @param int $days
+ * @param bool $uncertain
+ * @return array
+ */
+function shelf($state, $days, $uncertain = false)
+{
+    return array('state' => $state, 'runway_days' => $days,
+        'uncertain' => $uncertain);
+}
+
+is_same(
+    'What is recorded here reads as a threat. The record behind that'
+        . ' is well evidenced, and its shelf life ran out 400 days ago.',
+    ValueSummaryTool::summaryFor(
+        heroFor('threat', 'high', shelf('expired', -400))
+    ),
+    'D11 §3\'s old malware hash: a well-documented historic threat,'
+        . ' which the one-number design could not say'
+);
+is_same(
+    'What is recorded here reads as a threat. The record behind that'
+        . ' is thin, and its shelf life ran out 1 day ago — on a'
+        . ' timeline nothing records.',
+    ValueSummaryTool::summaryFor(
+        heroFor('threat', 'low', shelf('expired', -1, true))
+    ),
+    'and §3\'s late-encoded phishing URL: asserted threat, thin'
+        . ' record, likely over'
+);
+is_same(
+    'What is recorded here reads as benign. The record behind that is'
+        . ' well evidenced, and it has 40 days of shelf life left.',
+    ValueSummaryTool::summaryFor(
+        heroFor('benign', 'high', shelf('current', 40))
+    ),
+    'a benign lean reads as an assertion too, not as an absence'
+);
+is_same(
+    'What is recorded here contradicts itself. The record behind that'
+        . ' is moderately evidenced, and it is most of the way through'
+        . ' its shelf life, with 9 days left.',
+    ValueSummaryTool::summaryFor(
+        heroFor('contested', 'medium', shelf('aging', 9))
+    ),
+    'aging says the same number differently, because the hero draws no'
+        . ' state label to separate it from current'
+);
+is_same(
+    'What is recorded here reads as a threat. The record behind that'
+        . ' is thin, and it expires today.',
+    ValueSummaryTool::summaryFor(
+        heroFor('threat', 'low', shelf('aging', 0))
+    ),
+    'and the day it runs out is a day, not "0 days left"'
+);
+is_same(
+    'What is recorded here reads as a threat. The record behind that'
+        . ' is thin, and it has 1 day of shelf life left.',
+    ValueSummaryTool::summaryFor(
+        heroFor('threat', 'low', shelf('current', 1))
+    ),
+    'one day is singular on the way down as well as on the way past'
+);
+is_same(
+    'Nothing you can see records this value, so there is nothing to'
+        . ' assess.',
+    ValueSummaryTool::summaryFor(heroFor('none', 'none', null)),
+    'and the value with nothing to assess gets one clause — the branch'
+        . ' the card reaches first, because it prints prose only where'
+        . ' there are no rows to list'
+);
+
+/*
+ * The two halves that must not be assembled: a lean with no band has
+ * nothing to say about a record, and a band with no clock has nothing
+ * to say about time. Both used to end the sentence mid-phrase.
+ */
+is_same(
+    'What is recorded here reads as a threat.',
+    ValueSummaryTool::summaryFor(
+        heroFor('threat', 'none', shelf('current', 40))
+    ),
+    'a lean with nothing weighed behind it stops after one clause'
+        . ' rather than naming a band it does not have'
+);
+is_same(
+    'What is recorded here reads as a threat. The record behind that'
+        . ' is thin.',
+    ValueSummaryTool::summaryFor(heroFor('threat', 'low', null)),
+    'and a record with no clock to run ends after the band'
+);
+
+/*
+ * The sentence is a reading of the assessment and never a second
+ * opinion, so the same assessment has to produce the same sentence —
+ * and a *different* band has to change it. Both directions, because a
+ * builder that ignored its input would pass the first alone.
+ */
+$sameTwice = ValueSummaryTool::summaryFor(
+    heroFor('contested', 'low', shelf('current', 69))
+);
+is_same(
+    $sameTwice,
+    ValueSummaryTool::summaryFor(
+        heroFor('contested', 'low', shelf('current', 69))
+    ),
+    'the same assessment writes the same sentence'
+);
+is_true(
+    $sameTwice !== ValueSummaryTool::summaryFor(
+        heroFor('contested', 'high', shelf('current', 69))
+    ),
+    'and a different band writes a different one'
 );
 
 out('');

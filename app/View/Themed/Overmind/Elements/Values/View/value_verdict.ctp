@@ -170,8 +170,21 @@ foreach ($verdict['orgs'] as $org) {
      * ----------------------------------------------------------
      */
     ?>
+    <?php /*
+     * The rule travels on this layout too, and it did not until phase
+     * 9's hero pass. A contested lean reaches *this* template whenever
+     * `cases` is empty — which is every contested value today
+     * (`ValueLean::hasConflictedLayout`) — so the escalation that
+     * decided the lean was being computed, given prose, and shown
+     * nowhere. `8.8.8.8` is exactly that value.
+     *
+     * Absent on an agreeing lean, where `rule` is null and the meta
+     * line falls back to the storage note. Nothing is crowded out: a
+     * record with no rule has no rule to print.
+     */ ?>
     <?= $this->element('Values/View/value_verdict_meta', array(
         'verdict' => $verdict,
+        'metaRule' => $verdict['rule']['text'] ?? null,
     )) ?>
 
     <?php

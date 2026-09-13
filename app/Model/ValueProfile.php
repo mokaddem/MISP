@@ -9,6 +9,7 @@ App::uses('ValueWarninglistTool', 'Tools');
 App::uses('ValueTrustTool', 'Tools');
 App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueSummaryTool', 'Tools');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
@@ -12902,6 +12903,7 @@ class ValueProfile extends AppModel
         $profile
     ) {
         $panels = array(
+            'summary' => ValueSummaryTool::summaryFor($verdict),
             'orgs' => $this->verdictOrgTable($context),
             'warninglist' => $this->verdictWarninglistBand($context),
             'composition_note' => $this->verdictCompositionNote($verdict,
