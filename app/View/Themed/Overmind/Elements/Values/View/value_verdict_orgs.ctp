@@ -103,7 +103,7 @@ $headings = array(
                                     <td>
                                         <span class="vp-side vp-side-<?=
                                             h($org['side'] ?? 'none') ?>">
-                                            <?= h($org['reads']) ?>
+                                            <?= h($org['reads'] ?? '') ?>
                                         </span>
                                     </td>
                                 <?php else: ?>

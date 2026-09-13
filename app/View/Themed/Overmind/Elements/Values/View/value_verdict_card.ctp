@@ -113,12 +113,13 @@ if (!empty($verdict['profile_id'])) {
 
         <?php if (empty($top)): ?>
             <?php /*
-             * The prose only where there is prose. `summary` has no
-             * producer yet (`prd/analyst-profile/10-wiring.md` §2.2)
-             * and this is the branch that reaches it first, because a
-             * value with nothing to assess has no signals to list
-             * instead. An empty paragraph here would read as a card
-             * that failed rather than one with nothing to say.
+             * The prose only where there is prose. `ValueSummaryTool`
+             * has written `summary` since 2026-09-13
+             * (`10-wiring.md` §13), and this is the branch that
+             * reaches it first, because a value with nothing to assess
+             * has no signals to list instead. The guard stays: an
+             * empty paragraph here would read as a card that failed
+             * rather than one with nothing to say.
              */ ?>
             <?php if (!empty($verdict['summary'])): ?>
                 <p class="vp-verdict-summary mb-0">

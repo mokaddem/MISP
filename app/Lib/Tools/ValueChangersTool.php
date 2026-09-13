@@ -133,11 +133,23 @@ class ValueChangersTool
                 'direction' => $verdict['derived_lean'] === 'threat'
                     ? 'up'
                     : 'down',
+                /*
+                 * `lean_weight` and not `quality`, since
+                 * `review-2026-09-13.md` §D1 took the two apart: rule
+                 * 7 weighs the rows that read the value, so the gap a
+                 * reader would have to close is on that axis. Off the
+                 * quality it named a number nothing was measuring
+                 * against — and on a record whose every row weighs
+                 * rather than reads, it would name a number no amount
+                 * of evidence about the value could move.
+                 */
                 'text' => sprintf(
                     __('%1$d more points of evidence agreeing with'
                         . ' what the record asserts — the ledger stops'
                         . ' disputing it and %2$s'),
-                    abs((int)$verdict['quality']) + 1,
+                    abs((int)(isset($verdict['lean_weight'])
+                        ? $verdict['lean_weight']
+                        : 0)) + 1,
                     $this->leanPhrase($verdict['derived_lean'])
                 ),
             );
@@ -358,17 +370,50 @@ class ValueChangersTool
         if ($reachable === $target) {
             return null;
         }
+        /*
+         * The sighting half is offered only where a sighting could be
+         * read. On an over-correlating value the sightings signals are
+         * never evaluated — the rail says so, one card away, in *Not
+         * counted* — so *or one sighting from anyone* named an act
+         * that would move nothing, with the reason it would move
+         * nothing printed directly above it
+         * (`review-2026-09-13.md` §C2).
+         */
         return array(
             'axis' => 'quality',
             'direction' => 'up',
             'text' => sprintf(
-                __('A second source — one more organisation reporting'
-                    . ' it, or one sighting from anyone. No amount of'
-                    . ' further evidence from the one source takes a'
-                    . ' record past the %s band.'),
+                $this->sightingsReadable($context)
+                    ? __('A second source — one more organisation'
+                        . ' reporting it, or one sighting from anyone.'
+                        . ' No amount of further evidence from the one'
+                        . ' source takes a record past the %s band.')
+                    : __('A second source — one more organisation'
+                        . ' reporting it. No amount of further evidence'
+                        . ' from the one source takes a record past the'
+                        . ' %s band.'),
                 $clamp
             ),
         );
+    }
+
+    /**
+     * Whether a sighting filed today would reach the assessment.
+     *
+     * Two ways it would not: the value is flagged over-correlating, so
+     * the row-evidence signals are not evaluated at all, or the
+     * sightings fact could not be read and is carried in `missing`.
+     * Either way the falsifiability card must not offer one.
+     *
+     * @param array $context
+     * @return bool
+     */
+    private function sightingsReadable(array $context)
+    {
+        if (!empty($context['budget']['hot'])) {
+            return false;
+        }
+        return empty($context['missing']['sightings']);
     }
 
     /**
@@ -506,6 +551,31 @@ class ValueChangersTool
     }
 
     /**
+     * The signals this assessment could not run, keyed by id.
+     *
+     * `not_counted` carries two kinds of entry — a signal that could
+     * not run, and a budget or policy note — and only the first has an
+     * id that matches a profile entry. The others simply never match.
+     *
+     * @param array $verdict
+     * @return array id => true
+     */
+    private function setAsideIds(array $verdict)
+    {
+        $ids = array();
+        $notCounted = isset($verdict['not_counted'])
+            && is_array($verdict['not_counted'])
+            ? $verdict['not_counted']
+            : array();
+        foreach ($notCounted as $entry) {
+            if (!empty($entry['id'])) {
+                $ids[$entry['id']] = true;
+            }
+        }
+        return $ids;
+    }
+
+    /**
      * The cheapest declared unit that closes a points gap on its own.
      *
      * A signal declares what a reader can supply more of and what each
@@ -525,12 +595,36 @@ class ValueChangersTool
     {
         $polarity = (int)$verdict['polarity'];
         $current = $this->contributions($verdict);
+        $setAside = $this->setAsideIds($verdict);
         $best = null;
         foreach ($this->signalEntries($profile) as $entry) {
             $signal = ValueSignalLoader::get($entry['id']);
             if ($signal === null || empty($signal->unit)
                 || !isset($signal->unit['points'])
                 || !isset($signal->unit['cap'])
+            ) {
+                continue;
+            }
+            /*
+             * A signal the engine could not run cannot be a lever.
+             * `213.205.40.169` is over-correlating, so the sightings
+             * signals were not evaluated at all — and the card offered
+             * *or one sighting from anyone*, an act that would move
+             * nothing (`review-2026-09-13.md` §C2). The reason is on
+             * the page one card away, in *Not counted*; this is the
+             * half that stops the two cards contradicting each other.
+             */
+            if (isset($setAside[$entry['id']])) {
+                continue;
+            }
+            /*
+             * And a lean signal cannot close a *quality* gap, since
+             * §D1 took the two sums apart: a false-positive sighting
+             * moves what the record says the value is, not how much
+             * record there is.
+             */
+            if (isset($signal->axis)
+                && $signal->axis === ValueVerdictTool::AXIS_LEAN
             ) {
                 continue;
             }

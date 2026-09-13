@@ -103,7 +103,17 @@ foreach ($verdict['orgs'] as $org) {
             <?= h(ValueLean::label($lean)) ?>
         </span>
 
-        <?php if ($quality !== null): ?>
+        <?php
+        /*
+         * The gauge, where something was weighed. A `none` band means
+         * no signal contributed, and `0 / 100` under it read as
+         * *scored, and badly* rather than *not scored*
+         * (`review-2026-09-13.md` §C3) — on a card whose own sentence
+         * says there is nothing to assess, the number was the only
+         * thing on it that was not true.
+         */
+        ?>
+        <?php if ($quality !== null && $verdict['band'] !== 'none'): ?>
             <div class="vp-vc-score" title="<?= h($qualityLabel) ?>">
                 <div class="vp-vc-score-heads">
                     <span><?= h(sprintf(
@@ -156,10 +166,20 @@ foreach ($verdict['orgs'] as $org) {
                 <i class="fas fa-rotate"></i>
                 <?= __('Recompute') ?>
             </button>
+            <?php /*
+             * Its own reason, because it is not a write.
+             * `review-2026-09-13.md` §C4: both actions carried the
+             * no-writes tooltip, which *Recompute* earns and this one
+             * does not — a reader hovering it was told the wrong thing
+             * about why it is unavailable.
+             */ ?>
             <button type="button"
                     class="vp-vc-hero-action vp-vc-hero-action-mono
                            disabled"
-                    disabled title="<?= h($noWrites) ?>">
+                    disabled title="<?= h(__(
+                        'Not built yet — the assessment has no REST'
+                        . ' representation until phase 10 adds one.'
+                    )) ?>">
                 <?= __('view as JSON') ?>
             </button>
         </div>

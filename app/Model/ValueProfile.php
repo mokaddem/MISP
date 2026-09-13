@@ -139,13 +139,15 @@ class ValueProfile extends AppModel
      * answered. `null` and `array()` both render as a card that stays
      * dark, which is the honest reading of *nothing computes this yet*.
      *
-     * **Five of the thirteen are answered now**, by `verdictPanels()` —
-     * `orgs`, `warninglist` and the three `curves*` keys. They keep
-     * their entries here rather than losing them, because each has a
-     * real *nothing to show* case: a value nobody has reported has no
-     * organisations, most values hit no warninglist, and a value with
-     * no datable evidence has no runway to plot. The default is what
-     * those fall back to.
+     * **Eleven of the thirteen are answered now**, by
+     * `verdictPanels()` — `orgs`, `warninglist`, the three `curves*`
+     * keys, and since phase 9's hero and contested passes `summary`,
+     * `cases`, `conflicts`, `ambiguities`, `opinions` and
+     * `composition_note`. They keep their entries here rather than
+     * losing them, because each has a real *nothing to show* case: a
+     * value nobody has reported has no organisations, most values hit
+     * no warninglist, a value with no datable evidence has no runway to
+     * plot, and a lean nothing contradicts has no cases.
      *
      * `resolutions` is the one that stays empty for good. It drives
      * *Resolve it*, whose every control is disabled because this page
@@ -12902,11 +12904,13 @@ class ValueProfile extends AppModel
      * The display keys the templates read and the engine does not emit.
      *
      * **Derived, never invented.** `10-wiring.md` §2.2 counts thirteen
-     * keys the fifteen verdict templates read with no producer behind
-     * them; five of them are answerable from facts phases 5 and 6
-     * already compute, and this is where those five are answered. The
-     * rest stay on the skeleton's defaults and their cards stay dark,
-     * which is the honest reading of *nothing computes this yet*.
+     * keys the seventeen verdict templates read with no producer
+     * behind them; eleven are answerable from facts the engine and
+     * phases 5 and 6 already compute, and this is where those eleven
+     * are answered. `changer_actions` and `resolutions` stay on the
+     * skeleton's defaults and their cards stay dark, which is the
+     * honest reading of *nothing computes this yet* — and
+     * `resolutions` stays there for good until the page can write.
      *
      * It takes no `$user`: everything here is folded from a context
      * that was already scoped to the viewer, which is §14.5's rule

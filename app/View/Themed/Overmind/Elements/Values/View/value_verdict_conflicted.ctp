@@ -290,14 +290,23 @@ foreach ($cases as $case) {
  * Who says what
  * ------------------------------------------------------------------
  * The disagreement is between organisations, so it is also shown per
- * organisation — and here the trailing column is the reading itself,
- * because on this value the organisations do not disagree about what
- * to do so much as about what the address is.
+ * organisation — and on this layout the stance and the grade are the
+ * columns that carry it: which organisations would have the value fire
+ * a rule, and how much each one's say is worth.
+ *
+ * **It used to ask for `reads` alone**, a key nothing produces —
+ * `ValueProfile::verdictOrgTable()` leaves it unset deliberately, and
+ * says so, so that the agreeing layout drops the column rather than
+ * emptying it. This layout asked unconditionally and got a header over
+ * eight blank cells plus an `Undefined array key` per row
+ * (`review-2026-09-13.md` §B2), on the one layout whose subject is
+ * organisations disagreeing — while the two columns that would have
+ * shown the disagreement were the ones it displaced.
  */
 ?>
 <?= $this->element('Values/View/value_verdict_orgs', array(
     'verdict' => $verdict,
-    'orgColumns' => array('reads'),
+    'orgColumns' => array('to_ids', 'reliability'),
     'orgsSub' => __(
         'The disagreement is between organisations, so it is shown per'
         . ' organisation'
