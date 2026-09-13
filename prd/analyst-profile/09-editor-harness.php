@@ -1283,6 +1283,84 @@ is_same($oneWeight['totals']['delta'], $sumOfDeltas,
         . ' diff being arithmetic rather than impressionistic');
 
 /*
+ * A **lean** signal's weight changed, which is the case
+ * `review-2026-09-13.md` §D1 broke and nothing here would have caught.
+ *
+ * When the two axes split, `rowsById()` kept reading `ledger` alone, so
+ * the two signals that read the value left the diff with them: halving
+ * `lifecycle.warninglist` on a value that hits one produced a table of
+ * rows all marked `same` and a headline saying `moved: false`. The
+ * simulator's entire job is to answer *what does this edit do*, and it
+ * answered *nothing* about the heaviest row on a benign record.
+ */
+$leaner = $parameters;
+foreach ($leaner['signals'] as $index => $signal) {
+    if ($signal['id'] === 'sightings.false_positive') {
+        $leaner['signals'][$index]['points']['per'] = -1;
+    }
+}
+/*
+ * A context with false positives in it, because the signal is silent
+ * on absence and the default fixture has none — a pair of assessments
+ * of a value nobody has disputed cannot show a lean row moving.
+ */
+$fpContext = context(array(
+    'sightings' => array('total' => 12, 'fp' => 3, 'expiration' => 0,
+        'orgs' => 3, 'fp_orgs' => 2,
+        'fp_org_names' => array('A', 'B'),
+        'fp_orgs_named' => array(
+            array('id' => 1, 'name' => 'A'),
+            array('id' => 2, 'name' => 'B'),
+        ),
+        'first_stamp' => NOW - (86400 * 90),
+        'last_stamp' => NOW - 43200,
+        'fp_last_stamp' => NOW - 86400,
+        'recent' => 4, 'recent_days' => 30),
+));
+$fpBase = $engine->assess($fpContext, profileRow($parameters));
+$leanEdit = $engine->assess($fpContext, profileRow($leaner));
+$leanDiff = ValueVerdictDiffTool::diff($fpBase, $leanEdit);
+is_true($leanDiff['changed'],
+    'editing a signal that reads the value is a changed diff');
+is_same(array('sightings.false_positive'), $leanDiff['moved'],
+    'and it is the row that moved, not nothing at all');
+is_true(
+    $leanDiff['lean_totals']['delta'] !== 0,
+    sprintf('the lean total carries it (%d -> %d)',
+        $leanDiff['lean_totals']['before'],
+        $leanDiff['lean_totals']['after'])
+);
+is_same(0, $leanDiff['totals']['delta'],
+    'while the quality is untouched — the two axes move independently,'
+        . ' which is the whole point of having two');
+is_true($leanDiff['sums']['ok'] && $leanDiff['lean_sums']['ok'],
+    'and each axis still sums to its own number');
+$leanHeadline = ValueVerdictDiffTool::headline('h', $fpBase,
+    $leanEdit);
+is_true($leanHeadline['moved'],
+    'the headline says something moved, which is what the comparison'
+        . ' set renders per row');
+is_true($leanHeadline['axes']['lean_weight']['changed'],
+    'and names the axis it moved on');
+/*
+ * Per axis, because `rows` spans both and `totals` is the quality's.
+ */
+$byAxis = array();
+foreach ($leanDiff['rows'] as $row) {
+    $axis = $row['axis'];
+    $byAxis[$axis] = ($byAxis[$axis] ?? 0) + $row['delta'];
+}
+is_same($leanDiff['totals']['delta'],
+    isset($byAxis[ValueVerdictTool::AXIS_QUALITY])
+        ? $byAxis[ValueVerdictTool::AXIS_QUALITY] : 0,
+    'the quality rows\' deltas sum to the quality delta');
+is_same($leanDiff['lean_totals']['delta'],
+    isset($byAxis[ValueVerdictTool::AXIS_LEAN])
+        ? $byAxis[ValueVerdictTool::AXIS_LEAN] : 0,
+    'and the lean rows\' deltas to the lean delta — the diff is still'
+        . ' arithmetic, now on two rulers');
+
+/*
  * A disabled signal. Its row is *vanished* and not merely absent,
  * because absent looks identical to a signal that had nothing to say.
  */

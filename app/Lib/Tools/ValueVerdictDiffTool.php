@@ -1,5 +1,10 @@
 <?php
 App::uses('ValueRelevanceTool', 'Tools');
+/*
+ * For the axis constants: `rowsById()` narrows to one axis so the two
+ * exact sums stay per axis rather than over a mixture.
+ */
+App::uses('ValueVerdictTool', 'Tools');
 
 /**
  * What one profile does to a value that another does not.
@@ -59,6 +64,12 @@ class ValueVerdictDiffTool
         $afterQuality = isset($after['quality'])
             ? (int)$after['quality']
             : 0;
+        $beforeLean = isset($before['lean_weight'])
+            ? (int)$before['lean_weight']
+            : 0;
+        $afterLean = isset($after['lean_weight'])
+            ? (int)$after['lean_weight']
+            : 0;
         $notCounted = self::notCounted($before, $after);
         $moved = array();
         foreach ($rows as $row) {
@@ -69,23 +80,54 @@ class ValueVerdictDiffTool
         return array(
             'rows' => $rows,
             'moved' => $moved,
+            /*
+             * The quality's, and it says so: `rows` spans both axes
+             * since §D1, so the deltas only sum to this over the rows
+             * whose `axis` is `quality`. `lean_totals` is the other
+             * half, and the two together are what a reader adding the
+             * table up by hand arrives at.
+             */
             'totals' => array(
                 'before' => $beforeQuality,
                 'after' => $afterQuality,
                 'delta' => $afterQuality - $beforeQuality,
+            ),
+            'lean_totals' => array(
+                'before' => $beforeLean,
+                'after' => $afterLean,
+                'delta' => $afterLean - $beforeLean,
             ),
             /*
              * Per column, because the two are scored independently and a
              * drift in one is not a drift in the other. `ok` is the
              * conjunction, so a caller that only wants to know whether
              * the diff can be trusted reads one key.
+             *
+             * **Quality rows only**, since the axis split: those are
+             * what sums to the quality printed under the column. The
+             * lean rows sum to `lean_weight` and are checked beside
+             * them rather than folded in, which is the same invariant
+             * held per axis rather than over a mixture.
              */
-            'sums' => self::sums($beforeRows, $afterRows,
-                $beforeQuality, $afterQuality),
+            'sums' => self::sums(
+                self::rowsById($before, ValueVerdictTool::AXIS_QUALITY),
+                self::rowsById($after, ValueVerdictTool::AXIS_QUALITY),
+                $beforeQuality,
+                $afterQuality
+            ),
+            'lean_sums' => self::sums(
+                self::rowsById($before, ValueVerdictTool::AXIS_LEAN),
+                self::rowsById($after, ValueVerdictTool::AXIS_LEAN),
+                isset($before['lean_weight'])
+                    ? (int)$before['lean_weight'] : 0,
+                isset($after['lean_weight'])
+                    ? (int)$after['lean_weight'] : 0
+            ),
             'axes' => self::axes($before, $after),
             'not_counted' => $notCounted,
             'changed' => !empty($moved)
                 || $beforeQuality !== $afterQuality
+                || $beforeLean !== $afterLean
                 || self::axesMoved($before, $after)
                 || self::notCountedMoved($notCounted),
         );
@@ -156,6 +198,14 @@ class ValueVerdictDiffTool
         foreach (array(
             'lean' => 'lean',
             'quality' => 'quality',
+            /*
+             * The lean's own arithmetic, which the quality cannot stand
+             * in for since the two stopped being one sum. An edit to a
+             * lean signal's weight moves this and nothing else, so a
+             * headline without it reports *nothing changed* about the
+             * two signals that decide the reading.
+             */
+            'lean_weight' => 'lean_weight',
             'band' => 'band',
             'rule' => 'rule',
         ) as $key => $path) {
@@ -305,6 +355,17 @@ class ValueVerdictDiffTool
             'id' => $id,
             'signal' => isset($present['signal']) ? $present['signal'] : $id,
             'group' => isset($present['kind']) ? $present['kind'] : null,
+            /*
+             * Which axis the row's points land on, carried so a caller
+             * can sum per axis — `totals` is the quality's, and a lean
+             * row's delta does not belong in it. Defaulted rather than
+             * required, because a row from an assessment computed
+             * before the split carries no axis and is a quality row by
+             * construction.
+             */
+            'axis' => isset($present['axis'])
+                ? $present['axis']
+                : ValueVerdictTool::AXIS_QUALITY,
             'source' => isset($present['source'])
                 ? $present['source']
                 : null,
@@ -335,17 +396,47 @@ class ValueVerdictDiffTool
      * @param array $verdict
      * @return array
      */
-    private static function rowsById(array $verdict)
+    private static function rowsById(array $verdict, $axis = null)
     {
         $rows = array();
         $ledger = isset($verdict['ledger']) && is_array($verdict['ledger'])
             ? $verdict['ledger']
             : array();
-        foreach ($ledger as $group) {
-            if (empty($group['signals'])) {
-                continue;
+        if ($axis !== ValueVerdictTool::AXIS_LEAN) {
+            foreach ($ledger as $group) {
+                if (empty($group['signals'])) {
+                    continue;
+                }
+                foreach ($group['signals'] as $row) {
+                    $id = isset($row['id']) ? $row['id'] : null;
+                    if ($id === null) {
+                        continue;
+                    }
+                    $rows[$id] = $row;
+                }
             }
-            foreach ($group['signals'] as $row) {
+        }
+        /*
+         * **And the lean ledger**, which `review-2026-09-13.md` §D1
+         * moved out of `ledger` and which this method did not follow.
+         * The consequence was the worst kind for a simulator: an
+         * analyst halving `lifecycle.warninglist` — the heaviest row on
+         * a benign record — got a diff of seven rows all marked *same*
+         * and a headline saying `moved: false`. The editor's whole job
+         * is to answer *what does this edit do*, and it was answering
+         * *nothing* about the two signals that decide the lean.
+         *
+         * `$axis` narrows it for the sums below, which still have to be
+         * per axis: the quality rows sum to the quality and the lean
+         * rows to `lean_weight`, and adding the two together would
+         * report a drift that is not there.
+         */
+        if ($axis !== ValueVerdictTool::AXIS_QUALITY) {
+            $lean = isset($verdict['lean_ledger'])
+                && is_array($verdict['lean_ledger'])
+                    ? $verdict['lean_ledger']
+                    : array();
+            foreach ($lean as $row) {
                 $id = isset($row['id']) ? $row['id'] : null;
                 if ($id === null) {
                     continue;
