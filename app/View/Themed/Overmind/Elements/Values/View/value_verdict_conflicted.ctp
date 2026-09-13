@@ -21,7 +21,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 $verdict = $valueProfile['verdict'];
 
@@ -64,11 +64,9 @@ foreach ($cases as $case) {
     ?>
     <div class="vp-vc-hero">
         <span class="vp-vc-state">
-            <i class="<?= h(ValueDisposition::icon(
-                $verdict['disposition']
-            )) ?>"></i>
+            <i class="<?= h(ValueLean::icon($verdict['lean'])) ?>"></i>
             <span class="vp-vc-state-word">
-                <?= h($verdict['disposition']) ?>
+                <?= h(ValueLean::label($verdict['lean'])) ?>
             </span>
         </span>
 

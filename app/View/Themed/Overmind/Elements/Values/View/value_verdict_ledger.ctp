@@ -11,7 +11,7 @@
  * whether the sightings were counted twice wants them next to each
  * other, not scattered through a ranking.
  *
- * The direction column reads against the stated disposition, not
+ * The direction column reads against the stated lean, not
  * against maliciousness — ▲ is a row that supports the verdict, ▼ one
  * that argues with it. That is the same thing on a MALICIOUS value and
  * the opposite on a BENIGN one, which is why the header says so on
@@ -57,7 +57,7 @@ foreach ($ledger as $group) {
                     <th class="vp-ledger-contrib-col"
                         title="<?= h(__(
                             'Points for and against the stated'
-                            . ' disposition, not for and against'
+                            . ' lean, not for and against'
                             . ' maliciousness.'
                         )) ?>">
                         <?= __('Contribution') ?>

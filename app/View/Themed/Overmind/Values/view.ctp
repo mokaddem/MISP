@@ -6,7 +6,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 /*
  * Chart.js is loaded once here rather than per fragment: several panels
@@ -240,7 +240,7 @@ $panelChrome = array(
         $await(__('Analyst data'), $icoNote, 'var(--analystData)'),
     ),
     'viewVerdictCard' => array(
-        $await(__('Verdict'), 'fas fa-gavel', 'var(--primary)', 4),
+        $await(__('Assessment'), 'fas fa-gavel', 'var(--primary)', 4),
     ),
     'viewSightings' => array(
         $await(__('Sightings'), $icoSight, 'var(--sighting)'),
@@ -254,7 +254,7 @@ $panelChrome = array(
             'var(--enrichment)'),
     ),
     'viewVerdict' => array(
-        $await(__('Verdict'), 'fas fa-gavel', 'var(--primary)', 10),
+        $await(__('Assessment'), 'fas fa-gavel', 'var(--primary)', 10),
     ),
     /*
      * The rail is four cards or five and each one's title with it, so
@@ -400,29 +400,28 @@ $panel = function ($action, $anchor = null) use ($baseurl, $valueB64,
 };
 
 /*
- * The Verdict tab's state pill. A verdict is a state, not a count, so it
- * gets a badge rather than the parenthesised number the other tabs use.
- * The colour names the disposition; the label carries the score when
+ * The Assessment tab's state pill. A lean is a state, not a count, so
+ * it gets a badge rather than the parenthesised number the other tabs
+ * use. The colour names the lean; the label carries the quality when
  * there is one to carry.
  */
 $verdict = $profile['verdict'];
 $verdictBadge = array(
-    'label' => $verdict['score'] === null
-        ? $verdict['disposition']
-        : $verdict['disposition'] . ' ' . $verdict['score'],
-    'color' => ValueDisposition::colour($verdict['disposition']),
+    'label' => $verdict['quality'] === null
+        ? ValueLean::label($verdict['lean'])
+        : ValueLean::label($verdict['lean']) . ' ' . $verdict['quality'],
+    'color' => ValueLean::colour($verdict['lean']),
     'dot' => true,
 );
 
 /*
- * An UNKNOWN value has nothing for the Verdict rail — no score to
+ * A `none` lean has nothing for the Assessment rail — no quality to
  * compose, no shelf life to run down, no warninglist hit to explain —
- * so that
- * tab keeps the full width rather than reserving a column for cards
- * that would each render their own nothing. `value_verdict_aside`
+ * so that tab keeps the full width rather than reserving a column for
+ * cards that would each render their own nothing. `value_verdict_aside`
  * holds the matching decision about which cards apply.
  */
-$hasVerdictAside = $verdict['disposition'] !== 'UNKNOWN';
+$hasVerdictAside = $verdict['lean'] !== 'none';
 
 /*
  * The Relationships pill: one notion, named, and only when it is there.
@@ -489,8 +488,8 @@ $tabRegistry = array(
         ),
     ),
     array(
-        'id' => 'verdict',
-        'title' => __('Verdict'),
+        'id' => 'assessment',
+        'title' => __('Assessment'),
         'icon' => 'fas fa-gavel',
         'badge' => $verdictBadge,
         /*

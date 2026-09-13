@@ -21,23 +21,21 @@
  * @var string|null $benchValue
  */
 App::uses('AnalystProfileFormTool', 'Tools');
-App::uses('ValueDisposition', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 $ledger = isset($ledger) ? $ledger : array();
 $benchValue = isset($benchValue) ? $benchValue : null;
 $lean = isset($lean) ? $lean : null;
 /*
  * Which way the direction pair points on this table. `--vp-dir-with`
- * means *with the lean*, so on a benign value the row that agrees with
- * the verdict is the green one — the same swap the value page puts on
- * every verdict card, from the same helper, because the two surfaces
- * show the same contributions and must read the same way.
+ * means *with the lean*, so on a benign record the row that agrees
+ * with it is the green one — the same swap the value page puts on every
+ * assessment card, from the same helper, because the two surfaces show
+ * the same contributions and must read the same way.
  */
-$dispositions = ValueVerdictTool::LEAN_DISPOSITION;
-$directionStyle = $lean !== null && isset($dispositions[$lean])
-    ? ValueDisposition::directionStyle($dispositions[$lean])
-    : '';
+$directionStyle = $lean === null
+    ? ''
+    : ValueLean::directionStyle($lean);
 $isSignals = $sectionId === 'signals';
 $groups = isset($block['groups']) ? $block['groups'] : array();
 
@@ -364,8 +362,8 @@ $columns = $isSignals ? 5 : 3;
                              *
                              * Those tokens default to the *malicious*
                              * reading and the value page swaps them per
-                             * card for a benign verdict
-                             * (`ValueDisposition::directionStyle`). The
+                             * card for a benign lean
+                             * (`ValueLean::directionStyle`). The
                              * editor does not, anywhere — so this column
                              * matches the pane it sits beside rather
                              * than half-fixing a split that runs through

@@ -1093,16 +1093,26 @@ is_true(
     'with the list in its evidence, so a reader can go and argue'
         . ' with the entry'
 );
-is_same('CONFLICTED', $asKnown['disposition'],
-    'and the word the templates still read is CONFLICTED');
+/*
+ * The shim this line used to assert — `disposition`, written beside the
+ * lean for templates that had not been renamed — went with D11's rename
+ * in phase 9. What survives is the property it was really protecting:
+ * the engine emits exactly one word for what the record asserts, and
+ * `ValueLean` is the only place that turns it into English.
+ */
+is_true(
+    !array_key_exists('disposition', $asKnown),
+    'and the disposition shim is gone — the lean is the only word'
+        . ' emitted for it'
+);
 
 $restored = $engine->assess($benign, $shipped);
 is_same(
     'benign',
     $restored['lean'],
-    '§5 item 7: the override removed and the value returns to BENIGN'
-        . ' — the evidence did not change, the profile\'s knowledge of'
-        . ' it did'
+    '§5 item 7: the override removed and the value leans benign'
+        . ' again — the evidence did not change, the profile\'s'
+        . ' knowledge of it did'
 );
 is_same(
     $asBenign['quality'],
@@ -1116,7 +1126,7 @@ is_same(
  * `conflict:listed-vs-asserted` has already made it contested, so the
  * override does not change the lean at all — it changes **which rule
  * owns the contradiction**, and the prose with it. Worth asserting,
- * because "the value goes CONFLICTED" is the wrong thing to look for
+ * because "the value goes contested" is the wrong thing to look for
  * on three-quarters of the values a category override will touch.
  */
 $asserted = context(array('warninglist' => $listedHit));

@@ -735,8 +735,8 @@ outside this corpus:
 1. ~~**The five derivable keys**~~ — **done, §9.**
 2. ~~**The copy pass**~~ — **done, §11.** Two edits; five rows closed by
    the fixture no longer being read.
-3. **D11's rename** — the Verdict tab becomes the Assessment tab and
-   `ValueVerdictTool::LEAN_DISPOSITION` goes with it (§7.7).
+3. ~~**D11's rename**~~ — **done, §12.** The tab is the Assessment tab,
+   the shim is gone, and the page says `lean` / `quality` / `band`.
 4. **The hero** — `summary`, and the composition of lean · relevance ·
    quality that D11 left to this phase. §8.3's `−1 / 100` is the same
    question arriving from the arithmetic.
@@ -821,3 +821,81 @@ same thing, and a check inside either would have passed regardless.
 
 **66 checks** over HTTP, up from 49; the eight harnesses unchanged at
 828.
+
+
+## 12. D11's rename, done 2026-09-13
+
+The Assessment tab exists. `ValueVerdictTool::LEAN_DISPOSITION` is gone,
+and with it the three keys `verdict()` wrote beside the axes for
+templates that had not caught up — so the page now reads `lean`,
+`quality` and `band`, which are the names of the things the engine
+actually computes.
+
+| Was | Is | Where |
+|---|---|---|
+| the Verdict tab | the Assessment tab | the tab bar, the tab title, the Overview card's panel header, and `#tab-verdict` → `#tab-assessment` |
+| `ValueDisposition` | `ValueLean`, keyed `threat` / `benign` / `contested` / `none` | one file, nine call sites |
+| `MALICIOUS` / `BENIGN` / `CONFLICTED` / `UNKNOWN` | *Asserted threat* / *Asserted benign* / *Contested* / *Nothing asserted*, from `ValueLean::label()` | the hero, both layouts, the pill, the tab badge |
+| `disposition` | `lean` | every template and the controller's layout branch |
+| `score` | `quality` | the hero, the card, the composition card's heading |
+| `confidence` (the bar) | `band` (the meter) | the Overview card |
+| `value_disposition.ctp` | `value_lean.ctp` | the pill element |
+
+**Not renamed, and deliberately.** `ValueVerdictTool`, the fifteen
+`value_verdict*.ctp` filenames, the three `viewVerdict*` actions and
+their URLs, and the `vp-vc-` / `vp-disposition-` CSS prefixes all keep
+the old word. None of them is addressable by a reader, and every one of
+them renames alongside `value_verdicts`, `includeVerdict` and
+`minVerdictScore` — which is phase 10's table and REST surface
+(`12-assessment.md` §5). Splitting one vocabulary across two migrations
+costs more than carrying an internal name for one phase. **What a
+reader reads is renamed now; what a reader cannot see renames with the
+table it is named after.**
+
+### 12.1 The tab bar contradicted the tab, and the rename is what found it
+
+The Assessment tab's pill renders on the **synchronous** page build,
+from the profile `ValuesController::view()` assembles — which is still
+`ValueProfileFixture`'s frame, because §14.12 has the Overview's own
+conversion as a later phase. It read `disposition` off that frame, and
+after the rename there was no such key: the pill drew *Nothing
+asserted* over a body reading *Contested*.
+
+It had been wrong before the rename too, and quietly — the pill was
+naming the **fixture's** verdict beside a tab naming the engine's, and
+on `8.8.8.8` the two happened to be the same word. The rename turned a
+silent disagreement into a visible one, which is the only reason it was
+caught.
+
+The fix is the one `counts` already had: `view()` overlays the real
+assessment onto the fixture's frame. It costs **a fourth
+`forVerdict()`** — three lazy endpoints each compute their own, and
+there is nothing to share between four PHP processes (§2) — so the page
+now pays one assessment to put a word in the tab bar. That is the price
+of a badge that cannot be caught lying, and §14.12's `Q` column is
+where it gets stated rather than assumed.
+
+### 12.2 The old vocabulary inverts rather than degrades
+
+`ValueLean::directionStyle()` decides on a single equality — *is this
+lean benign* — so a call site still passing `BENIGN` does not fall back
+to a neutral pair. It takes the **threat** branch, and every arrow on
+that card points the wrong way: the row supporting a benign record is
+painted in the colour of a threat.
+
+That is why every call site had to move rather than most of them, and
+`09c-wiring-harness.php` now asserts the inversion directly — the check
+is worth more than a passing one, because it says what a missed call
+site would have looked like. **98 checks** there, up from 97.
+
+### 12.3 What the shim was really protecting
+
+`07-reference-harness.php` asserted *"the word the templates still read
+is CONFLICTED"*. Deleting the shim deleted the subject of that check, so
+it was rewritten to the property underneath it: the engine emits exactly
+one word for what the record asserts, and `ValueLean` is the only place
+that turns it into English. **828 checks, unchanged.**
+
+**67 checks** over HTTP, up from 66 — the new one reads the tab bar's
+pill off the whole page and compares it with the tab body's lean, two
+requests apart, which is §12.1 asserted rather than remembered.

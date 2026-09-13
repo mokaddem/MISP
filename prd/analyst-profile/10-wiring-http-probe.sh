@@ -150,7 +150,13 @@ if [ $? -eq 0 ]; then ok "exact-sum on the rendered page"; \
 
 # ----------------------------------------- 3. the card and the tab agree
 echo "--- the card and the tab agree, computed twice and never shared"
-word() { grep -o 'MALICIOUS\|BENIGN\|CONFLICTED\|UNKNOWN' "$1" | head -1; }
+# The four lean labels, which are the only words either surface prints
+# for what the record asserts. D11's rename retired MALICIOUS and the
+# other three with it; `ValueLean::label()` is where these live.
+word() {
+    grep -o 'Asserted threat\|Asserted benign\|Contested\|Nothing asserted' \
+        "$1" | head -1
+}
 # The name is the link text in both places, and the two layouts wrap it
 # differently — the tab in a `vp-meta-strong` span inside the anchor,
 # the card in the anchor alone. Pull the anchor's text.
@@ -165,8 +171,8 @@ score() {
         | grep -o 'vp-vc-score-value"[^>]*>[^<]*\|vp-disposition-score">[^<]*' \
         | sed 's/.*>//;s/\/ *100//' | tr -d ' ' | head -1
 }
-is "disposition" "$(word "$CARD")" "$(word "$TAB")"
-is "score" "$(score "$CARD")" "$(score "$TAB")"
+is "lean" "$(word "$CARD")" "$(word "$TAB")"
+is "quality" "$(score "$CARD")" "$(score "$TAB")"
 is "profile named" "$(profile "$CARD")" "$(profile "$TAB")"
 # ...and neither is blank, because two empty strings compare equal and
 # an agreement check that passes by reading nothing is worse than none
@@ -178,18 +184,41 @@ else
 " compared two empty strings"
 fi
 if [ -n "$(score "$TAB")" ]; then
-    ok "the score read is a number ($(score "$TAB"))"
+    ok "the quality read is a number ($(score "$TAB"))"
 else
-    no "the score extractor read nothing"
+    no "the quality extractor read nothing"
+fi
+
+# And the tab bar's pill, which is neither of them: it renders on the
+# synchronous page build, from a profile the fixture still frames
+# (`ValuesController::view`). It named a lean off `disposition` until
+# D11's rename, at which point it read nothing and drew *Nothing
+# asserted* over a body reading *Contested* — so the page contradicted
+# itself in the one place a reader sees both at once.
+PAGE="$WORK/scored-view.html"
+PB64=$(printf '%s' "$SUBJECT" | base64 | tr '+/' '-_' | tr -d '=')
+if [ "$(curl -sk -b "$JAR" -o "$PAGE" -w '%{http_code}' \
+    "$BASE/values/view/$PB64")" = "200" ]; then
+    # Squeezed first: the tab bar is generously indented and the badge
+    # sits ~700 raw characters after the href, nearly all of it spaces.
+    PILL=$(tr '\n' ' ' < "$PAGE" | tr -s ' ' \
+        | grep -o 'href="#tab-assessment".\{0,300\}' \
+        | grep -o 'Asserted threat\|Asserted benign\|Contested\|Nothing asserted' \
+        | head -1)
+    is "the tab pill and the tab body name one lean" "$PILL" \
+        "$(word "$TAB")"
+else
+    no "the value page did not answer"
 fi
 
 # ------------------------------------------- 4. the bare value's silence
 echo "--- a value with nothing to assess"
-is "bare disposition" "$(word "$WORK/bare-viewVerdict.html")" "UNKNOWN"
+is "bare lean" "$(word "$WORK/bare-viewVerdict.html")" \
+    "Nothing asserted"
 absent "bare tab names no profile" "$WORK/bare-viewVerdict.html" \
-    "Weighting profile"
+    "Analyst profile"
 absent "bare card names no profile" "$WORK/bare-viewVerdictCard.html" \
-    "Weighting profile"
+    "Analyst profile"
 # The rail renders nothing at all rather than a column of empty states.
 BARE_ASIDE=$(wc -c < "$WORK/bare-viewVerdictAside.html")
 is "bare rail is empty" "$BARE_ASIDE" "0"
@@ -209,9 +238,9 @@ else
     ok "computed_at is formatted"
 fi
 if grep -qE 'vp-vc-score-fill"[^>]*width: *-' "$TAB"; then
-    no "score bar width is clamped (negative width emitted)"
+    no "quality bar width is clamped (negative width emitted)"
 else
-    ok "score bar width is clamped"
+    ok "quality bar width is clamped"
 fi
 
 # ------------------------------------------- 6. the derived display keys

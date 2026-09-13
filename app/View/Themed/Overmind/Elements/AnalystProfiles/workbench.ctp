@@ -48,7 +48,7 @@ $marks = $detail === null
     );
 /*
  * The direction pair is *with* and *against the lean*, not red and
- * green: on a benign value the row that agrees with the verdict is the
+ * green: on a benign record the row that agrees with the lean is the
  * green one. Both halves of this page colour contributions, so both are
  * handed the same lean — the bench re-emits it on every recompute,
  * because editing a weight can flip the lean itself.

@@ -3,7 +3,7 @@ App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
 App::uses('ValueProfileFixture', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 /**
  * Value Profile controller, mounted at /values/* via CakePHP's default
@@ -170,8 +170,8 @@ class ValuesController extends AppController
         /*
          * The frame is still the fixture's — see §14.12, where the tab
          * counts and banner chips are the Overview's phase to convert.
-         * The two badges that name a converted tab are corrected here,
-         * because those are the two that can be caught contradicting
+         * The badges that name a converted tab are corrected here,
+         * because those are the ones that can be caught contradicting
          * the panel underneath them. `forTabCounts` says which and why.
          */
         $this->loadModel('ValueProfile');
@@ -180,6 +180,24 @@ class ValuesController extends AppController
             $profile['value'],
             $profile['counts']
         );
+        /*
+         * And the Assessment tab's pill, for the same reason and at a
+         * higher price. It names a lean and a quality, the tab below it
+         * now computes both, and the fixture's value is not the
+         * instance's: `8.8.8.8` drew *Nothing asserted* over a body
+         * reading *Contested* for as long as this line was missing —
+         * D11's rename found it, because the pill had been reading
+         * `disposition` off the fixture and there is no longer such a
+         * key to read.
+         *
+         * This is the one synchronous assessment on the page. The three
+         * lazy endpoints each compute their own (§2 of `10-wiring.md`
+         * on why there is nothing to share between processes), so the
+         * page pays a fourth to put a word in the tab bar — which is
+         * the honest price of a badge that cannot be caught lying, and
+         * it is measured on the conversion board rather than assumed.
+         */
+        $profile['verdict'] = $this->__verdictFor($b64value)['verdict'];
         $this->set('valueProfile', $profile);
         // Re-encoded rather than passed through, so the panel URLs the page
         // builds are well-formed whichever alphabet the caller arrived with.
@@ -901,12 +919,12 @@ class ValuesController extends AppController
     }
 
     /**
-     * The Verdict tab body.
+     * The Assessment tab body.
      *
      * A value whose signals contradict each other needs a different
      * layout, not a different colour: two opposed cases side by side
      * rather than one ledger. Which one is a property of the value, so
-     * the disposition picks the template.
+     * the lean picks the template.
      *
      * @param string $b64value
      * @return void
@@ -915,26 +933,26 @@ class ValuesController extends AppController
     {
         $profile = $this->__verdictFor($b64value);
         /*
-         * `ValueDisposition` rather than a condition here, because
+         * `ValueLean` rather than a condition here, because
          * `value_verdict_aside.ctp` picks the same branch for the rail
          * and the two are separate requests. Its docblock carries why
-         * the disposition alone no longer answers this.
+         * the lean alone no longer answers this.
          */
         $this->__renderPanel(
             $profile,
-            ValueDisposition::hasConflictedLayout($profile['verdict'])
+            ValueLean::hasConflictedLayout($profile['verdict'])
                 ? 'value_verdict_conflicted'
                 : 'value_verdict'
         );
     }
 
     /**
-     * The Verdict tab's right rail.
+     * The Assessment tab's right rail.
      *
      * One endpoint for the whole rail rather than one per card, unlike
      * the Overview rail: those cards are different questions of
      * different models, while every card here is a reading of the same
-     * verdict computation. The element picks which cards apply.
+     * assessment. The element picks which cards apply.
      *
      * @param string $b64value
      * @return void

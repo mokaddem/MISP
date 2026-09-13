@@ -106,17 +106,6 @@ class ValueVerdictTool
     );
 
     /**
-     * D11's rename map, for the templates that still read the old
-     * vocabulary. Dropped when phase 9 renames them.
-     */
-    const LEAN_DISPOSITION = array(
-        'threat' => 'MALICIOUS',
-        'benign' => 'BENIGN',
-        'contested' => 'CONFLICTED',
-        'none' => 'UNKNOWN',
-    );
-
-    /**
      * The model that owns the data, injected the way `Event.php` does
      * it with `new TrendingTool($this)`. Only `verdictFor()` uses it;
      * `assess()` is pure and needs nothing.
@@ -499,19 +488,6 @@ class ValueVerdictTool
                 ? $context['as_of']
                 : date('Y-m-d'),
         );
-
-        /*
-         * The rename map, applied for the templates that have not been
-         * through the copy pass yet. `value_verdict*.ctp` reads
-         * `disposition`, `score` and `confidence`; the three axes above
-         * are what those mean now, and these keys go with the fixture
-         * when the templates are renamed.
-         */
-        $verdict['disposition'] = isset(self::LEAN_DISPOSITION[$lean])
-            ? self::LEAN_DISPOSITION[$lean]
-            : 'UNKNOWN';
-        $verdict['score'] = $quality;
-        $verdict['confidence'] = $parts['band'];
 
         /*
          * Last, because a falsifiability line is derived *from* the

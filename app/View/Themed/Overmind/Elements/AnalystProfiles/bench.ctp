@@ -16,8 +16,7 @@
  * @var string $profileId
  */
 App::uses('ValueUrlTool', 'Tools');
-App::uses('ValueDisposition', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 $full = isset($full) ? $full : false;
 $detail = $bench['detail'];
@@ -77,10 +76,9 @@ $pinUrl = function ($value, $pin) {
 $leanNow = $detail !== null && isset($detail['axes']['lean']['after'])
     ? $detail['axes']['lean']['after']
     : null;
-$dispositions = ValueVerdictTool::LEAN_DISPOSITION;
-$directionStyle = $leanNow !== null && isset($dispositions[$leanNow])
-    ? ValueDisposition::directionStyle($dispositions[$leanNow])
-    : '';
+$directionStyle = $leanNow === null
+    ? ''
+    : ValueLean::directionStyle($leanNow);
 /*
  * What the signals pane needs to catch up.
  *

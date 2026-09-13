@@ -23,7 +23,7 @@
  * `vp-aside-head` strip the rail cards wear.
  *
  * **A skeleton names only what the endpoint will certainly render.**
- * The Verdict rail is four cards or five depending on the disposition,
+ * The Assessment rail is four cards or five depending on the lean,
  * and each one's title with it — a title guessed wrong is worse than no
  * title, so those entries pass `title => null` and get a shimmer where
  * the words will be. Only the rail's lighter chrome takes a null:

@@ -1,8 +1,8 @@
 <?php
 /**
- * The verdict in one card: what this value resolves to, and why.
+ * The assessment in one card: what the record asserts, and why.
  *
- * A summary of the Verdict tab, never a second opinion — the signals
+ * A summary of the Assessment tab, never a second opinion — the signals
  * here are the highest-weighted rows of the same ledger, and the count
  * of the ones that did not fit is stated rather than left implied. A
  * glass box with three sides showing is still a glass box; a black box
@@ -14,12 +14,13 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 $verdict = $valueProfile['verdict'];
 
 /*
- * The ledger is grouped by kind for the Verdict tab's benefit; the card
+ * The ledger is grouped by kind for the Assessment tab's benefit; the
+ * card
  * wants the heaviest signals whatever kind they came from.
  */
 $signals = array();
@@ -35,9 +36,13 @@ usort($signals, function ($a, $b) {
 $top = array_slice($signals, 0, 3);
 $rest = count($signals) - count($top);
 
-$confidenceLevels = array('none' => 0, 'low' => 1, 'medium' => 2,
-    'high' => 3);
-$confidence = $confidenceLevels[$verdict['confidence']] ?? 0;
+/*
+ * The band as a three-segment meter. `none` lights nothing, which is
+ * the reading it deserves: a band of `none` is not a low quality, it is
+ * an assessment that never got one.
+ */
+$bandLevels = array('none' => 0, 'low' => 1, 'medium' => 2, 'high' => 3);
+$bandLevel = $bandLevels[$verdict['band']] ?? 0;
 
 /*
  * The profile that weighted this value, as a link to the page that
@@ -63,12 +68,10 @@ if (!empty($verdict['profile_id'])) {
 ?>
 <div class="card shadow-sm mb-3 vp-panel"
      style="--vp-panel-color: var(--primary);
-            <?= h(ValueDisposition::directionStyle(
-                $verdict['disposition']
-            )) ?>">
+            <?= h(ValueLean::directionStyle($verdict['lean'])) ?>">
 
     <?= $this->element('Values/View/value_panel_header', array(
-        'panelTitle' => __('Verdict'),
+        'panelTitle' => __('Assessment'),
         'panelIcon' => 'fas fa-gavel',
         'panelColor' => 'var(--primary)',
         'panelSub' => empty($verdict['ledger'])
@@ -82,28 +85,28 @@ if (!empty($verdict['profile_id'])) {
     <div class="p-3 d-flex flex-column gap-3">
 
         <div>
-            <?= $this->element('Values/View/value_disposition', array(
-                'disposition' => $verdict['disposition'],
-                'score' => $verdict['score'],
+            <?= $this->element('Values/View/value_lean', array(
+                'lean' => $verdict['lean'],
+                'quality' => $verdict['quality'],
                 'size' => 'lg',
             )) ?>
             <div class="vp-confidence" title="<?= h(sprintf(
-                __('Confidence: %s'),
-                $verdict['confidence']
+                __('Quality band: %s'),
+                $verdict['band']
             )) ?>">
                 <span class="vp-confidence-label">
-                    <?= h(__('Confidence')) ?>
+                    <?= h(__('Quality')) ?>
                 </span>
                 <span class="vp-confidence-track">
                     <?php for ($i = 1; $i <= 3; $i++): ?>
                         <span class="vp-confidence-seg<?=
-                            $i <= $confidence
+                            $i <= $bandLevel
                                 ? ' vp-confidence-seg-on'
                                 : '' ?>"></span>
                     <?php endfor; ?>
                 </span>
                 <span class="vp-confidence-reading">
-                    <?= h($verdict['confidence']) ?>
+                    <?= h($verdict['band']) ?>
                 </span>
             </div>
         </div>
@@ -152,7 +155,7 @@ if (!empty($verdict['profile_id'])) {
             <?php endif; ?>
         <?php endif; ?>
 
-        <a href="#tab-verdict"
+        <a href="#tab-assessment"
            class="btn btn-sm btn-outline-primary w-100
                   d-flex align-items-center justify-content-center gap-1">
             <?= __('Full assessment') ?>

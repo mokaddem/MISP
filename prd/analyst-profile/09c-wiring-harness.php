@@ -8,7 +8,7 @@ App::uses('ValueVerdictDiffTool', 'Tools');
 App::uses('ValueRelevanceTool', 'Tools');
 App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 /**
  * Phase 8c's templates, rendered and asserted with no HTTP session.
@@ -794,7 +794,7 @@ class AnalystWiringShell extends AppShell
 
     /**
      * `--vp-dir-with` means *with the lean*, not *malicious*. On a
-     * benign value the row agreeing with the verdict is the green one,
+     * benign-leaning record the row agreeing with it is the green one,
      * and the editor used to paint it red because it took the `:root`
      * default while the value page swapped.
      */
@@ -803,14 +803,28 @@ class AnalystWiringShell extends AppShell
         $this->out('');
         $this->out('== the direction pair follows the lean ==');
 
-        $benign = ValueDisposition::directionStyle('BENIGN');
-        $malicious = ValueDisposition::directionStyle('MALICIOUS');
+        $benign = ValueLean::directionStyle('benign');
+        $malicious = ValueLean::directionStyle('threat');
         $this->ok(strpos($benign, '--vp-dir-with: var(--vp-ben)') !== false,
-            'a benign verdict makes *with* the green');
+            'a benign lean makes *with* the green');
         $this->ok(strpos($benign, '--vp-dir-against: var(--vp-mal)') !== false,
             'and *against* the red');
         $this->ok(strpos($malicious, '--vp-dir-with: var(--vp-mal)') !== false,
-            'a malicious verdict is the other way round');
+            'a threat lean is the other way round');
+        /*
+         * And the keys are the lean's own now. D11's rename dropped the
+         * `LEAN_DISPOSITION` shim the editor translated through, and
+         * this helper decides on one equality — so a call site still
+         * passing `BENIGN` does not degrade, it inverts: the benign
+         * record gets the threat pair and every arrow on the card
+         * points the wrong way. That is why every call site had to move
+         * rather than most of them.
+         */
+        $this->ok(
+            ValueLean::directionStyle('BENIGN') === $malicious,
+            'and the old vocabulary inverts rather than degrading,'
+                . ' which is why no call site could be left behind'
+        );
         /*
          * The ink pair has to swap too. A dark-theme rule naming
          * `--vp-mal-ink` directly cannot be swapped, which is exactly

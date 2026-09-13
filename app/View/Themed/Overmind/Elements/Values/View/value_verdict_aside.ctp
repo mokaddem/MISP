@@ -1,6 +1,6 @@
 <?php
 /**
- * The Verdict tab's right rail.
+ * The Assessment tab's right rail.
  *
  * The split between this and the main column is by what each section
  * needs, not by importance: the evidence — the ledger grid, the
@@ -10,8 +10,8 @@
  * evidence than below it.
  *
  * Which cards appear is a property of the value, the same way the main
- * column's layout is. A conflicted value has no score to compose, and
- * an agreeing one has no warninglist hit to explain.
+ * column's layout is. A contested value has no single quality to
+ * compose, and an agreeing one has no warninglist hit to explain.
  *
  * Lazily loaded into `.ajax-card` from
  * ValuesController::viewVerdictAside.
@@ -19,22 +19,22 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueDisposition', 'Tools');
+App::uses('ValueLean', 'Tools');
 
 $verdict = $valueProfile['verdict'];
 /*
  * The same predicate `ValuesController::viewVerdict` picks the main
  * column's template with. Read its docblock before changing either:
- * the rail and the tab are separate requests, and a disposition test
- * here that disagrees with the one there puts a conflicted rail beside
- * an agreeing argument.
+ * the rail and the tab are separate requests, and a lean test here
+ * that disagrees with the one there puts a contested rail beside an
+ * agreeing argument.
  */
-$conflicted = ValueDisposition::hasConflictedLayout($verdict);
+$conflicted = ValueLean::hasConflictedLayout($verdict);
 
 $uid = 'vp' . substr(md5($valueProfile['value'] . '-aside'), 0, 8);
 
 /*
- * An UNKNOWN value has none of these, so the rail renders nothing
+ * A `none` lean has none of these, so the rail renders nothing
  * rather than a column of empty states — the main column already says
  * that no signal was found, and saying it four more times narrower
  * would not make it truer.

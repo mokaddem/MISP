@@ -126,7 +126,7 @@ $runway = isset($relevance['runway']) ? $relevance['runway'] : null;
  * The strip is three readings side by side; this is one table about
  * one of them, and it needs the width.
  *
- * Folded shut. The bench is a verdict, not a reference table.
+ * Folded shut. The bench is an assessment, not a reference table.
  */
 ?>
 <?php if (!empty($dates) && !empty($runway['clock'])): ?>

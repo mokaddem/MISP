@@ -33,11 +33,11 @@ $span = max($positive + $negative, 1);
             <i class="fas fa-calculator"
                style="color: var(--enrichment);"></i>
             <span class="vp-aside-title">
-                <?= h($verdict['score'] === null
-                    ? __('How the score was reached')
+                <?= h($verdict['quality'] === null
+                    ? __('How the quality was reached')
                     : sprintf(
                         __('How %s was reached'),
-                        $verdict['score']
+                        $verdict['quality']
                     )) ?>
             </span>
         </div>
