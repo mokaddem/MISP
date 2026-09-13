@@ -12904,8 +12904,75 @@ class ValueProfile extends AppModel
         $panels = array(
             'orgs' => $this->verdictOrgTable($context),
             'warninglist' => $this->verdictWarninglistBand($context),
+            'composition_note' => $this->verdictCompositionNote($verdict,
+                $profile),
         );
         return array_merge($panels, $this->verdictCurves($verdict));
+    }
+
+    /**
+     * Under the arithmetic: whose weights these are.
+     *
+     * `10-wiring.md` §3 retires the shipped sentence *"An instance
+     * admin can edit the profile; the tab always names the one in
+     * force"*. Its second half was true and is said one card away, by
+     * `value_verdict_meta`; its first half is wrong under D3, because
+     * the profile most readers are weighted by is their own or their
+     * organisation's and no instance admin can touch it.
+     *
+     * What replaces it is the thing the meta line cannot say: **how far
+     * the profile in force reaches**. A reader who disagrees with a
+     * weight needs to know whether editing it changes their own pages
+     * or everybody's, and that is a property of the scope rather than
+     * of the name.
+     *
+     * Drawn only where something was weighted. A value with no ledger
+     * has a profile in force and nothing was computed under it, and
+     * §3.1's conditional exists so the page does not claim otherwise.
+     *
+     * @param array $verdict What the engine returned
+     * @param array|null $profile The profile in force
+     * @return string|null
+     */
+    private function verdictCompositionNote(array $verdict, $profile)
+    {
+        if (empty($profile) || empty($verdict['composition'])) {
+            return null;
+        }
+        $name = isset($profile['name']) ? $profile['name'] : '';
+        switch (ClassRegistry::init('AnalystProfile')->scopeOf($profile)) {
+            case 'user':
+                return sprintf(
+                    __(
+                        'Weights come from %s, your own profile. Nobody'
+                        . ' else\'s pages are weighted by it, and'
+                        . ' editing it changes what you see here and'
+                        . ' nothing anyone else sees.'
+                    ),
+                    $name
+                );
+            case 'org':
+                return sprintf(
+                    __(
+                        'Weights come from %s, your organisation\'s'
+                        . ' profile. Every reader in it who owns no'
+                        . ' profile of their own is weighted by it, so'
+                        . ' an edit here moves their pages too.'
+                    ),
+                    $name
+                );
+            default:
+                return sprintf(
+                    __(
+                        'Weights come from %s, the instance default. It'
+                        . ' weights every reader whose account and'
+                        . ' organisation own no profile — fork it to'
+                        . ' disagree with a weight without moving'
+                        . ' anybody else.'
+                    ),
+                    $name
+                );
+        }
     }
 
     /**

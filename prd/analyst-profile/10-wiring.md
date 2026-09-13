@@ -733,8 +733,8 @@ Two increments in, and none of what is left is blocked on anything
 outside this corpus:
 
 1. ~~**The five derivable keys**~~ — **done, §9.**
-2. **The copy pass** (§3), which is mechanical now that the page is live
-   and the strings are countable.
+2. ~~**The copy pass**~~ — **done, §11.** Two edits; five rows closed by
+   the fixture no longer being read.
 3. **D11's rename** — the Verdict tab becomes the Assessment tab and
    `ValueVerdictTool::LEAN_DISPOSITION` goes with it (§7.7).
 4. **The hero** — `summary`, and the composition of lean · relevance ·
@@ -756,3 +756,68 @@ outside this corpus:
    placeholder.
 
 Q9 is unchanged and still recommends C, now at a known cost (§4).
+
+
+## 11. The copy pass, done 2026-09-13
+
+§3's table, closed. It cost **two edits**, and the interesting part is
+why the other five rows needed none.
+
+| Row | Closed by |
+|---|---|
+| `Weighting profile default-v3` | An edit. `Analyst profile` in `value_verdict_card.ctp` and `value_verdict_meta.ctp`; the name and its link were already the resolved profile's, from §8 |
+| *"An instance admin can edit the profile…"* | An edit. `verdictCompositionNote()`, §11.1 |
+| *"Weights come from the default-v3 profile"* | The same note replaces the whole sentence |
+| *"…→ drops to SUSPICIOUS"* | The tab stopped reading the fixture (§8) |
+| *"No sighting for 45 days → decay takes the score under 50"* | The same — and `ValueChangersTool` writes the real one from the profile's TTL: *"No independent corroboration for 69 more days — the assessment expires"* |
+| `NIDS decay score` dashed curve | §9.4, which retired both curves and drew shelf life |
+| ~~`attribution.galaxy` band~~ | D16, before this phase |
+
+### 11.1 The note says how far the profile reaches
+
+The retracted sentence had two halves and they failed differently. *"The
+tab always names the one in force"* was true, is now true of a real
+profile, and is said one card away by `value_verdict_meta` — so
+repeating it in the composition card was only repetition. *"An instance
+admin can edit the profile"* is wrong under D3 for most readers, and
+correcting it to *"you or an admin can edit it"* would have been a
+sentence about permissions in a card about arithmetic.
+
+What the note says instead is the thing the meta line **cannot** say:
+which of D3's three scopes owns the profile, and therefore whose pages
+an edit moves. A reader who disagrees with a weight is about to fork or
+edit something, and *"editing it changes what you see here and nothing
+anyone else sees"* is the fact that decides whether they should.
+
+`AnalystProfile::scopeOf()` answers it from the row's own columns, so
+`verdictPanels()` keeps §14.5's property of taking no `$user`:
+`resolveFor()` returns only rows that already match the viewer, which is
+what makes a bare `user_id` mean *this reader's* without a comparison.
+
+### 11.2 Three rows closed by deleting the array they lived in
+
+`SUSPICIOUS`, the 45-day decay changer and the NIDS curve were fixture
+literals. Phase 9's spine replaced the array, not the strings — so the
+strings are **still in `ValueProfileFixture.php`**, all of them, and
+none of them can reach a reader.
+
+This is why the inventory is now verified against rendered markup rather
+than against a grep. A grep over `app/` reports `default-v3` five times
+and SUSPICIOUS at three lines and concludes four rows are still owing;
+the three endpoints print those four strings **zero** times between
+them. `10-wiring-http-probe.sh` asserts the absence on every endpoint on
+every run, which is the only form of this check that stays true as the
+fixture is deleted piece by piece.
+
+### 11.3 The label and the name are one assertion
+
+Renaming the label is half a row. The other half is that the name beside
+it is the profile that actually weighted these rows — which is what
+makes it worth linking — and the probe now reads it out of the tab's
+markup and compares it with the profile the rail's note names, **two
+requests apart**: `default-v1` and `default-v1`. Same shape as §9.5, and
+for the same reason: the two panels could only agree by computing the
+same thing, and a check inside either would have passed regardless.
+
+**66 checks** over HTTP, up from 49; the eight harnesses unchanged at
+828.

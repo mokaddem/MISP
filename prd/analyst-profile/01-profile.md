@@ -609,26 +609,36 @@ instead of a new caller.
 Every phase inherits the rule that a claim on screen is either satisfied or
 deliberately retracted. These are already wrong, or become wrong:
 
-| What it says | Where | Why it breaks |
-|---|---|---|
-| `Weighting profile default-v3` | `value_verdict_meta.ctp:67`, `value_verdict_card.ctp:77` | The object holds more than weighting, and the name becomes real and linkable |
-| *"An instance admin can edit the profile"* | `composition_note`, every scored value | Under D3 most readers see a profile they or their org own |
-| *"No sighting for 45 days → decay takes the score under 50"* | `changers`, malicious value | There is no decay under D7; it is a TTL against last corroboration |
-| `NIDS decay score`, dashed comparison line | verdict `curves`, fixture 1133 / 3535 / 11463 | The page stops reading `decaying_models` (D7). Phase 5 proposes the TTL runway in its place |
-| ~~Per-model decay bars~~ | ~~`value_lifecycle.ctp`, `value_sighting_decay.ctp` (161 + 259 lines)~~ | **Done, phase 5.** `value_sighting_decay.ctp` is deleted and the bars went with it |
-| ~~Decay curve overlay~~ | ~~`value_sighting_chart.ctp:447`~~ | **Done, phase 5.** The only surviving mention of decay in that file is two lines of docblock saying why no threshold is drawn |
-| *"3 or more false-positive sightings from 2+ orgs → drops to SUSPICIOUS"* | `changers`, three fixture strings | `SUSPICIOUS` never existed in `ValueDisposition::TREATMENTS`, and under D11 it is dropped, not added — the strings rephrase in band-and-lean vocabulary (`04-dispositions.md` §7) |
+| What it says | Where | Why it breaks | Closed |
+|---|---|---|---|
+| ~~`Weighting profile default-v3`~~ | ~~`value_verdict_meta.ctp:67`, `value_verdict_card.ctp:77`~~ | The object holds more than weighting, and the name becomes real and linkable | **Phase 9.** Both read `Analyst profile`, and both print the resolved profile's own name, linked to its page |
+| ~~*"An instance admin can edit the profile"*~~ | ~~`composition_note`, every scored value~~ | Under D3 most readers see a profile they or their org own | **Phase 9.** `ValueProfile::verdictCompositionNote()` states the scope instead — whether an edit moves this reader's pages, their organisation's, or everybody's |
+| ~~*"No sighting for 45 days → decay takes the score under 50"*~~ | ~~`changers`, malicious value~~ | There is no decay under D7; it is a TTL against last corroboration | **Phase 9.** `ValueChangersTool` writes the real one: *"No independent corroboration for 69 more days — the assessment expires"* |
+| ~~`NIDS decay score`, dashed comparison line~~ | ~~verdict `curves`, fixture 1133 / 3535 / 11463~~ | The page stops reading `decaying_models` (D7). Phase 5 proposes the TTL runway in its place | **Phase 9** ([`10-wiring.md`](10-wiring.md) §9.4). One line, *Shelf life left*, from `runwaySeries()` — and the other curve went with it, because a verdict over time is a thing nothing has |
+| ~~Per-model decay bars~~ | ~~`value_lifecycle.ctp`, `value_sighting_decay.ctp` (161 + 259 lines)~~ | | **Phase 5.** `value_sighting_decay.ctp` is deleted and the bars went with it |
+| ~~Decay curve overlay~~ | ~~`value_sighting_chart.ctp:447`~~ | | **Phase 5.** The only surviving mention of decay in that file is two lines of docblock saying why no threshold is drawn |
+| ~~*"3 or more false-positive sightings from 2+ orgs → drops to SUSPICIOUS"*~~ | ~~`changers`, three fixture strings~~ | `SUSPICIOUS` never existed in `ValueDisposition::TREATMENTS`, and under D11 it is dropped, not added | **Phase 9.** The tab stopped reading the fixture, so the strings went with the panel that carried them |
 
-**Five rows stand, two are struck through, and the line numbers were re-read on
-2026-09-13** ([`10-wiring.md`](10-wiring.md) §7.6). Phase 5 closed the two decay
-rows without annotating them here, which left phase 9 apparently owing work
-that no longer existed; the two meta/card references had drifted by 27 and 21
-lines as the templates grew. Every string in the five that stand is still on
-screen, counted rather than assumed: `default-v3` five times in the fixture,
-the `composition_note` sentence twice, the 45-day changer once, the
-`NIDS decay score` label three times, and all three SUSPICIOUS strings — at
-fixture `1190`, `3545` and `3589`, the middle one a `curves_note` rather than a
-changer.
+**Every row is closed, and the last five closed on 2026-09-13**
+([`10-wiring.md`](10-wiring.md) §11). Two of them took an edit — the profile
+label in two templates, and `composition_note`, which had no producer at all
+until this phase gave it one. **The other three closed by the tab no longer
+reading `ValueProfileFixture`**: SUSPICIOUS, the 45-day decay changer and the
+NIDS curve were fixture literals, and phase 9's spine replaced the array they
+lived in rather than the strings.
+
+That distinction is why the inventory is verified against the rendered page
+rather than against a grep. The strings are all still in
+`ValueProfileFixture.php` — `default-v3` five times, SUSPICIOUS at `1190`,
+`3545` and `3589` — and none of them reaches a reader: the three verdict
+endpoints print `SUSPICIOUS`, `default-v3`, `NIDS decay score` and *"decay
+takes the score"* **zero** times between them. A grep over `app/` would have
+reported four rows still owing.
+
+Line numbers here were last re-read on 2026-09-13 (§7.6 there), and the two
+meta/card references had drifted by 27 and 21 lines as the templates grew.
+They are struck through now rather than corrected, because a closed row does
+not need a pointer that will drift again.
 
 ## 7. What this feature does not do
 

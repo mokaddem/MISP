@@ -354,6 +354,35 @@ class AnalystProfile extends AppModel
     }
 
     /**
+     * Which of D3's three scopes owns a profile.
+     *
+     * The columns say it and no lookup is needed, which is what lets a
+     * caller holding only the row — `ValueProfile::verdictPanels()`,
+     * which takes no `$user` on purpose — state how far the profile in
+     * force reaches. It is safe there because `resolveFor()` returns
+     * only rows that already match the viewer: a `user` answer is
+     * *this* reader's, an `org` answer is *their* organisation's.
+     *
+     * Ownership is read in resolution order rather than by checking
+     * `default` first, so a row that somehow carries both an owner and
+     * the default flag is described by its owner — the narrower and
+     * therefore the more careful reading.
+     *
+     * @param array $row The unwrapped row
+     * @return string `user`, `org` or `default`
+     */
+    public function scopeOf(array $row)
+    {
+        if (!empty($row['user_id'])) {
+            return 'user';
+        }
+        if (!empty($row['org_id'])) {
+            return 'org';
+        }
+        return 'default';
+    }
+
+    /**
      * The profiles a viewer may see: their own, their organisation's, and the
      * instance default. A site admin sees every profile on the instance.
      *

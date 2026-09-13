@@ -74,7 +74,7 @@ if (!empty($verdict['profile_id'])) {
         'panelSub' => empty($verdict['ledger'])
             ? h(__('Nothing to weigh'))
             : sprintf(
-                h(__('Weighting profile %s')),
+                h(__('Analyst profile %s')),
                 $weighting
             ),
     )) ?>

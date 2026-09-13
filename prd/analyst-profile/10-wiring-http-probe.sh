@@ -360,6 +360,55 @@ else
     no "viewRelevance did not answer"
 fi
 
+# `01-profile.md` §6's inventory, asserted where a reader meets it. Two
+# of its rows closed by an edit and three closed by the tab no longer
+# reading `ValueProfileFixture` — and the fixture still holds all three
+# strings, so a grep over `app/` reports them owing and only a rendered
+# page can say they are gone.
+echo "--- the shipped copy the inventory retired"
+for f in "$TAB" "$ASIDE" "$CARD"; do
+    label=$(basename "$f" .html)
+    absent "$label: no SUSPICIOUS" "$f" "SUSPICIOUS"
+    absent "$label: no decay changer" "$f" "decay takes the score"
+    absent "$label: no NIDS curve" "$f" "NIDS decay score"
+    absent "$label: profile is not 'weighting'" "$f" "Weighting profile"
+    absent "$label: the admin sentence is retracted" "$f" \
+        "An instance admin can edit"
+done
+
+# The label is only half of that row. The other half is that the name
+# beside it is the profile that actually weighted these rows, which is
+# what makes it linkable — so it is read out of the markup and compared
+# with the one the rail's note names, two requests apart.
+echo "--- and the profile it names is the one that weighted it"
+NAMED=$(tr '\n' ' ' < "$TAB" \
+    | grep -o 'Analyst profile[^<]*<[^>]*>[^<]*<[^>]*>[^<]*' \
+    | sed 's/.*vp-meta-strong">//;s/<.*//' | head -1)
+NOTED=$(tr '\n' ' ' < "$ASIDE" \
+    | grep -o 'Weights come from [^,]*,' \
+    | sed 's/Weights come from //;s/,$//' | head -1)
+if [ -z "$NAMED" ] && [ -z "$NOTED" ]; then
+    ok "nothing weighted on $SUBJECT, so no profile named (skipped)"
+else
+    is "the tab and the rail name one profile" "$NAMED" "$NOTED"
+fi
+
+# §3's replacement for the retracted sentence says how far the profile
+# in force reaches, which is the thing the meta line cannot say. Any of
+# D3's three scopes is a pass; a note that states none of them is the
+# old sentence back in a new shape.
+echo "--- the composition note states a scope"
+if grep -qF 'vp-comp-note' "$ASIDE"; then
+    if grep -qE 'your own profile|your organisation.s profile|the instance default' \
+        "$ASIDE"; then
+        ok "the note names which of D3's three scopes owns the profile"
+    else
+        no "the note is drawn but names no scope"
+    fi
+else
+    ok "nothing weighted, so no note (not a failure)"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]

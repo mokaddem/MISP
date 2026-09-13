@@ -72,7 +72,7 @@ if (!empty($verdict['ledger'])) {
             array('escape' => false)
         );
     }
-    $parts[] = h(__('Weighting profile')) . ' ' . $named;
+    $parts[] = h(__('Analyst profile')) . ' ' . $named;
 }
 
 $parts[] = $metaRule === null
