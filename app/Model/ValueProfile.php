@@ -109,6 +109,16 @@ class ValueProfile extends AppModel
     const VERDICT_RECENT_DAYS = 30;
 
     /**
+     * How many days the Verdict tab's rail chart covers.
+     *
+     * `value_verdict_curves.ctp` computes its labels from the point
+     * count on the assumption that a series spans 90 days, so this is
+     * the constant the grid follows rather than a window anyone picked
+     * per value.
+     */
+    const VERDICT_CURVE_DAYS = 90;
+
+    /**
      * The keys the verdict templates read that nothing yet produces.
      *
      * `prd/analyst-profile/10-wiring.md` §2.2 is the census: the fifteen
@@ -125,14 +135,20 @@ class ValueProfile extends AppModel
      *
      * A default is a promise that the key exists, not that it is
      * answered. `null` and `array()` both render as a card that stays
-     * dark, which is the honest reading of *nothing computes this yet*;
-     * a producer landing later overwrites one line here and deletes
-     * another.
+     * dark, which is the honest reading of *nothing computes this yet*.
      *
-     * `resolutions` is the one that stays. It drives *Resolve it*,
-     * whose every control is disabled because this page does not write
-     * — `01-profile.md` §7 — so an empty list is its finished state
-     * until `value-profile-writes.md` lands.
+     * **Five of the thirteen are answered now**, by `verdictPanels()` —
+     * `orgs`, `warninglist` and the three `curves*` keys. They keep
+     * their entries here rather than losing them, because each has a
+     * real *nothing to show* case: a value nobody has reported has no
+     * organisations, most values hit no warninglist, and a value with
+     * no datable evidence has no runway to plot. The default is what
+     * those fall back to.
+     *
+     * `resolutions` is the one that stays empty for good. It drives
+     * *Resolve it*, whose every control is disabled because this page
+     * does not write — `01-profile.md` §7 — so an empty list is its
+     * finished state until `value-profile-writes.md` lands.
      */
     const VERDICT_UNPRODUCED = array(
         'summary' => null,
@@ -1068,11 +1084,11 @@ class ValueProfile extends AppModel
      * same value — the tab counting what the database holds and the card
      * counting what a literal said.
      *
-     * **The Overview's other panels stay on the fixture**, including
-     * `value_verdict_card`, which `00-contract.md` §14.12 blocks until a
-     * verdict engine exists. This converts one card of that tab and
-     * claims nothing about the rest, which is what §14.12's note about
-     * not treating a tab as indivisible asks for.
+     * **The Overview's other panels stay on the fixture**, and were
+     * four rather than three until analyst-profile phase 9 took
+     * `value_verdict_card` live on 2026-09-13. This converts one card
+     * of that tab and claims nothing about the rest, which is what
+     * §14.12's note about not treating a tab as indivisible asks for.
      *
      * No relevance work, like the list: a card above the fold should
      * not wait for the axis, and the three counts it shows are not part
@@ -12825,21 +12841,302 @@ class ValueProfile extends AppModel
     public function forVerdict(array $user, $value,
         array $options = array()
     ) {
+        /*
+         * The profile and the context are resolved **here** rather than
+         * inside the engine, which would do both if asked, because the
+         * display keys below are built from the same two and a second
+         * resolution is a second chance to disagree. `verdictFor()`
+         * takes either as an option precisely so a caller that needs
+         * them can own them; `resolveFor()` memoises per request, so
+         * holding it costs nothing.
+         */
+        $profile = array_key_exists('profile', $options)
+            ? $options['profile']
+            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        $context = isset($options['context'])
+            ? $options['context']
+            : $this->verdictContextFor($user, $value, $profile, $options);
         $engine = new ValueVerdictTool($this);
+        $verdict = $engine->verdictFor($user, $value, array_merge(
+            $options,
+            array('profile' => $profile, 'context' => $context)
+        ));
         return array(
             'value' => $value,
             /*
-             * The engine's array wins every key it emits; the skeleton
-             * only fills the ones it does not (`VERDICT_UNPRODUCED`).
-             * Ordered this way round so a producer landing later needs
-             * no second edit here — it starts overwriting a default the
-             * moment `verdict()` carries its key.
+             * Three layers, and the order is the contract. The skeleton
+             * (`VERDICT_UNPRODUCED`) promises every key exists; the
+             * engine's array wins every key it emits; the display keys
+             * win last, because they are derived *from* the first two
+             * and from the context, and a key they answer is a key the
+             * skeleton was only holding open.
              */
             'verdict' => array_merge(
                 self::VERDICT_UNPRODUCED,
-                $engine->verdictFor($user, $value, $options)
+                $verdict,
+                $this->verdictPanels($verdict, $context, $profile)
             ),
         );
+    }
+
+    /**
+     * The display keys the templates read and the engine does not emit.
+     *
+     * **Derived, never invented.** `10-wiring.md` §2.2 counts thirteen
+     * keys the fifteen verdict templates read with no producer behind
+     * them; five of them are answerable from facts phases 5 and 6
+     * already compute, and this is where those five are answered. The
+     * rest stay on the skeleton's defaults and their cards stay dark,
+     * which is the honest reading of *nothing computes this yet*.
+     *
+     * It takes no `$user`: everything here is folded from a context
+     * that was already scoped to the viewer, which is §14.5's rule
+     * held at the one seam where it would be easy to break.
+     *
+     * @param array $verdict What the engine returned
+     * @param array $context The context it scored
+     * @param array|null $profile The profile in force
+     * @return array The keys this method can answer, and only those
+     */
+    private function verdictPanels(array $verdict, array $context,
+        $profile
+    ) {
+        $panels = array(
+            'orgs' => $this->verdictOrgTable($context),
+            'warninglist' => $this->verdictWarninglistBand($context),
+        );
+        return array_merge($panels, $this->verdictCurves($verdict));
+    }
+
+    /**
+     * *Who says what* — the same argument counted by organisation.
+     *
+     * Every column but one is folded from facts the context already
+     * carries, and folding rather than querying is the point: the table
+     * and the ledger have to be counting the same rows or the card
+     * beside the argument contradicts it. `reporting.independent_orgs`
+     * counts these organisations; `sightings.false_positive` counts
+     * these filers.
+     *
+     * **`opinion` is the one column with no source**, and it renders as
+     * *none stated* rather than as a zero — zero is an opinion, and the
+     * strongest possible disagreement at that. MISP does hold analyst
+     * opinions and this page already reads them for Collaboration and
+     * for the Timeline, but per organisation and per value is an
+     * aggregate nothing computes yet.
+     *
+     * `reads` is left unset on purpose. `value_verdict.ctp` adds the
+     * column only when some organisation carries it, so an absent key
+     * removes a column rather than emptying one — and what an
+     * organisation *reads the value as* is a lean-side reading that
+     * belongs with the conflicted layout's cases.
+     *
+     * @param array $context
+     * @return array One row per organisation, widest reporter first
+     */
+    private function verdictOrgTable(array $context)
+    {
+        $orgs = isset($context['orgs']) ? $context['orgs'] : array();
+        if (empty($orgs)) {
+            return array();
+        }
+        $byOrg = isset($context['sightings']['by_org'])
+            ? $context['sightings']['by_org']
+            : array();
+        $byOrgFp = isset($context['sightings']['by_org_fp'])
+            ? $context['sightings']['by_org_fp']
+            : array();
+
+        $rows = array();
+        foreach ($orgs as $org) {
+            $id = (int)$org['id'];
+            $rows[] = array(
+                'org' => $org['name'],
+                'occurrences' => (int)$org['occurrences'],
+                'sightings' => isset($byOrg[$id]) ? (int)$byOrg[$id] : 0,
+                'fp' => isset($byOrgFp[$id]) ? (int)$byOrgFp[$id] : 0,
+                'opinion' => null,
+                'to_ids' => $this->verdictStanceWord($org),
+                /*
+                 * The grade the engine weighted this organisation
+                 * with, which for an ungraded one is `unrated` — the
+                 * same fallback `ValueTrustTool::factor()` takes, so
+                 * the column cannot say one thing while the ledger
+                 * counted another. `gradeFor()` answers null there and
+                 * null is not a grade; the map's own word for *no
+                 * opinion recorded* is.
+                 *
+                 * **The whole context, not the trust block.**
+                 * `blockFrom()` reads `$context['trust']` itself, so
+                 * handing it the block makes it look for
+                 * `trust.trust`, miss, and grade every organisation
+                 * null — which looks exactly like an empty map.
+                 */
+                'reliability' => ValueTrustTool::gradeFor($context, $id)
+                    ?: ValueTrustTool::UNRATED,
+            );
+        }
+        /*
+         * Widest reporter first, which is the order the ledger's own
+         * evidence line names them in.
+         */
+        usort($rows, function ($a, $b) {
+            if ($a['occurrences'] !== $b['occurrences']) {
+                return $b['occurrences'] - $a['occurrences'];
+            }
+            return strcasecmp($a['org'], $b['org']);
+        });
+        return $rows;
+    }
+
+    /**
+     * One organisation's `to_ids` stance in a word.
+     *
+     * `mixed` is a real answer rather than a rounding: an organisation
+     * with the value twice, actionable once, has not made one decision
+     * about it, and the lean counts stances per organisation for the
+     * same reason (`04-dispositions.md` §2).
+     *
+     * @param array $org A context org row
+     * @return string
+     */
+    private function verdictStanceWord(array $org)
+    {
+        $yes = (int)$org['to_ids_yes'];
+        $no = (int)$org['to_ids_no'];
+        if ($yes > 0 && $no > 0) {
+            return __('mixed');
+        }
+        if ($yes > 0) {
+            return __('yes');
+        }
+        if ($no > 0) {
+            return __('no');
+        }
+        return __('none');
+    }
+
+    /**
+     * The warninglist band: the hit that decided the category.
+     *
+     * One band and not a list, because the band is a *side talking* and
+     * the side is the category — so the hit shown is one that resolved
+     * to the category the context settled on, and `false_positive`
+     * outranks `known` there for the reason `verdictWarninglist()`
+     * gives. A value matching three `known` lists is not three
+     * arguments.
+     *
+     * The note is `WarninglistCategory`'s, not this method's: what a
+     * category claims is knowledge about the category.
+     *
+     * @param array $context
+     * @return array|null
+     */
+    private function verdictWarninglistBand(array $context)
+    {
+        $block = isset($context['warninglist'])
+            ? $context['warninglist']
+            : array();
+        $category = isset($block['category']) ? $block['category'] : null;
+        if ($category === null || empty($block['hits'])) {
+            return null;
+        }
+        foreach ($block['hits'] as $hit) {
+            if ($hit['category'] !== $category) {
+                continue;
+            }
+            return array(
+                'name' => $hit['name'],
+                'version' => $hit['version'],
+                'category' => $category,
+                'matched' => $hit['matched'],
+                'type' => $hit['type'],
+                'note' => WarninglistCategory::note($category),
+            );
+        }
+        return null;
+    }
+
+    /**
+     * The rail's chart: shelf life over the last 90 days.
+     *
+     * **What this card used to draw cannot be drawn.** The fixture
+     * plotted a synthesised verdict against a dashed NIDS decay score:
+     * the second is retired by D7, and the first is a *history of
+     * verdicts*, which nothing has — this page computes at render and
+     * stores nothing (`01-profile.md` §5.5), so there is no yesterday
+     * to plot. Phase 10's materialisation is the first thing that could
+     * make one, and it stores a current row rather than a series.
+     *
+     * So the card draws the one quantity on this tab that genuinely has
+     * ninety days behind it: the relevance runway, which is
+     * `06-staleness.md` §4.2's *remaining shelf life* — computed from
+     * dates rather than from stored scores, which is why it can be
+     * reconstructed for any past day and the quality cannot. It is also
+     * the only place the Verdict tab says anything at all about the
+     * second of D11's three axes.
+     *
+     * @param array $verdict Carrying the `relevance` block
+     * @return array `curves`, `curves_span`, `curves_note`
+     */
+    private function verdictCurves(array $verdict)
+    {
+        $relevance = isset($verdict['relevance'])
+            ? $verdict['relevance']
+            : array();
+        if (empty($relevance) || empty($relevance['state'])) {
+            return array();
+        }
+        $grid = $this->verdictDayGrid(self::VERDICT_CURVE_DAYS);
+        $points = ValueRelevanceTool::runwaySeries($relevance, $grid);
+        $drawn = false;
+        foreach ($points as $i => $point) {
+            if ($point === null) {
+                continue;
+            }
+            $drawn = true;
+            $points[$i] = (int)round($point * 100);
+        }
+        if (!$drawn) {
+            return array();
+        }
+        return array(
+            'curves' => array(array(
+                'label' => __('Shelf life left'),
+                'colour' => 'var(--vp-relevance, var(--sighting))',
+                'data' => $points,
+            )),
+            'curves_span' => __('90 days'),
+            'curves_note' => __(
+                'Remaining shelf life against this value\'s TTL, day by'
+                . ' day. It climbs when something independent'
+                . ' corroborates the value and falls with time alone;'
+                . ' reaching zero is the assessment expiring, not the'
+                . ' value becoming benign.'
+            ),
+        );
+    }
+
+    /**
+     * One unix stamp per day for the last `$days`, oldest first.
+     *
+     * `dayGrid()`'s sibling for a fixed window rather than a measured
+     * span. The chart's labels are computed from the point count on the
+     * assumption that the series spans 90 days
+     * (`value_verdict_curves.ctp`), so the window is the constant and
+     * the grid follows it.
+     *
+     * @param int $days
+     * @return array
+     */
+    private function verdictDayGrid($days)
+    {
+        $now = time();
+        $grid = array();
+        for ($back = $days - 1; $back >= 0; $back--) {
+            $grid[] = $now - ($back * 86400);
+        }
+        return $grid;
     }
 
     /**
@@ -13389,6 +13686,11 @@ class ValueProfile extends AppModel
                  */
                 'category_source' => $answer['source'],
                 'matched' => $hit['matched'] ?? null,
+                // The band's two remaining fields (phase 9). No signal
+                // reads either; they are what the hit looks like on the
+                // page rather than what it is worth.
+                'version' => $hit['version'] ?? null,
+                'type' => $hit['type'] ?? null,
             );
         }
         $category = null;

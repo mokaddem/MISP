@@ -260,6 +260,49 @@ class WarninglistCategory
     }
 
     /**
+     * What a category does and does not claim, in prose.
+     *
+     * **This is the signal on the page most routinely read backwards**,
+     * and the band that carries it exists to say so
+     * (`value_verdict_warninglist.ctp`). A hit is not a verdict about
+     * the organisations that reported the value: `known` says an action
+     * against this value will land on unrelated services too, and
+     * `false_positive` says reports about it are usually collateral.
+     * Neither says the reporting was wrong, and both sentences end by
+     * saying that outright.
+     *
+     * It lives here rather than in the template because it is knowledge
+     * about a category — the same reason `KNOWN_LISTS` is here — and
+     * because the band is rendered from two layouts. A category with no
+     * note gets none rather than a guessed one, which is the treatment
+     * §4 gives every other unknown value.
+     *
+     * @param string|null $category
+     * @return string|null
+     */
+    public static function note($category)
+    {
+        if ($category === self::KNOWN) {
+            return __(
+                'Category `known` means widely-used infrastructure, not'
+                . ' a false positive. The hit says an action against'
+                . ' this value will hit unrelated services too — it does'
+                . ' not say the reports are wrong.'
+            );
+        }
+        if ($category === self::FALSE_POSITIVE) {
+            return __(
+                'Category `false_positive` means reports about this'
+                . ' value are usually collateral — the sample really did'
+                . ' touch it, and it is still not the indicator. It does'
+                . ' not say the reporting organisations were wrong about'
+                . ' their incidents.'
+            );
+        }
+        return null;
+    }
+
+    /**
      * Whether V1 can retire: every roster entry's database row already
      * carries the category this map hardcodes.
      *

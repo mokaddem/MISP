@@ -90,6 +90,18 @@ class ValueWarninglistTool
 
         $warninglist->attachWarninglistToAttributes($probes);
 
+        /*
+         * **Two fields core does not hand back.** A match carries the
+         * list's id, name and category and nothing else, but the band
+         * on the verdict tab names the version it matched against and
+         * says *how* it matched — `cidr`, `substring`, `regex` — and
+         * both are columns on the row the matcher already had in hand.
+         * Read back from the enabled roster rather than by id, because
+         * the roster is the set the match came out of and the read is
+         * the same one `enabledCount()` makes.
+         */
+        $roster = self::rosterFrom($warninglist);
+
         $hits = array();
         foreach ($probes as $probe) {
             if (empty($probe['warnings'])) {
@@ -127,13 +139,24 @@ class ValueWarninglistTool
                     'comment' => isset($warning['comment'])
                         ? $warning['comment']
                         : null,
+                    'type' => isset($roster[$id]['type'])
+                        ? $roster[$id]['type']
+                        : null,
+                    // Filled below; the roster cannot answer it.
+                    'version' => null,
                 );
             }
         }
+        $versions = self::versionsFor($warninglist, $hits);
         foreach ($hits as $value => $lists) {
             usort($lists, function ($a, $b) {
                 return strcasecmp($a['name'], $b['name']);
             });
+            foreach ($lists as $i => $hit) {
+                $lists[$i]['version'] = isset($versions[$hit['id']])
+                    ? $versions[$hit['id']]
+                    : null;
+            }
             $hits[$value] = $lists;
         }
         return $hits;
@@ -152,5 +175,85 @@ class ValueWarninglistTool
     public static function enabledCount($warninglist)
     {
         return count($warninglist->getEnabled());
+    }
+
+    /**
+     * The enabled lists, keyed by id, with the two fields a match does
+     * not carry.
+     *
+     * `getEnabled()` is MISP's own cached read and `enabledCount()`
+     * above already makes it a second time, so this adds a lookup
+     * rather than a query. The shape it returns is
+     * `[['Warninglist' => [...], 'types' => [...]], …]`, which
+     * `Warninglist::attachWarninglistToAttributes` reads the same way.
+     *
+     * @param object $warninglist The Warninglist model
+     * @return array id => `type`, `name`
+     */
+    public static function rosterFrom($warninglist)
+    {
+        $roster = array();
+        foreach ($warninglist->getEnabled() as $row) {
+            if (empty($row['Warninglist']['id'])) {
+                continue;
+            }
+            $list = $row['Warninglist'];
+            $roster[(int)$list['id']] = array(
+                /*
+                 * How the list matches, in MISP's own vocabulary. Not
+                 * the attribute type and not the category — the column
+                 * is `warninglists.type` and it holds `cidr`, `string`,
+                 * `substring` or `regex`.
+                 */
+                'type' => isset($list['type']) ? $list['type'] : null,
+                'name' => isset($list['name']) ? $list['name'] : null,
+            );
+        }
+        return $roster;
+    }
+
+    /**
+     * The matched lists' versions, which the enabled roster does not
+     * carry.
+     *
+     * **One query, and only where something matched.**
+     * `getEnabledAndCacheWarninglist()` selects `id, name, type,
+     * category` and serialises that into redis, so `version` is not in
+     * the cached shape and widening core's field list to serve one band
+     * would change what every caller of `getEnabled()` deserialises. A
+     * keyed read on the matched ids is the smaller change: most values
+     * hit no list at all and pay nothing, and a value that hit one is
+     * already paying for `assignComments`.
+     *
+     * The version is worth the read because it is what the match was
+     * made against — *v20250802* dates the claim, and a band naming a
+     * list with no version invites the reader to assume it is current.
+     *
+     * @param object $warninglist The Warninglist model
+     * @param array $hits value => list of hits, each with an `id`
+     * @return array id => version
+     */
+    private static function versionsFor($warninglist, array $hits)
+    {
+        $ids = array();
+        foreach ($hits as $lists) {
+            foreach ($lists as $hit) {
+                $ids[(int)$hit['id']] = true;
+            }
+        }
+        if (empty($ids)) {
+            return array();
+        }
+        $rows = $warninglist->find('all', array(
+            'recursive' => -1,
+            'fields' => array('Warninglist.id', 'Warninglist.version'),
+            'conditions' => array('Warninglist.id' => array_keys($ids)),
+        ));
+        $versions = array();
+        foreach ($rows as $row) {
+            $versions[(int)$row['Warninglist']['id']] =
+                $row['Warninglist']['version'];
+        }
+        return $versions;
     }
 }

@@ -171,6 +171,19 @@ after the tab had stopped — a full ledger beside a zero-byte column,
 and a 200 with an empty body passes every assertion that does not
 measure a size.
 
+**Five of the thirteen keys landed the same day** (§9 there) — *Who
+says what*, the warninglist band and the rail's chart, all folded from
+the context the engine scored rather than queried again. The
+organisations table and the ledger row beside it count the same eight
+organisations, which the probe now asserts instead of the docblock
+arguing for it. And one of the five turned out not to be derivable:
+**a verdict over time cannot be drawn**, because the page stores
+nothing and phase 10 stores a current row rather than a series, so the
+card draws the **relevance runway** — reconstructed from dates rather
+than from scores, and the only thing the Verdict tab says about the
+second of D11's three axes. It agrees with the Sightings tab's
+relevance card to the percentage point, across two requests.
+
 **Phase 8 is three passes, split 2026-09-07** (`09-editor.md` §1.1). It is the
 first phase of this corpus whose deliverable is a *look* rather than a
 computation. **8a** is the contract — the controller, the ACL, the mechanics,

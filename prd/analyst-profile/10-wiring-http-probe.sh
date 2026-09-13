@@ -214,6 +214,152 @@ else
     ok "score bar width is clamped"
 fi
 
+# ------------------------------------------- 6. the derived display keys
+echo "--- who says what, counted against the ledger that cites it"
+python3 - "$TAB" <<'PY'
+import re
+import sys
+
+tab = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+fails = 0
+
+# One <tr> per organisation in the table body of the *Who says what*
+# card. The card is the last table on the page and its first column is
+# the organisation, so count the rows that carry the semibold name cell.
+rows = re.findall(r'<td class="fw-semibold">([^<]*)</td>', tab)
+claim = re.search(r'(\d+) independent organisations? reported it', tab)
+
+print('organisations in the table: %d %s' % (len(rows), rows[:6]))
+print('organisations the ledger claims: %s'
+      % (claim.group(1) if claim else 'no such row'))
+
+if not rows:
+    print('FAIL the Who says what card rendered no organisation')
+    fails += 1
+elif claim is not None:
+    # The table and `reporting.independent_orgs` are folded from one
+    # context. A card beside an argument that counts differently from it
+    # is the hazard this whole panel exists to avoid.
+    if len(rows) == int(claim.group(1)):
+        print('ok   the table and the ledger count the same organisations')
+    else:
+        print('FAIL table has %d, ledger claims %s'
+              % (len(rows), claim.group(1)))
+        fails += 1
+else:
+    print('ok   no reporting row to cross-check (table has %d)' % len(rows))
+
+# Every row carries all five fixed columns; `opinion` is the one with no
+# producer and it must read as *none stated* rather than as a zero.
+if rows and 'none stated' not in tab:
+    print('FAIL no opinion cell says "none stated" — a null opinion is'
+          ' being drawn as a number')
+    fails += 1
+elif rows:
+    print('ok   an unstated opinion says so rather than scoring 0')
+
+sys.exit(1 if fails else 0)
+PY
+if [ $? -eq 0 ]; then ok "the organisations table"; \
+    else no "the organisations table"; fi
+
+echo "--- the warninglist band"
+if grep -qF 'vp-vc-warninglist' "$TAB"; then
+    if grep -qE 'v[0-9]{6,}' "$TAB"; then
+        ok "the band names the version it matched against"
+    else
+        no "the band drew 'v' with no version after it"
+    fi
+    if grep -qE 'Category .(known|false_positive). means' "$TAB"; then
+        ok "the band says what the category does not claim"
+    else
+        no "the band carries no category note"
+    fi
+    if grep -qE 'matched (exactly|by CIDR|as a substring|by pattern)' \
+        "$TAB"; then
+        ok "the band says how the value matched"
+    else
+        no "the band does not say how the value matched"
+    fi
+else
+    ok "no warninglist hit on $SUBJECT, so no band (not a failure)"
+fi
+
+echo "--- the shelf-life chart"
+python3 - "$ASIDE" <<'PY'
+import json
+import re
+import sys
+
+aside = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+fails = 0
+
+if 'Shelf life' not in aside:
+    print('ok   no runway to draw on this value (not a failure)')
+    sys.exit(0)
+
+# The card retains the old vocabulary nowhere: there is no verdict
+# history to plot, so a line labelled for one would be invented data.
+for dead in ('Verdict over time', 'NIDS decay', 'decay score'):
+    if dead in aside:
+        print('FAIL the card still says %r' % dead)
+        fails += 1
+
+points = re.findall(r'"data":\s*(\[[^\]]*\])', aside)
+if not points:
+    print('FAIL no chart series in the payload')
+    fails += 1
+else:
+    series = json.loads(points[0])
+    print('series length: %d, last point: %r' % (len(series), series[-1]))
+    if len(series) == 90:
+        print('ok   ninety days, which is what the labels assume')
+    else:
+        print('FAIL series has %d points, the labels assume 90'
+              % len(series))
+        fails += 1
+    drawn = [p for p in series if p is not None]
+    if not drawn:
+        print('FAIL every point is null — the card drew an empty chart')
+        fails += 1
+    elif all(0 <= p <= 100 for p in drawn):
+        print('ok   every drawn point is a percentage of shelf life')
+    else:
+        print('FAIL a point is outside 0-100: %r'
+              % [p for p in drawn if not 0 <= p <= 100][:3])
+        fails += 1
+
+sys.exit(1 if fails else 0)
+PY
+if [ $? -eq 0 ]; then ok "the shelf-life chart"; else no "the shelf-life chart"; fi
+
+# The chart's last point is *today's* shelf life, and the Sightings
+# tab's relevance card draws the same quantity as a bar. Two endpoints,
+# two requests, one axis: if they disagree the page is telling a reader
+# two things about how long this value has. Phase 5 §7.2 shipped exactly
+# this bug once — 79% drawn under 46% printed — which is why it is
+# asserted across the panels rather than inside one.
+echo "--- and the relevance card on the Sightings tab agrees with it"
+RELV="$WORK/scored-viewRelevance.html"
+if [ "$(fetch viewRelevance "$SUBJECT" "$RELV")" = "200" ]; then
+    # Both flattened first. The chart's series is one JSON array and the
+    # card's bar is an attribute split across two lines, and grep is
+    # line-based — the same trap §8.4 records for the score.
+    CHART=$(tr '\n' ' ' < "$ASIDE" \
+        | grep -o '"data": *\[[^]]*\]' | head -1 \
+        | sed 's/.*,//;s/[^0-9-]//g')
+    BAR=$(tr '\n' ' ' < "$RELV" \
+        | grep -o 'vp-shelf-fill"[^>]*width: *[0-9]*%' \
+        | grep -o '[0-9]*%' | tr -d '%' | head -1)
+    if [ -z "$CHART" ] || [ -z "$BAR" ]; then
+        ok "no shelf life drawn on both panels for $SUBJECT (skipped)"
+    else
+        is "today's shelf life, chart vs relevance card" "$CHART" "$BAR"
+    fi
+else
+    no "viewRelevance did not answer"
+fi
+
 echo
 echo "passed: $PASSED   failed: $FAILED"
 [ "$FAILED" -eq 0 ]

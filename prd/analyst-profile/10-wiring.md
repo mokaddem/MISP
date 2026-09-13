@@ -1,7 +1,8 @@
 # PRD: Analyst Profile — phase 9, wiring the Verdict tab live
 
-**Building since 2026-09-13. The spine is in (§8); the thirteen keys, the
-copy pass, the rename and the hero are not (§9).** Depends on phases 1–5.
+**Building since 2026-09-13. The spine is in (§8) and five of the thirteen
+keys with it (§9); eight keys, the copy pass, the rename and the hero are
+not (§10).** Depends on phases 1–5.
 Phase 6 is not a hard prerequisite but the conflict escalation cannot fire
 without it. **Every phase it depends on is built**, and phase 8 landed
 beside them.
@@ -177,7 +178,9 @@ removal this phase's work and not a later tidy-up.
 - **Five are derivable from tools phases 5 and 6 already shipped** — `orgs`
   from the stances, the grades and the per-org tallies; `warninglist` from
   `WarninglistCategory`; `curves`, `curves_span` and `curves_note` from
-  `runwaySeries()`. Work, but no decisions.
+  `runwaySeries()`. Work, but no decisions. **Built 2026-09-13 (§9)** — with
+  one decision after all, since *a verdict over time* turned out not to be
+  derivable at all and the card draws shelf life instead (§9.4).
 - **One is a copy change this document already schedules** — `composition_note`
   is §3's *"An instance admin can edit the profile"* row.
 - **One is out of scope and should stay empty** — `resolutions`, per
@@ -615,18 +618,121 @@ modules service, phase 7 §7.6's diagnostic counting its own prose, and
 this — which is enough that a new probe should assume it until it has
 proved otherwise.
 
-## 9. What is still ahead
+## 9. The five derivable keys, built 2026-09-13
 
-The spine is the phase's first increment and not the phase. In build
-order, and none of it blocked on anything outside this corpus:
+§2.2's first group, answered. `ValueProfile::verdictPanels()` is where the
+display keys the engine does not emit are folded out of the context it
+scored — **derived, never invented**, and it takes no `$user`, because
+everything it reads was already scoped to the viewer (§14.5).
 
-1. **The five derivable keys** (§2.2) — `orgs` from the stances, the
-   trust grades and the `by_org` / `by_org_fp` tallies the context
-   already carries; `warninglist` from `WarninglistCategory`; the three
-   `curves*` keys from `runwaySeries()`. The *Who says what* card is the
-   biggest of these and still needs one aggregate that does not exist:
-   a per-organisation opinion, which the Collaboration tab's rows can
-   answer.
+| Key | Producer | Notes |
+|---|---|---|
+| `orgs` | `verdictOrgTable()` | Name and occurrences from the context's org rows, sightings and false positives from `sightings.by_org` / `by_org_fp`, the stance from the two `to_ids` tallies, the grade from `ValueTrustTool::gradeFor()`. Widest reporter first |
+| `warninglist` | `verdictWarninglistBand()` | The hit that resolved to the category the context settled on, plus `WarninglistCategory::note()` |
+| `curves`, `curves_span`, `curves_note` | `verdictCurves()` | The relevance runway over 90 days, from `ValueRelevanceTool::runwaySeries()` |
+
+**Eight keys remain** (§10). Five is what phases 5 and 6 made answerable and
+the count has not moved since: nothing here produced `summary`, `cases`,
+`conflicts`, `ambiguities`, `changer_actions` or `opinions`.
+
+Verified by **six new checks** in `10-wiring-http-probe.sh`, 49 in total on a
+value that hits a warninglist and 47 on one that does not — plus the eight
+harnesses unchanged at 828 and `09c-wiring-harness.php` at 97.
+
+### 9.1 The card and the argument count the same organisations
+
+The probe's strongest new assertion, and the reason the table is folded from
+the context rather than queried: *Who says what* lists **8** organisations for
+`8.8.8.8`, and the ledger row beside it reads *"8 independent organisations
+reported it"*. They are the same eight because `reporting.independent_orgs`
+and this table read one context. A card beside an argument that counts
+differently from it is the hazard this panel exists to avoid, and it is now
+asserted on every run rather than argued for in a docblock.
+
+### 9.2 `opinion` is the column with no source, and it says so
+
+Five columns are fixed in the table and four of them fold cleanly. The fifth
+is the per-organisation opinion, and **nothing aggregates one**: MISP holds
+analyst opinions and this page already reads them for Collaboration and the
+Timeline, but per organisation and per value is not computed anywhere.
+
+It renders *none stated*, which the template already had a branch for. The
+alternative was zero, and **zero is an opinion** — the strongest available
+disagreement — so a value nobody has opined on would have read as a value
+eight organisations thought worthless.
+
+### 9.3 An ungraded organisation is `unrated`, not blank
+
+`ValueTrustTool::gradeFor()` answers `null` for an organisation the analyst
+has not graded, and `null` is not a grade. The column shows `unrated`, which
+is the scale's own word for it and — this is the part that matters — **the
+grade the engine actually weighted that organisation with**:
+`ValueTrustTool::factor()` falls back to `factorForGrade($plan, UNRATED)` for
+exactly the same rows. A blank cell would have implied a missing lookup; the
+word says the analyst has expressed no opinion, which is true and is what the
+ledger counted.
+
+Found while writing it: `gradeFor()` takes the **whole context**, not the
+trust block — `blockFrom()` reads `$context['trust']` itself, so handing it
+the block makes it look for `trust.trust`, miss, and grade every organisation
+null. That reads exactly like an empty map, which is also the true state of
+this instance, so the bug and the correct answer were indistinguishable on the
+page. Caught by reading `blockFrom()` rather than by the render.
+
+### 9.4 There is no verdict over time, so the card draws shelf life
+
+**§3's row said the `NIDS decay score` curve becomes the TTL runway. Building
+it showed the other curve cannot survive either.** The card plotted two lines:
+a dashed NIDS decay score, retired by D7, and a *synthesised verdict* over 90
+days — a history of verdicts. Nothing has one. The page computes at render and
+stores nothing (`01-profile.md` §5.5), so there is no yesterday's score to
+plot, and phase 10's materialisation stores a current row rather than a
+series. A 90-day quality history would mean re-scoring the value ninety times
+against ninety reconstructed contexts, which is not a chart, it is a batch job.
+
+The runway survives because it is **reconstructed from dates rather than from
+stored scores** — `runwaySeries()` walks a day grid and asks what the shelf
+life was on each one — which is precisely why one axis can be drawn backwards
+and the other cannot. So the card is one line, titled *Shelf life*, and it is
+also the only thing the Verdict tab says about the second of D11's three axes.
+
+`06-staleness.md` §4.2 asked for *evidence strength against remaining shelf
+life*, two quantities. It gets one, and the other half of the sentence is the
+ledger and the composition sitting on the same rail.
+
+### 9.5 Two panels, one axis, asserted across the gap
+
+The chart's last point is today's shelf life, and the Sightings tab's
+relevance card draws the same quantity as a bar. They are separate endpoints
+in separate requests, and the probe now reads both and compares: **77 and 77**
+on `8.8.8.8`, 18 and 18 on a value most of the way through its TTL, 0 and 0 on
+an expired one.
+
+This is asserted across the panels rather than inside one because phase 5
+§7.2 shipped exactly this bug: 79% drawn under 46% printed, the assumed days
+riding the series but not the bar. A check inside either panel would have
+passed.
+
+### 9.6 The version is not in the shape core caches
+
+The band names the list version it matched against, and
+`Warninglist::getEnabledAndCacheWarninglist()` selects `id, name, type,
+category` and serialises *that* into redis — so `version` is not available
+from the roster every match already comes out of. Widening core's field list
+would change what every caller of `getEnabled()` deserialises, for one band.
+
+`ValueWarninglistTool::versionsFor()` reads it instead: one keyed query on the
+matched ids, made only where something matched, which is a minority of values
+and always one already paying for `assignComments`. The first render drew
+`v` with nothing after it, which is how this was found — a template printing a
+prefix it has no value for.
+
+## 10. What is still ahead
+
+Two increments in, and none of what is left is blocked on anything
+outside this corpus:
+
+1. ~~**The five derivable keys**~~ — **done, §9.**
 2. **The copy pass** (§3), which is mechanical now that the page is live
    and the strings are countable.
 3. **D11's rename** — the Verdict tab becomes the Assessment tab and
@@ -641,6 +747,12 @@ order, and none of it blocked on anything outside this corpus:
 6. **The query counts.** `../value-profile-live/00-contract.md` §14.12's
    four verdict rows now name a phase and still carry `—` in `Q`, which
    is a state that board did not have before this phase put them in it.
-   Every other live phase measured; this one owes it.
+   Every other live phase measured; this one owes it — and §9 added a
+   query to the context on the values that hit a warninglist, so the
+   measurement wants taking after the copy pass rather than before.
+7. **A per-organisation opinion aggregate**, if *Who says what*'s fifth
+   column is to say anything (§9.2). Small, and the rows exist; it is
+   listed last because *none stated* is already true rather than a
+   placeholder.
 
 Q9 is unchanged and still recommends C, now at a known cost (§4).

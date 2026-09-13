@@ -241,6 +241,20 @@ that the rail kept branching on the disposition after the tab had stopped, so
 a full ledger rendered beside a zero-byte column — and that a 200 with an
 empty body passed every assertion the first probe made.
 
+**Five of the thirteen keys landed the same day** (§9 there): *Who says what*,
+the warninglist band, and the rail's chart. Two things came out of building
+them. **The organisations table and the ledger row beside it count the same
+eight organisations**, because both are folded from one context — asserted now
+rather than argued for. And **a verdict over time cannot be drawn at all**:
+the card used to plot a synthesised verdict history, the page stores nothing
+(§5.5), and phase 10 stores a current row rather than a series — so what has
+ninety days behind it is the relevance runway, which is reconstructed from
+dates rather than from scores. The card draws shelf life, which is also the
+only thing the Verdict tab says about the second of D11's three axes; it
+agrees with the Sightings tab's relevance card to the percentage point, across
+two requests, which is the bug phase 5 §7.2 shipped once and is now asserted
+across the gap.
+
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
 same login: `ValuesController` set its theme only when the reader had
@@ -286,7 +300,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **building since 2026-09-13.** Read back first — eight findings in §7 there, the load-bearing one being that thirteen of the twenty-five keys the templates read have no producer. **The spine is in** (§8): `forVerdict()`, the three endpoints off the fixture, and the ledger summing to the score *on the rendered page*. 43 new checks over HTTP; the corpus's eight harnesses unchanged at 828. §9 is what remains |
+| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | **building since 2026-09-13.** Read back first — eight findings in §7 there, the load-bearing one being that thirteen of the twenty-five keys the templates read have no producer. **The spine is in** (§8) — `forVerdict()`, the three endpoints off the fixture, and the ledger summing to the score *on the rendered page* — **and five of the thirteen keys with it** (§9): the organisations table, the warninglist band and the rail's shelf-life chart. 49 checks over HTTP; the corpus's eight harnesses unchanged at 828. §10 is what remains |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table
