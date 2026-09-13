@@ -267,6 +267,15 @@ function context(array $extra = array())
  * @param string $id
  * @return array|null
  */
+/**
+ * A row by signal id, from either axis.
+ *
+ * `sightings.false_positive` left the ledger with
+ * `review-2026-09-13.md` §D1 — it is one of the two signals that read
+ * the value rather than weigh the record, so it anchors and it lives
+ * in `lean_ledger`. Trust weighting reaches it exactly as before; only
+ * where the finished row is filed changed.
+ */
 function rowFor(array $verdict, $id)
 {
     foreach ($verdict['ledger'] as $group) {
@@ -274,6 +283,11 @@ function rowFor(array $verdict, $id)
             if (($row['id'] ?? null) === $id) {
                 return $row;
             }
+        }
+    }
+    foreach ($verdict['lean_ledger'] ?? array() as $row) {
+        if (($row['id'] ?? null) === $id) {
+            return $row;
         }
     }
     return null;

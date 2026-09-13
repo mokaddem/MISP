@@ -369,9 +369,22 @@ function ledgerSum(array $verdict)
     return $sum;
 }
 
+/**
+ * A row by signal id, from either axis.
+ *
+ * The lean rows left the ledger with `review-2026-09-13.md` §D1 — the
+ * table sums to the quality alone now, and what reads the value is in
+ * `lean_ledger` — so a lookup that only walked the ledger would answer
+ * null for the two signals whose anchoring this file is most
+ * interested in.
+ */
 function rowById(array $verdict, $id)
 {
-    foreach (ledgerRows($verdict) as $row) {
+    $rows = array_merge(
+        ledgerRows($verdict),
+        isset($verdict['lean_ledger']) ? $verdict['lean_ledger'] : array()
+    );
+    foreach ($rows as $row) {
         if ($row['id'] === $id) {
             return $row;
         }
@@ -398,8 +411,24 @@ function rowById(array $verdict, $id)
  * @param int $polarity The lean's polarity; -1 flips the declaration
  * @return array Profile entries for the stub signal
  */
-function fixtureEntries(array $rows, $polarity)
-{
+/**
+ * The fixture's authored rows as profile entries.
+ *
+ * **It used to pre-multiply by the lean's polarity** so that the
+ * engine's anchoring would undo it and arrive back at the authored
+ * number. That is gone with the anchoring it was compensating for:
+ * `review-2026-09-13.md` §D1 anchors only the rows that read the
+ * value, and a fixture ledger replayed as a catalogue of quality
+ * signals keeps the sign it was authored with on either lean. Which is
+ * the property this block now asserts, rather than the one it used to
+ * arrange for.
+ *
+ * @param array $rows
+ * @param string $axis Which of D11's axes to declare the rows on
+ */
+function fixtureEntries(array $rows,
+    $axis = ValueVerdictTool::AXIS_QUALITY
+) {
     $entries = array();
     foreach ($rows as $row) {
         $entries[] = array(
@@ -410,9 +439,10 @@ function fixtureEntries(array $rows, $polarity)
             'config' => array('row' => array(
                 'signal' => $row[3],
                 'evidence' => 'harness',
-                'contribution' => (int)$row[2] * $polarity,
+                'contribution' => (int)$row[2],
                 'source' => 'Occurrences',
                 'as_of' => '2025-08-19',
+                'axis' => $axis,
             )),
         );
     }
@@ -462,6 +492,50 @@ function fluxFixtureRows()
 }
 
 out('');
+out('the axis constants, which exist in two places');
+
+/*
+ * `ValueVerdictTool` mirrors `ValueSignalBase`'s two axis constants
+ * rather than naming the class, because the path it takes for a value
+ * with nothing to assess never loads the signal base — the loader
+ * `include_once`s it at first scan, and that path never scans. A
+ * mirror is the cheap fix and this is the cheap check on it.
+ */
+is_same(
+    ValueSignalBase::AXIS_LEAN,
+    ValueVerdictTool::AXIS_LEAN,
+    'the engine and the signal base agree on AXIS_LEAN'
+);
+is_same(
+    ValueSignalBase::AXIS_QUALITY,
+    ValueVerdictTool::AXIS_QUALITY,
+    'and on AXIS_QUALITY'
+);
+/*
+ * And which of the shipped catalogue is on which axis — the list D11
+ * §2.1 names, asserted rather than assumed, because a signal quietly
+ * joining the lean axis would put the polarity back on a row that
+ * weighs the record.
+ */
+useRealCatalogue();
+ValueSignalLoader::forget();
+$leanSignals = array();
+foreach (ValueSignalLoader::catalogue() as $id => $config) {
+    if (isset($config['axis'])
+        && $config['axis'] === ValueSignalBase::AXIS_LEAN
+    ) {
+        $leanSignals[] = $id;
+    }
+}
+sort($leanSignals);
+is_same(
+    array('lifecycle.warninglist', 'sightings.false_positive'),
+    $leanSignals,
+    'exactly two shipped signals read the value; the other nine weigh'
+        . ' the record'
+);
+
+out('');
 out('§9.2 — the fixture ledgers sum to the numbers on the page');
 
 useHarnessCatalogue();
@@ -475,16 +549,16 @@ ValueSignalLoader::forget();
 $tool = new ValueVerdictTool();
 
 $cases = array(
-    array('185.234.219.24', maliciousFixtureRows(), 'threat', 1, 84),
-    array('45.155.205.233', fluxFixtureRows(), 'threat', 1, 93),
-    array('8.8.8.8', benignFixtureRows(), 'benign', -1, 91),
+    array('185.234.219.24', maliciousFixtureRows(), 'threat', 84),
+    array('45.155.205.233', fluxFixtureRows(), 'threat', 93),
+    array('8.8.8.8', benignFixtureRows(), 'benign', 91),
 );
 foreach ($cases as $case) {
-    list($value, $rows, $lean, $polarity, $expected) = $case;
+    list($value, $rows, $lean, $expected) = $case;
     $profile = array(
         'name' => 'harness',
         'parameters' => array(
-            'signals' => fixtureEntries($rows, $polarity),
+            'signals' => fixtureEntries($rows),
             'thresholds' => array(
                 'quality_bands' => array('high' => 60, 'medium' => 30),
                 'quality_high_min_signals' => 4,
@@ -500,6 +574,26 @@ foreach ($cases as $case) {
         $expected,
         $verdict['quality'],
         sprintf('%s: the ledger sums to %d', $value, $expected)
+    );
+    /*
+     * And sums to the same against the opposite lean, which is the
+     * property `review-2026-09-13.md` §A1 was about. The benign
+     * fixture is the case that used to need the polarity trick to
+     * reach 91: its rows weigh a record, and a record does not get
+     * thinner because the reading above it changed.
+     */
+    $opposite = $tool->assess(
+        emptyContext(),
+        $profile,
+        array('lean' => $lean === 'benign' ? 'threat' : 'benign')
+    );
+    is_same(
+        $expected,
+        $opposite['quality'],
+        sprintf(
+            '%s: and sums to the same under the opposite lean',
+            $value
+        )
     );
     is_same(
         $verdict['quality'],
@@ -557,7 +651,7 @@ $negative = $tool->assess(
         'signals' => fixtureEntries(array(
             array('Reporting', 'strong', 12, 'thin support'),
             array('Sightings', 'strong', -30, 'contradicted'),
-        ), 1),
+        )),
     )),
     array('lean' => 'threat')
 );
@@ -582,7 +676,7 @@ $zero = $tool->assess(
         'signals' => fixtureEntries(array(
             array('Reporting', 'strong', 12, 'support'),
             array('Sightings', 'strong', -12, 'dispute'),
-        ), 1),
+        )),
     )),
     array('lean' => 'threat')
 );
@@ -605,7 +699,7 @@ $unknown = $tool->assess(
         'signals' => array_merge(
             fixtureEntries(array(
                 array('Reporting', 'strong', 20, 'a signal that ran'),
-            ), 1),
+            )),
             array(array('id' => 'reporting.from_a_plugin',
                 'points' => array('per' => 5)))
         ),
@@ -697,7 +791,7 @@ foreach (array(
                 fixtureEntries(array(
                     array('Reporting', 'strong', 20, 'a real row'),
                     array('Sightings', 'moderate', -5, 'another'),
-                ), 1),
+                )),
                 array(
                     array('id' => 'harness.throws'),
                     array('id' => 'harness.malformed',
@@ -795,7 +889,7 @@ $collided = $tool->assess(
     array('name' => 'harness', 'parameters' => array(
         'signals' => fixtureEntries(array(
             array('Reporting', 'strong', 20, 'the shipped row'),
-        ), 1),
+        )),
     )),
     array('lean' => 'threat')
 );
@@ -823,7 +917,7 @@ $after = $tool->assess(
     array('name' => 'harness', 'parameters' => array(
         'signals' => fixtureEntries(array(
             array('Reporting', 'strong', 20, 'the shipped row'),
-        ), 1),
+        )),
     )),
     array('lean' => 'threat')
 );
@@ -1107,16 +1201,25 @@ is_same(
 );
 
 out('');
-out('the same evidence forced to a benign lean cannot stay benign');
+out('the same evidence forced to a benign lean keeps its record');
 
 /*
- * The anchoring half of this moved to phase 3's harness, which owns
- * both the flip and the rule that intervenes here. Forcing a benign
- * lean on to a record whose every row points at a threat makes the
- * ledger sum to -98, and a ledger that argues that hard against its own
- * lean is the contested state rather than a negative gauge — so what is
- * asserted here is that the accumulator refuses to publish the negative
- * number, not the negation itself.
+ * **This block asserted the opposite until 2026-09-13**, and the
+ * premise it rested on was the defect `review-2026-09-13.md` §A1
+ * found. It forced a benign lean on to the malicious demo context and
+ * expected `contested`, on the reasoning that *a record whose every
+ * row points at a threat cannot be benign*. But those rows do not
+ * point at a threat: five organisations reporting it, seven of eight
+ * events published and a galaxy cluster are statements about how much
+ * record there is, and a forced lean is precisely the caller saying
+ * *score this against a reading I am supplying*.
+ *
+ * So the quality is unchanged — the record did not get thinner — and
+ * rule 7 does not fire, because the only evidence on this context that
+ * actually reads the value is one false-positive sighting, which
+ * argues *for* the benign lean it was forced to. The contested case is
+ * asserted below on a context where lean evidence really does dispute
+ * the reading.
  */
 $flipped = $tool->assess(
     maliciousContext(),
@@ -1124,19 +1227,65 @@ $flipped = $tool->assess(
     array('lean' => 'benign')
 );
 is_same(
-    'contested',
+    'benign',
     $flipped['lean'],
-    'a ledger that disputes its lean lands contested, not negative'
+    'a forced lean its lean evidence does not dispute survives scoring'
 );
 is_same(
     $malicious['quality'],
     $flipped['quality'],
-    'and re-anchors threat-signed, back to the same number'
+    'and the record weighs the same against either reading'
+);
+$flippedFp = rowById($flipped, 'sightings.false_positive');
+is_true(
+    $flippedFp !== null && $flippedFp['direction'] === 'up',
+    'the one row that reads the value flips, and supports the benign'
+        . ' lean it was scored against'
+);
+
+out('');
+out('rule 7 — a lean its own lean evidence disputes');
+
+/*
+ * A false-positive listing under a forced threat lean: `−38` anchored
+ * at `+1` is the record saying *this is not an indicator* while the
+ * reading above it says it is. That is the contradiction rule 7 was
+ * written for, and it is now the only kind that reaches it.
+ */
+$listed = maliciousContext();
+$listed['warninglist'] = array(
+    'hits' => array(array('name' => 'A false-positive list',
+        'category' => 'false_positive')),
+    'lists_checked' => 84,
+    'category' => 'false_positive',
+);
+$disputed = $tool->assess(
+    $listed,
+    $profile,
+    array('lean' => 'threat')
 );
 is_same(
-    'benign',
-    $flipped['derived_lean'],
-    'with the lean it was scored against still on the record'
+    'contested',
+    $disputed['lean'],
+    'a listing disputing a threat assertion lands contested'
+);
+is_same(
+    'lean_disputed',
+    $disputed['decided_by'],
+    'and names the exit, so the band stops citing the lean it replaced'
+);
+is_true(
+    $disputed['lean_weight'] < 0,
+    sprintf(
+        'the lean evidence is what went negative (%d), not the record'
+            . ' (%d)',
+        $disputed['lean_weight'],
+        $disputed['quality']
+    )
+);
+is_true(
+    $disputed['quality'] > 0,
+    'which leaves a well-documented contested value saying so'
 );
 
 out('');

@@ -758,8 +758,18 @@ $benignRows = array(-11, 13, 26, -4, 7, 38, 16, 6);
  * @param array $contributions Threat-signed
  * @return array
  */
-function ledgerProfile(array $contributions)
-{
+/**
+ * @param array $contributions Threat-signed points, one row each
+ * @param string $axis Which of D11's axes to declare them on. The
+ *                     default is the axis nearly every signal is on,
+ *                     and the one the polarity no longer reaches
+ *                     (`review-2026-09-13.md` §D1); the rule-7 and tug
+ *                     blocks below ask for the other, because what
+ *                     they are about is a record *reading* the value.
+ */
+function ledgerProfile(array $contributions,
+    $axis = ValueVerdictTool::AXIS_QUALITY
+) {
     $signals = array();
     foreach ($contributions as $index => $points) {
         $signals[] = array(
@@ -769,6 +779,7 @@ function ledgerProfile(array $contributions)
             'config' => array('row' => array(
                 'signal' => 'row ' . $index,
                 'contribution' => $points,
+                'axis' => $axis,
             )),
         );
     }
@@ -818,19 +829,28 @@ is_same(
 );
 
 /*
- * The benign case. Threat-signed input is the fixture's negation;
- * anchoring to a benign lean flips it back, and the sum is the +91 the
- * page already shows.
+ * The benign case, and the assertion `review-2026-09-13.md` §A1
+ * reversed.
+ *
+ * It used to feed the fixture's benign ledger in negated, so that
+ * anchoring would flip it back to `+91` — which is how the corpus
+ * convinced itself the polarity was harmless. What that arrangement
+ * concealed is what the negation *meant* on a real catalogue: the rows
+ * it flips are corroboration breadth, published ratio, feed presence
+ * and temporal precision, and flipping those makes *four organisations
+ * reported it* an argument against a benign reading.
+ *
+ * So the fixture's rows go in as themselves, on the axis they are
+ * actually on, and what is asserted is that the benign lean does not
+ * touch them: a record weighs what it weighs, and it weighs the same
+ * under either reading.
  */
-$threatSigned = array_map(function ($points) {
-    return -$points;
-}, $benignRows);
-$scored = $tool->assess($context, ledgerProfile($threatSigned),
+$scored = $tool->assess($context, ledgerProfile($benignRows),
     array('lean' => 'benign'));
 is_same(
     91,
     $scored['quality'],
-    'the benign ledger anchors to +91, the number on the page'
+    'the benign ledger sums to +91 without anchoring'
 );
 is_same(
     $scored['quality'],
@@ -843,17 +863,23 @@ is_same(
     array_map(function ($row) {
         return $row['contribution'];
     }, $rows),
-    'every row back to the fixture\'s own value'
+    'every row at the fixture\'s own value, unflipped'
+);
+$underThreat = $tool->assess($context, ledgerProfile($benignRows),
+    array('lean' => 'threat'));
+is_same(
+    91,
+    $underThreat['quality'],
+    'and the same record weighs the same under a threat lean'
 );
 is_same(
-    'down',
-    $rows[0]['direction'],
-    'wide reporting disputes a benign lean'
-);
-is_same(
-    'up',
-    $rows[5]['direction'],
-    'and the warninglist hit supports it'
+    array_map(function ($points) {
+        return $points < 0 ? 'down' : 'up';
+    }, $benignRows),
+    array_map(function ($row) {
+        return $row['direction'];
+    }, $rows),
+    'and every direction is the authored sign, not the lean\'s'
 );
 
 /*
@@ -865,15 +891,28 @@ is_same(
 out('');
 out('§9.3 — a ledger that disputes its own lean');
 
+/*
+ * On the **lean** axis, because that is what rule 7 weighs since
+ * `review-2026-09-13.md` §A2. Against the whole ledger it fired on any
+ * thin record — 55 of the 60 contested values on the verification
+ * instance were that — and a record being thin is a quality band, not
+ * a contradiction.
+ */
 $disputing = $tool->assess(
     $context,
-    ledgerProfile(array(-20, 6, -9)),
+    ledgerProfile(array(-20, 6, -9), ValueVerdictTool::AXIS_LEAN),
     array('lean' => 'threat')
 );
 is_same(
     'contested',
     $disputing['lean'],
-    'rule 7: a threat lean summing below zero is contested'
+    'rule 7: a threat lean whose lean rows sum below zero is contested'
+);
+is_same(
+    'lean_disputed',
+    $disputing['decided_by'],
+    'and the exit is named, so the band stops citing the lean it'
+        . ' replaced'
 );
 is_same(
     'threat',
@@ -882,14 +921,20 @@ is_same(
 );
 is_same(
     -23,
+    $disputing['lean_weight'],
+    'the lean evidence is what summed below zero, and it is reported'
+        . ' as its own number'
+);
+is_same(
+    0,
     $disputing['quality'],
-    'and the quality stays negative — a contested ledger is'
-        . ' threat-signed, so there is nothing to flip'
+    'while the quality reads what the record is worth — here nothing,'
+        . ' because every row on this profile reads the value'
 );
 is_same(
     $disputing['quality'],
     ledgerSum($disputing),
-    'the exact-sum invariant holding through the re-anchoring'
+    'the exact-sum invariant holding, over the axis it governs'
 );
 
 out('');
@@ -906,9 +951,10 @@ is_same(
     'the dispute is the sum of the negative ones'
 );
 is_same(
-    $disputing['quality'],
+    $disputing['lean_weight'],
     $disputing['tug']['support'] - $disputing['tug']['dispute'],
-    'and the two differ by exactly the quality'
+    'and the two differ by exactly the lean weight — the quality is a'
+        . ' different question and is no longer their difference'
 );
 is_same(
     array('support', 'dispute'),
@@ -924,18 +970,18 @@ is_same(
  */
 $flipped = $tool->assess(
     $context,
-    ledgerProfile(array(20, -6, 9)),
+    ledgerProfile(array(20, -6, 9), ValueVerdictTool::AXIS_LEAN),
     array('lean' => 'benign')
 );
 is_same(
     'contested',
     $flipped['lean'],
-    'a benign lean over a threat-leaning ledger is contested too'
+    'a benign lean over threat-leaning lean evidence is contested too'
 );
 is_same(
     23,
-    $flipped['quality'],
-    'and its quality re-anchors threat-signed, so positive'
+    $flipped['lean_weight'],
+    'and its lean weight re-anchors threat-signed, so positive'
 );
 is_same(
     1,
@@ -1345,10 +1391,11 @@ is_same(
         . ' a reader can add either column up and arrive at the bar'
 );
 is_same(
-    $contested['quality'],
+    $contested['lean_weight'],
     (int)$cases[0]['weight'] - (int)$cases[1]['weight'],
-    'and the two differ by the quality, which is the exact-sum'
-        . ' invariant in its contested shape'
+    'and the two differ by the lean weight — they fold out of the lean'
+        . ' ledger, so the quality is not their difference and the rail'
+        . ' can stop claiming the totals are never subtracted'
 );
 $ordered = array_column($cases[0]['rows'], 'points');
 $sorted = $ordered;
