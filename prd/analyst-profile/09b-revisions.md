@@ -1273,9 +1273,12 @@ this work:
    README's table. The index has been the shorter of the two since
    2026-09-10 and nothing says so, which is how a reader consulting the
    one document that calls itself the index misses seven decisions, and
-   how the D20 collision above became possible. **Outstanding**: it is
-   corpus work rather than an item of this round, and it wants a pass
-   of its own.
+   how the D20 collision above became possible. **Fixed 2026-09-13**:
+   §2 there carries all twenty-two rows, says where the later ones were
+   taken, and states that a decision not in it is not one this feature
+   has taken. D14 gained the supersession note it was missing, which is
+   the reason a stale index is worth fixing rather than annotating — it
+   was still offering a decision D16 had replaced.
 5. **§8.1's table marked 3.19 done before it was built.** The row read
    *"rebuilt module-first against real `mispattributes`"* at the close of
    2026-09-11, when the mockup still drew *Modules per type* and
