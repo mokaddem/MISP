@@ -201,11 +201,15 @@ class AnalystWiringShell extends AppShell
             $legacy['relevance']['ttl_types'],
             $legacy['relevance']['ttl_overrides'],
             $legacy['relevance']['ttl_default']);
-        if (isset($legacy['enrichment']['locality_posture'])) {
-            $legacy['enrichment'][ValueEnrichmentTool::POSTURE_KEY_LEGACY]
-                = $legacy['enrichment']['locality_posture'];
-            unset($legacy['enrichment']['locality_posture']);
-        }
+        /*
+         * And the posture, in its oldest spelling. Until 3.21 this was
+         * a rename of a key the shipped default carried, so it was
+         * built by converting one; the withdrawal took both keys out of
+         * the default, the conversion stopped firing, and the note went
+         * uncovered while the section still passed. Written in flat.
+         */
+        $legacy['enrichment']['cost_posture'] = 'local_only';
+        unset($legacy['enrichment']['locality_posture']);
         /*
          * And a `when` threshold written as the word for the setting it
          * follows. Built here for the same reason as the two above: the

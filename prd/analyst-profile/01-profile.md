@@ -205,7 +205,15 @@ hand and sends the same queries (§7.4).
 **What remains before the tab can go live is nothing in this feature's
 dependency chain.** Phase 9 is next in build order, and it is now the only
 unbuilt phase before the Verdict tab reads a real profile: phase 8 finished
-on 2026-09-11 with 8c, which drew the editor against the design 8b picked.
+on 2026-09-11 with 8c, which drew the editor against the design
+8b picked. A second revision wave ran over those pages on
+2026-09-12 and closed 2026-09-13
+([`09b-revisions.md`](09b-revisions.md) §8.2): it withdrew the
+locality posture, rebuilt the enrichment block keyed by module,
+filled the shipped default with a CIRCL-first mapping, and fixed
+four defects no item had predicted — one of them a last-modified
+column read as an observation date in four aggregates, two of
+which score. It changed no phase's status.
 
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
@@ -250,7 +258,7 @@ output, and only the picked one becomes templates.
 | 6 | **Reference** — per-org trust and warninglist category overrides | [`07-reference.md`](07-reference.md) | **built 2026-09-07** — `ValueTrustTool`, `WarninglistCategory` (V1's shipped map and the four-step resolution), `org_trust_scale`, the uuid→id join, trust weighting in the three signals §2.4 names. 114 harness checks and 84 live; nine findings in §7, and phase 3's one shipped escalation can finally reach its own precondition |
 | 7 | **Enrichment defaults** — the module list and the top-level badge | [`08-enrichment.md`](08-enrichment.md) | **built 2026-09-07** — `ValueEnrichmentTool`, `ModuleLocality` (V1's 22-module roster and its retirement criterion), the `locality` override, the profile strip and a rail that arrives ticked. 102 harness checks, 55 live, five rendered states; seven findings in §7. Closes Q10 as D15; the badge stays blocked on the store §1.1 names |
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
-| 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 |
+| 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
 | 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |

@@ -1165,6 +1165,79 @@ than this round), and the `max_age_hours` reuse window is still inert
 because no cache table exists. Both are drawn as inert rather than
 hidden.
 
+### 8.2 The second wave, closed 2026-09-13
+
+§8.1 closed the round against the **mockup**. 8c then built the picked
+design as pages, the reviewer read the pages, and a second wave
+followed: five §3 items, and the read-back passes they came out of, in
+sixteen commits on 2026-09-12. Same rule as §8.1 — every item done,
+deferred with a reason, or named here.
+
+| Item | State |
+|---|---|
+| 3.19 modules per type | **done** — the block is keyed by module and the document is not, with `transposeModules()` the only place the two axes meet. A third block was built to disclose an un-ticking side effect and removed once the side effect turned out not to happen |
+| 3.21 the posture is withdrawn | **done** — frontend and backend, both spellings of the key. Locality survives as a label: the row pill, and the strip's *"n of these would leave the instance"* |
+| 3.22 the shipped default declares a mapping | **done** — v9 fills `auto_run` for thirteen types and twelve modules, CIRCL-first; v10 carries the same mapping with the description corrected |
+| 3.23 the module row earns its place | **done** — a row-wide setter, `meta.description` as the second column, `ModuleCredentials` (ten entries), locality on the row where it is known, folding past six types and a filter at twelve |
+| 3.24 the locality legend goes | **done** — its meanings were the select's own labels, its effects had gone stale, and the one load-bearing sentence moved to the blurb it is evidence for |
+
+**What landed beside them.** None of it is a §3 item and all of it is
+this wave, so it is listed here rather than left to be inferred from
+the commits:
+
+| Work | Written up in |
+|---|---|
+| The relevance read-back's tail — four numeric settings given bounds, and the buckets and their types made one table | `09-editor.md` §7e.7–7e.8 |
+| The reference section, read back — seven, in two rounds; the first is that *grade an organisation* meant *type a uuid* | `09-editor.md` §7f |
+| The enrichment section, read back — seven more, the worst being that declaring a type did nothing at all | `09-editor.md` §7g |
+| The observation-date chain — `OBSERVED_AT` / `OBSERVED_FROM`, the sighting clock, and the provenance table the relevance card now carries | `06-staleness.md` §7.12–7.14, D20 |
+
+**Four defects this wave found that no item predicted**, all fixed:
+
+1. **Declaring a type did nothing at all** (§7g.1). `auto_run`'s value
+   is the only non-scalar map in the editor, so `valueControl()` fell
+   through to a text box: a row the page added carried **0** controls
+   and the save wrote nothing. The page draws the declaration the
+   server would have drawn now, checked by geometry rather than by
+   presence.
+2. **Grading an organisation meant typing a uuid** (§7f.1). The block
+   declared `search: true` and `source: 'orgs'` and nothing read
+   either, so the add control took the fallback branch — a text input
+   whose value became the map key, and the key is an org uuid.
+3. **Four date aggregates read a last-modified column as an
+   observation date** (`06-staleness.md` §7.13), two of them feeding
+   scored signals. Not an editor defect at all: it was found reading
+   the relevance pane back against real values, which is the pass that
+   was supposed to be about wording.
+4. **Found at this close, in the check that should have covered 3.21.**
+   `09c-wiring-harness.php` built its legacy document by *converting*
+   `locality_posture` into the older `cost_posture`, and 3.21 deleted
+   that key from the shipped default — so the branch stopped firing and
+   the posture note went uncovered. The section reported **2 older
+   shapes where it asserts 3**, which is the only reason this was
+   found; had the count not been asserted it would have passed
+   silently. The dead line also named `ValueEnrichmentTool::POSTURE_KEY_LEGACY`,
+   a constant the same item removed, so it would have fatalled if it
+   ever ran again. The legacy key is written in flat now, and the
+   section's closing assertion — *nothing left for the notice to say*
+   — covers 3.21's claim that the next save drops it, for the first
+   time.
+
+**Harness totals at the close**, measured 2026-09-13 and all green:
+store 34, signals 98, lean and bands 100, exclusions 42, relevance
+**149**, reference 114, enrichment **121**, editor **170**, fixtures 28.
+The render harness is **93** (70 at 8c's close), `09c-wiring-http-probe.sh`
+45, and `09c-wiring-page-check.sh` PASS in both themes at 1600px and
+1280px. Four totals moved: relevance +16 for the date chain, editor +33
+for the module-keyed block and the two pickers, the render harness +23,
+and enrichment **−2**, where the posture's own checks went.
+
+**Not done, and deliberately.** Both of §8.1's carry over — `auto` is
+declared and not implemented, and `max_age_hours` is still inert, though
+it now says so on the page rather than looking like a setting (§7g.6).
+3.23 adds two: unavailable rows are not sorted last, and the type picker
+does not offer what an administrator has not enabled.
+
 ## 9. Corrections this round owes the corpus
 
 Two things already written down are wrong and should be fixed as part of
@@ -1184,3 +1257,22 @@ this work:
    either list — both use sites read `ValueRelevanceTool`'s constants,
    the way `max_band` already read `ValueVerdictTool::BANDS` — so the
    two lists cannot drift again.
+3. **The corpus carried two D20s.** `06-staleness.md` §7.13 labelled the
+   observation-date chain D20 at 12:42 on 2026-09-12; the README's
+   decision table gave the same number to *the enrichment editor is
+   keyed by module* at 17:54, and its CIRCL mapping took D21. Both were
+   written the same day and neither read the other. **Fixed 2026-09-13
+   on first claim**, which is also chronological order: **D20** is the
+   date chain, **D21** the module-keyed editor, **D22** the CIRCL
+   mapping. Only the README rows moved — §7.13 was right and is
+   untouched.
+4. **`01-profile.md` §2 ends with *"This is the index"* and stops at
+   D15.** D16 through D22 — the band removal, the third run state, the
+   TTL buckets, the posture's two retirements, the date chain, the
+   module-keyed editor and the shipped mapping — exist only in the
+   README's table. The index has been the shorter of the two since
+   2026-09-10 and nothing says so, which is how a reader consulting the
+   one document that calls itself the index misses seven decisions, and
+   how the D20 collision above became possible. **Outstanding**: it is
+   corpus work rather than an item of this round, and it wants a pass
+   of its own.
