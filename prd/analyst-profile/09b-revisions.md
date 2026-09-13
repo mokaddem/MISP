@@ -1133,7 +1133,7 @@ Every §3 item, and what happened to it.
 | 3.16 enrichment run states | **done** — D17 built; `auto` declared and inert, `never` enforced in the run path |
 | 3.17 cost posture | **done** — D19: renamed, `ask` retired, both read as shims |
 | 3.18 reuse window | **done** — a general `unit` on the field spec, and the setting drawn as inert |
-| 3.19 modules per type | **done** — rebuilt module-first against real `mispattributes` |
+| 3.19 modules per type | **claimed here before it was built** — at this close the mockup still drew *Modules per type* and `transposeModules()` did not exist. Rebuilt 2026-09-12 and closed in §8.2; the claim itself is §9.5 |
 | 3.20 reference naming | **done** — *Sources & reputation*, in the form tool and the mockup |
 | 4.1 strip scaffolding | **done** — and `check-1280.sh` replaces the inset it removed |
 | 4.2 one-sentence copy | **done** — nine blurbs cut, the rest behind `i` |
@@ -1192,7 +1192,7 @@ the commits:
 | The enrichment section, read back — seven more, the worst being that declaring a type did nothing at all | `09-editor.md` §7g |
 | The observation-date chain — `OBSERVED_AT` / `OBSERVED_FROM`, the sighting clock, and the provenance table the relevance card now carries | `06-staleness.md` §7.12–7.14, D20 |
 
-**Four defects this wave found that no item predicted**, all fixed:
+**Four defects this wave found that no item predicted**, all fixed — and a fifth in this document rather than in the code, which is §9.5:
 
 1. **Declaring a type did nothing at all** (§7g.1). `auto_run`'s value
    is the only non-scalar map in the editor, so `valueControl()` fell
@@ -1276,3 +1276,20 @@ this work:
    how the D20 collision above became possible. **Outstanding**: it is
    corpus work rather than an item of this round, and it wants a pass
    of its own.
+5. **§8.1's table marked 3.19 done before it was built.** The row read
+   *"rebuilt module-first against real `mispattributes`"* at the close of
+   2026-09-11, when the mockup still drew *Modules per type* and
+   `transposeModules()` did not exist in the form tool; the rebuild landed
+   at 17:54 the next day. This is the inverse of the failure §8 names — an
+   item silently *claimed* rather than silently dropped — and it is the
+   more dangerous half, because a closing table is what a later reader
+   trusts instead of re-reading §3. **Fixed 2026-09-13**: the row now says
+   what actually happened and points at §8.2, where the item is closed
+   against the built block. The check that caught it is the one §8 already
+   prescribes, run properly: re-read §3 against the code, not against the
+   table. **The rest of that table was then spot-checked the same way**
+   and holds — 3.9's shipped default carries no `band` key at that
+   commit, 3.12's `ttl_buckets` is in it, 3.13's `decay_speed` has its
+   validator, 3.16's `never`, 3.17's renamed key and 3.18's `unit` are
+   all in the tools, and 3.19 is the only row that ran ahead of the
+   code.
