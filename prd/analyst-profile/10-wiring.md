@@ -1,7 +1,16 @@
 # PRD: Analyst Profile — phase 9, wiring the Verdict tab live
 
 **Specification. Nothing built.** Depends on phases 1–5. Phase 6 is not a hard
-prerequisite but the conflict escalation cannot fire without it.
+prerequisite but the conflict escalation cannot fire without it. **Every phase
+it depends on is built**, and phase 8 landed beside them.
+
+**Read back against the shipped code 2026-09-13**, because this document was
+written before the engine existed and D11 renamed its subject afterwards. What
+the read-back found is §7; the corrections are in place above it, and the
+sentence each one replaced is quoted there rather than deleted silently. The
+short version: the panel count was wrong, the composition rule is already
+built, and the swap this phase describes as *replacing the fixture* is
+thirteen keys short of a swap.
 
 This is the payoff phase: the tab that has been blocked since the skeleton pass
 reads real data, and the copy the page has been asserting for six months
@@ -20,6 +29,17 @@ the contract below hold, read through D11's rename map.
 Verdict tab and the Overview's verdict card, plus every shipped string this
 feature has made wrong.
 
+**Less of it is new than this reads.** `ValueVerdictTool::verdictFor()` already
+returns a verdict-shaped array — `disposition`, `score`, `confidence`,
+`ledger`, `tug`, `composition`, `not_counted`, `changers`, `profile`,
+`profile_id`, `computed_at`, and the three axes beside them — and the editor's
+simulator has been rendering off it since 8a. `ValueProfile::forVerdict()` is
+the facade that is missing, not the computation. What the facade cannot supply
+on its own is §2.2's thirteen keys: the templates read them, the fixture
+carries them, and no phase 1–8 code produces them. **That list is the phase**,
+and three of the thirteen are read unguarded, so the first swap does not render
+an empty card — it errors.
+
 It follows the contract every other live phase followed —
 [`../value-profile-live/00-contract.md`](../value-profile-live/00-contract.md)
 §14 — and it is the phase that finally moves the last blocked rows on §14.12's
@@ -27,24 +47,44 @@ conversion board.
 
 ## 2. The panels
 
-Seven endpoints, all currently fixture-backed:
+**Three endpoints, four top-level elements, eleven sub-elements** — fifteen
+`value_verdict*.ctp` files, all currently fixture-backed. *"Seven endpoints"*
+stood here until the read-back counted them; §14.12's conversion board has it
+right at four blocked rows, because the board is keyed by endpoint and element
+and this table was keyed by neither.
 
-| Action | Panel | Notes |
+| Action | Top-level element | Renders |
 |---|---|---|
-| `viewVerdict` | `value_verdict` | The agreeing layout: hero, ledger, contradictions, orgs, composition, curves |
-| `viewVerdictAside` | `value_verdict_aside` | `not_counted` and `changers` |
+| `viewVerdict` | `value_verdict` | The agreeing layout. Includes `_meta`, `_warninglist`, `_ledger`, `_orgs` |
+| `viewVerdict` | `value_verdict_conflicted` | The conflicted layout, picked on disposition. Includes `_meta`, `_warninglist`, `_orgs` |
+| `viewVerdictAside` | `value_verdict_aside` | The rail. Agreeing branch: `_composition`, `_curves`, `_not_counted`, `_changers`. Conflicted branch: `_resolve`, `_case_composition`, `_opinions`, `_curves`, `_not_counted` |
 | `viewVerdictCard` | `value_verdict_card` | The Overview rail card — **`../value-profile-page.md` §1.4 names this one as blocked on the verdict engine specifically** |
-| — | `value_verdict_conflicted` | The conflicted layout, reached from `viewVerdict` on disposition |
-| — | `value_verdict_ledger` | Grouped rows |
-| — | `value_verdict_composition` | Segments and total |
-| — | `value_verdict_orgs` | *Who says what*, now carrying phase 6's real grades |
 
-**One `$context` build, seven readers.** `03-signals.md` §2.2 makes the
-aggregate shared; this phase makes it a single pass so a page load does not
-compute the verdict seven times. The card and the tab **must** come from one
-computation — a card and a tab on one page disagreeing about the same value is
-the hazard `../value-profile-page.md` §1.4 records phase 23 converting the
-Overview's sightings card out of order to avoid.
+The eleven sub-elements are `_meta`, `_warninglist`, `_ledger`, `_orgs`,
+`_composition`, `_case_composition`, `_curves`, `_not_counted`, `_changers`,
+`_opinions`, `_resolve`. Four of them — `_meta`, `_warninglist`, `_curves`,
+`_changers` — were not in this table at all, and three of those four carry a
+row in §3's copy pass, which is how a document can schedule a change to a file
+its own panel list does not mention.
+
+**One `$context` build per request, and agreement across requests comes from
+determinism rather than from sharing.** The sentence here used to be *"one
+`$context` build, seven readers … so a page load does not compute the verdict
+seven times"*, and it conflated two things the read-back had to separate. The
+three endpoints are three lazy HTTP requests — `viewVerdict`,
+`viewVerdictAside`, `viewVerdictCard` each land in their own PHP process — so
+there is no build for them to share. What is shared is *within* a request: the
+aside renders five sub-elements off one verdict, and `03-signals.md` §2.2's
+aggregate plus `AnalystProfile::resolveFor()`'s per-request memo make that one
+pass.
+
+The card and the tab **must** still agree, and what makes them agree is that
+`assess()` takes a context and a profile and returns the same array every time.
+Any future caching sits behind that seam or the guarantee is gone. A card and a
+tab on one page disagreeing about the same value is the hazard
+`../value-profile-page.md` §1.4 records phase 23 converting the Overview's
+sightings card out of order to avoid, and verification item 3 is where it is
+asserted rather than assumed.
 
 ### 2.1 The composition card
 
@@ -67,10 +107,114 @@ the malicious value's own ledger rows:
 | Signals against | `−6 + −8` | −14 |
 | **Total** | `37 + 24 + 19 + 18 − 14` | **84** |
 
-So the rule is: group the fired rows by `group`, sum the **positives** per
-group, and collect **all** the negatives into one segment. No separate logic and
-no second source of truth — the composition card is a faithful regrouping of the
+So the rule is: group the fired rows by group, sum the **positives** per group,
+and collect **all** the negatives into one segment. No separate logic and no
+second source of truth — the composition card is a faithful regrouping of the
 ledger, and the same invariant holds one level up.
+
+**This is already built**, and the read-back's job here was to check it rather
+than to specify it. `ValueStatsTool::verdictComposition()` walks the grouped
+ledger, sums the positives per group, collects the negatives into one *Signals
+against* segment, and drops a group that earned nothing — the rule above,
+exactly, and the live contract's §14.2 tool table already names
+`ValueStatsTool` as owning *"the verdict's composition segments"*. Two
+corrections fall out of reading it:
+
+- **The key is `kind`, not `group`.** The profile's entry carries `group` and
+  `ValueVerdictTool::anchor()` writes it onto the ledger row as `kind`. A
+  specification naming the wrong key is how an implementer writes a
+  `$row['group']` that is always empty, and every segment then lands in one
+  unnamed bucket.
+- **The segment label will read *Reporting*, not *Reporting breadth*.** The
+  segment is labelled with the group's own name, so the composition card and
+  the ledger heading above it say the same word. The fixture said *Reporting*
+  in the ledger and *Reporting breadth* in the composition — two names for one
+  group, which is exactly what a single source of truth removes. The live page
+  is right and the table above is quoting the fixture; nothing needs changing
+  in code, and the phase should not "fix" the card back to the fixture's
+  wording.
+
+### 2.2 What the engine emits, and the thirteen keys that have no producer
+
+The fifteen templates read **25 distinct keys** off `$valueProfile['verdict']`.
+`ValueVerdictTool::verdict()` emits **23**, and the two sets overlap in twelve.
+This table is the phase, and it is what *"replacing the fixture"* actually
+costs.
+
+**Twelve the engine already answers**, so the swap carries them for free:
+`disposition`, `score`, `confidence` (D11's rename shim), `ledger`, `tug`,
+`composition`, `not_counted`, `changers`, `profile`, `profile_id`, `rule`,
+`computed_at`.
+
+**Eleven the engine emits that nothing on the page reads yet**: `lean`,
+`derived_lean`, `relevance`, `band`, `quality`, `stances`, `polarity`,
+`rule_errors`, `signals`, `profile_revision`, `as_of`. These are D11's three
+axes and their workings, waiting for the hero. The rename shim exists so the
+templates need not read them on day one — `ValueVerdictTool::LEAN_DISPOSITION`
+carries the comment *"Dropped when phase 9 renames them"*, which makes its
+removal this phase's work and not a later tidy-up.
+
+**Thirteen the templates read that no phase 1–8 code produces:**
+
+| Key | Read by | What could produce it |
+|---|---|---|
+| `summary` | `_card`, `value_verdict`, `_conflicted` — **all three unguarded** | Nothing. This is D11's open point: the hero's prose over lean · relevance · quality |
+| `orgs` | `value_verdict` (**unguarded**), `_orgs` | Derivable — `ValueLeanTool::stancesFor()` counts stances per organisation, `ValueTrustTool` holds the grades, phase 6 built the per-org sighting tallies |
+| `cases` | `_conflicted` (**unguarded**), `_case_composition` | Nothing. The conflicted layout's two opposed arguments; phase 3's escalations produce a `rule`, not a pair of cases |
+| `conflicts` | `_ledger` | Nothing. The contradictions that survived, under the ledger |
+| `ambiguities` | `_conflicted` | Nothing |
+| `warninglist` | `value_verdict`, `_conflicted`, `_warninglist` | Derivable — phase 6's `WarninglistCategory` and the context's hits |
+| `curves`, `curves_span`, `curves_note` | `_curves` | `ValueRelevanceTool::runwaySeries()`, which is what §3 already schedules the NIDS line to become |
+| `composition_note` | `_composition` | §3's copy row — the sentence about the profile in force |
+| `changer_actions` | `_changers` | Nothing. `ValueChangersTool` returns `axis`, `direction` and `text`; the fixture's buttons are writes |
+| `opinions` | `_opinions` | The rows exist — `ValueProfile` already reads analyst notes and opinions for Collaboration and Timeline — but no histogram aggregate does |
+| `resolutions` | `_resolve` | **Out of scope, and cleanly so.** The card's own docblock says every control is disabled because the page does not write; `01-profile.md` §7 says this feature writes nothing. The card is `?? array()`-guarded, so it simply never renders until `../value-profile-writes.md` lands |
+
+**The thirteen split four ways**, and only the last group is open design:
+
+- **Five are derivable from tools phases 5 and 6 already shipped** — `orgs`
+  from the stances, the grades and the per-org tallies; `warninglist` from
+  `WarninglistCategory`; `curves`, `curves_span` and `curves_note` from
+  `runwaySeries()`. Work, but no decisions.
+- **One is a copy change this document already schedules** — `composition_note`
+  is §3's *"An instance admin can edit the profile"* row.
+- **One is out of scope and should stay empty** — `resolutions`, per
+  `01-profile.md` §7.
+- **Six have no producer and no obvious derivation**: `summary`, `cases`,
+  `conflicts`, `ambiguities`, `changer_actions`, `opinions`. The hero's prose
+  and the conflicted layout are the phase's real work, and `summary` is D11's
+  own open point rather than an oversight.
+
+**Three of the thirteen are read without a guard**, and that is the finding
+that changes the build order. Ten degrade to an empty card because the template
+wrote `?? array()` or `?? null`; `summary`, `orgs` and `cases` did not. So the
+first swap does not produce a page with some cards missing — it produces
+notices on the agreeing layout, on the conflicted layout, and on the Overview
+card.
+
+**The sparse value breaks first**, which is the case verification item 4
+covers. `_card` reads `summary` only when there are no ledger rows to list, and
+a value with no occurrence this viewer can see is exactly what
+`ValueVerdictTool::nothingToAssess()` returns — an empty ledger, band `none`,
+quality 0. The one path with no signals is the one path that needs the key
+nothing produces.
+
+**The tug's dead wedge is also this phase's, and one word covers two
+quantities.** `tug()` returns `unresolved` as a hard zero with the comment that
+it *"stays in the return as a zero until the layout stops reading it"*, and
+`value_verdict_conflicted.ctp` reads it twice — the bar's total and the middle
+wedge's width, both of which go to zero. The foot **under that same wedge**
+prints *"%s unresolved"* from `count($ambiguities)`, a different quantity with
+no producer at all. So the bar and its own label disagree about what
+*unresolved* counts, and the fixture hid it by giving both a value. Retiring
+the wedge and the word together is the honest fix.
+
+**And `cases` is read positionally.** The tug's two feet are
+`count($cases[0]['rows'])` and `count($cases[1]['rows'])` — the layout assumes
+exactly two cases, in order, each carrying `rows`. An empty `cases` is not a
+degraded render but an undefined index, and a producer returning one case or
+three would break it as surely as returning none. Whatever fills this key owes
+the template a pair.
 
 ## 3. Shipped copy this phase changes
 
@@ -85,15 +229,41 @@ claim left standing that the code no longer honours is what
 | *"3 or more false-positive sightings from 2+ orgs → drops to SUSPICIOUS"* | Derived per axis (`04-dispositions.md` §8), rephrased in band-and-lean vocabulary — SUSPICIOUS is dropped, not added (D11) |
 | *"No sighting for 45 days → decay takes the score under 50"* | Restated in TTL terms — there is no decay (D7) |
 | *"Weights come from the default-v3 profile"* | Names the real profile |
-| `NIDS decay score` dashed curve, `curves_note` | The TTL runway (`06-staleness.md` §4.2) |
-| `attribution.galaxy` band, `moderate` on one value and `strong` on another | One band, per `03-signals.md` §5 |
+| `NIDS decay score` dashed curve, `curves_note` | The TTL runway (`06-staleness.md` §4.2). `ValueRelevanceTool::runwaySeries()` is built and unread; the fixture still carries the dashed line at three places |
+| ~~`attribution.galaxy` band, `moderate` on one value and `strong` on another~~ | **Void — closed by D16, not by this phase.** The band was removed rather than made consistent, and the read-back counted the remnants: `'band' =>` appears **0** times in the fixture, `['band']` **0** times in the fifteen templates, `"band"` **0** times in `default-v1.json`. There is nothing left to correct |
+
+**Two more rows of `01-profile.md` §6 are already closed**, both by phase 5 and
+neither marked there: the per-model decay bars (`value_sighting_decay.ctp`,
+161 + 259 lines) went with the decay panel, and the decay curve overlay at
+`value_sighting_chart.ctp:447` is gone — the only surviving mention of decay in
+that file is two lines of docblock explaining why no threshold is drawn. §6
+should be annotated rather than left implying this phase owes them.
+
+**Every line reference in §6 and §3.1 has drifted**, because the templates grew
+after the inventory was taken. `value_verdict_meta.ctp:40` is now **:67**,
+`value_verdict_card.ctp:56` is now **:77**, and §3.1's `:38` is now **:44**. The
+strings themselves are all still there — `default-v3` five times in the
+fixture, *"Weights come from the default-v3 profile"* twice, all three
+SUSPICIOUS strings, the `NIDS decay score` label three times — so the inventory
+is right about what is wrong and only wrong about where.
 
 ### 3.1 The one the page has always got right
 
-`value_verdict_meta.ctp:38`'s conditional — *"a verdict reached from no signal
+`value_verdict_meta.ctp:44`'s conditional — *"a verdict reached from no signal
 at all does not name a profile"* — needs no change and must not be lost.
 `01-profile.md` §5.3. It is the only piece of this whole surface that was
 already correct about a thing that did not exist yet.
+
+**It has since grown the other half of itself.** The same block now links the
+name to the editor when `profile_id` is set and prints it as plain text when it
+is not, on 8c's argument that *"a link to a profile the page did not actually
+use would answer it wrongly"*. The two conditions are not the same one: the
+outer guard is the ledger, §5.3's rule, and the link is decided inside it by
+`profile_id`. A ledger cannot be non-empty without a profile — rows exist only
+where a profile enabled a signal — so within the guard the plain-text branch is
+reached only by a profile with no row id, which is precisely the case it was
+written for. **This is one of the two 8c deliverables that becomes visible only
+when this phase runs**, since a fixture verdict has no profile id to link.
 
 ## 4. Q9 — does the standing caveat now state both reasons?
 
@@ -139,6 +309,18 @@ under-states it: the hero naming a profile does not tell a reader that a
 colleague would see a different number. A is honest but adds a permanent
 sentence to a hero that already carries four.
 
+**The read-back leaves C standing and makes it cheap.** Two things moved under
+this section since it was written. The name in the meta block is now a **link**
+to the profile that weighted the value (§3.1), which is a stronger form of B
+than B described — a reader can go and look at the thing — and still not an
+answer to *would a colleague see this differently*, so it does not displace C.
+And the test C needs costs nothing: `resolveFor()` already returns the row the
+verdict was computed against, and the scope is on it — `user_id`, `org_id` and
+`default` are the three columns that decide which owner won, so *"the profile
+in force is not the instance default"* is a field read on an array the page is
+holding, not a second query. The call is memoised per request besides. What C
+still owes is its sentence; the wording is the open part, not the mechanism.
+
 ## 5. Verification
 
 Follows `../value-profile-live/00-contract.md` §14.9's requirements for a live
@@ -165,11 +347,34 @@ phase, plus:
    are what the tug bar is built from.
 9. Nine-tab bar at 1920, 1600 and 992 px. `../value-profile-page.md` §6.1
    records it wraps to two rows below 1600 and that this was reported rather
-   than restyled; a badge change must not make it worse.
-10. Dark theme, both layouts, with `--vp-susp` from phase 3 in place.
+   than restyled; a badge change must not make it worse. **Still nine**, counted
+   at the read-back: Overview, Verdict, Occurrences, Sightings, Relationships,
+   Enrichment, Collaboration, Timeline, History.
+10. Dark theme, both layouts, with **`--vp-conflict`** in place. This item said
+    `--vp-susp`, and **there is no such token anywhere in the codebase** — not
+    in `value-palette.css`, not in a template, not in a stylesheet. D11
+    dissolved SUSPICIOUS and the contested lean is painted with
+    `--vp-conflict`, which is what the palette actually defines, in both
+    themes.
 11. The harness caveat from `../value-profile-page.md` §6.1: panels are checked
     in headless Chrome against saved fragments and the CSS fetch fails
     intermittently, so assert `--vp-mal` resolves before asserting any colour.
+12. **No undefined index on any of the four layouts**, asserted with PHP
+    notices escalated rather than by looking at the page. §2.2's three
+    unguarded keys are the whole reason: a notice-suppressed render of the
+    sparse value looks like a clean render of a sparse value.
+13. **`ValueVerdictTool::LEAN_DISPOSITION` is gone**, and with it the
+    `disposition` / `score` / `confidence` keys `verdict()` writes for
+    templates that have not been through the copy pass. The shim carries
+    *"Dropped when phase 9 renames them"* in its own docblock; leaving it is
+    how a rename becomes permanent.
+14. **The tug renders no zero wedge and no zero label** (§2.2), on the
+    conflicted value, in both themes.
+15. **`value_verdict_resolve` renders nothing at all**, and this is the pass
+    rather than the failure. The card asks for writes the feature does not do;
+    an empty `resolutions` is the correct answer until
+    `../value-profile-writes.md` lands, and asserting it keeps the card from
+    being quietly filled with something derived.
 
 ## 6. Out of scope
 
@@ -181,3 +386,100 @@ phase, plus:
   demo values almost every such link would land on the sparse state"*) is
   weaker now that the page is mostly live, so it is worth re-asking after this
   phase rather than after this document.
+
+## 7. The read-back, 2026-09-13
+
+This document was written before phases 2–8 existed. Every claim in it was
+checked against the shipped code before the phase started, because a
+specification written against an imagined engine is exactly the thing
+`prd-tracks-reality` exists to catch, and this one had six phases and a
+renamed subject land underneath it.
+
+**What held.** §2.1's arithmetic is still exact — the malicious fixture's
+composition is `37 / 24 / 19 / 18 / −14` summing to `84`, and the comment about
+the last segment not being the contradictions is still on the array. The four
+demo values are still four. The tab bar is still nine. Every string §3 promises
+to correct is still on screen: `default-v3` five times in the fixture, *"Weights
+come from the default-v3 profile"* twice, all three SUSPICIOUS strings, the
+`NIDS decay score` label three times. §3.1's conditional is still right, and
+`ValueDisposition::TREATMENTS` carries exactly the four dispositions the
+engine's rename map targets, with no SUSPICIOUS among them.
+
+**What did not.**
+
+### 7.1 The panel list counted endpoints it did not have
+
+*"Seven endpoints, all currently fixture-backed"* named three endpoints, three
+top-level elements and one sub-element as though they were one kind of thing,
+and left four sub-elements out — including `_curves` and `_changers`, which
+§3's own copy pass schedules changes to. The board in
+`../value-profile-live/00-contract.md` §14.12 had it right the whole time at
+four blocked rows. Corrected in §2, with the real include tree.
+
+### 7.2 Thirteen keys have no producer, and three of them are unguarded
+
+The finding that changes the phase's size. The templates read 25 keys; the
+engine emits 23; they overlap in twelve. §2.2 is the table. Ten of the thirteen
+missing keys degrade to an empty card, which is what *"replacing the fixture"*
+implies — but `summary`, `orgs` and `cases` are read with no `??` at all, and
+`cases` is read positionally as `$cases[0]` and `$cases[1]`. The first swap
+errors rather than degrades, and **the sparse value errors first**, because
+`_card` reads `summary` only on the no-ledger path that
+`nothingToAssess()` returns.
+
+### 7.3 The composition card is built, and it renames a group
+
+§2.1 specified a derivation that `ValueStatsTool::verdictComposition()` already
+implements, down to dropping a group that earned nothing. Two things fall out
+of reading it rather than specifying it again: the ledger key is `kind`, not
+`group` — the profile entry's `group` is written onto the row as `kind` by
+`anchor()`, so an implementer following §2.1 literally gets an empty bucket —
+and the segment takes the group's own name, so the card will read *Reporting*
+where the fixture read *Reporting breadth*. The fixture had two names for one
+group; the engine has one. The live wording is the correct one.
+
+### 7.4 One `$context` build, and three separate HTTP requests
+
+*"…so a page load does not compute the verdict seven times"* described a
+sharing that cannot happen: the card, the tab and the rail are three lazy
+requests in three PHP processes. What makes them agree is that `assess()` is
+deterministic over a context and a profile, which is a different guarantee with
+a different failure mode — it survives caching only if the cache sits behind
+that seam. Restated in §2.
+
+### 7.5 A verification item named a token that does not exist
+
+Item 10 asked for `--vp-susp` *"from phase 3"*. There is no `--vp-susp` in any
+stylesheet, template or PHP file in the repository. D11 dissolved SUSPICIOUS
+before phase 3 shipped, and the contested lean is painted `--vp-conflict`,
+which `value-palette.css` defines in both themes. An unverifiable item is worse
+than a missing one, because it passes by being skipped.
+
+### 7.6 The copy inventory is right about what and wrong about where
+
+Every line reference in `01-profile.md` §6 and in §3.1 has drifted as the
+templates grew: `value_verdict_meta.ctp:40` → `:67`, `value_verdict_card.ctp:56`
+→ `:77`, §3.1's `:38` → `:44`. Two of §6's rows are also already closed, by
+phase 5 and not by this phase — the per-model decay bars and the
+`value_sighting_chart.ctp:447` overlay both went with the decay panel. And one
+row of §3 is **void**: the `attribution.galaxy` band cannot be made consistent
+because D16 removed the field, with `'band' =>` now appearing zero times in the
+fixture, zero times in the fifteen templates and zero times in
+`default-v1.json`.
+
+### 7.7 The rename is scheduled by a docblock and nowhere else
+
+`ValueVerdictTool::LEAN_DISPOSITION` is D11's rename map with the comment
+*"Dropped when phase 9 renames them"*, and `verdict()` writes `disposition`,
+`score` and `confidence` beside the three axes for the same reason. Nothing in
+this document said so before the read-back. A shim whose removal is recorded
+only in the file it lives in is a shim that stays.
+
+### 7.8 The tug's wedge and the tug's label count different things
+
+`tug()` returns `unresolved` as a hard zero — the fixture's third wedge was
+never derivable — and the conflicted layout reads it for the bar total and the
+middle wedge's width. The foot directly under that wedge prints
+*"%s unresolved"* from `count($ambiguities)`, which is a different quantity and
+has no producer either. One word, two sources, and the fixture concealed it by
+supplying both. They retire together.

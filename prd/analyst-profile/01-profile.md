@@ -215,6 +215,19 @@ four defects no item had predicted — one of them a last-modified
 column read as an observation date in four aggregates, two of
 which score. It changed no phase's status.
 
+**Phase 9 opened on 2026-09-13 with a read-back rather than a commit**, on the
+rule this corpus applies to its own documents: `10-wiring.md` was written
+before the engine existed and D11 renamed its subject afterwards, so every
+claim in it was checked against shipped code before anything was built. Eight
+findings, in [`10-wiring.md`](10-wiring.md) §7. The one that resizes the phase
+is §7.2: the fifteen verdict templates read twenty-five keys off the verdict
+array, `ValueVerdictTool` emits twenty-three, and the two sets overlap in
+twelve — so *"replace the fixture with `forVerdict()`"* is thirteen missing
+keys away from being a swap, and three of the thirteen are read with no guard,
+which means the first attempt errors rather than degrades. The sparse value is
+the one that errors first, because the Overview card reads `summary` only on
+the no-ledger path.
+
 **8c is also where the value page's own render was found broken.** The
 editor's first request answered 500, and so did the value page under the
 same login: `ValuesController` set its theme only when the reader had
@@ -260,7 +273,7 @@ output, and only the picked one becomes templates.
 | 8a | **The editor's contract** — the controller, the ACL, the mechanics, the validation, every action's REST representation, and the fixtures the prototypes draw against. No templates | [`09-editor.md`](09-editor.md) §1.1 | **built 2026-09-07** — `AnalystProfilesController` (twelve actions), `AnalystProfileFormTool`, `ValueVerdictDiffTool`, `ValueUrlTool`, `AnalystProfile::indexFor()`, the ACL block, five fixtures and 8b's frame. 77 harness checks, 44 live, 35 over HTTP, 27 over the fixtures; nine findings in §7d, four of them defects in earlier phases |
 | 8b | **Three prototypes** — one design each, cold, from the brief; the user picks one | [`09b-prototypes.md`](09b-prototypes.md) | **done 2026-09-08** — three candidates drawn; the workbench picked ([`09b-decision.md`](09b-decision.md)), then a revision round against a reviewer ([`09b-revisions.md`](09b-revisions.md)), closed 2026-09-11 — and a second wave over the pages 8c built, closed 2026-09-13 (§8.2 there) |
 | 8c | **The wiring** — the picked design as templates, and the links in from the verdict | [`09c-wiring.md`](09c-wiring.md) | **built 2026-09-11** — six pages and seventeen elements under `Themed/Overmind/AnalystProfiles`, `analyst-profile.css` and `.js`, the shared `value-palette.css`, the axis map in the view-model, the runway through the diff, and the two verdict links. 64 render checks, 45 over HTTP, a browser check in both themes at both widths; ten findings in §7, four of them defects in earlier phases |
-| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification |
+| 9 | **Wiring the Verdict tab live** — the page reads a profile, and the shipped copy that is now wrong gets corrected | [`10-wiring.md`](10-wiring.md) | specification — **read back against the shipped code 2026-09-13**, eight findings in §7 there. The panel list counted seven endpoints where there are three, and thirteen of the twenty-five keys the templates read have no producer, three of them unguarded |
 | 10 | **The verdict in restSearch** — a materialised instance verdict, set by a background worker, filtered at export | [`11-restsearch.md`](11-restsearch.md) | specification — rewritten 2026-09-03 (D10); the page's per-viewer verdict stays render-time |
 
 The Value Profile campaign's own tab-level table
@@ -571,13 +584,24 @@ deliberately retracted. These are already wrong, or become wrong:
 
 | What it says | Where | Why it breaks |
 |---|---|---|
-| `Weighting profile default-v3` | `value_verdict_meta.ctp:40`, `value_verdict_card.ctp:56` | The object holds more than weighting, and the name becomes real and linkable |
+| `Weighting profile default-v3` | `value_verdict_meta.ctp:67`, `value_verdict_card.ctp:77` | The object holds more than weighting, and the name becomes real and linkable |
 | *"An instance admin can edit the profile"* | `composition_note`, every scored value | Under D3 most readers see a profile they or their org own |
 | *"No sighting for 45 days → decay takes the score under 50"* | `changers`, malicious value | There is no decay under D7; it is a TTL against last corroboration |
 | `NIDS decay score`, dashed comparison line | verdict `curves`, fixture 1133 / 3535 / 11463 | The page stops reading `decaying_models` (D7). Phase 5 proposes the TTL runway in its place |
-| Per-model decay bars | `value_lifecycle.ctp`, `value_sighting_decay.ctp` (161 + 259 lines) | Replaced by a per-value staleness statement, phase 5 |
-| Decay curve overlay | `value_sighting_chart.ctp:447` | Same |
+| ~~Per-model decay bars~~ | ~~`value_lifecycle.ctp`, `value_sighting_decay.ctp` (161 + 259 lines)~~ | **Done, phase 5.** `value_sighting_decay.ctp` is deleted and the bars went with it |
+| ~~Decay curve overlay~~ | ~~`value_sighting_chart.ctp:447`~~ | **Done, phase 5.** The only surviving mention of decay in that file is two lines of docblock saying why no threshold is drawn |
 | *"3 or more false-positive sightings from 2+ orgs → drops to SUSPICIOUS"* | `changers`, three fixture strings | `SUSPICIOUS` never existed in `ValueDisposition::TREATMENTS`, and under D11 it is dropped, not added — the strings rephrase in band-and-lean vocabulary (`04-dispositions.md` §7) |
+
+**Five rows stand, two are struck through, and the line numbers were re-read on
+2026-09-13** ([`10-wiring.md`](10-wiring.md) §7.6). Phase 5 closed the two decay
+rows without annotating them here, which left phase 9 apparently owing work
+that no longer existed; the two meta/card references had drifted by 27 and 21
+lines as the templates grew. Every string in the five that stand is still on
+screen, counted rather than assumed: `default-v3` five times in the fixture,
+the `composition_note` sentence twice, the 45-day changer once, the
+`NIDS decay score` label three times, and all three SUSPICIOUS strings — at
+fixture `1190`, `3545` and `3589`, the middle one a `curves_note` rather than a
+changer.
 
 ## 7. What this feature does not do
 

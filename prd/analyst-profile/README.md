@@ -138,6 +138,23 @@ value page's verdict is still `ValueProfileFixture`, so the links from
 it to the profile that weighted it appear only once the page computes
 one.
 
+**It opened 2026-09-13 with a read-back**, because `10-wiring.md` was
+written before the engine existed and D11 renamed its subject
+afterwards. Eight findings, in §7 there. The engine already returns a
+verdict-shaped array and the editor's simulator has been rendering off
+it since 8a — but the fifteen verdict templates read **twenty-five**
+keys, `ValueVerdictTool` emits **twenty-three**, and the two sets
+overlap in **twelve**. So the phase is not a swap: thirteen keys have
+no producer in any of phases 1–8, and `summary`, `orgs` and `cases` are
+read with no guard at all, which makes the first attempt error rather
+than degrade. The value with nothing to assess errors first, because
+the Overview card reads `summary` only where there is no ledger to
+list. Five of the thirteen are derivable from phase 5's and phase 6's
+own tools, one is a copy change the document already schedules, one is
+out of scope by `01-profile.md` §7 and should stay empty — and the
+remaining six, the hero's prose and the conflicted layout's pair of
+cases above all, are the phase's real work.
+
 **Phase 8 is three passes, split 2026-09-07** (`09-editor.md` §1.1). It is the
 first phase of this corpus whose deliverable is a *look* rather than a
 computation. **8a** is the contract — the controller, the ACL, the mechanics,
