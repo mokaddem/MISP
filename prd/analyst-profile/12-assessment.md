@@ -111,19 +111,60 @@ Temporal precision joins the catalogue as a quality signal: a record with
 `first_seen` set and a short encoding lag earns points a
 timestamp-as-proxy record does not.
 
-### 2.4 The sign, re-anchored — decided 2026-09-03
+**Amended 2026-09-13 — the invariant governs the quality *rows*.** The
+sentence above says *contributions sum to quality*, and until the axis
+split it meant every contribution, including the two signals that read
+the value. Those are §2.1's inputs, not §2.3's: the list above names
+corroboration breadth, org trust, attribution, published ratio and
+temporal precision, and a warninglist hit is none of them. So the
+quality rows sum to the quality, to the unit, and the lean rows sum to
+`lean_weight` beside it — two exact sums over two axes rather than one
+over a mixture. The ledger table renders the first; the lean band
+renders the second, which is where a reader looks to find out how the
+reading was decided anyway.
+
+### 2.4 The sign, re-anchored — decided 2026-09-03, narrowed 2026-09-13
 
 Profiles and signal implementations stay **threat-signed**; the engine
 anchors the ledger to the lean at assembly — `row = points × polarity`,
-quality is the anchored sum, and `direction` is the row's own sign
-(supports / disputes). Full mechanics in `04-dispositions.md` §2. Three
-things carried the decision: the arithmetic is unchanged (the benign demo
-value's quality is the same 91, its rows flipped to match the
-`with`/`against` arrows the fixture already renders); review B2's direction
-contradiction dissolves — direction is one sign, no total, no escalation
-special-case; and a **negative anchored sum** becomes the one honest state
-the old model could not express — a record disputing its own assertion,
-emitting the contested lean.
+and `direction` is the row's own sign (supports / disputes). Full
+mechanics in `04-dispositions.md` §2. Three things carried the decision:
+the arithmetic is unchanged (the benign demo value's quality is the same
+91, its rows flipped to match the `with`/`against` arrows the fixture
+already renders); review B2's direction contradiction dissolves —
+direction is one sign, no total, no escalation special-case; and a
+**negative anchored sum** becomes the one honest state the old model
+could not express — a record disputing its own assertion, emitting the
+contested lean.
+
+**Narrowed 2026-09-13: the polarity reaches the lean rows and nothing
+else** (`review-2026-09-13.md` §A1). The decision above is right about
+the rows it was reasoning from and wrong about how far they reach, and
+the evidence it cited is where the gap shows: *the benign demo value's
+quality is the same 91* was true of the fixture, whose ledger contained
+`8 of 9 occurrences set to_ids = no` (+13) and `Decayed under both
+models` (+16). §6 promoted the first out of the catalogue into the lean
+derivation and moved the second into the relevance axis with no ledger
+points, in this same document. **The flip stayed and the two rows that
+justified it left in the same rework**, and what it then flipped was
+nine signals that measure the record.
+
+The result on real rows: *4 independent organisations reported it*
+rendering `−28` **against** a benign reading, *nobody has sighted this
+value* rendering `+4` **for** one, and a benign quality that scored
+higher the emptier the record was — §2.3's definition inverted. So a
+signal declares its axis, quality rows keep their declared sign
+whatever the lean, and `direction` on a quality row means *adds to /
+deducts from the record* rather than *supports / disputes the lean*.
+The two meanings are drawn apart rather than left to be inferred from a
+sign.
+
+A negative sum survives as an honest state and changes owner: it is a
+negative **`lean_weight`** that emits the contested lean, which is what
+the sentence above was reaching for — *a record disputing its own
+assertion*. A negative **quality** now means only what it says, that
+the absences outweighed what the record carries, and the `low` band
+beside it says the same thing in a word.
 
 ## 3. The three test values
 
@@ -236,7 +277,53 @@ derivation's contract (`04-dispositions.md` §3), the quality banding
 (`04-dispositions.md` §5 — B3's third bucket retired), and relevance on a
 benign lean — it renders on every lean, copy adapted (`06-staleness.md` §5).
 
-Remaining:
+The fifth closed on 2026-09-13: the hero's composition — three axes in one
+line without three competing numbers — is `ValueSummaryTool`, which names
+the lean, bands the quality in words and prints the one number nothing else
+in the hero carries, the days.
 
-- The hero's composition — three axes in one line without three competing
-  numbers (phase 9).
+The sixth opened and closed on 2026-09-13, in the read-back of the
+built tab (`review-2026-09-13.md`) and the pass that followed it:
+
+- **§2.4's anchoring was applied to the whole catalogue, and eight of
+  the eleven shipped signals have no polarity to anchor.** Corroboration
+  breadth, published ratio, feed presence, recency, continuity, sighting
+  volume, temporal precision and technique attribution all measure the
+  record rather than read it, and `row = points × polarity` reverses every
+  one of them on a `benign` lean — so quality there measures how empty the
+  record is, which is §2.3's definition inverted. The decision's own
+  evidence was the fixture's benign ledger closing at 91, and it closed
+  there on two rows §6 removed in the same rework: `to_ids` stance (+13,
+  promoted into the lean derivation) and decay (+16, moved into relevance
+  with no ledger points). Measured consequence on the verification
+  instance: 60 of 120 values render `contested`, 55 of them by rule 7
+  firing on a thin record — which is the state §4 says should read as *a
+  lean with low quality and a full ledger*.
+
+  **Settled 2026-09-13 — a signal declares its axis, and only the lean's
+  anchors.** `ValueSignalBase::AXIS_LEAN` / `AXIS_QUALITY`, overridable
+  per row for a signal whose poles are not all one kind. Two shipped
+  signals declare `AXIS_LEAN` — `lifecycle.warninglist`'s hits and
+  `sightings.false_positive` — which is §2.1's list minus the `to_ids`
+  stance, and that one is not a ledger row at all. The warninglist's
+  *no hit* pole declares quality per row: *nothing matched, 8 lists
+  checked* is the control case, and anchored it was enough on its own
+  to tip an uncontested benign value into rule 7.
+
+  Three things follow, and §2.3 and §2.4 are rewritten around them:
+
+  - **Quality is the sum of the quality rows**, and the lean rows sum
+    to `lean_weight` beside it. A warninglist hit says nothing about
+    how well documented a record is, which is why §2.3 never listed it
+    among quality's sources. `8.8.8.8` bands `medium` on 57 where it
+    banded `low` on `−1`.
+  - **Rule 7 weighs `lean_weight`**, so it fires on a record whose own
+    reading of the value disputes its assertion and not on a thin one.
+    Contested went from 60 of 120 sampled values to 6.
+  - **The contested cases fold out of the lean ledger**, so a case
+    titled *Reads as benign* contains only rows that read the value as
+    benign. On the shipped catalogue that leaves one side empty and the
+    agreeing layout carries contested values, with the contradiction
+    stated in the lean band. §4's *assertion counts against benign
+    evidence* is the rendering that would bring the two columns back,
+    and it is still open.

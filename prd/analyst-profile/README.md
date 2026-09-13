@@ -119,6 +119,38 @@ design:
 - **`version` split from `revision`** — the upstream match key and the local
   edit counter collide in one column; the materialisation keys on revision.
 
+A second review read the **built** tab rather than the documents
+([`review-2026-09-13.md`](review-2026-09-13.md)): every number it prints
+re-summed, every fact traced to its rows, and the engine run over 120 real
+values (`12-assessment-audit-probe.php`). The arithmetic is exact and the
+facts are true. What it found is one open decision:
+
+- **D11 §2.4's anchoring is applied to signals that have no polarity.** Eight
+  of the eleven shipped signals measure the record — corroboration, published
+  ratio, feeds, recency, continuity, sighting volume, temporal precision,
+  technique — and `row = points × polarity` flips all eight on a `benign`
+  lean, so quality there measures how *empty* the record is. The decision was
+  validated against the fixture's benign ledger, which scored 91 on two rows
+  the same rework removed: `to_ids` stance (+13, promoted into the lean
+  derivation) and decay (+16, moved to relevance with no ledger points). The
+  flip stayed; its counterweight left. Consequences measured on the instance:
+  **60 of 120 values render `contested`, and 55 of those by rule 7 acting on a
+  thin record rather than a contradictory one** — a state D11 §4 promised
+  would read as *a lean with low quality and a full ledger*.
+
+  **Fixed the same day.** A signal declares its axis; the polarity reaches
+  `AXIS_LEAN` only, which on the shipped catalogue is the warninglist's
+  hits and false-positive sightings. Quality is the sum of the quality
+  rows, `lean_weight` the sum of the lean rows, and rule 7 weighs the
+  second. Measured after: **contested fell from 60 of 120 to 6, all six
+  genuine**; `8.8.8.8` bands `medium` on 57 where it banded `low` on `−1`;
+  `awake-weaves.cyou` reads *asserted threat · thin record*, which is D11
+  §3's first test reading verbatim; and every benign lean on the instance
+  now holds instead of flipping. Three harness blocks were rewritten
+  rather than repaired, because what they asserted was the defect. The
+  two-column contested layout is unreachable on the shipped catalogue as
+  a result, which `04-dispositions.md` §5 records as the open half.
+
 ## Status and what remains
 
 Phases (living table: `01-profile.md` §1.4): **phases 1 to 9 are built;
@@ -556,3 +588,4 @@ it yet (`08-enrichment.md` §3.4).
 | [`09b-prototypes.md`](09b-prototypes.md) | Phase 8b's brief, written to be executed cold — the only file in the corpus addressed to someone who has read none of the others |
 | [`12-assessment.md`](12-assessment.md) | D11 — the assessment's semantic model and rename map |
 | [`review-2026-09-02.md`](review-2026-09-02.md) | The adversarial review, findings and their resolutions |
+| [`review-2026-09-13.md`](review-2026-09-13.md) | The read-back of the built tab against real rows — the anchoring finding and its four consequences |

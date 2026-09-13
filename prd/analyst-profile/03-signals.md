@@ -95,6 +95,13 @@ Three properties follow, and each is load-bearing:
   negative points; `reporting.independent_orgs` positive. The profile author
   never thinks about dispositions, only about "does this evidence point at a
   threat, and how hard".
+- **A signal declares its axis** (added 2026-09-13,
+  `review-2026-09-13.md` §D1). `AXIS_LEAN` for a signal that reads the
+  value — the warninglist's hits, false-positive sightings — and
+  `AXIS_QUALITY`, the default, for one that weighs the record. A signal
+  whose poles are not all one kind declares per row; `lifecycle
+  .warninglist` is the one shipped case, because a hit reads the value
+  and *no hit* does not.
 
 **The anchoring is the engine's, not the author's** (decided 2026-09-03 with
 D11, `04-dispositions.md` §2). Implementations return threat-signed points
@@ -104,6 +111,16 @@ disputing a threat one, from one declaration. The verdict-relative staleness
 exception an earlier draft carried is gone with its signal — staleness left
 the ledger for the relevance axis (`06-staleness.md`), and every remaining
 signal is plainly threat-signed.
+
+**And it multiplies only the lean axis** (2026-09-13). *Threat-signed* is
+a coherent instruction for a signal that reads the value and an empty one
+for a signal that counts how many organisations reported it — there, the
+declared sign already means the only thing it can, *more record* or *less*.
+Anchoring those made nine of the eleven shipped signals invert on a benign
+lean, so corroboration read as an argument against the reading and every
+gap in the record read as an argument for it. A quality row keeps its
+declared sign whatever the lean, and `direction` on one means *adds to /
+deducts from the record* rather than *supports / disputes the lean*.
 
 ### 2.1 Where it lives
 

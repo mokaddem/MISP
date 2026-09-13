@@ -42,20 +42,40 @@ point at a threat, and how hard", exactly as `03-signals.md` §2 has it, and
 no `points` declaration changes. The engine then **anchors the ledger to the
 lean** at assembly:
 
+**Revised 2026-09-13** (`review-2026-09-13.md` §D1). The anchoring below
+is right about the rows that *read the value* and was applied to every
+row, including the nine that *weigh the record* — so a signal declares
+which it is, and the polarity reaches one axis:
+
 ```
-polarity   = +1 if lean is threat, −1 if lean is benign
-row shown  = threat_signed_points × polarity
-quality    = Σ shown rows                    # the exact-sum invariant's home
-direction  = sign(shown row)                 # + supports the lean, − disputes
+polarity    = +1 if lean is threat, −1 if lean is benign
+lean row    = threat_signed_points × polarity   # reads the value
+quality row = declared points                   # weighs the record
+quality     = Σ quality rows      # the exact-sum invariant, per axis
+lean_weight = Σ lean rows         # and the other one
+direction   = sign(row)           # lean: supports/disputes the lean
+                                  # quality: adds to/deducts from the record
 ```
 
-Checked against the fixture: the malicious value is unchanged (`+84`, every
-sign as authored). The benign value's rows all flip — the warninglist hit
-renders `+38` *supporting* benign, wide reporting `−11` *disputing* it — and
-the sum is **`+91`: the same quality number the page already shows**, with
-the same `with`/`against` arrows the fixture already renders, row for row.
-The re-anchoring is the fixture's own direction semantics, stated as the
-mechanism.
+**Two shipped signals are on the lean axis**: `lifecycle.warninglist`'s
+hits and `sightings.false_positive`. That is D11 §2.1's list minus the
+`to_ids` stance, which §6 promoted out of the catalogue and which is
+therefore not a ledger row at all. The warninglist's `no_hit` pole
+declares the quality axis *per row* — *nothing matched, 8 lists checked*
+is the control case, and anchoring it was enough on its own to tip an
+uncontested benign value into rule 7.
+
+Checked against the fixture: the malicious value is unchanged (`+84`,
+every sign as authored). The benign value's ledger also sums to **`+91`**,
+and now it does so **without the flip** — which is the correction. The
+paragraph this replaces read *"the benign value's rows all flip — the
+warninglist hit renders `+38` supporting benign, wide reporting `−11`
+disputing it"*, and the second half of that is the defect: four
+organisations corroborating a value is not an argument against its benign
+reading. It looked sound because the fixture's ledger was authored
+entirely lean-facing, in the pre-D11 vocabulary where every row was a
+statement about the value. The shipped catalogue is not, and on real rows
+the flip made the emptiest record the best-scoring benign one.
 
 Two consequences:
 
@@ -63,11 +83,17 @@ Two consequences:
   total, no escalation special-case. The old model's contradiction — phase 2
   deriving direction from `sign(total)` while §5.1 of the old text flipped it
   under an escalation — is gone (`review-2026-09-02.md` B2).
-- **A negative quality is meaningful**: the record disputes its own
+- **A negative `lean_weight` is meaningful**: the record disputes its own
   assertion. It does not render as a negative gauge; it emits a contested
-  lean (§3, rule 7) — the state the old model could not express.
+  lean (§3, rule 7) — the state the old model could not express. *It was
+  a negative `quality` until 2026-09-13, which is how a thin record —
+  `−23` of absence penalties on a single source with no galaxy, no
+  first-seen, no sighting, nothing recent and no feed — came to be read
+  as a contradiction. 55 of the 60 contested values on the verification
+  instance were that. A negative quality now means only that the absences
+  outweighed the record, which is what the `low` band beside it says.*
 
-On a **contested** lean there is no polarity; the ledger renders
+On a **contested** lean there is no polarity; the lean ledger renders
 threat-signed and the tug shows the two one-sided sums (§5). On a **none**
 lean there is no ledger at all.
 
@@ -209,6 +235,26 @@ The conflicted layout's tug renders **two derivable quantities**: the sum of
 the threat-signed positive rows (the assertion's support) against the sum of
 the negative rows (the dispute). Both come from the same ledger the other
 leans render — no third bucket, no separate computation.
+
+**Narrowed 2026-09-13 to the lean ledger** (`review-2026-09-13.md` §A3).
+*The same ledger the other leans render* was the whole ledger, so the
+tug's benign foot collected *no galaxy on any occurrence*, *the record
+never says when it was seen*, *nobody has sighted this value*, *last
+reported 20 months ago* and *no enabled feed carries it* — five absences
+under a heading claiming they read the value as benign, shown winning
+23 to 22 on a domain nobody had called harmless. Absences are not a
+case. The tug folds out of the lean rows, which is where the two sides
+of a reading actually live.
+
+On the shipped catalogue that makes the tug one-sided by construction:
+both lean signals argue benign, and the threat side of the argument is
+the organisation stance count, which is not a ledger row and is drawn as
+a count in the lean band. So `casesFor()` finds no pair, and the
+agreeing layout carries contested values with the contradiction stated
+above the ledger rather than beside it. **The two-column layout is
+unreachable until §4's own alternative is rendered** — *assertion counts
+against benign evidence*, two quantities in different units, which D11
+§4 left to this document and which this document has not settled.
 
 The fixture's `unresolved => 12` segment is **retired** in phase 9's fixture
 pass: it was never derivable from the engine (`review-2026-09-02.md` B3),
