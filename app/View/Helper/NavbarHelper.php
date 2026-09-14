@@ -329,15 +329,18 @@ class NavbarHelper extends AppHelper {
             [
                 'type' => 'group',
                 'label' => __('Decaying Models'),
+                'url' => $baseurl . '/decayingModel/index',
+                'controller' => 'decayingModel',
+                'action' => 'index',
                 'icon' => 'fas fa-hourglass-half',
-                'children' => [
-                    [
-                        'label' => __('Index'),
-                        'url' => $baseurl . '/decayingModel/index',
-                        'controller' => 'decayingModel',
-                        'action' => 'index',
-                        'icon' => 'fas fa-list'
-                    ],
+                //'children' => [
+                    // [
+                    //     'label' => __('Index'),
+                    //     'url' => $baseurl . '/decayingModel/index',
+                    //     'controller' => 'decayingModel',
+                    //     'action' => 'index',
+                    //     'icon' => 'fas fa-list'
+                    // ],
                     // [
                     //     'label' => __('Decaying Models Tool'),
                     //     'url' => $baseurl . '/decayingModel/decayingTool',
@@ -345,7 +348,7 @@ class NavbarHelper extends AppHelper {
                     //     'action' => 'decayingTool',
                     //     'icon' => 'fas fa-toolbox'
                     // ]
-                ]
+                //]
             ],
             ['divider' => true],
             [
@@ -1004,6 +1007,11 @@ class NavbarHelper extends AppHelper {
                 'type' => 'darkMode',
                 'label' => __('Dark mode'),
                 'icon'  => 'fas fa-moon',
+            ],
+            [
+                'type' => 'tutorial',
+                'label' => __('Replay the tutorial'),
+                'icon' => 'fas fa-graduation-cap',
             ],
             ['divider' => true],
             [

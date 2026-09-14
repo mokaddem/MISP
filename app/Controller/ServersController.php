@@ -41,6 +41,11 @@ class ServersController extends AppController
 
         parent::beforeFilter();
         $this->Security->unlockedActions[] = 'cspReport';
+        // updateJSON is only ever reached by the diagnostics page's hand-built
+        // AJAX, which has no rendered form behind it to produce the field hash
+        // _validatePost() compares against. It sends the page's CSRF token in
+        // the X-CSRF-Token header instead.
+        $this->_csrfTokenHeaderOnly(['updateJSON']);
         // permit reuse of CSRF tokens on some pages.
         switch ($this->request->params['action']) {
             case 'push':
@@ -58,12 +63,18 @@ class ServersController extends AppController
         unset($fields['authkey']);
         $fields = array_keys($fields);
 
-        $filters = $this->IndexFilter->harvestParameters(['search']);
+        $filters = $this->IndexFilter->harvestParameters(['search', 'internal', 'push', 'pull']);
         $conditions = [];
         if (!empty($filters['search'])) {
             $strSearch = '%' . trim(strtolower($filters['search'])) . '%';
             $conditions['OR'][]['LOWER(Server.name) LIKE'] = $strSearch;
             $conditions['OR'][]['LOWER(Server.url) LIKE'] = $strSearch;
+        }
+        // For index's "More filters" panel
+        foreach (['internal', 'push', 'pull'] as $flag) {
+            if (isset($filters[$flag]) && $filters[$flag] !== '') {
+                $conditions['Server.' . $flag] = (int)$filters[$flag];
+            }
         }
 
         if ($this->_isRest()) {
@@ -1007,6 +1018,7 @@ class ServersController extends AppController
      */
     public function pull($id = null, $technique = 'full')
     {
+        $this->request->allowMethod(['post']);
         if (empty($id)) {
             if (!empty($this->request->data['id'])) {
                 $id = $this->request->data['id'];
@@ -1090,6 +1102,7 @@ class ServersController extends AppController
 
     public function push($id = null, $technique=false)
     {
+        $this->request->allowMethod(['post']);
         if (!empty($id)) {
             $this->Server->id = $id;
         } else if (!empty($this->request->data['id'])) {
@@ -1936,6 +1949,15 @@ class ServersController extends AppController
                 throw new NotFoundException(__('Invalid type.'));
             }
             App::uses('File', 'Utility');
+            // $filename is a raw route parameter. Strip any path component
+            // before joining, exactly as uploadFile() below already does, so
+            // the target cannot leave the type's own directory. basename()
+            // leaves '.' and '..' as-is and both resolve to a directory, so
+            // reject them rather than handing a directory to File::delete().
+            $filename = basename($filename);
+            if ($filename === '' || $filename === '.' || $filename === '..') {
+                throw new NotFoundException(__('Invalid filename.'));
+            }
             $existingFile = new File($validItems[$type]['path'] . DS . $filename);
             if (!$existingFile->exists()) {
                 $this->Flash->error(__('File not found.', true), 'default', array(), 'error');
@@ -2362,6 +2384,7 @@ class ServersController extends AppController
 
     public function cache($id = 'all')
     {
+        $this->request->allowMethod(['post']);
         if (Configure::read('MISP.background_jobs')) {
 
             $this->loadModel('Job');
@@ -2405,6 +2428,7 @@ class ServersController extends AppController
 
 public function updateJSON()
     {
+        $this->request->allowMethod(['post']);
         $results = [];
 
         $async = Configure::read('MISP.background_jobs') && isset($this->params['named']['async']) ? filter_var($this->params['named']['async'], FILTER_VALIDATE_BOOLEAN) : false;
@@ -2681,6 +2705,7 @@ public function updateJSON()
 
     public function removeOrphanedCorrelations()
     {
+        $this->request->allowMethod(['post']);
         $count = $this->Server->removeOrphanedCorrelations();
         $message = __('%s orphaned correlation removed', $count);
         if ($this->_isRest()) {
