@@ -190,12 +190,30 @@ $sortKeys = function ($row) {
     } elseif (!empty($attribute['deleted'])) {
         $state = 2;
     }
-    $tags = 0;
+    /*
+     * **What the Tags column draws, counted the way it draws it.** The
+     * column has shown both scopes deduplicated by name since
+     * 2026-09-14 and this counted `AttributeTag` alone, so sorting by
+     * Tags put a row showing nine chips below one showing two — and on
+     * `8.8.8.8`, where no occurrence carries a tag of its own, it
+     * ordered every row as if the column were empty.
+     */
+    $tagNames = array();
     foreach ($row['AttributeTag'] as $attributeTag) {
-        if (empty($attributeTag['Tag']['is_galaxy'])) {
-            $tags++;
+        if (!empty($attributeTag['Tag']['name'])
+            && empty($attributeTag['Tag']['is_galaxy'])
+        ) {
+            $tagNames[$attributeTag['Tag']['name']] = true;
         }
     }
+    foreach ($row['EventTag'] ?? array() as $eventTag) {
+        if (!empty($eventTag['Tag']['name'])
+            && empty($eventTag['Tag']['is_galaxy'])
+        ) {
+            $tagNames[$eventTag['Tag']['name']] = true;
+        }
+    }
+    $tags = count($tagNames);
     $context = '';
     if (!empty($row['Object']['name'])) {
         $context = mb_strtolower(
@@ -604,7 +622,7 @@ $columns = array(
         'shown' => true,
         'field' => array(
             'name' => __('Tags'),
-            // Both scopes, marked apart — see `value_tag_list`, and the
+            // Both scopes as one list — see `value_tag_list`, and the
             // Overview preview carries the same column.
             'element' => 'value_tag_list',
             'data_path' => 'AttributeTag',
