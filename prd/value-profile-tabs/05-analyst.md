@@ -4,6 +4,32 @@
 Artifact: <https://claude.ai/code/artifact/09f056ee-be74-4560-90e1-b14cda8f832c>
 Depends on `00-shared.md`.
 
+**Went live in phase 26** —
+[`../value-profile-live/26-analyst.md`](../value-profile-live/26-analyst.md),
+which renamed the tab *Collaboration*, added proposals to the thread and
+a third panel of event reports.
+
+**Two panels became four in phase 34** —
+[`../value-profile-live/34-comments.md`](../value-profile-live/34-comments.md).
+The §3 and §4 tables below list two actions and two templates; the tab
+now carries `viewAnalystStanding`, `viewAnalystThread`,
+`viewAnalystComments` and `viewAnalystReports`, in that order.
+
+The fourth is the one panel on the tab whose subject is the value
+itself. §1 below opens on *where each organisation stands*, which is
+still right for the analyst data — but `attributes.comment` holds
+**2.1M** rows of analyst writing on this instance against 75 notes and
+43 opinions, and it is the only one of them anchored to the value rather
+than to a container. It is a table of distinct sentences with occurrence
+counts, not a fourth feed: one sentence on this instance is written on
+1,459 occurrences of one value.
+
+**That phase also retuned the tab's density.** §10's CSS still applies;
+the four panels now additionally carry `vp-dense`, which is scoped to
+this tab because `value_panel_header` is shared with eight others. The
+composer §9 describes is folded shut by default and opens byte-identical
+— it is 231px of controls that cannot be used until the page writes.
+
 ## 1. What ships
 
 **Open on where each organisation stands on the 0–100 scale, then read the

@@ -10887,3 +10887,212 @@ a.vp-lane-tag:focus-visible {
 .vp-ctable td .vpa-chip {
     max-width: 100%;
 }
+
+/* ==================================================================
+ * The Collaboration tab's density
+ *
+ * One class on the four panels rather than a change to the shared
+ * chrome, and that is the whole point of it. `value_panel_header` is
+ * worn by every panel on eight tabs; retuning it here would have moved
+ * the Occurrences rail, the co-occurrence fold and the history table
+ * to shorten a tab none of them is on.
+ *
+ * The tab is four panels of prose and a table, and prose panels are
+ * where the page's chrome costs most per fact: measured on `8.8.8.8`
+ * before this pass, the four headers were 296px, a disabled composer
+ * 231px and eight report rows 89px each — 2,466px of pane to render
+ * seven notes, eight reports and three comments. The comment table
+ * added in the same phase renders a fact in a 30px row, which is the
+ * number the rest of the tab is tuned against.
+ *
+ * Nothing here removes a word. Every caveat, footnote and ACL band the
+ * tab carried is still on it — they are what the panels are for. What
+ * shrinks is padding, the line gaps between blocks that were already
+ * separated by weight and colour, and one control that does nothing.
+ * ================================================================== */
+
+/*
+ * The header, at 52px rather than 74px. The glyph tile set that floor:
+ * at 36px it was taller than the two lines beside it, so the padding
+ * was sized to a square rather than to the text.
+ */
+.vp-dense > .border-bottom {
+    padding-top: 9px;
+    padding-bottom: 9px;
+}
+
+.vp-dense .vp-panel-glyph {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    font-size: 0.86rem;
+}
+
+.vp-dense .vp-panel-glyph > .misp-icon {
+    width: 15px;
+    height: 15px;
+}
+
+/* `mt-1` is a utility on the shared element, so this has to outrank it
+   rather than replace it. */
+.vp-dense .vp-panel-glyph ~ .vp-min-w-0 > .small {
+    margin-top: 1px !important;
+}
+
+/* The body, and the footnote bands under it. */
+.vp-dense > .p-3 {
+    padding: 10px 12px !important;
+}
+
+.vp-dense > .vp-acl-note {
+    padding: 7px 12px;
+}
+
+.vp-dense .vp-aside-note {
+    margin-top: 7px;
+    padding-top: 7px;
+}
+
+/*
+ * "Nothing here" on one line rather than in a column. The stacked
+ * version is right on a tab whose panels are mostly full and one is
+ * empty; on this tab a value with no analyst data at all met four of
+ * them in a row, 150px each, to be told four times that nobody has
+ * written anything.
+ */
+.vp-dense .vp-empty {
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 16px;
+}
+
+.vp-dense .vp-empty > i,
+.vp-dense .vp-empty > .misp-icon {
+    font-size: 1rem;
+}
+
+/* One turn of the thread, at 76px rather than 101px. */
+.vp-dense .vp-analyst {
+    padding: 6px 10px;
+}
+
+.vp-dense .vp-analyst-body > .d-flex:first-child {
+    margin-bottom: 2px !important;
+}
+
+.vp-dense .vp-analyst-meta {
+    margin-top: 2px;
+}
+
+.vp-dense .vpa-replies {
+    margin-top: 4px;
+}
+
+/*
+ * One report, at 66px rather than 89px, and the extract loses two of
+ * its three lines. Three lines of somebody's opening paragraph is a
+ * preview; one is an identification, which is what a list of eight
+ * documents beside their titles and dates is for.
+ */
+.vp-dense .vpa-report {
+    padding: 6px 0;
+}
+
+.vp-dense .vpa-report-extract {
+    margin-bottom: 2px;
+    -webkit-line-clamp: 1;
+}
+
+.vp-dense .vpa-report > .d-flex:first-child {
+    margin-bottom: 2px !important;
+}
+
+/*
+ * The disabled composer, folded away. It is 231px of controls that
+ * cannot be used — the page does not write — and it sat between the
+ * thread and the panel below it on every value, including the ones
+ * with nothing written at all. Open it and it is exactly what it was;
+ * closed it states in one line what it would do and why it will not.
+ */
+.vpa-composer-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    border: 1px dashed color-mix(in srgb, var(--analystData) 45%,
+        var(--bs-border-color));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--analystData) 5%,
+        var(--bs-body-bg));
+    font-size: 0.78rem;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    list-style: none;
+}
+
+[data-bs-theme="dark"] .vpa-composer-fold > summary {
+    background: color-mix(in srgb, var(--analystData) 12%,
+        var(--bs-body-bg));
+}
+
+.vpa-composer-fold > summary::-webkit-details-marker {
+    display: none;
+}
+
+.vpa-composer-fold > summary:hover {
+    border-color: color-mix(in srgb, var(--analystData) 70%,
+        var(--bs-border-color));
+}
+
+.vpa-composer-fold > summary > .fa-caret-right {
+    transition: transform 0.12s ease;
+}
+
+.vpa-composer-fold[open] > summary > .fa-caret-right {
+    transform: rotate(90deg);
+}
+
+.vpa-composer-fold[open] > summary {
+    margin-bottom: 8px;
+}
+
+/* The gap between panels, which is four of them on this tab. */
+.vp-dense.mb-3 {
+    margin-bottom: 0.6rem !important;
+}
+
+/*
+ * The body, on the badge row. It takes the space the badges leave and
+ * shrinks below its content width so the attachment chip stays pinned
+ * right rather than being pushed off the row — `min-width: 0` is what
+ * makes `ms-auto` mean *the panel's right edge* here.
+ */
+.vp-analyst-inline {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/*
+ * A `<p>` inside a card picks up the browser's 1rem bottom margin,
+ * which on the standing panel was 16px of nothing between the caveat
+ * band and the card's own edge.
+ */
+.vp-dense > .vp-acl-note {
+    margin-bottom: 0;
+}
+
+/* The split bar's block, which sat in 28px of margin for a 26px bar. */
+.vp-dense .vpa-tugblock {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+}
+
+.vp-dense .vpa-stats {
+    margin-top: 8px;
+}
+
+.vp-dense > .p-3.border-top {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+}

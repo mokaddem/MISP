@@ -269,7 +269,7 @@ $headerExtra = $aggregate === null ? null
             . ' when the page is built.'
         )) . '">' . h(__('computed at render')) . '</span>';
 ?>
-<div class="card shadow-sm mb-3 vp-panel"
+<div class="card shadow-sm mb-3 vp-panel vp-dense"
      style="--vp-panel-color: var(--analystData);"
      data-vp-analyst-standing>
 

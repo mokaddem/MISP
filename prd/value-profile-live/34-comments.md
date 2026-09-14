@@ -1,4 +1,4 @@
-# PRD: Value Profile — the comment column becomes a table
+# PRD: Value Profile — the comment column becomes a table, and the tab loses a third of its height
 
 **Phase 34.** Opened and built 2026-09-14, from two change requests on
 the Collaboration tab:
@@ -191,7 +191,127 @@ a narrow column.
 
 ---
 
-## 4. What was checked, live
+## 4. The density pass
+
+Everything below is driven by **one class, `vp-dense`, on the four
+Collaboration panels**. `value_panel_header` is worn by every panel on
+eight tabs; retuning it directly would have moved the Occurrences rail,
+the co-occurrence fold and the history table to shorten a tab none of
+them is on. Measured after the pass, every panel outside this tab still
+reports a 74px header.
+
+**Nothing here removes a word.** Every caveat, footnote and ACL band the
+tab carried is still on it — §14.6's permanent caveat included, which is
+not a style decision to revisit. What shrinks is padding, the line gaps
+between blocks already separated by weight and colour, and one control
+that does nothing.
+
+### 4.1 The header, 74px → 59px
+
+The glyph tile set the floor: at 36px it was taller than the two lines
+beside it, so the padding had been sized to a square rather than to the
+text. 28px tile, 9px of vertical padding, and the subtitle's `mt-1`
+down to 1px. Four panels, so 296px of chrome becomes 236.
+
+### 4.2 The disabled composer, 264px → 48px
+
+It is the tallest thing on the tab and it cannot be operated — the page
+does not write. On a value with nothing written it was the tallest thing
+in a panel whose body said *nobody has written a note*.
+
+Folded into a `<details>`, not dropped. [`26-analyst.md`](26-analyst.md)
+argued the composer's *shape* is the settled part — analyst data has no
+value-level target, so writing from a value page means naming an
+occurrence — and a design nobody can open is not one anybody can check.
+Open, it is byte-identical at 231px. Closed, the summary states in one
+line what it is and why it is off, carrying the *Disabled in this pass*
+badge that used to sit inside it.
+
+### 4.3 A thread item, 101px → 57px
+
+The item was three stacked lines: the badge row, the body, the meta. On
+four of `8.8.8.8`'s seven items the middle one held a sentence of four
+words under a badge reading `Agree · 80/100`.
+
+**A short plain sentence now shares the line with its own badges**, and
+the two read as one statement, which is what they are:
+
+```
+OPINION   [Agree · 80/100]  ▬▬●  Good event              [#47 inherited ↗]
+          🏢 ADMIN · 👤 admin@admin.test · 🕐 2026-01-14 · [This community only]
+```
+
+Only when it is genuinely one line of prose. `$isMarkdown` is already
+the panel's own test for a body the renderer will turn into headings,
+bullets or a quote, and a block element does not belong inside a flex
+row of badges; a 120-character bound catches the plain paragraph long
+enough to want the full width anyway. A **proposal is excluded
+outright** — its first row is the change strip, which is a block by
+design, and it is the one item still measuring 91px.
+
+### 4.4 An empty panel, ~150px → 48px
+
+`.vp-empty` stacks a large glyph over centred text, which is right on a
+tab whose panels are mostly full and one is empty. On this tab a value
+with no analyst data met **three of them in a row** to be told three
+times that nobody has written anything. In `vp-dense` it is one line.
+
+### 4.5 The rest
+
+A report row loses 8px of padding and its extract is clamped to one
+line: three lines of somebody's opening paragraph is a preview, one is
+an identification, which is what a list of eight documents beside their
+titles and dates is for. The `<p>` carrying the standing panel's ACL
+band was picking up the browser's 1rem bottom margin — 16px of nothing
+between the caveat and the card's own edge. The split bar sat in 28px of
+margin for a 26px bar. The gap between panels goes from 16px to 9.6px,
+which on four panels is another 26.
+
+---
+
+## 5. What the tab costs now
+
+`8.8.8.8` — seven thread items, eight reports, four opinions, three
+comments — at 1600px wide:
+
+| | before | **after** |
+|---|---|---|
+| Where the organisations stand | 567px | **494px** |
+| Notes, opinions and proposals | 1,068px | **608px** |
+| Attribute comments | — | **174px** (new) |
+| Event reports | 784px | **660px** |
+| **the pane** | **2,466px** | **1,976px** |
+
+The three panels that existed before are **1,802px against 2,466** — a
+27% cut — and the tab carries a fourth panel inside what it saved.
+
+The empty end of the range moves further. `147.185.221.29` has no note,
+no opinion and no report, and 11 comments nobody could see:
+
+| | before | **after** |
+|---|---|---|
+| the three original panels | 865px | **407px** |
+| Attribute comments | — | **412px** |
+| **the pane** | **865px** | **858px** |
+
+Same height, and it now says something. `193.161.193.99` — 33 sentences
+— is 1,580px, of which 1,068 is the table.
+
+### 5.1 The repeating blocks
+
+| block | before | after |
+|---|---|---|
+| panel header | 74px | 59px |
+| thread item, plain sentence | 101px | **57px** |
+| thread item, proposal | 101px | 91px |
+| report row | 89px | 59–81px |
+| empty state | ~150px | 48px |
+| composer | 264px | 48px |
+| **comment row** | — | **30px** |
+
+---
+
+## 6. What was checked, live
 
 On the verification instance, signed in as the site admin:
 
@@ -212,15 +332,22 @@ On the verification instance, signed in as the site admin:
 - **No cell clips what it holds.** Across four values and 48 rows, every
   column but the comment fits its content exactly; the comment is the
   one that is meant to truncate.
+- **The fold opens.** 31px closed, 269px open, textarea present and
+  disabled.
+- **Dark mode carries.** The table, the fold, the chips and the badges
+  all render in `data-bs-theme="dark"`.
 - **No ACL entry is missing.** `/values/queryACL/findMissingFunctionNames`
   returns `[]`.
+- **Nothing leaked to the other tabs.** Every `.vp-panel` on the Overview
+  still reports a 74px header.
 - **Every endpoint on the tab answers 200** with no PHP error, on eight
   values including `443` (48,255 occurrences) and `flood` (65,717).
 
 ---
 
-## 5. Board
+## 7. Board
 
 [`00-contract.md`](00-contract.md) §14.12 gains a row:
 
 | Collaboration | `viewAnalystComments` | `value_analyst_comments` | 2–4 | nothing — two grouped aggregates, then one organisation list and one event resolve over what is drawn | 2, both aggregates | **34** |
+

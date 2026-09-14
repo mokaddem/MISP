@@ -433,6 +433,26 @@ $renderItem = function ($item, $depth) use (
     } elseif ($isProposal) {
         $kind = 'proposal';
     }
+    /*
+     * **A short plain sentence shares the line with its own badges.**
+     * The item was three stacked lines — the badge row, the body, the
+     * meta — and on four of `8.8.8.8`'s seven items the middle one held
+     * a sentence of four words under a badge reading `Agree · 80/100`.
+     * Beside it the two read as one statement, which is what they are,
+     * and the item loses 22px.
+     *
+     * Only when it is genuinely one line of prose. `$isMarkdown` is
+     * already the panel's test for a body the renderer will turn into
+     * headings, bullets or a quote, and a block element does not belong
+     * inside a flex row of badges; the length bound catches the plain
+     * paragraph long enough to want the full width anyway. A proposal
+     * is excluded outright — its first row is the change strip, which
+     * is a block by design.
+     */
+    $inlineBody = !$isProposal
+        && $item['body'] !== ''
+        && !$isMarkdown($item['body'])
+        && mb_strlen($item['body']) <= 120;
     $out = '<div class="vp-analyst vp-analyst-' . $kind . ' ' . $side
         . '">';
 
@@ -502,6 +522,10 @@ $renderItem = function ($item, $depth) use (
                     'about the item above, not about the value — not in'
                     . ' the aggregate'
                 )) . '</span>';
+    }
+    if ($inlineBody) {
+        $out .= '<div class="vp-analyst-text vpa-md vp-analyst-inline">'
+            . $markdown($item['body']) . '</div>';
     }
     /*
      * A proposal's target is named by its change strip below, with the
@@ -597,7 +621,7 @@ $renderItem = function ($item, $depth) use (
         $out .= '</div>';
     }
 
-    if ($item['body'] !== '') {
+    if ($item['body'] !== '' && !$inlineBody) {
         $out .= '<div class="vp-analyst-text vpa-md">'
             . $markdown($item['body']) . '</div>';
     }
@@ -785,7 +809,7 @@ if (!empty($thread)) {
     $headerExtra .= '</div>';
 }
 ?>
-<div class="card shadow-sm mb-3 vp-panel"
+<div class="card shadow-sm mb-3 vp-panel vp-dense"
      style="--vp-panel-color: var(--analystData);"
      data-vp-analyst-thread>
 
@@ -847,9 +871,33 @@ if (!empty($thread)) {
      * The picker offers what the viewer can see, not what exists. An
      * occurrence hidden by distribution is not a target this user can
      * attach anything to.
+     *
+     * **Folded shut by default since the density pass.** It is 231px of
+     * controls that cannot be operated, on every value, including the
+     * ones with nothing written at all — where it was the tallest thing
+     * in a panel whose body said *nobody has written a note*. Folded
+     * rather than dropped, because the argument above is about the
+     * *shape* being settled and a design nobody can open is not one
+     * anybody can check. The summary states in one line what it is and
+     * why it is off, which is what the badge inside it was saying at
+     * ten times the height.
      */
     ?>
     <div class="p-3 border-top">
+        <details class="vpa-composer-fold">
+            <summary>
+                <i class="fas fa-caret-right" aria-hidden="true"></i>
+                <span class="misp-icon misp-icon-analyst-note
+                             misp-simple"></span>
+                <span class="fw-semibold"><?= h(__('Write a note or an'
+                    . ' opinion')) ?></span>
+                <span class="badge bg-warning-subtle text-warning-emphasis
+                             border border-warning-subtle fw-semibold
+                             ms-auto">
+                    <i class="fas fa-ban me-1"></i>
+                    <?= h(__('Disabled in this pass')) ?>
+                </span>
+            </summary>
         <div class="vpa-composer">
             <div class="vpa-composer-head">
                 <ul class="nav nav-pills vpa-kindswitch" role="tablist">
@@ -870,11 +918,14 @@ if (!empty($thread)) {
                         </a>
                     </li>
                 </ul>
-                <span class="badge bg-warning-subtle text-warning-emphasis
-                             border border-warning-subtle fw-semibold ms-auto">
-                    <i class="fas fa-ban me-1"></i>
-                    <?= __('Disabled in this pass') ?>
-                </span>
+                <?php
+                /*
+                 * The *Disabled in this pass* badge moved to the fold's
+                 * summary, where it is the reader's reason not to open
+                 * this. Repeated inside it would state the same thing
+                 * twice within 40px.
+                 */
+                ?>
             </div>
             <div class="row g-3">
                 <div class="col-lg-7">
@@ -933,6 +984,7 @@ if (!empty($thread)) {
                 </div>
             </div>
         </div>
+        </details>
     </div>
 
     <?php if (!empty($analyst['capped'])): ?>

@@ -173,7 +173,7 @@ $subtitle = empty($rows)
         h(__('newest change first')),
     )));
 ?>
-<div class="card shadow-sm mb-3 vp-panel"
+<div class="card shadow-sm mb-3 vp-panel vp-dense"
      style="--vp-panel-color: var(--analystData);"
      data-vp-analyst-reports>
 
