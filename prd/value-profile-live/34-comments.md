@@ -189,6 +189,22 @@ because the instance holds `2017-08-05 109 months ago` and at 10.5 it
 clipped to `109 months ag`, which reads as a rendering fault rather than
 a narrow column.
 
+**Both records the row names open.** The event chip is a link and so is
+the organisation, under `.vpa-orglink` — the treatment the thread's meta
+line and the report list already use: inherited colour and no underline
+at rest, `--analystData` on hover, because a column of organisations
+should not be a column of blue. That is also phase 25's rule, applied
+here after the fact: *every chip that names a record is a link to that
+record*, and naming `abuse.ch` while leaving the reader to find it is
+the page knowing an address and keeping it.
+
+The engine carries `org_id` beside `org`, null where the organisation no
+longer resolves, and the cell falls back to plain text there — the
+report list's guard. It is a separate key rather than the `orgc_id` the
+rows were grouped by, because *which organisation wrote this* and *is
+there a page for it* are two questions and the grouped read answers only
+the first.
+
 ---
 
 ## 4. The density pass
@@ -464,6 +480,13 @@ On the verification instance, signed in as the site admin:
   three, with no horizontal page overflow at any of them.
 - **No header cell and no event chip clips, at any of those widths**,
   and the comment cell never falls below 142px.
+- **The organisation cell links, and looks like the page's others.** All
+  33 rows on `193.161.193.99` carry one; the two ids they resolve to
+  (`abuse.ch`, `Krawczyk Industries Limited`) both answer 200 at
+  `/organisations/view/<id>`. At rest the link inherits its colour with
+  no underline and on hover it turns `--analystData`, which is
+  `.vpa-orglink`'s behaviour everywhere else on the page. Row heights
+  are unchanged at 30px and no organisation cell clips.
 - **The other eighteen `view_layout` callers are untouched.** Fifteen
   pages fetched and all render; `/events/view2/47`, `/users/view/1` and
   `/galaxies/view/1` emit the same `<div class="ajax-tab-content"

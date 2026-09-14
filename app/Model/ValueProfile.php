@@ -11833,10 +11833,23 @@ class ValueProfile extends AppModel
              * dropping a sentence somebody wrote over a belt-and-braces
              * check disagreeing with the braces.
              */
+            $resolved = isset($orgs[$group['orgc_id']]);
             $rows[] = $group + array(
-                'org' => isset($orgs[$group['orgc_id']])
+                'org' => $resolved
                     ? $orgs[$group['orgc_id']]
                     : __('Unknown organisation'),
+                /*
+                 * The id the cell links on, and null where there is
+                 * nothing to open — an event whose `orgc_id` names an
+                 * organisation that no longer exists. Stated as its own
+                 * key rather than left to the template to derive from
+                 * `orgc_id`, because *which organisation wrote this*
+                 * and *is there a page for it* are two questions and
+                 * the grouped read answers only the first: `orgc_id` is
+                 * always set, since it is what the rows were grouped
+                 * by. Same shape and same guard as the report list's.
+                 */
+                'org_id' => $resolved ? $group['orgc_id'] : null,
                 'event' => isset($events[$eventId])
                     ? $events[$eventId]
                     : null,

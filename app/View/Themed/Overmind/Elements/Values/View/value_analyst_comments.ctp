@@ -209,7 +209,35 @@ $subtitle = empty($rows)
                                     </a>
                                 <?php endif; ?>
                             </td>
-                            <td class="vp-ctable-org"><?= h($row['org']) ?></td>
+                            <td class="vp-ctable-org">
+                                <?php
+                                /*
+                                 * `.vpa-orglink` — the same affordance
+                                 * the thread's meta line and the report
+                                 * list already use for an organisation:
+                                 * inherited colour, underlined on
+                                 * hover, so a column of them is not a
+                                 * column of blue. Unlinked where the
+                                 * organisation no longer resolves,
+                                 * which is the report list's guard.
+                                 */
+                                ?>
+                                <?php if ($row['org_id'] === null): ?>
+                                    <?= h($row['org']) ?>
+                                <?php else: ?>
+                                    <a class="vpa-orglink"
+                                       href="<?= h($baseurl)
+                                           ?>/organisations/view/<?=
+                                           (int)$row['org_id'] ?>"
+                                       title="<?= h(sprintf(
+                                           __('%s — the creating'
+                                               . ' organisation of the'
+                                               . ' events these rows sit'
+                                               . ' in. Opens it.'),
+                                           $row['org']
+                                       )) ?>"><?= h($row['org']) ?></a>
+                                <?php endif; ?>
+                            </td>
                             <td class="vp-ctable-when"
                                 title="<?= h(sprintf(
                                     __('Oldest of these rows: %s'),
