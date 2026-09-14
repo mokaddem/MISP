@@ -3088,6 +3088,18 @@ class ValueProfile extends AppModel
             'sources' => array(),
             'counts' => array('feeds' => 0, 'servers' => 0),
             'events' => 0,
+            /*
+             * The same event tally as `events`, kept apart by kind.
+             *
+             * The Overview card drew two lines — *N hits in feeds*, *N
+             * hits on sync servers* — and one number under both of
+             * them, so *12 remote events name this value* belonged to
+             * neither line and a reader had to guess whether the twelve
+             * were the server's, the feeds', or a sum. They are a sum;
+             * split here, each line states its own and there is nothing
+             * left to reconcile.
+             */
+            'event_counts' => array('feeds' => 0, 'servers' => 0),
             'restricted' => $visibility['restricted'],
             'cached' => $visibility['cached'],
             'visible' => $visibility['visible'],
@@ -3137,8 +3149,10 @@ class ValueProfile extends AppModel
                 'events' => array_slice($events, 0, self::EXTERNAL_EVENT_CAP),
                 'events_total' => count($events),
             );
+            $scope = $isServer ? 'servers' : 'feeds';
             $presence['events'] += count($events);
-            $presence['counts'][$isServer ? 'servers' : 'feeds']++;
+            $presence['event_counts'][$scope] += count($events);
+            $presence['counts'][$scope]++;
         }
 
         return $presence;

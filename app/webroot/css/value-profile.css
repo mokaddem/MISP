@@ -1166,6 +1166,67 @@ tr.vp-occ-deleted td {
     background: var(--bs-border-color);
 }
 
+/* ------------------------------------------------------------------
+ * The signed strip — support above the line, contradiction below
+ * ------------------------------------------------------------------
+ * The Overview's sightings card. It drew type 0 alone until
+ * 2026-09-14, which left the two contradicting kinds nowhere on a card
+ * whose own tiles count them.
+ *
+ * `--vp-spark-up` is the top region's share of the height and the
+ * template computes it from the two peaks, so one report is the same
+ * number of pixels whichever side of the line it is on. A value nobody
+ * has contradicted gets 100% and draws exactly as it always did.
+ * ------------------------------------------------------------------ */
+
+.vp-spark-signed {
+    align-items: stretch;
+}
+
+.vp-spark-col {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.vp-spark-up {
+    display: flex;
+    flex: 0 0 var(--vp-spark-up, 100%);
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+/*
+ * The line itself, and it is a border rather than an element so it
+ * cannot be mistaken for a column of its own. Drawn on the underside of
+ * the top region, which is where zero is.
+ */
+.vp-spark-down {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: flex-start;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.vp-spark-seg {
+    min-height: 0;
+    border-radius: 1px;
+}
+
+.vp-spark-seg-yes {
+    background: var(--vp-sight-yes);
+}
+
+.vp-spark-seg-fp {
+    background: var(--vp-sight-fp);
+}
+
+.vp-spark-seg-exp {
+    background: var(--vp-sight-exp);
+}
+
 .vp-spark-axis {
     display: flex;
     justify-content: space-between;
@@ -1197,10 +1258,39 @@ tr.vp-occ-deleted td {
 }
 
 .vp-reporter-fill {
-    display: block;
+    display: flex;
+    overflow: hidden;
     height: 100%;
     border-radius: 3px;
     background: var(--vp-bar-color, var(--sighting));
+}
+
+/*
+ * A reporter's bar, split by what its reports said.
+ *
+ * The bar is only ever segmented where a caller passes the breakdown —
+ * the Reporting card's organisation split has no kinds and keeps the
+ * plain fill above, which is why the segments colour themselves rather
+ * than the track.
+ *
+ * The three hues are `sightingSeries`' own, so a segment here means what
+ * a stack segment means on the tab's chart.
+ */
+.vp-reporter-seg {
+    flex: 0 0 auto;
+    height: 100%;
+}
+
+.vp-reporter-seg-yes {
+    background: var(--vp-sight-yes);
+}
+
+.vp-reporter-seg-fp {
+    background: var(--vp-sight-fp);
+}
+
+.vp-reporter-seg-exp {
+    background: var(--vp-sight-exp);
 }
 
 .vp-reporter-count {
@@ -1254,8 +1344,55 @@ tr.vp-occ-deleted td {
  * slab of solid green, which is not a chart of anything. Capped, one
  * month is one bar and the empty axis beside it is the reading.
  */
-.vp-reporting .vp-spark-bar {
+.vp-reporting .vp-spark-bar,
+.vp-spark-slot {
     max-width: 22px;
+}
+
+/*
+ * The year scale under the strip. One slot a month, sharing the bars'
+ * flex rules **exactly** — that is the whole reason it is a row of
+ * empty spans rather than a set of `left: n%` marks: once the bars hit
+ * their `max-width` they stop filling the strip, and a percentage would
+ * put every gridline somewhere its bar is not.
+ */
+.vp-spark-scale {
+    display: flex;
+    gap: 1px;
+    justify-content: flex-start;
+    height: 15px;
+    margin-top: 3px;
+}
+
+.vp-spark-slot {
+    position: relative;
+    flex: 1 1 0;
+}
+
+.vp-spark-slot-tick::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 4px;
+    background: var(--bs-border-color);
+}
+
+/*
+ * Left-aligned on the tick rather than centred on it: the label names
+ * the year that *starts* here, and a centred one would hang half of
+ * itself over the December before it.
+ */
+.vp-spark-tick {
+    position: absolute;
+    top: 5px;
+    left: 0;
+    font-size: 0.6rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--bs-secondary-color);
+    white-space: nowrap;
 }
 
 /*
@@ -1277,28 +1414,50 @@ tr.vp-occ-deleted td {
 /*
  * The `to_ids` stance, in the vocabulary the Assessment tab's *Who says
  * what* column uses. A chip rather than a word so the eye can run down
- * the column, and `mixed` is its own mark rather than a shade between
- * the other two: an organisation holding the value both ways has not
- * made half a decision, it has made none.
+ * the column.
+ *
+ * **It wears MISP's IDS shield and MISP's IDS colours**, because the
+ * occurrence table two cards above draws the per-row flag with
+ * `fa-shield-halved` in `text-warning` when it is set and
+ * `text-secondary` when it is not. `yes` was the attribute green here
+ * until the shield arrived, which put one fact on one tab in two
+ * colours; amber is *IDS active* on both surfaces now.
+ *
+ * `mixed` keeps amber and takes a **dashed** edge rather than a third
+ * hue — the rule the relevance chip already follows, direction in the
+ * geometry rather than in a shade between two colours. An organisation
+ * holding the value both ways has not made half a decision, it has made
+ * none.
  */
 .vp-stance {
+    display: inline-flex;
     flex: 0 0 auto;
-    min-width: 2.6rem;
+    gap: 3px;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.6rem;
     padding: 0 5px;
     border: 1px solid transparent;
     border-radius: 3px;
     font-size: 0.6rem;
     font-weight: 600;
     line-height: 1.4;
-    text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
+/*
+ * The shield is the chip's own colour and never a second signal: it
+ * names the flag, the chip reads it.
+ */
+.vp-stance i {
+    font-size: 0.85em;
+}
+
 .vp-stance-yes {
-    border-color: color-mix(in srgb, var(--attribute) 45%, transparent);
-    background: color-mix(in srgb, var(--attribute) 14%, transparent);
-    color: var(--vp-occ-attribute);
+    border-color: color-mix(in srgb, var(--bs-warning) 55%, transparent);
+    background: color-mix(in srgb, var(--bs-warning) 16%, transparent);
+    color: var(--vp-stance-on);
 }
 
 .vp-stance-no {
@@ -1308,11 +1467,17 @@ tr.vp-occ-deleted td {
 }
 
 .vp-stance-mixed {
-    border-color: color-mix(in srgb, var(--correlation) 45%, transparent);
-    background: color-mix(in srgb, var(--correlation) 14%, transparent);
-    color: var(--correlation);
+    border-style: dashed;
+    border-color: color-mix(in srgb, var(--bs-warning) 55%, transparent);
+    background: color-mix(in srgb, var(--bs-warning) 8%, transparent);
+    color: var(--vp-stance-on);
 }
 
+/*
+ * Unreachable — `orgStanceFor` counts every non-deleted row into one of
+ * the two sums — and kept as a guard rather than as a state anybody
+ * will see.
+ */
 .vp-stance-none {
     border-style: dashed;
     border-color: var(--bs-border-color);
@@ -4809,6 +4974,25 @@ th[aria-sort="descending"] .sort-icon::before,
 
 [data-bs-theme="dark"] {
     --vp-occ-attribute: #97CC04;  /* --attribute, legible as it comes */
+}
+
+/*
+ * *IDS active*, for the Reporting card's stance chip, on the same rule.
+ *
+ * The occurrence table draws the per-row flag as `text-warning`, which
+ * is `#ffc107` — a fine **glyph** colour and a hopeless one for 0.6rem
+ * uppercase text: **1.63:1** on the card's light ground. Darkened to
+ * **5.59:1**, which is the band `--vp-occ-attribute` sits in at 5.86;
+ * on dark the hue carries itself at **9.46:1**. The shield inside the
+ * chip takes the same token, so the chip and the table's shields still
+ * read as one colour rather than two ambers.
+ */
+:root {
+    --vp-stance-on: #8a6000;  /* --bs-warning #ffc107, darkened */
+}
+
+[data-bs-theme="dark"] {
+    --vp-stance-on: #ffc107;  /* --bs-warning, legible as it comes */
 }
 
 .vp-rel-k-co { --vp-rel-color: var(--vp-rel-co); }

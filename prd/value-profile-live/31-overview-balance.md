@@ -360,3 +360,164 @@ says *N of the 8 rows shown here* rather than *N of M rows*.
 The Overview now carries **five** panels in its left column and four in
 its rail, and it is the first tab on this page to have gained a panel
 since phase 26 added the Collaboration tab's report list.
+
+---
+
+## 8. The reading pass — four items, and two of them were defects
+
+The built tab, read back the same day. Four items; the first two are
+polish on what §3 built, and the last two are questions that turned out
+to be one *no* and one *yes*.
+
+### 8.1 The stance chip wears the shield — and takes its colours
+
+*"Add the small shield icon of the to_ids flag next to the Yes/Mixed
+tag."* Done, and it forced a palette change nobody asked for.
+
+`Fields/ids` draws the per-row flag as `fa-shield-halved` in
+`text-warning` when set and `text-secondary` when not — in the
+occurrence table **two cards above this one**. The stance chip was drawn
+in the attribute green, so putting MISP's shield in it would have made
+one fact read in two colours on one tab: an amber shield up there and a
+green one down here, both meaning *to_ids is set*.
+
+So `yes` is amber now and `no` is grey, which is what those two mean
+everywhere else in MISP. `#ffc107` is a fine glyph colour and a hopeless
+one for 0.6rem uppercase text — **1.63:1** on the card's ground — so the
+chip takes `--vp-stance-on`, darkened to **5.59:1**, the band
+`--vp-occ-attribute` already sits in at 5.86. On dark the hue carries
+itself at 9.46.
+
+`mixed` keeps amber and takes a **dashed edge** rather than a third hue,
+which is the rule the relevance chip already follows: direction in the
+geometry. An organisation holding the value both ways has not made half
+a decision, and a shade between two colours would say it made half.
+
+`none` is unreachable — `orgStanceFor` counts every non-deleted row into
+one of the two sums, and a row exists for that organisation or it would
+not be in the result — and is kept as a guard.
+
+### 8.2 The month strip gets a scale
+
+*"Add more ticks for the x-axis."* The strip printed its first and last
+month and nothing between, so a bar four fifths of the way along a
+nine-year span read as *recent* and no more precisely.
+
+A tick at every January, which is the only gridline a strip of months
+has that is not arbitrary, labelled with the year.
+
+**The scale is a row of the bars' own geometry, not a set of
+percentages**, and that is the whole of the implementation. `.vp-spark-
+bar` is `flex: 1 1 0` with a `max-width`, so on a short span the bars
+stop growing and bunch left — a tick placed at `i / n` of the width
+would then sit nowhere near the bar it names. One empty slot per month,
+sharing the bars' flex rules, puts every tick on its own bar whatever
+the cap does. `31-panel-check.py` asserts one slot per bar for exactly
+this reason.
+
+Thinned where dense: `0.0.0.0` spans 128 months, eleven Januaries over
+~560px, so the marks stay annual and one label in `$tickStep` carries
+the year — 2016, 2018, … 2026. The exact first and last month stay on
+the line below, which the years round off.
+
+### 8.3 The sightings sparkline was dropping two thirds of its subject
+
+*"I'm not sure whether it's a bug or not, but the FP and expiration
+sightings are invisible."* **They were, and it was.**
+
+`ValueStatsTool::sightingSpark` skipped every row with `type !== 0`, on
+a stated argument: *a false positive is not a quiet week and drawing it
+as one would put a contradiction into the same bar as the support*. The
+argument is right. The conclusion did not follow from it. On `8.8.8.8`
+the strip drew 47 reports and silently dropped 6 — directly beneath two
+tiles counting exactly those 6 — and nothing on the card said so.
+
+The tab's own chart had already solved this: `sightingSeries` hangs the
+contradicting types **below the axis**, where they can never share a bar
+with the support and can never be mistaken for it. The sparkline does
+the same now, in the same three hues, so the geometry a reader learns on
+one surface reads the same on the other.
+
+**The halves share one unit.** They are sized in proportion to their own
+peaks, so one report is the same number of pixels on either side of the
+line. Split 50/50 instead and a column holding one false positive would
+out-draw a column holding five sightings — a worse claim than the
+omission it replaces. A value nobody has contradicted renders no second
+region at all and draws exactly what it drew before.
+
+### 8.4 And the reporter bars had the same defect, the other way up
+
+Found while fixing §8.3, and worse than it. The *Reported by* bars count
+**every report an organisation filed, of any type** — which is the rule
+the Reporters card has always stated and is right: *a contradiction is
+participation, and hiding a false positive here would make the most
+sceptical organisation look like the quietest*.
+
+Drawn as one bar in the sighting purple, they asserted the opposite of
+that rule. Measured against the database:
+
+| Organisation | drawn | sightings | false positives | expirations |
+|---|---|---|---|---|
+| CIRCL | 17 | 17 | — | — |
+| ADMIN | 13 | **10** | 2 | 1 |
+| CthulhuSPRL.be | 8 | 8 | — | — |
+| abuse.ch | 6 | **5** | 1 | — |
+| CUDESO | 5 | **3** | 1 | 1 |
+| DECEA | 4 | 4 | — | — |
+
+So CUDESO's bar read **5** in the colour that means *corroborated*,
+where two of its five reports contradict or retire the value — under a
+tile reading **47 SIGHTINGS** that the bars, summing to 53, could not be
+reconciled with.
+
+The bar's **length** is still every report, because the rule is right.
+The bar's **colours** are now what those reports said, in
+`sightingSeries`' own three hues. And the subhead names its unit —
+*Reported by — 53 reports* — which the tab's Reporters card has always
+done and this one never did.
+
+`value_sighting_bars` is the split, shared: the Overview card and the
+Sightings tab's rail drew the same bars from the same array in two
+copies of the same markup, and would otherwise have needed the fix
+twice.
+
+### 8.5 External presence — not a bug, and a number belonging to nobody
+
+*"It says '1 hit on sync servers' then '12 remote events name this
+value'. Does that mean that this single server has 12 events containing
+it?"*
+
+**Yes.** Verified against the instance: `Feed::searchCaches('8.8.8.8')`
+returns one `MISP Server` row, *Training Main*, carrying 12
+`direct_urls` — one per remote event on that server whose cache holds
+the value. `1.1.1.1` returns 4 and `443` returns 17 from the same
+server.
+
+The numbers were right and the layout made them unattributable.
+`counts` tallies **sources** and `events` tallied **remote events across
+every source hit**, and the card drew the second under *both* lines — so
+on a value hitting one kind it read as that kind's number and happened
+to be right, and on a value hitting both it read as one line's and was
+not.
+
+`event_counts` splits the tally by kind. Each line now states the
+sources it found and the remote events inside them — *1 sync server
+holds it · Held in a connected server's cache · 12 remote events name
+it* — and the card has no figure left for a reader to attribute. The
+line's headline also stopped saying *hit*, which named neither sources
+nor events.
+
+### 8.6 Verification
+
+`31-panel-check.py` grew from 90 checks to **102**, and the twelve new
+ones are written against the defects rather than the features: every
+stance chip carries a shield, the ticks are ordered and one-slot-per-bar,
+the sparkline draws both contradicting kinds below the line, a value
+with no contradiction grows no second region, the reporter subhead names
+its total, at least one bar is split, the external line carries its own
+count, and the unattributed total is gone. 102 checks, 0 failures, plus
+65 on `29-overview-harness.php`.
+
+Rendered and measured in both themes; the pane is **1515px**, 16px under
+where §6 left it — the occurrence card is unchanged and the sightings
+card's subhead replaced a taller block.

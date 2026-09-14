@@ -122,23 +122,41 @@ $sectionUrl = $this->Html->url(array(
         <?php else: ?>
 
             <?php
+            /*
+             * **A line counts sources; the clause after it counts the
+             * remote events inside them.** Both numbers were here
+             * before and only one was attached to anything: the card
+             * drew *1 hit on sync servers* and, under both lines, *12
+             * remote events name this value* — a total across feeds and
+             * servers, sitting beneath two lines and belonging to
+             * neither. On a value hitting one kind it read as that
+             * kind's number and happened to be right; on a value
+             * hitting both it read as one line's and was not.
+             *
+             * `event_counts` splits it. Each line now states the
+             * sources it found and the remote events in them, and the
+             * card has no figure a reader has to attribute.
+             */
+            $eventCounts = $external['event_counts'];
             $lines = array(
                 array(
                     'icon' => 'fas fa-rss',
                     'count' => $counts['feeds'],
-                    'label' => __n('%d hit in feeds', '%d hits in feeds',
+                    'label' => __n('%d feed holds it', '%d feeds hold it',
                         $counts['feeds']),
                     // caching is independent of enabling: a disabled feed
                     // can hold a populated cache, so "pulls from" would
                     // be wrong for most rows on a real instance
                     'sub' => __('Held in a feed cache on this instance'),
+                    'events' => $eventCounts['feeds'],
                 ),
                 array(
                     'icon' => 'fas fa-server',
                     'count' => $counts['servers'],
-                    'label' => __n('%d hit on sync servers',
-                        '%d hits on sync servers', $counts['servers']),
+                    'label' => __n('%d sync server holds it',
+                        '%d sync servers hold it', $counts['servers']),
                     'sub' => __('Held in a connected server\'s cache'),
+                    'events' => $eventCounts['servers'],
                 ),
             );
             ?>
@@ -154,6 +172,16 @@ $sectionUrl = $this->Html->url(array(
                         </div>
                         <div class="vp-fact-line-sub">
                             <?= h($line['sub']) ?>
+                            <?php if (!empty($line['events'])): ?>
+                                &nbsp;·&nbsp;<?= h(sprintf(
+                                    __n(
+                                        '%d remote event names it',
+                                        '%d remote events name it',
+                                        $line['events']
+                                    ),
+                                    $line['events']
+                                )) ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <span class="vp-external-count">
@@ -161,17 +189,6 @@ $sectionUrl = $this->Html->url(array(
                     </span>
                 </a>
             <?php endforeach; ?>
-
-            <?php if (!empty($external['events'])): ?>
-                <div class="vp-fact-line-sub">
-                    <?= h(__n(
-                        '%d remote event names this value.',
-                        '%d remote events name this value.',
-                        $external['events'],
-                        $external['events']
-                    )) ?>
-                </div>
-            <?php endif; ?>
 
         <?php endif; ?>
 

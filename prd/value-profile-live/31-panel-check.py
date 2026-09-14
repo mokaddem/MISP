@@ -96,5 +96,53 @@ for value in VALUES:
         check("No event you can see carries this value." in html,
               "the empty state distinguishes absent from hidden")
 
+# ------------------------------------------------------------------
+# The three cards the 2026-09-14 reading pass changed. Each assertion
+# is a defect that was live, not a feature that merely exists.
+# ------------------------------------------------------------------
+print("== the reading pass ==")
+
+_, html = fetch("viewReporting", "8.8.8.8")
+check(html.count("fa-shield-halved") == len(re.findall(r"vp-stance-", html)),
+      "every stance chip carries the to_ids shield")
+check("vp-stance-yes" in html and "vp-stance-mixed" in html,
+      "and the three states are distinguishable classes")
+years = re.findall(r'vp-spark-tick">(\d{4})<', html)
+check(len(years) >= 2, f"the month strip carries year ticks ({years})")
+check(years == sorted(years), "in order")
+# Anchored on `class="`, because a bare `vp-spark-bar` also matches
+# `vp-spark-bar-empty` in the same attribute and counts a silent month
+# twice — as does `vp-spark-slot` against `vp-spark-slot-tick`.
+slots = len(re.findall(r'class="vp-spark-slot', html))
+bars = len(re.findall(r'class="vp-spark-bar', html))
+check(slots == bars,
+      f"one scale slot per bar, so a tick lands on its own month"
+      f" ({slots} vs {bars})")
+
+_, html = fetch("viewSightings", "8.8.8.8")
+# Was type-0 only: 47 reports drawn, 6 dropped, under two tiles
+# counting exactly those 6.
+check("vp-spark-seg-fp" in html and "vp-spark-seg-exp" in html,
+      "the sparkline draws false positives and expirations")
+check("vp-spark-down" in html, "below the line, as the tab's chart does")
+check(re.search(r"53\s+reports", html) is not None,
+      "the reporter subhead names its unit and its total")
+# Was one purple bar per organisation, summing to 53 under a tile
+# reading 47.
+check(html.count("vp-reporter-seg-fp") >= 1,
+      "and each organisation's bar is split by what it reported")
+
+# A value nobody has contradicted keeps the unsigned strip it had.
+_, html = fetch("viewSightings", "google.com")
+check("vp-spark-down" not in html,
+      "a value with no contradiction grows no second region")
+
+# Was: one events total under two lines, belonging to neither.
+_, html = fetch("viewExternal", "8.8.8.8")
+check("remote events name it" in html,
+      "the external line carries its own remote-event count")
+check("remote events name this value" not in html,
+      "and the unattributed total under both lines is gone")
+
 print(f"\n{checks} checks, {failures} failures")
 sys.exit(1 if failures else 0)

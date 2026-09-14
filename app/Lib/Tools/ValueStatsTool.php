@@ -824,8 +824,9 @@ class ValueStatsTool
 
 
     /**
-     * The Overview card's sparkline: 90 days in 40 columns, counting
-     * sightings and nothing else.
+     * The Overview card's sparkline: 90 days in 40 columns, all three
+     * kinds of report, support above the line and contradiction below
+     * it.
      *
      * Off the same rows the Sightings tab charts, which is the point of
      * it living here rather than being a fifth query of its own. The two
@@ -834,9 +835,26 @@ class ValueStatsTool
      * were — and while this card was on the fixture and the tab was not,
      * they could.
      *
-     * Type 0 only, matching the card, whose three figures are already
-     * split: a false positive is not a quiet week and drawing it as one
-     * would put a contradiction into the same bar as the support.
+     * **It drew type 0 and nothing else until 2026-09-14**, on the
+     * argument that *a false positive is not a quiet week and drawing it
+     * as one would put a contradiction into the same bar as the
+     * support*. The argument is right and the conclusion did not follow
+     * from it: on `8.8.8.8` the strip showed 47 reports and silently
+     * dropped 6, under two tiles counting exactly those 6, so the two
+     * contradicting kinds were not merely uncoloured — they were
+     * absent, and nothing on the card said so.
+     *
+     * The tab's own chart had already answered this: `sightingSeries`
+     * hangs the contradicting types **below the axis**, where they can
+     * never share a bar with the support and can never be mistaken for
+     * it. This returns the same shape at sparkline scale, so the
+     * geometry a reader learns on one surface reads the same on the
+     * other.
+     *
+     * `up` and `down` are separately peaked by the caller, and the two
+     * halves are sized in proportion so that one unit is one height on
+     * both sides — a chart where four false positives out-drew forty
+     * sightings would be a worse lie than the omission it replaces.
      *
      * The columns are folded from a dense per-day tally rather than
      * bucketed straight off the rows, so the day arithmetic is
@@ -844,32 +862,63 @@ class ValueStatsTool
      *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @param string $today `Y-m-d`
-     * @return array 40 counts, oldest first
+     * @return array 40 columns, oldest first, each `sighting`, `fp`,
+     *               `expiration`, `from` and `to`
      */
     public static function sightingSpark(array $rows, $today)
     {
         $columns = 40;
         $days = 90;
-        $from = date(
-            'Y-m-d',
-            strtotime($today) - ($days - 1) * 86400
-        );
-        $perDay = array();
+        $start = strtotime($today) - ($days - 1) * 86400;
+        $from = date('Y-m-d', $start);
+        $kinds = array(1 => 'fp', 2 => 'expiration');
+        $perDay = array('sighting' => array(), 'fp' => array(),
+            'expiration' => array());
         foreach ($rows as $row) {
-            if ((int)$row['Sighting']['type'] !== 0) {
-                continue;
-            }
+            $kind = $kinds[(int)$row['Sighting']['type']] ?? 'sighting';
             $day = date(
                 'Y-m-d',
                 (int)$row['Sighting']['date_sighting']
             );
-            $perDay[$day] = ($perDay[$day] ?? 0) + 1;
+            $perDay[$kind][$day] = ($perDay[$kind][$day] ?? 0) + 1;
         }
-        $tally = ValueProfileBuckets::tally($from, $today, $perDay);
-        $spark = array_fill(0, $columns, 0);
-        foreach ($tally as $offset => $count) {
-            $column = (int)floor(($offset * $columns) / $days);
-            $spark[min($column, $columns - 1)] += $count;
+
+        $spark = array();
+        for ($i = 0; $i < $columns; $i++) {
+            $spark[$i] = array('sighting' => 0, 'fp' => 0,
+                'expiration' => 0, 'from' => null, 'to' => null);
+        }
+        /*
+         * One `tally` per kind rather than one over a triple: it sums
+         * into an int accumulator, so an array value would be a type
+         * error rather than three tallies. Three passes over ninety
+         * days is not a cost worth reshaping a shared helper for.
+         */
+        foreach ($perDay as $kind => $days_) {
+            foreach (ValueProfileBuckets::tally($from, $today, $days_)
+                     as $offset => $count
+            ) {
+                $column = min(
+                    (int)floor(($offset * $columns) / $days),
+                    $columns - 1
+                );
+                $spark[$column][$kind] += (int)$count;
+            }
+        }
+        /*
+         * The days each column stands for, so its tooltip can name a
+         * range rather than leave the reader to divide 90 by 40.
+         */
+        for ($offset = 0; $offset < $days; $offset++) {
+            $column = min(
+                (int)floor(($offset * $columns) / $days),
+                $columns - 1
+            );
+            $day = date('Y-m-d', $start + $offset * 86400);
+            if ($spark[$column]['from'] === null) {
+                $spark[$column]['from'] = $day;
+            }
+            $spark[$column]['to'] = $day;
         }
         return $spark;
     }
@@ -888,6 +937,16 @@ class ValueStatsTool
      * one key per hidden organisation — otherwise the org stack would
      * leak the number of foreign reporters it is hiding.
      *
+     * **A reporter's `count` is every report it filed, of any type**,
+     * and that is deliberate: a contradiction is participation, and
+     * hiding a false positive here would make the most sceptical
+     * organisation look like the quietest. What it also has to do is
+     * *say so*, which is why each reporter now carries the same
+     * breakdown the card's three tiles carry. Drawn as one bar it
+     * asserted the opposite of the rule: on `8.8.8.8`, CUDESO's bar
+     * read 5 in the sighting colour where three of its five reports
+     * corroborate the value and two contradict or retire it.
+     *
      * @param array $rows Rows as `Sighting::listSightings` returns
      * @return array
      */
@@ -895,21 +954,24 @@ class ValueStatsTool
     {
         $counts = array('total' => 0, 'sighting' => 0, 'fp' => 0,
             'expiration' => 0);
+        $blank = array('sighting' => 0, 'fp' => 0, 'expiration' => 0);
         $orgs = array();
+        $orgKinds = array();
         $last = null;
         $lastFp = null;
         foreach ($rows as $row) {
             $type = (int)$row['Sighting']['type'];
+            $kind = $type === 1
+                ? 'fp'
+                : ($type === 2 ? 'expiration' : 'sighting');
             $counts['total']++;
-            if ($type === 1) {
-                $counts['fp']++;
-            } elseif ($type === 2) {
-                $counts['expiration']++;
-            } else {
-                $counts['sighting']++;
-            }
+            $counts[$kind]++;
             $org = self::sightingOrg($row);
             $orgs[$org] = ($orgs[$org] ?? 0) + 1;
+            if (!isset($orgKinds[$org])) {
+                $orgKinds[$org] = $blank;
+            }
+            $orgKinds[$org][$kind]++;
             $at = (int)$row['Sighting']['date_sighting'];
             if ($last === null || $at > $last) {
                 $last = $at;
@@ -921,7 +983,8 @@ class ValueStatsTool
         arsort($orgs);
         $reporters = array();
         foreach ($orgs as $name => $count) {
-            $reporters[] = array('org' => $name, 'count' => $count);
+            $reporters[] = array('org' => $name, 'count' => $count)
+                + $orgKinds[$name];
         }
         return array(
             'total' => $counts['total'],

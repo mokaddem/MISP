@@ -54,31 +54,16 @@ $top = empty($reporters) ? 0 : $reporters[0]['count'];
                 <span><?= __('Nobody has reported seeing this.') ?></span>
             </div>
         <?php else: ?>
-            <div class="vp-reporters">
-                <?php foreach ($reporters as $reporter): ?>
-                    <div class="vp-reporter">
-                        <span class="vp-reporter-name"
-                              title="<?= h($reporter['org']) ?>">
-                            <?= h($reporter['org']) ?>
-                        </span>
-                        <span class="vp-reporter-track">
-                            <span class="vp-reporter-fill" style="width: <?=
-                                $top > 0
-                                    ? round(100 * $reporter['count'] / $top)
-                                    : 0 ?>%;"></span>
-                        </span>
-                        <span class="vp-reporter-count">
-                            <?= h($reporter['count']) ?>
-                        </span>
-                    </div>
-                <?php endforeach; ?>
-            </div>
+            <?= $this->element('Values/View/value_sighting_bars', array(
+                'bars' => $reporters,
+                'barsTop' => $top,
+            )) ?>
 
             <p class="vp-aside-note">
                 <?= h(__(
                     'Every report the organisation filed, whatever it said.'
-                    . ' The chart splits them by type; this ranks them by'
-                    . ' who spoke.'
+                    . ' The bar is split by what they said; its length'
+                    . ' ranks them by who spoke.'
                 )) ?>
             </p>
         <?php endif; ?>
