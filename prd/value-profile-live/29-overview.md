@@ -17,9 +17,11 @@ its verdict card needed an engine that did not exist until
 2026-09-13.
 
 **Opened 2026-09-13 and built 2026-09-14.** §1's board is done, §1.1
-holds the decisions taken before building, and **§14 is the build log** —
+holds the decisions taken before building, **§14 is the build log** —
 what the build changed about the plan, and the five defects it found
-that no amount of reading would have. The fixture-era design is
+that no amount of reading would have — and **§15 is the live probe**,
+which runs the readers under a second reader's permissions and found a
+sixth. The fixture-era design is
 [`value-profile-page.md`](../value-profile-page.md) §3 (phase 3, the
 skeleton's Overview) as amended by every phase that has since taken one
 of its cards.
@@ -48,7 +50,7 @@ to `done` only when §9's verification has run against it.
 | T13 | The correlation line — the flag kept, the count withdrawn (D2) | §7.2 | **done** |
 | T14 | The three concepts: the proposals decision, and the event-report count | §10 | **deferred, with reasons** — §14.8 |
 | T15 | The board rows — §14.12's four cells and §14.13's phase row | §12 | **done** |
-| T16 | Verification over HTTP, on five values, in both themes | §9 | **done** — §14.9 |
+| T16 | Verification over HTTP, on five values, in both themes | §9 | **done** — §14.9 over HTTP, §15 through the models as two readers |
 
 ---
 
@@ -883,14 +885,11 @@ reuses `vp-filter-note` — already themed, and built from
 so it takes whatever the theme sets. Everything else on these four
 surfaces is markup that was already verified in both.
 
-**What is not verified here.** The ACL, on any panel: every read goes
-through `buildConditions($user)` and the fetchers §14.4 sanctions, and
-the verification ran as a site admin, so what it proves is that the
-right method was called rather than that the method is right. §14.8 of
-the contract says that verification is manual and per phase; this phase
-inherits readers whose ACL earlier phases verified, and the two it adds
-— `topTagsFor` and `value2CountFor` — build their conditions the same
-way every other aggregate in `Value` does.
+**What §14.9 could not verify, and §15 does.** Every check above ran as
+a site admin, so what they prove is that the right method was called
+rather than that the method is right. That gap is closed by
+[`29-overview-live-probe.php`](29-overview-live-probe.php), which runs
+the readers under two readers' permissions — and it found a defect.
 
 ### 14.10 What this leaves
 
@@ -909,3 +908,96 @@ Two things are handed on:
    which needs `Sighting` growing a count that applies the policy in SQL
    *without* keying on the attribute id set. The fact strip and the tab
    badge both take it the day it exists.
+
+
+---
+
+## 15. The live probe, and the reader who saw too much
+
+§14.9's verification ran entirely as a site admin and said so. A site
+admin sees every row, which makes them the one reader who cannot detect
+an ACL mistake: every count is the same count whether the conditions
+narrowed correctly or not at all.
+
+[`29-overview-live-probe.php`](29-overview-live-probe.php) closes that.
+It runs the four facade methods under **two readers** — the site admin,
+and the CIRCL org admin who owns a fraction of the instance, which is
+the pair `27-history.md` §8 used to catch an actor disclosure for the
+same reason — across five values, and asserts three kinds of thing:
+
+- **The cross-panel invariant, computed rather than eyeballed.** The
+  fact strip, the Overview card, the Occurrences tab and the tab badge
+  each state the value's occurrence, event and organisation counts from
+  their own call; the probe asserts all four agree, per reader, per
+  value.
+- **That the ACL narrows in the direction it must.** Every count the
+  org admin gets is `<=` the site admin's. Equality is allowed — on a
+  value whose every event is public the two legitimately agree — and
+  what it catches is the other direction.
+- **That the aggregate columns mean what they say**, by re-deriving
+  `dated_from`, `dated_at`, `published` and the `value2` count in plain
+  SQL against the same rows, as the site admin, where the ACL'd
+  aggregate and the bare one must match exactly.
+
+**163 checks. One of them failed, and it was the third kind of finding
+this phase has had: not a leak, a claim that was never true.**
+
+### 15.1 A reader who could see less was shown more clusters
+
+On `443`, the CIRCL org admin — who can see **45** of its 1,844 events —
+was shown **more galaxy clusters** than the site admin who can see all
+of them. Both readers saw only rows they were entitled to; the ACL was
+doing its job in both directions.
+
+What was wrong is that **the galaxy list was never the value's
+galaxies.** `forContext` read one capped list of the 60 most-carried
+labels and split galaxies out of it afterwards, so which clusters
+appeared depended on how crowded the *plain* tag list was. `443` carries
+**3,858 plain tags and two galaxy tags**: under one cap the two
+clusters were competing for slots against thousands of freetext labels,
+and the competition resolved differently for two readers with different
+views of the record. The card headed the result *2 galaxy clusters*,
+which is a statement about the value, from a list that was a statement
+about the cap.
+
+**Fixed by asking twice.** `topTagsFor` takes a `galaxy` option and
+`forContext` makes two bounded reads — `CONTEXT_TAG_CAP` (60) for the
+labels and `CONTEXT_GALAXY_CAP` (40) for the clusters. Each list is then
+bounded on its own terms, and since the widest value on the instance has
+two galaxy tags, the cluster list is **complete on every value the
+instance holds** rather than complete-if-there-is-room.
+
+It shows: `443`'s card now names **Cobalt Strike** and **DanaBot**,
+neither of which the shared cap had left room for, and the probe's
+narrowing assertion passes at **163 checks, 0 failures**.
+
+**The general shape is worth keeping.** A cap shared between two lists
+is a cap that lets one of them change the other's content, and a panel
+that then describes either list as *the value's* is making a claim its
+own bound cannot support. The occurrence card has the same structure and
+does not have the bug, because its cap narrows only what is *shown* and
+its totals come from an aggregate — which is §14.2 stated the other way
+round.
+
+### 15.2 And the hand-on from §14.2 is taken
+
+`forOccurrenceTable` counted its `events` and `orgs` by walking the
+capped row set, which is the same defect at 300 rather than 25. On `443`
+the Occurrences tab headed itself with the events of its first 300 rows
+beside a fact strip reading the real 1,844.
+
+It now reads the same `occurrenceSummaryFor` the card and the strip do,
+and `occurrenceCountFor` is gone from it — one aggregate answers the
+total and both breakdowns, so the three panels cannot drift. The tab
+reads **"Showing 300 of 48,255 occurrences · 1,844 events · 12
+organisations"**, and the probe asserts the tab against the card against
+the strip on every value it visits.
+
+The number formatting went with it: the tab printed `48255` and `1844`
+where the strip printed `48,255` and `1,844`, which is the same number
+in two spellings on one page.
+
+**§14.10's remaining hand-on stands unchanged**: a sightings count that
+can be told at page-load cost still needs `Sighting` growing a count
+that applies the policy in SQL without keying on the attribute id set.
+Nothing here brings it closer.

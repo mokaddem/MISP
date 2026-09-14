@@ -461,10 +461,21 @@ class Value extends AppModel
      * `local` is `MIN` for the reason `ownTagsFor` gives: a tag is
      * local only where every occurrence carrying it is.
      *
+     * **`galaxy` narrows to one kind, and the caller asks twice.** A
+     * cap over both kinds at once makes the smaller one a hostage to
+     * the larger: `443` carries 3,858 plain tags and **two** galaxy
+     * tags, so which clusters survive the most-carried 60 depends on
+     * how crowded the plain list is — and two readers seeing different
+     * halves of the record got different numbers of *clusters* out of
+     * it, which is not a fact about the value at all. Asked separately,
+     * each list is bounded on its own terms and the galaxy one is
+     * complete on every value the instance has.
+     *
      * @param array $user
      * @param string $value
      * @param int $limit
-     * @param array $options As conditionsFor
+     * @param array $options As conditionsFor, plus `galaxy`: true for
+     *     galaxy tags only, false for everything else, absent for both
      * @return array name => `tag` (id, name, colour, is_galaxy, local)
      *     and `count`
      */
@@ -475,6 +486,11 @@ class Value extends AppModel
         $conditions = $attributes->buildConditions($user);
         $conditions['AND'][] = $this->conditionsFor($value, $options);
         $conditions['AND'][] = array('Attribute.deleted' => 0);
+        if (array_key_exists('galaxy', $options)) {
+            $conditions['AND'][] = array(
+                'Tag.is_galaxy' => empty($options['galaxy']) ? 0 : 1,
+            );
+        }
         $rows = $attributes->find('all', array(
             'fields' => array(
                 'Tag.id',

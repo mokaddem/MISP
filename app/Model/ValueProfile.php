@@ -127,6 +127,19 @@ class ValueProfile extends AppModel
     const CONTEXT_TAG_CAP = 60;
 
     /**
+     * The same, for the galaxy clusters beside them.
+     *
+     * **Its own cap, because its own read.** Galaxy tags are a small
+     * set even where plain tags are not — the widest value on the
+     * verification instance carries 3,858 of one and **two** of the
+     * other — so this bound is a guard rather than a working limit, and
+     * the list it protects is complete on every value the instance has.
+     * `CONTEXT_TAG_CAP` covering both is what let a reader who could
+     * see less of a value be shown more of its clusters.
+     */
+    const CONTEXT_GALAXY_CAP = 40;
+
+    /**
      * Most recent first. The table's order was never stated while the
      * rows were fixture data listed in a literal; a value's newest
      * occurrence is the one a reader opening this tab is looking for,
@@ -1158,20 +1171,38 @@ class ValueProfile extends AppModel
     ) {
         $valueModel = $this->model('Value');
         /*
-         * One row more than the card will draw, so *there are more* is
-         * answered by the fetch rather than by a second aggregate.
+         * **Two reads, one per kind**, because a single cap over both
+         * makes the smaller list a hostage to the larger. `443` carries
+         * 3,858 plain tags and two galaxy tags, so under one cap which
+         * clusters survived depended on how crowded the plain list was
+         * — and the live probe caught the consequence: a CIRCL org
+         * admin, seeing 45 of the value's 1,844 events, was shown *more*
+         * clusters than a site admin who can see all of them. Neither
+         * reader saw a row they should not have; what was wrong is that
+         * the galaxy list was never the value's galaxies, it was the
+         * galaxies that happened to survive the tag cap.
+         *
+         * Each read asks for one row more than its list will draw, so
+         * *there are more* is answered by the fetch rather than by a
+         * second aggregate.
          */
         $tags = $valueModel->topTagsFor(
             $user,
             $value,
             self::CONTEXT_TAG_CAP + 1,
-            $options
+            $options + array('galaxy' => false)
         );
         $capped = count($tags) > self::CONTEXT_TAG_CAP;
         if ($capped) {
             $tags = array_slice($tags, 0, self::CONTEXT_TAG_CAP, true);
         }
-        if (empty($tags)) {
+        $galaxyTags = $valueModel->topTagsFor(
+            $user,
+            $value,
+            self::CONTEXT_GALAXY_CAP,
+            $options + array('galaxy' => true)
+        );
+        if (empty($tags) && empty($galaxyTags)) {
             return array(
                 'value' => $value,
                 'tags' => array(),
@@ -1181,16 +1212,18 @@ class ValueProfile extends AppModel
         }
         return array(
             'value' => $value,
-            'tags' => ValueContextTool::taxonomies(
+            'tags' => empty($tags) ? array() : ValueContextTool::taxonomies(
                 $tags,
                 $this->taxonomyFold(array_keys($tags)),
                 $this->tagConflicts($tags),
                 $capped
             ),
-            'galaxies' => ValueContextTool::galaxies(
-                $tags,
-                $this->galaxyClusters($user, $tags)
-            ),
+            'galaxies' => empty($galaxyTags)
+                ? array()
+                : ValueContextTool::galaxies(
+                    $galaxyTags,
+                    $this->galaxyClusters($user, $galaxyTags)
+                ),
             'tag_cap' => $capped ? self::CONTEXT_TAG_CAP : null,
         );
     }
@@ -1309,7 +1342,8 @@ class ValueProfile extends AppModel
         array $options = array()
     ) {
         $valueModel = $this->model('Value');
-        $total = $valueModel->occurrenceCountFor($user, $value, $options);
+        $summary = $valueModel->occurrenceSummaryFor($user, $value, $options);
+        $total = $summary['occurrences'];
         $rows = $valueModel->occurrencesFor(
             $user,
             $value,
@@ -1325,6 +1359,24 @@ class ValueProfile extends AppModel
         $this->attachEffectiveDistribution($user, $rows);
 
         $stats = ValueStatsTool::occurrenceStats($rows, $total);
+        /*
+         * **The events and organisations are the value's, not the
+         * page's**, as on the Overview card — `forOccurrences` has the
+         * argument and phase 29 §14.2 the case. `occurrenceStats`
+         * derives both by walking the rows it was handed, which is
+         * exact while every row is in hand and becomes a count of one
+         * page the moment a cap bites. At 300 that is rarer than the
+         * card's 25 and not rare: `443` is 48,255 occurrences across
+         * 1,844 events, and this header claimed the events of its first
+         * 300 beside a fact strip reading the real number.
+         *
+         * `occurrenceCountFor` is gone from here with it. The summary
+         * answers the total from the same conditions in the same query
+         * as the other two, so the three cannot drift and the panel
+         * pays one aggregate rather than two.
+         */
+        $stats['events'] = $summary['events'];
+        $stats['orgs'] = $summary['orgs'];
 
         return array(
             'value' => $value,

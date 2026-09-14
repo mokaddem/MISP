@@ -615,14 +615,29 @@ foreach ($columns as $column) {
     $fields[] = $field;
 }
 
+/*
+ * Formatted and pluralised, to match the fact strip and the Overview's
+ * card: all three read one aggregate now, and printing the same number
+ * three ways is a difference a reader has to stop and rule out.
+ *
+ * `data-vp-list-shown` is rewritten by the page's own filtering, so it
+ * carries the raw count rather than a formatted one — what the script
+ * puts back has to be the same shape as what it found.
+ */
 $subtitle = implode(' &nbsp;·&nbsp; ', array(
     sprintf(
         __('Showing %1$s of %2$s occurrences'),
         '<span data-vp-list-shown>' . h($stats['shown']) . '</span>',
-        h($stats['total'])
+        h(number_format($stats['total']))
     ),
-    h(sprintf(__('%s events'), $stats['events'])),
-    h(sprintf(__('%s organisations'), $stats['orgs'])),
+    h(sprintf(
+        __n('%s event', '%s events', $stats['events']),
+        number_format($stats['events'])
+    )),
+    h(sprintf(
+        __n('%s organisation', '%s organisations', $stats['orgs']),
+        number_format($stats['orgs'])
+    )),
 ));
 
 ob_start();
