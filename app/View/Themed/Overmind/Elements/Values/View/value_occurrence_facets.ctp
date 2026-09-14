@@ -294,6 +294,62 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
             'week' => __('one bar a week'),
             'month' => __('one bar a month'),
         );
+        /*
+         * The date axis under a strip: which bars carry a tick, and
+         * which of those carry a label.
+         *
+         * **The next unit up from the grain**, so the axis is always
+         * something the bars are not already saying. Monthly bars get
+         * year marks; daily and weekly bars get month marks. The
+         * caption underneath states the grain and both ends, so the
+         * axis only has to let a reader place a bar between them —
+         * which is what the strip could not do at all before: a bar
+         * four fifths of the way along nine years read as *recent* and
+         * no more precisely than that.
+         *
+         * **Keyed by bar index, and the value may be null** — a tick
+         * without a label. The marks are the reading and they stay;
+         * `8.8.8.8`'s weekly panes cross twelve months in 342px and
+         * twelve three-letter labels would overlap into a smear.
+         *
+         * **The opening bucket is never a tick.** A span that starts in
+         * June is not a boundary of the year it starts in, and marking
+         * it would put a `2022` under a bar that is not January.
+         *
+         * A label in the last few bars is dropped rather than drawn:
+         * `.vp-spark-tick` is left-aligned on its slot, so one at the
+         * end hangs off the edge of the rail. 8% of the bars is about
+         * 27px at every bar count this strip draws.
+         */
+        $timeScale = function (array $histogram) {
+            $bars = $histogram['bars'];
+            $annual = $histogram['unit'] === 'month';
+            $marks = array();
+            $seen = null;
+            foreach ($bars as $index => $bar) {
+                $period = substr($bar['from'], 0, $annual ? 4 : 7);
+                $opened = $period !== $seen;
+                $seen = $period;
+                if (!$opened || $index === 0) {
+                    continue;
+                }
+                $marks[$index] = $annual
+                    ? $period
+                    : date('M', strtotime($bar['from']));
+            }
+            $step = max(1, (int)ceil(count($marks) / 6));
+            $tail = count($bars)
+                - max(1, (int)ceil(count($bars) * 0.08));
+            $nth = 0;
+            $scale = array();
+            foreach ($marks as $index => $label) {
+                $scale[$index] = ($nth % $step === 0 && $index < $tail)
+                    ? $label
+                    : null;
+                $nth++;
+            }
+            return $scale;
+        };
         $scopes = array(
             array(
                 'key' => 'timestamp',
@@ -480,6 +536,42 @@ $hasState = !empty($groups['state']) || !empty($facets['deleted']);
                                          data-vp-brush-mask-right></div>
                                 </div>
                             </div>
+                            <?php $scale = $timeScale($histogram); ?>
+                            <?php if (!empty($scale)): ?>
+                                <?php
+                                /*
+                                 * `aria-hidden`: the strip's own
+                                 * accessible name says what the axis
+                                 * is and the caption below states both
+                                 * ends, so a screen reader walking
+                                 * fifty-two bare slots between them is
+                                 * reading the gridlines rather than
+                                 * the chart.
+                                 *
+                                 * Outside `.vp-timebrush` rather than
+                                 * in it: the brush layer covers that
+                                 * box edge to edge, and an axis under
+                                 * it would be both dimmed by the mask
+                                 * and unreadable through the window.
+                                 */
+                                ?>
+                                <div class="vp-spark-scale
+                                            vp-timebrush-scale"
+                                     aria-hidden="true">
+                                    <?php foreach (
+                                        $histogram['bars'] as $at => $bar
+                                    ): ?>
+                                        <span class="vp-spark-slot<?=
+                                            array_key_exists($at, $scale)
+                                                ? ' vp-spark-slot-tick'
+                                                : '' ?>"><?php
+                                            if (!empty($scale[$at])):
+                                        ?><span class="vp-spark-tick"><?=
+                                            h($scale[$at])
+                                        ?></span><?php endif; ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
 
                         <div class="input-group input-group-sm">

@@ -1372,3 +1372,95 @@ against the live instance:
   both its inputs (`2026-01-01` → `2026-07-31`), leaves 5 rows and counts two
   filters.
 - **`Clear all` still clears**, across panes: back to 26 rows and no filter.
+
+## 18. After review: the strip stops dimming itself, and gains a date axis
+
+**The comment.** *"Could you: make the bar slightly more visible by default;
+add a scale on the x-axis for the time."*
+
+### 18.1 The bars were being dimmed by their own brush
+
+Not a colour problem. `paintTimeBrushes()` painted an unbounded strip with
+`VP.brush.paint(strip, null, bars.length)`, and `null` does not mean *nothing is
+selected* — §15 took it from the zoom, where it means **the selection lies
+outside the span on screen**, so the mask covers every bucket to say *nothing in
+view is in the range*. The two states are opposite claims and were drawing
+identically.
+
+Measured on `8.8.8.8`: at rest the left mask was `width: 100%` at
+`--vp-brush-dim: 80%`, so 342px of `#97CC04` bars sat under 80% of `#f8f9fa`.
+The strip a reader is asked to pick a range out of was the faintest thing in the
+rail, for the whole time no date was set — which, since §17 clears the bound on
+every scope switch, is most of the time it is on screen.
+
+**`VP.brush.clear(root)`** is the third state: masks to `0%`, and the window
+stays hidden because `.vp-brush-empty` already hides it — a range nobody has
+picked has no edges to draw. `paint`'s null is untouched, so the History zoom's
+*selection is elsewhere* still dims everything, and `paintAuditBrush`'s
+`'outside'` still reaches it.
+
+No change to the bar colour. Undimmed, `--attribute` is the same green the
+reporting card's months and the seen-density strip already draw at full
+strength, and matching them was the point.
+
+### 18.2 A date axis, one unit up from the grain
+
+§15 wrote that the strip is *"a range picker that shows its shape, not a chart —
+no axes, no gridlines, no zoom"*, and the axis is the one of the three that was
+wrong. A strip with none says *where in this span* and cannot say *when*; the
+caption names both ends and nothing between, so a bar four fifths of the way
+along nine years read as *recent* and no more precisely than that.
+
+**The tick unit is the next one up from the bucket unit**, so the axis is always
+saying something the bars are not: monthly bars get year marks, daily and weekly
+bars get month marks. The caption keeps the grain and the ends; the axis only
+has to let a reader place a bar between them.
+
+**It reuses `.vp-spark-scale`** — the reporting card's year axis — which is a
+row of empty slots sharing the bars' flex rules exactly, for the reason that
+file gives: a tick placed at `i / n` of the width sits nowhere near its bar the
+moment the bars stop filling the row. Two overrides make it fit here. The shared
+slot caps at 22px because the reporting card's bars do; these have no cap, so a
+pane of six monthly buckets would bunch its ticks at the left while the bars
+above them spread. And `min-width: 1px` matches the bars' own, so a strip dense
+enough to hit it stays aligned.
+
+Three rules on which bars carry what:
+
+- **The opening bucket is never a tick.** A span that starts in June is not a
+  boundary of the year it starts in, and marking it would put `2022` under a bar
+  that is not January.
+- **Marks stay, labels thin.** Weekly panes cross twelve months in 342px and
+  twelve three-letter labels would smear into each other; the mark is the
+  reading, so at most six of them carry text.
+- **No label in the last 8% of the bars.** `.vp-spark-tick` is left-aligned on
+  its slot, so one at the end hangs off the edge of the rail. 8% is about 27px
+  at every bar count this strip draws.
+
+`aria-hidden`, for the reason the reporting card's axis is: the strip's own
+accessible name says what the axis is and the caption states both ends, so a
+screen reader walking fifty-two bare slots between them is reading the gridlines
+rather than the chart.
+
+It costs 19px a pane — 15px of scale and 4px of margin, with `.vp-timebrush`'s
+own bottom margin dropping from 6px to 4px — and only the chosen pane is on
+screen, which is §17's doing and is what makes the axis affordable at all. Three
+stacked strips could not have carried one.
+
+### 18.3 What was verified
+
+On `8.8.8.8`, in the browser, both themes:
+
+- **No mask at rest.** All three panes report `mask-left: 0%`, `mask-right: 0%`
+  — against `100%` before the change.
+- **The mask still works.** With `from = 2025-01-01` the left mask is `59.6%`,
+  and the bars outside the window are dimmed while those inside are not.
+- **The axis is the strip's own width**: scale 342px, strip 342px.
+- **Every tick sits on its bar.** Measured slot-left against bar-left at every
+  tick in every pane: **0px drift**.
+- **The right bars carry the marks.** The two 52-bar monthly panes tick at
+  indices 7, 19, 31 and 43 — the four Januaries of a span opening 2022-06 —
+  labelled `2023` … `2026`. The 20-bar published pane spans 2025-02 → 2026-09
+  and ticks its one January, at index 11.
+- **Dark theme**: labels and marks legible against the panel, bars bright inside
+  a window and darkened outside it.

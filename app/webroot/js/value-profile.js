@@ -1399,7 +1399,11 @@
                 var lower = from && from.value ? from.value : null;
                 var upper = to && to.value ? to.value : null;
                 if (lower === null && upper === null) {
-                    window.VP.brush.paint(strip, null, bars.length);
+                    // `clear`, not `paint(…, null, …)`: the two states
+                    // read the same and mean opposite things, and this
+                    // is the one the strip is in almost all the time it
+                    // is on screen.
+                    window.VP.brush.clear(strip);
                     captionDefault(strip);
                     return;
                 }
@@ -2210,6 +2214,40 @@
     }
 
     /**
+     * No selection at all, which is not what `paint`'s null means.
+     *
+     * `paint(root, null, n)` says the selection lies *outside* the span
+     * on screen, so it covers every bucket with the mask: nothing in
+     * view is in the range. A control nobody has touched makes the
+     * opposite claim — every bucket is still in play — and painting the
+     * two identically washed the occurrence rail's date strips out at
+     * 80% of the body colour for the whole time no date was set, which
+     * is almost the whole time they are on screen. The bars a reader is
+     * being asked to pick a range out of were the faintest thing in the
+     * rail.
+     *
+     * The window stays hidden, which `.vp-brush-empty` already does: a
+     * range nobody has picked has no edges to draw.
+     *
+     * @param {Element} root Anything containing the brush's parts
+     */
+    function clearBrush(root) {
+        var strip = root.matches && root.matches('[data-vp-brush]')
+            ? root
+            : root.querySelector('[data-vp-brush]');
+        if (strip) {
+            strip.classList.add('vp-brush-empty');
+        }
+        ['[data-vp-brush-mask-left]', '[data-vp-brush-mask-right]']
+            .forEach(function (selector) {
+                var mask = root.querySelector(selector);
+                if (mask) {
+                    mask.style.width = '0%';
+                }
+            });
+    }
+
+    /**
      * @param {Element|null} strip The layer the drag is read off
      * @param {Object} on `count()` returns how many buckets there are;
      *     `range(from, to)` is called for every pointer move of a real
@@ -2272,7 +2310,11 @@
         });
     }
 
-    window.VP.brush = { attach: attachBrush, paint: paintBrush };
+    window.VP.brush = {
+        attach: attachBrush,
+        paint: paintBrush,
+        clear: clearBrush,
+    };
 
     /* ==================================================================
      * The zoom
