@@ -139,18 +139,72 @@ $icons = array(
 
     <?php
     /*
-     * The sentence that keeps a declaration from reading as a
-     * schedule. It is the tab's standing promise, restated here
-     * because this strip is the one part of the page that could be
-     * mistaken for having done something.
+     * The sentence that says whether this declaration is a list or a
+     * schedule — and since phase 11 it can be either, so it cannot be
+     * a constant. This strip is the one part of the page that could be
+     * mistaken for having done something; while auto-run existed only
+     * on paper it said *nothing has been run*, and saying that above
+     * four modules that had just run themselves would be the exact
+     * quiet lie `01-profile.md` §1.3 forbids.
+     *
+     * `firing` counts the modules this visit will actually ask
+     * without being told to. A declaration whose `auto` modules are
+     * all still fresh in the store fires nothing and says so — the
+     * answers are there, and nothing was sent to put them there.
      */
+    $firing = 0;
+    $reusing = 0;
+    $auto = isset($declaration['auto']) && is_array($declaration['auto'])
+        ? $declaration['auto']
+        : array();
+    foreach ($auto as $one) {
+        if ($one['disposition'] === 'fire'
+            || $one['disposition'] === 'in_flight'
+        ) {
+            $firing++;
+        } elseif ($one['disposition'] === 'fresh') {
+            $reusing++;
+        }
+    }
     ?>
     <div class="vp-e-profile-note">
-        <?= h(__(
-            'Nothing has been run. Your profile ticks the boxes and'
-            . ' nothing else; sending anything anywhere still takes a'
-            . ' press.'
-        )) ?>
+        <?php if ($firing > 0): ?>
+            <?= h(sprintf(
+                __n(
+                    '%d of these runs on its own: it is being asked'
+                    . ' now, because your profile says so and this'
+                    . ' instance allows it. The rest still take a'
+                    . ' press.',
+                    '%d of these run on their own: they are being'
+                    . ' asked now, because your profile says so and'
+                    . ' this instance allows it. The rest still take a'
+                    . ' press.',
+                    $firing
+                ),
+                $firing
+            )) ?>
+        <?php elseif ($reusing > 0): ?>
+            <?= h(sprintf(
+                __n(
+                    '%d of these runs on its own and was asked'
+                    . ' recently enough that the kept answer is being'
+                    . ' shown instead. Nothing has been sent this'
+                    . ' visit.',
+                    '%d of these run on their own and were asked'
+                    . ' recently enough that the kept answers are'
+                    . ' being shown instead. Nothing has been sent'
+                    . ' this visit.',
+                    $reusing
+                ),
+                $reusing
+            )) ?>
+        <?php else: ?>
+            <?= h(__(
+                'Nothing has been run. Your profile ticks the boxes and'
+                . ' nothing else; sending anything anywhere still takes'
+                . ' a press.'
+            )) ?>
+        <?php endif; ?>
     </div>
 
     <?php if (!empty($declaration['conditions'])): ?>

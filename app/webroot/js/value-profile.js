@@ -4731,8 +4731,14 @@
      * costs the reader cross-module reading and this buys it back. It
      * clones what the module panes hold rather than asking for
      * anything, so it costs no request and **cannot disagree with the
-     * panes it merges** — and it merges this visit only, which is the
-     * one span a page with no memory has.
+     * panes it merges**.
+     *
+     * It used to say *this visit*, which was exact while the tab had
+     * no memory and became a lie in phase 11: a pane can now hold an
+     * answer a colleague fetched yesterday, and the merged view says
+     * *open on this page* because that is the span it actually
+     * describes. Which of them was queried just now is the profile
+     * strip's sentence, not this one's.
      *
      * @param {Element} panel
      */
@@ -4766,9 +4772,9 @@
         var sub = panel.querySelector('[data-vp-e-allsub]');
         var head = panel.querySelector('[data-vp-e-allhead]');
         if (ran === 0) {
-            if (sub) { sub.textContent = 'Nothing run yet'; }
+            if (sub) { sub.textContent = 'Nothing open yet'; }
             if (head) {
-                head.textContent = 'Nothing has been run this visit.';
+                head.textContent = 'Nothing has been opened here yet.';
             }
             return;
         }
@@ -4780,7 +4786,7 @@
             sub.textContent = summary;
         }
         if (head) {
-            head.textContent = summary + ', this visit.';
+            head.textContent = summary + ', open here.';
         }
     }
 

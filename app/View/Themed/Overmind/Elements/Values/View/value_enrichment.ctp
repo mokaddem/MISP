@@ -106,21 +106,38 @@ if ($service['reachable']) {
      <?php
      /*
       * **The plan travels with the panel that acts on it** (phase 11
-      * §9). One entry per module the profile marked `auto` that is
-      * neither already fresh nor being asked by somebody else, so the
-      * browser can fire them without going back for a list it was
-      * about to be handed anyway.
+      * §9), so the browser can act without going back for a list it
+      * was about to be handed anyway.
       *
-      * Empty on any instance that has not turned auto-run on, which
-      * is every instance until an administrator does — and empty is
-      * how the fan-out stays off rather than by a second flag.
+      * **`fresh` is in it as well as `fire`**, because §9 defines
+      * `fresh` as *render it, ask nothing* and a pane cannot render
+      * what was never fetched. Both go out as `mode=auto` on the same
+      * endpoint, which is the whole point of that mode: it serves a
+      * kept answer when there is one and asks the module when there is
+      * not, so the page never has to decide which of those it is
+      * about to get. A `fresh` request sends nothing outside the
+      * instance and comes back in about a tenth of a second.
+      *
+      * Without this the tab that the Overview has already filled would
+      * open on *Nothing has been queried* while the store held every
+      * answer — which is exactly the state the intended flow produces.
+      *
+      * `in_flight` is deliberately not here: somebody else's request
+      * is about to write that row, and asking for it now would start a
+      * second query rather than wait for the first.
+      *
+      * Empty on any instance that has not turned auto-run on, which is
+      * every instance until an administrator does — and empty is how
+      * the fan-out stays off, rather than by a second flag.
       *
       * The dispositions are advisory: `enrichmentRun()` decides again
       * when a request lands, because a row can turn fresh in between.
       */
      $autoFire = array();
      foreach ($enrichment['profile']['auto'] as $one) {
-         if ($one['disposition'] !== 'fire') {
+         if ($one['disposition'] !== 'fire'
+             && $one['disposition'] !== 'fresh'
+         ) {
              continue;
          }
          $autoFire[] = array(
@@ -306,7 +323,7 @@ if ($service['reachable']) {
                         <div class="vp-e-res-headtext">
                             <div class="vp-e-cold-title" data-vp-e-allhead>
                                 <?= h(__(
-                                    'Nothing has been run this visit.'
+                                    'Nothing has been opened here yet.'
                                 )) ?>
                             </div>
                             <div class="vp-e-cold-prose mb-0">
