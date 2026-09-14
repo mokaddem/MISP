@@ -547,6 +547,223 @@ class Value extends AppModel
     }
 
     /**
+     * The labels on the **events** this value occurs in, most-carried
+     * first and bounded.
+     *
+     * `topTagsFor`'s event-scope twin, and the page was blind to it
+     * until 2026-09-14. Every tag surface on this profile — the
+     * occurrence tables' Tags column, the Overview's context card, the
+     * neighbourhood's label list — joined `attribute_tags` and nothing
+     * else, which on this instance means the page was showing a
+     * minority of what anybody had said about the value: `8.8.8.8`
+     * carries **7 distinct attribute tags** and its twenty events carry
+     * **48 distinct event tags** between them, the second set holding
+     * every `tlp:`, the `type:OSINT` marking, and the MITRE ATT&CK
+     * clusters the context card was reporting as *0 galaxy clusters*.
+     *
+     * **The count is events, and the caller must not add it to
+     * `topTagsFor`'s.** That one counts occurrences carrying a tag;
+     * this counts events carrying it. Two units, and the moment a
+     * surface sums them or prints them in one column under one heading
+     * it has invented a third that means neither — which is the defect
+     * the sightings card was carrying a day before this was written.
+     *
+     * **The ACL is `topTagsFor`'s, deliberately unchanged.** The scope
+     * is built exactly as that method builds it — `buildConditions`
+     * over the attributes matching the value, `Attribute.deleted = 0`,
+     * `Event` and `Object` contained because the rule is not
+     * expressible without them — and the event-tag join hangs off the
+     * attribute's own `event_id`. So an event reaches this result only
+     * by holding an occurrence the reader may already see, and no new
+     * visibility reasoning is introduced to get its labels.
+     *
+     * **A local event tag is not withheld.** `EventTag.local` is an
+     * export rule rather than an access one: `excludeLocalTags` is set
+     * by `Server::push` and the sync paths, defaults to false in
+     * `EventsController::view`, and is a caller-supplied parameter on
+     * the API. A reader who can open the event sees its local tags
+     * there, so hiding them here would differ from MISP without
+     * protecting anything. `local` rides along so the chip can carry
+     * the same marker the attribute tags' chips do.
+     *
+     * **Two statements, and the second is the reason.** The obvious
+     * shape is one query — join `attributes` to `event_tags` on
+     * `event_id` and group — and it is the shape this was first written
+     * with. It costs what it costs because the join happens *before*
+     * the grouping: `443` has 48,255 occurrences across 1,844 events,
+     * so every one of an event's tags is multiplied by every occurrence
+     * the value has in it. The pair of calls `forContext` makes
+     * measured **≈650 ms** on that value.
+     *
+     * Asked as *which events*, then *which tags on those events*, the
+     * multiplication never happens: the first is the same indexed
+     * aggregate every other count on this page runs, the second an `IN`
+     * against `event_tags`' own index. The pair measures **129 ms** —
+     * 122 for the first call and **8** for the second, which is the
+     * memo on `taggableEventIdsFor` doing its work.
+     *
+     * For scale, the `topTagsFor` pair beside it on the same value
+     * costs **916 ms**, and did before any of this. This scope is not
+     * where that card's time goes.
+     *
+     * **The `IN` list is bounded by the value's events, not its
+     * occurrences**, which is the distinction that makes it safe: the
+     * widest value on the instance reaches 1,844 ids, where its
+     * occurrence set is twenty-six times that.
+     *
+     * **Cheap, and cheaper than its attribute twin.** `443`'s 1,844
+     * events carry 3,999 event-tag rows and **246 distinct tags** — an
+     * order below the 3,860 distinct attribute tags that made
+     * `CONTEXT_TAG_CAP` necessary in the first place. The bound is
+     * still taken, on `topTagsFor`'s reasoning rather than on a
+     * measurement of this one.
+     *
+     * @param array $user
+     * @param string $value
+     * @param int $limit
+     * @param array $options As conditionsFor, plus `galaxy`: true for
+     *     galaxy tags only, false for everything else, absent for both
+     * @return array name => `tag` (id, name, colour, is_galaxy, local)
+     *     and `count`, the latter counting **events**
+     */
+    public function eventTagsFor(array $user, $value, $limit,
+        array $options = array()
+    ) {
+        $eventIds = $this->taggableEventIdsFor($user, $value, $options);
+        if (empty($eventIds)) {
+            return array();
+        }
+        $conditions = array('EventTag.event_id' => $eventIds);
+        if (array_key_exists('galaxy', $options)) {
+            $conditions['Tag.is_galaxy'] =
+                empty($options['galaxy']) ? 0 : 1;
+        }
+        $eventTags = ClassRegistry::init('EventTag');
+        $rows = $eventTags->find('all', array(
+            'fields' => array(
+                'Tag.id',
+                'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
+                'COUNT(DISTINCT EventTag.event_id) AS events',
+                // A tag is local only where every event carrying it has
+                // it local — `topTagsFor`'s rule, for its reason.
+                'MIN(EventTag.local) AS local',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'joins' => array(
+                array(
+                    'table' => 'tags',
+                    'alias' => 'Tag',
+                    'type' => 'INNER',
+                    'conditions' => array('Tag.id = EventTag.tag_id'),
+                ),
+            ),
+            'group' => array(
+                'Tag.id',
+                'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
+            ),
+            'order' => array('events DESC', 'Tag.name ASC'),
+            'limit' => (int)$limit,
+        ));
+        $found = array();
+        foreach ($rows as $row) {
+            $found[$row['Tag']['name']] = array(
+                'tag' => array(
+                    'id' => (int)$row['Tag']['id'],
+                    'name' => $row['Tag']['name'],
+                    'colour' => $row['Tag']['colour'],
+                    'is_galaxy' => !empty($row['Tag']['is_galaxy']),
+                    'local' => !empty($row[0]['local']),
+                ),
+                'count' => (int)$row[0]['events'],
+            );
+        }
+        return $found;
+    }
+
+    /**
+     * The last `taggableEventIdsFor` answer, and what it was asked.
+     *
+     * `forContext` calls `eventTagsFor` **twice** — once for plain tags
+     * and once for galaxies, for the reason that method's caller gives
+     * — and each call needs the same event-id scope. Unmemoised that is
+     * the same aggregate over the same 33,110 occurrences twice:
+     * `0.0.0.0` measured 213 ms and 175 ms for two reads whose tag
+     * halves are a few milliseconds each.
+     *
+     * Keyed on the reader as well as the value, because the scope is
+     * `buildConditions`' and two readers do not have the same one. One
+     * entry is enough: a panel request asks about one value.
+     *
+     * @var array|null
+     */
+    private $taggableEventIds = null;
+    private $taggableEventIdsKey = null;
+
+    /**
+     * The events whose labels may be read as this value's context.
+     *
+     * `topTagsFor`'s scope expressed as event ids: `buildConditions`
+     * over the attributes matching the value, soft-deleted occurrences
+     * excluded, `Event` and `Object` contained because the ACL is not
+     * expressible without them. An event reaches this list only by
+     * holding an occurrence the reader may already see, which is what
+     * lets `eventTagsFor` read `event_tags` with no visibility test of
+     * its own.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array Event ids
+     */
+    private function taggableEventIdsFor(array $user, $value,
+        array $options = array()
+    ) {
+        /*
+         * `galaxy` narrows the *tags*, never the events, so the two
+         * calls share one scope — and it is dropped from the key so
+         * they share one answer.
+         */
+        $scope = $options;
+        unset($scope['galaxy']);
+        $key = json_encode(array(
+            isset($user['id']) ? $user['id'] : null,
+            $value,
+            $scope,
+        ));
+        if ($this->taggableEventIds !== null
+            && $this->taggableEventIdsKey === $key
+        ) {
+            return $this->taggableEventIds;
+        }
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $rows = $attributes->find('all', array(
+            'fields' => array('DISTINCT Attribute.event_id AS event_id'),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+        ));
+        $ids = array();
+        foreach ($rows as $row) {
+            if (!empty($row[0]['event_id'])) {
+                $ids[] = (int)$row[0]['event_id'];
+            } elseif (!empty($row['Attribute']['event_id'])) {
+                $ids[] = (int)$row['Attribute']['event_id'];
+            }
+        }
+        $this->taggableEventIds = $ids;
+        $this->taggableEventIdsKey = $key;
+        return $ids;
+    }
+
+    /**
      * How many sightings this viewer may see on this value, and how
      * many of them are false positives.
      *

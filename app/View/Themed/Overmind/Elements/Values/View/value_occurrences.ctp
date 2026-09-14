@@ -113,8 +113,19 @@ $fields = array(
     ),
     array(
         'name' => __('Tags'),
-        'element' => 'tag_list',
+        /*
+         * `value_tag_list`, not `tag_list`: the column showed the
+         * attribute's tags and nothing else, which on this instance is
+         * 7 of `8.8.8.8`'s 55 labels — an analyst tags the report far
+         * more often than the indicator. The element marks which scope
+         * each chip came from and says why the two are not one list.
+         */
+        'element' => 'value_tag_list',
         'data_path' => 'AttributeTag',
+        'event_data_path' => 'EventTag',
+        // One, not the tab's four — the element says what the tab's
+        // number cost this card.
+        'max_visible' => 1,
     ),
 );
 

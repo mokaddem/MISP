@@ -380,6 +380,9 @@ class ValueStatsTool
             'distribution' => array(),
             'sharing_group' => array(),
             'tag' => array(),
+            // The event's labels, counted apart from the row's own —
+            // `value_occurrence_table`'s token builder has the reason.
+            'event_tag' => array(),
             'state' => array(),
         );
         $deleted = 0;
@@ -503,6 +506,23 @@ class ValueStatsTool
                     )
                 );
             }
+            foreach ($row['EventTag'] ?? array() as $eventTag) {
+                if (empty($eventTag['Tag'])
+                    || !empty($eventTag['Tag']['is_galaxy'])
+                ) {
+                    continue;
+                }
+                $tag = $eventTag['Tag'];
+                self::bump(
+                    $groups['event_tag'],
+                    self::facetToken($tag['name']),
+                    $tag['name'],
+                    array(
+                        'tag' => $tag,
+                        'local' => !empty($tag['local']) ? 1 : 0,
+                    )
+                );
+            }
             if (!empty($row['proposal_count'])) {
                 $proposals++;
             }
@@ -518,11 +538,12 @@ class ValueStatsTool
          * survives only when every attachment was local, so the chip
          * never marks a globally-attached tag as local.
          */
-        foreach ($groups['tag'] as $token => $facet) {
-            $groups['tag'][$token]['local'] = empty($facet['local_all'])
-                ? 0
-                : 1;
-            unset($groups['tag'][$token]['local_all']);
+        foreach (array('tag', 'event_tag') as $group) {
+            foreach ($groups[$group] as $token => $facet) {
+                $groups[$group][$token]['local'] =
+                    empty($facet['local_all']) ? 0 : 1;
+                unset($groups[$group][$token]['local_all']);
+            }
         }
 
         if ($proposals > 0) {

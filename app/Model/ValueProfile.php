@@ -162,6 +162,36 @@ class ValueProfile extends AppModel
     const CONTEXT_GALAXY_CAP = 40;
 
     /**
+     * The same two, for the labels on the value's **events**.
+     *
+     * **Tighter than the occurrence-scope caps, and the reason is the
+     * card rather than the query.** `eventTagsFor` is cheaper than its
+     * attribute twin — `443`'s 1,844 events carry 246 distinct tags
+     * against its 3,860 distinct attribute tags — so a matching 60 would
+     * cost nothing to read. What it would cost is the Overview: this
+     * card measured 223px of a pane that phase 31 had just held at
+     * 1,515, and a second list the size of the first would have taken
+     * the left column past the rail again.
+     *
+     * Twelve, measured rather than chosen: the section renders as one
+     * flat cloud of chips, so twelve is three lines of it. The section
+     * is a summary of the report context, not an inventory of it, and
+     * the Occurrences tab's **Event tag** facet lists every one with
+     * counts, one click away.
+     */
+    const CONTEXT_EVENT_TAG_CAP = 12;
+
+    /**
+     * The same, for clusters attributed to those events.
+     *
+     * Six rather than the occurrence scope's forty: a cluster chip
+     * carries a name, a kind and a count, and MITRE technique names run
+     * long enough that each takes its own line. Eight was four lines of
+     * the card.
+     */
+    const CONTEXT_EVENT_GALAXY_CAP = 6;
+
+    /**
      * Most recent first. The table's order was never stated while the
      * rows were fixture data listed in a literal; a value's newest
      * occurrence is the one a reader opening this tab is looking for,
@@ -1128,6 +1158,9 @@ class ValueProfile extends AppModel
 
         $this->attachTags($rows);
         $rows = $this->attachCreatorOrgs($user, $rows);
+        // After the org attach, so the event-tag read is over the rows
+        // that survived it rather than over the rows fetched.
+        $this->attachEventTags($rows);
         $this->attachProposalCounts($rows);
         $this->attachEffectiveDistribution($user, $rows);
 
@@ -1404,12 +1437,66 @@ class ValueProfile extends AppModel
             self::CONTEXT_GALAXY_CAP,
             $options + array('galaxy' => true)
         );
-        if (empty($tags) && empty($galaxyTags)) {
+        /*
+         * ----------------------------------------------------------
+         * And the same two reads at event scope
+         * ----------------------------------------------------------
+         * **The card was showing a minority of the labelling.** Every
+         * tag read on this page joined `attribute_tags`, and an analyst
+         * tags the report far more often than the indicator inside it:
+         * `8.8.8.8` carries 7 distinct attribute tags against 48
+         * distinct event tags across its twenty events. The card's own
+         * subtitle was the proof — *0 galaxy clusters* on a value whose
+         * events are attributed to three MITRE ATT&CK techniques.
+         *
+         * **Read apart and rendered apart, because the unit differs.**
+         * `topTagsFor` counts the occurrences carrying a tag and
+         * `eventTagsFor` counts the events carrying it; the same tag
+         * answers 2 and 8 on this value. One list under one `×N` column
+         * would invent a third unit meaning neither — the defect the
+         * sightings card was carrying the day before this was written.
+         *
+         * **It does not move the Assessment.** `reporting.attribution`
+         * scores *no galaxy on any occurrence* and still means exactly
+         * that; a cluster on the event is a weaker claim about the value
+         * and is not evidence the engine was asked for. The card now
+         * states both scopes, so a reader seeing clusters here and *no
+         * galaxy on any occurrence* in the rail can see that the two
+         * sentences are about different things rather than in conflict.
+         */
+        $eventTags = $valueModel->eventTagsFor(
+            $user,
+            $value,
+            self::CONTEXT_EVENT_TAG_CAP + 1,
+            $options + array('galaxy' => false)
+        );
+        $eventCapped = count($eventTags) > self::CONTEXT_EVENT_TAG_CAP;
+        if ($eventCapped) {
+            $eventTags = array_slice(
+                $eventTags,
+                0,
+                self::CONTEXT_EVENT_TAG_CAP,
+                true
+            );
+        }
+        $eventGalaxyTags = $valueModel->eventTagsFor(
+            $user,
+            $value,
+            self::CONTEXT_EVENT_GALAXY_CAP,
+            $options + array('galaxy' => true)
+        );
+
+        $nothing = empty($tags) && empty($galaxyTags)
+            && empty($eventTags) && empty($eventGalaxyTags);
+        if ($nothing) {
             return array(
                 'value' => $value,
                 'tags' => array(),
                 'galaxies' => array(),
                 'tag_cap' => null,
+                'event_tags' => array(),
+                'event_galaxies' => array(),
+                'event_tag_cap' => null,
             );
         }
         return array(
@@ -1427,6 +1514,23 @@ class ValueProfile extends AppModel
                     $this->galaxyClusters($user, $galaxyTags)
                 ),
             'tag_cap' => $capped ? self::CONTEXT_TAG_CAP : null,
+            'event_tags' => empty($eventTags)
+                ? array()
+                : ValueContextTool::taxonomies(
+                    $eventTags,
+                    $this->taxonomyFold(array_keys($eventTags)),
+                    $this->tagConflicts($eventTags),
+                    $eventCapped
+                ),
+            'event_galaxies' => empty($eventGalaxyTags)
+                ? array()
+                : ValueContextTool::galaxies(
+                    $eventGalaxyTags,
+                    $this->galaxyClusters($user, $eventGalaxyTags)
+                ),
+            'event_tag_cap' => $eventCapped
+                ? self::CONTEXT_EVENT_TAG_CAP
+                : null,
         );
     }
 
@@ -1557,6 +1661,9 @@ class ValueProfile extends AppModel
 
         $this->attachTags($rows);
         $rows = $this->attachCreatorOrgs($user, $rows);
+        // After the org attach, so the event-tag read is over the rows
+        // that survived it rather than over the rows fetched.
+        $this->attachEventTags($rows);
         $this->attachProposalCounts($rows);
         $this->attachEffectiveDistribution($user, $rows);
 
@@ -2266,6 +2373,96 @@ class ValueProfile extends AppModel
             $rows,
             array('includeAllTags' => true)
         );
+    }
+
+    /**
+     * The tags on each row's **event**, under `EventTag`.
+     *
+     * `attachTags`' event-scope twin, and it exists because the Tags
+     * column was showing a minority of what anybody had said about the
+     * value: an analyst tags the report far more often than the
+     * indicator, and this page joined `attribute_tags` alone. On
+     * `8.8.8.8` that is 7 distinct labels drawn against 48 not drawn.
+     *
+     * **One query for every event on the page, never one per row.**
+     * `attachCreatorOrgs` states this page's standing rule and this
+     * follows it: the rows are capped — 8 on the Overview card, 300 on
+     * the tab — so the distinct events behind them are bounded by the
+     * cap, and the whole column costs one `IN`.
+     *
+     * **No ACL of its own, because there is none to add.** Every row
+     * here came back through `fetchAttributesSimple` under
+     * `buildConditions`, so its event is one the reader may open; an
+     * event's tags are visible to anyone who can open it. `local` is an
+     * export rule rather than an access one — `Value::eventTagsFor`
+     * carries the argument and the callers that set
+     * `excludeLocalTags` — so local tags are kept and marked rather
+     * than dropped.
+     *
+     * `Tag.exportable` is not filtered, matching `attachTags`, which
+     * passes `includeAllTags`. Two tag lists in one table cell obeying
+     * two different export rules would be a distinction the cell cannot
+     * draw.
+     *
+     * @param array $rows Occurrence rows, by reference
+     * @return void
+     */
+    private function attachEventTags(array &$rows)
+    {
+        if (empty($rows)) {
+            return;
+        }
+        $eventIds = array();
+        foreach ($rows as $row) {
+            if (!empty($row['Event']['id'])) {
+                $eventIds[(int)$row['Event']['id']] = true;
+            }
+        }
+        if (empty($eventIds)) {
+            return;
+        }
+        $tagged = $this->model('EventTag')->find('all', array(
+            'conditions' => array(
+                'EventTag.event_id' => array_keys($eventIds),
+            ),
+            'recursive' => -1,
+            'fields' => array(
+                'EventTag.event_id',
+                'EventTag.tag_id',
+                'EventTag.local',
+            ),
+            'contain' => array(
+                'Tag' => array(
+                    'fields' => array(
+                        'Tag.id',
+                        'Tag.name',
+                        'Tag.colour',
+                        'Tag.is_galaxy',
+                    ),
+                ),
+            ),
+        ));
+
+        $byEvent = array();
+        foreach ($tagged as $row) {
+            if (empty($row['Tag']['id'])) {
+                continue;
+            }
+            $eventId = (int)$row['EventTag']['event_id'];
+            $tag = $row['Tag'];
+            $tag['local'] = !empty($row['EventTag']['local']);
+            $byEvent[$eventId][] = array('Tag' => $tag,
+                'local' => $tag['local']);
+        }
+        foreach ($rows as $k => $row) {
+            $eventId = empty($row['Event']['id'])
+                ? null
+                : (int)$row['Event']['id'];
+            $rows[$k]['EventTag'] = $eventId !== null
+                && isset($byEvent[$eventId])
+                ? $byEvent[$eventId]
+                : array();
+        }
     }
 
     /**

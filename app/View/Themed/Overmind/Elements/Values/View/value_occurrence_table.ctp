@@ -118,6 +118,25 @@ $tokens = function ($row) use ($slug) {
         }
         $tokens[] = 'tag:' . $slug($attributeTag['Tag']['name']);
     }
+    /*
+     * **The event's labels get their own key, not the one above.**
+     * The Tags column draws both scopes since 2026-09-14, and a rail
+     * that could only filter one of them would have counted `tlp:white`
+     * twice on `8.8.8.8` while the column showed it on ten rows — a
+     * rail disagreeing with the table beside it, which is the one thing
+     * `forOccurrenceTable` being a single fetch exists to prevent.
+     *
+     * A separate key rather than the same one, because the two answer
+     * different questions: *this occurrence is labelled X* and *this
+     * occurrence arrived in a report labelled X*. Folding them would
+     * make a facet count rows for two reasons and name one.
+     */
+    foreach ($row['EventTag'] ?? array() as $eventTag) {
+        if (!empty($eventTag['Tag']['is_galaxy'])) {
+            continue;
+        }
+        $tokens[] = 'event_tag:' . $slug($eventTag['Tag']['name']);
+    }
     if (!empty($row['proposal_count'])) {
         $tokens[] = 'state:proposal';
     }
@@ -576,8 +595,11 @@ $columns = array(
         'shown' => true,
         'field' => array(
             'name' => __('Tags'),
-            'element' => 'tag_list',
+            // Both scopes, marked apart — see `value_tag_list`, and the
+            // Overview preview carries the same column.
+            'element' => 'value_tag_list',
             'data_path' => 'AttributeTag',
+            'event_data_path' => 'EventTag',
         ),
     ),
 );

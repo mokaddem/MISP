@@ -1412,6 +1412,40 @@ tr.vp-occ-deleted td {
 }
 
 /*
+ * The context card's scope headings, which appear only when there are
+ * two scopes to tell apart — a value whose events carry no tags draws
+ * the card it drew before it had any.
+ *
+ * A band rather than a `.vp-subhead`, because the thing below it is a
+ * run of `.vp-tax` rows that already carry their own left-hand names:
+ * an uppercase label in the same column would read as one more taxonomy.
+ */
+.vp-tax-scope {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.vp-tax-scope:first-of-type {
+    border-top: 0;
+}
+
+.vp-tax-scope-note {
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    opacity: 0.85;
+}
+
+/*
  * The `to_ids` stance, in the vocabulary the Assessment tab's *Who says
  * what* column uses. A chip rather than a word so the eye can run down
  * the column.
@@ -1821,6 +1855,53 @@ tr.vp-occ-deleted td {
 [data-vp-occurrences] .idx-col-type p {
     padding: 0 5px !important;
     font-size: 0.75rem;
+}
+
+/* ------------------------------------------------------------------
+ * The Tags column, once it carries two scopes
+ * ------------------------------------------------------------------
+ * `value_tag_list` draws the event's labels beside the row's since
+ * 2026-09-14, and both tables needed bounding for the same reason from
+ * opposite directions.
+ *
+ * **A chip is one line.** MISP tag names run long —
+ * `osint:lifetime="perpetual"` is 26 characters — and the chip carries
+ * `white-space:normal; word-wrap:break-word` in an inline `style`
+ * attribute, so without `!important` a cap only narrows the chip and
+ * lets it wrap inside the new width. That is a 176px chip 34px tall,
+ * and one of them sets the height of a row whose every other cell is
+ * one line. `Badges/tag` puts the full name in `title`, so the ellipsis
+ * costs a hover and nothing else.
+ *
+ * **And the column has a floor.** On the Occurrences tab the table
+ * fields nine columns in 1,174px and `table-layout: auto` gave Tags
+ * **70px** — narrow enough that every chip wrapped into a vertical
+ * stack whatever its own width, which is what took that table's tallest
+ * row to 388px and its median to 132. The floor costs horizontal
+ * scroll on a table that already scrolls, and buys back the row height
+ * on all 26.
+ * ------------------------------------------------------------------ */
+
+.vp-panel .idx-col-value_tag_list {
+    min-width: 13rem;
+}
+
+.idx-col-value_tag_list .badge {
+    overflow: hidden;
+    max-width: 12rem;
+    text-overflow: ellipsis;
+    white-space: nowrap !important;
+    word-wrap: normal !important;
+    word-break: normal !important;
+}
+
+/*
+ * Tighter on the Overview's preview, which draws one chip and a `+N` in
+ * a 211px cell: at the tab's 12rem the pair wrapped to two lines on
+ * every tagged row.
+ */
+[data-vp-occurrences] .idx-col-value_tag_list .badge {
+    max-width: 9rem;
 }
 
 /*
