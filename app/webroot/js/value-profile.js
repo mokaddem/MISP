@@ -261,6 +261,8 @@
      *                                cuts on more than one date
      *     [data-vp-range-from|-to]   bounds against one of those keys,
      *                                named by the attribute's value
+     *                                (a panel may show one key at a
+     *                                time — see `switchTimeScope`)
      *     [data-vp-pager]            page control, data-vp-page-size
      *     [data-vp-list-empty]       shown when a filter empties the list
      *
@@ -1317,6 +1319,59 @@
         });
         listPages.set(list, 1);
         refreshList(list);
+    }
+
+    /**
+     * Swap which date the occurrence rail's one time control cuts on.
+     *
+     * The three scopes each keep their own strip, their own two inputs
+     * and their own span, because a bucket of `timestamp` is not a
+     * bucket of `publish_timestamp` and the bars carry the dates they
+     * were rendered with. What the dropdown does is choose which of
+     * those panes is on screen.
+     *
+     * **The panes it hides give up their bounds.** They are still in the
+     * DOM and `activeRanges` still reads them, so a range left behind
+     * would go on filtering the table from a control the reader can no
+     * longer see — and the rail's summary would count a filter with
+     * nothing on screen to explain it. Only the visible scope can hold
+     * a bound, which is what makes the dropdown a scope switch rather
+     * than a third filter.
+     *
+     * @param {Element} select A [data-vp-time-scope]
+     */
+    function switchTimeScope(select) {
+        var group = select.closest('.vp-facetgrp');
+        if (!group) {
+            return;
+        }
+        var chosen = select.value;
+        var dropped = false;
+        group.querySelectorAll('[data-vp-time-pane]').forEach(
+            function (pane) {
+                var showing = pane.dataset.vpTimePane === chosen;
+                pane.classList.toggle('d-none', !showing);
+                if (showing) {
+                    return;
+                }
+                pane.querySelectorAll(
+                    '[data-vp-range-from], [data-vp-range-to]'
+                ).forEach(function (input) {
+                    if (input.value !== '') {
+                        input.value = '';
+                        dropped = true;
+                    }
+                });
+            }
+        );
+        var list = select.closest('[data-vp-list]');
+        // Only when something was actually cleared: switching between
+        // two unbounded scopes changes what is on screen and not which
+        // rows are, and a refresh would send the reader back to page one
+        // for nothing.
+        if (list && dropped) {
+            narrowList(list);
+        }
     }
 
     /**
@@ -8467,6 +8522,16 @@
                     listPages.set(sortList, 1);
                     refreshList(sortList);
                 }
+                return;
+            }
+
+            // Before the narrowing branch, and not part of it: this
+            // select names which date the rail cuts on rather than
+            // stating a cut, and it re-filters only where swapping panes
+            // dropped a bound.
+            if (event.target.matches
+                && event.target.matches('[data-vp-time-scope]')) {
+                switchTimeScope(event.target);
                 return;
             }
 

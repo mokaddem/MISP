@@ -649,14 +649,17 @@ class ValueStatsTool
     }
 
     /**
-     * The two dates the rail can cut on, and what they span.
+     * The three dates the rail can cut on, and what they span.
      *
      * `timestamp` is when the attribute was last modified and every
      * attribute has one. `published` is when its event was last
      * published, and an unpublished event has none — so those rows are
      * counted rather than quietly dropped, because a date cut over a
      * column that is sometimes absent has to say how much it removes
-     * (the same rule `seen_unset` follows).
+     * (the same rule `seen_unset` follows). `event` is when the event
+     * itself was last modified, which moves when any attribute on it
+     * does and so answers *when was this report last touched* rather
+     * than *when was this occurrence*.
      *
      * The spans bound the date inputs. The inputs themselves start empty:
      * a control pre-filled with the full span looks like a filter that is
@@ -664,12 +667,13 @@ class ValueStatsTool
      * render identically.
      *
      * @param array $rows
-     * @return array `time_spans`, `published_unset`
+     * @return array `time_spans`, `time_buckets`, `published_unset`
      */
     private static function timeSpans(array $rows)
     {
-        $spans = array('timestamp' => null, 'published' => null);
-        $days = array('timestamp' => array(), 'published' => array());
+        $keys = array('timestamp', 'published', 'event');
+        $spans = array_fill_keys($keys, null);
+        $days = array_fill_keys($keys, array());
         $unpublished = 0;
         foreach ($rows as $row) {
             $stamps = array(
@@ -677,6 +681,7 @@ class ValueStatsTool
                 'published' => empty($row['Event']['publish_timestamp'])
                     ? null
                     : $row['Event']['publish_timestamp'],
+                'event' => $row['Event']['timestamp'] ?? null,
             );
             if ($stamps['published'] === null) {
                 $unpublished++;

@@ -302,6 +302,10 @@ $rowData = function ($row) use ($tokens, $sortKeys, &$defaultOrder) {
         $times[] = 'published:'
             . date('YmdHi', (int)$row['Event']['publish_timestamp']);
     }
+    if (!empty($row['Event']['timestamp'])) {
+        $times[] = 'event:'
+            . date('YmdHi', (int)$row['Event']['timestamp']);
+    }
     if (!empty($times)) {
         $data['vp-times'] = implode(' ', $times);
     }

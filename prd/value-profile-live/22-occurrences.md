@@ -1271,3 +1271,104 @@ suite:
   every other key follows.
 - The inverse case: a value entirely inside objects offers no standalone row and
   still partitions.
+
+## 17. After review: one time control, and the rail leads with it
+
+**The comment.** *"On the occurrences page: move the time filters facets on
+top. And instead of 2 time widget, just use one with a dropdown allowing on
+which scope the filtering should be done (attribute's timestamp, event
+published_timestamp, event timestamp)."*
+
+Two changes to the `Time` group §13.2 built and §15 gave a brush to, and a
+third date it did not offer.
+
+### 17.1 The group goes first
+
+`Time` was the rail's ninth group, under Organisation, Type, Object, Category,
+IDS flag, Distribution, Sharing group and Tag — and, since §16 and the galaxy
+group, under a tag tail that folds at ten rows and a cluster tail that folds at
+ten more. On `8.8.8.8` that is 2,100px of rail above it. A date is the cut a
+reader reaches for *before* any of those vocabularies — *what has moved lately*
+is asked of a value long before *which organisation reported it* — so the group
+that answers it now opens the rail, directly under the `Filters` header.
+
+**`First / last seen` does not follow it.** It is the other date group and it is
+still disabled (§13.2's last paragraph: an interval needs an overlap test, not
+the point test the range does), and the rail's first slot is not where an inert
+control belongs. It stays where §6 put it, above `Row state`.
+
+### 17.2 Three dates, one control
+
+The two ranges were stacked, each with its own strip, its own inputs and its own
+caption: 96px of chart before the first facet list, at least one of it drawing a
+question nobody had asked. A third date makes that 144px, and the third date is
+worth having —
+
+| Scope | Column | The question |
+|---|---|---|
+| Attribute last modified | `attributes.timestamp` | when was **this occurrence** last touched |
+| Event published | `events.publish_timestamp` | when was the report last **released** |
+| Event last modified | `events.timestamp` | when was the report last **worked on** |
+
+The third is not the first two in disguise. An event's stamp moves when any
+attribute on it changes, so a years-old occurrence can sit on a report edited
+this morning; on `8.8.8.8`, cutting at `2026-01-01` leaves **9 rows** by the
+attribute's own stamp and **17** by its event's.
+
+So the three are alternatives rather than conjuncts, and the group is one
+control: a `<select data-vp-time-scope>` naming the date, and one pane per scope
+with only the chosen one on screen. Each pane keeps its own strip, its own two
+inputs and its own span, because a bucket of `timestamp` is not a bucket of
+`publish_timestamp` — the bars carry the dates they were rendered with, and
+rebuilding them client-side would put the bucketing rule in a second place.
+
+**Switching scope clears the bound the old pane held.** The hidden panes are
+still in the DOM and `activeRanges()` still reads them, so a range left behind
+would go on filtering the table from a control the reader cannot see — and the
+rail's summary would count a filter with nothing on screen to explain it. The
+rail's whole claim is that the filter set and the summary of the value are the
+same object; a bound behind a closed pane breaks it. `switchTimeScope()` empties
+the panes it hides and re-filters only when it actually dropped something,
+because swapping two unbounded scopes changes what is on screen and not which
+rows are, and a refresh would send the reader back to page one for nothing.
+
+**The select is not a `[data-vp-filter-key]`.** That is the shared list filter's
+own hook, and it would read this value as an answer and drop every row not
+carrying `timestamp` as a facet token. It gets its own attribute and its own
+branch in the delegated `change` handler, ahead of the narrowing branch.
+
+**What the scopes cost.** `Event.timestamp` is already on the row from the
+`contain` §4.1 has carried since the start, so the third scope is no query:
+`timeSpans()` reads a third stamp per row and `value_occurrence_table`'s row
+builder stamps a third `key:YmdHi` pair into `data-vp-times`. The absent-column
+rule from §13.2 covers it unchanged — a scope no row carries draws the sentence
+rather than two live-looking inputs — and so does the unpublished note, which
+stays inside the `Event published` pane where it belongs.
+
+### 17.3 What was verified
+
+On `8.8.8.8` — 26 occurrences, the value the §16 request named — in the browser,
+against the live instance:
+
+- **The group is the rail's first**, index 0 of its `.vp-facetgrp` children,
+  directly under the `Filters` header.
+- **One control, three scopes.** The select carries `timestamp`, `published` and
+  `event` with `timestamp` selected; exactly one pane is visible at rest and
+  after every switch.
+- **Three real spans, all bucketed monthly**: attribute `2022-06-28 → 2026-09-01`
+  (52 bars), published `2025-02-11 → 2026-09-03` (20 bars), event
+  `2022-06-29 → 2026-09-02` (52 bars). The published pane still carries *"13
+  occurrences sit on events that were never published, and a date cut here
+  removes them."*
+- **Every row carries the third stamp.** All 26 `data-vp-times` attributes hold
+  an `event:` pair.
+- **Each scope cuts, and cuts differently.** `from = 2026-01-01` leaves 9 rows on
+  the attribute's stamp and 17 on the event's, each reported as one active
+  filter.
+- **A switch drops the bound.** With 9 rows showing under the attribute scope,
+  selecting `Event last modified` returns the table to 26 rows and the summary to
+  `No filter applied`, and the hidden pane's input reads empty.
+- **The brush still writes the visible pane.** Dragging the published strip fills
+  both its inputs (`2026-01-01` → `2026-07-31`), leaves 5 rows and counts two
+  filters.
+- **`Clear all` still clears**, across panes: back to 26 rows and no filter.

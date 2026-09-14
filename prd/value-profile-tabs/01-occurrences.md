@@ -25,12 +25,16 @@ got right against fixture data and wrong against a database:
 - **§6's group list gains two, so its nine groups are eleven.** `Object` sits
   beside Type, counting the object template each occurrence is in and offering
   `Standalone attribute` as its complement, so it partitions the rows (§16).
-  `Time` carries two working date ranges over the attribute's `timestamp` and
-  its event's `publish_timestamp`, each under a 32px brushable strip that picks
-  the range and shows how it is bucketed (§13.2, §15).
+  `Time` is **the rail's first group**, and it is one date range under a
+  dropdown naming which of three dates it cuts on — the attribute's
+  `timestamp`, its event's `publish_timestamp`, or the event's own `timestamp`
+  — under a 32px brushable strip that picks the range and shows how it is
+  bucketed (§13.2, §15, §17).
 - **§6's first/last-seen date inputs stay disabled**, and now say why rather than
   only that — they are an interval, so cutting them is an overlap test rather
-  than the point test the two ranges above them do.
+  than the point test the range above them does. They stay where §6 put them,
+  near the foot of the rail, rather than following `Time` to the top: the
+  rail's first slot goes to a control that works.
 
 ## 1. What ships
 
