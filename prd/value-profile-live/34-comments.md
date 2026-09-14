@@ -271,6 +271,10 @@ which on four panels is another 26.
 
 ## 5. What the tab costs now
 
+Panel by panel, with all four still stacked. [§6](#6-the-two-short-panels-sit-side-by-side)
+puts the last two in a row and takes another 184px off the pane; every
+panel figure below is unchanged by that.
+
 `8.8.8.8` — seven thread items, eight reports, four opinions, three
 comments — at 1600px wide:
 
@@ -311,7 +315,119 @@ Same height, and it now says something. `193.161.193.99` — 33 sentences
 
 ---
 
-## 6. What was checked, live
+## 6. The two short panels sit side by side
+
+Asked once the density pass was seen:
+
+> Could you put the "attribute comments" panel and the "event reports"
+> panel side by side (for large screen only)?
+
+They are the two shortest panels on the tab and they are short in
+opposite directions — a value with eleven comments has no report
+(`147.185.221.29`), a value with eight reports has three comments
+(`8.8.8.8`). Stacked, a reader pays for both. A row is as tall as its
+tallest card rather than as tall as the sum, so this is a saving on
+every value and, unlike most layout changes, never a cost.
+
+| | stacked | **in a row** |
+|---|---|---|
+| `8.8.8.8` pane | 1,976px | **1,792px** |
+| `193.161.193.99` pane | 1,580px | **1,428px** |
+| `147.185.221.29` pane | 858px | **806px** |
+
+### 6.1 `view_layout` learns a row group
+
+The shared element renders a column's cards as a flat stack, and
+nineteen pages call it. It gains one optional shape:
+
+```php
+'left' => array(
+    $panel('viewAnalystStanding'),
+    array('row' => array($cardA, $cardB)),
+),
+```
+
+Cards divide the twelve columns evenly unless one names its own `col`.
+Absent for every other caller, and the three container shapes are
+byte-identical to what they rendered before — checked, not assumed:
+`/events/view2/47`, `/users/view/1` and `/galaxies/view/1` still emit
+`<div class="ajax-tab-content" data-url="…">` and zero row columns.
+
+The change also removes the duplication that made it awkward: both
+columns had the same card-rendering body and differed only in the
+container class — `.ajax-tab-content` in the left, `.ajax-card` in the
+rail, both matched by `AJAX_CONTAINER_SELECTOR`. That body is now one
+closure with three callers.
+
+### 6.2 The breakpoint is `xl`, and it was measured
+
+The group defaults to `col-lg-6`; this caller asks for `col-xl-6`.
+
+A report row is a title, an extract and a meta line, and halving its
+width wraps all three: the reports panel is 660px at full width and
+**887px** in a 472px column. So at `lg`'s 992px the row costs 887
+against the 834 the two stacked — worse than what it replaces. At 1,200
+it is 689 against 834. The crossover sits near 1,100px, so the split
+starts at `xl`.
+
+Below it they stack exactly as they did, which is the *only screen*
+half of the request: two panels beside each other is a claim about
+horizontal room, and Bootstrap's own `.row` does the stacking with
+nothing conditional in this page.
+
+### 6.3 The table's columns follow the card, not the window
+
+Under `table-layout: fixed` the five sized columns **are** the
+sentence's width. In the half column they left the comment **144px of
+776** and truncated `[Auto] IDS disabled by …` after five words, making
+the table's one content column its narrowest.
+
+So there are two sets, and a **container query on the panel** picks
+between them — what decides this is how wide the *card* is, and the
+card is full width stacked, half width in the row, and full width again
+below `xl`. A viewport media query would have had to encode that table
+and be re-derived whenever the tab's layout changed.
+
+Two thresholds, because the parts cost differently:
+
+| threshold | what returns | what it costs |
+|---|---|---|
+| 900px of card | the relative age beside the date | 96px — the `when` column goes 7.5rem → 12.5 |
+| 1,200px of card | `Rows`, `Events`, `Latest in`, `Event's org` at full width | 270px in total |
+
+**Base-narrow rather than base-wide on purpose**: a browser without
+`@container` gets the compact table, which is correct everywhere and
+merely plainer. The other way round it would get the 144px cell.
+
+A single 900px trigger was tried first and was wrong in an instructive
+way: at a 936px panel the roomy columns leave the comment 239px where
+the compact ones leave 330, so a *wider* window produced a *narrower*
+content column.
+
+With the budget tuned the comment cell is 142px at 1,200 and 352px
+stacked, against 144px before; no header cell clips at any width —
+`Row last written` needed 115px against the 104 a date needs, which is
+why that column is 7.5rem rather than 6.5.
+
+### 6.4 What the row costs, and it is not nothing
+
+**Sentences that differ only in a suffix truncate to the same prefix.**
+`193.161.193.99` carries *XWorm botnet C2 server (confidence level:
+100%)* and *…(confidence level: 50%)* as two rows, and in a half-width
+column both render as `XWorm botnet C2 server (c…`. The full text is in
+the cell's title on every clipped row, and the counts, dates and events
+beside them differ — but two rows that say different things do look the
+same, which they did not at full width.
+
+It is stated here rather than designed around: the arrangement was
+asked for, it is a real saving on every value, and the alternative —
+wrapping the cell to two lines — costs 14px a row, which on this
+value's 33 rows is 462px and makes the row **taller** than the stack it
+replaced.
+
+---
+
+## 7. What was checked, live
 
 On the verification instance, signed in as the site admin:
 
@@ -342,10 +458,20 @@ On the verification instance, signed in as the site admin:
   still reports a 74px header.
 - **Every endpoint on the tab answers 200** with no PHP error, on eight
   values including `443` (48,255 occurrences) and `flood` (65,717).
+- **The row is a row above `xl` and a stack below it.** Measured at
+  1920, 1600, 1400, 1200, 1100, 991 and 768px: the two panels share a
+  `top` and differ in `x` at the first four and the reverse at the last
+  three, with no horizontal page overflow at any of them.
+- **No header cell and no event chip clips, at any of those widths**,
+  and the comment cell never falls below 142px.
+- **The other eighteen `view_layout` callers are untouched.** Fifteen
+  pages fetched and all render; `/events/view2/47`, `/users/view/1` and
+  `/galaxies/view/1` emit the same `<div class="ajax-tab-content"
+  data-url="…">` containers they did and no row columns.
 
 ---
 
-## 7. Board
+## 8. Board
 
 [`00-contract.md`](00-contract.md) §14.12 gains a row:
 

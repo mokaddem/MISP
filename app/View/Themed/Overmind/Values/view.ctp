@@ -791,28 +791,56 @@ $tabRegistry = array(
             $panel('viewAnalystStanding'),
             $panel('viewAnalystThread'),
             /*
-             * Third, between the argument and the documents, and the
-             * position is the point. The two panels above are anchored
-             * to uuids and spend a chip per row saying which container
-             * they are really about; this one is the `comment` column
-             * of the value's own occurrences, so it is the only thing
-             * on the tab written *about the value* with nothing to
-             * qualify. It goes below the thread because the thread is
-             * the conversation the ledger above it summarises and the
-             * pair cannot be split, and above the reports because a
-             * comment annotates this value while a report documents an
-             * event it happens to sit in.
+             * **The tab's third row is two panels wide on a large
+             * screen**, and the pair is the tab's second half: what was
+             * written *around* this value, where the two above are the
+             * argument *about* it.
+             *
+             * Side by side because they are the two shortest things on
+             * the tab and they are short in opposite directions — a
+             * value with eleven comments has no report, and one with
+             * eight reports has three comments. Stacked, a reader paid
+             * for both; in a row the tab is as tall as the taller of
+             * them rather than as tall as the sum, which is a saving on
+             * every value and never a cost.
+             *
+             * **`col-xl-6` rather than the group's `col-lg-6` default,
+             * and the breakpoint is measured rather than picked.** A
+             * report row is a title, an extract and a meta line, and
+             * halving its width wraps all three: the reports panel is
+             * 660px at full width and **887px** in a 472px column. So
+             * at `lg`'s 992px the row costs 887 against the 834 the two
+             * stacked, and the arrangement is worse than what it
+             * replaces. The crossover sits near 1,100px — at 1,200 the
+             * row is 689 against 834 — so the split starts at `xl`,
+             * where it is a saving on every value.
+             *
+             * Below it they stack exactly as they did. Two panels
+             * beside each other is a claim about horizontal room and a
+             * narrow window has none.
              */
-            $panel('viewAnalystComments'),
-            /*
-             * The narrative list, added by phase 26 —
-             * `value-profile-coverage.md` §4.5 places event reports on
-             * this tab, and a report is a document rather than a turn
-             * in the thread above it. Its own endpoint, because it is
-             * one `fetchReports` over the value's events and should not
-             * wait on the thread's five-anchor union.
-             */
-            $panel('viewAnalystReports'),
+            array('row' => array(
+                /*
+                 * Left of the pair. The three panels before it are
+                 * anchored to uuids and spend a chip per row saying
+                 * which container they are really about; this one is
+                 * the `comment` column of the value's own occurrences,
+                 * so it is the only thing on the tab written *about the
+                 * value* with nothing to qualify. It leads the row for
+                 * that reason.
+                 */
+                $panel('viewAnalystComments') + array('col' => 'col-xl-6'),
+                /*
+                 * The narrative list, added by phase 26 —
+                 * `value-profile-coverage.md` §4.5 places event reports
+                 * on this tab, and a report is a document rather than a
+                 * turn in the thread above it. Its own endpoint,
+                 * because it is one `fetchReports` over the value's
+                 * events and should not wait on the thread's
+                 * five-anchor union.
+                 */
+                $panel('viewAnalystReports') + array('col' => 'col-xl-6'),
+            )),
         ),
         'right' => null,
     ),

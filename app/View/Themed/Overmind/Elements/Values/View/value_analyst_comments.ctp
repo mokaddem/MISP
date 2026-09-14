@@ -88,7 +88,16 @@ $subtitle = empty($rows)
         h(__('most recently written first')),
     )));
 ?>
-<div class="card shadow-sm mb-3 vp-panel vp-dense"
+<?php
+/*
+ * `vp-ctable-panel` makes the card a query container. The table's five
+ * sized columns are the sentence's width, and this panel is full width
+ * when it is stacked and half width when it sits beside the report list
+ * — so what they should be is a question about the card, not about the
+ * window.
+ */
+?>
+<div class="card shadow-sm mb-3 vp-panel vp-dense vp-ctable-panel"
      style="--vp-panel-color: var(--analystData);"
      data-vp-analyst-comments>
 

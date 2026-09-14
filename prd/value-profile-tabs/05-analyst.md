@@ -30,6 +30,13 @@ this tab because `value_panel_header` is shared with eight others. The
 composer §9 describes is folded shut by default and opens byte-identical
 — it is 231px of controls that cannot be used until the page writes.
 
+**And §2's layout is no longer one column of stacked panels.** The first
+two still stack full width; the last two share a `col-xl-6` row, which
+`view_layout` gained a `row` group to express. They are the tab's two
+shortest panels and they are short in opposite directions, so a row is
+as tall as the taller rather than as tall as the sum. Below the `xl`
+breakpoint they stack exactly as §2 describes.
+
 ## 1. What ships
 
 **Open on where each organisation stands on the 0–100 scale, then read the

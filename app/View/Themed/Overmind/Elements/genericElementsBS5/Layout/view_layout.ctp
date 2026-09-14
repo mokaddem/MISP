@@ -39,6 +39,106 @@ $ajaxPlaceholder = function (array $card) {
     echo '</div>';
 };
 
+/**
+ * One card in a column, in whichever of the three shapes a caller uses.
+ *
+ * Extracted because both columns had the same body, and because the row
+ * group below needs a third caller for it. `$containerClass` is the only
+ * thing the two columns ever differed by: the left emits
+ * `.ajax-tab-content` and the right rail `.ajax-card`, and
+ * `AJAX_CONTAINER_SELECTOR` in mispOvermind.js matches both.
+ *
+ * @param mixed $card An array with `ajax`, with `element`, or a plain
+ *                    element name
+ * @param string $containerClass
+ * @return void
+ */
+$renderCard = function ($card, $containerClass) use ($ajaxPlaceholder, $data) {
+    if (!is_array($card)) {
+        echo $this->element($card, array('data' => $data));
+        return;
+    }
+    if (!empty($card['ajax'])) {
+        // Optional `id` gives a lazily-loaded panel an anchor a link can
+        // reach before its content has arrived. Absent for every
+        // existing caller.
+        echo '<div class="' . h($containerClass) . '"'
+            . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"')
+            . ' data-url="' . h($card['ajax']) . '">';
+        $ajaxPlaceholder($card);
+        echo '</div>';
+        return;
+    }
+    if (!empty($card['element'])) {
+        // Optional `params` lets one element serve several cards. Absent
+        // for every existing caller, so their render is unchanged.
+        echo $this->element(
+            $card['element'],
+            array('data' => $data) + ($card['params'] ?? array())
+        );
+    }
+};
+
+/**
+ * A group of cards that sit beside each other instead of stacking.
+ *
+ * `array('row' => array($cardA, $cardB))` in a column's list, where the
+ * default is one card per row at full width. Absent for every existing
+ * caller, so nothing that does not ask for it changes.
+ *
+ * **It is a `col-lg-*` split, so the row is a large-screen arrangement
+ * only.** Below the breakpoint the columns stack and the panels are
+ * exactly what they were — which is the point: two panels side by side
+ * is a claim about horizontal room, and a narrow window does not have
+ * any. Bootstrap's own `.row` does the stacking; nothing here is
+ * conditional.
+ *
+ * Cards divide the twelve columns evenly unless one names its own
+ * `col`. Two panels of unequal height leave space under the shorter,
+ * which is the arrangement's cost and always less than stacking them:
+ * a row is as tall as its tallest card rather than as tall as the sum.
+ *
+ * @param array $group The `row` value
+ * @param string $containerClass As $renderCard
+ * @return void
+ */
+$renderRow = function (array $group, $containerClass) use ($renderCard) {
+    $cards = array_values(array_filter($group));
+    if (empty($cards)) {
+        return;
+    }
+    $span = max(1, (int)floor(12 / count($cards)));
+    echo '<div class="row">';
+    foreach ($cards as $card) {
+        $col = is_array($card) && !empty($card['col'])
+            ? $card['col']
+            : 'col-lg-' . $span;
+        echo '<div class="' . h($col) . '">';
+        $renderCard($card, $containerClass);
+        echo '</div>';
+    }
+    echo '</div>';
+};
+
+/**
+ * A column's whole list, stacking cards and laying out row groups.
+ *
+ * @param array $cards
+ * @param string $containerClass As $renderCard
+ * @return void
+ */
+$renderColumn = function ($cards, $containerClass) use (
+    $renderCard, $renderRow
+) {
+    foreach ((array)$cards as $card) {
+        if (is_array($card) && !empty($card['row'])) {
+            $renderRow($card['row'], $containerClass);
+            continue;
+        }
+        $renderCard($card, $containerClass);
+    }
+};
+
 $activeTabIndex = 0;
 foreach ($tabs as $i => $tab) {
     if (!empty($tab['active'])) {
@@ -107,53 +207,14 @@ foreach ($tabs as $i => $tab) {
                     <div class="<?= !empty($tab['right']) ? 'col-lg-9' : 'col-12' ?>">
                         <?php
                             if (!empty($tab['left'])) {
-                                foreach ($tab['left'] as $card) {
-                                    if (is_array($card)) {
-
-                                        if (!empty($card['ajax'])) {
-                                            // Optional `id` gives a lazily-loaded panel an anchor
-                                            // a link can reach before its content has arrived.
-                                            // Absent for every existing caller.
-                                            echo '<div class="ajax-tab-content"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
-                                            $ajaxPlaceholder($card);
-                                            echo '</div>';
-                                        } elseif (!empty($card['element'])) {
-                                            // Optional `params` lets one element serve several
-                                            // cards. Absent for every existing caller, so their
-                                            // render is unchanged.
-                                            echo $this->element($card['element'], ['data' => $data] + ($card['params'] ?? []));
-                                        }
-
-                                    } else {
-                                        echo $this->element($card, ['data' => $data]);
-                                    }
-                                }
+                                $renderColumn($tab['left'], 'ajax-tab-content');
                             }
                         ?>
                     </div>
                     <?php if (!empty($tab['right'])): ?>
                         <!-- RIGHT COLUMN -->
                         <div class="col-lg-3">
-                            <?php
-                                foreach ($tab['right'] as $card) {
-                                    if (is_array($card)) {
-
-                                        if (!empty($card['ajax'])) {
-                                            echo '<div class="ajax-card"' . (empty($card['id']) ? '' : ' id="' . h($card['id']) . '"') . ' data-url="' . h($card['ajax']) . '">';
-                                            $ajaxPlaceholder($card);
-                                            echo '</div>';
-                                        } elseif (!empty($card['element'])) {
-                                            // Optional `params` lets one element serve several
-                                            // cards. Absent for every existing caller, so their
-                                            // render is unchanged.
-                                            echo $this->element($card['element'], ['data' => $data] + ($card['params'] ?? []));
-                                        }
-
-                                    } else {
-                                        echo $this->element($card, ['data' => $data]);
-                                    }
-                                }
-                            ?>
+                            <?php $renderColumn($tab['right'], 'ajax-card'); ?>
                         </div>
                     <?php endif; ?>
                 </div>
