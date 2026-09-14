@@ -151,9 +151,21 @@ echo $this->element('Values/View/value_fact_strip', array(
     'facts' => $profile['facts'],
 ));
 
-echo $this->element('Values/View/value_pivot_rail', array(
-    'pivots' => $profile['pivots'],
-));
+/*
+ * ------------------------------------------------------------------
+ * The pivot rail was here, and phase 29 withdrew it
+ * ------------------------------------------------------------------
+ * Five chips — containing CIDR, ASN, geolocation, ports seen, passive
+ * DNS — none of which MISP stores for a value. Every one is an
+ * enrichment answer, and the Analyst Profile's D15 settled that nothing
+ * on this page runs a module without a press, so the rail could only
+ * ever have been filled by running five modules on every page load.
+ * It rendered inert from the skeleton pass onwards and an inert control
+ * is an unfinished promise to an analyst (D23), so it is gone rather
+ * than disabled. `29-overview.md` §8.1 carries the successor that was
+ * weighed — a rail founded on pivots the database can actually resolve
+ * — and why that is a different feature rather than this one converted.
+ */
 
 /*
  * ------------------------------------------------------------------

@@ -21,6 +21,7 @@
 $profile = $valueProfile;
 $taxonomies = $profile['tags'];
 $galaxies = $profile['galaxies'];
+$tagCap = isset($profile['tag_cap']) ? $profile['tag_cap'] : null;
 
 $conflicts = 0;
 foreach ($taxonomies as $taxonomy) {
@@ -30,8 +31,14 @@ foreach ($taxonomies as $taxonomy) {
 }
 
 $subtitle = implode(' &nbsp;·&nbsp; ', array(
-    h(sprintf(__('%s taxonomies'), count($taxonomies))),
-    h(sprintf(__('%s galaxy clusters'), count($galaxies))),
+    h(sprintf(
+        __n('%s taxonomy', '%s taxonomies', count($taxonomies)),
+        count($taxonomies)
+    )),
+    h(sprintf(
+        __n('%s galaxy cluster', '%s galaxy clusters', count($galaxies)),
+        count($galaxies)
+    )),
 ));
 
 $headerExtra = null;
@@ -64,6 +71,27 @@ if ($conflicts > 0) {
             <span><?= __('Nobody has tagged this value.') ?></span>
         </div>
     <?php else: ?>
+
+        <?php if ($tagCap !== null): ?>
+            <?php
+            /*
+             * A cap is not a permission (§14.6), so it is stated on the
+             * panel rather than left to be inferred from a list that
+             * stops. It also explains the scales' absence: none is
+             * drawn on a capped read, because a position means *one tag
+             * of this dimension* and a truncated list cannot tell that
+             * from *one that was read*.
+             */
+            ?>
+            <div class="vp-filter-note">
+                <i class="fas fa-filter"></i>
+                <span><?= h(sprintf(
+                    __('The %s most-carried labels. This value has more,'
+                        . ' so no taxonomy is drawn as a scale here.'),
+                    number_format($tagCap)
+                )) ?></span>
+            </div>
+        <?php endif; ?>
 
         <?php foreach ($taxonomies as $taxonomy): ?>
             <div class="vp-tax">
@@ -105,13 +133,25 @@ if ($conflicts > 0) {
                     <?php endif; ?>
 
                     <div class="vp-tax-tags">
-                        <?php foreach ($taxonomy['tags'] as $tag):
-                            $orgs = implode(', ', $tag['orgs']);
+                        <?php foreach ($taxonomy['tags'] as $tag): ?>
+                            <?php
+                            /*
+                             * Occurrences only. The tooltip used to name
+                             * the organisations too, and it could not
+                             * mean what it said: neither `attribute_tags`
+                             * nor `event_tags` records who applied a tag,
+                             * so the list was the creator organisations
+                             * of the carrying events — *whose events
+                             * carry it* rather than *who said it*.
+                             */
                             ?>
                             <span class="vp-tag" title="<?= h(sprintf(
-                                __('On %1$s occurrences, from %2$s'),
-                                $tag['count'],
-                                $orgs
+                                __n(
+                                    'On %s occurrence of this value',
+                                    'On %s occurrences of this value',
+                                    $tag['count']
+                                ),
+                                number_format($tag['count'])
                             )) ?>">
                                 <?= $this->element(
                                     'genericElementsBS5/Badges/tag',

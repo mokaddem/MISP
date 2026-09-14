@@ -371,10 +371,29 @@ class Value extends AppModel
      * `orgs` counts creator organisations, matching the fan-out
      * sentence's wording and the Occurrences rail's organisation facet.
      *
+     * **`dated_from` and `dated_at` say whether the two dates were
+     * declared or inferred**, and they are here rather than in a second
+     * aggregate because a date without them cannot be read honestly.
+     * `OBSERVED_FROM`/`OBSERVED_AT` end in `Attribute.timestamp`, which
+     * every row has and none of which is an observation, so `oldest`
+     * and `newest` are never null and a caller printing them bare
+     * states a row write as a sighting. Each counts the occurrences
+     * declaring the column that *leads* its own chain — `first_seen`
+     * for `_FROM`, `last_seen` for `_AT` — so a zero means precisely
+     * *this date is a row write*. They differ from
+     * `recordSummaryFor`'s single `dated`, which counts `first_seen`
+     * only because the quality ledger asks a different question.
+     *
      * @param array $user
      * @param string $value
      * @param array $options As conditionsFor
-     * @return array `occurrences`, `events`, `orgs`, `oldest`, `newest`
+     * `published` counts the events among `events` that are published,
+     * so the two are over one row set and the pair reads coherently.
+     * `recordSummaryFor` carries a `published` of its own over a
+     * narrower set, for the same reason its `dated` differs.
+     *
+     * @return array `occurrences`, `events`, `orgs`, `oldest`, `newest`,
+     *     `dated_from`, `dated_at`, `published`
      */
     public function occurrenceSummaryFor(array $user, $value,
         array $options = array()
@@ -389,6 +408,12 @@ class Value extends AppModel
                 'COUNT(DISTINCT Event.orgc_id) AS orgs',
                 'MIN(' . self::OBSERVED_FROM . ') AS oldest',
                 'MAX(' . self::OBSERVED_AT . ') AS newest',
+                'SUM(CASE WHEN Attribute.first_seen IS NOT NULL'
+                    . ' THEN 1 ELSE 0 END) AS dated_from',
+                'SUM(CASE WHEN Attribute.last_seen IS NOT NULL'
+                    . ' THEN 1 ELSE 0 END) AS dated_at',
+                'COUNT(DISTINCT CASE WHEN Event.published = 1'
+                    . ' THEN Event.id END) AS published',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -405,7 +430,155 @@ class Value extends AppModel
             'newest' => empty($found['newest'])
                 ? null
                 : (int)$found['newest'],
+            'dated_from' => (int)($found['dated_from'] ?? 0),
+            'dated_at' => (int)($found['dated_at'] ?? 0),
+            'published' => (int)($found['published'] ?? 0),
         );
+    }
+
+    /**
+     * The labels on this value's own occurrences, most-carried first
+     * and bounded.
+     *
+     * `ownTagsFor`'s summary counterpart, and the difference is the
+     * event dimension. That method groups by tag **and event** because
+     * the neighbourhood table prints a label's reach per event; this
+     * groups by tag alone, which is what a card listing labels needs
+     * and is what lets the answer be capped at all — a `LIMIT` over
+     * `(tag, event)` pairs would cut a tag's own rows in half and
+     * report a count that is short by however many pairs fell off the
+     * end.
+     *
+     * **The bound is why this exists.** `443` carries **3,860 distinct
+     * tags** across 1,844 events on the verification instance, which
+     * `ownTagsFor` returns as 42,039 grouped rows and the Overview's
+     * card rendered in full: a 2.9 MB fragment for a panel whose job
+     * is a summary. `8.8.8.8`, for contrast, has 7 tags in 20 events.
+     * The caller asks for one more row than it means to draw, so
+     * *there are more* is answered by the fetch rather than by a second
+     * `COUNT`.
+     *
+     * `local` is `MIN` for the reason `ownTagsFor` gives: a tag is
+     * local only where every occurrence carrying it is.
+     *
+     * @param array $user
+     * @param string $value
+     * @param int $limit
+     * @param array $options As conditionsFor
+     * @return array name => `tag` (id, name, colour, is_galaxy, local)
+     *     and `count`
+     */
+    public function topTagsFor(array $user, $value, $limit,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $rows = $attributes->find('all', array(
+            'fields' => array(
+                'Tag.id',
+                'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'MIN(AttributeTag.local) AS local',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            // Both, as everywhere else here: the ACL is not expressible
+            // without them.
+            'contain' => array('Event', 'Object'),
+            'joins' => array(
+                array(
+                    'table' => 'attribute_tags',
+                    'alias' => 'AttributeTag',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'AttributeTag.attribute_id = Attribute.id',
+                    ),
+                ),
+                array(
+                    'table' => 'tags',
+                    'alias' => 'Tag',
+                    'type' => 'INNER',
+                    'conditions' => array('Tag.id = AttributeTag.tag_id'),
+                ),
+            ),
+            'group' => array(
+                'Tag.id',
+                'Tag.name',
+                'Tag.colour',
+                'Tag.is_galaxy',
+            ),
+            'order' => array('occurrences DESC', 'Tag.name ASC'),
+            'limit' => (int)$limit,
+        ));
+        $found = array();
+        foreach ($rows as $row) {
+            $found[$row['Tag']['name']] = array(
+                'tag' => array(
+                    'id' => (int)$row['Tag']['id'],
+                    'name' => $row['Tag']['name'],
+                    'colour' => $row['Tag']['colour'],
+                    'is_galaxy' => !empty($row['Tag']['is_galaxy']),
+                    'local' => !empty($row[0]['local']),
+                ),
+                'count' => (int)$row[0]['occurrences'],
+            );
+        }
+        return $found;
+    }
+
+    /**
+     * How many occurrences reach this value through `value2`, by type.
+     *
+     * The page's occurrence set is `value1 = X OR value2 = X`
+     * (`conditionsFor`, and the seam's own docblock says why), so a
+     * page about `8.8.8.8` legitimately carries rows whose attribute
+     * value is `evil.example|8.8.8.8`. A reader who does not know that
+     * reads the occurrence count as wrong, and the Assessment tab's
+     * audit hit exactly this on `23.227.38.32`.
+     *
+     * `value1 !=` is what makes the answer a *disclosure* rather than a
+     * tally: a composite whose `value1` is the literal `A|B` with an
+     * empty `value2` matches on the first half and is not a second-half
+     * row at all. One indexed aggregate over the same conditions every
+     * other count on this page uses, grouped so the note can name the
+     * type rather than say *some type*.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array [['type' => 'domain|ip', 'count' => 1], …]
+     */
+    public function value2CountFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.value2' => $value);
+        $conditions['AND'][] = array('Attribute.value1 !=' => $value);
+        $rows = $attributes->find('all', array(
+            'fields' => array(
+                'Attribute.type',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'group' => array('Attribute.type'),
+            'order' => array('occurrences DESC'),
+        ));
+        $types = array();
+        foreach ($rows as $row) {
+            $types[] = array(
+                'type' => $row['Attribute']['type'],
+                'count' => (int)$row[0]['occurrences'],
+            );
+        }
+        return $types;
     }
 
     /**
@@ -1446,8 +1619,8 @@ class Value extends AppModel
      * @param string $value
      * @param array $eventIds Events the caller has already resolved
      * @param array $options As conditionsFor
-     * @return array tag name => `tag` (id, name, colour, is_galaxy) and
-     *     `events` (event id => `occurrences`, `last`)
+     * @return array tag name => `tag` (id, name, colour, is_galaxy,
+     *     local) and `events` (event id => `occurrences`, `last`)
      */
     public function ownTagsFor(array $user, $value,
         array $eventIds, array $options = array()
@@ -1478,6 +1651,20 @@ class Value extends AppModel
                  * moved rather than the day this occurrence did.
                  */
                 'MAX(Attribute.timestamp) AS last',
+                /*
+                 * **A tag is local only where every occurrence carrying
+                 * it is**, hence `MIN` and not `MAX`. `local` means *not
+                 * shared*, so the two errors are not symmetric: marking
+                 * a shared tag local understates where it has already
+                 * travelled, which is the direction that misleads. A
+                 * tag applied locally on one occurrence and globally on
+                 * another has travelled, and reads as global here.
+                 *
+                 * An aggregate rather than a grouped column, so the
+                 * group stays what it was and no existing caller sees a
+                 * row split in two.
+                 */
+                'MIN(AttributeTag.local) AS local',
             ),
             'conditions' => $conditions,
             'recursive' => -1,
@@ -1522,9 +1709,13 @@ class Value extends AppModel
                         'name' => $name,
                         'colour' => $row['Tag']['colour'],
                         'is_galaxy' => !empty($row['Tag']['is_galaxy']),
+                        'local' => true,
                     ),
                     'events' => array(),
                 );
+            }
+            if (empty($row[0]['local'])) {
+                $found[$name]['tag']['local'] = false;
             }
             $found[$name]['events'][$eventId] = array(
                 'occurrences' => (int)$row[0]['occurrences'],

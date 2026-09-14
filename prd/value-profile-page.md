@@ -122,21 +122,22 @@ of six over plain HTTP where nothing is concurrent.** Fixed with a
 stable per-session token scoped to this controller (§6.3 there).
 Anything that ever posts from this page inherits the fix.
 
-**Nothing on this page is blocked any more.** The verdict engine landed
-2026-09-13 and `value_verdict_card` went live with it, which was the
-last thing on the page waiting on something rather than on a phase. The
-Overview's three remaining panels and the page frame are the whole of
-what is left on the fixture, and all of it is ordinary unblocked work.
+**The campaign is finished.** The verdict engine landed 2026-09-13 and
+`value_verdict_card` went live with it, which was the last thing on the
+page waiting on something rather than on a phase; phase 29 took the
+three panels and the page frame that were left on 2026-09-14. **Every
+tab on this page reads the database, and so does the frame around
+them** — `ValueProfileFixture` has no reader in `ValuesController` at
+all, and is what §14.8 always said it would become: a unit-test double,
+its arrays handed straight to elements so a template renders with no
+database.
 
-Every tab but the Overview is live, and the Overview is live in four of
-its seven cards; the occurrence card, the context card, two thirds of
-the Lifecycle card and the page frame still read the fixture, so the two
-regimes sit side by side
-until the campaign finishes. **Nothing
+The two regimes no longer sit side by side, which they did
+until the campaign finished. **Nothing
 writes**, on either side, and that now includes a tab that executes
 third-party code. `live/00-contract.md` §14.12 is the
-panel-level record — **twenty-nine of thirty-two endpoints now read
-live data, and twenty-six of those carry their numbers.** The three without
+panel-level record — **all thirty-two endpoints read live data, and
+twenty-nine of them carry their numbers.** The three without
 them are `viewRelationReferences` and `viewRelationExternal`, built by
 phase 24 and never recorded, and `viewAnalystPreview`, converted by
 phase 26 §20 after that phase's own board pass had already run. Add the
@@ -163,7 +164,7 @@ address that other panels link to. `live/26-analyst.md` §17.1. Earlier
 sections of this document, and the phase table below, keep the old
 name — they describe when they were written.
 
-Four of the twenty-six are on a tab whose phase has not run, and all four
+Four of them were converted before the tab's own phase ran, and all four
 are the **Overview's**. `value_sightings` was converted with phase 23's
 follow-ups, because it is
 built from that phase's own `sightingContext` and because a card and a tab on
@@ -174,14 +175,16 @@ both — and was found missing from the board by the subphase-B review
 (`live/24b-relationships.md` §2.1); `value_analyst_preview` followed with
 phase 26 §20, for the first reason again and after that phase had already
 decided otherwise. The pattern is now the rule rather than the exception: a
-live phase takes the Overview card that mirrors its tab — and
-`value_verdict_card` is the fourth and last of them, taken by the
+live phase took the Overview card that mirrored its tab — and
+`value_verdict_card` was the fourth and last of them, taken by the
 Analyst Profile's phase 9 on 2026-09-13, which is the day the engine it
-had been waiting for arrived. **Three Overview panels still read the
-fixture** — the occurrence card, the context card and the two thirds of
-the Lifecycle card phase 5 did not take. None of them is blocked;
-`live/29-overview.md` is the phase that takes them, and the page frame
-with them.
+had been waiting for arrived. **Phase 29 took the other three and the
+page frame** on 2026-09-14: the occurrence card, the context card and
+the two thirds of the Lifecycle card phase 5 did not take. Its §14 is
+the build log, and the finding worth reading first is that the
+occurrence card had been counting one page and labelling it a total —
+*19 events* under a fact strip reading *20*, which is §14.4's own
+warning arriving on a rendered page.
 
 **The verdict engine is designed as of 2026-09-03, and its store is built as
 of 2026-09-07** — migration 160, the `analyst_profiles` table and the model
@@ -297,7 +300,7 @@ In that column `tabs/` is `prd/value-profile-tabs/`, `phases/` is
 | 26 | Analyst data goes live and the tab is renamed Collaboration — two endpoints converted, a third built, the Overview's preview card taken with it | `live/26-analyst.md` | **closed 2026-09-05** — all 16 tasks done, §21 the re-run |
 | 27 | History goes live — the last unblocked tab, against the reader phase 25 built for it | `live/27-history.md` | **closed 2026-09-05** — T1–T16 done, §16 the build log, §18 the review round |
 | 28 | Enrichment goes live, stateless — the store dropped rather than built | `live/28-enrichment.md` | **built 2026-09-06** — §2 the probe that scoped it, §5 the nine keys removed, §6.3 the CSRF race it found, §8 the review sweep that put seven features back |
-| 29 | Overview goes live — three panels and the page frame, and the fixture's last readers | `live/29-overview.md` | **drafted 2026-09-13, not built** — §1 is the task board, §1.1 its eight decisions, §8 the two things that cannot be converted, §13 what each surface is fed and by which read |
+| 29 | Overview goes live — three panels and the page frame, and the fixture's last readers | `live/29-overview.md` | **closed 2026-09-14** — T1–T16 done; §1 is the board, §1.1 its eight decisions, §8 the two things that cannot be converted, §13 what each surface is fed and by which read, and §14 the build log with the five defects the instance found |
 | — | Analyst writes on a value | [`value-profile-writes.md`](value-profile-writes.md) | **design only — nothing built, no schema** |
 | — | The verdict engine | [`value-profile-verdict-engine.md`](value-profile-verdict-engine.md) | **superseded 2026-09-03** by the design below. Kept for §3's record of what the templates assert, and for the two items of §4 that came back to it |
 | — | The Analyst Profile, and the Assessment that replaces the verdict — what configures the engine, plus the enrichment defaults | [`analyst-profile/README.md`](analyst-profile/README.md) | **designed; phases 1–7 built 2026-09-07** — the store, the engine, the lean and bands, the exclusions, the relevance axis, the reference maps and the enrichment declaration, which is every phase the Assessment tab depends on and the one that unblocks the Enrichment tab's profile strip. Fifteen documents, fifteen decisions, ten phases; the other three are specifications. `analyst-profile/01-profile.md` §1.4 is the phase table, §2 the decisions, `12-assessment.md` the D11 reframe and `review-2026-09-02.md` the adversarial pass |
@@ -310,7 +313,7 @@ goes first argues why in its own document.
 
 | Phase | Converts | Document | Status |
 |---|---|---|---|
-| **29** | **Overview** | [`live/29-overview.md`](value-profile-live/29-overview.md) | **drafted 2026-09-13, not built** — the last live phase, and **unblocked since the same day**: `value_verdict_card` needed the verdict engine and the Analyst Profile's phase 9 supplied it. **Four of its seven cards are already done**, each taken by the phase that converted the tab it mirrors — `value_sightings` with phase 23's follow-ups, `value_external` with phase 24's fourth section, `value_analyst_preview` with phase 26 §20, and `value_verdict_card` with analyst-profile phase 9. What is left is **three panels and the page frame**: the occurrence card, the context card, the two thirds of the Lifecycle card phase 5 did not take, and the frame's type chips, warninglist chip, `value2` note and fact strip — its tab counts and tab pill are already live. The draft's §1.1 takes eight decisions before building, three of which **withdraw** a fixture key rather than convert it: the pivot rail is five enrichment answers MISP does not store, the Lifecycle card's correlation count is a per-occurrence query for a number phase 24 showed means nothing about a value, and the hidden-occurrence count is a disclosure rather than a caveat. Closing it leaves `ValueProfileFixture` with no reader in `ValuesController` |
+| **29** | **Overview** | [`live/29-overview.md`](value-profile-live/29-overview.md) | **CLOSED 2026-09-14 — the last live phase, and the fixture's last readers.** Converts the occurrence card, the context card, the two thirds of the Lifecycle card phase 5 did not take, and **the page frame** — the only synchronous read on this page, now one `forFrame` at six queries. Three fixture keys were **withdrawn** rather than converted: the pivot rail was five enrichment answers MISP does not store, the correlation count a per-occurrence query for a number phase 24 showed means nothing about a value, and the hidden-occurrence count a disclosure rather than a caveat. **§14 is the build log and its five findings are the phase's real content** — the occurrence card counted one page and headed it *19 events* beside a strip reading *20*; the context card rendered `443`'s 3,860 tags as a **2.9 MB** fragment, which is what `Value::topTagsFor` and a cap of 60 exist for; the ordinal scale sorted backwards and then drew *position 1* for every numerically-keyed taxonomy, because PHP casts numeric array keys to integers; and the fact strip still linked to `#tab-verdict`, which D11 renamed eleven days earlier. **61 harness checks**, six values over HTTP, both themes. `ValueProfileFixture` has no reader in `ValuesController` |
 | — | Verdict → **Assessment** | [`analyst-profile/10-wiring.md`](analyst-profile/10-wiring.md) | **CLOSED 2026-09-13 — the last blocked tab on the page.** The Analyst Profile corpus's phase 9 wired all four panels: the tab reads a real profile, the hero composes **D11's three axes** in one sentence, the contested layout draws its two opposed cases, and §14.12's four rows are measured. The tab, the pill and the Overview card are renamed **Assessment**, and every row of `analyst-profile/01-profile.md` §6's copy inventory is closed. Two keys stay deliberately empty — `resolutions` and `changer_actions` are writes this page does not do |
 | **22** | **Occurrences** | [`live/22-occurrences.md`](value-profile-live/22-occurrences.md) | **built** — capped at 300 rows (§6); review added the resolved distribution chain and two working time ranges (§13), sortable columns and a reader-chosen page size (§14), a brush on each time range (§15), and an Object facet (§16). **Still owes two of the three concepts** — standalone proposal rows and a feed column: [`value-profile-coverage.md`](value-profile-coverage.md) §5.1, which is an amendment to a filled board row rather than a new phase |
 | **23** | **Sightings** | [`live/23-sightings.md`](value-profile-live/23-sightings.md) | **built** — all five panels, plus the Overview's `value_sightings` card. Closed the decay aggregation rule §14.5 had left open (§5) and found §14.6's exception has a second member (§7). **A clean `no` on all three concepts**, argued in §11.5 |

@@ -1,0 +1,355 @@
+<?php
+App::uses('GalaxyCategory', 'Tools');
+
+/**
+ * What the community has labelled this value, folded for the Overview.
+ *
+ * The one panel in the Overview's phase whose shape is produced nowhere
+ * else on the page, and the reason it is not a flat tag list is that a
+ * taxonomy is the unit that can disagree with itself: two events
+ * putting `tlp:amber` and `tlp:green` on one value is a fact about the
+ * value, and a flat list hides it.
+ *
+ * **Three rulings are MISP's and not this tool's**, which is the whole
+ * design:
+ *
+ * - **What counts as a conflict** is `Taxonomy::getTagConflicts` —
+ *   an exclusive taxonomy carrying two predicates, or an exclusive
+ *   predicate carrying two entries. It also knows that `tlp:white` and
+ *   `tlp:clear` are one colour under two spellings rather than a
+ *   contradiction, which is exactly the special case a rule invented
+ *   here would have got wrong.
+ * - **Where a tag sits on a scale** is the taxonomy's own
+ *   `numerical_value`, read from the entries rather than assumed from
+ *   the order they were imported in.
+ * - **Whether a galaxy cluster may be named** is
+ *   `GalaxyCluster::fetchGalaxyClusters`. A galaxy tag on a row this
+ *   viewer may read is not permission to name the cluster behind it.
+ *
+ * **What reaches it is already capped.** `Value::topTagsFor` returns
+ * the most-carried labels and no more, because a value like `443`
+ * carries 3,860 distinct tags; the `capped` flag is how this tool
+ * knows not to read a position off a list that stops.
+ *
+ * **No `$user`**, per §14.4: everything reaching this has been scoped
+ * already, and a folding tool that could re-scope is one that can get
+ * the scope wrong somewhere the ACL is not being reviewed.
+ */
+class ValueContextTool
+{
+    /**
+     * The group every tag that is not a machine tag falls into.
+     *
+     * Not a namespace, and deliberately not empty string: it is a key
+     * no namespace can collide with, and the card heads the group with
+     * words rather than with it.
+     */
+    const FREETEXT = "\0freetext";
+
+    /**
+     * The taxonomy groups, in the shape `value_context` reads.
+     *
+     * Ordered by occurrence count, most-carried taxonomy first, so the
+     * label an analyst is most likely to care about is not below the
+     * fold of a card that does not scroll.
+     *
+     * @param array $tags `Value::topTagsFor`, galaxies included
+     * @param array $taxonomies `namespace` => the fold below
+     * @param array $conflicted Tag names MISP reports as conflicting
+     * @param bool $capped Whether more labels exist than were read
+     * @return array
+     */
+    public static function taxonomies(array $tags, array $taxonomies,
+        array $conflicted, $capped = false
+    ) {
+        $groups = array();
+        foreach ($tags as $name => $row) {
+            if (!empty($row['tag']['is_galaxy'])) {
+                continue;
+            }
+            $parts = self::split($name);
+            /*
+             * **Freetext tags share one group rather than each becoming
+             * a taxonomy of one.** `8.8.8.8` on the verification
+             * instance carries `asyncrat`, `c2`, `Gh0stRAT`,
+             * `historicalandnew` and
+             * `mightcontainvariantsofasyncrat` — five tags in no
+             * namespace at all, which as five headed groups would push
+             * the real taxonomies off the card and imply a structure
+             * none of them has.
+             *
+             * **And a namespace is matched case-insensitively**, which
+             * is not a nicety: the same instance carries `PAP:RED`
+             * while the taxonomy is stored as `pap`, MISP's columns
+             * collate `utf8mb3_bin`, and `Taxonomy::getTaxonomyForTag`
+             * accordingly compares `LOWER()` on both sides. Keyed by
+             * the raw spelling, `PAP:RED` and `pap:amber` would head
+             * two groups and neither would find its taxonomy.
+             */
+            $namespace = $parts === null
+                ? self::FREETEXT
+                : mb_strtolower($parts['namespace']);
+            if (!isset($groups[$namespace])) {
+                $groups[$namespace] = array(
+                    'taxonomy' => $namespace === self::FREETEXT
+                        ? __('Not in a taxonomy')
+                        : $namespace,
+                    'conflict' => false,
+                    'tags' => array(),
+                    'total' => 0,
+                );
+            }
+            $groups[$namespace]['tags'][] = array(
+                'id' => $row['tag']['id'],
+                'name' => $name,
+                'colour' => $row['tag']['colour'],
+                'count' => $row['count'],
+                'local' => !empty($row['tag']['local']),
+            );
+            $groups[$namespace]['total'] += $row['count'];
+            if (isset($conflicted[$name])) {
+                $groups[$namespace]['conflict'] = true;
+            }
+        }
+
+        foreach ($groups as $namespace => $group) {
+            usort($group['tags'], function ($a, $b) {
+                if ($a['count'] === $b['count']) {
+                    return strcmp($a['name'], $b['name']);
+                }
+                return $b['count'] - $a['count'];
+            });
+            $group['tags'] = array_values($group['tags']);
+            /*
+             * **No scale once the cap has bitten.** A position is only
+             * a position because exactly one tag of that dimension is
+             * present, and a truncated list cannot tell *one* from
+             * *one that was read*. Drawing a bar there would state a
+             * reading the record may contradict two rows below the cut.
+             */
+            $scale = $capped ? null : self::scaleFor(
+                $group['tags'],
+                isset($taxonomies[$namespace])
+                    ? $taxonomies[$namespace]
+                    : null
+            );
+            if ($scale !== null) {
+                $group['scale'] = $scale;
+            }
+            unset($group['total']);
+            $groups[$namespace] = $group;
+        }
+
+        uasort($groups, function ($a, $b) {
+            return count($b['tags']) - count($a['tags']);
+        });
+        return array_values($groups);
+    }
+
+    /**
+     * Where this group's tag sits on its taxonomy's own scale, if it has
+     * one and if exactly one tag of it is present.
+     *
+     * **Exactly one**, because a position is a reading of a single
+     * value. Two tags from one ordinal dimension is not a position
+     * further along the scale, it is a contradiction — and the group is
+     * already marked `conflict` for it, which is the honest rendering.
+     *
+     * Two levels, because a machine tag can put its reading in either
+     * component: `admiralty-scale:source-reliability="b"` is an entry
+     * under a predicate, and `tlp:amber` is a predicate under a
+     * namespace. Both tables carry `numerical_value`, so the same fold
+     * works on each — what changes is which list supplies the
+     * denominator.
+     *
+     * @param array $tags This group's tags
+     * @param array|null $taxonomy The namespace's predicates and entries
+     * @return array|null
+     */
+    private static function scaleFor(array $tags, $taxonomy)
+    {
+        if ($taxonomy === null || count($tags) !== 1) {
+            return null;
+        }
+        $parts = self::split($tags[0]['name']);
+        if ($parts === null) {
+            return null;
+        }
+        // Lowercased on both sides, as `getTaxonomyForTag` does it: the
+        // fold is keyed that way and a tag carries whatever case the
+        // analyst typed.
+        $predicateKey = mb_strtolower($parts['predicate']);
+        $predicate = isset($taxonomy['predicates'][$predicateKey])
+            ? $taxonomy['predicates'][$predicateKey]
+            : null;
+        if (isset($parts['value'])) {
+            if ($predicate === null || empty($predicate['entries'])) {
+                return null;
+            }
+            return self::position(
+                $predicate['entries'],
+                mb_strtolower($parts['value']),
+                empty($predicate['expanded'])
+                    ? $parts['predicate']
+                    : $predicate['expanded']
+            );
+        }
+        if (empty($taxonomy['predicates'])) {
+            return null;
+        }
+        return self::position(
+            $taxonomy['predicates'],
+            $predicateKey,
+            mb_strtolower($parts['namespace'])
+        );
+    }
+
+    /**
+     * One tag's place in an ordered list of the values it could take.
+     *
+     * Returns nothing where the list carries no numbers — an ordinal
+     * rendering of an unordered set invents a ranking, and `type:OSINT`
+     * is not `1 of 14`. The test is that *every* member has a
+     * `numerical_value`: a partly-numbered taxonomy sorts the rest to
+     * one end, and a position read off that is meaningless in a way the
+     * bar would hide.
+     *
+     * @param array $members value => `expanded`, `numerical`
+     * @param string $value The value in play
+     * @param string $label What to call the dimension
+     * @return array|null
+     */
+    private static function position(array $members, $value, $label)
+    {
+        if (!isset($members[$value])) {
+            return null;
+        }
+        $ordered = array();
+        foreach ($members as $key => $member) {
+            if ($member['numerical'] === null) {
+                return null;
+            }
+            $ordered[$key] = $member;
+        }
+        /*
+         * **Descending, so position 1 is the top of the scale.** The
+         * taxonomy's numbers run the other way — `admiralty-scale`
+         * gives *Confirmed by other sources* 100 and *Improbable* 0 —
+         * and a bar filling up as a source gets less reliable reads as
+         * the opposite of what it says. Two entries may tie (`c` and
+         * `f` are both 50, `e` and `g` both 0), and PHP 8's sort is
+         * stable, so a tie keeps the taxonomy's own order.
+         *
+         * The denominator is what the taxonomy actually holds rather
+         * than what a reader assumes: `source-reliability` has **seven**
+         * grades, which is the count `ValueTrustTool` had to correct in
+         * the profile's trust map for the same reason.
+         */
+        uasort($ordered, function ($a, $b) {
+            return $b['numerical'] - $a['numerical'];
+        });
+        /*
+         * **Compared as strings, because PHP's array keys are not.**
+         * `admiralty-scale:information-credibility` is keyed `1` to
+         * `6`, and PHP casts a numeric-string key to an integer on the
+         * way in — so `array_search('2', [5,4,3,6,2,1], true)` is
+         * `false`, `false + 1` is `1`, and every numerically-keyed
+         * taxonomy rendered as *position 1* however it was tagged.
+         * Found on `sage.png`, which reads *2 — Probably true* and drew
+         * *1 of 6*.
+         */
+        $keys = array_map('strval', array_keys($ordered));
+        $at = array_search((string)$value, $keys, true);
+        if ($at === false) {
+            return null;
+        }
+        $position = $at + 1;
+        $expanded = $members[$value]['expanded'];
+        return array(
+            'label' => $label,
+            'position' => $position,
+            'of' => count($ordered),
+            'reading' => $expanded === null || $expanded === ''
+                ? $value
+                : sprintf('%s — %s', $value, $expanded),
+        );
+    }
+
+    /**
+     * The galaxy clusters, named only where the viewer may know them.
+     *
+     * A galaxy tag reaches this with `is_galaxy` set and nothing else:
+     * `Value::ownTagsFor` says in its own docblock that the tag is
+     * worthless until `fetchGalaxyClusters` rules on it and that the
+     * ruling belongs to the caller. So a tag with no cluster row is
+     * **absent**, with nothing drawn in its place and no count of how
+     * many were withheld — the page does not tell a reader that records
+     * exist which it will not show them.
+     *
+     * @param array $tags `Value::topTagsFor`
+     * @param array $clusters Tag name => a `fetchGalaxyClusters` row
+     * @return array
+     */
+    public static function galaxies(array $tags, array $clusters)
+    {
+        $galaxies = array();
+        foreach ($tags as $name => $row) {
+            if (empty($row['tag']['is_galaxy'])) {
+                continue;
+            }
+            if (!isset($clusters[$name])) {
+                continue;
+            }
+            $cluster = $clusters[$name]['GalaxyCluster'];
+            $count = $row['count'];
+            $galaxies[] = array(
+                'name' => empty($cluster['value'])
+                    ? $name
+                    : $cluster['value'],
+                /*
+                 * `kindOf` answers null for a galaxy it does not
+                 * classify — a custom one, or a new upstream galaxy
+                 * this instance has and the map does not. The raw
+                 * galaxy type is then better than a blank chip: it is
+                 * what the cluster actually belongs to, only not
+                 * translated into one of the map's words.
+                 */
+                'kind' => GalaxyCategory::kindOf($cluster['type']) === null
+                    ? $cluster['type']
+                    : GalaxyCategory::kindOf($cluster['type']),
+                'n' => $count,
+            );
+        }
+        usort($galaxies, function ($a, $b) {
+            if ($a['n'] === $b['n']) {
+                return strcmp($a['name'], $b['name']);
+            }
+            return $b['n'] - $a['n'];
+        });
+        return $galaxies;
+    }
+
+    /**
+     * `Taxonomy::splitTagToComponents` without the model.
+     *
+     * The regex is copied rather than reached for because this tool
+     * takes no models at all and one that took `Taxonomy` only to split
+     * a string would be a model dependency for a `preg_match`. The
+     * pattern is the seam: if MISP's machine-tag grammar changes, both
+     * change, and the page's own tests are what catch it.
+     *
+     * @param string $tag
+     * @return array|null Null when the tag is not a machine tag
+     */
+    private static function split($tag)
+    {
+        if (!preg_match('/^([^:="]+):([^:="]+)(="([^"]+)")?$/i', $tag, $m)) {
+            return null;
+        }
+        $parts = array('namespace' => $m[1], 'predicate' => $m[2]);
+        if (isset($m[4])) {
+            $parts['value'] = $m[4];
+        }
+        return $parts;
+    }
+}

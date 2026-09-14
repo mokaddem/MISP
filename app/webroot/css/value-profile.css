@@ -219,52 +219,6 @@ a.vp-fact:hover .vp-fact-value {
 }
 
 /* ==================================================================
- * Pivot rail
- * ================================================================== */
-
-.vp-pivot-rail {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow-x: auto;
-    margin-bottom: 16px;
-    padding-bottom: 2px;
-}
-
-.vp-pivot-rail-label {
-    flex: 0 0 auto;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
-.vp-pivot {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: baseline;
-    gap: 8px;
-    padding: 5px 12px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 999px;
-    background: var(--bs-body-bg);
-    font-size: 0.78rem;
-    white-space: nowrap;
-    cursor: not-allowed;
-}
-
-.vp-pivot-label {
-    font-weight: 600;
-}
-
-.vp-pivot-hint {
-    font-family: var(--bs-font-monospace);
-    font-size: 0.72rem;
-    color: var(--bs-secondary-color);
-}
-
-/* ==================================================================
  * Not-yet-implemented tab
  * ------------------------------------------------------------------
  * A dashed frame, so it never reads as an empty state or a failure.

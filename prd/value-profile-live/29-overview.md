@@ -16,9 +16,10 @@ that it is last, and the reason it is last is the reason it was blocked:
 its verdict card needed an engine that did not exist until
 2026-09-13.
 
-**Opened 2026-09-13. Nothing is built** — §1's board is all `todo`, and
-the decisions in §1.1 are taken before building in the house pattern, so
-that the build is wiring rather than design. The fixture-era design is
+**Opened 2026-09-13 and built 2026-09-14.** §1's board is done, §1.1
+holds the decisions taken before building, and **§14 is the build log** —
+what the build changed about the plan, and the five defects it found
+that no amount of reading would have. The fixture-era design is
 [`value-profile-page.md`](../value-profile-page.md) §3 (phase 3, the
 skeleton's Overview) as amended by every phase that has since taken one
 of its cards.
@@ -32,22 +33,22 @@ to `done` only when §9's verification has run against it.
 
 | # | Task | Section | Status |
 |---|---|---|---|
-| T1 | `ValueProfile::forFrame` — the frame's one synchronous read, and `view()` onto it | §4.1 | todo |
-| T2 | The banner's type chips from `Value::typesFor` | §4.2 | todo |
-| T3 | The banner's warninglist chip from `ValueWarninglistTool::hitsFor` | §4.3 | todo |
-| T4 | `value2_note` — derived, or withdrawn with its reason | §4.4 | todo |
-| T5 | The fact strip's six facts, four of them from one aggregate | §4.5 | todo |
-| T6 | The pivot rail — **withdrawn** (D1), and the element deleted with it | §8.1 | todo |
-| T7 | `ValueProfile::forOccurrences` — the card, capped, on `fetchAttributesSimple` | §5.1 | todo |
-| T8 | `occurrence_stats` — five of its six keys; `hidden` withdrawn (D3) | §5.2 | todo |
-| T9 | `ValueProfile::forContext` — tags grouped by taxonomy, from `ownTagsFor` | §6.1 | todo |
-| T10 | The ordinal scale, against the taxonomy's own `numerical_value` | §6.2 | todo |
-| T11 | Galaxy clusters behind `fetchGalaxyClusters`, not behind their tag names | §6.3 | todo |
-| T12 | The Lifecycle card's warninglist line — the same tool, a second read | §7.1 | todo |
-| T13 | The correlation line — the flag kept, the count withdrawn (D2) | §7.2 | todo |
-| T14 | The three concepts: the proposals decision, and the event-report count | §10 | todo |
-| T15 | The board rows — §14.12's four cells and §14.13's phase row | §12 | todo |
-| T16 | Verification over HTTP, on five values, in both themes | §9 | todo |
+| T1 | `ValueProfile::forFrame` — the frame's one synchronous read, and `view()` onto it | §4.1 | **done** — 6 queries |
+| T2 | The banner's type chips from `Value::typesFor` | §4.2 | **done** |
+| T3 | The banner's warninglist chip from `ValueWarninglistTool::hitsFor` | §4.3 | **done** |
+| T4 | `value2_note` — derived, or withdrawn with its reason | §4.4 | **done** — derived, §14.3 |
+| T5 | The fact strip's six facts, four of them from one aggregate | §4.5 | **done** — **five** cells from **one** aggregate, §14.1 |
+| T6 | The pivot rail — **withdrawn** (D1), and the element deleted with it | §8.1 | **done** — element and CSS both gone |
+| T7 | `ValueProfile::forOccurrences` — the card, capped, on `fetchAttributesSimple` | §5.1 | **done** — cap 25 |
+| T8 | `occurrence_stats` — five of its six keys; `hidden` withdrawn (D3) | §5.2 | **done**, and §14.2 is the defect it exposed |
+| T9 | `ValueProfile::forContext` — tags grouped by taxonomy, from `ownTagsFor` | §6.1 | **done** — from `topTagsFor`, which §14.4 explains |
+| T10 | The ordinal scale, against the taxonomy's own `numerical_value` | §6.2 | **done** — §14.5 is the two bugs in it |
+| T11 | Galaxy clusters behind `fetchGalaxyClusters`, not behind their tag names | §6.3 | **done** |
+| T12 | The Lifecycle card's warninglist line — the same tool, a second read | §7.1 | **done** — via `verdictWarninglist`, checked against the tab |
+| T13 | The correlation line — the flag kept, the count withdrawn (D2) | §7.2 | **done** |
+| T14 | The three concepts: the proposals decision, and the event-report count | §10 | **deferred, with reasons** — §14.8 |
+| T15 | The board rows — §14.12's four cells and §14.13's phase row | §12 | **done** |
+| T16 | Verification over HTTP, on five values, in both themes | §9 | **done** — §14.9 |
 
 ---
 
@@ -644,3 +645,267 @@ in this phase is §6 — grouping a value's tags by taxonomy, deciding when
 a taxonomy contradicts itself, and rendering an ordinal one as a
 position. That is the part to build first and verify hardest, and it is
 the only part with no other surface on the page to check itself against.
+
+
+---
+
+## 14. The build log
+
+Built 2026-09-14, against the running instance the whole way rather than
+at the end of it. Every number below was read off a rendered page or a
+query, and the five findings are in the order they surfaced.
+
+**61 checks in [`29-overview-harness.php`](29-overview-harness.php)**,
+which covers the two folding tools and no database — they take no
+`$user` and issue no query, so every rule they carry is assertable with
+arrays. The SQL is checked by §14.9 instead.
+
+### 14.1 The strip lost a cell and gained a warning
+
+Planned as six cells from one aggregate plus a second for the sightings
+total. It ships as **five from one**.
+
+**The sightings cell is not built**, and the reasoning is
+`forTabCounts`' own, which had already refused the matching tab badge:
+a sighting count has to be the viewer's, `Sightings_policy` hides whole
+reports, and getting the viewer's number means running the policy over
+fetched rows. That docblock nominated this phase to fix it — *"worth
+doing when the Overview's phase converts the frame, since the fact
+strip's `%d sightings` line needs exactly the same number"* — and the
+fix does not exist. `Sighting::createConditionsByAttributes` builds the
+policy as **SQL** rather than as PHP, so it could be counted instead of
+fetched; what it keys on is the attribute id set, so `443` would have to
+materialise 48,255 ids before the cheap count could run. No number is
+better than a wrong one, and the Sightings tab states the real one a
+click away.
+
+**The dates gained a warning that turned out to be the common case.**
+D4 anticipated an absent date; what the chain actually does is fall
+through to `Attribute.timestamp`, so `oldest` and `newest` are never
+null and a caller printing them bare states a row write as a sighting.
+`occurrenceSummaryFor` grew `dated_from` and `dated_at` — each counting
+the occurrences that declare the column *leading its own chain* — and
+the cell says *record date, not observed* when the count is zero. **On
+`8.8.8.8` both are zero**: the page's flagship value has no declared
+observation date at all, so this is the ordinary rendering rather than
+an edge case. `443` has both and reads *9 years ago* and *1 month ago*.
+
+**And the organisations cell was pointing at a tab that no longer
+exists.** The fixture sent it to `#tab-verdict`; D11 renamed the tab id
+to `assessment` eleven days ago and the fixture was never followed. The
+live cell links to `#tab-assessment`, and the harness asserts it,
+because this is the second dead thing found in the fixture's frame after
+`occurrence_acl_note`.
+
+### 14.2 The card counted one page and labelled it a total
+
+The §14.4 trap, caught on the first render. `ValueStatsTool::
+occurrenceStats` derives `events` and `orgs` by walking the rows it was
+handed, which is exact while every row is in hand and becomes a count of
+one page the moment a cap bites. The tab's cap is 300 and rarely bites;
+**this card's is 25 and bites constantly** — `8.8.8.8` has 26
+occurrences across 20 events, and the card headed itself *19 events*
+beside a fact strip reading *20*.
+
+Both numbers now come from the aggregate that already ran for the total,
+so the card, the strip and the tab read one query's answer rather than
+three tallies that ought to agree. `shown` stays the row count, which is
+the one number on that line that is about the page.
+
+**The Occurrences tab has the same construction and so the same defect
+above 300 occurrences** — `443` has 48,255. It is `forOccurrenceTable`'s
+to fix, the fix is this one, and this phase hands it on rather than
+changing a built and verified panel from here.
+
+### 14.3 The `value2` note is exact, and it is not `8.8.8.8` that needed it
+
+§4.4 weighed deriving it from the type group-by against its own
+aggregate and recommended the aggregate. Built that way:
+`Value::value2CountFor` counts occurrences matching on `value2` with
+`value1` **not** equal, which is what makes it a disclosure rather than
+a tally — a composite whose `value1` is the literal `A|B` with an empty
+`value2` matches on the first half and is not a second-half row.
+
+The instance moved the example. `8.8.8.8` reaches nothing through
+`value2` and draws no note; **`443` reaches 47,860 rows that way** and
+reads *"47,860 occurrences have it as the second half of a
+ip-dst|port"*. §9's value list named `23.227.38.32` for this and `443`
+is the better case by three orders of magnitude.
+
+### 14.4 The context card was a 2.9 MB fragment
+
+The finding that reshaped the phase. The first build scoped tags through
+`occurrenceEventsFor`, read them with `ownTagsFor`, and resolved every
+carrying event's creator organisation with one `fetchSimpleEvents` so
+each tag could name who applied it. On `8.8.8.8` — 20 events, 7 tags —
+that is a 7 KB card. On **`443` it is 1,844 events and 3,860 distinct
+tags**, which `ownTagsFor` returns as 42,039 grouped rows and the card
+rendered in full: **2,951,173 bytes**, for a panel whose heading is a
+summary.
+
+This is the tier-3 shape §14.4 forbids, in result size rather than in
+query count, and it was invisible to every check that does not measure
+one. Three changes:
+
+- **`Value::topTagsFor`** — a new reader grouping by tag alone, ordered
+  by occurrence count, capped. `ownTagsFor` groups by tag *and* event
+  because the neighbourhood table needs a label's reach per event, and
+  a `LIMIT` over those pairs would cut a tag's own rows in half and
+  report a short count. It asks for one row more than the card draws, so
+  *there are more* is answered by the fetch rather than by a second
+  aggregate.
+- **`CONTEXT_TAG_CAP = 60`**, stated on the panel when it bites, because
+  a cap is not a permission. The card fell to **48,757 bytes** on `443`
+  — sixty times smaller — and is untouched on every ordinary value.
+- **The per-tag organisations went**, and they are the part worth
+  missing least. Neither `attribute_tags` nor `event_tags` records who
+  applied a tag, so that list was never *who said this*, only *whose
+  events carry it* — a weaker claim than the tooltip was making. §6.1
+  had already offered this as the alternative to a second query; the
+  size is what settled it.
+
+**No scale is drawn on a capped read at all.** A position means *one tag
+of this dimension is present*, and a truncated list cannot tell that
+from *one that was read*.
+
+### 14.5 Two bugs in the ordinal scale, and the instance found both
+
+§6.2 was the part with no other surface to check itself against, and it
+shipped wrong twice before it shipped right.
+
+**The order was inverted.** The taxonomy's numbers run best-high —
+`admiralty-scale` gives *Confirmed by other sources* 100 and *Improbable*
+0 — and sorting ascending drew a bar that fills up as a source gets less
+reliable. It sorts descending, so position 1 is the top of the scale,
+which is also the reading the fixture's `B — 2 of 6` assumed.
+
+**And every numerically-keyed taxonomy drew *position 1*.** PHP casts a
+numeric-string array key to an integer, so `array_search('2', [5, 4, 3,
+6, 2, 1], true)` is `false`, `false + 1` is `1`, and
+`admiralty-scale:information-credibility` — keyed `1` to `6` — reported
+position 1 whatever it was tagged. Caught on `sage.png`, which renders
+*2 — Probably true* and drew *(1 of 6)*; it reads *(2 of 6)* now. The
+keys are compared as strings and a search that fails returns no scale
+rather than the first position.
+
+**The denominator is what the taxonomy holds, not what a reader
+assumes.** `source-reliability` has **seven** grades — `ValueTrustTool`
+had to correct the same assumption in the profile's trust map — and two
+pairs tie on `numerical_value` (`c` with `f`, `e` with `g`). PHP 8's
+sort is stable, so a tie keeps the taxonomy's own order.
+
+**On this instance only entry-level scales can draw.** `tlp`, `type` and
+`workflow` carry **no** `numerical_value` on any predicate, and
+`admiralty-scale` carries them on all 13 entries — so `tlp:amber` draws
+a flat tag list and the predicate-level path, though built and
+asserted, has nothing live to render. `position()` returning null unless
+*every* member is numbered is what makes that silent rather than wrong.
+
+### 14.6 Two shapes the real tag data broke
+
+Neither is a taxonomy in the sense the card was designed around, and
+both are on the page's flagship value.
+
+**Freetext tags are not taxonomies of one.** `8.8.8.8` carries
+`asyncrat`, `c2`, `Gh0stRAT`, `historicalandnew` and
+`mightcontainvariantsofasyncrat` — five tags in no namespace at all,
+which the first cut headed as five groups. They share one group now,
+headed *Not in a taxonomy*.
+
+**And a namespace is matched case-insensitively.** The same value
+carries `PAP:RED` while the taxonomy is stored as `pap`. MISP's columns
+collate `utf8mb3_bin` and `Taxonomy::getTaxonomyForTag` compares
+`LOWER()` on both sides for exactly this reason; keyed by the raw
+spelling, `PAP:RED` and `pap:amber` would head two groups and neither
+would find its taxonomy. The fold is lowercase throughout.
+
+### 14.7 What the warninglist line cost, and what it bought
+
+Built through `verdictWarninglist` — the Assessment tab's own resolver —
+so both surfaces run one hit through the same four-step category order
+and the same override map. Verified on `8.8.8.8`, in one session: the
+Lifecycle card says *List of known IPv4 public DNS resolvers · version
+20240615 · category false_positive* and the tab's band says *v20240615 ·
+category false_positive · matched by CIDR 8.8.8.8/32*. Same list, same
+version, same category, and both say *8 lists checked*.
+
+The banner chip does **not** take that path. It needs names only, and
+the categories cost the profile; it calls `hitsFor` with the same pairs,
+so the two cannot disagree about which lists matched — two readings of
+one answer rather than two answers.
+
+**§14.10's hazard is confirmed on the page.** The category prints
+`false_positive`, because no shipped list sets one. It is true of this
+list — a public-DNS-resolver list *is* a false-positive list — and the
+tab's band already says in words what the category does and does not
+claim.
+
+### 14.8 The three concepts, as recorded
+
+- **Feeds and sync servers — already delivered**, by phase 24's
+  `value_external`. Nothing for this phase.
+- **Proposals — no, and the reason is the panel.** The occurrence card
+  runs `attachProposalCounts` like the table it previews, so every row
+  carries its badge; what this phase does not add is a standalone
+  proposal row, which is phase 22's outstanding half and belongs with
+  the table that can paginate them.
+- **Event reports — deferred, and the cost is a count.** §10 recommended
+  the Collaboration preview card over a seventh fact cell. That card is
+  phase 26's and live; adding a line to it is an amendment to a built
+  panel rather than this phase's conversion, and it is named here so it
+  is not lost.
+
+### 14.9 Verification, as it ran
+
+Over HTTP against the running instance, logged in as site admin, on
+**five values chosen for their branches** rather than for looking
+representative:
+
+| Value | What it exercises | What it showed |
+|---|---|---|
+| `8.8.8.8` | the flagship | 26 occurrences, 20 events, 8 orgs; both dates undeclared; a warninglist hit; freetext and `PAP:RED` tags |
+| `443` | the heaviest | 48,255 occurrences, 1,844 events, 3,860 tags; the `value2` note; the tag cap |
+| `0.0.0.0` | over-correlating | the flag line draws, with no count beside it; 33,110 occurrences |
+| `2a0c:5cc0:1:1::293c:1518` | soft-deleted rows | *Showing 25 of 33* with *Include 24 soft-deleted*, and the strip agreeing at 33 |
+| `sage.png` | an ordinal taxonomy | the scale, and both of §14.5's bugs |
+| `1.162.239.42` | galaxy clusters | two clusters named, two galaxy tags resolving to none and absent |
+
+**Cross-panel, which is what has caught every contradiction on this
+page:** the strip's occurrence, event and organisation counts against
+the occurrence card's subtitle on all five, in separate requests; the
+Lifecycle card's warninglist against the Assessment tab's band (§14.7);
+and the card's total against `occurrenceCountFor`'s own SQL, run
+directly against the database.
+
+**Both themes.** The one piece of new markup is the cap note, which
+reuses `vp-filter-note` — already themed, and built from
+`--bs-border-color`, `--bs-body-bg`, `--bs-body-color` and `--primary`,
+so it takes whatever the theme sets. Everything else on these four
+surfaces is markup that was already verified in both.
+
+**What is not verified here.** The ACL, on any panel: every read goes
+through `buildConditions($user)` and the fetchers §14.4 sanctions, and
+the verification ran as a site admin, so what it proves is that the
+right method was called rather than that the method is right. §14.8 of
+the contract says that verification is manual and per phase; this phase
+inherits readers whose ACL earlier phases verified, and the two it adds
+— `topTagsFor` and `value2CountFor` — build their conditions the same
+way every other aggregate in `Value` does.
+
+### 14.10 What this leaves
+
+`ValueProfileFixture` has **no reader in `ValuesController`**. It is
+what §14.8 said it would become: a unit-test double, its arrays handed
+straight to elements so a template can render with no database. The keys
+this phase withdrew — `pivots`, the correlation count, `hidden`,
+`occurrence_acl_note` — came out of the *templates*; the fixture may
+keep them.
+
+Two things are handed on:
+
+1. **`forOccurrenceTable`'s page-counted `events` and `orgs`** (§14.2),
+   which is the same defect at a cap of 300.
+2. **A sightings count that can be told at page-load cost** (§14.1),
+   which needs `Sighting` growing a count that applies the policy in SQL
+   *without* keying on the attribute id set. The fact strip and the tab
+   badge both take it the day it exists.

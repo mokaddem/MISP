@@ -11,6 +11,8 @@ App::uses('ValueEnrichmentTool', 'Tools');
 App::uses('ValueVerdictTool', 'Tools');
 App::uses('ValueSummaryTool', 'Tools');
 App::uses('ValueContestedTool', 'Tools');
+App::uses('ValueFactsTool', 'Tools');
+App::uses('ValueContextTool', 'Tools');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 App::uses('GalaxyCategory', 'Tools');
@@ -88,6 +90,41 @@ class ValueProfile extends AppModel
      * because a cap is not a permission.
      */
     const OCCURRENCE_CAP = 300;
+
+    /**
+     * The same, for the Overview's card rather than the tab's table.
+     *
+     * **25, because the two caps are set by different things.** The
+     * table's 300 is set by the page control it carries: buttons are
+     * rows ÷ page size, and past about twenty of them the panel header
+     * overflows. This card has no page control, no sort and no facet
+     * rail — it is a sample with a link to the real table under it — so
+     * nothing here argues for a larger number, and every row costs the
+     * reader vertical space on the tab they landed on.
+     *
+     * The *total* it prints is `occurrenceCountFor` and not this, so
+     * the cap narrows what is shown and never what is claimed.
+     */
+    const OVERVIEW_OCCURRENCE_CAP = 25;
+
+    /**
+     * The most labels the Overview's context card will draw.
+     *
+     * **60, and the bound is the panel rather than the query.** One
+     * aggregate answers whatever the cap is; what does not survive is
+     * the rendering — `443` carries 3,860 distinct tags and drawing
+     * them cost a 2.9 MB fragment, on a card whose subject is *what
+     * the community has labelled this value* rather than *every label
+     * anybody applied*. Sixty fills the card on the widest value the
+     * instance has and leaves every ordinary one — `8.8.8.8` has seven
+     * — untouched by it.
+     *
+     * A capped read changes two things the card says, and both are said
+     * rather than assumed: the tag list carries *the most-carried 60 of
+     * N*, and no ordinal scale is drawn at all, since exclusivity
+     * cannot be judged from a truncated list.
+     */
+    const CONTEXT_TAG_CAP = 60;
 
     /**
      * Most recent first. The table's order was never stated while the
@@ -817,14 +854,20 @@ class ValueProfile extends AppModel
      * The numbers on the tab bar, corrected where the page frame and a
      * converted tab would otherwise contradict each other.
      *
-     * Not a panel, and the only method here that is not. The frame —
-     * tab badges, fact strip, banner chips — is built in one call to
-     * `ValueProfileFixture` and belongs to the Overview's phase, which
-     * has not run. That was harmless while every tab was fixture-backed
-     * and both halves agreed; it stopped being harmless the moment a
-     * tab went live, because a badge and the panel two inches under it
-     * then state different numbers for one value. On `8.8.8.8` the
-     * badges read 9 and 17 against 23 occurrences and 53 reports.
+     * Not a panel, and the only method here that is not. It was written
+     * while the frame — tab badges, fact strip, banner chips — was one
+     * call to `ValueProfileFixture` belonging to an Overview phase that
+     * had not run: harmless while every tab was fixture-backed and both
+     * halves agreed, and not harmless the moment a tab went live,
+     * because a badge and the panel two inches under it then state
+     * different numbers for one value. On `8.8.8.8` the badges read 9
+     * and 17 against 23 occurrences and 53 reports.
+     *
+     * **Phase 29 ran, and this survived it rather than being folded
+     * in.** `forFrame` calls it, so the frame is still one read from
+     * the controller's side; what it keeps is the argument below for
+     * which badges can be told truly, which is a ruling about the tab
+     * bar rather than about the fixture that used to fill it.
      *
      * **Occurrences gets a real number.** One `COUNT`, and pointedly
      * the same call `forOccurrenceTable` makes for the total its own
@@ -910,6 +953,334 @@ class ValueProfile extends AppModel
             $counts['enrichment']
         );
         return $counts;
+    }
+
+    /**
+     * The page frame: the banner, the fact strip and the tab badges.
+     *
+     * **The only synchronous read on this page**, and the reason this
+     * is one method rather than the five calls it replaces. Every panel
+     * is fetched after the page paints and pays for itself; the frame
+     * is fetched with the page, so a query added here is a query on the
+     * critical path of every load of every value. Collecting them in
+     * one place is what makes the budget something a reviewer can see
+     * (`29-overview.md` §4.1).
+     *
+     * Six queries, all single-row aggregates or small group-bys:
+     *
+     *   1. `occurrenceSummaryFor` — the strip's five numbers and both
+     *      its dates, in one aggregate measured at 4 ms on a value with
+     *      48,255 occurrences
+     *   2. `typesFor` — the banner's type chips, and the strip's
+     *      *n types* sub-line for free
+     *   3. `hitsFor` — the banner's warninglist chip
+     *   4. `value2CountFor` — the note below the banner
+     *   5, 6. `forTabCounts` — the occurrence and object badges
+     *
+     * The seventh read on a page load is the assessment behind the tab
+     * pill, at 9 to 27, and it is not this method's: `ValuesController::
+     * view()` asks for it separately because it is the one thing here
+     * that can be told only by running the engine.
+     *
+     * **The warninglist chip takes the names and not the categories.**
+     * The Lifecycle card resolves categories through the analyst's
+     * override map, which costs the profile; the chip says only *this
+     * value is on a list*, which the hits alone answer. Both call
+     * `hitsFor` with the same pairs, so the two cannot disagree about
+     * which lists matched — they are two readings of one answer rather
+     * than two answers (§4.3, D8).
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function forFrame(array $user, $value, array $options = array())
+    {
+        $valueModel = $this->model('Value');
+        $summary = $valueModel->occurrenceSummaryFor($user, $value, $options);
+        $types = $valueModel->typesFor($user, $value, $options);
+        $pairs = array();
+        foreach ($types as $type) {
+            $pairs[] = array('type' => $type['type'], 'value' => $value);
+        }
+        $hits = ValueWarninglistTool::hitsFor(
+            $this->model('Warninglist'),
+            $pairs
+        );
+        return array(
+            'value' => $value,
+            'types' => $types,
+            'warninglists' => isset($hits[$value]) ? $hits[$value] : array(),
+            'value2_note' => ValueFactsTool::value2Note(
+                $valueModel->value2CountFor($user, $value, $options)
+            ),
+            'facts' => ValueFactsTool::strip($summary, $types),
+            'counts' => $this->forTabCounts($user, $value, array()),
+        );
+    }
+
+    /**
+     * The Overview's occurrence card: a preview of the table one tab
+     * over.
+     *
+     * `forOccurrenceTable` without the facets and at a tenth of the
+     * cap, and deliberately the same four attachments in the same
+     * order — a card and a table that resolve an organisation or a
+     * distribution differently are two answers to one question on one
+     * page.
+     *
+     * **`OVERVIEW_OCCURRENCE_CAP` is 25 and not 300.** The table's cap
+     * is set by the page control it has and this card has none: there
+     * is no pagination, no sort and no facet rail here, so a reader who
+     * wants the rest is one *Open full table* away. What the card owes
+     * is a fair sample and an honest total, and the total is the
+     * uncapped `occurrenceCountFor` rather than the rows fetched.
+     *
+     * **`hidden` is not computed, and that is a rule rather than an
+     * omission.** `ValueStatsTool::occurrenceStats` returns five keys
+     * and the fixture carried a sixth — occurrences withheld from this
+     * viewer by distribution — plus a note stating it in words. The
+     * page does not tell a reader that records exist which it will not
+     * show them; the empty state says *no event you can see carries
+     * this value*, which distinguishes absent from hidden without
+     * quantifying the gap (§1.1 D3).
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function forOccurrences(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $summary = $valueModel->occurrenceSummaryFor($user, $value, $options);
+        $rows = $valueModel->occurrencesFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::OVERVIEW_OCCURRENCE_CAP,
+                'order' => self::OCCURRENCE_ORDER,
+            ))
+        );
+
+        $this->attachTags($rows);
+        $rows = $this->attachCreatorOrgs($user, $rows);
+        $this->attachProposalCounts($rows);
+        $this->attachEffectiveDistribution($user, $rows);
+
+        $stats = ValueStatsTool::occurrenceStats($rows, $summary['occurrences']);
+        /*
+         * **The events and organisations are the value's, not the
+         * page's**, and this is the §14.4 trap caught on the first
+         * render rather than by reading. `occurrenceStats` derives both
+         * by walking the rows it was handed, which is exact while every
+         * row is in hand and becomes a count of one page the moment a
+         * cap bites — *"you are then counting one page and labelling it
+         * a total"*. At 25 rows the cap bites constantly: `8.8.8.8` has
+         * 26 occurrences across 20 events, and the card headed itself
+         * *19 events* beside a fact strip reading 20.
+         *
+         * Both numbers come from the aggregate that already ran for the
+         * total, so the card, the strip and the Occurrences tab now
+         * read one query's answer rather than three tallies that ought
+         * to agree. `shown` stays the row count, because that is the
+         * one number on the line that *is* about the page.
+         *
+         * The Occurrences tab carries the same construction at a cap of
+         * 300 and so the same defect above 300 occurrences — `443` has
+         * 48,255. It is `forOccurrenceTable`'s to fix and the fix is
+         * this one; §16.2 hands it on rather than changing a built
+         * panel from here.
+         */
+        $stats['events'] = $summary['events'];
+        $stats['orgs'] = $summary['orgs'];
+
+        return array(
+            'value' => $value,
+            'occurrences' => $rows,
+            'occurrence_stats' => $stats,
+        );
+    }
+
+    /**
+     * The Overview's context card: what the community has labelled this
+     * value.
+     *
+     * Three reads and a cap:
+     *
+     *   1. `topTagsFor` — the labels, most-carried first, bounded
+     *   2. `getTagConflicts` — MISP's own exclusivity ruling
+     *   3. `fetchGalaxyClusters` — which clusters this viewer may know
+     *      exist
+     *
+     * **It was five reads and unbounded, and `443` is why it is not.**
+     * The first build scoped the tags through `occurrenceEventsFor`,
+     * read them with `ownTagsFor` and resolved every carrying event's
+     * organisation with `fetchSimpleEvents`, so that each tag could
+     * name who applied it. On `443` that is 1,844 events and **3,860
+     * distinct tags**, and the card rendered all of them: a **2.9 MB**
+     * fragment for a panel whose heading is a summary. The per-tag
+     * organisations went with the rework, and they are the part worth
+     * missing least — neither `attribute_tags` nor `event_tags` records
+     * who applied a tag, so that list was never *who said this*, only
+     * *whose events carry it*, which is a weaker claim than the
+     * tooltip was making.
+     *
+     * **What the cap costs is stated rather than hidden.** The card
+     * draws the most-carried `CONTEXT_TAG_CAP` labels and says so when
+     * there are more, and no scale is drawn on a capped read at all —
+     * a position means *one tag of this dimension*, and a truncated
+     * list cannot tell that from *one that was read*.
+     *
+     * **The conflict marker is MISP's and not this page's.**
+     * `Taxonomy::getTagConflicts` reads `exclusive` off the taxonomy
+     * and the predicate, and it knows that `tlp:white` and `tlp:clear`
+     * are one colour under two spellings. A rule invented here would
+     * have marked every instance still carrying both as contradicting
+     * itself.
+     *
+     * **Galaxy tags are not galaxy names.** The reader returns them
+     * with `is_galaxy` set and `ownTagsFor` says in its own docblock
+     * that naming the cluster needs `fetchGalaxyClusters` to rule
+     * first — the ruling is the caller's either way. A tag whose
+     * cluster does not come back is absent from the card, uncounted and
+     * unmentioned.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function forContext(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        /*
+         * One row more than the card will draw, so *there are more* is
+         * answered by the fetch rather than by a second aggregate.
+         */
+        $tags = $valueModel->topTagsFor(
+            $user,
+            $value,
+            self::CONTEXT_TAG_CAP + 1,
+            $options
+        );
+        $capped = count($tags) > self::CONTEXT_TAG_CAP;
+        if ($capped) {
+            $tags = array_slice($tags, 0, self::CONTEXT_TAG_CAP, true);
+        }
+        if (empty($tags)) {
+            return array(
+                'value' => $value,
+                'tags' => array(),
+                'galaxies' => array(),
+                'tag_cap' => null,
+            );
+        }
+        return array(
+            'value' => $value,
+            'tags' => ValueContextTool::taxonomies(
+                $tags,
+                $this->taxonomyFold(array_keys($tags)),
+                $this->tagConflicts($tags),
+                $capped
+            ),
+            'galaxies' => ValueContextTool::galaxies(
+                $tags,
+                $this->galaxyClusters($user, $tags)
+            ),
+            'tag_cap' => $capped ? self::CONTEXT_TAG_CAP : null,
+        );
+    }
+
+    /**
+     * The Overview rail's Lifecycle card — three questions that all
+     * bear on *is this still worth acting on*.
+     *
+     * The freshness third went live with the Analyst Profile's phase 5
+     * and is `forRelevance`'s own answer, reused rather than
+     * recomputed. The other two are this phase's.
+     *
+     * **The warninglist line reads the Assessment tab's own resolver.**
+     * `verdictWarninglist` resolves each hit's category through the
+     * analyst's override map, the shipped name map, the column and then
+     * the default — a four-step order `WarninglistCategory` owns — and
+     * the Assessment tab's warninglist band prints the answer. Two
+     * surfaces on one page resolving one hit's category independently
+     * is how they come to disagree, and this page has been bitten by
+     * that three times.
+     *
+     * **The correlation line is a flag and no longer a count.** It
+     * printed *n correlations* off the fixture. Nothing live can
+     * produce that number honestly: correlations attach to attributes
+     * rather than to values, so a value's total is a union over its
+     * occurrences and grows with them, and phase 24 found the
+     * correlation engine has nothing to say about a value in the first
+     * place. What survives is the half that changes what a reader
+     * should do — MISP marking the value over-correlating, which says
+     * its correlations mean nothing — and it draws only when set: *0
+     * correlations* would be false rather than merely unhelpful, since
+     * the correlations exist and are simply not counted here (§1.1 D2).
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function forLifecycle(array $user, $value,
+        array $options = array()
+    ) {
+        $warninglist = $this->warninglistFor($user, $value, $options);
+        return array(
+            'value' => $value,
+            'relevance' => $this->forRelevance(
+                $user,
+                $value,
+                $options
+            )['relevance'],
+            'warninglists' => $warninglist['hits'],
+            'warninglists_checked' => $warninglist['lists_checked'],
+            'correlations' => array(
+                'over_correlating' => $this->overCorrelating($value),
+                /*
+                 * Config rather than a query, and it is here so the
+                 * warning can name the number it crossed. The same
+                 * limit `relationSettings` reports to the Relationships
+                 * tab.
+                 */
+                'threshold' => (int)$this
+                    ->model('OverCorrelatingValue')->getLimit(),
+            ),
+        );
+    }
+
+    /**
+     * The warninglist answer, resolved exactly as the Assessment tab
+     * resolves it.
+     *
+     * A thin public seam onto `verdictWarninglist` so that a caller
+     * outside the assessment gets the categories through the same four
+     * steps and the same override map. It costs the profile, which is
+     * why the banner chip does not use it.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `hits`, `lists_checked`, `category`
+     */
+    public function warninglistFor(array $user, $value,
+        array $options = array()
+    ) {
+        $profile = array_key_exists('profile', $options)
+            ? $options['profile']
+            : ClassRegistry::init('AnalystProfile')->resolveFor($user);
+        return $this->verdictWarninglist(
+            $value,
+            $this->model('Value')->typesFor($user, $value, $options),
+            $profile
+        );
     }
 
     /**
@@ -1722,6 +2093,197 @@ class ValueProfile extends AppModel
                 : 0;
         }
         unset($row);
+    }
+
+    /**
+     * The taxonomies behind these tags, with their ordinal values.
+     *
+     * One query for the namespaces actually in play — a handful on any
+     * real value — rather than the whole taxonomy table. Predicates and
+     * entries both carry `numerical_value`, and both are returned,
+     * because a machine tag can put its reading in either component:
+     * `tlp:amber` is a predicate and
+     * `admiralty-scale:source-reliability="b"` is an entry.
+     *
+     * Disabled taxonomies are read too. A tag on a value is a fact
+     * about the record whatever the instance has since switched off,
+     * and dropping the scale for it would leave the card rendering the
+     * tag with no way to read it.
+     *
+     * @param array $tagNames
+     * @return array namespace => `predicates`
+     */
+    private function taxonomyFold(array $tagNames)
+    {
+        $namespaces = array();
+        foreach ($tagNames as $name) {
+            $parts = explode(':', (string)$name, 2);
+            if (count($parts) === 2) {
+                $namespaces[mb_strtolower($parts[0])] = true;
+            }
+        }
+        if (empty($namespaces)) {
+            return array();
+        }
+        /*
+         * `LOWER()` on both sides, which is how `getTaxonomyForTag`
+         * does it and not a nicety: MISP's columns collate
+         * `utf8mb3_bin`, so a value carrying `PAP:RED` against a
+         * taxonomy stored as `pap` matches nothing at all and the
+         * scale silently does not draw. The whole fold is keyed
+         * lowercase for the same reason.
+         */
+        $rows = $this->model('Taxonomy')->find('all', array(
+            'conditions' => array(
+                'LOWER(Taxonomy.namespace)' => array_keys($namespaces),
+            ),
+            'contain' => array('TaxonomyPredicate' => array('TaxonomyEntry')),
+            'recursive' => -1,
+        ));
+        $fold = array();
+        foreach ($rows as $row) {
+            $predicates = array();
+            foreach ($row['TaxonomyPredicate'] as $predicate) {
+                $entries = array();
+                if (!empty($predicate['TaxonomyEntry'])) {
+                    foreach ($predicate['TaxonomyEntry'] as $entry) {
+                        $entries[mb_strtolower($entry['value'])] = array(
+                            'expanded' => $entry['expanded'] ?? null,
+                            'numerical' => self::numerical($entry),
+                        );
+                    }
+                }
+                $predicates[mb_strtolower($predicate['value'])] = array(
+                    'expanded' => $predicate['expanded'] ?? null,
+                    'numerical' => self::numerical($predicate),
+                    'entries' => $entries,
+                );
+            }
+            $fold[mb_strtolower($row['Taxonomy']['namespace'])] = array(
+                'predicates' => $predicates,
+            );
+        }
+        return $fold;
+    }
+
+    /**
+     * A taxonomy row's `numerical_value` as a number, or null.
+     *
+     * Null and zero are different answers here and the column stores
+     * both: `admiralty-scale`'s `e` and `g` are a genuine zero, while
+     * an unordered taxonomy leaves the column empty. Reading the empty
+     * one as zero would sort every unordered tag to the bottom of a
+     * scale it has no place on, which is exactly the invented ranking
+     * `ValueContextTool::position` refuses to draw.
+     *
+     * @param array $row A predicate or entry row
+     * @return int|null
+     */
+    private static function numerical(array $row)
+    {
+        return isset($row['numerical_value'])
+            && $row['numerical_value'] !== ''
+            && $row['numerical_value'] !== null
+            ? (int)$row['numerical_value']
+            : null;
+    }
+
+    /**
+     * Which of these tags MISP considers to be contradicting another.
+     *
+     * `Taxonomy::getTagConflicts` and not a rule of this page's own,
+     * for the reason `ValueContextTool` gives: it reads `exclusive` off
+     * the taxonomy and the predicate, and it carries the knowledge that
+     * `tlp:white` and `tlp:clear` are one colour under two spellings.
+     *
+     * Local and global tags are asked separately, which is what
+     * `Taxonomy::getTagConflictsForEvent` does: a local tag and a
+     * shared one are not in the same conversation, so two readers
+     * seeing different halves of the record should not both be told the
+     * record contradicts itself.
+     *
+     * @param array $tags `Value::topTagsFor`
+     * @return array Tag name => true
+     */
+    private function tagConflicts(array $tags)
+    {
+        $global = array();
+        $local = array();
+        foreach ($tags as $name => $row) {
+            if (!empty($row['tag']['is_galaxy'])) {
+                continue;
+            }
+            if (empty($row['tag']['local'])) {
+                $global[] = $name;
+            } else {
+                $local[] = $name;
+            }
+        }
+        $taxonomy = $this->model('Taxonomy');
+        $conflicted = array();
+        foreach (array($global, $local) as $set) {
+            if (count($set) < 2) {
+                continue;
+            }
+            foreach ($taxonomy->getTagConflicts($set) as $conflict) {
+                foreach ($conflict['tags'] as $name) {
+                    $conflicted[$name] = true;
+                }
+            }
+        }
+        return $conflicted;
+    }
+
+    /**
+     * The galaxy clusters this viewer may be told about, by tag name.
+     *
+     * The ACL ruling the tag readers defer to their caller, made
+     * here. Sends nothing when no tag is a galaxy tag, because an empty
+     * `IN ()` is not a query worth issuing.
+     *
+     * @param array $user
+     * @param array $tags `Value::topTagsFor`
+     * @return array Tag name => a `fetchGalaxyClusters` row
+     */
+    private function galaxyClusters(array $user, array $tags)
+    {
+        $names = array();
+        foreach ($tags as $name => $row) {
+            if (!empty($row['tag']['is_galaxy'])) {
+                $names[] = $name;
+            }
+        }
+        if (empty($names)) {
+            return array();
+        }
+        $rows = $this->model('GalaxyCluster')->fetchGalaxyClusters(
+            $user,
+            array('conditions' => array('GalaxyCluster.tag_name' => $names))
+        );
+        $byTag = array();
+        foreach ($rows as $row) {
+            if (!empty($row['GalaxyCluster']['tag_name'])) {
+                $byTag[$row['GalaxyCluster']['tag_name']] = $row;
+            }
+        }
+        return $byTag;
+    }
+
+    /**
+     * Whether MISP has marked this value as over-correlating.
+     *
+     * The same read `relationSettings` makes for the Relationships tab,
+     * and the same one the assessment's evidence budget gives up on —
+     * so the Lifecycle card's warning, the Relationships tab's note and
+     * the engine's refusal to read rows are one fact stated three
+     * times rather than three opinions.
+     *
+     * @param string $value
+     * @return bool
+     */
+    private function overCorrelating($value)
+    {
+        return (bool)$this->model('OverCorrelatingValue')->isBlocked($value);
     }
 
     /*

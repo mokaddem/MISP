@@ -169,33 +169,41 @@ $subtitle = $state === null
             </div>
         </div>
 
-        <div class="vp-fact-line<?= empty($correlations['over_correlating'])
-            ? ''
-            : ' vp-fact-line-warn' ?>">
-            <i class="fas fa-diagram-project"></i>
-            <div>
-                <div class="fw-semibold">
-                    <?= h(sprintf(
-                        __('%s correlations'),
-                        $correlations['count']
-                    )) ?>
-                </div>
-                <div class="vp-fact-line-sub">
-                    <?php if (!empty($correlations['over_correlating'])): ?>
+        <?php
+        /*
+         * **Drawn only when it is set.** The fixture printed
+         * *n correlations* on every value and this line is the flag
+         * alone, because nothing live can produce that number honestly:
+         * correlations attach to attributes rather than to values, so a
+         * value's total is a union over its occurrences and grows with
+         * them — and phase 24 found the correlation engine has nothing
+         * to say about a value in the first place.
+         *
+         * `0 correlations` would be false rather than merely unhelpful,
+         * since the correlations exist and are only not counted here.
+         * So a value under the threshold says nothing at all, which
+         * leaves the card two lines rather than three and states
+         * neither more nor less than is known.
+         */
+        ?>
+        <?php if (!empty($correlations['over_correlating'])): ?>
+            <div class="vp-fact-line vp-fact-line-warn">
+                <i class="fas fa-diagram-project"></i>
+                <div>
+                    <div class="fw-semibold">
+                        <?= __('Over-correlating') ?>
+                    </div>
+                    <div class="vp-fact-line-sub">
                         <?= h(sprintf(
-                            __('Over the %s threshold — correlations on this'
-                                . ' value carry little meaning'),
+                            __('This value is on more than %s correlations,'
+                                . ' so MISP stopped recording them — what'
+                                . ' it correlates with says little about it'),
                             $correlations['threshold']
                         )) ?>
-                    <?php else: ?>
-                        <?= h(sprintf(
-                            __('Under the over-correlation threshold of %s'),
-                            $correlations['threshold']
-                        )) ?>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endif; ?>
 
     </div>
 

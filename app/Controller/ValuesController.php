@@ -1,7 +1,6 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
-App::uses('ValueProfileFixture', 'Tools');
 App::uses('ValueUrlTool', 'Tools');
 App::uses('ValueLean', 'Tools');
 
@@ -166,19 +165,16 @@ class ValuesController extends AppController
      */
     public function view($b64value = null)
     {
-        $profile = $this->__profileFor($b64value);
         /*
-         * The frame is still the fixture's — see §14.12, where the tab
-         * counts and banner chips are the Overview's phase to convert.
-         * The badges that name a converted tab are corrected here,
-         * because those are the ones that can be caught contradicting
-         * the panel underneath them. `forTabCounts` says which and why.
+         * The frame, live since phase 29 — the banner's type and
+         * warninglist chips, the `value2` note, the fact strip and the
+         * tab badges, in one read. It is the only synchronous read on
+         * this page and `ValueProfile::forFrame` carries its budget.
          */
         $this->loadModel('ValueProfile');
-        $profile['counts'] = $this->ValueProfile->forTabCounts(
+        $profile = $this->ValueProfile->forFrame(
             $this->Auth->user(),
-            $profile['value'],
-            $profile['counts']
+            $this->__decodeValue($b64value)
         );
         /*
          * And the Assessment tab's pill, for the same reason and at a
@@ -217,12 +213,16 @@ class ValuesController extends AppController
      */
     public function viewOccurrences($b64value = null)
     {
-        $this->__renderPanel($this->__profileFor($b64value), 'value_occurrences');
+        $this->__renderLivePanel(
+            $b64value,
+            'forOccurrences',
+            'value_occurrences'
+        );
     }
 
     public function viewContext($b64value = null)
     {
-        $this->__renderPanel($this->__profileFor($b64value), 'value_context');
+        $this->__renderLivePanel($b64value, 'forContext', 'value_context');
     }
 
     /**
@@ -291,28 +291,19 @@ class ValuesController extends AppController
      * The Overview rail's Lifecycle card — three questions that all
      * bear on *is this still worth acting on*.
      *
-     * **One of the three went live in phase 5 and the other two did
-     * not**, which is deliberate and the narrower reading of
-     * `00-contract.md` §14.12's note about a tab not being
-     * indivisible. This phase owns the freshness question and retires
-     * the decay bars that used to answer it, so leaving the card
-     * rendering a fixture literal in their place would ship a panel
-     * saying something no query supports. The warninglist and
-     * correlation lines are the Overview's own phase to convert and
-     * are untouched.
+     * **The freshness third went live in phase 5 and the other two in
+     * phase 29**, which is why this card was the page's last partial
+     * one. The warninglist line resolves its categories through the
+     * Assessment tab's own resolver so the two cannot disagree, and
+     * the correlation line is a flag rather than the count the fixture
+     * carried — `ValueProfile::forLifecycle` has both arguments.
      *
      * @param string $b64value
      * @return void
      */
     public function viewLifecycle($b64value = null)
     {
-        $this->loadModel('ValueProfile');
-        $profile = $this->__profileFor($b64value);
-        $profile['relevance'] = $this->ValueProfile->forRelevance(
-            $this->Auth->user(),
-            $profile['value']
-        )['relevance'];
-        $this->__renderPanel($profile, 'value_lifecycle');
+        $this->__renderLivePanel($b64value, 'forLifecycle', 'value_lifecycle');
     }
 
     /**
@@ -983,27 +974,10 @@ class ValuesController extends AppController
     }
 
     /**
-     * @param string $b64value
-     * @param array $options Per-panel options; see
-     *                       ValueProfileFixture::forValue
-     * @return array
-     */
-    private function __profileFor($b64value, array $options = array())
-    {
-        return ValueProfileFixture::forValue(
-            $this->__decodeValue($b64value),
-            $options
-        );
-    }
-
-    /**
      * The assessment, for the three endpoints that render one.
      *
-     * `__profileFor`'s live counterpart. Four Overview panels still
-     * read the fixture and are the Value Profile campaign's own to
-     * convert; these three no longer do. It is separate from
-     * `__renderSightingPanel` because `viewVerdict` has to read the
-     * answer before it can pick a template.
+     * It is separate from `__renderLivePanel` because `viewVerdict` has
+     * to read the answer before it can pick a template.
      *
      * @param string $b64value
      * @return array

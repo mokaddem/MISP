@@ -110,14 +110,28 @@ $fields = array(
     ),
 );
 
+/*
+ * Formatted, and pluralised, because this card is read beside the fact
+ * strip: the strip says *48,255* where this said *48255*, and *1844
+ * events* against the strip's *1,844*. The two numbers were already the
+ * same number — `forOccurrences` takes both from the aggregate the
+ * strip reads — and printing one of them differently is the kind of
+ * difference a reader has to stop and rule out.
+ */
 $subtitle = implode(' &nbsp;·&nbsp; ', array(
     h(sprintf(
         __('Showing %1$s of %2$s occurrences'),
-        $stats['shown'],
-        $stats['total']
+        number_format($stats['shown']),
+        number_format($stats['total'])
     )),
-    h(sprintf(__('%s events'), $stats['events'])),
-    h(sprintf(__('%s organisations'), $stats['orgs'])),
+    h(sprintf(
+        __n('%s event', '%s events', $stats['events']),
+        number_format($stats['events'])
+    )),
+    h(sprintf(
+        __n('%s organisation', '%s organisations', $stats['orgs']),
+        number_format($stats['orgs'])
+    )),
 ));
 
 ob_start();
