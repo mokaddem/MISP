@@ -11665,6 +11665,14 @@ class ValueProfile extends AppModel
      * query `analystReportCount` runs, over the event ids the anchor
      * read already returned.
      *
+     * **And the standing, since phase 35, which is free.** The card
+     * draws the tab's tug-bar over it — the one object on the
+     * Collaboration tab that is a shape rather than a list, and the
+     * one thing on this card that is not capped at four items. A value
+     * with two notes and six opinions can fill the preview with notes
+     * and show the reader no opinion at all; the bar is over every
+     * opinion either way.
+     *
      * @param array $user
      * @param string $value
      * @param array $options
@@ -11680,19 +11688,22 @@ class ValueProfile extends AppModel
             $context['events']
         );
         /*
-         * The thread and the ledger are dropped on the way out. The
-         * card renders four items and the union can hold hundreds;
-         * carrying the rest so the template can ignore them is the
-         * Overview paying the tab's memory for a panel that shows a
-         * handful.
+         * The thread is dropped on the way out. The card renders four
+         * items and the union can hold hundreds; carrying the rest so
+         * the template can ignore them is the Overview paying the
+         * tab's memory for a panel that shows a handful.
          *
-         * The ledger is built and then discarded, and that is the
-         * cheaper mistake. Teaching `analystContext` to skip it would
-         * give this page two assemblies of one union — the exact thing
-         * that method exists to prevent — to save some array grouping
-         * over rows already in memory. No query is involved.
+         * **The ledger is kept, and phase 35 is what gave it a
+         * reader.** It was built and then discarded here, which the
+         * note this replaces called the cheaper mistake; the card now
+         * draws the tug-bar off it. It is one row per opinion that
+         * rates the value — four on the flagship, one on `127.0.0.1`,
+         * none at all on four of the five values `31-query-count.php`
+         * measures — so keeping it costs no query and no meaningful
+         * memory, and it is the *same* array the tab reads rather
+         * than a second count of the same opinions.
          */
-        unset($context['thread'], $context['standing'], $context['events']);
+        unset($context['thread'], $context['events']);
         return array(
             'value' => $value,
             'analyst' => $context,

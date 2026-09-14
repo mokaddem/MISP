@@ -8569,6 +8569,30 @@ th.vp-rel-num {
 }
 
 /* ------------------------------------------------------------------
+ * The same bar, on the Overview's Analyst data card
+ * ------------------------------------------------------------------
+ * Phase 35. The block is unchanged — same element, same segments,
+ * same caption — and only its surroundings differ: on the standing
+ * panel it opens a `.p-3` that continues into the ledger, here it is
+ * the top of a card whose body is its own padded list.
+ *
+ * So the wrapper pads three sides and the block's own bottom padding
+ * and rule become the separator, rather than stacking a 16px wrapper
+ * gap on top of a 14px block margin on top of the list's own 16px
+ * padding — which is 61px of nothing between the caption and the
+ * first note.
+ * ------------------------------------------------------------------ */
+
+.vp-analyst-split {
+    padding: 1rem 1rem 0;
+}
+
+.vp-analyst-split .vpa-tugblock {
+    margin-bottom: 0;
+    padding-bottom: 0.75rem;
+}
+
+/* ------------------------------------------------------------------
  * The lane ledger
  * ------------------------------------------------------------------
  * Chart and table as one object. The name column is fixed, so two

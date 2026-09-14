@@ -12,7 +12,9 @@
  * 1. The tug-bar — one stacked bar sized by *how many opinions fall
  *    each way*, with the split stated beside it in words. It answers
  *    "is this set divided, and how lopsided" before the reader looks
- *    at a single row.
+ *    at a single row. Drawn by `value_analyst_tug` since phase 35,
+ *    which the Overview's Analyst data card includes off the same
+ *    `standing` array.
  * 2. The ledger — one row per opinion on a shared 0-100 lane, an
  *    organisation's rows together. A bar grows from the 50 pivot to
  *    that opinion's score, so direction is the side and length is the
@@ -290,49 +292,6 @@ $headerExtra = $aggregate === null ? null
         </div>
     <?php else: ?>
         <?php
-        /*
-         * The split, counted off the rows this panel is about to
-         * render. Nothing else computes it, so nothing else can
-         * disagree with it.
-         */
-        $bySide = array('agree' => 0, 'dispute' => 0, 'neither' => 0);
-        foreach ($orgs as $org) {
-            $bySide[$sideOf($org['reads'])]++;
-        }
-        $total = count($orgs);
-
-        /*
-         * What the bar amounts to, in one clause, so a reader who has
-         * taken in neither the bar nor the lanes still has the answer.
-         */
-        if ($bySide['dispute'] === 0) {
-            $verdict = __('every opinion agrees');
-        } elseif ($bySide['agree'] === 0) {
-            $verdict = __('every opinion disputes');
-        } elseif ($bySide['agree'] === $bySide['dispute']) {
-            $verdict = sprintf(
-                __('an even split, %s each way'),
-                $bySide['agree']
-            );
-        } else {
-            $minor = min($bySide['agree'], $bySide['dispute']);
-            $verdict = sprintf(
-                $bySide['agree'] > $bySide['dispute']
-                    ? __n(
-                        'most agree; %d opinion of %d does not',
-                        'most agree; %d opinions of %d do not',
-                        $minor
-                    )
-                    : __n(
-                        'most dispute; %d opinion of %d does not',
-                        'most dispute; %d opinions of %d do not',
-                        $minor
-                    ),
-                $minor,
-                $total
-            );
-        }
-
         $gap = $aggregate['gap'];
         $showGap = $gap !== null && $gap['points'] >= 20;
         ?>
@@ -345,62 +304,18 @@ $headerExtra = $aggregate === null ? null
              * --------------------------------------------------------
              * Full panel width, and never aligned to the lane axis
              * below it — see the note at the head of this file.
+             *
+             * Its own element since phase 35, because the Overview's
+             * Analyst data card draws the same bar off the same
+             * `standing` array. No lead is passed: this panel's
+             * sub-line already reads *N opinions from M
+             * organisations*, so the default *The split* is not
+             * carrying a denominator anybody is missing.
              */
-            $segments = array(
-                array('dispute', $bySide['dispute'], __('dispute')),
-                array('neither', $bySide['neither'], __('neither')),
-                array('agree', $bySide['agree'], __('agree')),
-            );
             ?>
-            <div class="vpa-tugblock">
-                <div class="vpa-tuglead">
-                    <span class="vp-subhead mb-0"><?= __('The split') ?></span>
-                    <span class="vpa-verdict"><?= h($verdict) ?></span>
-                </div>
-
-                <div class="vpa-tug">
-                    <?php foreach ($segments as $segment):
-                        if ($segment[1] === 0) {
-                            continue;
-                        }
-                        $width = round($segment[1] / $total * 100, 3);
-                        ?>
-                        <div class="vpa-tug-seg vpa-s-<?= $segment[0] ?><?=
-                                  $segment[0] === 'agree' ? ' vpa-tug-end' : ''
-                              ?>"
-                             style="width: <?= $width ?>%;"
-                             title="<?= h(sprintf(
-                                 __n(
-                                     '%1$d opinion %2$s',
-                                     '%1$d opinions %2$s',
-                                     $segment[1]
-                                 ),
-                                 $segment[1],
-                                 $sideWord($segment[0])
-                             )) ?>">
-                            <?php if ($segment[0] === 'agree'): ?>
-                                <span><?= h($segment[2]) ?></span>
-                                <span class="vpa-tug-n"><?=
-                                    (int)$segment[1]
-                                ?></span>
-                            <?php else: ?>
-                                <span class="vpa-tug-n"><?=
-                                    (int)$segment[1]
-                                ?></span>
-                                <span><?= h($segment[2]) ?></span>
-                            <?php endif; ?>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="vpa-tug-cap">
-                    <span><?= __('disputes') ?></span>
-                    <span><?=
-                        __('sized by number of opinions, not by score')
-                    ?></span>
-                    <span><?= __('agrees') ?></span>
-                </div>
-            </div>
+            <?= $this->element('Values/View/value_analyst_tug', array(
+                'tugOrgs' => $orgs,
+            )) ?>
 
             <?php
             /*

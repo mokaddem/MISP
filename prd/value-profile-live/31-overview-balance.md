@@ -229,6 +229,15 @@ number is recorded so the board is not carrying a stale 9.
 
 ## 5. What was weighed and not built
 
+> **Superseded in part by [phase 35](35-overview-borrowed.md) §5**,
+> which reopened this section on the same ask and measured every
+> candidate instead of estimating it. Two things below have since
+> changed: the tug-bar this section never considered is now on the
+> Overview, and **D5's premise has inverted** — the left column gained
+> 400px to the Tags card in phases 32 and 33 and is now the taller one
+> on three of four values, so "it would land on the rail" is no longer
+> a reason to refuse anything. The entries here are kept as written.
+
 **The Assessment card's *What would change this*, on the Overview
 rail.** Three lines naming what would move the assessment, already
 computed: `viewVerdictCard` calls `forVerdict`, which fills

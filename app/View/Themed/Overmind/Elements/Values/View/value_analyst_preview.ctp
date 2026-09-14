@@ -36,6 +36,35 @@ $items = $analyst['preview'];
 $written = (int)$counts['notes'] + (int)$counts['opinions'];
 $shown = count($items);
 
+/*
+ * **The split, borrowed whole from the Collaboration tab.** Phase 31
+ * §5 left *investigate other small widgets you could bring from other
+ * panes* open, and this is the one that costs nothing to take: the
+ * union behind this card already builds the ledger the tab's standing
+ * panel draws, and `forAnalystPreview` used to throw it away.
+ *
+ * Only the bar comes over, and not the lane ledger under it. The bar
+ * is *how many fall each way*, which is a shape a reader takes in
+ * without reading anything; the ledger is one lane, one score, one
+ * organisation and one date per opinion, which is a table — and the
+ * Overview already sent its tables to the tabs that own them.
+ *
+ * **It is also the only thing on this card that is not capped.** The
+ * list under it is the newest four items of any kind, so a value with
+ * two notes and six opinions can fill it with notes and show no
+ * opinion at all; the bar counts every opinion that rates the value.
+ * That is what earns it the ~72px rather than merely the fact that it
+ * was free.
+ *
+ * Absent on a value nobody has rated — which on the verification
+ * instance is four values of five. A bar over no opinions would be an
+ * empty state inside a card that already has one.
+ */
+$standing = isset($analyst['standing']) ? $analyst['standing'] : null;
+$split = ($standing === null || empty($standing['orgs']))
+    ? null
+    : $standing['orgs'];
+
 $subtitle = implode(' &nbsp;·&nbsp; ', array_filter(array(
     h(sprintf(
         __n('%s note', '%s notes', (int)$counts['notes']),
@@ -160,6 +189,38 @@ $headerExtra = !$hasTab ? null : '<a href="#tab-analyst"'
         'panelSub' => $subtitle,
         'panelExtra' => $headerExtra,
     )) ?>
+
+    <?php if ($split !== null): ?>
+        <?php
+        /*
+         * Above the items and never beside them: the split is what the
+         * four rows under it add up to, and a summary that follows its
+         * own evidence is a summary a reader has already done without.
+         *
+         * **The lead carries the denominator, where the tab's does
+         * not.** This card's sub-line is headed *2 notes · 4 opinions
+         * · 1 proposal*, and those opinions are counted by
+         * `analystCounts` — top-level items of any anchor — while the
+         * bar is over `analystStanding`'s, which are opinions at any
+         * depth that rate the value. On the flagship both are 4 and on
+         * `127.0.0.1` both are 1; they are not the same set and
+         * nothing guarantees they agree, so the bar states its own.
+         */
+        ?>
+        <div class="vp-analyst-split">
+            <?= $this->element('Values/View/value_analyst_tug', array(
+                'tugOrgs' => $split,
+                'tugLead' => sprintf(
+                    __n(
+                        'The split — %d opinion on the value',
+                        'The split — %d opinions on the value',
+                        count($split)
+                    ),
+                    count($split)
+                ),
+            )) ?>
+        </div>
+    <?php endif; ?>
 
     <?php if ($shown === 0): ?>
         <div class="vp-empty">
