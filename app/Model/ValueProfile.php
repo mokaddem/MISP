@@ -750,6 +750,21 @@ class ValueProfile extends AppModel
     const ANALYST_REPORT_HEAD = 600;
 
     /**
+     * Distinct comment sentences the comment table draws before it
+     * states a remainder.
+     *
+     * Fifty, the report list's number for the report list's reason: it
+     * is a list of what was written rather than a table with a rail, so
+     * it has nothing to narrow itself with and a stated remainder is
+     * what an unbounded read would owe the reader anyway. The read is
+     * grouped, so the cap counts *sentences* and never occurrences —
+     * the instance's busiest value by commented rows, `94.98.224.81`,
+     * is 1,459 occurrences of a single sentence and fills one row of
+     * fifty. Its busiest by sentences, `193.161.193.99`, has 33.
+     */
+    const ANALYST_COMMENT_CAP = 50;
+
+    /**
      * Standalone proposals the Occurrences tab draws before it states a
      * remainder.
      *
@@ -11754,6 +11769,136 @@ class ValueProfile extends AppModel
                 $events['ids']
             ) + array('occurrence_capped' => $events['capped']),
         );
+    }
+
+    /**
+     * The tab's fourth panel: what analysts typed into the `comment`
+     * column of this value's occurrences.
+     *
+     * **The one thing written *about the value itself* on this page.**
+     * Every other item on this tab is anchored to a uuid — a note on an
+     * event, an opinion on a note, a report on an event — and the tab
+     * spends a chip per row saying so. A comment is a column on the
+     * occurrence, so for once the sentence *somebody wrote this about
+     * this value* needs no qualification. It is also, on this instance,
+     * by far the most common form of analyst writing: 2,108,595
+     * attributes carry a comment against 75 notes and 43 opinions in
+     * total.
+     *
+     * **One row per distinct sentence, not per occurrence.**
+     * `Value::commentsFor` carries the argument and the instance's own
+     * numbers; what it means here is that the panel is a table of
+     * statements with counts, rather than 1,459 repetitions of one.
+     *
+     * **A comment has no author and no date of its own.** Its only
+     * attribution is the creating organisation of the event its
+     * attribute sits in, and its only date is the occurrence's — which
+     * is a row write, moved by any later edit to any other column. Both
+     * are stated in those words on the panel rather than dressed up as
+     * *written by* and *written on*.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options
+     * @return array
+     */
+    public function forAnalystComments(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $summary = $valueModel->commentSummaryFor($user, $value, $options);
+        $groups = $valueModel->commentsFor(
+            $user,
+            $value,
+            array_merge($options, array(
+                'limit' => self::ANALYST_COMMENT_CAP,
+            ))
+        );
+        $orgIds = array();
+        $eventIds = array();
+        foreach ($groups as $group) {
+            $orgIds[] = $group['orgc_id'];
+            $eventIds[$group['event_id']] = true;
+        }
+        $orgs = $this->organisationNames(array(), $orgIds);
+        $events = $this->commentEventNames($user, array_keys($eventIds));
+        $rows = array();
+        foreach ($groups as $group) {
+            $eventId = $group['event_id'];
+            /*
+             * A group whose named event did not survive
+             * `fetchSimpleEvents` keeps its counts and loses its link.
+             * Unreachable in practice — the ids come from a read the
+             * same viewer's ACL already passed — and the alternative is
+             * dropping a sentence somebody wrote over a belt-and-braces
+             * check disagreeing with the braces.
+             */
+            $rows[] = $group + array(
+                'org' => isset($orgs[$group['orgc_id']])
+                    ? $orgs[$group['orgc_id']]
+                    : __('Unknown organisation'),
+                'event' => isset($events[$eventId])
+                    ? $events[$eventId]
+                    : null,
+            );
+        }
+        return array(
+            'value' => $value,
+            'analyst_comments' => array(
+                'rows' => $rows,
+                /*
+                 * How many distinct sentences exist, not how many this
+                 * table drew — the aggregate's own number, so a capped
+                 * list states the remainder it is short by rather than
+                 * reporting its own length as the total.
+                 */
+                'total' => $summary['comments'],
+                'capped' => $summary['comments'] > count($rows),
+                /*
+                 * And how many rows carry one, which is a different
+                 * number and the one a reader compares against the
+                 * occurrence count in the fact strip.
+                 */
+                'occurrences' => $summary['occurrences'],
+                'events' => $summary['events'],
+            ),
+        );
+    }
+
+    /**
+     * The events the comment table links to, by id.
+     *
+     * `fetchSimpleEvents` rather than the ids alone, for the two things
+     * a link needs that an aggregate cannot carry: the event's `info`,
+     * so the chip names what it opens, and a second pass of
+     * `createEventConditions` over ids that came from an ACL'd read.
+     * One call for the whole table — §14.4's commitment is never one
+     * call per row.
+     *
+     * @param array $user
+     * @param array $ids
+     * @return array event id => ['id' => int, 'info' => string]
+     */
+    private function commentEventNames(array $user, array $ids)
+    {
+        if (empty($ids)) {
+            return array();
+        }
+        $events = $this->model('Event')->fetchSimpleEvents(
+            $user,
+            array('conditions' => array('Event.id' => $ids)),
+            true
+        );
+        $out = array();
+        foreach ($events as $event) {
+            $out[(int)$event['Event']['id']] = array(
+                'id' => (int)$event['Event']['id'],
+                'info' => isset($event['Event']['info'])
+                    ? $event['Event']['info']
+                    : null,
+            );
+        }
+        return $out;
     }
 
     /**

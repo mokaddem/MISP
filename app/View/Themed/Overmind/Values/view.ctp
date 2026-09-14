@@ -374,6 +374,10 @@ $panelChrome = array(
         $await(__('Event reports'), 'fas fa-file-lines',
             'var(--analystData)', 4),
     ),
+    'viewAnalystComments' => array(
+        $await(__('Attribute comments'), 'fas fa-comment-dots',
+            'var(--analystData)', 4),
+    ),
     'viewTimeline' => array(
         $await(__('Timeline'), 'fas fa-clock', 'var(--bs-info)', 8),
     ),
@@ -786,6 +790,20 @@ $tabRegistry = array(
         'left' => array(
             $panel('viewAnalystStanding'),
             $panel('viewAnalystThread'),
+            /*
+             * Third, between the argument and the documents, and the
+             * position is the point. The two panels above are anchored
+             * to uuids and spend a chip per row saying which container
+             * they are really about; this one is the `comment` column
+             * of the value's own occurrences, so it is the only thing
+             * on the tab written *about the value* with nothing to
+             * qualify. It goes below the thread because the thread is
+             * the conversation the ledger above it summarises and the
+             * pair cannot be split, and above the reports because a
+             * comment annotates this value while a report documents an
+             * event it happens to sit in.
+             */
+            $panel('viewAnalystComments'),
             /*
              * The narrative list, added by phase 26 —
              * `value-profile-coverage.md` §4.5 places event reports on

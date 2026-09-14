@@ -825,6 +825,29 @@ class ValuesController extends AppController
     }
 
     /**
+     * The tab's fourth panel: the `comment` column of this value's
+     * occurrences, one row per distinct sentence.
+     *
+     * Its own endpoint for the reason the reports list has one — it is
+     * a different question of a different shape, answered by two
+     * aggregates rather than by the thread's five-anchor union, and it
+     * should not wait behind it. It is also the cheapest panel on the
+     * tab and the one most values have rows for, so making it the last
+     * to arrive would be the wrong way round.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewAnalystComments($b64value = null)
+    {
+        $this->__renderLivePanel(
+            $b64value,
+            'forAnalystComments',
+            'value_analyst_comments'
+        );
+    }
+
+    /**
      * The Timeline tab: the spine, the source lanes and the
      * chronology, in one panel.
      *

@@ -1800,6 +1800,170 @@ class Value extends AppModel
         return $this->attributes()->fetchAttributesSimple($user, $params);
     }
 
+    /**
+     * What analysts wrote in the `comment` column of this value's
+     * occurrences, one row per distinct sentence.
+     *
+     * **A grouped aggregate rather than a row fetch, and the instance
+     * is what settles it.** `94.98.224.81` carries *Xtreme RAT botnet
+     * C2 server (confidence level: 100%)* on **1,459** occurrences
+     * across five events — one sentence somebody wrote once and a bulk
+     * import stamped onto every row. A capped row read would have
+     * rendered 300 identical lines and then understated the count by a
+     * thousand; this returns the sentence once with the true number
+     * beside it. `147.185.221.29` is the same shape smaller: 39
+     * commented rows, 11 distinct sentences.
+     *
+     * **Grouped by the sentence *and* its creating organisation.** A
+     * comment has no author column — it is a field on the attribute, so
+     * the only attribution it has is the event's `orgc_id` — and two
+     * organisations writing the same sentence are two statements, not
+     * one made twice. Grouping on the text alone would have merged them
+     * under whichever org the aggregate happened to keep.
+     *
+     * The grouping is byte-exact: `attributes.comment` is
+     * `utf8mb3_bin`, so `Blocked` and `blocked` are two rows here. That
+     * is the honest reading — this panel reports what was written, and
+     * a case fold would be the page deciding two people wrote the same
+     * thing.
+     *
+     * **`limit` bounds the groups drawn, not the work done.** MariaDB
+     * reads and groups every matching row before the limit applies, so
+     * a caller asking for one more group than it means to draw learns
+     * there is a remainder for free rather than paying a second
+     * `COUNT`. The counts inside each group are over every row, capped
+     * or not.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor, plus `limit`
+     * @return array [['comment' => string, 'orgc_id' => int,
+     *     'occurrences' => int, 'events' => int, 'first_at' => int,
+     *     'last_at' => int, 'event_id' => int, 'deleted' => int], …]
+     *     newest-written first
+     */
+    public function commentsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        /*
+         * `!=` rather than a `LENGTH` test, because a comment of
+         * whitespace is a comment somebody typed and this panel is not
+         * the place to decide it was a mistake. `NULL` fails `!=` in
+         * SQL, which is the wanted answer for a column MISP leaves
+         * unset.
+         */
+        $conditions['AND'][] = array('Attribute.comment !=' => '');
+        $params = array(
+            'fields' => array(
+                'Attribute.comment',
+                'Event.orgc_id',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'COUNT(DISTINCT Event.id) AS events',
+                /*
+                 * `Attribute.timestamp` and deliberately not
+                 * `OBSERVED_AT`. That chain reads `last_seen` first
+                 * because it answers *when was this value observed*,
+                 * and a comment is not an observation — it is text in a
+                 * column, and the only date the column has is the row
+                 * write that last saved it. Reporting a declared
+                 * sighting date as when somebody wrote a sentence would
+                 * be the page inventing an authorship date it does not
+                 * have.
+                 */
+                'MIN(Attribute.timestamp) AS first_at',
+                'MAX(Attribute.timestamp) AS last_at',
+                /*
+                 * One event to open, and which one is a decision rather
+                 * than whichever the aggregate kept: the event of the
+                 * group's most recent occurrence, so the link lands
+                 * where the sentence was last written. `GROUP_CONCAT`
+                 * truncates at `group_concat_max_len` from the tail and
+                 * this reads the head, so a group spanning a thousand
+                 * events answers as exactly as one spanning two.
+                 */
+                'SUBSTRING_INDEX(GROUP_CONCAT(Event.id ORDER BY '
+                    . 'Attribute.timestamp DESC), \',\', 1) AS event_id',
+                /*
+                 * Whether *every* row carrying this sentence is
+                 * soft-deleted. `MIN` and not `MAX`: a sentence still
+                 * live on one occurrence is live, and the panel marks
+                 * only the ones nothing carries any more.
+                 */
+                'MIN(Attribute.deleted) AS deleted',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'group' => array('Attribute.comment', 'Event.orgc_id'),
+            'order' => array('last_at DESC'),
+        );
+        if (isset($options['limit'])) {
+            $params['limit'] = $options['limit'];
+        }
+        $out = array();
+        foreach ($attributes->find('all', $params) as $row) {
+            $out[] = array(
+                'comment' => (string)$row['Attribute']['comment'],
+                'orgc_id' => (int)$row['Event']['orgc_id'],
+                'occurrences' => (int)$row[0]['occurrences'],
+                'events' => (int)$row[0]['events'],
+                'first_at' => (int)$row[0]['first_at'],
+                'last_at' => (int)$row[0]['last_at'],
+                'event_id' => (int)$row[0]['event_id'],
+                'deleted' => !empty($row[0]['deleted']),
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * How many of this value's occurrences carry a comment at all.
+     *
+     * The denominators the grouped read above cannot state. It returns
+     * at most a capful of sentences; this says how many there are, how
+     * many rows carry one and across how many events — the three
+     * numbers the panel's header is a sentence about, and the ones a
+     * capped list must not be asked for.
+     *
+     * `COUNT(DISTINCT comment, orgc_id)` is the same pair the grouped
+     * read groups on, so the total can never disagree with the rows
+     * drawn under it. It rides along in the aggregate the occurrence
+     * count needs anyway, which is why the exact number is affordable
+     * where *more than fifty* would have been the alternative.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `comments`, `occurrences`, `events`
+     */
+    public function commentSummaryFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.comment !=' => '');
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(DISTINCT Attribute.comment, Event.orgc_id)'
+                    . ' AS comments',
+                'COUNT(DISTINCT Attribute.id) AS occurrences',
+                'COUNT(DISTINCT Event.id) AS events',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+        ));
+        return array(
+            'comments' => (int)($row[0]['comments'] ?? 0),
+            'occurrences' => (int)($row[0]['occurrences'] ?? 0),
+            'events' => (int)($row[0]['events'] ?? 0),
+        );
+    }
+
     /*
      * ------------------------------------------------------------------
      * The Relationships tab's queries.

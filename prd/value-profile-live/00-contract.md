@@ -556,10 +556,11 @@ document that filled it.
 | Collaboration | `viewAnalystStanding` | `value_analyst_standing` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystThread` | `value_analyst_thread` | 7–28 | the *analyst rows present*, not the value's size | 1 | **26** |
 | Collaboration | `viewAnalystReports` | `value_analyst_reports` | 2–18 | the *reports present*, not the value's size | 1 | **26**, element added by it |
+| Collaboration | `viewAnalystComments` | `value_analyst_comments` | **2–4** | nothing — two grouped aggregates, then an organisation list and an event resolve over the rows drawn | 2, both aggregates | [**34**](34-comments.md). The tab's cheapest endpoint by an order of magnitude, which is why the table sits third on it and not last. The 226 ms on `flood` is 65,717 occurrences filtered on an unindexed `TEXT` column to find nothing |
 | Timeline | `viewTimeline` | `value_timeline` | 16–33, +3 since 25.7, **+2 since 25.28** | nothing — the *sources present*, not the value's size | 1, one aggregate at 2 | **25**, two lanes added by **25.7**, one more by **25.28** |
 | History | `viewHistory` | `value_history` | 11–34 | the *events in scope*, not the value's size | 1, one aggregate at 2 | **27** |
 
-Twenty-six rows carry numbers — twenty-two until 2026-09-13, when the four assessment rows were measured; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
+Twenty-seven rows carry numbers — twenty-two until 2026-09-13, when the four assessment rows were measured, and twenty-six until [34](34-comments.md) added the comment table; the rest are `—` because nothing else is wired, or because nobody has measured them yet — the two are distinguished in the `Phase` cell. A row
 moves off `—` only when its phase document records the same numbers, so the two
 cannot disagree without one of them being visibly blank.
 

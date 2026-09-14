@@ -10790,3 +10790,100 @@ a.vp-lane-tag:focus-visible {
 .vp-sap-meta a:hover {
     text-decoration: underline;
 }
+
+/* ==================================================================
+ * Collaboration tab — the attribute-comment table
+ *
+ * A table rather than the stacked blocks its three neighbours use, and
+ * the reason is in the data: one sentence repeated across 1,459 rows is
+ * one statement with a number beside it, and a number beside a sentence
+ * is a column. It is also the shortest thing on the tab per fact shown,
+ * which is the other half of what this pass was for.
+ * ================================================================== */
+
+.vp-ctable {
+    table-layout: fixed;
+}
+
+/*
+ * The sentence gets whatever the five narrow columns leave, and it
+ * truncates rather than wraps. `table-layout: auto` measures the
+ * longest comment on the value and hands it the table — this instance
+ * holds comments of several hundred characters — which turns a
+ * five-row table into a five-paragraph one. The full text is in the
+ * cell's title, and the panel is a scan of what was written rather
+ * than a reader for it.
+ */
+.vp-ctable-text {
+    max-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vp-ctable-num {
+    width: 4.5rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/*
+ * Sized, like every column but the sentence. Under
+ * `table-layout: fixed` an unsized column splits the remainder with the
+ * comment, which put a 380px gap between the event chip and the
+ * organisation beside it.
+ */
+.vp-ctable-event {
+    width: 7rem;
+}
+
+.vp-ctable-org {
+    width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+ * Wide enough for the longest pair the column can hold —
+ * `2017-08-05 109 months ago`, which the instance actually carries. At
+ * 10.5rem the age was clipped to `109 months ag`, which reads as a
+ * rendering fault rather than a narrow column.
+ */
+.vp-ctable-when {
+    width: 12.5rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The relative age sits beside the date rather than instead of it.
+ * `2026-01-14` answers *which day* and `8 months ago` answers *is this
+ * current*, and the ledger one panel up already pairs them this way.
+ */
+.vp-ctable-age {
+    margin-left: 6px;
+    color: var(--bs-secondary-color);
+    opacity: 0.85;
+}
+
+.vp-ctable .vp-ctable-gone {
+    opacity: 0.62;
+}
+
+.vp-ctable .vp-ctable-gone .vp-ctable-text span {
+    text-decoration: line-through;
+}
+
+/* The chip is 0.68rem in a 0.8rem table; the cell should not reserve a
+   row height for the padding it does not use. */
+.vp-ctable td {
+    vertical-align: middle;
+}
+
+/* Third of a column's width is an event id and the rest is a link
+   affordance; 6rem holds `#12345` with the glyph. */
+.vp-ctable td .vpa-chip {
+    max-width: 100%;
+}
