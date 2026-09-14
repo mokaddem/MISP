@@ -48,7 +48,7 @@ to `done` only when §9's verification has run against it.
 | T11 | Galaxy clusters behind `fetchGalaxyClusters`, not behind their tag names | §6.3 | **done** |
 | T12 | The Lifecycle card's warninglist line — the same tool, a second read | §7.1 | **done** — via `verdictWarninglist`, checked against the tab |
 | T13 | The correlation line — the flag kept, the count withdrawn (D2) | §7.2 | **done** |
-| T14 | The three concepts: the proposals decision, and the event-report count | §10 | **deferred, with reasons** — §14.8 |
+| T14 | The three concepts: the proposals decision, and the event-report count | §10 | **the count is taken** — §17; the proposals half stays phase 22's, §14.8 |
 | T15 | The board rows — §14.12's four cells and §14.13's phase row | §12 | **done** |
 | T16 | Verification over HTTP, on five values, in both themes | §9 | **done** — §14.9 over HTTP, §15 through the models as two readers |
 
@@ -853,11 +853,13 @@ claim.
   carries its badge; what this phase does not add is a standalone
   proposal row, which is phase 22's outstanding half and belongs with
   the table that can paginate them.
-- **Event reports — deferred, and the cost is a count.** §10 recommended
-  the Collaboration preview card over a seventh fact cell. That card is
-  phase 26's and live; adding a line to it is an amendment to a built
-  panel rather than this phase's conversion, and it is named here so it
-  is not lost.
+- ~~**Event reports — deferred, and the cost is a count.**~~ — **taken,
+  in §17.** §10 recommended the Collaboration preview card over a
+  seventh fact cell. That card is phase 26's and live; adding a line to
+  it is an amendment to a built panel rather than this phase's
+  conversion, and being named here is what kept it. The card's subtitle
+  reads `8 reports on its events`, off one `find('count')` over the
+  event ids the anchor read already returned.
 
 ### 14.9 Verification, as it ran
 
@@ -1113,3 +1115,104 @@ panel's own number now, under the panel's own definition.
 badge are one call rather than two, for the same reason everything else
 on this page is: a quantity read twice is a quantity that can disagree
 with itself.
+
+
+---
+
+## 17. The event-report count, taken
+
+§14.8 deferred this with its reason: §10 had recommended the
+Collaboration preview card over a seventh fact cell, and that card is
+phase 26's and live, so adding a line to it is an amendment to a built
+panel rather than this phase's conversion. The amendment is made now and
+the recommendation is what it follows.
+
+**The chip reads `8 reports on its events`**, in the card's subtitle
+beside its notes, opinions and proposals. The last three words are the
+whole of the wording question. Notes and opinions reach this value
+through five kinds of anchor — the occurrence, its event, its object,
+the value's galaxy clusters — and an event report attaches to an event
+and to nothing smaller. `8 reports` next to `3 notes` would read as
+eight documents about the value, which is the sentence phase 26 spent a
+header refusing to let its own panel say.
+
+**It is one query, over events already in hand.** `analystAnchors`
+collected the occurrence read's event ids to build the union and threw
+them away; it returns them now, and `analystReportCount` runs a
+`find('count')` over them. The alternative — a second occurrence read to
+rebuild the set — is not merely more expensive, it is wrong: the cap
+orders by timestamp, so the second read could return a different set and
+the card would be counting reports on events the union beside it never
+looked for notes on.
+
+**`EventReport::buildACLConditions`, which is what `fetchReports`
+applies**, and not `attachReportCountsToEvents`. That method ANDs
+`distribution IN (1,2,3,5)` with `distribution = 4` where an `OR` was
+intended (`EventReport.php:392-407`) and returns 0 for every event the
+viewer's org does not own; it ships, it is on the standing do-not-fix
+list, and phase 25's report lane and phase 26's panel both routed around
+it. A count that inherited it would have been the fourth surface to.
+
+**A count and not the rows.** `analystReports` materialises every report
+to render four lines of each; this needs one integer, and fetching rows
+to call `count()` on them is the trap `22-occurrences.md` §4.1 names.
+
+**Withdrawn reports are in it**, because the number it mirrors is the
+panel's `total`, which counts them and then qualifies itself with *N
+withdrawn* beside it. A subtitle chip has no room for the qualifier, and
+a count that silently meant something narrower than the panel's would be
+exactly the cross-panel disagreement this card exists to have stopped.
+
+### 17.1 The empty state gained a fourth case
+
+The card's *nothing written* sentence already knew about proposals,
+because *No analyst has written about this value* over a value carrying
+three open proposals is the one sentence it must not print. Reports make
+that a fourth case and the fourth is **both**, which the pair of
+ternaries would have dropped — so the clauses are composed:
+
+> Nobody has written a note or an opinion about this value, but there
+> are proposals on it **and** event reports on its events.
+
+`$hasTab` moves with it. The *Open thread* affordance was suppressed
+when nothing was written, which on a value whose events carry four
+reports hid the tab that holds them.
+
+### 17.2 Verification
+
+Two probes, because the two questions are different.
+
+[`30-report-count-check.py`](30-report-count-check.py) fetches the card
+and the tab's panel in **separate requests** and compares the numbers
+they print. Agreement across six values, including `443`, whose 48,255
+occurrences reach 19 events and no report at all.
+
+[`30-report-count-probe.php`](30-report-count-probe.php) is §15's
+lesson applied: every HTTP check above is a site admin's, and a site
+admin is the one reader who cannot detect an ACL mistake. It runs both
+surfaces under the site admin and the CIRCL org admin across six values
+— **18 checks, 0 failures** — and the third assertion is the one that
+matters: the count is the reader's.
+
+| Value | Site admin | CIRCL org admin |
+|---|---|---|
+| `circl.lu` | 11 | **10** |
+| `google.com` | 7 | 7 |
+| `1.2.3.4` | 7 | **6** |
+| `8.8.8.8` | 8 | **7** |
+| `443` | 0 | 0 |
+| `sage.png` | 0 | 0 |
+
+Three of the six narrow. A count that had dropped its conditions would
+have printed the site admin's number in both columns and passed every
+check in the first probe.
+
+The probe also asserts that the count is the panel's `total` and not the
+rows it drew — `total` is taken before the 50-row cap slices, so a
+future change that counted rendered rows fails there rather than in a
+reader's face on the one value that exceeds it.
+
+**The empty state was verified on a real value and not an authored one.**
+`004ede55a972e10d9a21bcf338b4907d6eed65bf5ad6abbbd5aec7d8484bdedf` has
+no note and no opinion and its events carry four reports, so it drew the
+new sentence and the *Open thread* button the old condition suppressed.

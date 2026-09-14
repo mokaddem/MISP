@@ -19,6 +19,12 @@
  * it let a card headed *the most recent* put a two-year-old note above
  * yesterday's opinion.
  *
+ * **The event-report count lands here** rather than as a seventh fact
+ * cell, which is where `29-overview.md` §10 recommended it and §14.8
+ * deferred it: this card already mirrors the tab that holds the list,
+ * and the fact strip is full at six. It is a count and never a row —
+ * the documents are the tab's third panel.
+ *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewAnalystPreview.
  *
@@ -49,6 +55,28 @@ $subtitle = implode(' &nbsp;·&nbsp; ', array_filter(array(
         ? h(sprintf(
             __n('%s proposal', '%s proposals', (int)$counts['proposals']),
             (int)$counts['proposals']
+        ))
+        : null,
+    /*
+     * **On its events, and the phrase is the point.** Notes and
+     * opinions reach this value through five kinds of anchor; an event
+     * report attaches to an event and to nothing smaller, so a bare
+     * `8 reports` beside `3 notes` would read as eight documents about
+     * the value. The tab's panel spends a header saying so, and this
+     * chip says it in three words.
+     *
+     * The number is the panel's headline total — withdrawn reports
+     * included, because that is what the panel counts before it
+     * qualifies itself.
+     */
+    (int)$counts['reports'] > 0
+        ? h(sprintf(
+            __n(
+                '%s report on its events',
+                '%s reports on its events',
+                (int)$counts['reports']
+            ),
+            (int)$counts['reports']
         ))
         : null,
     $shown > 0 && $shown < $written
@@ -89,19 +117,33 @@ $meta = function ($item) use ($baseurl) {
 
 /*
  * Nothing written is a state, and which state depends on what else the
- * union found. A value nobody has written about and a value three
- * organisations have proposed edits to are not the same emptiness, and
- * this card previews a tab that holds both.
+ * tab found. A value nobody has written about, a value three
+ * organisations have proposed edits to, and a value whose events carry
+ * eight reports are not the same emptiness, and this card previews a
+ * tab that holds all three.
+ *
+ * The clauses are composed rather than enumerated because there are now
+ * four cases and the fourth — both — is the one a pair of ternaries
+ * would have dropped.
  */
-$emptyText = (int)$counts['proposals'] > 0
-    ? __(
-        'Nobody has written a note or an opinion about this value, but'
-        . ' there are proposals on it.'
-    )
-    : __('No analyst has written about this value.');
+$elsewhere = array_filter(array(
+    (int)$counts['proposals'] > 0 ? __('proposals on it') : null,
+    (int)$counts['reports'] > 0
+        ? __('event reports on its events')
+        : null,
+));
+$emptyText = empty($elsewhere)
+    ? __('No analyst has written about this value.')
+    : sprintf(
+        __(
+            'Nobody has written a note or an opinion about this value,'
+            . ' but there are %s.'
+        ),
+        implode(__(' and '), $elsewhere)
+    );
 
 // Nothing on the tab means nothing to open, so the affordance goes too.
-$hasTab = $written > 0 || (int)$counts['proposals'] > 0;
+$hasTab = $written > 0 || !empty($elsewhere);
 $headerExtra = !$hasTab ? null : '<a href="#tab-analyst"'
     . ' class="btn btn-sm btn-outline-secondary d-flex align-items-center'
     . ' gap-1" title="' . h(__('The full thread')) . '">'

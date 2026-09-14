@@ -10999,6 +10999,14 @@ class ValueProfile extends AppModel
      * carrying three open proposals is the one sentence this card must
      * not print. They come free — the union already holds them.
      *
+     * **Event reports, also only as a count, and that one is not
+     * free.** `29-overview.md` §10 routed the count to the Overview and
+     * the list to the tab, and named this card over a seventh fact cell
+     * because it already mirrors the tab that holds the list; §14.8
+     * deferred it as an amendment to a built panel. It costs the one
+     * query `analystReportCount` runs, over the event ids the anchor
+     * read already returned.
+     *
      * @param array $user
      * @param string $value
      * @param array $options
@@ -11009,6 +11017,10 @@ class ValueProfile extends AppModel
     ) {
         $context = $this->analystContext($user, $value, $options);
         $context['preview'] = self::analystPreviewItems($context['thread']);
+        $context['counts']['reports'] = $this->analystReportCount(
+            $user,
+            $context['events']
+        );
         /*
          * The thread and the ledger are dropped on the way out. The
          * card renders four items and the union can hold hundreds;
@@ -11022,7 +11034,7 @@ class ValueProfile extends AppModel
          * that method exists to prevent — to save some array grouping
          * over rows already in memory. No query is involved.
          */
-        unset($context['thread'], $context['standing']);
+        unset($context['thread'], $context['standing'], $context['events']);
         return array(
             'value' => $value,
             'analyst' => $context,
@@ -11099,6 +11111,53 @@ class ValueProfile extends AppModel
                 $events['ids']
             ) + array('occurrence_capped' => $events['capped']),
         );
+    }
+
+    /**
+     * How many event reports the tab's third panel will list.
+     *
+     * The Overview's preview of the Collaboration tab states this as a
+     * number and the tab states it as documents, so what this must not
+     * be is a second opinion: it runs `EventReport::buildACLConditions`
+     * — the conditions `fetchReports` itself applies, and the reason
+     * both routed around `attachReportCountsToEvents` — over the event
+     * ids the preview's own anchor read returned. Same reader, same
+     * events, same predicate, so the card's count and the panel's
+     * headline agree by construction rather than by luck.
+     *
+     * **A count and not the rows.** `analystReports` materialises every
+     * report to render four lines of each; this needs one integer, and
+     * fetching rows to call `count()` on them is the trap `22-occurrences
+     * .md` §4.1 names. `find('count')` contains `Event` because the ACL
+     * conditions are spelled on its columns and are not expressible
+     * without the join.
+     *
+     * **Withdrawn reports are in it**, because the number this mirrors
+     * is the panel's `total`, which counts them and then qualifies
+     * itself with *N withdrawn* beside it. A subtitle chip has no room
+     * for the qualifier, and a count that silently meant something
+     * narrower than the panel's would be the cross-panel disagreement
+     * this whole card exists to have stopped.
+     *
+     * @param array $user
+     * @param array $eventIds From `analystAnchors`
+     * @return int
+     */
+    private function analystReportCount(array $user, array $eventIds)
+    {
+        if (empty($eventIds)) {
+            return 0;
+        }
+        $model = $this->model('EventReport');
+        $conditions = $model->buildACLConditions($user);
+        $conditions['AND'][] = array(
+            'EventReport.event_id' => $eventIds,
+        );
+        return (int)$model->find('count', array(
+            'conditions' => $conditions,
+            'contain' => array('Event'),
+            'recursive' => -1,
+        ));
     }
 
     /**
@@ -11397,6 +11456,9 @@ class ValueProfile extends AppModel
             'counts' => $this->analystCounts($thread),
             'standing' => $this->analystStanding($thread),
             'thread' => $thread,
+            // The anchor read's events, for the one caller that counts
+            // something attached to an event rather than to a uuid.
+            'events' => $anchors['events'],
         );
     }
 
@@ -11474,6 +11536,15 @@ class ValueProfile extends AppModel
                 array_keys($attributeIds),
                 array_keys($eventIds)
             ),
+            /*
+             * The events this read reached, handed out rather than
+             * recomputed. The preview's report count is over exactly
+             * this set, and a second occurrence read to rebuild it
+             * could return a different one — the cap orders by
+             * timestamp, so the count would be over events the union
+             * beside it did not look for notes on.
+             */
+            'events' => array_keys($eventIds),
             'occurrences' => count($occurrences),
             /*
              * The union is built from the newest cap-many occurrences,
