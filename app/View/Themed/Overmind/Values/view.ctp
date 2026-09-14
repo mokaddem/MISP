@@ -482,6 +482,22 @@ $occurrenceBadge = $occurrences === 0 ? null : array(
     'color' => 'var(--vp-occ-attribute)',
 );
 
+/*
+ * And the sightings pill, on the same two rules. No unit, because the
+ * tab is already called Sightings; null at zero, because *0* on a tab
+ * answers *is this worth opening* in the one direction that costs the
+ * reader nothing to get wrong by staying silent.
+ *
+ * It is the viewer's own number — `Value::sightingCountsFor` applies
+ * `Sightings_policy` in SQL — and it is the number the fact strip
+ * prints, from the same call rather than from a second one.
+ */
+$sightings = (int)($counts['sightings'] ?? 0);
+$sightingBadge = $sightings === 0 ? null : array(
+    'label' => number_format($sightings),
+    'color' => 'var(--sighting)',
+);
+
 $tabRegistry = array(
     array(
         'id' => 'general',
@@ -544,21 +560,27 @@ $tabRegistry = array(
         'title' => __('Sightings'),
         'icon' => 'misp-icon misp-icon-sighting misp-simple',
         /*
-         * No count, for the Timeline tab's reason and one of its own.
-         * A sighting count is the *viewer's* — `Sightings_policy` hides
-         * whole reports — and getting it costs the panel's own thirteen
-         * queries, on every page load, for a tab most readers never
-         * open. It carried a fixture literal until 2026-08-28, which
-         * read 17 beside a panel reporting 53.
+         * **A real count since phase 29**, and it is the viewer's.
+         * There was none here for two reasons, one of which has gone:
+         * a sighting count is the *viewer's* — `Sightings_policy` hides
+         * whole reports — and getting it used to cost the panel's own
+         * thirteen queries on every page load. `Value::sightingCountsFor`
+         * is one indexed aggregate with the policy expressed as SQL, so
+         * the price is a single count on the frame's own read.
          *
-         * `ValueProfile::forTabCounts` holds the reasoning and the
-         * condition for putting a number back.
+         * The badge carried a fixture literal until 2026-08-28, which
+         * read 17 beside a panel reporting 53; it reads 53 now, off the
+         * same rule `listSightings` applies, verified against it under
+         * all four policies.
+         *
+         * `ValueProfile::forTabCounts` holds the rest of the reasoning.
          *
          * The page's usual 9/3 split. The overlay is the tab, and it
          * needs the width: bars stacked by organisation under the shelf
          * life on its own axis is not a chart that survives being put in
          * a card beside something else.
          */
+        'badge' => $sightingBadge,
         'left' => array(
             $panel('viewSightingChart'),
             $panel('viewSightingList'),

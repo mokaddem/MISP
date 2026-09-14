@@ -547,6 +547,110 @@ class Value extends AppModel
     }
 
     /**
+     * How many sightings this viewer may see on this value, and how
+     * many of them are false positives.
+     *
+     * **The count the fact strip and the tab badge both wanted and
+     * neither could have.** `ValueProfile::forTabCounts` dropped the
+     * sightings badge rather than print a number that is not the
+     * reader's, and said what it would take to bring it back: *"`Sighting`
+     * growing a counting method that applies the policy in SQL instead
+     * of in PHP over fetched rows"*. This is that method's value-scoped
+     * half.
+     *
+     * Two visibility rules meet here and both are somebody else's:
+     *
+     * - **the attribute half** is `buildConditions($user)` with
+     *   `conditionsFor`, exactly as every other aggregate in this class
+     *   scopes itself, so a sighting on an occurrence the reader cannot
+     *   see is not counted;
+     * - **the sighting half** is `Sighting::visibilityConditions`,
+     *   which is `Plugin.Sightings_policy` as a predicate over the
+     *   joined rows rather than over an id set — and an id set is the
+     *   reason this did not exist, since `443` would have had to
+     *   materialise 48,255 attribute ids before its three sightings
+     *   could be counted.
+     *
+     * One aggregate, one join, and nothing that grows with the value:
+     * `COUNT` over the `sightings` index on `attribute_id`, against the
+     * occurrence predicate the rest of the page already uses.
+     *
+     * **Soft-deleted occurrences are excluded, and that is the one
+     * place this deliberately differs from the occurrence count beside
+     * it.** `listSightings` puts `Attribute.deleted = 0` in its own
+     * conditions, so the Sightings tab does not show a report filed
+     * against a withdrawn occurrence — and a strip cell that counted
+     * reports the tab will not list is a cell that sends the reader to
+     * look for rows that are not there. Agreeing with the panel this
+     * number links to matters more than agreeing with the number beside
+     * it, which counts a different thing.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array `total` and `fp`
+     */
+    public function sightingCountsFor(array $user, $value,
+        array $options = array()
+    ) {
+        $attributes = $this->attributes();
+        $conditions = $attributes->buildConditions($user);
+        $conditions['AND'][] = $this->conditionsFor($value, $options);
+        $conditions['AND'][] = array('Attribute.deleted' => 0);
+        $policy = ClassRegistry::init('Sighting')
+            ->visibilityConditions($user);
+        if (!empty($policy)) {
+            $conditions['AND'][] = $policy;
+        }
+        $row = $attributes->find('first', array(
+            'fields' => array(
+                'COUNT(Sighting.id) AS total',
+                'SUM(CASE WHEN Sighting.type = 1 THEN 1 ELSE 0 END) AS fp',
+                'SUM(CASE WHEN Sighting.type = 2 THEN 1 ELSE 0 END)'
+                    . ' AS expiration',
+            ),
+            'conditions' => $conditions,
+            'recursive' => -1,
+            'contain' => array('Event', 'Object'),
+            'joins' => array(
+                array(
+                    'table' => 'sightings',
+                    'alias' => 'Sighting',
+                    'type' => 'INNER',
+                    'conditions' => array(
+                        'Sighting.attribute_id = Attribute.id',
+                    ),
+                ),
+            ),
+        ));
+        $found = empty($row[0]) ? array() : $row[0];
+        $total = (int)($found['total'] ?? 0);
+        $fp = (int)($found['fp'] ?? 0);
+        $expiration = (int)($found['expiration'] ?? 0);
+        return array(
+            'total' => $total,
+            /*
+             * **`sighting` is the one the page prints under the word
+             * *Sightings***, and it is not `total`. The `sightings`
+             * table holds three kinds of row and MISP counts them
+             * apart: the Overview's own card reads *47 Sightings · 4
+             * False positive · 2 Expiration* on `8.8.8.8`, where the
+             * three sum to 53. A fact cell headed *Sightings 53* beside
+             * a card headed *47 Sightings* is one word meaning two
+             * things on one page, which is the contradiction this
+             * feature keeps being bitten by — so the cell prints this
+             * and the card's arithmetic is where it comes from.
+             *
+             * `total` stays, because it is what `listSightings` returns
+             * a row for and so what the probe compares against.
+             */
+            'sighting' => $total - $fp - $expiration,
+            'fp' => $fp,
+            'expiration' => $expiration,
+        );
+    }
+
+    /**
      * How many occurrences reach this value through `value2`, by type.
      *
      * The page's occurrence set is `value1 = X OR value2 = X`

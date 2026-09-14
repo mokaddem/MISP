@@ -888,20 +888,24 @@ class ValueProfile extends AppModel
      * it. Two counts that should match are two counts that can drift;
      * one call cannot disagree with itself.
      *
-     * **Sightings gets no number at all**, and the key is removed
-     * rather than zeroed. A sighting badge has to be the viewer's:
-     * `Sightings_policy` hides whole reports and two readers would read
-     * two numbers off one tab bar. Getting the viewer's count means
-     * running the policy over the rows, which is the panel's own 13
-     * queries — paid on every page load, for a tab most readers never
-     * open. No number is better than a wrong one, and the Timeline and
-     * History tabs already carry no badge for the same reason.
+     * **Sightings had no number at all, and now has one.** The badge
+     * was removed rather than zeroed because a sighting count has to be
+     * the viewer's — `Sightings_policy` hides whole reports and two
+     * readers would otherwise read two numbers off one tab bar — and
+     * getting the viewer's count meant running the policy over fetched
+     * rows, the panel's own 13 queries, on every page load of a tab
+     * most readers never open. That note asked for *"`Sighting`
+     * growing a counting method that applies the policy in SQL instead
+     * of in PHP over fetched rows"*, and phase 29 built it:
+     * `Sighting::visibilityConditions` is the policy as a predicate and
+     * `Value::sightingCountsFor` is one indexed aggregate over it.
      *
-     * **Revisit when a cheap viewer-scoped count exists.** It would
-     * take `Sighting` growing a counting method that applies the policy
-     * in SQL instead of in PHP over fetched rows — worth doing when the
-     * Overview's phase converts the frame, since the fact strip's
-     * `%d sightings` line needs exactly the same number.
+     * **The caller passes it in rather than this method fetching it**,
+     * because the fact strip needs the same number and the two must not
+     * be two counts. `forFrame` makes the one call and hands the total
+     * here — which is the rule the occurrence count below states the
+     * other way round, and the reason both badges can be trusted.
+     * Timeline and History still carry no badge.
      *
      * **Relationships gets a number that names its own unit.** The
      * fixture's badge was the *correlation* total, and nothing on the
@@ -961,7 +965,6 @@ class ValueProfile extends AppModel
         $counts['relationship_objects'] = $valueModel
             ->objectCountFor($user, $value);
         unset(
-            $counts['sightings'],
             $counts['relationships'],
             $counts['enrichment']
         );
@@ -979,7 +982,7 @@ class ValueProfile extends AppModel
      * one place is what makes the budget something a reviewer can see
      * (`29-overview.md` §4.1).
      *
-     * Six queries, all single-row aggregates or small group-bys:
+     * Seven queries, all single-row aggregates or small group-bys:
      *
      *   1. `occurrenceSummaryFor` — the strip's five numbers and both
      *      its dates, in one aggregate measured at 4 ms on a value with
@@ -987,10 +990,14 @@ class ValueProfile extends AppModel
      *   2. `typesFor` — the banner's type chips, and the strip's
      *      *n types* sub-line for free
      *   3. `hitsFor` — the banner's warninglist chip
-     *   4. `value2CountFor` — the note below the banner
-     *   5, 6. `forTabCounts` — the occurrence and object badges
+     *   4. `sightingCountsFor` — the strip's sightings cell **and** the
+     *      Sightings tab's badge, which is one call rather than two
+     *      because a badge and a cell reading one quantity twice is how
+     *      they come to disagree
+     *   5. `value2CountFor` — the note below the banner
+     *   6, 7. `forTabCounts` — the occurrence and object badges
      *
-     * The seventh read on a page load is the assessment behind the tab
+     * The eighth read on a page load is the assessment behind the tab
      * pill, at 9 to 27, and it is not this method's: `ValuesController::
      * view()` asks for it separately because it is the one thing here
      * that can be told only by running the engine.
@@ -1021,6 +1028,7 @@ class ValueProfile extends AppModel
             $this->model('Warninglist'),
             $pairs
         );
+        $sightings = $valueModel->sightingCountsFor($user, $value, $options);
         return array(
             'value' => $value,
             'types' => $types,
@@ -1028,8 +1036,14 @@ class ValueProfile extends AppModel
             'value2_note' => ValueFactsTool::value2Note(
                 $valueModel->value2CountFor($user, $value, $options)
             ),
-            'facts' => ValueFactsTool::strip($summary, $types),
-            'counts' => $this->forTabCounts($user, $value, array()),
+            'facts' => ValueFactsTool::strip($summary, $types, $sightings),
+            'counts' => $this->forTabCounts(
+                $user,
+                $value,
+                // The same number the strip prints, from the same call
+                // — and the type-0 one, for the reason given there.
+                array('sightings' => $sightings['sighting'])
+            ),
         );
     }
 

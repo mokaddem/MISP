@@ -525,7 +525,7 @@ document that filled it.
 
 | Tab | Endpoint | Element | Q | Scales | Tier | Phase |
 |---|---|---|---|---|---|---|
-| — | `view` | `Values/view.ctp` (full page) | **6** | nothing — single-row aggregates and two small group-bys | 2, `forFrame` has the reason | **29**. The page's only synchronous read; the assessment behind the tab pill is a seventh at 9–27 and is `viewVerdict`'s row |
+| — | `view` | `Values/view.ctp` (full page) | **7** | nothing — single-row aggregates and two small group-bys | 2, `forFrame` has the reason | **29**. The page's only synchronous read; the assessment behind the tab pill is an eighth at 9–27 and is `viewVerdict`'s row. §16 there added the seventh, which is the sightings count the badge and the fact strip share |
 | Overview | `viewOccurrences` | `value_occurrences` | 9 | nothing — capped at 25 rows, and the totals are aggregates | 1, two aggregates at 2 | **29**. `viewOccurrenceTable` took the same correction (§14.2, §15.2): both read one `occurrenceSummaryFor` rather than tallying their own capped rows |
 | Overview | `viewContext` | `value_context` | 4 | nothing — two capped reads, 60 labels and 40 clusters | 2, two aggregates at 2 | **29**; §14.4 there is the 2.9 MB fragment that made it a cap and §15.1 the reader who saw more clusters for seeing less of the value |
 | Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |

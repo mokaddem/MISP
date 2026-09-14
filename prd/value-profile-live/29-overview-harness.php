@@ -120,6 +120,21 @@ function types()
     );
 }
 
+/**
+ * `8.8.8.8`'s own shape on the verification instance, which is the case
+ * that matters: three kinds of row, summing to a total the page must
+ * not print under the word *Sightings*.
+ */
+function sightings(array $over = array())
+{
+    return $over + array(
+        'total' => 53,
+        'sighting' => 47,
+        'fp' => 4,
+        'expiration' => 2,
+    );
+}
+
 function cell(array $facts, $label)
 {
     foreach ($facts as $fact) {
@@ -133,17 +148,42 @@ function cell(array $facts, $label)
 out();
 out('== ValueFactsTool::strip — the five cells ==');
 
-$facts = ValueFactsTool::strip(summary(), types(), NOW);
+$facts = ValueFactsTool::strip(summary(), types(), sightings(), NOW);
 
-is_same(5, count($facts), 'five cells, not the fixture\'s six');
+is_same(6, count($facts), 'six cells');
 is_same(
-    array('First seen', 'Last seen', 'Occurrences', 'Events', 'Organisations'),
+    array('First seen', 'Last seen', 'Occurrences', 'Events',
+        'Organisations', 'Sightings'),
     array_column($facts, 'label'),
     'the labels, in order'
 );
+is_same(
+    '47',
+    cell($facts, 'Sightings')['value'],
+    'the cell prints sightings proper, as the card beneath it does'
+);
+is_true(
+    cell($facts, 'Sightings')['value'] !== '53',
+    'and not the total of all three kinds, which the card calls something else'
+);
+is_same(
+    '4 false positives',
+    cell($facts, 'Sightings')['sub'],
+    'and names the false positives among them'
+);
+is_same(
+    'sightings',
+    cell($facts, 'Sightings')['tab'],
+    'and links to the panel that lists them'
+);
 is_null_value(
-    cell($facts, 'Sightings'),
-    'no sightings cell — the count cannot be told at page-load cost'
+    ValueFactsTool::strip(
+        summary(),
+        types(),
+        sightings(array('fp' => 0)),
+        NOW
+    )[5]['sub'],
+    'no false positives, no sub — rather than a nought nobody needs'
 );
 
 out();
@@ -182,7 +222,7 @@ is_null_value(
     'and no sub — naming the organisations costs a query'
 );
 
-$none = ValueFactsTool::strip(summary(), array(), NOW);
+$none = ValueFactsTool::strip(summary(), array(), sightings(), NOW);
 is_null_value(
     cell($none, 'Occurrences')['sub'],
     'no types, no types sub'
@@ -201,6 +241,7 @@ is_same('5 days ago', cell($facts, 'Last seen')['sub'], 'and so does last_seen')
 $undated = ValueFactsTool::strip(
     summary(array('dated_from' => 0, 'dated_at' => 0)),
     types(),
+    sightings(),
     NOW
 );
 is_same(
@@ -221,6 +262,7 @@ is_true(
 $half = ValueFactsTool::strip(
     summary(array('dated_from' => 0)),
     types(),
+    sightings(),
     NOW
 );
 is_same(
@@ -237,6 +279,7 @@ is_same(
 $empty = ValueFactsTool::strip(
     summary(array('oldest' => null, 'newest' => null)),
     array(),
+    sightings(),
     NOW
 );
 is_same(

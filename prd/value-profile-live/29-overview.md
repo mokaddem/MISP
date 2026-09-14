@@ -667,8 +667,10 @@ arrays. The SQL is checked by §14.9 instead.
 Planned as six cells from one aggregate plus a second for the sightings
 total. It ships as **five from one**.
 
-**The sightings cell is not built**, and the reasoning is
-`forTabCounts`' own, which had already refused the matching tab badge:
+**The sightings cell was not built in this pass, and §16 built
+it** — what follows is the reasoning as it stood, kept because it is
+what the reversal had to answer. It was `forTabCounts`' own, which had
+already refused the matching tab badge:
 a sighting count has to be the viewer's, `Sightings_policy` hides whole
 reports, and getting the viewer's number means running the policy over
 fetched rows. That docblock nominated this phase to fix it — *"worth
@@ -904,10 +906,10 @@ Two things are handed on:
 
 1. **`forOccurrenceTable`'s page-counted `events` and `orgs`** (§14.2),
    which is the same defect at a cap of 300.
-2. **A sightings count that can be told at page-load cost** (§14.1),
-   which needs `Sighting` growing a count that applies the policy in SQL
-   *without* keying on the attribute id set. The fact strip and the tab
-   badge both take it the day it exists.
+2. ~~**A sightings count that can be told at page-load cost**~~ —
+   **taken, in §16.** It needed `Sighting` growing a count that applies
+   the policy in SQL without keying on the attribute id set, and the
+   policy turned out to be expressible that way.
 
 
 ---
@@ -1001,3 +1003,113 @@ in two spellings on one page.
 can be told at page-load cost still needs `Sighting` growing a count
 that applies the policy in SQL without keying on the attribute id set.
 Nothing here brings it closer.
+
+
+---
+
+## 16. The sightings count, which turned out to be tellable
+
+§14.1 dropped the strip's sixth cell and §14.10 handed the problem on.
+`ValueProfile::forTabCounts` had framed it precisely, two phases
+earlier, when it refused the matching tab badge: *"Revisit when a cheap
+viewer-scoped count exists. It would take `Sighting` growing a counting
+method that applies the policy in SQL instead of in PHP over fetched
+rows — worth doing when the Overview's phase converts the frame, since
+the fact strip's `%d sightings` line needs exactly the same number."*
+
+The blocker was never the policy's complexity. It was
+`createConditionsByAttributes`, the method that implements the policy,
+which works from **fetched attribute rows**: it groups them by event,
+decides ownership per event in PHP, and emits one `OR` arm per event
+naming that event's attribute ids. On `443` that means materialising
+48,255 attribute ids before three sightings can be counted.
+
+**Every branch of the policy is a statement about the event, not about
+the attribute** — which means every one of them is a predicate over the
+joined rows:
+
+| Policy | As a predicate |
+|---|---|
+| `EVERYONE`, or a site admin | no condition |
+| `EVENT_OWNER` | `Event.orgc_id = you OR Sighting.org_id = you` |
+| `HOST_ORG` | `Event.orgc_id = you OR Sighting.org_id IN (you, host)` |
+| `SIGHTING_REPORTER` | `Event.orgc_id = you OR EXISTS (a sighting of yours on that event)` |
+
+`Sighting::visibilityConditions` is that table, and
+`Value::sightingCountsFor` is one indexed aggregate over it — the
+sighting half of the rule from `Sighting`, the attribute half from
+`buildConditions($user)` as every other aggregate in `Value` does it.
+Nothing in it grows with the value.
+
+### 16.1 An access rule rewritten is verified against the original
+
+Rewriting an access rule is the most dangerous thing in this corpus:
+getting it wrong shows one organisation another organisation's reports.
+So it is not verified by reading it. It is verified against the answer
+MISP already gives, which is `Sighting::listSightings` — the same method
+the Sightings tab renders.
+
+[`29-sightings-count-probe.php`](29-sightings-count-probe.php) asks both
+for the same values and compares:
+
+- **all four policies**, and nothing on the instance is changed to do
+  it. `sightingsPolicy()` reads `Configure::read('Plugin.Sightings_policy')`,
+  so the probe overrides it in its own process and puts it back — no
+  setting written, no config file touched, the running server never sees
+  a different policy;
+- **three readers** — the site admin, a CIRCL org admin, and a plain
+  ADMIN-org user — because a rule that narrows can only be shown to
+  narrow by someone it narrows for;
+- **values that actually carry sightings**, read off the `sightings`
+  table rather than chosen, so the comparison is never zero against
+  zero.
+
+**240 checks, 0 failures**, and the numbers move as they should: on
+`8.8.8.8` under `HOST_ORG` the site admin counts 53 reports, the CIRCL
+org admin 20 and the plain user 26.
+
+### 16.2 MISP does not agree with itself about *own event*
+
+Found writing the predicate, and it is the reason the table above says
+`orgc_id` where a reader might expect `org_id`.
+
+**The two implementations of this policy compare different columns.**
+`createConditionsByAttributes` tests `Event.org_id` — the owner — while
+`listSightings` builds its `$eventOwnerOrgIdList` from `Event.orgc_id` —
+the creator — and uses it in both of its branches. On any synced event
+those differ, which on a connected instance is most of them.
+
+This follows `listSightings`, because that is the method whose answer
+the Value Profile's own Sightings tab renders, and a count on the page
+frame that disagreed with the panel it links to would be exactly the
+cross-panel contradiction this feature keeps being bitten by. The
+discrepancy is MISP's own; it is recorded here and not picked a winner
+for from this page.
+
+### 16.3 And *Sightings* had to be made to mean one thing
+
+The first wiring printed **53** on the strip — and the Overview's own
+sightings card, two inches below it, reads **47 Sightings · 4 False
+positive · 2 Expiration**.
+
+Both numbers were right. The `sightings` table holds three kinds of row
+and MISP counts them apart, so 53 is every report and 47 is the
+sightings among them. What was wrong is that one word meant two things
+on one page.
+
+`sightingCountsFor` returns the breakdown — `total`, `sighting`, `fp`,
+`expiration` — and the strip and the badge print `sighting`, which is
+the card's own arithmetic. `total` stays because it is what
+`listSightings` returns a row for and so what §16.1's probe compares
+against.
+
+The three surfaces now read one number: the tab bar says **Sightings
+47**, the strip says **47 · 4 false positives**, and the card says **47
+Sightings · 4 False positive**. The badge had carried a fixture literal
+until 2026-08-28 that read **17** beside a panel reporting 53; it is the
+panel's own number now, under the panel's own definition.
+
+**The frame's budget is seven queries**, up from six. The cell and the
+badge are one call rather than two, for the same reason everything else
+on this page is: a quantity read twice is a quantity that can disagree
+with itself.

@@ -28,31 +28,36 @@ class ValueFactsTool
     const TAB_TIMELINE = 'timeline';
     const TAB_OCCURRENCES = 'occurrences';
     const TAB_ASSESSMENT = 'assessment';
+    const TAB_SIGHTINGS = 'sightings';
 
     /**
      * The strip, as `value_fact_strip` reads it.
      *
-     * Five cells, not the fixture's six. **The sightings cell is not
-     * here**, and its absence is the same ruling `ValueProfile::
-     * forTabCounts` made about the sightings badge: a sighting count
-     * has to be the viewer's, `Sightings_policy` hides whole reports,
-     * and getting the viewer's number means running the policy over
-     * fetched rows — the Sightings panel's own thirteen queries, paid
-     * on every page load of every value. `Sighting::
-     * createConditionsByAttributes` builds that policy as SQL rather
-     * than as PHP and could be counted instead of fetched, but it keys
-     * on the attribute id set, so a value with 48,255 occurrences has
-     * to materialise 48,255 ids before the cheap count can run. No
-     * number is better than a wrong one, and the Sightings tab states
-     * the real one a click away.
+     * **Six cells, and the sixth took two attempts.** The sightings
+     * cell was left out of the first build for the reason
+     * `ValueProfile::forTabCounts` had already refused the matching tab
+     * badge: a sighting count has to be the viewer's,
+     * `Sightings_policy` hides whole reports, and getting the viewer's
+     * number meant running the policy over fetched rows — the Sightings
+     * panel's own thirteen queries, on every page load of every value.
+     *
+     * What `Value::sightingCountsFor` changes is that the policy turns
+     * out to be expressible as a predicate over the joined rows rather
+     * than over an id set, so the count is one indexed aggregate and
+     * nothing has to be materialised. It is verified against
+     * `Sighting::listSightings` — MISP's own answer — under all four
+     * policies and three readers, which is the bar an access rule
+     * rewritten as SQL has to clear.
      *
      * @param array $summary `Value::occurrenceSummaryFor`
      * @param array $types `Value::typesFor`
+     * @param array $sightings `Value::sightingCountsFor`
      * @param int|null $now Override for testing
      * @return array
      */
-    public static function strip(array $summary, array $types, $now = null)
-    {
+    public static function strip(array $summary, array $types,
+        array $sightings, $now = null
+    ) {
         $now = $now === null ? time() : $now;
         return array(
             self::dateFact(
@@ -94,6 +99,34 @@ class ValueFactsTool
                 'value' => number_format($summary['orgs']),
                 'sub' => null,
                 'tab' => self::TAB_ASSESSMENT,
+            ),
+            array(
+                'label' => __('Sightings'),
+                /*
+                 * `sighting`, not `total`: the Overview's own sightings
+                 * card breaks the three kinds of row apart and heads
+                 * the first *47 Sightings*, so a cell printing the
+                 * combined 53 under the same word would contradict the
+                 * card it sits above. `Value::sightingCountsFor` has
+                 * the arithmetic.
+                 */
+                'value' => number_format($sightings['sighting']),
+                /*
+                 * Only where there are any. *0 false positives* on the
+                 * majority of values is a line that says nothing and
+                 * takes the space of one that would.
+                 */
+                'sub' => empty($sightings['fp'])
+                    ? null
+                    : sprintf(
+                        __n(
+                            '%s false positive',
+                            '%s false positives',
+                            $sightings['fp']
+                        ),
+                        number_format($sightings['fp'])
+                    ),
+                'tab' => self::TAB_SIGHTINGS,
             ),
         );
     }
