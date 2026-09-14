@@ -8,6 +8,7 @@ App::uses('RedisTool', 'Tools');
 App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
 App::uses('ValueTrustTool', 'Tools/ValueProfile');
 App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueEnrichmentRun', 'Model');
 App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 App::uses('ValueSummaryTool', 'Tools/ValueProfile');
 App::uses('ValueContestedTool', 'Tools/ValueProfile');
@@ -13388,10 +13389,12 @@ class ValueProfile extends AppModel
                 $user,
                 $value,
                 isset($options['module']) ? $options['module'] : null,
-                isset($options['type']) ? $options['type'] : null
+                isset($options['type']) ? $options['type'] : null,
+                isset($options['mode']) ? $options['mode'] : null
             ),
         );
     }
+
 
     /**
      * What this reader could ask about this value.
@@ -13439,6 +13442,19 @@ class ValueProfile extends AppModel
             : ClassRegistry::init('AnalystProfile')->resolveFor($user);
         $plan = ValueEnrichmentTool::planFor($profile);
         $rows = $this->enrichmentEligible($enabled, $types, $plan);
+        /*
+         * Phase 11, D25. One indexed read over the store's leading
+         * key columns, and the whole reason the tab gains a memory
+         * rather than only `auto` gaining one: every row learns
+         * whether this organisation has already asked, and that is
+         * true of a module nobody declared as much as of one somebody
+         * did.
+         */
+        $stored = $this->model('ValueEnrichmentRun')->forValue(
+            $user,
+            $value
+        );
+        $rows = $this->enrichmentAttachStored($rows, $stored);
 
         return array(
             'service' => $service,
@@ -13467,9 +13483,63 @@ class ValueProfile extends AppModel
                 $plan,
                 $types,
                 $rows,
-                $service
+                $service,
+                $stored
             ),
         );
+    }
+
+    /**
+     * Give every catalogue row what the organisation already knows.
+     *
+     * **The most recent row for the module, across types.** A module
+     * can hold a row per type it was asked under, and *"asked 2 h
+     * ago"* is a statement about the module rather than about one
+     * question put to it — the reader picking a pane wants to know
+     * somebody has been here, and the pane itself names the type.
+     *
+     * `user_id` is deliberately not carried across (D27): the store
+     * knows who asked and no surface says so.
+     *
+     * @param array $rows Catalogue rows
+     * @param array $stored `module|type` => row
+     * @return array
+     */
+    private function enrichmentAttachStored(array $rows, array $stored)
+    {
+        $latest = array();
+        foreach ($stored as $row) {
+            $name = $row['module'];
+            if (isset($latest[$name])
+                && (int)$latest[$name]['last_run'] >= (int)$row['last_run']
+            ) {
+                continue;
+            }
+            $latest[$name] = $row;
+        }
+        foreach ($rows as $i => $row) {
+            $rows[$i]['stored'] = null;
+            if (!isset($latest[$row['name']])) {
+                continue;
+            }
+            $one = $latest[$row['name']];
+            $rows[$i]['stored'] = array(
+                'type' => $one['type'],
+                'state' => $one['state'],
+                'age' => max(0, time() - (int)$one['last_run']),
+                'total' => (int)$one['total'],
+                'shown' => (int)$one['shown'],
+                'capped' => !empty($one['capped']),
+                /*
+                 * A claim carries no answer yet, and every other state
+                 * was written by `record()`, which always packs one.
+                 * So this needs no look at the blob the catalogue
+                 * deliberately did not select.
+                 */
+                'held' => $one['state'] !== ValueEnrichmentTool::RUN_RUNNING,
+            );
+        }
+        return $rows;
     }
 
     /**
@@ -13494,12 +13564,25 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function enrichmentDeclaration(array $user, $profile,
-        array $plan, array $types, array $rows, array $service
+        array $plan, array $types, array $rows, array $service,
+        array $stored = array()
     ) {
         $facts = array(
             'service' => $service,
             'types' => $types,
             'eligible' => $rows,
+            /*
+             * Phase 11, D24. The gate is instance policy, so it
+             * arrives as a fact the model read rather than as
+             * something the tool goes and looks up — the same reason
+             * the service block and the eligible set arrive this way,
+             * and what keeps `ValueEnrichmentTool` free of `$user`, a
+             * model and `Configure`.
+             */
+            'auto_gate' => Configure::read(
+                'Plugin.ValueProfile_enrichment_auto_run'
+            ),
+            'site_admin' => !empty($user['Role']['perm_site_admin']),
         );
         $missing = ValueEnrichmentTool::needsFacts($plan, $types, $rows);
         if (!empty($missing) && !empty($service['reachable'])) {
@@ -13514,6 +13597,29 @@ class ValueProfile extends AppModel
             : null;
         $resolved['leaving'] = ValueEnrichmentTool::leavingCount(
             $resolved
+        );
+        /*
+         * **The plan, and it travels with the panel that acts on it.**
+         * One disposition per declared `auto` module — fire it, wait
+         * for somebody else's run, serve what is stored, or say why
+         * not. No second endpoint: this page renders markup rather
+         * than JSON, and a plan fetched separately would be a second
+         * request for something the first already knew.
+         *
+         * It is deliberately surface-agnostic. When the Overview grows
+         * its hero badges it reads this same block rather than a view
+         * of its own, so the two cannot disagree about what should
+         * run.
+         *
+         * Advisory, not authoritative: a row can turn fresh between
+         * this being computed and a request landing, which is why
+         * `enrichmentRun()` decides again rather than trusting a
+         * disposition it was handed.
+         */
+        $resolved['auto'] = ValueEnrichmentTool::autoDispositions(
+            $resolved,
+            $stored,
+            $this->enrichmentTimeout()
         );
         return $resolved;
     }
@@ -13691,8 +13797,26 @@ class ValueProfile extends AppModel
      * @param string|null $type
      * @return array
      */
-    private function enrichmentRun(array $user, $value, $name, $type)
-    {
+    private function enrichmentRun(array $user, $value, $name, $type,
+        $mode = null
+    ) {
+        /*
+         * Two callers, and the difference between them is the whole
+         * of D25's second consequence.
+         *
+         * A **press** always re-runs. `max_age_hours` governs
+         * automatic reuse, and a human pressing a button has made a
+         * decision that a cache must not overrule.
+         *
+         * An **auto** reuses a fresh row and asks the module only when
+         * there is nothing fresh to serve. The page decides which
+         * modules to send here from the dispositions its panel
+         * carried, but the decision is remade below rather than
+         * trusted: a row can turn fresh between the plan being
+         * computed and this request landing, which is precisely the
+         * Overview-then-tab race this mode exists for.
+         */
+        $auto = $mode === 'auto';
         /*
          * The catalogue is built with no profile, deliberately: it is
          * read here as an ACL band — which modules this reader would
@@ -13731,6 +13855,14 @@ class ValueProfile extends AppModel
             'capped' => false,
             'cap' => self::ENRICHMENT_ELEMENT_CAP,
             'timeout' => $catalogue['service']['timeout'],
+            /*
+             * Whether this answer came out of the store rather than
+             * off the wire, and how old it is. Both are about *now*
+             * and neither is stored — `pack()` drops them along with
+             * the timeout.
+             */
+            'from_store' => false,
+            'age' => null,
         );
         if (!$catalogue['service']['reachable']) {
             $run['state'] = 'unreachable';
@@ -13774,6 +13906,39 @@ class ValueProfile extends AppModel
             return $run;
         }
 
+        $store = $this->model('ValueEnrichmentRun');
+        if ($auto) {
+            /*
+             * **The gate, enforced where the run happens** — the same
+             * argument D17 made for `never`. The page will not send an
+             * auto request when the gate is shut, but the mode arrives
+             * in the request, and a guard that only the caller
+             * observes is not a guard.
+             *
+             * A press is untouched by this: the gate governs what runs
+             * *without* one.
+             */
+            if (!ValueEnrichmentTool::gateAllows(
+                Configure::read('Plugin.ValueProfile_enrichment_auto_run'),
+                !empty($user['Role']['perm_site_admin'])
+            )) {
+                $run['state'] = 'auto_not_allowed';
+                return $run;
+            }
+            $held = $store->one($user, $value, $name, $type);
+            if ($held !== null
+                && $held['state'] !== ValueEnrichmentTool::RUN_RUNNING
+                && ValueEnrichmentTool::isFresh(
+                    $held,
+                    $plan['max_age_hours']
+                )
+            ) {
+                return $this->enrichmentFromStore($held, $user, $value,
+                    $run);
+            }
+        }
+
+
         /*
          * D3: the run is backed by one of the reader's own
          * occurrences, and both formats need it. `misp_standard` sends
@@ -13790,6 +13955,19 @@ class ValueProfile extends AppModel
             $run['state'] = 'ineligible';
             return $run;
         }
+
+        /*
+         * Claim the row here and not earlier: everything above this
+         * can decline without asking anybody anything, and a claim
+         * left behind by a decline would have the tab reporting a
+         * module as *being asked now* when nothing was ever asked.
+         *
+         * From this line on the module is going to be queried, so the
+         * claim is true the moment it is written — which is what makes
+         * it safe for a second reader arriving mid-flight (§7.3) to
+         * treat as *somebody is asking, wait*.
+         */
+        $store->claim($user, $value, $name, $type);
 
         $moduleModel = $this->model('Module');
         $started = microtime(true);
@@ -13818,16 +13996,74 @@ class ValueProfile extends AppModel
         } catch (Exception $e) {
             $this->logException('Failed to query enrichment module', $e);
             $run['took'] = (int)round((microtime(true) - $started) * 1000);
-            return $this->enrichmentFailure($run, $e);
+            $failed = $this->enrichmentFailure($run, $e);
+            /*
+             * A failure is an outcome and is remembered like any
+             * other. It matters most for `auto`: a module that timed
+             * out is not re-asked on every page open for the next
+             * `max_age_hours`, while a press still re-runs it
+             * immediately.
+             */
+            $store->record($user, $value, $failed);
+            return $failed;
         }
         $run['took'] = (int)round((microtime(true) - $started) * 1000);
 
-        return $this->enrichmentShape(
+        /*
+         * Shape, store, then mark up — and that order is §8.1.
+         * `enrichmentKnown()` answers *"already in MISP and you can
+         * see it"* about the database as it stands and about this
+         * reader's ACL, so storing its answer would freeze somebody
+         * else's view of a moment that has passed. The store holds the
+         * module's answer; the chips are recomputed for whoever is
+         * looking.
+         */
+        $shaped = $this->enrichmentShape(
             $run,
             $result,
             $user,
-            $value
+            $value,
+            false
         );
+        $store->record($user, $value, $shaped);
+
+        return $this->enrichmentKnown($shaped, $user, $value);
+    }
+
+    /**
+     * Serve a stored answer instead of asking the module again.
+     *
+     * The row holds the shaped run as it was, minus the chips; this
+     * puts back the two things that are about *now* rather than about
+     * then — how old the answer is, and what MISP currently holds that
+     * this reader can see.
+     *
+     * A payload that will not inflate is not an error: the row still
+     * says a module was asked and when, so the answer is *"asked, no
+     * longer held"*, which is a state the tab has to draw anyway once
+     * a purge has been through.
+     *
+     * @param array $held The stored row
+     * @param array $user
+     * @param string $value
+     * @param array $run The shell built by the caller
+     * @return array
+     */
+    private function enrichmentFromStore(array $held, array $user, $value,
+        array $run
+    ) {
+        $stored = ValueEnrichmentRun::unpack($held);
+        $age = max(0, time() - (int)$held['last_run']);
+        if ($stored === null) {
+            $run['state'] = 'expired';
+            $run['from_store'] = true;
+            $run['age'] = $age;
+            return $run;
+        }
+        $stored['timeout'] = $run['timeout'];
+        $stored['from_store'] = true;
+        $stored['age'] = $age;
+        return $this->enrichmentKnown($stored, $user, $value);
     }
 
     /**
@@ -13934,7 +14170,7 @@ class ValueProfile extends AppModel
      * @return array
      */
     private function enrichmentShape(array $run, $result, array $user,
-        $subject
+        $subject, $withKnown = true
     ) {
         if ($result === false) {
             $run['state'] = 'unreachable';
@@ -14020,7 +14256,14 @@ class ValueProfile extends AppModel
         if ($run['total'] === 0) {
             $run['state'] = 'silent';
         }
-        return $this->enrichmentKnown($run, $user, $subject);
+        /*
+         * `$withKnown = false` is the store's boundary (§8.1): the
+         * caller wants the module's answer to keep, and the chips
+         * belong to whoever is reading rather than to the answer.
+         */
+        return $withKnown
+            ? $this->enrichmentKnown($run, $user, $subject)
+            : $run;
     }
 
     /**

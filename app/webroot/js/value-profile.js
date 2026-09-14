@@ -4334,7 +4334,24 @@
         ineligible: {dot: 'vp-e-dot-none', cls: 'vp-e-status-none',
             label: 'Not offered'},
         running: {dot: 'vp-e-dot-run', cls: 'vp-e-status-none',
-            label: 'Asking…'}
+            label: 'Asking…'},
+        /*
+         * The reader's own declaration, and it was missing: a `never`
+         * module refused at the endpoint painted `Unknown` on its row
+         * while the pane beside it explained the refusal.
+         */
+        profile_refused: {dot: 'vp-e-dot-none', cls: 'vp-e-status-none',
+            label: 'Blocked by you'},
+        /*
+         * Phase 11. Neither is a failure of the module: the instance
+         * declined to run it unasked, or the kept answer has aged out
+         * of the store. Both are worth a second press and neither
+         * deserves a red dot.
+         */
+        auto_not_allowed: {dot: 'vp-e-dot-none', cls: 'vp-e-status-none',
+            label: 'Not run on its own'},
+        expired: {dot: 'vp-e-dot-none', cls: 'vp-e-status-none',
+            label: 'No longer kept'}
     };
 
     /*
@@ -4453,12 +4470,21 @@
      *
      * The answer carries the token the next run will spend.
      *
+     * **`mode` decides whether it asks anybody anything.** Without it
+     * this is a press and the module is always queried, because the
+     * profile's reuse window bounds what happens on its own and not
+     * what a reader decided. With `auto` the server serves an answer
+     * it already holds when that answer is still inside the window,
+     * and only queries when it is not — which is what makes both the
+     * fan-out and *Show what came back* the same request.
+     *
      * @param {Element} panel
      * @param {string} name
      * @param {string} type
+     * @param {string} [mode] `auto` to accept a stored answer
      * @return {Promise} Resolves when the pane holds the answer
      */
-    function enrichAsk(panel, name, type) {
+    function enrichAsk(panel, name, type, mode) {
         var slot = panel.querySelector(
             '[data-vp-e-pane="' + cssEscape(name) + '"] [data-vp-e-slot]'
         );
@@ -4471,6 +4497,9 @@
         body.set('data[_Token][key]', panel.dataset.vpEToken || '');
         body.set('data[module]', name);
         body.set('data[type]', type || '');
+        if (mode) {
+            body.set('data[mode]', mode);
+        }
 
         return fetch(panel.dataset.vpEUrl, {
             method: 'POST',
@@ -4552,10 +4581,16 @@
         }
         var done = enrichBusy(button);
         var label = button.querySelector('[data-vp-e-label]');
+        var mode = button.dataset.vpEMode || null;
         if (label) {
-            label.textContent = 'Running…';
+            /*
+             * *Show what came back* is not running anything unless the
+             * kept answer has gone stale, so it must not claim to be.
+             */
+            label.textContent = mode === 'auto' ? 'Fetching…' : 'Running…';
         }
-        enrichAsk(panel, button.dataset.vpERun, button.dataset.vpEType)
+        enrichAsk(panel, button.dataset.vpERun, button.dataset.vpEType,
+            mode)
             .then(function (ok) {
                 // A filled pane replaced this button along with the
                 // brief around it; only a failure has one to restore.
@@ -4919,7 +4954,85 @@
             : [];
         panels.forEach(function (panel) {
             refreshEnrichTray(panel);
+            enrichAutoFire(panel);
         });
+    }
+
+    /**
+     * Fire the modules the profile marked `auto`.
+     *
+     * **The one place on this page where a query leaves the instance
+     * without a press**, and it takes two separate acts to reach: an
+     * analyst marking a module `auto` in their Analyst Profile, and an
+     * administrator setting
+     * `Plugin.ValueProfile_enrichment_auto_run` to something other
+     * than off. The server does both checks — this list arrives empty
+     * unless they passed, and the endpoint decides again when each
+     * request lands.
+     *
+     * **Concurrent, where `Run n selected` is sequential**, and the
+     * difference is intent rather than inconsistency. A reader ticking
+     * three boxes chose them one at a time and may want to stop after
+     * the first answer, so those go one at a time and the button
+     * counts them off. These were chosen in advance, by a profile, for
+     * every value of this type — nobody is watching them go, and what
+     * the reader wants is the fast module readable while the slow one
+     * is still running.
+     *
+     * Five at a time. It is what the shipped default's widest type
+     * declares, so the common case is one wave, and it is a bound on
+     * one reader rather than on the instance: each request holds a
+     * PHP worker for up to `Plugin.Enrichment_timeout`.
+     *
+     * Parallelism here is real only because `viewEnrichmentRun` closes
+     * the session — PHP's file session lock would otherwise serialise
+     * these into precisely the queue they exist not to be.
+     *
+     * @param {Element} panel
+     */
+    function enrichAutoFire(panel) {
+        var plan;
+        try {
+            plan = JSON.parse(panel.dataset.vpEAuto || '[]');
+        } catch (e) {
+            plan = [];
+        }
+        if (!Array.isArray(plan) || !plan.length) {
+            return;
+        }
+        if (panel.dataset.vpEAutoDone === '1') {
+            return;
+        }
+        /*
+         * Once per panel. A tab re-shown from cache must not re-fire
+         * what it already fired, and the marker is on the element so
+         * it dies with the fragment rather than outliving it.
+         */
+        panel.dataset.vpEAutoDone = '1';
+
+        /*
+         * The merged pane, because several answers are landing and
+         * picking one of them would be picking by latency. Set before
+         * the first response so the reader watches them arrive rather
+         * than being moved once they have.
+         */
+        pickEnrichModule(panel, '__all');
+
+        var queue = plan.slice();
+        var width = parseInt(panel.dataset.vpEAutoMax, 10) || 5;
+        var lanes = Math.min(width, queue.length);
+
+        var next = function () {
+            var one = queue.shift();
+            if (!one) {
+                return Promise.resolve();
+            }
+            return enrichAsk(panel, one.module, one.type, 'auto')
+                .then(next);
+        };
+        for (var i = 0; i < lanes; i++) {
+            next();
+        }
     }
 
     /**

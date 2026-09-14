@@ -666,23 +666,28 @@ class ValuesController extends AppController
     /**
      * The Enrichment tab: the modules this value could be sent to.
      *
-     * **Live since phase 28, and stateless.** Nothing records that a
-     * module ran, because there is nowhere for that to live — `Module`
-     * is `useTable = false` and no per-value per-module store exists.
-     * So this tab has no memory: it lists what could be asked, a press
-     * asks one thing, and the answer lives in the response.
-     * `28-enrichment.md` §1 is why that is the phase rather than the
-     * store it would have needed.
+     * **The tab has a memory since phase 11.** It was stateless for
+     * three phases because nothing anywhere in MISP recorded that a
+     * module had been asked about a value — `Module` is
+     * `useTable = false` — and `value_enrichment_runs` is that record.
+     * So a row can say *asked 2 h ago* about a module nobody pressed
+     * this visit, and the reuse window a profile always declared
+     * finally governs something (`13-auto-run.md` §4–5, D25).
      *
-     * **Two endpoints now, where phase 12 had one.** The rail and the
-     * pane were one fixture read and are no longer: the rail is cheap
-     * and local, a run costs an outbound query and up to five seconds.
-     * So they resolve separately, which is the per-panel ajax pattern
+     * It says *when*, never *who* (D27).
+     *
+     * **Two endpoints, as phase 7 left it.** The rail is cheap and
+     * local; a run costs an outbound query and up to five seconds. So
+     * they resolve separately, which is the per-panel ajax pattern
      * this page already uses, one level further down.
      *
-     * Nothing here runs a module. Not on load, not on tab switch, not
-     * on selecting one — a run spends quota and tells a third party
-     * you are looking, so it needs a press nobody made by arriving.
+     * **This endpoint still runs nothing**, and neither does opening
+     * the tab on an instance that has not turned auto-run on. Where
+     * `Plugin.ValueProfile_enrichment_auto_run` allows it, the panel
+     * arrives carrying a plan and the browser fires the declared
+     * modules at `viewEnrichmentRun` — one request each, so a slow
+     * module never holds up a fast one, and every one of them is the
+     * same request a press makes.
      *
      * @param string $b64value
      * @return void
@@ -728,6 +733,33 @@ class ValuesController extends AppController
                 . ' POST.'
             ));
         }
+        /*
+         * **Insurance against a locking session handler** (phase 11
+         * §7.1). The Enrichment tab fires up to five of these at once,
+         * and a handler that takes an exclusive lock for the length of
+         * a request would run them strictly one after another — every
+         * module still answering, every pane still filling, and the
+         * fifth answer arriving after the sum of the first four. A
+         * failure that looks exactly like success.
+         *
+         * **Whether it bites depends on the deployment, and on the
+         * common one it does not.** PHP's `files` handler locks, and
+         * `core.default.php` asks for `Session.defaults => 'php'`, so
+         * an instance on the stock configuration is exposed. The
+         * official docker image is not: its FPM pool sets
+         * `session.save_handler = redis`, and phpredis leaves
+         * `redis.session.locking_enabled` off, so requests on one
+         * session already overlap there — which is *measured*, both by
+         * this phase and by the `csrfUseOnce` note above, whose
+         * lost-update could only happen to requests running at once.
+         *
+         * So this is one line for the instances the measurement does
+         * not cover. Authentication is done by the time an action
+         * runs and this one writes nothing back to the session, so it
+         * costs nothing where it is not needed. Same idiom as
+         * `ServersController::getVersion()`.
+         */
+        @session_write_close();
         $this->__renderLivePanel(
             $b64value,
             'forEnrichmentRun',
@@ -735,6 +767,14 @@ class ValuesController extends AppController
             array(
                 'module' => $this->__runParam('module'),
                 'type' => $this->__runParam('type'),
+                /*
+                 * `auto` asks for the declared behaviour: serve a
+                 * fresh stored answer, ask the module only when there
+                 * is none. Anything else is a press, and a press
+                 * always re-runs. Neither is trusted — the gate and
+                 * the reuse window are both re-decided in the model.
+                 */
+                'mode' => $this->__runParam('mode'),
             )
         );
     }

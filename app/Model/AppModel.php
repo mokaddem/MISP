@@ -99,7 +99,7 @@ class AppModel extends Model
         141 => false, 142 => false, 143 => false, 144 => false, 145 => false, 146 => false,
         147 => false, 148 => false, 149 => false, 150 => false, 151 => false, 152 => false,
         153 => false, 154 => false, 157 => false, 158 => false, 159 => false,
-        160 => false
+        160 => false, 161 => false
     );
 
     const ADVANCED_UPDATES_DESCRIPTION = array(
@@ -2750,6 +2750,38 @@ class AppModel extends Model
   KEY `org_id` (`org_id`),
   KEY `default` (`default`),
   KEY `enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                break;
+            case 161:
+                // The enrichment run store (prd/analyst-profile/13-auto-run.md
+                // §4). One row per (org, value, module, type), UPSERTed by
+                // every run — so it grows with the breadth of investigation
+                // and not with how often a module is asked.
+                //
+                // `value_hash` is sha256 of the value as the page received it,
+                // the identity the page's Redis keys already use, because
+                // `Value::uuidFor()` and `value_dictionary` were specified in
+                // value-profile-writes.md §7 and never built. It becomes
+                // `value_uuid` the day they are.
+                $sqlArray[] = "CREATE TABLE IF NOT EXISTS `value_enrichment_runs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `org_id` int(11) NOT NULL,
+  `value_hash` char(64) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  `value` text DEFAULT NULL,
+  `module` varchar(100) NOT NULL,
+  `type` varchar(100) NOT NULL,
+  `state` varchar(32) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `last_run` int(11) NOT NULL DEFAULT 0,
+  `took` int(11) NOT NULL DEFAULT 0,
+  `total` int(11) NOT NULL DEFAULT 0,
+  `shown` int(11) NOT NULL DEFAULT 0,
+  `capped` tinyint(1) NOT NULL DEFAULT 0,
+  `message` text DEFAULT NULL,
+  `result` longblob DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `run` (`org_id`,`value_hash`,`module`,`type`),
+  KEY `last_run` (`last_run`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
                 break;
             case 'fixNonEmptySharingGroupID':

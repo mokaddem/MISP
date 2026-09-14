@@ -221,8 +221,52 @@ $chosen = count($picked);
                               data-vp-e-count></span>
                     </span>
 
-                    <span class="vp-e-status vp-e-status-none"
-                          data-vp-e-state><?= h(__('Not asked')) ?></span>
+                    <?php
+                    /*
+                     * The memory, phase 11 (D25). A module somebody in
+                     * this organisation already asked says when rather
+                     * than *Not asked*, whether or not any profile
+                     * declared it — the store is the tab's, not
+                     * auto-run's.
+                     *
+                     * **When, never who** (D27).
+                     *
+                     * A row still being asked by somebody else's
+                     * request says so instead: it is neither an answer
+                     * nor an absence, and drawing it as either would
+                     * have the reader press a button that is about to
+                     * be answered anyway.
+                     */
+                    $stored = isset($module['stored'])
+                        ? $module['stored']
+                        : null;
+                    $inFlight = $stored !== null
+                        && !$stored['held'];
+                    ?>
+                    <?php if ($inFlight): ?>
+                        <span class="vp-e-status vp-e-status-none"
+                              data-vp-e-state><?= h(__(
+                            'Being asked'
+                        )) ?></span>
+                    <?php elseif ($stored !== null): ?>
+                        <span class="vp-e-status vp-e-status-none"
+                              data-vp-e-state
+                              title="<?= h(sprintf(
+                                __('Asked as %s. Opening it shows what'
+                                    . ' came back; running it asks'
+                                    . ' again.'),
+                                $stored['type']
+                              )) ?>"><?= h(__('Asked')) ?>
+                            <?= $this->element(
+                                'Values/View/value_enrichment_age',
+                                array('askedAge' => $stored['age'])
+                            ) ?></span>
+                    <?php else: ?>
+                        <span class="vp-e-status vp-e-status-none"
+                              data-vp-e-state><?= h(__(
+                            'Not asked'
+                        )) ?></span>
+                    <?php endif; ?>
 
                 </button>
 

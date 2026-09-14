@@ -3,22 +3,35 @@
  * The Enrichment tab: every module this value could be sent to, and
  * one module's answer beside it.
  *
- * **Live since phase 28, and the tab has no memory.** Nothing records
- * that a module ran, so there is no staleness, no delta against a
- * previous run and no dismissal — those were phase 12's, they needed a
- * store MISP does not have, and `28-enrichment.md` §5 is the list of
- * what came out rather than a diff to reconstruct.
+ * **The tab has a memory since phase 11.** `value_enrichment_runs`
+ * records what a module last said about a value, per organisation, so
+ * a row can read *Asked 2 hours ago* and its pane can show that answer
+ * without asking anybody anything. The reuse window a profile always
+ * declared finally governs something (`13-auto-run.md` §4–5, D25).
+ *
+ * It says when, never who (D27).
+ *
+ * The delta against a previous run and the dismissal are still gone —
+ * those were phase 12's and `28-enrichment.md` §5 is the list of what
+ * came out.
  *
  * What survives is the reason `E2` was chosen: the module is the
  * navigation, and every state the tab can be in is the same object — a
- * rail row. Not asked, asking, answered, answered with nothing, refused
- * and errored are six rows and one pane.
+ * rail row. Not asked, asked before, being asked, asking, answered,
+ * answered with nothing, refused and errored are eight rows and one
+ * pane.
  *
- * **Nothing runs on arrival.** Not on load, not on tab switch, not on
- * selecting a row. Running a module spends the instance's quota and
- * tells whoever operates it that somebody is looking at this value, so
- * it takes a press. Every module's pane is rendered up front — that is
- * what makes picking one to read incapable of querying anything.
+ * **Selecting a row still runs nothing**, and every module's pane is
+ * still rendered up front, which is what makes picking one to read
+ * incapable of querying anything.
+ *
+ * **What can now happen on arrival is the profile's and the
+ * administrator's, together.** A module a profile marked `auto` fires
+ * when this panel loads, but only where
+ * `Plugin.ValueProfile_enrichment_auto_run` allows it — off by
+ * default, so this panel behaves exactly as it did until somebody
+ * turns it on. The plan rides in on `data-vp-e-auto` and is empty
+ * otherwise.
  *
  * Lazily loaded from ValuesController::viewEnrichment.
  *
@@ -90,6 +103,34 @@ if ($service['reachable']) {
      data-vp-e-n-many="<?= h(__('%s elements')) ?>"
      data-vp-e-n-capped="<?= h(__('%1$s of %2$s')) ?>"
      data-vp-e-of="<?= h(__('%1$s of %2$s')) ?>"
+     <?php
+     /*
+      * **The plan travels with the panel that acts on it** (phase 11
+      * §9). One entry per module the profile marked `auto` that is
+      * neither already fresh nor being asked by somebody else, so the
+      * browser can fire them without going back for a list it was
+      * about to be handed anyway.
+      *
+      * Empty on any instance that has not turned auto-run on, which
+      * is every instance until an administrator does — and empty is
+      * how the fan-out stays off rather than by a second flag.
+      *
+      * The dispositions are advisory: `enrichmentRun()` decides again
+      * when a request lands, because a row can turn fresh in between.
+      */
+     $autoFire = array();
+     foreach ($enrichment['profile']['auto'] as $one) {
+         if ($one['disposition'] !== 'fire') {
+             continue;
+         }
+         $autoFire[] = array(
+             'module' => $one['module'],
+             'type' => $one['type'],
+         );
+     }
+     ?>
+     data-vp-e-auto="<?= h(json_encode($autoFire)) ?>"
+     data-vp-e-auto-max="5"
      data-vp-e-url="<?= h($baseurl . '/values/viewEnrichmentRun/'
         . $valueB64) ?>">
 
@@ -269,12 +310,21 @@ if ($service['reachable']) {
                                 )) ?>
                             </div>
                             <div class="vp-e-cold-prose mb-0">
+                                <?php
+                                /*
+                                 * Both sentences this carried stopped
+                                 * being true in phase 11: answers are
+                                 * stored now, and an answer from last
+                                 * time is exactly what a module row
+                                 * may already be holding.
+                                 */
+                                ?>
                                 <?= h(__(
-                                    'This merges the answers from'
-                                    . ' modules run on this page, in'
-                                    . ' this visit. Nothing is stored,'
-                                    . ' so there is nothing here from'
-                                    . ' last time.'
+                                    'This merges the answers open on'
+                                    . ' this page. Open a module that'
+                                    . ' was asked before and its answer'
+                                    . ' joins them, without asking'
+                                    . ' anybody anything.'
                                 )) ?>
                             </div>
                         </div>

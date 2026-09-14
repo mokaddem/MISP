@@ -2057,8 +2057,9 @@ class AnalystProfileFormTool
             'title' => __('Enrichment'),
             'blurb' => __(
                 'Which modules you would want asked about a value of'
-                . ' each type. Nothing runs on its own: the tab arrives'
-                . ' with these ticked and a run still takes a press.'
+                . ' each type. Most of these arrive ticked and wait for'
+                . ' your press; one choice runs by itself, and only if'
+                . ' an administrator has allowed that here.'
             ),
             'blocks' => array(
                 array(
@@ -2168,6 +2169,41 @@ class AnalystProfileFormTool
                          */
                         'options' => $this->unusedKeys(
                             array_keys($catalogue), $locality),
+                    ),
+                ),
+                /*
+                 * Drawn again since phase 11. D23 withdrew it for the
+                 * same reason it withdrew `auto` — there was no store,
+                 * so the window governed nothing and a box for it was
+                 * an unfinished promise. `value_enrichment_runs` is
+                 * that store, and the number now decides how long an
+                 * answer is served instead of asked for again.
+                 */
+                array(
+                    'kind' => 'fields',
+                    'id' => 'max_age_hours',
+                    'title' => __('How long an answer stays good for'),
+                    'blurb' => __(
+                        'Once a module has answered about a value, that'
+                        . ' answer is kept and shown to everyone in your'
+                        . ' organisation rather than the module being'
+                        . ' asked again. This is how long it is used'
+                        . ' for. It bounds only what happens on its own'
+                        . ' — pressing Run always asks again.'
+                    ),
+                    'fields' => array(
+                        array(
+                            'key' => 'max_age_hours',
+                            'label' => __('Reuse an answer for'),
+                            'type' => 'int',
+                            'unit' => __('hours'),
+                            'value' => isset($section['max_age_hours'])
+                                ? $section['max_age_hours']
+                                : null,
+                            'default' =>
+                                ValueEnrichmentTool::DEFAULT_MAX_AGE_HOURS,
+                            'path' => array('enrichment', 'max_age_hours'),
+                        ),
                     ),
                 ),
             ),
@@ -2514,6 +2550,17 @@ class AnalystProfileFormTool
                 'value' => ValueEnrichmentTool::STATE_NEVER,
                 'label' => __('block it — running is refused'),
             ),
+            /*
+             * Offered again since phase 11. D23 removed it because the
+             * editor offers only what is implemented and `auto` did
+             * nothing; the same rule puts it back now that it runs.
+             * Whether it runs *here* is the instance's call, and the
+             * tab says so per module when the answer is no.
+             */
+            array(
+                'value' => ValueEnrichmentTool::STATE_AUTO,
+                'label' => __('run it on its own, no press needed'),
+            ),
         );
     }
 
@@ -2576,10 +2623,28 @@ class AnalystProfileFormTool
                     ),
                     'effect' => __('cannot be run at all for this type'),
                 ),
+                array(
+                    'value' => ValueEnrichmentTool::STATE_AUTO,
+                    'label' => __('run it on its own, no press needed'),
+                    'meaning' => __(
+                        'The only choice that sends something without'
+                        . ' you asking: opening a value of this type'
+                        . ' queries the module and the answer is'
+                        . ' waiting for you. An administrator has to'
+                        . ' allow this for the instance first, and'
+                        . ' until they do it behaves like'
+                        . ' pre-selecting. An answer already fetched'
+                        . ' recently is reused rather than asked for'
+                        . ' again.'
+                    ),
+                    'effect' => __('runs by itself, if the instance'
+                        . ' allows it'),
+                ),
             ),
             'note' => __('A module you say nothing about is not blocked'
                 . ' — it simply arrives unticked. Only "block it" takes'
-                . ' anything away.'),
+                . ' anything away, and only "run it on its own" adds'
+                . ' anything.'),
         );
     }
 

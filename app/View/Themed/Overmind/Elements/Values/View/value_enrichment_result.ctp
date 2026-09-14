@@ -55,6 +55,14 @@ $headings = array(
     'profile_refused' => __('Your profile says never run %s.'),
     'unreachable' => __('The enrichment service did not answer.'),
     'ineligible' => __('That module was not offered for this value.'),
+    /*
+     * Two outcomes phase 11 adds, and neither is a failure of the
+     * module. `auto_not_allowed` is the instance declining to run
+     * something on its own; `expired` is the store having held an
+     * answer and no longer holding it.
+     */
+    'auto_not_allowed' => __('%s was not run on its own.'),
+    'expired' => __('%s was asked, and the answer is no longer kept.'),
 );
 $heading = isset($headings[$state])
     ? $headings[$state]
@@ -78,6 +86,8 @@ $marks = array(
     'profile_refused' => array('fa-ban', 'vp-e-mark-quiet'),
     'unreachable' => array('fa-plug-circle-xmark', 'vp-e-mark-bad'),
     'ineligible' => array('fa-circle-question', 'vp-e-mark-quiet'),
+    'auto_not_allowed' => array('fa-hand', 'vp-e-mark-quiet'),
+    'expired' => array('fa-clock-rotate-left', 'vp-e-mark-quiet'),
 );
 $mark = isset($marks[$state]) ? $marks[$state] : $marks['ok'];
 
@@ -115,6 +125,16 @@ $prose = array(
     'ineligible' => __(
         'A run may only name a module offered for a type you hold an'
         . ' occurrence of. Nothing was sent anywhere.'
+    ),
+    'auto_not_allowed' => __(
+        'Your profile asks for this module to run on its own, and this'
+        . ' instance does not allow that. Nothing was sent anywhere,'
+        . ' and pressing Run still works.'
+    ),
+    'expired' => __(
+        'The module was asked and what it said is no longer held —'
+        . ' answers are not kept forever. Nothing was sent anywhere;'
+        . ' running it asks again.'
     ),
 );
 
@@ -299,6 +319,32 @@ $manyObjects = count($run['objects']) > 1;
              */
             ?>
             <div class="vp-e-chips">
+                <?php
+                /*
+                 * Where the answer came from, and it leads the chips
+                 * because it changes what every other one means: a
+                 * `took` of 4.9 s describes a query somebody else made
+                 * two hours ago, not this reader's press.
+                 *
+                 * When, never who (D27) — the store knows which
+                 * analyst ran it and no surface says so.
+                 */
+                ?>
+                <?php if (!empty($run['from_store'])): ?>
+                    <span class="vp-e-chip"
+                          title="<?= h(__(
+                            'Kept for your organisation. Nothing was'
+                            . ' sent anywhere to show you this.'
+                          )) ?>">
+                        <i class="fas fa-clock-rotate-left"
+                           aria-hidden="true"></i>
+                        <?= h(__('asked')) ?>
+                        <?= $this->element(
+                            'Values/View/value_enrichment_age',
+                            array('askedAge' => $run['age'])
+                        ) ?>
+                    </span>
+                <?php endif; ?>
                 <?php if (!empty($run['kinds'])): ?>
                     <span class="vp-e-chip"><?= h(implode(
                         '+',

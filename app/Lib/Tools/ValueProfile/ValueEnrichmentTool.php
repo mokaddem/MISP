@@ -6,17 +6,24 @@ App::uses('ModuleLocality', 'Tools');
  * The profile's enrichment declaration, met with what the instance
  * actually offers.
  *
- * Phase 7 of prd/analyst-profile/, implementing **Q10 → D15**: the
- * profile *declares* which modules matter for a type and **nothing
- * auto-runs**. The badge the original ask named needs a per-value,
- * per-module last-run store, which does not exist anywhere in MISP
- * (`Module` is `useTable = false`), and the interactive enrichment
- * path is synchronous whatever `MISP.background_jobs` says —
- * `Event::enrichmentRouter()` returns at `Event.php:7997` and strands
- * its own queued branch at `7998`. Both are named in
- * `08-enrichment.md` §1 and both belong to other documents. So what
- * ships is the declaration and its resolution, and the tab it feeds
- * arrives with the analyst's modules **ticked, not run**.
+ * Phase 7 of prd/analyst-profile/ built the declaration under D15 —
+ * the profile says which modules matter for a type, the tab arrives
+ * with them **ticked, not run**. **Phase 11 built the third state**
+ * (`13-auto-run.md`, D24): a module may be marked `auto` and run
+ * without a press, where the instance allows it.
+ *
+ * D15's blocker was real and is gone. Nothing recorded that a module
+ * had been asked about a value — `Module` is `useTable = false` — so
+ * *"run the declared modules on open"* meant running them on every
+ * open. `value_enrichment_runs` is that record, and the reuse window
+ * below is what it made meaningful.
+ *
+ * Auto-run is the one thing here that **widens** rather than narrows,
+ * which is why it is the one thing an instance has to agree to:
+ * `Plugin.ValueProfile_enrichment_auto_run`, off by default. A
+ * profile resolves user → org → instance default, so an analyst can
+ * be running under a document they did not write, and without that
+ * gate somebody else's declaration would spend their quota.
  *
  * ## The one sentence the whole mechanism reduces to
  *
@@ -72,13 +79,16 @@ App::uses('ModuleLocality', 'Tools');
  * `locality_posture` or `cost_posture` key is ignored rather than
  * migrated: it selected nothing, so there is nothing to carry.
  *
- * ## `max_age_hours` is carried and inert
+ * ## `max_age_hours` governs something now
  *
- * It is the reuse window — how stale a cached result may be before the
- * module is asked again — and there is no cache, so it governs
- * nothing. Carried through `planFor()` with `reuse_inert` beside it so
- * that the editor can say so, rather than dropped and silently
- * reappearing with a different meaning when the store lands.
+ * The reuse window — how old a kept answer may be before the module is
+ * asked again. It was carried and inert for four phases because there
+ * was nothing to reuse; since phase 11 a row younger than this is
+ * served rather than re-asked.
+ *
+ * **It bounds automatic reuse only.** A press always asks again: the
+ * window is what the page does on its own, and a reader who pressed a
+ * button has made a decision a cache must not overrule.
  *
  * No `$user`, no model, no view: the arithmetic and the vocabulary,
  * nothing else, so the tab, phase 8's editor and anything later read
@@ -92,9 +102,10 @@ class ValueEnrichmentTool
      * `ticked` is what a bare list has always meant. `never` is the
      * profile refusing a module outright, and is the first setting
      * here that has to be enforced where a run happens rather than
-     * where a box is drawn. `auto` is declared and **not
-     * implemented**: D15's missing last-run store is still missing, so
-     * nothing runs without a press and `auto` resolves as `ticked`.
+     * where a box is drawn. `auto` runs without one, and is the only
+     * state that adds rather than removes — so it is the only one an
+     * instance has to permit before it does anything. Where it does
+     * not, `auto` behaves as `ticked` and the tab says why.
      */
     const STATE_TICKED = 'ticked';
     const STATE_NEVER = 'never';
@@ -117,7 +128,44 @@ class ValueEnrichmentTool
     const C_UNRESOLVED = 'module.unresolved';
     const C_TYPE_UNUSED = 'type.unused';
     const C_STATE_NEVER = 'state.never';
-    const C_STATE_AUTO_INERT = 'state.auto_inert';
+    /*
+     * `state.auto_inert` said *"nothing runs on its own on this
+     * version"* and stopped being true in phase 11. What replaces it
+     * is two conditions, because the reader can act on one of them and
+     * not on the other: an instance that has the gate off is a
+     * conversation with an administrator, and a gate set to site
+     * admins only is not.
+     */
+    const C_STATE_AUTO_DISABLED = 'state.auto_disabled';
+    const C_STATE_AUTO_SITE_ADMIN = 'state.auto_site_admin';
+
+    /**
+     * `Plugin.ValueProfile_enrichment_auto_run` (D24).
+     *
+     * The profile says *which* modules; this says *whether any of them
+     * may run here*. It has to sit above the profile because
+     * `AnalystProfile::resolveFor()` resolves user → org → instance
+     * default, so an analyst can be running under a profile they did
+     * not author — and D17's objection to `auto` was precisely that it
+     * would make such a profile cause outbound requests on their
+     * behalf.
+     *
+     * `site_admin` exists so an administrator can try the feature on a
+     * live instance without conscripting their analysts into it.
+     */
+    const GATE_OFF = 'off';
+    const GATE_SITE_ADMIN = 'site_admin';
+    const GATE_ON = 'on';
+
+    /**
+     * The claim a stored row carries while its module is being asked.
+     *
+     * The vocabulary lives here rather than on `ValueEnrichmentRun`
+     * for the reason the rest of it does: this class is what the tab,
+     * the editor and the model all read, and a word defined in the
+     * model would be a word the tool had to import a model to know.
+     */
+    const RUN_RUNNING = 'running';
 
     /**
      * The `enrichment` section, whichever shape the profile arrived
@@ -231,12 +279,14 @@ class ValueEnrichmentTool
             'auto_run' => $autoRun,
             'declared' => $declared,
             'locality' => $locality,
-            'max_age_hours' => self::maxAgeHours($section),
             /*
-             * There is no cache, so the window governs nothing. Said
-             * here rather than left for a reader to discover.
+             * The reuse window, and since phase 11 it governs
+             * something: `value_enrichment_runs` holds what a module
+             * last said, and a row younger than this is served rather
+             * than re-asked. It bounds *automatic* reuse only — a
+             * press is a decision and always re-runs (§5).
              */
-            'reuse_inert' => true,
+            'max_age_hours' => self::maxAgeHours($section),
             /*
              * The switch, and the same one `ValueTrustTool` uses: an
              * empty declaration takes the mechanism out of the path
@@ -268,17 +318,54 @@ class ValueEnrichmentTool
     }
 
     /**
-     * The states that do what they say. `auto` is declarable and
-     * inert, so an editor offering it must say so.
+     * The states that do what they say.
+     *
+     * All three, since phase 11. D23's rule is *"the editor offers
+     * only what is implemented"*, and the same rule that removed
+     * `auto` from the editor is what puts it back now that it runs.
      *
      * @return array
      */
     public static function statesBuilt()
     {
-        return array(
-            self::STATE_TICKED,
-            self::STATE_NEVER,
-        );
+        return self::states();
+    }
+
+    /**
+     * The gate, normalised. Anything unrecognised reads as `off`.
+     *
+     * Unrecognised means *off* rather than *on* for the one reason
+     * that matters about this setting: every other direction of error
+     * costs a click, and this one spends the instance's quota and
+     * tells a third party somebody is looking at a value.
+     *
+     * @param mixed $gate `Configure::read` of the setting
+     * @return string
+     */
+    public static function normaliseGate($gate)
+    {
+        $gate = is_string($gate) ? trim($gate) : '';
+        return in_array(
+            $gate,
+            array(self::GATE_SITE_ADMIN, self::GATE_ON),
+            true
+        ) ? $gate : self::GATE_OFF;
+    }
+
+    /**
+     * Whether this reader may have modules run without pressing.
+     *
+     * @param mixed $gate
+     * @param bool $isSiteAdmin
+     * @return bool
+     */
+    public static function gateAllows($gate, $isSiteAdmin)
+    {
+        $gate = self::normaliseGate($gate);
+        if ($gate === self::GATE_ON) {
+            return true;
+        }
+        return $gate === self::GATE_SITE_ADMIN && !empty($isSiteAdmin);
     }
 
     /**
@@ -432,10 +519,17 @@ class ValueEnrichmentTool
      */
     public static function resolve(array $plan, array $facts)
     {
+        $autoAllowed = self::gateAllows(
+            isset($facts['auto_gate']) ? $facts['auto_gate'] : null,
+            !empty($facts['site_admin'])
+        );
         $out = array(
             'in_force' => !empty($plan['in_force']),
             'max_age_hours' => $plan['max_age_hours'],
-            'reuse_inert' => true,
+            'auto_gate' => self::normaliseGate(
+                isset($facts['auto_gate']) ? $facts['auto_gate'] : null
+            ),
+            'auto_allowed' => $autoAllowed,
             'declared' => 0,
             'applicable' => 0,
             'selected' => array(),
@@ -540,9 +634,12 @@ class ValueEnrichmentTool
             $out['selected'][] = $entry;
         }
         /*
-         * One note for every `auto` in the selection, not one each:
-         * they all failed for the same reason and it is not about any
-         * particular module (D17, D15).
+         * One note for every `auto` the gate is holding back, not one
+         * each: they are all held for the same reason and it is not
+         * about any particular module (D17, D24).
+         *
+         * When the gate allows them there is no condition at all —
+         * they simply run, and the rail says so per row.
          */
         $autos = array();
         foreach ($out['selected'] as $entry) {
@@ -550,26 +647,46 @@ class ValueEnrichmentTool
                 $autos[] = $entry['name'];
             }
         }
-        if (!empty($autos)) {
-            $out['conditions'][] = self::condition(
-                self::C_STATE_AUTO_INERT,
-                null,
-                $autos,
-                sprintf(
-                    __n(
-                        'Your profile asks for %s to run on its own.'
-                        . ' Nothing runs on its own on this version —'
-                        . ' it arrives ticked and a run still takes a'
-                        . ' press.',
-                        'Your profile asks for %s to run on their own.'
-                        . ' Nothing runs on its own on this version —'
-                        . ' they arrive ticked and a run still takes a'
-                        . ' press.',
-                        count($autos)
-                    ),
-                    implode(', ', $autos)
+        if (!empty($autos) && !$autoAllowed) {
+            $out['conditions'][] = $out['auto_gate'] === self::GATE_SITE_ADMIN
+                ? self::condition(
+                    self::C_STATE_AUTO_SITE_ADMIN,
+                    null,
+                    $autos,
+                    sprintf(
+                        __n(
+                            'Your profile asks for %s to run on its own.'
+                            . ' This instance allows that for site'
+                            . ' administrators only, so it arrives ticked'
+                            . ' and a run still takes a press.',
+                            'Your profile asks for %s to run on their own.'
+                            . ' This instance allows that for site'
+                            . ' administrators only, so they arrive ticked'
+                            . ' and a run still takes a press.',
+                            count($autos)
+                        ),
+                        implode(', ', $autos)
+                    )
                 )
-            );
+                : self::condition(
+                    self::C_STATE_AUTO_DISABLED,
+                    null,
+                    $autos,
+                    sprintf(
+                        __n(
+                            'Your profile asks for %s to run on its own.'
+                            . ' This instance does not allow enrichment to'
+                            . ' run without a press, so it arrives ticked'
+                            . ' and a run still takes one.',
+                            'Your profile asks for %s to run on their own.'
+                            . ' This instance does not allow enrichment to'
+                            . ' run without a press, so they arrive ticked'
+                            . ' and a run still takes one.',
+                            count($autos)
+                        ),
+                        implode(', ', $autos)
+                    )
+                );
         }
         return $out;
     }
@@ -876,6 +993,121 @@ class ValueEnrichmentTool
             if ($row !== '' && !in_array($row, $out, true)) {
                 $out[] = $row;
             }
+        }
+        return $out;
+    }
+
+    /**
+     * Whether a stored row is still inside a reuse window.
+     *
+     * The window is the *reader's*, read from their own profile, while
+     * the row belongs to their organisation. Two analysts in one org
+     * can therefore hold different windows over one row, and that
+     * resolves correctly rather than merely tolerably: the shorter
+     * window re-runs, and the refreshed row then serves the longer
+     * one, so nobody is served a result older than their own profile
+     * allows.
+     *
+     * @param array $row A `value_enrichment_runs` row
+     * @param int $maxAgeHours
+     * @return bool
+     */
+    public static function isFresh(array $row, $maxAgeHours)
+    {
+        if (empty($row['last_run'])) {
+            return false;
+        }
+        return (time() - (int)$row['last_run']) < ($maxAgeHours * 3600);
+    }
+
+    /**
+     * Whether a stored row is a claim that has not aged out (§7.3).
+     *
+     * @param array $row
+     * @param int $timeout Seconds a module is allowed to take
+     * @return bool
+     */
+    public static function isInFlight(array $row, $timeout)
+    {
+        if (empty($row['state']) || $row['state'] !== self::RUN_RUNNING) {
+            return false;
+        }
+        return (time() - (int)$row['last_run']) < $timeout;
+    }
+
+    /**
+     * What the page should fire, and what it already knows (§9).
+     *
+     * The arithmetic behind the plan the panel carries, and pure like
+     * everything else here: the caller hands over the resolution, the
+     * organisation's stored rows and the timeout, and this decides one
+     * disposition per declared `auto` module.
+     *
+     * Four dispositions, and the ordering between them is the whole
+     * content of the function:
+     *
+     * | | |
+     * |---|---|
+     * | `blocked` | the gate, or anything that stopped it resolving |
+     * | `in_flight` | somebody is asking right now (§7.3) |
+     * | `fresh` | a row inside the reader's own reuse window |
+     * | `fire` | no row, or one past that window |
+     *
+     * `blocked` is tested first because a module the gate is holding
+     * must not be described by the store — *"asked 2 h ago"* against a
+     * module this instance will not run on its own is answering a
+     * question nobody asked. `in_flight` precedes `fresh` because a
+     * claim carries no result to be fresh with.
+     *
+     * @param array $resolved From `resolve()`
+     * @param array $stored `module|type` => row, from the run model
+     * @param int $timeout Seconds a module is allowed to take
+     * @return array One entry per declared `auto` module
+     */
+    public static function autoDispositions(array $resolved,
+        array $stored, $timeout
+    ) {
+        $out = array();
+        if (empty($resolved['in_force'])) {
+            return $out;
+        }
+        $maxAge = $resolved['max_age_hours'];
+        $allowed = !empty($resolved['auto_allowed']);
+        foreach ($resolved['selected'] as $entry) {
+            if ($entry['state'] !== self::STATE_AUTO) {
+                continue;
+            }
+            $key = $entry['name'] . '|' . $entry['type'];
+            $row = isset($stored[$key]) ? $stored[$key] : null;
+            if (!$allowed) {
+                $how = 'blocked';
+            } elseif ($row !== null && self::isInFlight($row, $timeout)) {
+                $how = 'in_flight';
+            } elseif ($row !== null
+                && $row['state'] !== self::RUN_RUNNING
+                && self::isFresh($row, $maxAge)
+            ) {
+                $how = 'fresh';
+            } else {
+                $how = 'fire';
+            }
+            $out[] = array(
+                'module' => $entry['name'],
+                'type' => $entry['type'],
+                'locality' => $entry['locality'],
+                'disposition' => $how,
+                /*
+                 * Age and counts, never `user_id` (D27). The Overview
+                 * badge consumes this response too, and a field that
+                 * is not here cannot be drawn there by accident.
+                 */
+                'age' => $row === null || empty($row['last_run'])
+                    ? null
+                    : (time() - (int)$row['last_run']),
+                'last_state' => $row === null ? null : $row['state'],
+                'total' => $row === null ? null : (int)$row['total'],
+                'shown' => $row === null ? null : (int)$row['shown'],
+            );
         }
         return $out;
     }

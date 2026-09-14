@@ -32,11 +32,43 @@ $kinds = implode(', ', $module['kinds']);
     ?>
     <div class="vp-e-cold-main">
 
+    <?php
+    /*
+     * Phase 11. This pane used to be able to say only one thing —
+     * *has not been asked* — because nothing recorded that anything
+     * ever had. Since `value_enrichment_runs` it can be wrong about
+     * that, and a rail row reading *Asked 2 hours ago* against a pane
+     * reading *has not been asked* is the page contradicting itself.
+     *
+     * So there are three openings: never asked, being asked by
+     * somebody else right now, and asked before. The third is the one
+     * that carries a second control, because the reader wants the
+     * answer more often than they want another query.
+     *
+     * **When, never who** (D27).
+     */
+    $stored = isset($module['stored']) ? $module['stored'] : null;
+    $inFlight = $stored !== null && !$stored['held'];
+    ?>
+
     <div class="vp-e-cold-title">
-        <?= h(sprintf(
-            __('%s has not been asked.'),
-            $module['name']
-        )) ?>
+        <?php if ($inFlight): ?>
+            <?= h(sprintf(
+                __('%s is being asked now.'),
+                $module['name']
+            )) ?>
+        <?php elseif ($stored !== null): ?>
+            <?= h(sprintf(__('%s was asked'), $module['name'])) ?>
+            <?= $this->element(
+                'Values/View/value_enrichment_age',
+                array('askedAge' => $stored['age'])
+            ) ?><?= h(__('.')) ?>
+        <?php else: ?>
+            <?= h(sprintf(
+                __('%s has not been asked.'),
+                $module['name']
+            )) ?>
+        <?php endif; ?>
     </div>
 
     <?php if (!empty($module['description'])): ?>
@@ -45,19 +77,56 @@ $kinds = implode(', ', $module['kinds']);
         </div>
     <?php endif; ?>
 
-    <div class="vp-e-cold-prose mt-3">
-        <?= h(__(
-            'Nothing is written to MISP. The answer is rendered here'
-            . ' and not stored, so leaving the page loses it.'
-        )) ?>
-    </div>
+    <?php if ($inFlight): ?>
+        <div class="vp-e-cold-prose mt-3">
+            <?= h(__(
+                'Somebody in your organisation is running this right'
+                . ' now. Its answer will be kept and shown here.'
+            )) ?>
+        </div>
+    <?php elseif ($stored !== null): ?>
+        <div class="vp-e-cold-prose mt-3">
+            <?= h(sprintf(
+                __(
+                    'It was asked as %s and the answer was kept. Show'
+                    . ' it without asking anybody anything, or run the'
+                    . ' module again for a fresh one.'
+                ),
+                $stored['type']
+            )) ?>
+        </div>
+    <?php else: ?>
+        <div class="vp-e-cold-prose mt-3">
+            <?= h(__(
+                'Nothing is written to MISP. The answer is kept for'
+                . ' your organisation so that opening this value again'
+                . ' does not ask the module again.'
+            )) ?>
+        </div>
+    <?php endif; ?>
 
     <div class="mt-3">
+        <?php if ($stored !== null && !$inFlight): ?>
+            <?= $this->element(
+                'Values/View/value_enrichment_button',
+                array(
+                    'module' => $module,
+                    'canRun' => $canRun,
+                    'noRun' => $noRun,
+                    'label' => __('Show what came back'),
+                    'mode' => 'auto',
+                    'variant' => 'secondary',
+                    'runType' => $stored['type'],
+                )
+            ) ?>
+        <?php endif; ?>
         <?= $this->element('Values/View/value_enrichment_button', array(
             'module' => $module,
             'canRun' => $canRun,
             'noRun' => $noRun,
-            'label' => sprintf(__('Run %s'), $module['name']),
+            'label' => $stored === null
+                ? sprintf(__('Run %s'), $module['name'])
+                : __('Ask again'),
         )) ?>
     </div>
 

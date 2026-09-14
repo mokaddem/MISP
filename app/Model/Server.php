@@ -8562,6 +8562,34 @@ class Server extends AppModel
                     'test' => 'testForEmpty',
                     'type' => 'numeric'
                 ),
+                /*
+                 * The Value Profile page's auto-run gate
+                 * (prd/analyst-profile/13-auto-run.md §6, D24).
+                 *
+                 * An Analyst Profile declares which enrichment modules
+                 * matter for a type, and may mark one `auto`. This
+                 * decides whether an `auto` may actually cause a
+                 * query. It has to sit above the profile because
+                 * profiles resolve user -> org -> instance default, so
+                 * an analyst can be running under one they did not
+                 * author; without this, an org admin's declaration
+                 * would spend everyone's quota on their behalf.
+                 *
+                 * Off by default, so no instance changes behaviour by
+                 * taking the upgrade.
+                 */
+                'ValueProfile_enrichment_auto_run' => array(
+                    'level' => 1,
+                    'description' => __('Whether an Analyst Profile may run enrichment modules on the Value Profile page without a press. The profile decides which modules; this decides whether any of them may run here. Off by default: a module run spends the instance\'s quota and tells whoever operates the module that somebody is looking at this value.'),
+                    'value' => 'off',
+                    'test' => 'testForEmpty',
+                    'type' => 'string',
+                    'options' => array(
+                        'off' => __('Off - nothing runs without a press'),
+                        'site_admin' => __('Site administrators only'),
+                        'on' => __('On'),
+                    ),
+                ),
                 'Import_services_enable' => array(
                     'level' => 0,
                     'description' => __('Enable/disable the import services'),

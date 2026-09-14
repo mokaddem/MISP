@@ -97,7 +97,16 @@ $icons = array(
     'module.unresolved' => 'fa-circle-question',
     'type.unused' => 'fa-filter-circle-xmark',
     'state.never' => 'fa-ban',
-    'state.auto_inert' => 'fa-hand-pointer',
+    /*
+     * `state.auto_inert` is gone with phase 11: *nothing runs on its
+     * own on this version* stopped being true. What replaced it is
+     * two conditions, kept apart because only one of them is a
+     * conversation the reader can have — an instance with the gate
+     * shut may open it, where a gate set to site administrators only
+     * is a decision that has already been made about them.
+     */
+    'state.auto_disabled' => 'fa-hand-pointer',
+    'state.auto_site_admin' => 'fa-user-shield',
 );
 ?>
 <div class="vp-e-profile">
