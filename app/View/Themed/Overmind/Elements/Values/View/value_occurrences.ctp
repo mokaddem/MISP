@@ -99,9 +99,18 @@ $fields = array(
     ),
     array(
         'name' => __('Distribution'),
-        'element' => 'distribution',
-        'data_path' => 'Attribute.distribution',
-        'sharing_group_path' => 'SharingGroup.name',
+        /*
+         * `value_distribution`, not `distribution`: the shared renderer
+         * draws the column it is pointed at, and `Attribute.distribution`
+         * is `Inherited` on almost every row — the card said that beside
+         * an Occurrences tab reading the level the attribute actually
+         * lands on. The element resolves the same conjunction the tab
+         * does, off the same stamp on the same row.
+         */
+        'element' => 'value_distribution',
+        // One line per row on this card: a level-4 row names its
+        // sharing group in the title rather than under the badge.
+        'sharing_group_line' => false,
     ),
     array(
         'name' => __('Context'),

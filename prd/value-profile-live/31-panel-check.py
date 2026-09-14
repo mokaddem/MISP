@@ -144,5 +144,65 @@ check("remote events name it" in html,
 check("remote events name this value" not in html,
       "and the unattributed total under both lines is gone")
 
+# ------------------------------------------------------------------
+# The Distribution column: the card drew `Attribute.distribution` while
+# the tab two clicks away drew the chain it resolves to, so one row read
+# `Inherited` on the Overview and `This community only` on Occurrences.
+# ------------------------------------------------------------------
+print("== the distribution column ==")
+
+
+def dist_by_attr(html):
+    """attribute id -> the level label its badge carries.
+
+    Every cell opens with the chain on the wrapper and the level on the
+    badge inside it, so the second `title` is the label on both
+    surfaces — the tab adds a third for the sharing-group link.
+    """
+    out = {}
+    for part in re.split(r"<tr\b", html)[1:]:
+        pid = re.search(r'data-primary-id="(\d+)"', part)
+        cell = re.search(r"idx-col-value_distribution.*?</td>", part, re.S)
+        if not pid or not cell:
+            continue
+        titles = re.findall(r'title="([^"]*)"', cell.group(0))
+        out[pid.group(1)] = titles[1] if len(titles) > 1 else None
+    return out
+
+
+_, card = fetch("viewOccurrences", "8.8.8.8")
+_, tab = fetch("viewOccurrenceTable", "8.8.8.8")
+check("idx-col-distribution" not in card,
+      "the card is off the shared attribute-column renderer")
+cardLevels, tabLevels = dist_by_attr(card), dist_by_attr(tab)
+check(len(cardLevels) == len(re.findall(r"vp-occ-type-", card)),
+      f"every card row draws a distribution ({len(cardLevels)})")
+check(all(v for v in cardLevels.values()),
+      "and none of them draws an empty cell")
+shared = [k for k in cardLevels if k in tabLevels]
+check(len(shared) == len(cardLevels),
+      f"the card's rows are all in the tab ({len(shared)})")
+check(all(cardLevels[k] == tabLevels[k] for k in shared),
+      "and the two surfaces name the same level for each")
+check(any("Inherited" in (t or "") for t in
+          re.findall(r'title="(Attribute: [^"]*)"', card)),
+      "the chain is stated, inherited links included")
+
+# The tightest level on the page, and the one the attribute's own
+# column never carries: all four of these rows are level 5 there.
+_, card = fetch("viewOccurrences", "23.94.99.61")
+levels = dist_by_attr(card)
+check(all(v == "Your organisation only" for v in levels.values()),
+      f"an org-only event makes its rows org-only ({levels})")
+
+# A sharing group is named on both surfaces: under the badge where there
+# is width for a line, in the title where the card holds one line a row.
+_, card = fetch("viewOccurrences", "7.7.7.7")
+_, tab = fetch("viewOccurrenceTable", "7.7.7.7")
+check("Sharing group ·" in card and "sharing_groups/view" not in card,
+      "the card names the sharing group in the title, on one line")
+check("sharing_groups/view" in tab,
+      "and the tab still links it under the badge")
+
 print(f"\n{checks} checks, {failures} failures")
 sys.exit(1 if failures else 0)

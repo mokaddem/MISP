@@ -20,7 +20,6 @@
  * @var string $valueB64
  */
 App::uses('ValueStatsTool', 'Tools');
-App::uses('DistributionLevel', 'Tools');
 
 $profile = $valueProfile;
 $rows = $profile['occurrences'];
@@ -354,109 +353,6 @@ $stateCell = function ($row) {
 };
 
 /**
- * Who can actually see this occurrence.
- *
- * Not `Attribute.distribution`, which is `Inherited` on almost every row
- * a real instance holds: an attribute's audience is the conjunction of
- * its own level, its object's and its event's, and that is what the
- * reader is asking. `ValueStatsTool::effectiveDistribution()` resolves
- * it and the model stamps it on the row, so this cell and the rail's
- * facet cannot disagree.
- *
- * A custom cell rather than the shared `distribution` field renderer
- * pointed at a computed path, because two things have to be said that
- * the shared renderer has no slot for — where the level came from, and
- * when the badge is understating the restriction. The badge itself is
- * still MISP's own element.
- *
- * @param array $row
- * @return string
- */
-$distributionCell = function ($row) use ($view, $baseurl) {
-    $effective = $row['effective_distribution'];
-    if ($effective['level'] === null) {
-        return '<span class="text-muted">&mdash;</span>';
-    }
-
-    // "Attribute: Inherited → Event: This community only" — the whole
-    // chain, so a level nobody set on the attribute is traceable to
-    // whoever did set it.
-    $chain = array();
-    $chain[] = sprintf(
-        '%s: %s',
-        __('Attribute'),
-        DistributionLevel::get(
-            (int)$row['Attribute']['distribution']
-        )['label']
-    );
-    if (!empty($row['Object']['id'])) {
-        $chain[] = sprintf(
-            '%s: %s',
-            __('Object'),
-            DistributionLevel::get(
-                (int)$row['Object']['distribution']
-            )['label']
-        );
-    }
-    $chain[] = sprintf(
-        '%s: %s',
-        __('Event'),
-        DistributionLevel::get((int)$row['Event']['distribution'])['label']
-    );
-    $title = implode(' → ', $chain);
-    if ($effective['intersects']) {
-        /*
-         * A sharing group alongside another constraint means the real
-         * audience is an intersection, and no single level says that.
-         * The badge shows the tightest level it can name; this says the
-         * real audience is narrower still.
-         */
-        $title .= ' · ' . __(
-            'Both apply, so the real audience is narrower than any one'
-            . ' of them'
-        );
-    }
-
-    $out = '<span title="' . h($title) . '">'
-        . $view->element(
-            'genericElementsBS5/Badges/distribution',
-            array('distribution' => $effective['level'], 'full' => false)
-        );
-    if ($effective['intersects']) {
-        $out .= '<i class="fas fa-link ms-1 text-warning-emphasis"'
-            . ' aria-hidden="true"></i>';
-    }
-    $out .= '</span>';
-
-    /*
-     * "Sharing group" is the only level that does not say who it means.
-     * Named by whichever link in the chain won, so an attribute
-     * inheriting its event's sharing group names that group rather than
-     * nothing — and linked to it, because "which organisations is that"
-     * is the next question and only the group's own page answers it.
-     *
-     * Safe to link unconditionally: the name is only ever set from
-     * `SharingGroup::fetchAllAuthorised($user, 'name')`, so a name that
-     * resolved is a group this viewer may open. Where it did not
-     * resolve, the badge stands alone and there is nothing to link.
-     */
-    if ($effective['level'] === 4
-        && !empty($effective['sharing_group_name'])
-    ) {
-        $out .= '<div class="text-muted small text-truncate mt-1">'
-            . '<a class="text-reset" href="' . h($baseurl)
-            . '/sharing_groups/view/'
-            . h($effective['sharing_group_id']) . '" title="'
-            . h(sprintf(
-                __('%s — who this is shared with'),
-                $effective['sharing_group_name']
-            )) . '">'
-            . h($effective['sharing_group_name']) . '</a></div>';
-    }
-    return $out;
-};
-
-/**
  * A one-letter disc before the organisation name, so four organisations
  * are distinguishable down the column without reading them.
  *
@@ -581,8 +477,15 @@ $columns = array(
         'shown' => true,
         'field' => array(
             'name' => __('Distribution'),
-            'element' => 'custom',
-            'function' => $distributionCell,
+            /*
+             * Not the shared `distribution` renderer over
+             * `Attribute.distribution`, which is `Inherited` on almost
+             * every row a real instance holds: the level a reader is
+             * asking after is the conjunction of the attribute's, its
+             * object's and its event's. The element draws the stamp the
+             * model resolved, and the Overview card draws the same one.
+             */
+            'element' => 'value_distribution',
         ),
     ),
     array(

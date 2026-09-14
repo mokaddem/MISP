@@ -521,3 +521,80 @@ count, and the unattributed total is gone. 102 checks, 0 failures, plus
 Rendered and measured in both themes; the pane is **1515px**, 16px under
 where §6 left it — the occurrence card is unchanged and the sightings
 card's subhead replaced a taller block.
+
+---
+
+## 9. The Distribution column was the attribute's own
+
+> On the occurences panel on the overview pane, the distribution column
+> shows the attribute's distribution instead of the final/effective
+> distribution level used in the occurences table.
+
+The seven columns §3 kept include Distribution, and it was MISP's shared
+`distribution` field renderer pointed at `Attribute.distribution`. That
+renderer draws the column it is given, and phase 22
+[§13.1](22-occurrences.md) had already settled what this column is worth
+on this page: an attribute's own level is **5 — `Inherited` — on
+3,915,012 of this instance's 3,915,429 attributes**, 99.99% of them. It
+states where MISP stored the decision, not who can see the row.
+
+The Occurrences tab resolves the chain — attribute, then object, then
+event — and prints what it lands on. The card printed `Inherited`. Two
+clicks apart, on the same attribute, the same page gave two answers:
+
+| Value | Card rows | What the card said | What those rows resolve to |
+|---|---|---|---|
+| `8.8.8.8` | 8 | `Inherited` ×8 | This community only ×4, All communities ×3, Your organisation only ×1 |
+| `443` | 8 | `Inherited` ×8 | All communities ×8 |
+| `0.0.0.0` | 8 | `Inherited` ×8 | Your organisation only ×8 |
+| `23.94.99.61` | 4 | `Inherited` ×4 | Your organisation only ×4 |
+| `7.7.7.7` | 3 | `Inherited` ×3 | All communities, Sharing group, Connected communities |
+
+**31 rows of 31 said nothing at all**, including the eight on `0.0.0.0`
+that no one outside the owning organisation can see.
+
+**The model was never the problem.** `forOccurrences` has stamped
+`effective_distribution` on every card row since the Overview went live
+in phase 29, and its own comment says why — *deliberately the same four
+attachments in the same order, because a card and a table that resolve
+an organisation or a distribution differently are two answers to one
+question on one page.* The card was rendering around a field that was
+already on its rows.
+
+**So the fix is one element, named by both tables.** The tab's
+resolution was a 103-line closure inside its own template, which is the
+reason the card could not have shared it and the reason this drifted at
+all. It is now
+`genericElementsBS5/IndexTable/Fields/value_distribution.ctp`: the chain
+in the title, MISP's own badge for the level it resolves to, and the
+`fa-link` marker where a sharing group intersects another constraint and
+the badge is understating the restriction. The rule stays stated once,
+which is what §13.1 asked for and what a closure in one of two templates
+could not give.
+
+**One line on the card, two on the tab.** Sharing group is the only
+level that does not say who it means, so the tab names the group under
+the badge and links it to its own page. That is a second line in the
+row, and this card's whole shape is eight rows of one line each (§3), so
+it takes the name in the title instead — *Attribute: Inherited → Event:
+Sharing group · Test SG*. Nothing else differs between the two
+surfaces, and the flag that does it is a field key rather than a second
+implementation.
+
+**It costs no query and no height.** The level was already resolved and
+already on the row; the card's rows are the same rows, one line each,
+as before.
+
+### 9.1 Verification
+
+`31-panel-check.py` goes from 102 checks to **111**, written against the
+defect: the card is off the shared renderer, every card row draws a
+level, the card's rows all appear in the tab, and **the two surfaces
+name the same level for every row they share** — which is the assertion
+that would have failed before, on all eight of `8.8.8.8`'s. Plus the two
+levels the attribute column cannot express on its own: an org-only event
+makes its rows org-only, and a sharing group is named in the card's
+title and linked under the tab's badge.
+
+No board change: `viewOccurrences` runs the same queries it ran in §7,
+and `00-contract.md` §14.12 keeps the row phase 31 amended.
