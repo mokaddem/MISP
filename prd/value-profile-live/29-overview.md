@@ -41,7 +41,7 @@ to `done` only when §9's verification has run against it.
 | T4 | `value2_note` — derived, or withdrawn with its reason | §4.4 | **done** — derived, §14.3 |
 | T5 | The fact strip's six facts, four of them from one aggregate | §4.5 | **done** — **five** cells from **one** aggregate, §14.1 |
 | T6 | The pivot rail — **withdrawn** (D1), and the element deleted with it | §8.1 | **done** — element and CSS both gone |
-| T7 | `ValueProfile::forOccurrences` — the card, capped, on `fetchAttributesSimple` | §5.1 | **done** — cap 25 |
+| T7 | `ValueProfile::forOccurrences` — the card, capped, on `fetchAttributesSimple` | §5.1 | **done** — cap 25, **taken to 8 by [phase 31](31-overview-balance.md)** |
 | T8 | `occurrence_stats` — five of its six keys; `hidden` withdrawn (D3) | §5.2 | **done**, and §14.2 is the defect it exposed |
 | T9 | `ValueProfile::forContext` — tags grouped by taxonomy, from `ownTagsFor` | §6.1 | **done** — from `topTagsFor`, which §14.4 explains |
 | T10 | The ordinal scale, against the taxonomy's own `numerical_value` | §6.2 | **done** — §14.5 is the two bugs in it |
@@ -604,7 +604,10 @@ should prefer.
 - **A batched organisation read** behind `fetchAttributes` (§5.1). Cost:
   N selects for N organisations on the occurrence preview, bounded by the
   cap. It is a MISP-wide defect, not this page's, and every attribute
-  index pays it.
+  index pays it. **Still deferred, and cheaper since
+  [phase 31](31-overview-balance.md)**: the cap fell from 25 rows to 8,
+  which took this endpoint from 9 queries to 5 on `8.8.8.8` — the N is
+  the distinct organisations *among the rows fetched*.
 - **The *N published* sub** on the Events fact, if `recordSummaryFor`
   cannot supply it free (§4.5). Cost: one sub-label.
 - **The per-tag organisations** in the context tooltip, if the event→org

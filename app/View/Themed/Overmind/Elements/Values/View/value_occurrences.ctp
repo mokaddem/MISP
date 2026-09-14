@@ -1,13 +1,23 @@
 <?php
 /**
- * Every attribute row carrying this value, across every event the
- * viewing user can see.
+ * The newest few attribute rows carrying this value — a sample of the
+ * Occurrences tab, sitting on the tab a reader lands on.
  *
  * An `index_table` over `$valueProfile['occurrences']`, which is shaped
  * like a `fetchAttributes` result, so the field renderers below are the
- * same ones every other MISP index uses. No `sort` keys and no
+ * same ones every other MISP index uses — the event reference excepted,
+ * and that one says why in its own file. No `sort` keys and no
  * `paginatorOptions`: this is the Overview summary, and the full,
  * filterable, paginated table is the Occurrences tab.
+ *
+ * **Eight rows since phase 31**, in one line each, with no selection
+ * column and no mass-action toolbar. It drew twenty-five rows at the
+ * event badge's height until then, which measured 792px against an
+ * Overview whose whole left column was 1531px: a summary that had to be
+ * scrolled past, in a card that scrolled internally to hold it. What
+ * those rows were being read for — *who reports this, and when* — is
+ * answered in one strip by `value_reporting` beneath, and the rest is
+ * one *Open full table* away.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewOccurrences.
@@ -18,11 +28,6 @@
 $profile = $valueProfile;
 $rows = $profile['occurrences'];
 $stats = $profile['occurrence_stats'];
-
-$noWrites = __(
-    'Disabled in this pass — the Value Profile page does not write to'
-    . ' the database yet.'
-);
 
 /*
  * Two things the page filters rows by, both stated on the <tr> because
@@ -48,20 +53,30 @@ $rowClass = function ($row) use ($typeSlug) {
 };
 
 /*
- * Nine columns, not the full table's ten: `category` is dropped here
- * because it is the least discriminating of them — MISP's category
- * mostly follows from the type — and ten columns overflow a col-lg-9 far
- * enough to push the tags off the edge. The Occurrences tab carries the
- * complete field set.
+ * Seven columns, not the full table's ten, and the three that went are
+ * each a different kind of cut. `category` is the least discriminating
+ * of them — MISP's category mostly follows from the type — and ten
+ * columns overflow a col-lg-9 far enough to push the tags off the edge.
+ * The **checkbox** went with the mass-action toolbar below it: a
+ * selection column on a card with nothing to select *for* is a control
+ * that does not act. And **last seen** is the one this phase took, for
+ * a reason rather than for the 104px: the fact strip above the tabs
+ * already prints this value's first and last seen, and *when* is now
+ * the Reporting card's whole left half. A preview of eight rows is
+ * answering *where*.
+ *
+ * The Occurrences tab carries the complete field set, sortable, with
+ * every row present.
  */
 $fields = array(
     array(
-        'element' => 'checkbox',
-        'data_path' => 'Attribute.id',
-    ),
-    array(
         'name' => __('Event'),
-        'element' => 'event',
+        /*
+         * `value_event_ref`, not `event`: one line rather than the
+         * badge's bordered two, which is most of what made eight rows
+         * fit where twenty-five used to sprawl. The element says why.
+         */
+        'element' => 'value_event_ref',
         'data_path' => 'Event.id, Event.info',
         'url' => $baseurl . '/events/view2/%id%',
     ),
@@ -95,13 +110,6 @@ $fields = array(
         'object_id_path' => 'Object.id',
         'relation_path' => 'Attribute.object_relation',
         'comment_path' => 'Attribute.comment',
-    ),
-    array(
-        'name' => __('Last seen'),
-        'element' => 'datetime',
-        'data_path' => 'Attribute.last_seen',
-        'format' => 'Y-m-d H:i',
-        'empty' => __('Not set'),
     ),
     array(
         'name' => __('Tags'),
@@ -191,15 +199,22 @@ $headerExtra = ob_get_clean();
          * on: a narrowed table with no note reads as a value with fewer
          * occurrences than the header claims.
          *
-         * The denominator is the rows the filter chose from, not the
-         * value's occurrence count — rows hidden by ACL or by the
-         * soft-deleted toggle were never candidates.
+         * **The denominator is *these* rows**, and at a cap of 8 that
+         * has to be said rather than implied. It was already only the
+         * rows the filter chose from — rows hidden by ACL or by the
+         * soft-deleted toggle were never candidates — but at 25 rows it
+         * was usually also the whole value, and the wording could get
+         * away with `%s of %s rows`. It cannot now: `8.8.8.8` carries
+         * five `ip-src` occurrences and none of them is among its eight
+         * newest, so the chip narrowing this card to zero is the
+         * ordinary case and not the edge one.
          */
         ?>
         <div class="vp-filter-note d-none" data-vp-filter-note>
             <i class="fas fa-filter"></i>
             <span><?= sprintf(
-                __('Type %1$s only &nbsp;·&nbsp; %2$s of %3$s rows'),
+                __('Type %1$s only &nbsp;·&nbsp; %2$s of the %3$s rows'
+                    . ' shown here'),
                 '<span class="font-monospace fw-semibold"'
                     . ' data-vp-filter-type></span>',
                 '<span data-vp-filter-shown></span>',
@@ -211,12 +226,26 @@ $headerExtra = ob_get_clean();
             </button>
         </div>
 
+        <?php
+        /*
+         * **Not *no occurrence has this type*.** That was the wording
+         * until phase 31 and it was a claim about the value made from a
+         * sample of it — false on any value whose rows of that type are
+         * all older than the eight this card drew. The banner chip that
+         * did the narrowing carries the real count, and the full table
+         * is one press away, so the empty state says which of the two it
+         * is talking about and sends the reader to the other.
+         */
+        ?>
         <div class="vp-empty d-none" data-vp-filter-empty>
             <span class="misp-icon misp-icon-attribute misp-simple"></span>
             <span><?= sprintf(
-                __('No occurrence you can see has type %s.'),
+                __('None of the occurrences shown here has type %s.'),
                 '<span class="font-monospace" data-vp-filter-type></span>'
             ) ?></span>
+            <a href="#tab-occurrences" class="vp-filter-clear">
+                <?= __('Open the full table') ?>
+            </a>
         </div>
 
         <div class="card-body p-0" data-vp-occ-table>
@@ -236,24 +265,20 @@ $headerExtra = ob_get_clean();
         </div>
     <?php endif; ?>
 
-    <?php if (!empty($rows)): ?>
-        <div class="px-3 pb-3 pt-0">
-            <?= $this->element(
-                'genericElementsBS5/IndexTable/multi_select_toolbar',
-                array(
-                    'item_url' => '/values',
-                    'filter_bar' => array(
-                        'disabled' => $noWrites,
-                        'export' => true,
-                        'mass_edit' => true,
-                        'mass_tag' => true,
-                        'mass_local_tag' => true,
-                        'mass_cluster' => true,
-                        'mass_sighting' => true,
-                    ),
-                )
-            ) ?>
-        </div>
-    <?php endif; ?>
-
+    <?php
+    /*
+     * **The multi-select toolbar was here and phase 31 withdrew it.**
+     * Six mass actions, every one of them rendered disabled, under a
+     * sample of eight rows nobody chose — a reader selecting rows here
+     * could only ever have selected eight of a value's twenty-six, and
+     * the toolbar under them offered nothing to do with the selection.
+     * It is the Occurrences tab's control, where the rows are all
+     * present, sortable and paged, and it is still there.
+     *
+     * Gone rather than disabled, on the same rule that removed the
+     * pivot rail in phase 29: an inert control is an unfinished promise
+     * to an analyst (D23). It took this element's last write control
+     * and its `$noWrites` string with it.
+     */
+    ?>
 </div>

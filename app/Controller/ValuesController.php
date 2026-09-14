@@ -220,6 +220,28 @@ class ValuesController extends AppController
         );
     }
 
+    /**
+     * The Overview's reporting card — who put the value here, and when.
+     *
+     * The two summaries phase 31 brought onto this tab from the two
+     * that already carried them: the organisation split is the
+     * occurrence half of the Assessment tab's *Who says what*, the
+     * month strip is the Timeline tab's *Activity on this value*, and
+     * `ValueProfile::forReporting` reads both through the same methods
+     * those tabs read so the three cannot disagree.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewReporting($b64value = null)
+    {
+        $this->__renderLivePanel(
+            $b64value,
+            'forReporting',
+            'value_reporting'
+        );
+    }
+
     public function viewContext($b64value = null)
     {
         $this->__renderLivePanel($b64value, 'forContext', 'value_context');

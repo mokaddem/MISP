@@ -94,7 +94,7 @@ class ValueProfile extends AppModel
     /**
      * The same, for the Overview's card rather than the tab's table.
      *
-     * **25, because the two caps are set by different things.** The
+     * **8, because the two caps are set by different things.** The
      * table's 300 is set by the page control it carries: buttons are
      * rows ÷ page size, and past about twenty of them the panel header
      * overflows. This card has no page control, no sort and no facet
@@ -102,10 +102,32 @@ class ValueProfile extends AppModel
      * nothing here argues for a larger number, and every row costs the
      * reader vertical space on the tab they landed on.
      *
+     * **It was 25 until phase 31**, which is a quarter of the tab's
+     * rows drawn in a card with none of the tab's controls: 792px of an
+     * Overview whose whole left column measured 1531px, clipped at
+     * `70vh` so the sample scrolled *inside* the card a reader had not
+     * asked to scroll. Eight rows fill the card without taking the
+     * page, and the space that buys is spent on the two questions the
+     * twenty-five rows were being read for rather than on more of them
+     * — `forReporting` is where that went.
+     *
      * The *total* it prints is `occurrenceCountFor` and not this, so
      * the cap narrows what is shown and never what is claimed.
      */
-    const OVERVIEW_OCCURRENCE_CAP = 25;
+    const OVERVIEW_OCCURRENCE_CAP = 8;
+
+    /**
+     * The most organisations the Overview's reporting card will name.
+     *
+     * A bound on the *drawing* and not on the query: `orgStanceFor` is
+     * grouped by organisation, so it answers a handful of rows whether
+     * the value occurs 26 times or 48,255, and the total is the row
+     * count rather than this. Six fills the split's half of the card at
+     * col-lg-9 and covers every value on the verification instance —
+     * the widest is `443` at twelve — with *and N more* under it where
+     * it does not.
+     */
+    const REPORTING_ORG_CAP = 6;
 
     /**
      * The most labels the Overview's context card will draw.
@@ -1063,13 +1085,13 @@ class ValueProfile extends AppModel
      * The Overview's occurrence card: a preview of the table one tab
      * over.
      *
-     * `forOccurrenceTable` without the facets and at a tenth of the
+     * `forOccurrenceTable` without the facets and at a fraction of the
      * cap, and deliberately the same four attachments in the same
      * order — a card and a table that resolve an organisation or a
      * distribution differently are two answers to one question on one
      * page.
      *
-     * **`OVERVIEW_OCCURRENCE_CAP` is 25 and not 300.** The table's cap
+     * **`OVERVIEW_OCCURRENCE_CAP` is 8 and not 300.** The table's cap
      * is set by the page control it has and this card has none: there
      * is no pagination, no sort and no facet rail here, so a reader who
      * wants the rest is one *Open full table* away. What the card owes
@@ -1117,9 +1139,10 @@ class ValueProfile extends AppModel
          * by walking the rows it was handed, which is exact while every
          * row is in hand and becomes a count of one page the moment a
          * cap bites — *"you are then counting one page and labelling it
-         * a total"*. At 25 rows the cap bites constantly: `8.8.8.8` has
-         * 26 occurrences across 20 events, and the card headed itself
-         * *19 events* beside a fact strip reading 20.
+         * a total"*. At 25 rows the cap bit constantly and at 8 it bites
+         * on almost everything: `8.8.8.8` has 26 occurrences across 20
+         * events, and the card headed itself *19 events* beside a fact
+         * strip reading 20.
          *
          * Both numbers come from the aggregate that already ran for the
          * total, so the card, the strip and the Occurrences tab now
@@ -1141,6 +1164,159 @@ class ValueProfile extends AppModel
             'occurrences' => $rows,
             'occurrence_stats' => $stats,
         );
+    }
+
+    /**
+     * The Overview's reporting card: who put this value on the
+     * instance, and when.
+     *
+     * **Two questions the occurrence preview was being read for, and
+     * could not answer.** A reader scrolling that card's twenty-five
+     * rows was counting organisations in the *Reported by* column and
+     * eyeballing the *Last seen* one — tallying a sample by hand, which
+     * is both slow and wrong the moment the cap bites. Both are one
+     * grouped aggregate each, so they are stated instead, and the
+     * preview above is eight rows
+     * (`31-overview-balance.md`).
+     *
+     * **Neither half is new to the page; both are new to this tab.**
+     * The organisation split is the occurrence half of the Assessment
+     * tab's *Who says what* — same read, same `to_ids` stance word, one
+     * fewer column set — and the month strip is the Timeline tab's
+     * *Activity on this value* with the axis the data's own extent
+     * rather than a brushed twelve-month window. A reader who opens
+     * either tab must find the same numbers there, which is why this
+     * reads the same two methods rather than counting rows.
+     *
+     * **Three queries, and three on every value** — the stance
+     * aggregate, the organisation names behind it, and the month
+     * aggregate — because both reads are grouped over the value's own
+     * indexed rows rather than over its occurrences. 347 ms on `443`,
+     * the instance's heaviest value at 48,255 occurrences, against the
+     * 223 ms `forOccurrences` pays beside it; 2 ms on a value with one
+     * occurrence. Its own endpoint rather than folded into that one, on
+     * the tab's standing rule — one endpoint per panel, so a slow read
+     * never holds up the card next to it.
+     *
+     * **`orgStanceFor` excludes soft-deleted rows and the fact strip's
+     * total does not**, so the two are not the same number and this
+     * does not print the strip's. The split's denominator is the sum of
+     * its own rows, which is what the bar actually divides; saying
+     * *N of 26* against a strip reading 26 would claim the split
+     * accounts for rows it left out.
+     *
+     * **A month with no occurrence is drawn rather than skipped.** The
+     * gaps are the reading — `lifecycle.continuity` scores exactly this
+     * and the Assessment tab prints *4 months without a month of
+     * silence* off it — so the span is filled in here rather than left
+     * to the template to infer from the keys it was handed.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array
+     */
+    public function forReporting(array $user, $value,
+        array $options = array()
+    ) {
+        $valueModel = $this->model('Value');
+        $stance = $valueModel->orgStanceFor($user, $value, $options);
+        $names = $this->organisationNames($stance);
+
+        $orgs = array();
+        $total = 0;
+        foreach ($stance as $row) {
+            $id = (int)$row['Event']['orgc_id'];
+            $count = (int)$row[0]['occurrences'];
+            $total += $count;
+            $orgs[] = array(
+                'id' => $id,
+                'name' => isset($names[$id])
+                    ? $names[$id]
+                    : __('Unknown organisation'),
+                'occurrences' => $count,
+                'stance' => $this->verdictStanceWord(array(
+                    'to_ids_yes' => $row[0]['to_ids_yes'],
+                    'to_ids_no' => $row[0]['to_ids_no'],
+                )),
+                // When this organisation first held it, and last
+                // touched it — the card prints the first as a tooltip.
+                'oldest' => empty($row[0]['oldest'])
+                    ? null
+                    : (int)$row[0]['oldest'],
+                'newest' => empty($row[0]['newest'])
+                    ? null
+                    : (int)$row[0]['newest'],
+            );
+        }
+
+        /*
+         * **`orgStanceFor` orders by occurrence count and nothing
+         * else**, and on `8.8.8.8` five organisations hold the value
+         * once each — so which of them survived `REPORTING_ORG_CAP`
+         * changed between two loads of the same page, with *2 further
+         * organisations not shown* underneath naming a different two
+         * each time. MariaDB is entitled to that; a card is not.
+         *
+         * The tiebreak is the name, which is the same one
+         * `contextOrgs` settles its own ties with — two cards listing
+         * one value's organisations in two orders is the defect this
+         * avoids, not merely an unstable slice.
+         */
+        usort($orgs, function ($a, $b) {
+            if ($a['occurrences'] !== $b['occurrences']) {
+                return $b['occurrences'] - $a['occurrences'];
+            }
+            return strcasecmp($a['name'], $b['name']);
+        });
+
+        return array(
+            'value' => $value,
+            'reporting' => array(
+                'orgs' => array_slice($orgs, 0, self::REPORTING_ORG_CAP),
+                'orgs_total' => count($orgs),
+                'occurrences' => $total,
+                'months' => $this->reportingMonths(
+                    $valueModel->activityMonthsFor($user, $value, $options)
+                ),
+            ),
+        );
+    }
+
+    /**
+     * The activity months, with the silent ones put back.
+     *
+     * `activityMonthsFor` answers a `GROUP BY month`, so a month nobody
+     * reported the value in is simply absent from the result — and a
+     * strip drawn straight off those keys shows a value reported every
+     * month of its life however long it went quiet. The run is what the
+     * card is for, so the gaps are materialised here.
+     *
+     * @param array $months `YYYY-MM` => occurrences, oldest first
+     * @return array `YYYY-MM` => occurrences, every month in the span
+     */
+    private function reportingMonths(array $months)
+    {
+        if (empty($months)) {
+            return array();
+        }
+        $keys = array_keys($months);
+        $cursor = new DateTime(reset($keys) . '-01');
+        $last = new DateTime(end($keys) . '-01');
+        $step = new DateInterval('P1M');
+        $filled = array();
+        /*
+         * Bounded by the value's age in months rather than by its
+         * occurrence count, which is what makes an unbounded loop safe
+         * here: the oldest attribute on a MISP instance is a decade of
+         * months, not a million of them.
+         */
+        while ($cursor <= $last) {
+            $key = $cursor->format('Y-m');
+            $filled[$key] = isset($months[$key]) ? (int)$months[$key] : 0;
+            $cursor->add($step);
+        }
+        return $filled;
     }
 
     /**
@@ -1392,7 +1568,7 @@ class ValueProfile extends AppModel
          * derives both by walking the rows it was handed, which is
          * exact while every row is in hand and becomes a count of one
          * page the moment a cap bites. At 300 that is rarer than the
-         * card's 25 and not rare: `443` is 48,255 occurrences across
+         * card's 8 and not rare: `443` is 48,255 occurrences across
          * 1,844 events, and this header claimed the events of its first
          * 300 beside a fact strip reading the real number.
          *

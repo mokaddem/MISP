@@ -243,7 +243,10 @@ $aside = array('shape' => 'aside');
 
 $panelChrome = array(
     'viewOccurrences' => array(
-        $await(__('Occurrences'), $icoAttr, 'var(--attribute)', 6),
+        $await(__('Occurrences'), $icoAttr, 'var(--attribute)', 4),
+    ),
+    'viewReporting' => array(
+        $await(__('Reporting'), $icoOrg, 'var(--object)', 4),
     ),
     'viewContext' => array(
         $await(__('Tags and galaxies'), $icoTag, 'var(--tag)', 4),
@@ -503,8 +506,29 @@ $tabRegistry = array(
         'id' => 'general',
         'title' => __('Overview'),
         'icon' => 'fas fa-info-circle',
+        /*
+         * **Reporting sits under the occurrence preview**, which is
+         * where the questions it answers were being asked. Phase 31 cut
+         * that preview from twenty-five rows to eight — 792px of a
+         * 1531px column, clipped at 70vh and scrolling inside its own
+         * card — and a reader's next move after skimming it was to
+         * count organisations down the *Reported by* column and guess
+         * at the dates. Both are one grouped aggregate, so both are
+         * stated: the split is the Assessment tab's *Who says what*
+         * and the strip is the Timeline tab's *Activity on this value*,
+         * each read through that tab's own method.
+         *
+         * The rail is untouched, deliberately. Its four cards summed to
+         * 1466px against the left column's 1483 — within 2% — so it,
+         * and not the occurrence card, is what sets this tab's height
+         * once the card is shortened. A fifth rail card would have made
+         * the Overview taller while the complaint was that it is too
+         * tall. `31-overview-balance.md` §5 has the candidate that lost
+         * on exactly that count.
+         */
         'left' => array(
             $panel('viewOccurrences'),
+            $panel('viewReporting'),
             $panel('viewContext'),
             $panel('viewAnalystPreview'),
         ),

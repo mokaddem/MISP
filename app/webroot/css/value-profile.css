@@ -1142,12 +1142,19 @@ tr.vp-occ-deleted td {
     height: 40px;
 }
 
+/*
+ * `--vp-bar-color` so a second strip can say what it counts. The
+ * sightings card never sets it and keeps the purple it has always had;
+ * the reporting card's months are occurrences and take the attribute
+ * colour, because a reader who has just read *26 occurrences* two cards
+ * up should not have to work out what the bars are.
+ */
 .vp-spark-bar {
     flex: 1 1 0;
     min-height: 2px;
     height: var(--vp-spark-h, 0%);
     border-radius: 1px;
-    background: var(--sighting);
+    background: var(--vp-bar-color, var(--sighting));
 }
 
 /*
@@ -1193,13 +1200,123 @@ tr.vp-occ-deleted td {
     display: block;
     height: 100%;
     border-radius: 3px;
-    background: var(--sighting);
+    background: var(--vp-bar-color, var(--sighting));
 }
 
 .vp-reporter-count {
     flex: 0 0 auto;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================================
+ * Reporting — who put the value here, and when
+ * ------------------------------------------------------------------
+ * Two halves of one card, and they are halves rather than two cards
+ * because neither fills a col-lg-9 on its own and both answer *where
+ * did this value come from*. The grid collapses to one column below
+ * lg, where the rail stacks under the main column anyway and a 50%
+ * month strip would be a few pixels a bar.
+ * ================================================================== */
+
+.vp-reporting {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    --vp-bar-color: var(--vp-occ-attribute);
+}
+
+@media (max-width: 991.98px) {
+    .vp-reporting {
+        grid-template-columns: 1fr;
+    }
+}
+
+/*
+ * Three times the sightings spark, because this axis is years rather
+ * than ninety days: the reading is the shape of a decade, and 40px of
+ * height over eighty-five bars flattens every burst into the same
+ * stripe. The height is free — the split beside it is the taller half
+ * of the card on every value the instance has — and it is spent on the
+ * half that has something to say with it.
+ */
+.vp-reporting .vp-spark {
+    height: 120px;
+    gap: 1px;
+    justify-content: flex-start;
+}
+
+/*
+ * A bar has a widest it may be, which `.vp-spark` does not need and
+ * this does: the sightings strip is always ninety buckets, while this
+ * one is however many months the value has existed — and `sage.png` has
+ * existed for one. At `flex: 1 1 0` that single month drew a 560×120
+ * slab of solid green, which is not a chart of anything. Capped, one
+ * month is one bar and the empty axis beside it is the reading.
+ */
+.vp-reporting .vp-spark-bar {
+    max-width: 22px;
+}
+
+/*
+ * The strip and the split are read together — *ADMIN holds twelve of
+ * these, and they landed in that spike* — so the two start on the same
+ * line rather than each floating in its own half.
+ */
+.vp-reporting-when,
+.vp-reporting-who {
+    min-width: 0;
+}
+
+.vp-reporting-rest {
+    margin-top: 6px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+}
+
+/*
+ * The `to_ids` stance, in the vocabulary the Assessment tab's *Who says
+ * what* column uses. A chip rather than a word so the eye can run down
+ * the column, and `mixed` is its own mark rather than a shade between
+ * the other two: an organisation holding the value both ways has not
+ * made half a decision, it has made none.
+ */
+.vp-stance {
+    flex: 0 0 auto;
+    min-width: 2.6rem;
+    padding: 0 5px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.vp-stance-yes {
+    border-color: color-mix(in srgb, var(--attribute) 45%, transparent);
+    background: color-mix(in srgb, var(--attribute) 14%, transparent);
+    color: var(--vp-occ-attribute);
+}
+
+.vp-stance-no {
+    border-color: var(--bs-border-color);
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.vp-stance-mixed {
+    border-color: color-mix(in srgb, var(--correlation) 45%, transparent);
+    background: color-mix(in srgb, var(--correlation) 14%, transparent);
+    color: var(--correlation);
+}
+
+.vp-stance-none {
+    border-style: dashed;
+    border-color: var(--bs-border-color);
+    color: var(--bs-secondary-color);
 }
 
 /* ==================================================================
@@ -1498,11 +1615,99 @@ tr.vp-occ-deleted td {
  * carry structure rather than free text and get a floor instead.
  */
 .vp-panel .idx-col-event,
+.vp-panel .idx-col-value_event_ref,
 .vp-panel .idx-col-organisation,
 .vp-panel .idx-col-value_object_context,
 .vp-panel .idx-col-tag_list {
     overflow-wrap: normal;
     word-break: normal;
+}
+
+/*
+ * A MISP type is one token and the badge draws it in a bordered box, so
+ * a column narrow enough to break it renders `ip-` over `dst` in a
+ * 58px-tall box — which then sets the height of every cell in the row.
+ * The type column is the cheapest one on the table to hand its natural
+ * width to.
+ */
+.vp-panel .idx-col-type {
+    white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------
+ * The Overview preview's own density
+ * ------------------------------------------------------------------
+ * Scoped to `[data-vp-occurrences]` and nowhere else: the Occurrences
+ * tab is a table a reader came to read and keeps MISP's row height,
+ * while this is eight rows of sample on a tab about something else.
+ *
+ * The type badge is what the rule is for. At the shared size its
+ * bordered box measures 34px against the 18–26px every other cell in
+ * the row draws, so it — not the text — was setting the row height, and
+ * with it the card's. Trimmed to the line it contains, the row falls
+ * from 51px to about 40 and the card from 540 to the rail's budget.
+ * ------------------------------------------------------------------ */
+
+[data-vp-occurrences] td {
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+[data-vp-occurrences] .idx-col-type p {
+    padding: 0 5px !important;
+    font-size: 0.75rem;
+}
+
+/*
+ * The compact event reference — `Fields/value_event_ref`, and the
+ * element says why the badge is not used here.
+ *
+ * The id keeps the link and the info does not: two anchors to one
+ * event on one line is one target the eye has to choose between, and
+ * the id is the shorter, steadier one to aim at. The info is what the
+ * row is *about*, so it takes the width and the ellipsis.
+ */
+.vp-event-ref {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    font-size: 0.75rem;
+}
+
+.vp-event-ref-id {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: baseline;
+    gap: 3px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.vp-event-ref-id:hover {
+    text-decoration: underline;
+}
+
+/*
+ * `max-width` is what actually sets the column's width, and it is doing
+ * a table's job rather than a text one. `table-layout: auto` sizes a
+ * cell from its max-content, and a nowrap title has no max-content
+ * short of the whole string — so *Dated relations bench - resolution
+ * history for 8.8.8.8 and 1.1.1.1* took 460px of a 1176px card, pushed
+ * Tags off the edge and squeezed `ip-dst` into two lines, which put
+ * back most of the row height the one-line reference had just saved.
+ * Fifteen rems leaves every other column its natural width on this
+ * card's eight.
+ */
+.vp-event-ref-info {
+    overflow: hidden;
+    flex: 1 1 auto;
+    max-width: 15rem;
+    color: var(--bs-secondary-color);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .vp-panel .idx-col-event {

@@ -1082,6 +1082,7 @@ class ACLComponent extends Component
         'values' => array(
             'view' => array('theming_enabled'),
             'viewOccurrences' => array('theming_enabled'),
+            'viewReporting' => array('theming_enabled'),
             'viewContext' => array('theming_enabled'),
             'viewAnalystPreview' => array('theming_enabled'),
             'viewVerdictCard' => array('theming_enabled'),
