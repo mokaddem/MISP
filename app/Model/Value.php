@@ -2237,9 +2237,19 @@ class Value extends AppModel
      * unlike the co-occurrence panel, whose subject is what the value
      * currently sits beside.
      *
+     * **`reach` narrows to one scope, and costs a query rather than
+     * saving one.** The Timeline's lane wants both and pays two
+     * statements for them. A caller after *standalone* proposals wants
+     * only `proposed`: a proposal with `old_id = 0` has no target
+     * attribute for the `target` scope's join to match, so that half
+     * can never return one and running it is a second statement whose
+     * result is discarded by construction.
+     *
      * @param array $user
      * @param string $value
-     * @param array $options As conditionsFor, minus `alias`
+     * @param array $options As conditionsFor, minus `alias`; `reach`
+     *                       limits the scopes to `proposed`, `target`
+     *                       or both
      * @return array id => the proposal row, its event and its org
      */
     public function proposalsFor(array $user, $value,
@@ -2255,6 +2265,11 @@ class Value extends AppModel
             'ShadowAttribute.value1',
             'ShadowAttribute.value2',
             'ShadowAttribute.comment',
+            // What the proposal asks the flag to be. The occurrence
+            // table carries an IDS column and a proposed addition
+            // renders beside it, so its absence would read as the
+            // proposal not having said.
+            'ShadowAttribute.to_ids',
             'ShadowAttribute.deleted',
             'ShadowAttribute.proposal_to_delete',
             'ShadowAttribute.timestamp',
@@ -2276,6 +2291,12 @@ class Value extends AppModel
                 array('alias' => 'ShadowAttribute')),
             'target' => $this->conditionsFor($value),
         );
+        if (!empty($options['reach'])) {
+            $scopes = array_intersect_key(
+                $scopes,
+                array_flip((array)$options['reach'])
+            );
+        }
         $found = array();
         foreach ($scopes as $reach => $scope) {
             $conditions = $model->buildConditions($user);
@@ -2329,6 +2350,7 @@ class Value extends AppModel
             'category' => $proposal['category'],
             'value' => self::composite($proposal),
             'comment' => $proposal['comment'],
+            'to_ids' => !empty($proposal['to_ids']),
             'deleted' => !empty($proposal['deleted']),
             'to_delete' => !empty($proposal['proposal_to_delete']),
             'timestamp' => (int)$proposal['timestamp'],

@@ -853,5 +853,30 @@ $headerExtra = ob_get_clean();
             <?php endif; ?>
 
         </div>
+
+        <?php
+        /*
+         * **Below the table, and outside its card.** A value with no
+         * occurrence keeps the table's own empty state — *this value
+         * has no occurrences on this instance*, which is true and is
+         * the answer to the question the tab asks — and this block then
+         * says what does exist. Reversing the order would open the tab
+         * on an exception before stating the rule.
+         *
+         * Outside `[data-vp-list-rows]` by construction, so the script
+         * that filters, sorts and pages the table never sees these
+         * rows: `value-profile.js` resolves a list's rows through that
+         * host, and a block that wanted its own sorting would declare
+         * its own `data-vp-list`. This one is short and has no rail to
+         * disagree with.
+         */
+        ?>
+        <?php if (!empty($profile['standalone_proposals'])): ?>
+            <?= $this->element(
+                'Values/View/value_standalone_proposals',
+                array('proposals' => $profile['standalone_proposals'])
+            ) ?>
+        <?php endif; ?>
+
     </div>
 </div>

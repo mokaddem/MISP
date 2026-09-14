@@ -624,9 +624,13 @@ Two records, and this phase is the last to add to either.
   `viewLifecycle` is *"partly"* and becomes plain built. That leaves the
   board with no unconverted endpoint: **29 of 32 rows read live data
   today and 26 of them carry their numbers**, and when this phase closes
-  it is 32 and — §9 permitting — 29. The three that stay unnumbered are
+  it is 32 and — §9 permitting — 29. The three that stayed unnumbered were
   `viewAnalystPreview`, `viewRelationReferences` and
-  `viewRelationExternal`, none of them this phase's to record.
+  `viewRelationExternal`, none of them this phase's to record —
+  **`viewAnalystPreview` is numbered now**, measured by the session that
+  gave it §17's report count
+  ([`22b-standalone-proposals.md`](22b-standalone-proposals.md) §6.5),
+  which leaves two.
 - **§14.13** — the phase row, and the campaign's own status line. When
   this closes, `ValueProfileFixture` has no reader in `ValuesController`
   and §14.8's unit-test double is all it is.

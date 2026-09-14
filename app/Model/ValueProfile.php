@@ -722,6 +722,18 @@ class ValueProfile extends AppModel
     const ANALYST_REPORT_HEAD = 600;
 
     /**
+     * Standalone proposals the Occurrences tab draws before it states a
+     * remainder.
+     *
+     * Fifty, the same number phase 26's report list settled on and for
+     * the same reason: the block is a list of exceptions rather than a
+     * table with a rail, so it has no filter to narrow itself with and
+     * a stated remainder is what an unbounded fetch would owe the
+     * reader anyway. The verification instance's largest count is six.
+     */
+    const STANDALONE_PROPOSAL_CAP = 50;
+
+    /**
      * Items the Overview's preview card draws before it says how many
      * more there are.
      *
@@ -1408,6 +1420,99 @@ class ValueProfile extends AppModel
             'occurrence_cap' => $total > $stats['shown']
                 ? array('shown' => $stats['shown'], 'total' => $total)
                 : null,
+            'standalone_proposals' => $this->standaloneProposals(
+                $user,
+                $value,
+                $options
+            ),
+        );
+    }
+
+    /**
+     * The proposals that propose *adding* this value, which no
+     * occurrence read can see.
+     *
+     * **`value-profile-coverage.md` §2.2's defect, and it is visible on
+     * real rows.** A proposal with `old_id = 0` proposes a new
+     * attribute rather than a change to one, so nothing in `attributes`
+     * holds the value yet — and a page built entirely on occurrence
+     * reads therefore renders `123.123.123.1`, which three
+     * organisations can see proposed on event 195, as §2.12's unknown
+     * page. The verification instance carries six such rows across
+     * three values and the tab was blind to all of them.
+     *
+     * **Not merged into the occurrence rows, and that is the whole of
+     * the counting question §5.1 asked.** The table's header states *N
+     * attribute rows across M events*, its rail counts facets over
+     * those rows, and its script sorts and pages them; a proposal
+     * folded into that set would be counted by all three as a row of a
+     * table it is not a row of. §5.1's own answer is that a proposal is
+     * not an attribute row and the header should not say it is, so the
+     * rows travel beside the table under a heading of their own and
+     * every number the table prints is the number it printed before.
+     *
+     * **One statement, because the other could not match.** `reach` is
+     * `proposed`: the `target` scope joins `Attribute` through `old_id`
+     * and a standalone proposal has no target, so that half is a query
+     * whose empty result is guaranteed.
+     *
+     * **The gate is looser here than anywhere else on this page, and it
+     * is MISP's.** `ShadowAttribute::buildConditions` ORs `old_id = 0`
+     * past the whole attribute-and-object distribution test — there is
+     * no attribute to test — leaving these rows gated on **event
+     * visibility alone**. `Value::proposalsFor` applies it as MISP
+     * wrote it; this records that the occurrence table's ACL reasoning
+     * does not carry over to the block beneath it.
+     *
+     * Withdrawn proposals are kept and marked, the way phase 26's
+     * report panel keeps withdrawn reports: a proposal somebody
+     * discarded is still a dated thing that happened to this value.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options As conditionsFor
+     * @return array|null Null where there are none at all
+     */
+    private function standaloneProposals(array $user, $value,
+        array $options = array()
+    ) {
+        $rows = array();
+        $withdrawn = 0;
+        $proposals = $this->model('Value')->proposalsFor(
+            $user,
+            $value,
+            array_merge($options, array('reach' => array('proposed')))
+        );
+        foreach ($proposals as $proposal) {
+            if ($proposal['old_id'] !== 0) {
+                continue;
+            }
+            if (!empty($proposal['deleted'])) {
+                $withdrawn++;
+            }
+            $rows[] = $proposal;
+        }
+        if (empty($rows)) {
+            /*
+             * Null and not an empty list, under the rule the rail
+             * follows: a heading over nothing is a claim about the
+             * value, and the tab already draws one honest empty state.
+             */
+            return null;
+        }
+        usort($rows, function ($a, $b) {
+            return $b['timestamp'] - $a['timestamp'];
+        });
+        $capped = count($rows) > self::STANDALONE_PROPOSAL_CAP;
+        return array(
+            'rows' => array_slice(
+                $rows,
+                0,
+                self::STANDALONE_PROPOSAL_CAP
+            ),
+            'total' => count($rows),
+            'withdrawn' => $withdrawn,
+            'capped' => $capped,
         );
     }
 

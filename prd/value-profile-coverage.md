@@ -621,6 +621,19 @@ decisions for an unwritten phase.
 **Proposals — six things, and the first is the only one that changes what a
 reader sees.**
 
+> **Built 2026-09-14 —
+> [`value-profile-live/22b-standalone-proposals.md`](value-profile-live/22b-standalone-proposals.md).**
+> Items 1, 3, 4 and 6 are closed; 2 dissolved and 5 is unaffected. The
+> rows are a `Proposed additions` panel directly under the table rather
+> than rows inside it, which is what answers item 3 structurally: they
+> never enter the occurrence row set, so the header, the rail, the cap
+> band and the pager count exactly what they counted before. Item 2 goes
+> with that placement — `state:proposal` keeps its one meaning because
+> the rail does not count these rows at all. Item 6 was already landed by
+> phase 25's Timeline lane. Verified under **three** readers, the third
+> because the usual pair cannot tell a working gate from a dropped one on
+> this data.
+
 1. **Standalone proposal rows.** §2.2: a proposed addition (`old_id = 0`) is
    invisible, so a value held only as a proposal renders as §2.12's unknown
    page. `Event::__attachProposals` already establishes the pattern — edits

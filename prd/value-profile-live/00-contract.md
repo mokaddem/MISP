@@ -528,7 +528,7 @@ document that filled it.
 | — | `view` | `Values/view.ctp` (full page) | **7** | nothing — single-row aggregates and two small group-bys | 2, `forFrame` has the reason | **29**. The page's only synchronous read; the assessment behind the tab pill is an eighth at 9–27 and is `viewVerdict`'s row. §16 there added the seventh, which is the sightings count the badge and the fact strip share |
 | Overview | `viewOccurrences` | `value_occurrences` | 9 | nothing — capped at 25 rows, and the totals are aggregates | 1, two aggregates at 2 | **29**. `viewOccurrenceTable` took the same correction (§14.2, §15.2): both read one `occurrenceSummaryFor` rather than tallying their own capped rows |
 | Overview | `viewContext` | `value_context` | 4 | nothing — two capped reads, 60 labels and 40 clusters | 2, two aggregates at 2 | **29**; §14.4 there is the 2.9 MB fragment that made it a cap and §15.1 the reader who saw more clusters for seeing less of the value |
-| Overview | `viewAnalystPreview` | `value_analyst_preview` | — | — | — | **26** §20, `Q` never recorded |
+| Overview | `viewAnalystPreview` | `value_analyst_preview` | **3–27** | organisations and anchors, not occurrences | 1, one aggregate at 2 | **26** §20; `Q` taken by [**22b**](22b-standalone-proposals.md) §6 when the event-report count was added — 27 on `8.8.8.8`, of which the count is one |
 | Overview | `viewVerdictCard` | `value_verdict_card` | **9–27** | organisations, not occurrences | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
 | Overview | `viewSightings` | `value_sightings` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Overview | `viewLifecycle` | `value_lifecycle` | 14 — 10 for `forRelevance`, 4 for the warninglist | organisations, not occurrences | 1, one aggregate at 2 | **29** completes it; the freshness third was **analyst-profile phase 5** |
@@ -536,7 +536,7 @@ document that filled it.
 | Assessment | `viewVerdict` | `value_verdict` | **12–44** | organisations, not occurrences; **+2 to 27 for the analyst union** | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
 | Assessment | `viewVerdict` | `value_verdict_conflicted` | **12–44** | as `value_verdict` — same endpoint, same build | 1, three aggregates at 2 | **analyst-profile phase 9** §14. Reachable since 2026-09-13: `ValueContestedTool::casesFor()` produces the two cases and `ValueLean::hasConflictedLayout()` opens on its own |
 | Assessment | `viewVerdictAside` | `value_verdict_aside` | **12–44** | organisations, not occurrences; **+2 to 27 for the analyst union** | 1, three aggregates at 2 | **analyst-profile phase 9**, Q by its §15 |
-| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | 9 | nothing — flat in occurrence count | 1, two aggregates at 2 | **22** |
+| Occurrences | `viewOccurrenceTable` | `value_occurrence_table` | **10** | nothing — flat in occurrence count | 1, two aggregates at 2 | **22**; the tenth is the standalone-proposal fetch added by [**22b**](22b-standalone-proposals.md), which is §14.12's amended row taken as that section instructs |
 | Sightings | `viewSightingChart` | `value_sighting_chart` | **11** | organisations, not occurrences | 1, three aggregates at 2 | **23**, Q re-measured by **analyst-profile phase 5** |
 | Sightings | `viewSightingList` | `value_sighting_list` | 13 | organisations, not occurrences | 1, one aggregate at 2 | **23** |
 | Sightings | `viewRelevance` | `value_relevance` | **10** | organisations, not occurrences | 1, one aggregate at 2 | **23** as `viewSightingDecay`, rebuilt by **analyst-profile phase 5** |
@@ -642,13 +642,17 @@ number reaches this endpoint. A run whose module **errored** costs 3 (nothing
 to probe) and a **refused** one costs 1, because the catalogue check
 short-circuits before any occurrence is read.
 
-**Three endpoints read the database with a blank `Q`, and the blank is
-the honest cell rather than a missing one.** `viewRelationReferences`
-and `viewRelationExternal` were built in phase 24 and never measured;
-`viewAnalystPreview` was converted by phase 26 §20 *after* that phase's
-own board pass (§12.4) had run and concluded the Overview's row was
-untouched, so the row it should have filled was never revisited. All
-three are one measuring pass, together with the two below.
+**~~Three~~ Two endpoints read the database with a blank `Q`, and the
+blank is the honest cell rather than a missing one.**
+`viewRelationReferences` and `viewRelationExternal` were built in phase
+24 and never measured. `viewAnalystPreview` was the third: it was
+converted by phase 26 §20 *after* that phase's own board pass (§12.4)
+had run and concluded the Overview's row was untouched, so the row it
+should have filled was never revisited — **and it is filled now**, by
+the session that amended the endpoint to carry the event-report count
+(`29-overview.md` §17, measured in
+[`22b-standalone-proposals.md`](22b-standalone-proposals.md) §6). The
+remaining two are one measuring pass, together with the two below.
 
 **Relationships closed with four of its own rows imperfect, and they are
 named rather than quietly filled.** `viewRelationReferences` and
@@ -821,6 +825,17 @@ numbers* — does not say who owns a row that a later phase amends.
 placing it. Whoever gets there first: amend the row, and record the new numbers
 in your own document with a pointer from phase 22's, so the two still cannot
 disagree without one being visibly blank.
+
+> **Half done, 2026-09-14.** The standalone proposal landed and the row
+> is amended: `Q` is **10**, the tenth statement being the
+> `shadow_attributes` fetch, confirmed by dumping the log rather than by
+> subtracting. The tier table did not have to change after all — the
+> fetch is a bounded row read of its own, with its own cap and its own
+> stated remainder, and it never enters the occurrence row set, so
+> §14.4's tiers apply to it unchanged.
+> [`22b-standalone-proposals.md`](22b-standalone-proposals.md) is that
+> document. **The feed column and its Redis pipeline are still ahead**,
+> and that is the half this paragraph was really warning about.
 
 ### 14.13 The phase index
 
