@@ -5042,6 +5042,196 @@
     }
 
     /**
+     * The Overview's enrichment panel, once it has landed.
+     *
+     * @param {Element} root
+     */
+    function initEnrichPanel(root) {
+        var panels = root.querySelectorAll
+            ? root.querySelectorAll('[data-vp-ebadge]')
+            : [];
+        panels.forEach(function (panel) {
+            enrichPanelFire(panel);
+        });
+    }
+
+    /**
+     * Fire the modules the profile marked `auto`, into the Overview's
+     * chip slots.
+     *
+     * `enrichAutoFire`'s counterpart on the other surface, and
+     * deliberately the same request: the plan arrives on the panel's
+     * markup, five go at a time, and each one is `mode=auto` at an
+     * endpoint that decides the gate, the reuse window and the
+     * in-flight claim again when it lands. The two differ in which
+     * element comes back.
+     *
+     * **A shorter list than the tab's.** The tab sends its `fresh`
+     * dispositions as well, because a pane cannot render an answer it
+     * never fetched; a chip slot already holds one, drawn out of the
+     * store by the render that produced this plan. So only `fire` is
+     * here, and on an instance with the gate off the plan is empty and
+     * nothing leaves the browser.
+     *
+     * @param {Element} panel
+     */
+    function enrichPanelFire(panel) {
+        var plan;
+        try {
+            plan = JSON.parse(panel.dataset.vpEbFire || '[]');
+        } catch (e) {
+            plan = [];
+        }
+        if (!Array.isArray(plan) || !plan.length) {
+            return;
+        }
+        /*
+         * Once per panel. A panel re-shown from cache must not re-fire
+         * what it already fired, and the marker is on the element so
+         * it dies with the fragment rather than outliving it.
+         */
+        if (panel.dataset.vpEbDone === '1') {
+            return;
+        }
+        panel.dataset.vpEbDone = '1';
+
+        var queue = plan.slice();
+        var width = parseInt(panel.dataset.vpEbMax, 10) || 5;
+        var lanes = Math.min(width, queue.length);
+
+        var next = function () {
+            var one = queue.shift();
+            if (!one) {
+                return Promise.resolve();
+            }
+            return enrichBadgeAsk(panel, one.module, one.type)
+                .then(next);
+        };
+        for (var i = 0; i < lanes; i++) {
+            next();
+        }
+    }
+
+    /**
+     * Ask one module and put its chips where its spinner was.
+     *
+     * @param {Element} panel
+     * @param {string} name
+     * @param {string} type
+     * @return {Promise}
+     */
+    function enrichBadgeAsk(panel, name, type) {
+        var row = panel.querySelector(
+            '[data-vp-eb-row="' + cssEscape(name) + '"]'
+        );
+        var slot = row && row.querySelector('[data-vp-eb-slot]');
+        if (!slot) {
+            return Promise.resolve(false);
+        }
+
+        var body = new URLSearchParams();
+        body.set('data[_Token][key]', panel.dataset.vpEbToken || '');
+        body.set('data[module]', name);
+        body.set('data[type]', type || '');
+        body.set('data[mode]', 'auto');
+
+        return fetch(panel.dataset.vpEbUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: body.toString()
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error(String(response.status));
+                }
+                return response.text();
+            })
+            .then(function (markup) {
+                slot.innerHTML = markup;
+                var res = slot.querySelector('[data-vp-eb-res]');
+                if (res && res.dataset.vpEbToken) {
+                    panel.dataset.vpEbToken = res.dataset.vpEbToken;
+                }
+                enrichPanelSettle(panel, row, res
+                    ? res.dataset.vpEbState
+                    : 'fail');
+                return true;
+            })
+            .catch(function () {
+                /*
+                 * The request failed, which is not the same as the
+                 * module failing — but the panel is a summary and has
+                 * no room to say which. The tab draws that distinction
+                 * and is one click away.
+                 */
+                enrichPanelSettle(panel, row, 'fail');
+                return false;
+            });
+    }
+
+    /**
+     * Put a landed module where its answer belongs, and restate the
+     * count.
+     *
+     * **A module that did not answer leaves the rows.** An error
+     * sitting in the column of answers competes with them, so the
+     * failures collect into one trailing line — the same line the
+     * server builds for the modules that had already been asked, built
+     * the same way, so a reader cannot tell which of the two put a
+     * name there.
+     *
+     * @param {Element} panel
+     * @param {Element} row
+     * @param {string} state `ok`, `silent` or `fail`
+     */
+    function enrichPanelSettle(panel, row, state) {
+        if (state !== 'ok' && row) {
+            var name = row.dataset.vpEbRow;
+            var foot = panel.querySelector('[data-vp-eb-foot]');
+            if (foot) {
+                var fmt = state === 'silent'
+                    ? (panel.dataset.vpEbSilent || '%s had nothing to say')
+                    : (panel.dataset.vpEbFail || '%s could not answer');
+                var line = document.createElement('span');
+                line.className = 'vp-eb-failed';
+                line.textContent = fmt.replace('%s', name);
+                foot.appendChild(line);
+                foot.classList.remove('d-none');
+            }
+            row.remove();
+        }
+        enrichPanelCount(panel);
+    }
+
+    /**
+     * Restate how much of the panel is an answer.
+     *
+     * Rebuilt from the panel rather than counted up as replies land,
+     * so a request that never came back cannot leave the line claiming
+     * something is still on its way.
+     *
+     * @param {Element} panel
+     */
+    function enrichPanelCount(panel) {
+        var out = panel.querySelector('[data-vp-eb-count]');
+        if (!out) {
+            return;
+        }
+        var rows = panel.querySelectorAll('[data-vp-eb-row]').length;
+        var failed = panel.querySelectorAll('.vp-eb-failed').length;
+        var answered = panel.querySelectorAll(
+            '[data-vp-eb-res][data-vp-eb-state="ok"]'
+        ).length;
+        out.textContent = (panel.dataset.vpEbSub || '%1$s of %2$s')
+            .replace('%1$s', answered)
+            .replace('%2$s', rows + failed);
+    }
+
+    /**
      * @param {Event} event
      * @return {boolean} Whether the click belonged to this tab
      */
@@ -8747,6 +8937,7 @@
             refreshAllLists(event.target);
             initSightings(event.target);
             initEnrichment(event.target);
+            initEnrichPanel(event.target);
             initAnalyst(event.target);
             initTimeline(event.target);
             initHistory(event.target);
@@ -8759,6 +8950,7 @@
         refreshAllLists(document);
         initSightings(document);
         initEnrichment(document);
+        initEnrichPanel(document);
         initAnalyst(document);
         initTimeline(document);
         initHistory(document);

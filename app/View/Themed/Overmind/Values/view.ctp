@@ -111,13 +111,15 @@ $headerActions = array(
         'class' => 'btn btn-primary disabled',
         'title' => $noWrites,
     ),
-    array(
-        'type' => 'navigate',
-        'label' => __('Enrich'),
-        'icon' => 'wand-magic-sparkles',
-        'class' => 'btn btn-outline-primary disabled',
-        'title' => $noWrites,
-    ),
+    /*
+     * *Enrich* was here, and it was the last of these four that could
+     * still be called an honest placeholder. The other three name
+     * writes this page does not make; that one named a capability the
+     * page now has in two places — the Enrichment tab runs any module
+     * a reader may ask for, and the Overview panel draws what they
+     * said. A disabled control for something the page does is not a
+     * promise, it is a wrong answer.
+     */
     array(
         'type' => 'navigate',
         'label' => __('Add to collection'),
@@ -356,6 +358,17 @@ $panelChrome = array(
         $await(__('Enrichment'), 'fas fa-wand-magic-sparkles',
             'var(--vp-e-accent)', 8),
     ),
+    /*
+     * Two lines, because the panel is one row per module and four
+     * modules is the wide case. Guessed low like the rest: the card
+     * that lands is then taller than its skeleton, so the page grows
+     * rather than pulling the Occurrences card up out from under a
+     * reader.
+     */
+    'viewEnrichmentPanel' => array(
+        $await(__('Enrichment'), 'fas fa-wand-magic-sparkles',
+            'var(--vp-e-accent)', 2),
+    ),
     'viewAnalystStanding' => array(
         $await(__('Where the organisations stand'),
             'fas fa-arrows-left-right-to-line', 'var(--analystData)', 6),
@@ -505,6 +518,28 @@ $sightingBadge = $sightings === 0 ? null : array(
     'color' => 'var(--sighting)',
 );
 
+/*
+ * The Overview's left column, assembled rather than declared, because
+ * its first entry is conditional.
+ *
+ * `enrichment_panel` is the frame's answer to *is there anything to
+ * draw* — one indexed read of the run store and one look at the
+ * profile, both of which the page was paying for already. It is looser
+ * than the panel's own test and never stricter: the frame does not
+ * know whether a declared module is enabled on this instance, because
+ * finding out is a call to the modules service and the page will not
+ * make one to decide whether to draw a card. A yes the panel then
+ * contradicts costs an empty container; a no would hide an answer.
+ */
+$overviewLeft = array();
+if (!empty($profile['enrichment_panel'])) {
+    $overviewLeft[] = $panel('viewEnrichmentPanel');
+}
+$overviewLeft[] = $panel('viewOccurrences');
+$overviewLeft[] = $panel('viewReporting');
+$overviewLeft[] = $panel('viewContext');
+$overviewLeft[] = $panel('viewAnalystPreview');
+
 $tabRegistry = array(
     array(
         'id' => 'general',
@@ -529,13 +564,27 @@ $tabRegistry = array(
          * the Overview taller while the complaint was that it is too
          * tall. `31-overview-balance.md` §5 has the candidate that lost
          * on exactly that count.
+         *
+         * **Enrichment leads the column, and only where there is an
+         * answer to lead with.** The Overview refused anything from
+         * that tab for three phases, on the grounds that everything
+         * there was a network request and this tab renders eight
+         * panels whether or not a module is up. A store of what
+         * modules last said is not a network request, so the objection
+         * no longer holds — but the emptier version of it would: a
+         * card that says *nothing has been asked* on every value of
+         * every instance that never enriched anything is the
+         * permanently empty first row those two phases exist to
+         * refuse. So the frame decides whether the container is
+         * emitted at all, and an instance with nothing to show has the
+         * tab it had before.
+         *
+         * A full-width row is the *cheapest* placement for this, not
+         * the dearest: four modules of chips across a 9-wide column
+         * take one line each, where the same content stacked in the
+         * 3-wide rail runs past 300px.
          */
-        'left' => array(
-            $panel('viewOccurrences'),
-            $panel('viewReporting'),
-            $panel('viewContext'),
-            $panel('viewAnalystPreview'),
-        ),
+        'left' => $overviewLeft,
         'right' => array(
             $panel('viewVerdictCard'),
             $panel('viewSightings'),

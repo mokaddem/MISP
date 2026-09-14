@@ -11224,3 +11224,108 @@ a.vp-lane-tag:focus-visible {
     padding-top: 8px !important;
     padding-bottom: 8px !important;
 }
+
+/* ==================================================================
+ * The Overview's enrichment panel
+ * ==================================================================
+ * A full-width row at the top of the left column, and the reason it
+ * is full width rather than a fifth card in the rail is height: four
+ * modules of chips laid across a 9-wide row take one line each, where
+ * the same content stacked in the 3-wide rail runs past 300px. Width
+ * buys height, so this is the cheapest vertical placement available
+ * for the content and not the dearest.
+ *
+ * Everything here is a row of one line. A module whose chips overflow
+ * wraps rather than scrolls — a summary that hides part of itself
+ * behind a scrollbar is worse than one that costs a second line — but
+ * the three-chip cap is what makes that rare.
+ * ================================================================== */
+
+/* Tighter than the panels below it, and the reason is the argument
+   that put it here: a full-width row is the cheapest placement for
+   four modules only while it stays a row each. Every pixel between
+   the rows is spent four times. */
+.vp-eb-body {
+    padding: 4px 20px 6px;
+}
+
+.vp-eb-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 1px 0;
+    min-height: 20px;
+}
+
+/* The module name is the row's label and not its content: quiet, and
+   wide enough that four of them line their chips up at one edge. */
+.vp-eb-name {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+.vp-eb-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.vp-eb-res {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+
+/* The shared chip row carries a 7px top margin for the pane it was
+   built for; in a one-line row that is a row of three that does not
+   sit on its own baseline. */
+.vp-eb-chips {
+    margin-top: 0;
+}
+
+/* The relation name and its value, told apart without a second
+   colour: the name is what a reader scans past to reach the value. */
+.vp-eb-k {
+    color: var(--bs-secondary-color);
+}
+
+.vp-eb-v {
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+.vp-eb-quiet {
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+/* Age sits last on the line rather than in a column of its own: it is
+   the least of the five things the row says, and a column for it
+   would take width from the chips on every row to align a fact that
+   is the same on most of them. */
+.vp-eb-age {
+    color: var(--bs-secondary-color);
+    font-size: 0.65rem;
+    white-space: nowrap;
+}
+
+/* The rule stays: a module that could not answer must not sit in the
+   column of answers competing with them. What it costs is 26px, which
+   is why the line is one line however many modules it collects. */
+.vp-eb-foot {
+    padding: 4px 20px 6px;
+    border-top: 1px solid var(--bs-border-color);
+    color: var(--bs-secondary-color);
+    font-size: 0.7rem;
+}
+
+/* One trailing line, whatever it collects. The separator is drawn
+   rather than written so the browser and the server build the same
+   line — a module that fails on arrival is moved here by script. */
+.vp-eb-failed + .vp-eb-failed::before {
+    content: "·";
+    margin: 0 6px;
+    opacity: 0.6;
+}

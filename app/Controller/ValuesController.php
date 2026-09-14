@@ -72,9 +72,11 @@ class ValuesController extends AppController
          * `viewEnrichmentRun` says why that half is worth keeping
          * where MISP's usual ajax treatment drops both.
          */
-        if (($this->request->params['action'] ?? null)
-            === 'viewEnrichmentRun'
-        ) {
+        if (in_array(
+            $this->request->params['action'] ?? null,
+            array('viewEnrichmentRun', 'viewEnrichmentBadge'),
+            true
+        )) {
             $this->Security->validatePost = false;
         }
 
@@ -774,6 +776,75 @@ class ValuesController extends AppController
                  * always re-runs. Neither is trusted — the gate and
                  * the reuse window are both re-decided in the model.
                  */
+                'mode' => $this->__runParam('mode'),
+            )
+        );
+    }
+
+    /**
+     * The Overview's enrichment panel: what the modules have said.
+     *
+     * **It runs nothing and it reads the store.** That is what makes
+     * an enrichment surface possible on the tab that refused one for
+     * three phases: the refusal turned on there being nothing here
+     * that was not a network request, and `value_enrichment_runs`
+     * holds what a module last said as an indexed read of one table.
+     * The panel paints at the speed of that read whether or not a
+     * module is up.
+     *
+     * Where the reader's profile marks a module `auto` and the
+     * instance permits it, the plan travels out with the markup and
+     * the browser fires those at `viewEnrichmentBadge` — after the
+     * panel has painted, never during it.
+     *
+     * The action is never reached on an instance with nothing to show:
+     * `ValueProfile::forFrame` decides whether the page emits the
+     * container at all.
+     *
+     * @param string $b64value
+     * @return void
+     */
+    public function viewEnrichmentPanel($b64value = null)
+    {
+        $this->__renderLivePanel(
+            $b64value,
+            'forEnrichmentPanel',
+            'value_enrichment_panel'
+        );
+    }
+
+    /**
+     * One module's answer, as chips for the Overview panel.
+     *
+     * `viewEnrichmentRun`'s twin, and everything that docblock says
+     * about it is true here: same model call, same `auto` mode, same
+     * POST with a CSRF token and `validatePost` off, same closed
+     * session, same `perm_add` in the ACL. What differs is the element
+     * it renders — a row of chips rather than a pane of objects — and
+     * nothing else, so the gate, the reuse window, the in-flight claim
+     * and the profile's `never` are decided once, in the model, for
+     * both surfaces.
+     *
+     * @param string $b64value
+     * @return void
+     * @throws MethodNotAllowedException
+     */
+    public function viewEnrichmentBadge($b64value = null)
+    {
+        if (!$this->request->is('post')) {
+            throw new MethodNotAllowedException(__(
+                'Running a module queries a third party, so it is a'
+                . ' POST.'
+            ));
+        }
+        @session_write_close();
+        $this->__renderLivePanel(
+            $b64value,
+            'forEnrichmentBadge',
+            'value_enrichment_badge',
+            array(
+                'module' => $this->__runParam('module'),
+                'type' => $this->__runParam('type'),
                 'mode' => $this->__runParam('mode'),
             )
         );

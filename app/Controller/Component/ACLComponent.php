@@ -1120,7 +1120,13 @@ class ACLComponent extends Component
             // and `events/queryEnrichment` carry it. The catalogue
             // above it stays readable to everyone: what *could* be
             // asked is not a secret, and the control renders disabled.
+            'viewEnrichmentPanel' => array('theming_enabled'),
             'viewEnrichmentRun' => array(
+                'AND' => array('perm_add', 'theming_enabled')
+            ),
+            // Same bar as the run it is: the Overview's chips are one
+            // module query each, at the same endpoint's price.
+            'viewEnrichmentBadge' => array(
                 'AND' => array('perm_add', 'theming_enabled')
             ),
             'viewAnalystStanding' => array('theming_enabled'),

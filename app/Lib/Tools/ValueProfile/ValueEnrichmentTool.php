@@ -1113,6 +1113,303 @@ class ValueEnrichmentTool
     }
 
     /**
+     * How many returned elements still read as an answer rather than
+     * as a set.
+     *
+     * Above this a module's response is summarised by its size: a
+     * reader cannot act on three relations picked out of 1,375
+     * passive-DNS records, because which three is an accident of
+     * ordering. Below it the cap does the bounding and every chip is
+     * about the whole answer.
+     *
+     * Eight rather than the three the shape rule first named, and the
+     * worked examples behind that rule are what moved it. `mmdb_lookup`
+     * answers with four objects, and the rule that a chip skips a very
+     * long value is justified by `mmdb_lookup`'s own `text` relation —
+     * which only bites if that module is drawing relations at all.
+     * Three would have summarised the one module whose relations are
+     * named as the place a map later slots into.
+     */
+    const CHIP_FEW = 8;
+
+    /** Chips drawn per module before the rest become a `+N`. */
+    const CHIP_CAP = 3;
+
+    /**
+     * The longest value a chip will carry.
+     *
+     * A chip is not a paragraph. `mmdb_lookup`'s `text` relation is
+     * `db_source: GeoOpen-Country-20250115...`, a sentence about where
+     * an answer came from rather than the answer.
+     */
+    const CHIP_VALUE_MAX = 32;
+
+    /**
+     * What one module's answer says, in three chips or a number.
+     *
+     * **Decided by the shape of the response and never by which module
+     * produced it.** There is no roster mapping an object name to its
+     * headline relation. One would read better — `AS15169 · US` — and
+     * it is upkeep created in order to be deleted, because the
+     * per-type visualisations that replace this are a later design and
+     * the geolocation chips are exactly where a map slots in.
+     *
+     * Two modes:
+     *
+     * - **few** — the relations themselves, `name value`, deduplicated
+     *   and capped, with a `+N` for what did not fit.
+     * - **many** — the count and what was counted, `1,375 passive-dns`.
+     *
+     * **Every relation of a small object, not the first one.** *Show
+     * the first attribute of each object* needs no roster and shows a
+     * real value, so it occurs to everyone who reads this; it is wrong
+     * on the first data it meets, because the `asn` object leads with
+     * `last-seen` and the fact a reader came for is `asn`, two
+     * relations later.
+     *
+     * **Deduplicated on the pair.** `mmdb_lookup` answers with one
+     * object per database it consulted, so `country United States`
+     * arrives three times, and three chips saying one thing would
+     * spend the whole cap agreeing with themselves.
+     *
+     * Pure, like everything else here: the caller hands over a run as
+     * the model shaped it — off the wire or out of the store, which
+     * are the same shape — and gets back what to draw.
+     *
+     * @param array $run A shaped run
+     * @return array `kind` is `chips`, `count` or `none`
+     */
+    public static function chipsFor(array $run)
+    {
+        $none = array(
+            'kind' => 'none',
+            'chips' => array(),
+            'more' => 0,
+            'count' => 0,
+            'noun' => null,
+        );
+        if (!isset($run['state']) || $run['state'] !== 'ok') {
+            return $none;
+        }
+        $total = isset($run['total']) ? (int)$run['total'] : 0;
+        if ($total < 1) {
+            return $none;
+        }
+        $chips = $total > self::CHIP_FEW
+            ? array()
+            : self::chipCandidates($run);
+        /*
+         * A small answer with nothing chippable in it falls back to
+         * the count rather than to nothing. It happens: a module can
+         * return one object whose every relation is a paragraph, and
+         * *one geolocation* is a true summary where silence would
+         * read as a module that had not run.
+         */
+        if (empty($chips)) {
+            return array(
+                'kind' => 'count',
+                'chips' => array(),
+                'more' => 0,
+                'count' => $total,
+                'noun' => self::chipNoun($run),
+            );
+        }
+        return array(
+            'kind' => 'chips',
+            'chips' => array_slice($chips, 0, self::CHIP_CAP),
+            'more' => max(0, count($chips) - self::CHIP_CAP),
+            'count' => $total,
+            'noun' => self::chipNoun($run),
+        );
+    }
+
+    /**
+     * What the module returned, named.
+     *
+     * The object name where there is one, because that is the word a
+     * reader knows the answer by — `passive-dns` rather than
+     * `results`. The commonest one where a module mixes them, and the
+     * attribute type where a module returned no objects at all.
+     *
+     * @param array $run
+     * @return string|null
+     */
+    private static function chipNoun(array $run)
+    {
+        $tally = self::chipTally(self::runList($run, 'objects'), 'name');
+        if (empty($tally)) {
+            $tally = self::chipTally(
+                self::runList($run, 'attributes'),
+                'type'
+            );
+        }
+        if (empty($tally)) {
+            $tally = self::chipTally(
+                self::runList($run, 'elements'),
+                'types'
+            );
+        }
+        if (empty($tally)) {
+            return null;
+        }
+        arsort($tally);
+        return (string)key($tally);
+    }
+
+    /**
+     * @param array $rows
+     * @param string $key `types` is the list a simplified module sends
+     * @return array name => count
+     */
+    private static function chipTally(array $rows, $key)
+    {
+        $tally = array();
+        foreach ($rows as $row) {
+            if ($key === 'types') {
+                $types = isset($row['types']) ? (array)$row['types'] : array();
+                $name = empty($types) ? '' : (string)reset($types);
+            } else {
+                $name = isset($row[$key]) ? (string)$row[$key] : '';
+            }
+            if ($name === '') {
+                continue;
+            }
+            $tally[$name] = isset($tally[$name]) ? $tally[$name] + 1 : 1;
+        }
+        return $tally;
+    }
+
+    /**
+     * Every `name value` pair the answer offers, in the order it
+     * offered them, once each.
+     *
+     * A module returns one of three shapes and all three reduce to a
+     * pair: an object's attributes carry an `object_relation`, a bare
+     * attribute carries a `type`, and a `simplified` module's element
+     * carries a list of types of which the first is the name. The
+     * shape rule cannot tell them apart and does not need to.
+     *
+     * @param array $run
+     * @return array
+     */
+    private static function chipCandidates(array $run)
+    {
+        $out = array();
+        $seen = array();
+        foreach (self::runList($run, 'objects') as $object) {
+            $attributes = isset($object['attributes'])
+                && is_array($object['attributes'])
+                ? $object['attributes']
+                : array();
+            foreach ($attributes as $attribute) {
+                $label = !empty($attribute['relation'])
+                    ? $attribute['relation']
+                    : (isset($attribute['type']) ? $attribute['type'] : '');
+                self::chipAdd($out, $seen, $label, isset($attribute['value'])
+                    ? $attribute['value'] : '');
+            }
+        }
+        foreach (self::runList($run, 'attributes') as $attribute) {
+            self::chipAdd(
+                $out,
+                $seen,
+                isset($attribute['type']) ? $attribute['type'] : '',
+                isset($attribute['value']) ? $attribute['value'] : ''
+            );
+        }
+        foreach (self::runList($run, 'elements') as $element) {
+            $types = isset($element['types'])
+                ? (array)$element['types'] : array();
+            self::chipAdd(
+                $out,
+                $seen,
+                empty($types) ? '' : reset($types),
+                isset($element['value']) ? $element['value'] : ''
+            );
+        }
+        return $out;
+    }
+
+    /**
+     * @param array $out
+     * @param array $seen
+     * @param string $label
+     * @param string $value
+     * @return void
+     */
+    private static function chipAdd(array &$out, array &$seen, $label,
+        $value
+    ) {
+        $label = trim((string)$label);
+        $value = trim((string)$value);
+        if ($label === '' || $value === '') {
+            return;
+        }
+        if (mb_strlen($value) > self::CHIP_VALUE_MAX) {
+            return;
+        }
+        $key = $label . '|' . $value;
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $out[] = array('label' => $label, 'value' => $value);
+    }
+
+    /**
+     * @param array $run
+     * @param string $key
+     * @return array
+     */
+    private static function runList(array $run, $key)
+    {
+        return isset($run[$key]) && is_array($run[$key])
+            ? $run[$key]
+            : array();
+    }
+
+    /**
+     * Whether this profile marks anything `auto` for these types.
+     *
+     * The cheap half of *is there a panel to draw*. The page frame
+     * asks it before it emits a container, and it has to answer
+     * without the modules service, without the catalogue and without a
+     * second profile read — which it can, because a declaration is a
+     * document and the question is about the document alone.
+     *
+     * Looser than the panel's own test on purpose: a module declared
+     * `auto` here may still turn out to be disabled, restricted or
+     * filed under a type it does not accept, and every one of those is
+     * a `GET /modules` away. Saying yes and then drawing nothing costs
+     * an empty container; saying no would hide a panel that should
+     * have been there.
+     *
+     * @param array $plan From `planFor`
+     * @param array $types `typesFor` output
+     * @return bool
+     */
+    public static function declaresAuto(array $plan, array $types)
+    {
+        if (empty($plan['in_force'])) {
+            return false;
+        }
+        foreach ($types as $row) {
+            $type = is_array($row) && isset($row['type'])
+                ? $row['type']
+                : $row;
+            if (empty($plan['auto_run'][$type])) {
+                continue;
+            }
+            foreach ($plan['auto_run'][$type] as $state) {
+                if ($state === self::STATE_AUTO) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * @param array $facts
      * @param string $key
      * @return array

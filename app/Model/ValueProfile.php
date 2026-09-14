@@ -1100,6 +1100,59 @@ class ValueProfile extends AppModel
                 // — and the type-0 one, for the reason given there.
                 array('sightings' => $sightings['sighting'])
             ),
+            'enrichment_panel' => $this->enrichmentPanelPossible(
+                $user,
+                $value,
+                $types
+            ),
+        );
+    }
+
+    /**
+     * Whether the Overview should emit an enrichment container at all.
+     *
+     * The panel decides for itself whether it has anything to draw and
+     * returns nothing when it has not — but a card the page emits and
+     * the endpoint fills with nothing is still a skeleton that flashes
+     * and an empty div that stays, on every value page of every
+     * instance that has never enriched anything. So the frame asks
+     * first, and a stock instance is exactly as it was: no container,
+     * no request.
+     *
+     * **Cheap by construction.** Two reads and neither is new: the
+     * profile, which `resolveFor` has cached by the time the page's
+     * assessment has been computed, and one indexed lookup over the
+     * store's leading key columns. `typesFor` is the frame's own, two
+     * lines above.
+     *
+     * **Looser than the panel, never stricter.** `declaresAuto` knows
+     * what the document says and not whether those modules are
+     * enabled, which is a `GET /modules` the frame will not pay for.
+     * A yes that the panel then contradicts costs one empty container;
+     * a no would hide a panel that had something to say.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $types `typesFor` output
+     * @return bool
+     */
+    private function enrichmentPanelPossible(array $user, $value,
+        array $types
+    ) {
+        $plan = ValueEnrichmentTool::planFor(
+            ClassRegistry::init('AnalystProfile')->resolveFor($user)
+        );
+        if (ValueEnrichmentTool::declaresAuto($plan, $types)
+            && !empty($user['Role']['perm_add'])
+            && ValueEnrichmentTool::gateAllows(
+                Configure::read('Plugin.ValueProfile_enrichment_auto_run'),
+                !empty($user['Role']['perm_site_admin'])
+            )
+        ) {
+            return true;
+        }
+        return !empty(
+            $this->model('ValueEnrichmentRun')->forValue($user, $value)
         );
     }
 
@@ -13395,6 +13448,71 @@ class ValueProfile extends AppModel
         );
     }
 
+    /**
+     * What the modules have said about this value, small enough to sit
+     * at the top of the Overview.
+     *
+     * **It runs nothing.** What it does is read: the catalogue, for
+     * which modules this reader may be offered and what the profile
+     * declared, and the store, for what any of them last said. Where
+     * the declaration marks a module `auto` and the instance permits
+     * it, the plan travels out with the markup and the browser fires
+     * those at `viewEnrichmentBadge` — so the panel itself paints at
+     * the speed of a database read whether or not a module is up,
+     * which is the property that makes an enrichment surface on this
+     * tab possible at all.
+     *
+     * **A stored answer is drawn here rather than fetched.** The tab
+     * fires its `fresh` dispositions because its panes are empty until
+     * a request fills them; this panel's are not, so `fresh` arrives
+     * already drawn and only `fire` leaves the browser. The difference
+     * matters on an instance with the gate off: `mode=auto` is refused
+     * there, and a module a colleague ran by hand last week would
+     * otherwise have no way to reach the page.
+     *
+     * **The blob comes back one row at a time**, by `one()`, because
+     * `forValue()` deliberately does not select it — the catalogue
+     * wants a roster and this wants an answer, and the roster is read
+     * on every Enrichment tab open. One indexed lookup per module the
+     * panel will draw, which is bounded by what has actually been run
+     * against this value.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `profile`, as `forEnrichment`
+     * @return array
+     */
+    public function forEnrichmentPanel(array $user, $value,
+        array $options = array()
+    ) {
+        return array(
+            'value' => $value,
+            'panel' => $this->enrichmentPanel($user, $value, $options),
+        );
+    }
+
+    /**
+     * One module's answer, shaped for a chip slot.
+     *
+     * `forEnrichmentRun`'s twin and deliberately nothing more: the
+     * same call, the same `auto` mode, the same gate and reuse window
+     * decided in the same place. What differs is the element the
+     * controller renders it into, which is the whole of the Overview's
+     * claim on this machinery.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `module`, `type`, `mode`
+     * @return array
+     */
+    public function forEnrichmentBadge(array $user, $value,
+        array $options = array()
+    ) {
+        $out = $this->forEnrichmentRun($user, $value, $options);
+        $out['chips'] = ValueEnrichmentTool::chipsFor($out['run']);
+        return $out;
+    }
+
 
     /**
      * What this reader could ask about this value.
@@ -13540,6 +13658,152 @@ class ValueProfile extends AppModel
             );
         }
         return $rows;
+    }
+
+    /**
+     * The Overview panel's roster: one entry per module that has
+     * something to say or is about to.
+     *
+     * Built from the catalogue rather than beside it, so the panel and
+     * the tab cannot disagree about which modules this reader may be
+     * offered, what the profile declared, or what the store holds.
+     *
+     * Three things put a module on it, and the order they are applied
+     * is the order they take precedence:
+     *
+     * | | |
+     * |---|---|
+     * | a stored answer | drawn now, from the blob |
+     * | `fire` | a slot the browser fills |
+     * | `in_flight` | somebody else is asking; neither, and said so |
+     *
+     * `fire` beats a stored answer because a disposition of `fire`
+     * means the stored one is past the reader's own reuse window —
+     * drawing a stale answer under a slot that is about to replace it
+     * would move the chips under the reader for no gain.
+     *
+     * `blocked` puts nothing on the roster. A module the gate is
+     * holding must not be described by the store: *asked 2 h ago*
+     * against something this instance will not run on its own is
+     * answering a question nobody asked.
+     *
+     * @param array $user
+     * @param string $value
+     * @param array $options `profile`
+     * @return array
+     */
+    private function enrichmentPanel(array $user, $value,
+        array $options = array()
+    ) {
+        $catalogue = $this->enrichmentCatalogue($user, $value, $options);
+        /*
+         * MISP gates every other enrichment surface on `perm_add` and
+         * this page is never looser than one MISP already ships. A
+         * reader without it keeps the stored answers, which are a
+         * read of this organisation's own rows, and fires nothing.
+         */
+        $canRun = !empty($catalogue['can_run']);
+        $store = $this->model('ValueEnrichmentRun');
+
+        $entries = array();
+        foreach ($catalogue['modules'] as $row) {
+            if (empty($row['stored']) || empty($row['stored']['held'])) {
+                continue;
+            }
+            $held = $store->one(
+                $user,
+                $value,
+                $row['name'],
+                $row['stored']['type']
+            );
+            $shaped = $held === null
+                ? null
+                : ValueEnrichmentRun::unpack($held);
+            $entries[$row['name']] = array(
+                'module' => $row['name'],
+                'type' => $row['stored']['type'],
+                'locality' => $row['locality'],
+                'pending' => null,
+                /*
+                 * A row whose payload will not inflate is not an
+                 * error: the row still says a module was asked and
+                 * when, so the state is *asked, no longer held* —
+                 * which a purge produces and the panel has to draw
+                 * either way.
+                 */
+                'state' => $shaped === null
+                    ? 'expired'
+                    : $row['stored']['state'],
+                'age' => $row['stored']['age'],
+                'chips' => $shaped === null
+                    ? ValueEnrichmentTool::chipsFor(array())
+                    : ValueEnrichmentTool::chipsFor($shaped),
+            );
+        }
+
+        foreach ($catalogue['profile']['auto'] as $one) {
+            if ($one['disposition'] !== 'fire'
+                && $one['disposition'] !== 'in_flight'
+            ) {
+                continue;
+            }
+            if ($one['disposition'] === 'fire' && !$canRun) {
+                continue;
+            }
+            $entries[$one['module']] = array(
+                'module' => $one['module'],
+                'type' => $one['type'],
+                'locality' => $one['locality'],
+                'pending' => $one['disposition'],
+                'state' => null,
+                'age' => $one['age'],
+                'chips' => ValueEnrichmentTool::chipsFor(array()),
+            );
+        }
+
+        /*
+         * Catalogue order, so the panel and the tab's rail name the
+         * modules in the same sequence — a reader who has seen one is
+         * reading the other against it.
+         */
+        $modules = array();
+        foreach ($catalogue['modules'] as $row) {
+            if (isset($entries[$row['name']])) {
+                $modules[] = $entries[$row['name']];
+                unset($entries[$row['name']]);
+            }
+        }
+        foreach ($entries as $entry) {
+            $modules[] = $entry;
+        }
+
+        $fire = array();
+        foreach ($modules as $entry) {
+            if ($entry['pending'] !== 'fire') {
+                continue;
+            }
+            $fire[] = array(
+                'module' => $entry['module'],
+                'type' => $entry['type'],
+            );
+        }
+
+        return array(
+            /*
+             * The panel's presence is itself the signal that something
+             * is known. An instance that has never run a module
+             * and declares no `auto` draws no header, no empty state
+             * and no card — the alternative is a permanently empty
+             * first row on every Overview, which is the outcome the
+             * two phases that measured this tab's height would be
+             * most hostile to.
+             */
+            'present' => !empty($modules),
+            'can_run' => $canRun,
+            'modules' => $modules,
+            'fire' => $fire,
+            'max_age_hours' => $catalogue['profile']['max_age_hours'],
+        );
     }
 
     /**
