@@ -1,6 +1,6 @@
 <?php
-App::uses('ValueFieldKind', 'Tools');
-App::uses('ValueRelationTool', 'Tools');
+App::uses('ValueFieldKind', 'Tools/ValueProfile');
+App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('GalaxyColour', 'Tools');
 /**
  * Section one of the Relationships tab: what the correlation engine

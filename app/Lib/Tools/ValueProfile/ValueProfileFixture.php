@@ -1,6 +1,6 @@
 <?php
-App::uses('AuditActionMeta', 'Tools');
-App::uses('ValueProfileBuckets', 'Tools');
+App::uses('AuditActionMeta', 'Tools/ValueProfile');
+App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 
 /**
  * Hardcoded Value Profile data, keyed by value.

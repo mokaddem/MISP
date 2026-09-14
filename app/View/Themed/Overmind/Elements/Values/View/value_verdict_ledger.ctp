@@ -33,7 +33,7 @@
  * @var string $uid      Namespace for the collapse targets
  * @var string $noWrites Why the actions inside a conflict are disabled
  */
-App::uses('ValueBandReasonTool', 'Tools');
+App::uses('ValueBandReasonTool', 'Tools/ValueProfile');
 
 $ledger = $verdict['ledger'] ?? array();
 $conflicts = $verdict['conflicts'] ?? array();

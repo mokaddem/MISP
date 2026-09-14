@@ -2959,7 +2959,7 @@ they would search the page for. CIDR and ssdeep can afford one name
 each because their mechanism *is* the word.
 
 **The generator is a tool and knows nothing about MISP.**
-`app/Lib/Tools/DomainPermutationTool.php` takes a name and returns
+`app/Lib/Tools/ValueProfile/DomainPermutationTool.php` takes a name and returns
 `candidate => class`. No model, no database, no user, no `__()` — the
 class keys are vocabulary and the wording lives in the view, which is
 what keeps the file testable on its own and free of a translator.

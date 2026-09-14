@@ -99,8 +99,8 @@ Five endpoints, five elements, all five converted:
 New files: `app/Lib/Tools/ValueDecayTool.php`.
 Extended: `app/Model/Value.php` (two accessors),
 `app/Model/ValueProfile.php` (five public methods),
-`app/Lib/Tools/ValueStatsTool.php` (six),
-`app/Lib/Tools/ValueProfileBuckets.php` (one, moved — §9.2).
+`app/Lib/Tools/ValueProfile/ValueStatsTool.php` (six),
+`app/Lib/Tools/ValueProfile/ValueProfileBuckets.php` (one, moved — §9.2).
 Templates touched: all five of the tab's, all Value-Profile-owned.
 
 **The Overview tab's `value_sightings` rail card is untouched and still

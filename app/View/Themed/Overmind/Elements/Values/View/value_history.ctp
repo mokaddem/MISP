@@ -28,7 +28,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('AuditActionMeta', 'Tools');
+App::uses('AuditActionMeta', 'Tools/ValueProfile');
 
 $profile = $valueProfile;
 $history = isset($profile['history']) ? $profile['history'] : null;

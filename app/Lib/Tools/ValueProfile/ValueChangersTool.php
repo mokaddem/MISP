@@ -1,9 +1,9 @@
 <?php
 
-App::uses('ValueLeanTool', 'Tools');
-App::uses('ValueSignalLoader', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueLeanTool', 'Tools/ValueProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueVerdictTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 
 /**
  * What would change this — derived, one line per axis.

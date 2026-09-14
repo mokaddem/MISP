@@ -43,7 +43,7 @@ Five panels, five endpoints, no new ones:
 | `value_relation_graph` | all three of the above, as nodes and edges |
 | `value_relation_settings` | `MISP.correlation_limit`, `over_correlating_values`, `correlation_exclusions` |
 
-One new file every later phase inherits — `app/Lib/Tools/ValueRelationTool.php`
+One new file every later phase inherits — `app/Lib/Tools/ValueProfile/ValueRelationTool.php`
 — plus six accessors on `Value`, one new public method on `Correlation`,
 and the rail's graph, which is no longer a drawing.
 

@@ -51,7 +51,7 @@ is one of §14.12's four blocked rows. Phase 22 is one row of the board.
 |---|---|---|
 | Identity seam | `app/Model/Value.php` | new |
 | Per-panel facade | `app/Model/ValueProfile.php` | new |
-| Aggregation | `app/Lib/Tools/ValueStatsTool.php` | new |
+| Aggregation | `app/Lib/Tools/ValueProfile/ValueStatsTool.php` | new |
 | Endpoint | `ValuesController::viewOccurrenceTable` | rewired |
 | Fetcher | `MispAttribute::fetchAttributesSimple` | extended, §7 |
 | Templates | `value_occurrence_table.ctp`, `value_occurrence_facets.ctp` | §14.6 changes, §8; review changes, §13–§16 |
@@ -194,7 +194,7 @@ every other page"; one extra indexed primary-key lookup is what that costs.
 
 ---
 
-## 5. The aggregation — `app/Lib/Tools/ValueStatsTool.php`
+## 5. The aggregation — `app/Lib/Tools/ValueProfile/ValueStatsTool.php`
 
 Pure and static, `ValueProfileBuckets`'s shape, which §14.5 names as preferred.
 **It takes no `$user` and issues no SQL** — it computes over rows it is handed,

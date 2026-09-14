@@ -54,9 +54,9 @@ if (!function_exists('mb_strtolower')) {
     }
 }
 
-require_once APP . 'Lib/Tools/GalaxyCategory.php';
-require_once APP . 'Lib/Tools/ValueFactsTool.php';
-require_once APP . 'Lib/Tools/ValueContextTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/GalaxyCategory.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueFactsTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueContextTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;

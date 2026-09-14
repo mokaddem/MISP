@@ -386,7 +386,7 @@ moved to phase 8, and four of the nine verification items need a live
 instance (`02-store.md` §7 says which).
 
 **Phase 2, built 2026-09-07.** The accumulator
-(`app/Lib/Tools/ValueVerdictTool.php`), D12's filesystem loader
+(`app/Lib/Tools/ValueProfile/ValueVerdictTool.php`), D12's filesystem loader
 (`ValueSignalLoader`), the eleven signals as eleven files under
 `app/Model/ValueSignals/`, the one-build context
 (`ValueProfile::verdictContextFor()` and three new aggregates on `Value`),

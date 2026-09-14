@@ -1,8 +1,8 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
-App::uses('ValueUrlTool', 'Tools');
-App::uses('ValueLean', 'Tools');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 /**
  * Value Profile controller, mounted at /values/* via CakePHP's default

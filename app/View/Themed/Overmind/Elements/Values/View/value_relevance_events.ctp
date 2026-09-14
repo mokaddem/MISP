@@ -19,7 +19,7 @@
  *                   stamp currently in force
  * @var int $cap     How many rows to draw before counting the rest
  */
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 
 $events = array_reverse($clock['events']);
 $cap = isset($cap) ? (int)$cap : 6;

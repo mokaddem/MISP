@@ -13,7 +13,7 @@
  * @var array $axes From the diff — each axis as before/after/changed
  * @var bool $moved Whether anything moved at all
  */
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 $lean = $axes['lean'];
 $relevance = $axes['relevance'];
 $quality = $axes['quality'];

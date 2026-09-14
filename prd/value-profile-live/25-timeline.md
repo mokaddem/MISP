@@ -294,8 +294,8 @@ One endpoint, one element, one facade method.
 New files: none expected. Extended: `app/Model/Value.php` (the audit id
 sets, if the existing accessors do not cover them),
 `app/Model/ValueProfile.php` (one public method plus the audit reader),
-`app/Lib/Tools/ValueStatsTool.php` (the month/action rollup),
-`app/Lib/Tools/AuditActionMeta.php` (read, not changed). Templates
+`app/Lib/Tools/ValueProfile/ValueStatsTool.php` (the month/action rollup),
+`app/Lib/Tools/ValueProfile/AuditActionMeta.php` (read, not changed). Templates
 touched: `value_timeline.ctp` only, and it is Value-Profile-owned.
 
 The endpoint stays one endpoint. `06-timeline.md` §4 argues that from the

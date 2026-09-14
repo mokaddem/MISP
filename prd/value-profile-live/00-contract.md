@@ -872,7 +872,7 @@ easier tabs land is how a campaign accumulates the debt §14.11 lists.
 **What phase 22 leaves behind for the phases after it.** Three files every later
 phase inherits — `app/Model/Value.php` (the §14.3 seam),
 `app/Model/ValueProfile.php` (the per-panel facade) and
-`app/Lib/Tools/ValueStatsTool.php` — plus four findings that change what a later
+`app/Lib/Tools/ValueProfile/ValueStatsTool.php` — plus four findings that change what a later
 phase should expect:
 
 - **`fetchAttributes` cannot serve this page.** It forces `deleted = 0` for
@@ -1011,7 +1011,7 @@ expect:
   theirs.**
 
 **What phase 24 leaves behind.** One new file every later phase inherits —
-`app/Lib/Tools/ValueRelationTool.php` — plus six accessors on `Value`, one new
+`app/Lib/Tools/ValueProfile/ValueRelationTool.php` — plus six accessors on `Value`, one new
 public method on `Correlation`, and eight findings that change what a later
 phase should expect:
 

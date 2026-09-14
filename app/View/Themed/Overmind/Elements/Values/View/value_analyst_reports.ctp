@@ -34,7 +34,7 @@
  *
  * @var array $valueProfile
  */
-App::uses('ValueStatsTool', 'Tools');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
 
 $reports = $valueProfile['analyst_reports'];
 $rows = $reports['rows'];

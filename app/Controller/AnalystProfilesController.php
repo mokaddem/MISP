@@ -1,13 +1,13 @@
 <?php
 App::uses('AppController', 'Controller');
 App::uses('MispTheme', 'MispTheme');
-App::uses('ValueUrlTool', 'Tools');
-App::uses('AnalystProfileFormTool', 'Tools');
-App::uses('ModuleCredentials', 'Tools');
-App::uses('ValueSignalLoader', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
-App::uses('ValueVerdictDiffTool', 'Tools');
-App::uses('ValueExclusionTool', 'Tools');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
+App::uses('ModuleCredentials', 'Tools/AnalystProfile');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueVerdictTool', 'Tools/ValueProfile');
+App::uses('ValueVerdictDiffTool', 'Tools/ValueProfile');
+App::uses('ValueExclusionTool', 'Tools/ValueProfile');
 
 /**
  * The UI for owning an Analyst Profile: an index that names the profile

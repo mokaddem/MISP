@@ -1,6 +1,6 @@
 <?php
-App::uses('ValueStatsTool', 'Tools');
-App::uses('ValueFieldKind', 'Tools');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueFieldKind', 'Tools/ValueProfile');
 
 /**
  * The Relationships tab's aggregates.

@@ -13,7 +13,7 @@
  * @var array $valueProfile
  * @var string $noWrites Why every action here is disabled
  */
-App::uses('ValueLean', 'Tools');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 $verdict = $valueProfile['verdict'];
 $changers = $verdict['changers'] ?? array();

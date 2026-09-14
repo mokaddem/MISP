@@ -1,12 +1,12 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools');
-App::uses('ValueExclusionTool', 'Tools');
-App::uses('ValueEnrichmentTool', 'Tools');
-App::uses('ValueRelevanceTool', 'Tools');
-App::uses('ValueTrustTool', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
-App::uses('ValueLeanTool', 'Tools');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueExclusionTool', 'Tools/ValueProfile');
+App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueVerdictTool', 'Tools/ValueProfile');
+App::uses('ValueLeanTool', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
 

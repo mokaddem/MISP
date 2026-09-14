@@ -32,7 +32,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueProfileBuckets', 'Tools');
+App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 
 /*
  * The spine's grain, chosen from the value's own range.

@@ -1,6 +1,6 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
 App::uses('ValueEscalationBase', 'Model/ValueEscalations');
 
 /**

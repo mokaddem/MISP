@@ -58,20 +58,20 @@ function __n($singular, $plural, $count)
 
 require_once APP . 'Model/ValueSignals/ValueSignalBase.php';
 require_once APP . 'Model/ValueEscalations/ValueEscalationBase.php';
-require_once APP . 'Lib/Tools/ValueStatsTool.php';
-require_once APP . 'Lib/Tools/ValueTrustTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueStatsTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueTrustTool.php';
 require_once APP . 'Lib/Tools/WarninglistCategory.php';
 require_once APP . 'Lib/Tools/ModuleLocality.php';
-require_once APP . 'Lib/Tools/ValueEnrichmentTool.php';
-require_once APP . 'Lib/Tools/ValueSignalLoader.php';
-require_once APP . 'Lib/Tools/ValueExclusionTool.php';
-require_once APP . 'Lib/Tools/ValueLeanTool.php';
-require_once APP . 'Lib/Tools/ValueChangersTool.php';
-require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
-require_once APP . 'Lib/Tools/ValueVerdictTool.php';
-require_once APP . 'Lib/Tools/ValueVerdictDiffTool.php';
-require_once APP . 'Lib/Tools/ValueUrlTool.php';
-require_once APP . 'Lib/Tools/AnalystProfileFormTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueEnrichmentTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueSignalLoader.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueExclusionTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueLeanTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueChangersTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueRelevanceTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueVerdictTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueVerdictDiffTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueUrlTool.php';
+require_once APP . 'Lib/Tools/AnalystProfile/AnalystProfileFormTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;

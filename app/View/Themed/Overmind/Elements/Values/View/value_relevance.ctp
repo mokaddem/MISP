@@ -51,7 +51,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 $relevance = $valueProfile['relevance'];
 $sightings = $valueProfile['sightings'];
 $notes = $valueProfile['sighting_notes'];

@@ -7,7 +7,7 @@
  * @var bool $editable
  * @var array $bench
  */
-App::uses('ValueUrlTool', 'Tools');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
 
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'analyst-profile'),

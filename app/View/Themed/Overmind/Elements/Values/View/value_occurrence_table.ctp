@@ -19,7 +19,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueStatsTool', 'Tools');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
 
 $profile = $valueProfile;
 $rows = $profile['occurrences'];

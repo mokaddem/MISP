@@ -6,7 +6,7 @@
 
 Two maps, both override sets, both filling gaps MISP has nowhere else to put.
 
-What landed: `app/Lib/Tools/ValueTrustTool.php` (the grades, the scale, the
+What landed: `app/Lib/Tools/ValueProfile/ValueTrustTool.php` (the grades, the scale, the
 weighted counts and the evidence clause), `app/Lib/Tools/WarninglistCategory.php`
 (V1's shipped map, the four-step resolution and its retirement criterion),
 `reference.org_trust_scale` in the shipped default, the trust join in
@@ -573,7 +573,7 @@ Phase 5 added a `ValueRelevanceTool::relevanceFor()` call to
 2, 3 and 4's harnesses. All three had been fataling on their first
 `assess()` since phase 5 landed, and nothing had run them since. Phase 6 then
 gave the three trust-weighted signals a dependency the filesystem loader does
-not provide: in the live path `App::uses('ValueTrustTool', 'Tools')` in the
+not provide: in the live path `App::uses('ValueTrustTool', 'Tools/ValueProfile')` in the
 engine covers it — the engine is the one thing guaranteed to be loaded before
 any signal evaluates — but in a bare-PHP harness it does not, and the three
 signals threw into `not_counted` with `Class "ValueTrustTool" not found` in

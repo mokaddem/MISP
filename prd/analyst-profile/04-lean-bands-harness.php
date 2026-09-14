@@ -59,14 +59,14 @@ function __n($singular, $plural, $count)
 
 require_once APP . 'Model/ValueSignals/ValueSignalBase.php';
 require_once APP . 'Model/ValueEscalations/ValueEscalationBase.php';
-require_once APP . 'Lib/Tools/ValueStatsTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueStatsTool.php';
 /*
  * Loaded because the three trust-weighted signals read it
  * (phase 6). Without it they throw and land in `not_counted`,
  * which is the engine's guard working and every number in this
  * file moving.
  */
-require_once APP . 'Lib/Tools/ValueTrustTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueTrustTool.php';
 /*
  * Loaded because both conflict rules name their category vocabulary
  * from it. `App::uses` is a no-op here, so without this they fail to
@@ -75,19 +75,19 @@ require_once APP . 'Lib/Tools/ValueTrustTool.php';
  */
 require_once APP . 'Lib/Tools/WarninglistCategory.php';
 
-require_once APP . 'Lib/Tools/ValueSignalLoader.php';
-require_once APP . 'Lib/Tools/ValueLeanTool.php';
-require_once APP . 'Lib/Tools/ValueChangersTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueSignalLoader.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueLeanTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueChangersTool.php';
 /*
  * Loaded because `ValueVerdictTool::verdict()` assembles the relevance
  * axis (phase 5), which every earlier phase's engine call now reaches.
  */
-require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
-require_once APP . 'Lib/Tools/ValueVerdictTool.php';
-require_once APP . 'Lib/Tools/ValueSummaryTool.php';
-require_once APP . 'Lib/Tools/ValueLeanReasonTool.php';
-require_once APP . 'Lib/Tools/ValueBandReasonTool.php';
-require_once APP . 'Lib/Tools/ValueContestedTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueRelevanceTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueVerdictTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueSummaryTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueLeanReasonTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueBandReasonTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueContestedTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;

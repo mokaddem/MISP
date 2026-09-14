@@ -24,7 +24,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 $verdict = $valueProfile['verdict'];
 

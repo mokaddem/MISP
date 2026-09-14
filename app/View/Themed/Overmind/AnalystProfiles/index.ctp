@@ -16,7 +16,7 @@
  * @var array $comparison_set
  * @var int $comparison_limit
  */
-App::uses('ValueUrlTool', 'Tools');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
 
 echo $this->element('genericElements/assetLoader', array(
     'css' => array('value-palette', 'analyst-profile'),

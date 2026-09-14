@@ -1,10 +1,10 @@
 <?php
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 /*
  * For the axis constants: `rowsById()` narrows to one axis so the two
  * exact sums stay per axis rather than over a mixture.
  */
-App::uses('ValueVerdictTool', 'Tools');
+App::uses('ValueVerdictTool', 'Tools/ValueProfile');
 
 /**
  * What one profile does to a value that another does not.

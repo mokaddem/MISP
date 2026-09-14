@@ -25,8 +25,8 @@
  * @var string|null $open_section
  * @var array|null $parse A refused paste, with its line
  */
-App::uses('AnalystProfileFormTool', 'Tools');
-App::uses('ValueUrlTool', 'Tools');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
+App::uses('ValueUrlTool', 'Tools/ValueProfile');
 
 $detail = $bench['detail'];
 $ledger = array();

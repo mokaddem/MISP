@@ -1,5 +1,5 @@
 <?php
-App::uses('ValueRelationTool', 'Tools');
+App::uses('ValueRelationTool', 'Tools/ValueProfile');
 /**
  * Section five: the object joins that carry a pair of dates.
  *

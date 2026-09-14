@@ -52,7 +52,7 @@ function __n($singular, $plural, $count)
 }
 
 require_once APP . 'Lib/Tools/ModuleLocality.php';
-require_once APP . 'Lib/Tools/ValueEnrichmentTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueEnrichmentTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;

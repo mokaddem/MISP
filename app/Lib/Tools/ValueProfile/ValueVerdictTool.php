@@ -1,17 +1,17 @@
 <?php
 
-App::uses('ValueSignalLoader', 'Tools');
-App::uses('ValueStatsTool', 'Tools');
+App::uses('ValueSignalLoader', 'Tools/ValueProfile');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
 /*
  * Loaded here rather than by the three signals that use it: a signal
  * file is discovered from the filesystem and required by the loader,
  * which is not a place `App::uses` has run — and the engine is the one
  * thing guaranteed to be in memory before any signal evaluates.
  */
-App::uses('ValueTrustTool', 'Tools');
-App::uses('ValueLeanTool', 'Tools');
-App::uses('ValueChangersTool', 'Tools');
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueLeanTool', 'Tools/ValueProfile');
+App::uses('ValueChangersTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 
 /**
  * The accumulator: a profile plus a value's facts, in; a ledger that

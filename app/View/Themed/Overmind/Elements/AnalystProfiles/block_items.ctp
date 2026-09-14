@@ -20,8 +20,8 @@
  *                         on the bench
  * @var string|null $benchValue
  */
-App::uses('AnalystProfileFormTool', 'Tools');
-App::uses('ValueLean', 'Tools');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 $ledger = isset($ledger) ? $ledger : array();
 $benchValue = isset($benchValue) ? $benchValue : null;

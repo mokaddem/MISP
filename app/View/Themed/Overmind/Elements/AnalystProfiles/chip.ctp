@@ -13,7 +13,7 @@
  * @var array $field
  * @var bool $editable
  */
-App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
 
 $id = AnalystProfileFormTool::fieldId($field['path']);
 $undeclared = !empty($field['undeclared']);

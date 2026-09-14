@@ -30,7 +30,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 $relevance = $valueProfile['relevance'];
 $warninglists = $valueProfile['warninglists'];
 $checked = $valueProfile['warninglists_checked'];

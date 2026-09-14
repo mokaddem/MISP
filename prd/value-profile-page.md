@@ -407,7 +407,7 @@ New:
 
 ```
 app/Controller/ValuesController.php
-app/Lib/Tools/ValueProfileFixture.php
+app/Lib/Tools/ValueProfile/ValueProfileFixture.php
 app/View/Themed/Overmind/Values/view.ctp
 app/View/Themed/Overmind/Elements/Values/View/
     value_fact_strip.ctp

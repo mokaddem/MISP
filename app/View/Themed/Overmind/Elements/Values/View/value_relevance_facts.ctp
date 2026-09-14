@@ -48,7 +48,7 @@
  *                       `ValueProfile::forRelevance()` or the
  *                       assessment's own `$verdict['relevance']`
  */
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 
 $state = $relevance['state'];
 ?>

@@ -37,9 +37,9 @@ sum to its score, and that score lands in the MALICIOUS band. Not "84" — see
 |---|---|
 | `app/Model/ValueSignals/ValueSignalBase.php` | the contract, the identity the loader reads, and the `$context` documentation every signal author reads |
 | `app/Model/ValueSignals/*.php` | §6's eleven, one file each |
-| `app/Lib/Tools/ValueSignalLoader.php` | D12's directory read: two roots, memoised per request, collisions refused, failures logged and kept |
-| `app/Lib/Tools/ValueVerdictTool.php` | the accumulator — outcomes, anchoring, row validation, `not_counted`, the budget's two tiers, grouping, banding |
-| `app/Lib/Tools/ValueStatsTool.php` | `verdictComposition()` and `sightingSignals()` — the composition card §14.5 always said belonged here, now that there is a ledger to derive it from |
+| `app/Lib/Tools/ValueProfile/ValueSignalLoader.php` | D12's directory read: two roots, memoised per request, collisions refused, failures logged and kept |
+| `app/Lib/Tools/ValueProfile/ValueVerdictTool.php` | the accumulator — outcomes, anchoring, row validation, `not_counted`, the budget's two tiers, grouping, banding |
+| `app/Lib/Tools/ValueProfile/ValueStatsTool.php` | `verdictComposition()` and `sightingSignals()` — the composition card §14.5 always said belonged here, now that there is a ledger to derive it from |
 | `app/Model/Value.php` | `recordSummaryFor()`, `orgStanceFor()`, `activityMonthsFor()` — three aggregates over value storage, which is this file's seam |
 | `app/Model/ValueProfile.php` | `verdictContextFor()` and its helpers: one context build, seven queries |
 | `app/files/analyst-profiles/default-v1.json` | the eleven-signal catalogue and its weights, `version` 2 so `updateDefaults()` replaces phase 1's provisional six |
@@ -124,7 +124,7 @@ deducts from the record* rather than *supports / disputes the lean*.
 
 ### 2.1 Where it lives
 
-`app/Lib/Tools/ValueVerdictTool.php`, and **no view dependency whatsoever** —
+`app/Lib/Tools/ValueProfile/ValueVerdictTool.php`, and **no view dependency whatsoever** —
 `01-profile.md` §5.5 makes this a requirement rather than a preference, because
 phase 10 needs to call it in bulk from a REST path. A signal implementation that
 reaches for `$this->Html` or a helper makes phase 10 a rewrite.

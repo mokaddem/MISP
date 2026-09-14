@@ -1,24 +1,24 @@
 <?php
 App::uses('AppModel', 'Model');
-App::uses('ValueStatsTool', 'Tools');
-App::uses('ValueRelevanceTool', 'Tools');
-App::uses('ValueExclusionTool', 'Tools');
-App::uses('ValueRelationTool', 'Tools');
+App::uses('ValueStatsTool', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
+App::uses('ValueExclusionTool', 'Tools/ValueProfile');
+App::uses('ValueRelationTool', 'Tools/ValueProfile');
 App::uses('RedisTool', 'Tools');
-App::uses('ValueWarninglistTool', 'Tools');
-App::uses('ValueTrustTool', 'Tools');
-App::uses('ValueEnrichmentTool', 'Tools');
-App::uses('ValueVerdictTool', 'Tools');
-App::uses('ValueSummaryTool', 'Tools');
-App::uses('ValueContestedTool', 'Tools');
-App::uses('ValueFactsTool', 'Tools');
-App::uses('ValueContextTool', 'Tools');
+App::uses('ValueWarninglistTool', 'Tools/ValueProfile');
+App::uses('ValueTrustTool', 'Tools/ValueProfile');
+App::uses('ValueEnrichmentTool', 'Tools/ValueProfile');
+App::uses('ValueVerdictTool', 'Tools/ValueProfile');
+App::uses('ValueSummaryTool', 'Tools/ValueProfile');
+App::uses('ValueContestedTool', 'Tools/ValueProfile');
+App::uses('ValueFactsTool', 'Tools/ValueProfile');
+App::uses('ValueContextTool', 'Tools/ValueProfile');
 App::uses('ModuleLocality', 'Tools');
 App::uses('WarninglistCategory', 'Tools');
-App::uses('GalaxyCategory', 'Tools');
-App::uses('DomainPermutationTool', 'Tools');
-App::uses('AuditActionMeta', 'Tools');
-App::uses('ValueProfileBuckets', 'Tools');
+App::uses('GalaxyCategory', 'Tools/ValueProfile');
+App::uses('DomainPermutationTool', 'Tools/ValueProfile');
+App::uses('AuditActionMeta', 'Tools/ValueProfile');
+App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 App::uses('JsonTool', 'Tools');
 /*
  * For `NON_CORRELATING_TYPES` — the constant, not the model, so the

@@ -18,7 +18,7 @@
  *                        width (`value_verdict.ctp`)
  * @var string $size   'lg' for the headline, otherwise inline
  */
-App::uses('ValueLean', 'Tools');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 $quality = $quality ?? null;
 $size = $size ?? '';

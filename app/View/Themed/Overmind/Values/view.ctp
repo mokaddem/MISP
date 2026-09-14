@@ -6,7 +6,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueLean', 'Tools');
+App::uses('ValueLean', 'Tools/ValueProfile');
 
 /*
  * Chart.js is loaded once here rather than per fragment: several panels

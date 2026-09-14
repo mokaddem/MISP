@@ -1,6 +1,6 @@
 <?php
 App::uses('AppModel', 'Model');
-App::uses('ValueFieldKind', 'Tools');
+App::uses('ValueFieldKind', 'Tools/ValueProfile');
 
 /**
  * The value-identity seam for the Value Profile page.

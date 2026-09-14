@@ -17,7 +17,7 @@
  * @var array $block
  * @var bool $editable
  */
-App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
 
 /*
  * One picker list per map rather than one per row: the four TTL

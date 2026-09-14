@@ -19,7 +19,7 @@
  * @var array|null $extra Segments appended to the path, for a field
  *                        inside a map row
  */
-App::uses('AnalystProfileFormTool', 'Tools');
+App::uses('AnalystProfileFormTool', 'Tools/AnalystProfile');
 
 $extra = isset($extra) ? $extra : array();
 $path = $field['path'];

@@ -1,6 +1,6 @@
 <?php
-App::uses('ValueProfileBuckets', 'Tools');
-App::uses('ValueRelevanceTool', 'Tools');
+App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
+App::uses('ValueRelevanceTool', 'Tools/ValueProfile');
 
 /**
  * The cross-cutting aggregates the Value Profile page's panels share:

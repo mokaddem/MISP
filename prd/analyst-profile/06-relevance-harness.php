@@ -58,13 +58,13 @@ function __n($singular, $plural, $count)
 
 require_once APP . 'Model/ValueSignals/ValueSignalBase.php';
 require_once APP . 'Model/ValueEscalations/ValueEscalationBase.php';
-require_once APP . 'Lib/Tools/ValueStatsTool.php';
-require_once APP . 'Lib/Tools/ValueSignalLoader.php';
-require_once APP . 'Lib/Tools/ValueExclusionTool.php';
-require_once APP . 'Lib/Tools/ValueRelevanceTool.php';
-require_once APP . 'Lib/Tools/ValueLeanTool.php';
-require_once APP . 'Lib/Tools/ValueChangersTool.php';
-require_once APP . 'Lib/Tools/ValueVerdictTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueStatsTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueSignalLoader.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueExclusionTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueRelevanceTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueLeanTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueChangersTool.php';
+require_once APP . 'Lib/Tools/ValueProfile/ValueVerdictTool.php';
 
 $GLOBALS['checks'] = 0;
 $GLOBALS['failures'] = 0;

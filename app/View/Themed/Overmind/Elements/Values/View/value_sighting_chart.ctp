@@ -67,7 +67,7 @@
  * @var array $valueProfile
  * @var string $valueB64
  */
-App::uses('ValueProfileBuckets', 'Tools');
+App::uses('ValueProfileBuckets', 'Tools/ValueProfile');
 
 $series = $valueProfile['sighting_series'];
 $sightings = $valueProfile['sightings'];

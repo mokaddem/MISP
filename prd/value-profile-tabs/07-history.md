@@ -65,7 +65,7 @@ each `AuditLog::ACTION_*` constant to a colour and a glyph. Both places must
 agree, or the same action reads as two different things on two pages of the same
 product.
 
-- Add `app/Lib/Tools/AuditActionMeta.php`: a static map, one entry per action
+- Add `app/Lib/Tools/ValueProfile/AuditActionMeta.php`: a static map, one entry per action
   constant, returning `['colour' => …, 'icon' => …, 'label' => …]`, plus a
   fallback. The new element reads it.
 - `Logs/timeline.ctp` keeps its own inline `$meta` **in this phase**. It has two
