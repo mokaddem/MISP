@@ -1,7 +1,6 @@
 <?php
 /**
- * What the community has labelled this value — and what it labelled the
- * reports the value arrived in.
+ * What the community has labelled this value.
  *
  * Tags are grouped by taxonomy rather than listed flat, because a
  * taxonomy is the unit that can disagree with itself: two events putting
@@ -10,21 +9,29 @@
  * `admiralty-scale` and its kin — the group renders as a position on a
  * scale instead of a string nobody reads.
  *
- * **Two scopes since 2026-09-14, drawn apart.** Every tag read on this
- * page joined `attribute_tags` and nothing else, which showed a
- * minority of the labelling: an analyst tags the report far more often
- * than the indicator inside it, and `8.8.8.8` carries **7 distinct
- * attribute tags** against **48 distinct event tags** across its twenty
- * events. This card's own subtitle was the evidence — it read *0 galaxy
- * clusters* on a value whose events are attributed to three MITRE
- * ATT&CK techniques.
+ * **One list over both scopes.** A label reaches this card from the
+ * value's occurrences or from the events those occurrences sit in, and
+ * the two are drawn together: an attribute is covered by its event's
+ * labelling, so *tagged on the report* and *tagged on the indicator*
+ * are one statement about the value made at two removes. They were two
+ * sections with a glyph telling them apart for one day; what that
+ * bought was a heading and half the card's height separating a long
+ * list from a usually empty one, since most attributes carry no tag of
+ * their own.
  *
- * They are two sections and not one list because **the count means two
- * different things**: the first counts the occurrences carrying a tag,
- * the second the events carrying it, so `tlp:white` is ×2 above and ×8
- * below. Merging them would put one `×N` column over two denominators.
+ * **No `×N` beside a chip, and that is the fold's price.** The
+ * occurrence scope counts occurrences and the event scope counts
+ * events; their union is a third number neither read holds and buying
+ * it costs a second pass over the value's `attribute_tags`. So each
+ * chip's title states whichever counts it has, under their own names,
+ * and the page keeps its rule that every `×N` on it counts one thing.
+ * `ValueProfile::mergeTagScopes` carries both.
  *
- * `value_context_scope` draws either one; only the unit differs.
+ * **Clusters are grouped under their galaxy**, which is the thing they
+ * are members of. Flat, the card put a tool, a threat actor and four
+ * ATT&CK techniques in one run with each chip repeating its own kind in
+ * small print; the galaxy is what they have in common, so it heads them
+ * and is said once.
  *
  * Lazily loaded into `.ajax-tab-content` from
  * ValuesController::viewContext.
@@ -36,53 +43,114 @@ $profile = $valueProfile;
 $taxonomies = $profile['tags'];
 $galaxies = $profile['galaxies'];
 $tagCap = isset($profile['tag_cap']) ? $profile['tag_cap'] : null;
-$eventTaxonomies = $profile['event_tags'] ?? array();
-$eventGalaxies = $profile['event_galaxies'] ?? array();
-$eventTagCap = $profile['event_tag_cap'] ?? null;
 
 $conflicts = 0;
-foreach (array_merge($taxonomies, $eventTaxonomies) as $taxonomy) {
+foreach ($taxonomies as $taxonomy) {
     if (!empty($taxonomy['conflict'])) {
         $conflicts++;
     }
 }
 
-$hasOccurrence = !empty($taxonomies) || !empty($galaxies);
-$hasEvent = !empty($eventTaxonomies) || !empty($eventGalaxies);
+$clusterCount = 0;
+foreach ($galaxies as $galaxy) {
+    $clusterCount += count($galaxy['clusters']);
+}
 
-/*
- * **Both scopes counted, and the galaxy cell is why it matters.** The
- * subtitle read *3 taxonomies · 0 galaxy clusters* on `8.8.8.8`, which
- * was true of its occurrences and false of the value as anybody reading
- * the page would understand it. Splitting the cells makes *0* a fact
- * about a scope rather than about the value, which also settles the
- * apparent argument with the Assessment rail: that panel scores *no
- * galaxy on any occurrence*, and it still means exactly that.
+/**
+ * A row per taxonomy, or the taxonomies flowed into one band.
+ *
+ * **A height budget, and the number is measured.** A taxonomy row costs
+ * 49px whether it holds one chip or ten, and folding the events' labels
+ * in takes `8.8.8.8` from three taxonomies to ten — six of them a
+ * single chip. A row each was 518px of a card the Overview holds at
+ * 534, nearly all of it the white space to the right of a one-chip
+ * group in a 1,000px card.
+ *
+ * Flowed, the same ten groups are 170px and **keep their names**: each
+ * is its taxonomy's label and then its chips, wrapping as one unit, so
+ * what is given up is the column alignment rather than the grouping.
+ * What a row does buy is the ordinal scale, which needs the width — so
+ * five, the point at which a value's taxonomies stop fitting as rows,
+ * and below it the card draws exactly what it drew before it had two
+ * scopes to fold.
+ *
+ * No scale is drawn in the flowed band, and on a value this broadly
+ * labelled there would be none to draw in any case: a position means
+ * *one tag of this dimension*, and `8.8.8.8` carries `tlp:white`,
+ * `tlp:amber` and `tlp:red` from three different reports.
  */
+const TAXONOMY_ROW_BUDGET = 5;
+$flat = count($taxonomies) > TAXONOMY_ROW_BUDGET;
+/*
+ * Galaxies pay the same rent and are charged it the same way. `443` is
+ * attributed to **nine** of them, which as a row each was 550px — more
+ * than the whole card was before — against the two flat rows the
+ * clusters occupied when they were only the occurrences'.
+ */
+$flatGalaxies = count($galaxies) > TAXONOMY_ROW_BUDGET;
+
+/**
+ * How many clusters of one galaxy the card draws before it says how
+ * many more there are.
+ *
+ * ATT&CK is why: `8.8.8.8`'s events attribute it to twenty techniques,
+ * which is 237px of one galaxy — more than the card's whole tag
+ * section. Six is two lines of it, and the group still says what it
+ * belongs to and how much of it was left out.
+ */
+const CLUSTERS_PER_GALAXY = 6;
+
+
+/**
+ * What a chip's two counts say, in the units they were read in.
+ *
+ * Both, one or neither: a label on the events alone — which is most of
+ * them — says so rather than reading as a count of nothing.
+ *
+ * @param int|null $occurrences
+ * @param int|null $events
+ * @return string
+ */
+$reach = function ($occurrences, $events) {
+    $onEvents = $events === null ? null : sprintf(
+        __n(
+            'On %s event this value appears in',
+            'On %s events this value appears in',
+            $events
+        ),
+        number_format($events)
+    );
+    if ($occurrences === null) {
+        return $onEvents === null ? '' : $onEvents;
+    }
+    if ($onEvents === null) {
+        return sprintf(
+            __n(
+                'On %s occurrence of this value',
+                'On %s occurrences of this value',
+                $occurrences
+            ),
+            number_format($occurrences)
+        );
+    }
+    return $onEvents . sprintf(
+        __n(
+            ', and on %s occurrence of it directly',
+            ', and on %s occurrences of it directly',
+            $occurrences
+        ),
+        number_format($occurrences)
+    );
+};
+
 $subtitle = implode(' &nbsp;·&nbsp; ', array(
     h(sprintf(
-        __n(
-            '%s taxonomy on its occurrences',
-            '%s taxonomies on its occurrences',
-            count($taxonomies)
-        ),
+        __n('%s taxonomy', '%s taxonomies', count($taxonomies)),
         count($taxonomies)
     )),
     h(sprintf(
-        __n(
-            '%s on its events',
-            '%s on its events',
-            count($eventTaxonomies)
-        ),
-        count($eventTaxonomies)
-    )),
-    h(sprintf(
-        __n(
-            '%s galaxy cluster',
-            '%s galaxy clusters',
-            count($galaxies) + count($eventGalaxies)
-        ),
-        count($galaxies) + count($eventGalaxies)
+        __n('%s galaxy cluster', '%s galaxy clusters', $clusterCount),
+        $clusterCount
     )),
 ));
 
@@ -109,71 +177,236 @@ if ($conflicts > 0) {
         'panelExtra' => $headerExtra,
     )) ?>
 
-    <?php if (!$hasOccurrence && !$hasEvent): ?>
+    <?php if (empty($taxonomies) && empty($galaxies)): ?>
         <div class="vp-empty">
             <i class="fas fa-tag"></i>
             <span><?= __('Nobody has tagged this value.') ?></span>
         </div>
     <?php else: ?>
 
-        <?php
-        /*
-         * The heading only appears once there is a second section to
-         * tell this one apart from. A value whose events carry nothing
-         * draws exactly what it drew before this card had scopes.
-         */
-        ?>
-        <?php if ($hasEvent): ?>
-            <div class="vp-tax-scope">
-                <span class="misp-icon misp-icon-attribute misp-simple">
-                </span>
-                <?= __('On its occurrences') ?>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($hasOccurrence): ?>
-            <?= $this->element('Values/View/value_context_scope', array(
-                'taxonomies' => $taxonomies,
-                'galaxies' => $galaxies,
-                'tagCap' => $tagCap,
-                'unit' => 'occurrence',
-            )) ?>
-        <?php else: ?>
+        <?php if ($tagCap !== null): ?>
             <?php
             /*
-             * Said rather than left blank. A value labelled only through
-             * its reports is an ordinary case — most values are — and an
-             * empty half under a heading reads as a panel that failed.
+             * A cap is not a permission (§14.6), so it is stated on the
+             * panel rather than left to be inferred from a list that
+             * stops. It also explains the scales' absence: none is
+             * drawn on a capped read, because a position means *one tag
+             * of this dimension* and a truncated list cannot tell that
+             * from *one that was read*.
              */
             ?>
-            <div class="vp-empty vp-empty-inline">
-                <span class="misp-icon misp-icon-attribute misp-simple">
-                </span>
-                <span><?= __(
-                    'No occurrence of this value carries a tag of its'
-                    . ' own.'
-                ) ?></span>
+            <div class="vp-filter-note">
+                <i class="fas fa-filter"></i>
+                <span><?= h(sprintf(
+                    __('The %s most-carried labels. This value has more,'
+                        . ' so no taxonomy is drawn as a scale here.'),
+                    number_format($tagCap)
+                )) ?></span>
             </div>
         <?php endif; ?>
 
-        <?php if ($hasEvent): ?>
-            <div class="vp-tax-scope">
-                <span class="misp-icon misp-icon-event misp-simple"></span>
-                <?= __('On the events it appears in') ?>
-                <span class="vp-tax-scope-note">
-                    <?= __('about the report, not only about this value') ?>
-                </span>
+        <?php if ($flat): ?>
+            <div class="vp-tax vp-tax-flat">
+                <div class="vp-tax-body">
+                    <div class="vp-tax-tags">
+                        <?php foreach ($taxonomies as $taxonomy): ?>
+                            <span class="vp-tax-group">
+                                <span class="vp-tax-group-name">
+                                    <?= h($taxonomy['taxonomy']) ?>
+                                    <?php if (!empty(
+                                        $taxonomy['conflict']
+                                    )): ?>
+                                        <span class="vp-conflict-dot"
+                                              title="<?= h(sprintf(
+                                                  __('What has been'
+                                                      . ' said about'
+                                                      . ' this value'
+                                                      . ' disagrees'
+                                                      . ' about %s'),
+                                                  $taxonomy['taxonomy']
+                                              )) ?>"></span>
+                                    <?php endif; ?>
+                                </span>
+                                <?php foreach (
+                                    $taxonomy['tags'] as $tag
+                                ): ?>
+                                    <span class="vp-tag"
+                                          title="<?= h($reach(
+                                              $tag['occurrences'],
+                                              $tag['events']
+                                          )) ?>">
+                                        <?= $this->element(
+                                            'genericElementsBS5/Badges/tag',
+                                            array(
+                                                'tag' => $tag,
+                                                'local' => !empty(
+                                                    $tag['local']
+                                                ),
+                                                'hiddenClass' => '',
+                                            )
+                                        ) ?>
+                                    </span>
+                                <?php endforeach; ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
-            <?= $this->element('Values/View/value_context_scope', array(
-                'taxonomies' => $eventTaxonomies,
-                'galaxies' => $eventGalaxies,
-                'tagCap' => $eventTagCap,
-                'unit' => 'event',
-                // One cloud, not ten taxonomy rows — the partial
-                // carries the measurement that forced it.
-                'flat' => true,
-            )) ?>
         <?php endif; ?>
+
+        <?php foreach ($flat ? array() : $taxonomies as $taxonomy): ?>
+            <div class="vp-tax">
+                <div class="vp-tax-name">
+                    <?= h($taxonomy['taxonomy']) ?>
+                    <?php if (!empty($taxonomy['conflict'])): ?>
+                        <span class="vp-conflict-dot"
+                              title="<?= h(__(
+                                  'What has been said about this value'
+                                  . ' disagrees'
+                              )) ?>"></span>
+                    <?php endif; ?>
+                </div>
+                <div class="vp-tax-body">
+
+                    <?php if (!empty($taxonomy['scale'])):
+                        $scale = $taxonomy['scale']; ?>
+                        <div class="vp-scale">
+                            <div class="vp-scale-track">
+                                <?php for ($i = 1;
+                                    $i <= $scale['of'];
+                                    $i++
+                                ): ?>
+                                    <span class="vp-scale-seg<?=
+                                        $i <= $scale['position']
+                                            ? ' vp-scale-seg-on'
+                                            : '' ?>"></span>
+                                <?php endfor; ?>
+                            </div>
+                            <div class="vp-scale-reading">
+                                <span class="fw-semibold">
+                                    <?= h($scale['reading']) ?>
+                                </span>
+                                <span class="text-muted">
+                                    <?= h($scale['label']) ?>
+                                    <?= h(sprintf(
+                                        __('(%1$s of %2$s)'),
+                                        $scale['position'],
+                                        $scale['of']
+                                    )) ?>
+                                </span>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="vp-tax-tags">
+                        <?php foreach ($taxonomy['tags'] as $tag): ?>
+                            <?php
+                            /*
+                             * Neither `attribute_tags` nor `event_tags`
+                             * records who applied a tag, so no scope
+                             * here can say *who said it* — the tooltip
+                             * named the carrying events' creator
+                             * organisations once and was withdrawn for
+                             * claiming more than it knew.
+                             */
+                            ?>
+                            <span class="vp-tag" title="<?= h($reach(
+                                $tag['occurrences'],
+                                $tag['events']
+                            )) ?>">
+                                <?= $this->element(
+                                    'genericElementsBS5/Badges/tag',
+                                    array(
+                                        'tag' => $tag,
+                                        'local' => !empty($tag['local']),
+                                        'hiddenClass' => '',
+                                    )
+                                ) ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+
+                </div>
+            </div>
+        <?php endforeach; ?>
+
+        <?php
+        /**
+         * One galaxy's clusters, capped, with what was left out said.
+         *
+         * @param array $galaxy
+         * @return string
+         */
+        $clusters = function ($galaxy) use ($reach) {
+            $shown = array_slice(
+                $galaxy['clusters'],
+                0,
+                CLUSTERS_PER_GALAXY
+            );
+            $more = count($galaxy['clusters']) - count($shown);
+            ob_start();
+            foreach ($shown as $cluster) {
+                ?>
+                <span class="vp-galaxy" title="<?= h($reach(
+                    $cluster['occurrences'],
+                    $cluster['events']
+                )) ?>">
+                    <span class="vp-galaxy-name">
+                        <?= h($cluster['name']) ?>
+                    </span>
+                </span>
+                <?php
+            }
+            if ($more > 0) {
+                ?>
+                <span class="vp-galaxy-more"><?= h(sprintf(
+                    __n(
+                        'and %s more cluster',
+                        'and %s more clusters',
+                        $more
+                    ),
+                    number_format($more)
+                )) ?></span>
+                <?php
+            }
+            return ob_get_clean();
+        };
+        ?>
+
+        <?php if ($flatGalaxies && !empty($galaxies)): ?>
+            <div class="vp-tax vp-tax-flat vp-tax-galaxies">
+                <div class="vp-tax-body">
+                    <div class="vp-tax-tags">
+                        <?php foreach ($galaxies as $galaxy): ?>
+                            <span class="vp-tax-group">
+                                <span class="vp-tax-group-name">
+                                    <span class="misp-icon
+                                                 misp-icon-galaxy
+                                                 misp-simple"></span>
+                                    <?= h($galaxy['galaxy']) ?>
+                                </span>
+                                <?= $clusters($galaxy) ?>
+                            </span>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <?php foreach ($flatGalaxies ? array() : $galaxies as $galaxy): ?>
+            <div class="vp-tax vp-tax-galaxies">
+                <div class="vp-tax-name">
+                    <span class="misp-icon misp-icon-galaxy
+                                 misp-simple"></span>
+                    <?= h($galaxy['galaxy']) ?>
+                </div>
+                <div class="vp-tax-body">
+                    <div class="vp-tax-tags">
+                        <?= $clusters($galaxy) ?>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
 
     <?php endif; ?>
 

@@ -735,18 +735,15 @@ tr.vp-occ-deleted td {
     gap: 4px;
 }
 
-/* A tag and the number of occurrences carrying it, as one unit. */
+/*
+ * A tag on the context card. No count beside it: the card folds two
+ * scopes counted in two units into one list, so what each was read as
+ * is in the chip's title rather than in a number that would mean
+ * neither.
+ */
 .vp-tag {
     display: inline-flex;
     align-items: center;
-}
-
-.vp-tag-count {
-    margin: 0 6px 4px -2px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--bs-secondary-color);
 }
 
 /*
@@ -825,27 +822,63 @@ tr.vp-occ-deleted td {
     background: color-mix(in srgb, var(--galaxy) 20%, var(--bs-body-bg));
 }
 
-.vp-galaxy > .misp-icon {
-    align-self: center;
-    color: var(--galaxy);
-}
-
 .vp-galaxy-name {
     font-weight: 600;
 }
 
-.vp-galaxy-kind {
-    font-size: 0.68rem;
+/*
+ * What a galaxy holds beyond the six the card draws. Words rather than
+ * a `+N` chip: it is a statement about the group, not another cluster.
+ */
+.vp-galaxy-more {
+    align-self: center;
+    font-size: 0.7rem;
     color: var(--bs-secondary-color);
 }
 
-.vp-galaxy-count {
-    padding: 0 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--galaxy) 22%, transparent);
-    font-size: 0.68rem;
+/*
+ * The taxonomies flowed into one band instead of a row each, taken when
+ * the value carries more of them than the card can spend 49px apiece
+ * on. No name column — each group carries its own name inline — so the
+ * body owns the row.
+ */
+.vp-tax-flat > .vp-tax-body {
+    flex: 1 1 100%;
+}
+
+.vp-tax-flat .vp-tax-tags {
+    gap: 4px 14px;
+}
+
+/* One taxonomy and its labels, wrapping as a unit. */
+.vp-tax-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    padding-left: 8px;
+    border-left: 2px solid var(--bs-border-color);
+}
+
+.vp-tax-group-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 4px;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.7rem;
     font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--bs-secondary-color);
+}
+
+.vp-tax-galaxies .vp-tax-group-name > .misp-icon {
+    color: var(--galaxy);
+}
+
+/* The galaxy heading its clusters, in the taxonomies' own name column. */
+.vp-tax-galaxies > .vp-tax-name > .misp-icon {
+    color: var(--galaxy);
 }
 
 /* ==================================================================
@@ -1409,40 +1442,6 @@ tr.vp-occ-deleted td {
     margin-top: 6px;
     font-size: 0.68rem;
     color: var(--bs-secondary-color);
-}
-
-/*
- * The context card's scope headings, which appear only when there are
- * two scopes to tell apart — a value whose events carry no tags draws
- * the card it drew before it had any.
- *
- * A band rather than a `.vp-subhead`, because the thing below it is a
- * run of `.vp-tax` rows that already carry their own left-hand names:
- * an uppercase label in the same column would read as one more taxonomy.
- */
-.vp-tax-scope {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 1rem;
-    border-top: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--bs-secondary-color);
-}
-
-.vp-tax-scope:first-of-type {
-    border-top: 0;
-}
-
-.vp-tax-scope-note {
-    font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
-    opacity: 0.85;
 }
 
 /*

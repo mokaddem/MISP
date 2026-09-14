@@ -66,27 +66,20 @@ $defined = array(
         'title' => __('Sharing group'),
         'icon' => 'misp-icon misp-icon-sharing-group misp-simple',
     ),
+    /*
+     * One group over both scopes, matching the Tags column: a label on
+     * the row's event covers the row, so *this occurrence is labelled
+     * X* and *this occurrence arrived in a report labelled X* are one
+     * question for a reader narrowing a table. A row carrying a tag on
+     * both sides is counted once.
+     *
+     * Most of what it lists comes from the events: `8.8.8.8` carries 7
+     * distinct attribute tags and 48 distinct event tags.
+     */
     array(
         'key' => 'tag',
         'title' => __('Tag'),
         'icon' => 'misp-icon misp-icon-tag misp-simple',
-    ),
-    /*
-     * Below Tag and never merged into it. The Tags column draws both
-     * scopes since 2026-09-14 and the rail has to be able to narrow to
-     * what the column shows — but *this occurrence is labelled X* and
-     * *this occurrence arrived in a report labelled X* are two
-     * questions, and one group answering both would count rows for two
-     * reasons and name one.
-     *
-     * It is the larger of the two on most values, which is the whole
-     * reason the column changed: `8.8.8.8` carries 7 distinct attribute
-     * tags and 48 distinct event tags.
-     */
-    array(
-        'key' => 'event_tag',
-        'title' => __('Event tag'),
-        'icon' => 'misp-icon misp-icon-event misp-simple',
     ),
 );
 
@@ -106,28 +99,21 @@ foreach ($groups['distribution'] as &$facet) {
 unset($facet);
 
 /*
- * Both tag groups draw the real chip, and the event one draws it with
- * the scope marker the table's own chips carry — so a rail row and the
- * cell it narrows to are the same object.
+ * The tag group draws the real chip, so a rail row and the cell it
+ * narrows to are the same object.
  */
-foreach (array('tag', 'event_tag') as $tagGroup) {
-    if (empty($groups[$tagGroup])) {
-        continue;
-    }
-    foreach ($groups[$tagGroup] as &$facet) {
-        $facet['html'] = $this->element(
-            'genericElementsBS5/Badges/tag',
-            array(
-                'tag' => $facet['tag'],
-                'local' => !empty($facet['local']),
-                'scope' => $tagGroup === 'event_tag' ? 'event' : null,
-                'hiddenClass' => '',
-                'showFavourite' => false,
-            )
-        );
-    }
-    unset($facet);
+foreach ($groups['tag'] as &$facet) {
+    $facet['html'] = $this->element(
+        'genericElementsBS5/Badges/tag',
+        array(
+            'tag' => $facet['tag'],
+            'local' => !empty($facet['local']),
+            'hiddenClass' => '',
+            'showFavourite' => false,
+        )
+    );
 }
+unset($facet);
 
 /*
  * Empty when no occurrence carries either seen date. Forty zero bars and

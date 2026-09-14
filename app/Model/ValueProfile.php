@@ -138,8 +138,14 @@ class ValueProfile extends AppModel
      * them cost a 2.9 MB fragment, on a card whose subject is *what
      * the community has labelled this value* rather than *every label
      * anybody applied*. Sixty fills the card on the widest value the
-     * instance has and leaves every ordinary one — `8.8.8.8` has seven
-     * — untouched by it.
+     * instance has and leaves every ordinary one — `8.8.8.8` reaches
+     * 55 once its events' labels are folded in — untouched by it.
+     *
+     * **It bounds each scope's read and then their union**, which is
+     * not the same as bounding each: two reads of 60 can fold to 120
+     * distinct labels, so the merged list is cut to the same 60 after
+     * the fold and a cap in either read shows up as a merged list over
+     * the bound.
      *
      * A capped read changes two things the card says, and both are said
      * rather than assumed: the tag list carries *the most-carried 60 of
@@ -160,36 +166,6 @@ class ValueProfile extends AppModel
      * see less of a value be shown more of its clusters.
      */
     const CONTEXT_GALAXY_CAP = 40;
-
-    /**
-     * The same two, for the labels on the value's **events**.
-     *
-     * **Tighter than the occurrence-scope caps, and the reason is the
-     * card rather than the query.** `eventTagsFor` is cheaper than its
-     * attribute twin — `443`'s 1,844 events carry 246 distinct tags
-     * against its 3,860 distinct attribute tags — so a matching 60 would
-     * cost nothing to read. What it would cost is the Overview: this
-     * card measured 223px of a pane that phase 31 had just held at
-     * 1,515, and a second list the size of the first would have taken
-     * the left column past the rail again.
-     *
-     * Twelve, measured rather than chosen: the section renders as one
-     * flat cloud of chips, so twelve is three lines of it. The section
-     * is a summary of the report context, not an inventory of it, and
-     * the Occurrences tab's **Event tag** facet lists every one with
-     * counts, one click away.
-     */
-    const CONTEXT_EVENT_TAG_CAP = 12;
-
-    /**
-     * The same, for clusters attributed to those events.
-     *
-     * Six rather than the occurrence scope's forty: a cluster chip
-     * carries a name, a kind and a count, and MITRE technique names run
-     * long enough that each takes its own line. Eight was four lines of
-     * the card.
-     */
-    const CONTEXT_EVENT_GALAXY_CAP = 6;
 
     /**
      * Most recent first. The table's order was never stated while the
@@ -1356,11 +1332,14 @@ class ValueProfile extends AppModel
      * The Overview's context card: what the community has labelled this
      * value.
      *
-     * Three reads and a cap:
+     * Four reads and a cap:
      *
-     *   1. `topTagsFor` — the labels, most-carried first, bounded
-     *   2. `getTagConflicts` — MISP's own exclusivity ruling
-     *   3. `fetchGalaxyClusters` — which clusters this viewer may know
+     *   1. `topTagsFor` — the labels on its occurrences, most-carried
+     *      first, bounded
+     *   2. `eventTagsFor` — the labels on the events it appears in,
+     *      the same way, and folded into the first
+     *   3. `getTagConflicts` — MISP's own exclusivity ruling
+     *   4. `fetchGalaxyClusters` — which clusters this viewer may know
      *      exist
      *
      * **It was five reads and unbounded, and `443` is why it is not.**
@@ -1417,86 +1396,93 @@ class ValueProfile extends AppModel
          * the galaxy list was never the value's galaxies, it was the
          * galaxies that happened to survive the tag cap.
          *
-         * Each read asks for one row more than its list will draw, so
+         * ----------------------------------------------------------
+         * **Two scopes, one list.**
+         * ----------------------------------------------------------
+         * Each kind is read at both scopes and the results are folded
+         * together before anything is grouped. The card drew them as
+         * two sections for one day, and the reason it no longer does is
+         * the one that governs the rest of the page: an attribute is
+         * covered by its event's labelling, so *tagged on the report*
+         * and *tagged on the indicator* are the same statement about
+         * this value made at two removes, not two findings. And an
+         * attribute carrying a tag of its own is the rare case — most
+         * do not — so the split spent a heading, a glyph and half the
+         * card's height separating a long list from a usually empty
+         * one.
+         *
+         * **What the fold costs is the `×N` beside each chip**, and it
+         * is the honest price. `topTagsFor` counts the occurrences
+         * carrying a tag and `eventTagsFor` counts the events carrying
+         * it; the same tag answers 2 and 8 on `8.8.8.8`. Their union is
+         * not a number either read holds — an occurrence tagged
+         * `tlp:white` inside an event tagged `tlp:white` is one thing
+         * counted on both sides — and buying it costs a second pass
+         * over the value's `attribute_tags`, 450ms on `443` for a
+         * number in small print. So `mergeTagScopes` keeps both counts
+         * exactly as they were read, sorts on the larger, and the card
+         * states each one in the chip's title where it can name its own
+         * unit. Every remaining `×N` on this page still counts one
+         * thing.
+         *
+         * **It does not move the Assessment.** `reporting.attribution`
+         * scores *no galaxy on any occurrence* and still means exactly
+         * that; a cluster on the event is a weaker claim about the
+         * value and is not evidence the engine was asked for. A reader
+         * seeing clusters here and *no galaxy on any occurrence* in the
+         * rail is reading two sentences about different things.
+         *
+         * Each read asks for one row more than the list will draw, so
          * *there are more* is answered by the fetch rather than by a
          * second aggregate.
          */
-        $tags = $valueModel->topTagsFor(
-            $user,
-            $value,
-            self::CONTEXT_TAG_CAP + 1,
-            $options + array('galaxy' => false)
+        $tags = $this->mergeTagScopes(
+            $valueModel->topTagsFor(
+                $user,
+                $value,
+                self::CONTEXT_TAG_CAP + 1,
+                $options + array('galaxy' => false)
+            ),
+            $valueModel->eventTagsFor(
+                $user,
+                $value,
+                self::CONTEXT_TAG_CAP + 1,
+                $options + array('galaxy' => false)
+            )
         );
         $capped = count($tags) > self::CONTEXT_TAG_CAP;
         if ($capped) {
             $tags = array_slice($tags, 0, self::CONTEXT_TAG_CAP, true);
         }
-        $galaxyTags = $valueModel->topTagsFor(
-            $user,
-            $value,
-            self::CONTEXT_GALAXY_CAP,
-            $options + array('galaxy' => true)
+        $galaxyTags = $this->mergeTagScopes(
+            $valueModel->topTagsFor(
+                $user,
+                $value,
+                self::CONTEXT_GALAXY_CAP,
+                $options + array('galaxy' => true)
+            ),
+            $valueModel->eventTagsFor(
+                $user,
+                $value,
+                self::CONTEXT_GALAXY_CAP,
+                $options + array('galaxy' => true)
+            )
         );
-        /*
-         * ----------------------------------------------------------
-         * And the same two reads at event scope
-         * ----------------------------------------------------------
-         * **The card was showing a minority of the labelling.** Every
-         * tag read on this page joined `attribute_tags`, and an analyst
-         * tags the report far more often than the indicator inside it:
-         * `8.8.8.8` carries 7 distinct attribute tags against 48
-         * distinct event tags across its twenty events. The card's own
-         * subtitle was the proof — *0 galaxy clusters* on a value whose
-         * events are attributed to three MITRE ATT&CK techniques.
-         *
-         * **Read apart and rendered apart, because the unit differs.**
-         * `topTagsFor` counts the occurrences carrying a tag and
-         * `eventTagsFor` counts the events carrying it; the same tag
-         * answers 2 and 8 on this value. One list under one `×N` column
-         * would invent a third unit meaning neither — the defect the
-         * sightings card was carrying the day before this was written.
-         *
-         * **It does not move the Assessment.** `reporting.attribution`
-         * scores *no galaxy on any occurrence* and still means exactly
-         * that; a cluster on the event is a weaker claim about the value
-         * and is not evidence the engine was asked for. The card now
-         * states both scopes, so a reader seeing clusters here and *no
-         * galaxy on any occurrence* in the rail can see that the two
-         * sentences are about different things rather than in conflict.
-         */
-        $eventTags = $valueModel->eventTagsFor(
-            $user,
-            $value,
-            self::CONTEXT_EVENT_TAG_CAP + 1,
-            $options + array('galaxy' => false)
-        );
-        $eventCapped = count($eventTags) > self::CONTEXT_EVENT_TAG_CAP;
-        if ($eventCapped) {
-            $eventTags = array_slice(
-                $eventTags,
+        if (count($galaxyTags) > self::CONTEXT_GALAXY_CAP) {
+            $galaxyTags = array_slice(
+                $galaxyTags,
                 0,
-                self::CONTEXT_EVENT_TAG_CAP,
+                self::CONTEXT_GALAXY_CAP,
                 true
             );
         }
-        $eventGalaxyTags = $valueModel->eventTagsFor(
-            $user,
-            $value,
-            self::CONTEXT_EVENT_GALAXY_CAP,
-            $options + array('galaxy' => true)
-        );
 
-        $nothing = empty($tags) && empty($galaxyTags)
-            && empty($eventTags) && empty($eventGalaxyTags);
-        if ($nothing) {
+        if (empty($tags) && empty($galaxyTags)) {
             return array(
                 'value' => $value,
                 'tags' => array(),
                 'galaxies' => array(),
                 'tag_cap' => null,
-                'event_tags' => array(),
-                'event_galaxies' => array(),
-                'event_tag_cap' => null,
             );
         }
         return array(
@@ -1514,24 +1500,68 @@ class ValueProfile extends AppModel
                     $this->galaxyClusters($user, $galaxyTags)
                 ),
             'tag_cap' => $capped ? self::CONTEXT_TAG_CAP : null,
-            'event_tags' => empty($eventTags)
-                ? array()
-                : ValueContextTool::taxonomies(
-                    $eventTags,
-                    $this->taxonomyFold(array_keys($eventTags)),
-                    $this->tagConflicts($eventTags),
-                    $eventCapped
-                ),
-            'event_galaxies' => empty($eventGalaxyTags)
-                ? array()
-                : ValueContextTool::galaxies(
-                    $eventGalaxyTags,
-                    $this->galaxyClusters($user, $eventGalaxyTags)
-                ),
-            'event_tag_cap' => $eventCapped
-                ? self::CONTEXT_EVENT_TAG_CAP
-                : null,
         );
+    }
+
+    /**
+     * `topTagsFor` and `eventTagsFor`, folded into one list.
+     *
+     * Keyed by tag name, which is what both readers key by and what
+     * makes a tag applied at both scopes one entry rather than two
+     * chips reading as two sources agreeing.
+     *
+     * **`count` is a sort weight and not a quantity.** The two counts
+     * are kept beside it under their own names and never added: one
+     * counts occurrences and the other events, and a value's occurrence
+     * carrying `tlp:white` inside an event carrying `tlp:white` would
+     * be counted twice by a sum. The larger of the two orders the list,
+     * which is a ranking and claims nothing about how many of what.
+     *
+     * **A tag is local only where every attachment was local**, which
+     * is the rule each reader already applies within its own scope,
+     * extended across them: a tag attached locally on an occurrence and
+     * globally on the event is a globally attached tag, and the chip
+     * must not mark it otherwise.
+     *
+     * @param array $own `Value::topTagsFor` — counts occurrences
+     * @param array $event `Value::eventTagsFor` — counts events
+     * @return array name => `tag`, `count`, `occurrences`, `events`
+     */
+    private function mergeTagScopes(array $own, array $event)
+    {
+        $merged = array();
+        foreach ($own as $name => $row) {
+            $merged[$name] = array(
+                'tag' => $row['tag'],
+                'occurrences' => (int)$row['count'],
+                'events' => null,
+            );
+        }
+        foreach ($event as $name => $row) {
+            if (!isset($merged[$name])) {
+                $merged[$name] = array(
+                    'tag' => $row['tag'],
+                    'occurrences' => null,
+                    'events' => null,
+                );
+            } elseif (empty($row['tag']['local'])) {
+                $merged[$name]['tag']['local'] = false;
+            }
+            $merged[$name]['events'] = (int)$row['count'];
+        }
+        foreach ($merged as $name => $row) {
+            $merged[$name]['count'] = max(
+                $row['occurrences'] === null ? 0 : $row['occurrences'],
+                $row['events'] === null ? 0 : $row['events']
+            );
+        }
+        uasort($merged, function ($a, $b) {
+            if ($a['count'] === $b['count']) {
+                return strcasecmp($a['tag']['name'], $b['tag']['name']);
+            }
+            return $b['count'] - $a['count'];
+        });
+        return $merged;
     }
 
     /**

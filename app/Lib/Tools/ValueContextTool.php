@@ -53,7 +53,9 @@ class ValueContextTool
      * label an analyst is most likely to care about is not below the
      * fold of a card that does not scroll.
      *
-     * @param array $tags `Value::topTagsFor`, galaxies included
+     * @param array $tags `ValueProfile::mergeTagScopes`' output —
+     *     `tag`, a `count` to sort by, and the per-scope
+     *     `occurrences`/`events` behind it; galaxies included
      * @param array $taxonomies `namespace` => the fold below
      * @param array $conflicted Tag names MISP reports as conflicting
      * @param bool $capped Whether more labels exist than were read
@@ -104,6 +106,20 @@ class ValueContextTool
                 'name' => $name,
                 'colour' => $row['tag']['colour'],
                 'count' => $row['count'],
+                /*
+                 * The two scopes' own counts, carried rather than
+                 * summed. `count` above is a sort weight and nothing
+                 * else: a tag on 2 occurrences and 8 events is not on
+                 * 10 of anything, so the card prints these two facts
+                 * where each can name its own unit and prints no
+                 * number beside the chip.
+                 */
+                'occurrences' => isset($row['occurrences'])
+                    ? $row['occurrences']
+                    : null,
+                'events' => isset($row['events'])
+                    ? $row['events']
+                    : null,
                 'local' => !empty($row['tag']['local']),
             );
             $groups[$namespace]['total'] += $row['count'];
@@ -276,7 +292,8 @@ class ValueContextTool
     }
 
     /**
-     * The galaxy clusters, named only where the viewer may know them.
+     * The galaxy clusters, named only where the viewer may know them,
+     * **grouped under the galaxy they belong to**.
      *
      * A galaxy tag reaches this with `is_galaxy` set and nothing else:
      * `Value::ownTagsFor` says in its own docblock that the tag is
@@ -286,9 +303,26 @@ class ValueContextTool
      * many were withheld — the page does not tell a reader that records
      * exist which it will not show them.
      *
-     * @param array $tags `Value::topTagsFor`
+     * **Grouped, because a cluster's galaxy is the thing it is a
+     * member of.** Flat, the card put *Cobalt Strike* (a tool), *APT29*
+     * (a threat actor) and four ATT&CK techniques in one run, each chip
+     * repeating its own kind in small print — a list sorted by a number
+     * with the structure spelled out chip by chip. The galaxy is what
+     * the clusters have in common, so it heads them, and the kind is
+     * said once per group rather than once per cluster.
+     *
+     * The group is keyed on the galaxy's own `name` —
+     * `fetchGalaxyClusters` contains `Galaxy` and then `arrangeData`
+     * moves it *inside* the `GalaxyCluster` array, which is where this
+     * reads it from. A cluster whose galaxy row did not come back falls
+     * back to the cluster's own `type` — the same fallback the kind has
+     * always had, and for the same reason: the raw type is what the
+     * cluster actually belongs to, only not spelled the way the
+     * instance spells it.
+     *
+     * @param array $tags `ValueProfile::mergeTagScopes`' output
      * @param array $clusters Tag name => a `fetchGalaxyClusters` row
-     * @return array
+     * @return array One entry per galaxy: `galaxy`, `kind`, `clusters`
      */
     public static function galaxies(array $tags, array $clusters)
     {
@@ -301,32 +335,61 @@ class ValueContextTool
                 continue;
             }
             $cluster = $clusters[$name]['GalaxyCluster'];
-            $count = $row['count'];
-            $galaxies[] = array(
+            $galaxy = empty($cluster['Galaxy']['name'])
+                ? $cluster['type']
+                : $cluster['Galaxy']['name'];
+            if (!isset($galaxies[$galaxy])) {
+                $galaxies[$galaxy] = array(
+                    'galaxy' => $galaxy,
+                    /*
+                     * `kindOf` answers null for a galaxy it does not
+                     * classify — a custom one, or a new upstream galaxy
+                     * this instance has and the map does not. The raw
+                     * galaxy type is then better than a blank heading.
+                     */
+                    'kind' => GalaxyCategory::kindOf($cluster['type']) === null
+                        ? $cluster['type']
+                        : GalaxyCategory::kindOf($cluster['type']),
+                    'clusters' => array(),
+                );
+            }
+            $galaxies[$galaxy]['clusters'][] = array(
                 'name' => empty($cluster['value'])
                     ? $name
                     : $cluster['value'],
-                /*
-                 * `kindOf` answers null for a galaxy it does not
-                 * classify — a custom one, or a new upstream galaxy
-                 * this instance has and the map does not. The raw
-                 * galaxy type is then better than a blank chip: it is
-                 * what the cluster actually belongs to, only not
-                 * translated into one of the map's words.
-                 */
-                'kind' => GalaxyCategory::kindOf($cluster['type']) === null
-                    ? $cluster['type']
-                    : GalaxyCategory::kindOf($cluster['type']),
-                'n' => $count,
+                'count' => $row['count'],
+                'occurrences' => isset($row['occurrences'])
+                    ? $row['occurrences']
+                    : null,
+                'events' => isset($row['events'])
+                    ? $row['events']
+                    : null,
             );
         }
-        usort($galaxies, function ($a, $b) {
-            if ($a['n'] === $b['n']) {
+        $byCount = function ($a, $b) {
+            if ($a['count'] === $b['count']) {
                 return strcmp($a['name'], $b['name']);
             }
-            return $b['n'] - $a['n'];
+            return $b['count'] - $a['count'];
+        };
+        foreach ($galaxies as $galaxy => $group) {
+            usort($group['clusters'], $byCount);
+            $galaxies[$galaxy]['clusters'] = $group['clusters'];
+        }
+        /*
+         * Galaxies by their most-carried cluster, so the one whose
+         * clusters are attributed most widely heads the card — the
+         * order the flat list had, only taken a level up.
+         */
+        uasort($galaxies, function ($a, $b) {
+            $left = $a['clusters'][0]['count'];
+            $right = $b['clusters'][0]['count'];
+            if ($left === $right) {
+                return strcmp($a['galaxy'], $b['galaxy']);
+            }
+            return $right - $left;
         });
-        return $galaxies;
+        return array_values($galaxies);
     }
 
     /**

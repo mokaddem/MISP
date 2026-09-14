@@ -357,7 +357,7 @@ class ValueStatsTool
      * returns is only what varies — counts, and the domain values behind
      * them.
      *
-     * All eight groups are always present, empty where the rows offer
+     * All nine groups are always present, empty where the rows offer
      * nothing. The rail iterates a fixed list of keys and dereferences
      * two of them directly, so a missing key is a warning rather than an
      * absent group; `value_facet_group` is what decides that a group of
@@ -379,10 +379,9 @@ class ValueStatsTool
             'ids' => array(),
             'distribution' => array(),
             'sharing_group' => array(),
-            'tag' => array(),
-            // The event's labels, counted apart from the row's own —
+            // One group over both scopes, matching the Tags column:
             // `value_occurrence_table`'s token builder has the reason.
-            'event_tag' => array(),
+            'tag' => array(),
             'state' => array(),
         );
         $deleted = 0;
@@ -486,36 +485,40 @@ class ValueStatsTool
                     );
                 }
             }
+            /*
+             * **Both scopes into one group, and once per row.** The
+             * Tags column draws the attribute's labels and its event's
+             * as one list, so the rail that narrows it counts them the
+             * same way — and a row whose attribute and whose event both
+             * carry `tlp:white` is *one* row matching that filter, so
+             * the second sighting must not bump the count again.
+             */
+            $rowTags = array();
             foreach ($row['AttributeTag'] as $attributeTag) {
-                if (empty($attributeTag['Tag'])) {
-                    continue;
+                if (!empty($attributeTag['Tag'])) {
+                    $rowTags[] = $attributeTag['Tag'];
                 }
-                $tag = $attributeTag['Tag'];
+            }
+            foreach ($row['EventTag'] ?? array() as $eventTag) {
+                if (!empty($eventTag['Tag'])) {
+                    $rowTags[] = $eventTag['Tag'];
+                }
+            }
+            $countedTags = array();
+            foreach ($rowTags as $tag) {
                 // The Tags column does not draw galaxy tags either, and
                 // a filter on something invisible is not a filter.
                 if (!empty($tag['is_galaxy'])) {
                     continue;
                 }
-                self::bump(
-                    $groups['tag'],
-                    self::facetToken($tag['name']),
-                    $tag['name'],
-                    array(
-                        'tag' => $tag,
-                        'local' => !empty($tag['local']) ? 1 : 0,
-                    )
-                );
-            }
-            foreach ($row['EventTag'] ?? array() as $eventTag) {
-                if (empty($eventTag['Tag'])
-                    || !empty($eventTag['Tag']['is_galaxy'])
-                ) {
+                $token = self::facetToken($tag['name']);
+                if (isset($countedTags[$token])) {
                     continue;
                 }
-                $tag = $eventTag['Tag'];
+                $countedTags[$token] = true;
                 self::bump(
-                    $groups['event_tag'],
-                    self::facetToken($tag['name']),
+                    $groups['tag'],
+                    $token,
                     $tag['name'],
                     array(
                         'tag' => $tag,
@@ -538,12 +541,10 @@ class ValueStatsTool
          * survives only when every attachment was local, so the chip
          * never marks a globally-attached tag as local.
          */
-        foreach (array('tag', 'event_tag') as $group) {
-            foreach ($groups[$group] as $token => $facet) {
-                $groups[$group][$token]['local'] =
-                    empty($facet['local_all']) ? 0 : 1;
-                unset($groups[$group][$token]['local_all']);
-            }
+        foreach ($groups['tag'] as $token => $facet) {
+            $groups['tag'][$token]['local'] =
+                empty($facet['local_all']) ? 0 : 1;
+            unset($groups['tag'][$token]['local_all']);
         }
 
         if ($proposals > 0) {

@@ -110,32 +110,41 @@ $tokens = function ($row) use ($slug) {
                 . $effective['sharing_group_id'];
         }
     }
+    /*
+     * **Both scopes under one key.** The Tags column draws the
+     * attribute's labels and its event's as one list, and the rail has
+     * one Tag group counting them the same way — an event's labelling
+     * covers the attributes inside it, so *this occurrence is labelled
+     * X* and *this occurrence arrived in a report labelled X* is one
+     * question about the row for a reader narrowing a table.
+     *
+     * Deduplicated, so a row carrying `tlp:white` on both sides stamps
+     * the token once. The rail counts that row once too, and a rail
+     * disagreeing with the table beside it is the one thing
+     * `forOccurrenceTable` being a single fetch exists to prevent.
+     */
+    $tagTokens = array();
+    $rowTags = array();
     foreach ($row['AttributeTag'] as $attributeTag) {
+        if (!empty($attributeTag['Tag'])) {
+            $rowTags[] = $attributeTag['Tag'];
+        }
+    }
+    foreach ($row['EventTag'] ?? array() as $eventTag) {
+        if (!empty($eventTag['Tag'])) {
+            $rowTags[] = $eventTag['Tag'];
+        }
+    }
+    foreach ($rowTags as $tag) {
         // Galaxy tags are not drawn in the Tags column either, and a
         // filter on something invisible is not a filter.
-        if (!empty($attributeTag['Tag']['is_galaxy'])) {
+        if (!empty($tag['is_galaxy'])) {
             continue;
         }
-        $tokens[] = 'tag:' . $slug($attributeTag['Tag']['name']);
+        $tagTokens[$slug($tag['name'])] = true;
     }
-    /*
-     * **The event's labels get their own key, not the one above.**
-     * The Tags column draws both scopes since 2026-09-14, and a rail
-     * that could only filter one of them would have counted `tlp:white`
-     * twice on `8.8.8.8` while the column showed it on ten rows — a
-     * rail disagreeing with the table beside it, which is the one thing
-     * `forOccurrenceTable` being a single fetch exists to prevent.
-     *
-     * A separate key rather than the same one, because the two answer
-     * different questions: *this occurrence is labelled X* and *this
-     * occurrence arrived in a report labelled X*. Folding them would
-     * make a facet count rows for two reasons and name one.
-     */
-    foreach ($row['EventTag'] ?? array() as $eventTag) {
-        if (!empty($eventTag['Tag']['is_galaxy'])) {
-            continue;
-        }
-        $tokens[] = 'event_tag:' . $slug($eventTag['Tag']['name']);
+    foreach (array_keys($tagTokens) as $tagToken) {
+        $tokens[] = 'tag:' . $tagToken;
     }
     if (!empty($row['proposal_count'])) {
         $tokens[] = 'state:proposal';

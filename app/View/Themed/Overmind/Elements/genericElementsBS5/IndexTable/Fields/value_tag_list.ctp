@@ -1,7 +1,7 @@
 <?php
 /**
- * The labels on an occurrence — the ones on the attribute, and the ones
- * on the event carrying it, marked apart.
+ * The labels on an occurrence — the ones on the attribute and the ones
+ * on the event carrying it, as one list.
  *
  * `Fields/tag_list` draws one list from one path, which on this page
  * meant the column showed `attribute_tags` and nothing else. That is a
@@ -18,15 +18,20 @@
  * arrived in. When the cap bites it is therefore the weaker set that
  * folds behind the `+N`.
  *
- * **A tag on both is drawn once, as the attribute's.** `tlp:white` on
- * the attribute and on its event is one statement made twice, and two
- * chips would read as two sources agreeing.
+ * **A tag on both is drawn once.** `tlp:white` on the attribute and on
+ * its event is one statement made twice, and two chips would read as
+ * two sources agreeing.
+ *
+ * **Neither scope is marked on the chip.** An event's labelling covers
+ * the attributes inside it, so which of the two rows carries the tag is
+ * a fact about where MISP stored it rather than about what was said of
+ * this occurrence — and a glyph inside every chip of the commoner set
+ * spent ink on that distinction in every cell of the table.
  *
  * **Galaxy tags are skipped in both scopes**, which is
  * `Fields/tag_list`'s own rule and is kept rather than reasoned about
  * again here: a cluster is not a label and the page draws it as a
- * cluster, in the context card. That card gained the event scope in the
- * same pass.
+ * cluster, in the context card.
  *
  * **`max_visible` is the caller's, and the two callers differ.** The
  * tab's table shows four, which is `Fields/tag_list`'s own number and
@@ -52,10 +57,9 @@ $maxVisible = isset($field['max_visible'])
  * `AttributeTag`/`EventTag` rows, or bare tags, to one shape.
  *
  * @param mixed $raw
- * @param string $scope
  * @return array
  */
-$collect = function ($raw, $scope) {
+$collect = function ($raw) {
     $out = array();
     if (empty($raw) || !is_array($raw)) {
         return $out;
@@ -83,24 +87,19 @@ $collect = function ($raw, $scope) {
         $out[] = array(
             'tag' => $tag,
             'local' => !empty($local),
-            'scope' => $scope,
         );
     }
     return $out;
 };
 
-$chips = $collect(
-    Hash::extract($row, $field['data_path']),
-    'attribute'
-);
+$chips = $collect(Hash::extract($row, $field['data_path']));
 if (!empty($field['event_data_path'])) {
     $seen = array();
     foreach ($chips as $chip) {
         $seen[$chip['tag']['name']] = true;
     }
     foreach ($collect(
-        Hash::extract($row, $field['event_data_path']),
-        'event'
+        Hash::extract($row, $field['event_data_path'])
     ) as $chip) {
         if (!isset($seen[$chip['tag']['name']])) {
             $seen[$chip['tag']['name']] = true;
@@ -120,7 +119,6 @@ $hiddenCount = max(0, count($chips) - $maxVisible);
         <?= $this->element('genericElementsBS5/Badges/tag', array(
             'tag' => $chip['tag'],
             'local' => $chip['local'],
-            'scope' => $chip['scope'],
             'hiddenClass' => $index >= $maxVisible
                 ? 'd-none extra-tag'
                 : '',

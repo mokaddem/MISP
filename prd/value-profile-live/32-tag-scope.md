@@ -15,6 +15,16 @@ built tab:
 The observation is right, the last question answers itself yes, and the
 gap is bigger than the column it was noticed in.
 
+> **Partly superseded the next day by
+> [33](33-tag-scope-fold.md).** The finding below stands — the page was
+> reading a seventh of the labelling, and §2's access argument is still
+> what lets the event scope be read at all. What was withdrawn is the
+> *distinction* this phase drew with it: the two sections of the
+> context card (§4.3), the event glyph inside the chip (§3), and the
+> `Event tag` facet (§3.4) are one list, one unmarked chip and one
+> `Tag` group. §4.4's height table is superseded by 33 §4.1, and the
+> two event-scope caps it set no longer exist.
+
 ---
 
 ## 1. How much the page could not see

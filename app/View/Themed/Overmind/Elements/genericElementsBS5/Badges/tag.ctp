@@ -5,14 +5,9 @@
  * - $local (bool)
  * - $hiddenClass (string)
  * - $showStar (bool) (optionnel)
- * - $scope (string|null) (optionnel) `event` marks a tag carried by the
- *   row's event rather than by the row itself. Absent — which is every
- *   caller but the Value Profile's occurrence tables — renders exactly
- *   as before.
  */
 
 $showFavourite = $showFavourite ?? false;
-$scope = $scope ?? null;
 $name = h($tag['name']);
 $isFavourite = !empty($tag['favourite']);
 
@@ -43,38 +38,14 @@ $style = sprintf('%s; color: %s; %s; %s; %s; cursor:pointer;', $bgColor, $textCo
 
     <?php
     /*
-     * A title on every chip, not only the scoped ones: a caller may cap
-     * the chip's width — the Value Profile's occurrence preview does —
-     * and a truncated tag name has to stay recoverable without opening
-     * anything.
+     * A title on every chip: a caller may cap the chip's width — the
+     * Value Profile's occurrence preview does — and a truncated tag
+     * name has to stay recoverable without opening anything.
      */
     ?>
     <span class="badge me-1 mb-1 <?= h($hiddenClass) ?>"
           style="<?= $style ?>"
-          title="<?= h($scope === 'event'
-              ? sprintf(
-                  __('%s — carried by the event, not by this row'),
-                  $tag['name']
-              )
-              : $tag['name']) ?>">
-        <?php if ($scope === 'event'): ?>
-            <?php
-            /*
-             * The glyph MISP draws an event with, inside the chip, in
-             * the chip's own text colour — `.misp-icon` masks
-             * `currentColor`, so it takes whatever `getTextColour`
-             * chose for this tag's background and cannot fight it.
-             *
-             * Only the event scope is marked. An attribute tag is what
-             * this column has always drawn, so leaving it unmarked
-             * keeps the addition legible and costs no ink on the rows
-             * that had tags before — the same asymmetry `local` uses
-             * one line down.
-             */
-            ?>
-            <span class="misp-icon misp-icon-event misp-simple me-1"
-                  aria-hidden="true"></span>
-        <?php endif; ?>
+          title="<?= h($tag['name']) ?>">
         <?php if ($local): ?>
             <i class="fas fa-user me-1"></i>
         <?php endif; ?>
