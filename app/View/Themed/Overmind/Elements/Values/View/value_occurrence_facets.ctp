@@ -81,6 +81,22 @@ $defined = array(
         'title' => __('Tag'),
         'icon' => 'misp-icon misp-icon-tag misp-simple',
     ),
+    /*
+     * Below Tag and keyed apart from it, because a cluster is not a
+     * label: *what is this occurrence labelled* and *what is it
+     * attributed to* are two questions, where the two scopes of one tag
+     * were one question asked of two rows.
+     *
+     * It arrived with the Galaxies column and could not have arrived
+     * before it — the rail's standing rule is that a filter on
+     * something invisible is not a filter, and until that column
+     * existed the pane drew no cluster at all.
+     */
+    array(
+        'key' => 'galaxy',
+        'title' => __('Galaxy cluster'),
+        'icon' => 'misp-icon misp-icon-galaxy misp-simple',
+    ),
 );
 
 /*
@@ -112,6 +128,41 @@ foreach ($groups['tag'] as &$facet) {
             'showFavourite' => false,
         )
     );
+}
+unset($facet);
+
+/*
+ * A cluster row is the chip the Galaxies column draws, with its galaxy
+ * beside it — the one place in the pane the galaxy is named in words.
+ * The column puts it in the chip's title instead, because there it
+ * would repeat down every row; here each cluster appears once.
+ *
+ * **Named on every row rather than heading runs of them**, which is
+ * how the card groups them and is wrong here: a group's search box and
+ * its `N more` fold both hide rows, so a heading row would strand or
+ * vanish from the clusters it was heading. A row that carries its own
+ * galaxy survives both. The qualifier takes the ellipsis when the
+ * cluster's name is long — the name is what the reader is picking —
+ * and the row's title carries both in full.
+ */
+foreach ($groups['galaxy'] as &$facet) {
+    $facet['html'] = '<span title="'
+        . h(empty($facet['galaxy'])
+            ? $facet['cluster']
+            : sprintf(
+                __('%1$s — in %2$s'),
+                $facet['cluster'],
+                $facet['galaxy']
+            ))
+        . '"><span class="vp-galaxy">'
+        . '<span class="misp-icon misp-icon-galaxy misp-simple"></span>'
+        . '<span class="vp-galaxy-name">' . h($facet['cluster'])
+        . '</span></span>'
+        . (empty($facet['galaxy'])
+            ? ''
+            : '<span class="vp-facet-galaxy">' . h($facet['galaxy'])
+                . '</span>')
+        . '</span>';
 }
 unset($facet);
 

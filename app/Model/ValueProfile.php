@@ -1694,6 +1694,9 @@ class ValueProfile extends AppModel
         // After the org attach, so the event-tag read is over the rows
         // that survived it rather than over the rows fetched.
         $this->attachEventTags($rows);
+        // After both tag attaches: a row's clusters are the galaxy tags
+        // of either scope, ruled on together in one call.
+        $this->attachClusters($user, $rows);
         $this->attachProposalCounts($rows);
         $this->attachEffectiveDistribution($user, $rows);
 
@@ -2492,6 +2495,124 @@ class ValueProfile extends AppModel
                 && isset($byEvent[$eventId])
                 ? $byEvent[$eventId]
                 : array();
+        }
+    }
+
+    /**
+     * The galaxy clusters each row is attributed to, under `Cluster`.
+     *
+     * A galaxy tag reaches the row on either scope — its own
+     * `AttributeTag` or its event's `EventTag` — and until now every
+     * surface in the occurrences pane **dropped** it. That was
+     * `Fields/tag_list`'s rule inherited without being re-argued: a
+     * cluster is not a label, and the Overview's context card draws it
+     * as a cluster. What the rule missed is that the context card is
+     * *the value's* attribution, and the table's question is which
+     * occurrences — on `8.8.8.8`, 9 of 26 rows carry a cluster and 26
+     * distinct ones are on the page, none of them reachable from the
+     * tab a reader is looking at.
+     *
+     * **A galaxy tag is not a cluster until `fetchGalaxyClusters` says
+     * so**, which is the same ruling `ValueProfile::galaxyClusters`
+     * makes for the card and for the same two reasons: the tag carries
+     * no readable name, and seeing a row is not permission to know what
+     * its cluster is. `1.162.239.42` carries four galaxy tags of which
+     * **two** come back. A tag with no cluster row is absent, with
+     * nothing drawn in its place and no count of what was withheld.
+     *
+     * **One query for the page**, as everything else that attaches here
+     * does: the rows are capped at `OCCURRENCE_CAP`, so their distinct
+     * galaxy tags are bounded by it — 26 on the widest value the
+     * instance has, resolved in 11ms.
+     *
+     * Each row's clusters are deduplicated by tag name, so a cluster on
+     * the attribute *and* on its event is one entry. They carry their
+     * galaxy, because the column groups by it and the rail names it.
+     *
+     * @param array $user
+     * @param array $rows Occurrence rows, by reference
+     * @return void
+     */
+    private function attachClusters(array $user, array &$rows)
+    {
+        if (empty($rows)) {
+            return;
+        }
+        $names = array();
+        foreach ($rows as $row) {
+            foreach (array('AttributeTag', 'EventTag') as $scope) {
+                foreach ($row[$scope] ?? array() as $entry) {
+                    if (!empty($entry['Tag']['is_galaxy'])
+                        && !empty($entry['Tag']['name'])
+                    ) {
+                        $names[$entry['Tag']['name']] = true;
+                    }
+                }
+            }
+        }
+        if (empty($names)) {
+            foreach ($rows as $k => $row) {
+                $rows[$k]['Cluster'] = array();
+            }
+            return;
+        }
+
+        $named = array();
+        $found = $this->model('GalaxyCluster')->fetchGalaxyClusters(
+            $user,
+            array('conditions' => array(
+                'GalaxyCluster.tag_name' => array_keys($names),
+            ))
+        );
+        foreach ($found as $row) {
+            $cluster = $row['GalaxyCluster'];
+            if (empty($cluster['tag_name'])) {
+                continue;
+            }
+            $named[$cluster['tag_name']] = array(
+                'id' => (int)$cluster['id'],
+                'name' => empty($cluster['value'])
+                    ? $cluster['tag_name']
+                    : $cluster['value'],
+                // `arrangeData` moves the contained `Galaxy` inside the
+                // cluster, which is where this reads it; at the top
+                // level it is silently absent.
+                'galaxy' => empty($cluster['Galaxy']['name'])
+                    ? $cluster['type']
+                    : $cluster['Galaxy']['name'],
+                'tag_name' => $cluster['tag_name'],
+            );
+        }
+
+        foreach ($rows as $k => $row) {
+            $seen = array();
+            $clusters = array();
+            foreach (array('AttributeTag', 'EventTag') as $scope) {
+                foreach ($row[$scope] ?? array() as $entry) {
+                    $name = $entry['Tag']['name'] ?? null;
+                    if ($name === null
+                        || empty($entry['Tag']['is_galaxy'])
+                        || isset($seen[$name])
+                        || !isset($named[$name])
+                    ) {
+                        continue;
+                    }
+                    $seen[$name] = true;
+                    $clusters[] = $named[$name];
+                }
+            }
+            /*
+             * By galaxy, then by cluster, so a cell listing six reads
+             * as the groups the card draws rather than as the order
+             * two tag tables happened to return.
+             */
+            usort($clusters, function ($a, $b) {
+                $galaxy = strcasecmp($a['galaxy'], $b['galaxy']);
+                return $galaxy === 0
+                    ? strcasecmp($a['name'], $b['name'])
+                    : $galaxy;
+            });
+            $rows[$k]['Cluster'] = $clusters;
         }
     }
 

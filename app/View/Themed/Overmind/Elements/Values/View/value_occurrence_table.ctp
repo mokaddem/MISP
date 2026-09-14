@@ -146,6 +146,20 @@ $tokens = function ($row) use ($slug) {
     foreach (array_keys($tagTokens) as $tagToken) {
         $tokens[] = 'tag:' . $tagToken;
     }
+    /*
+     * **Clusters are their own key, unlike the two tag scopes.** A
+     * galaxy tag and a plain tag are two different questions — *what
+     * is this labelled* and *what is it attributed to* — where the two
+     * scopes of one tag were the same question asked of two rows.
+     *
+     * Keyed on the cluster's **tag name** and not its drawn name:
+     * `attachClusters` has already deduplicated the row's clusters and
+     * ruled on them, and two galaxies can hold clusters that read the
+     * same. The rail bumps the same token from the same array.
+     */
+    foreach ($row['Cluster'] ?? array() as $cluster) {
+        $tokens[] = 'galaxy:' . $slug($cluster['tag_name']);
+    }
     if (!empty($row['proposal_count'])) {
         $tokens[] = 'state:proposal';
     }
@@ -214,6 +228,7 @@ $sortKeys = function ($row) {
         }
     }
     $tags = count($tagNames);
+    $clusters = count($row['Cluster'] ?? array());
     $context = '';
     if (!empty($row['Object']['name'])) {
         $context = mb_strtolower(
@@ -235,6 +250,9 @@ $sortKeys = function ($row) {
         'vp-sort-first-seen' => $stamp($attribute['first_seen'] ?? null),
         'vp-sort-last-seen' => $stamp($attribute['last_seen'] ?? null),
         'vp-sort-tags' => $tags === 0 ? '' : $pad($tags, 4),
+        'vp-sort-galaxies' => $clusters === 0
+            ? ''
+            : $pad($clusters, 4),
     );
 };
 
@@ -627,6 +645,28 @@ $columns = array(
             'element' => 'value_tag_list',
             'data_path' => 'AttributeTag',
             'event_data_path' => 'EventTag',
+        ),
+    ),
+    /*
+     * **Beside Tags and not inside it.** A cluster is not a label:
+     * `tlp:amber` is a statement about handling and *APT29* is a
+     * statement about who, and the Overview's card has drawn them
+     * apart since it existed. One cell holding both would also have to
+     * pick one `+N` over two kinds of thing.
+     *
+     * Last, because it is the widest cell on the row — an ATT&CK
+     * technique's name runs to forty characters — and the column the
+     * table can afford to let run to the edge is the last one.
+     */
+    array(
+        'key' => 'galaxies',
+        'label' => __('Galaxies'),
+        'shown' => true,
+        'field' => array(
+            'name' => __('Galaxies'),
+            'element' => 'value_cluster_list',
+            'data_path' => 'Cluster',
+            'max_visible' => 3,
         ),
     ),
 );

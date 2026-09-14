@@ -822,6 +822,11 @@ tr.vp-occ-deleted td {
     background: color-mix(in srgb, var(--galaxy) 20%, var(--bs-body-bg));
 }
 
+.vp-galaxy > .misp-icon {
+    align-self: center;
+    color: var(--galaxy);
+}
+
 .vp-galaxy-name {
     font-weight: 600;
 }
@@ -1901,6 +1906,35 @@ tr.vp-occ-deleted td {
  */
 [data-vp-occurrences] .idx-col-value_tag_list .badge {
     max-width: 9rem;
+}
+
+/*
+ * The Galaxies column, on the Tags column's reasoning and with its own
+ * numbers. `table-layout: auto` gave it **101px** on a table whose
+ * widest cell is an ATT&CK technique — *Exfiltration Over Other
+ * Network Medium - T1438* is 46 characters — so a cell holding three
+ * of them stacked into 443px and set the height of the whole table,
+ * which is the 388px the Tags floor had just bought back.
+ *
+ * A wider floor than Tags for the same reason the chip cap is wider: a
+ * cluster's name is the longest string this table draws, and a chip
+ * narrower than about 13rem is an ellipsis with a technique id after
+ * it.
+ */
+.vp-panel .idx-col-value_cluster_list {
+    min-width: 15rem;
+}
+
+.idx-col-value_cluster_list .vp-galaxy {
+    overflow: hidden;
+    max-width: 14rem;
+    white-space: nowrap;
+}
+
+.idx-col-value_cluster_list .vp-galaxy-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /*
@@ -4009,6 +4043,17 @@ body[data-controller="values"] .vp-vc-hero-action:disabled {
  */
 .vp-facet-label > * {
     vertical-align: middle;
+}
+
+/*
+ * The galaxy behind a cluster row, named once in the rail where the
+ * Galaxies column can only put it in a chip's title — the column would
+ * be repeating it down every row of a table.
+ */
+.vp-facet-galaxy {
+    margin-left: 6px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
 }
 
 .vp-facet-count {

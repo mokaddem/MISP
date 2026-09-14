@@ -357,7 +357,7 @@ class ValueStatsTool
      * returns is only what varies — counts, and the domain values behind
      * them.
      *
-     * All nine groups are always present, empty where the rows offer
+     * All ten groups are always present, empty where the rows offer
      * nothing. The rail iterates a fixed list of keys and dereferences
      * two of them directly, so a missing key is a warning rather than an
      * absent group; `value_facet_group` is what decides that a group of
@@ -382,6 +382,15 @@ class ValueStatsTool
             // One group over both scopes, matching the Tags column:
             // `value_occurrence_table`'s token builder has the reason.
             'tag' => array(),
+            /*
+             * The clusters the row is attributed to, from
+             * `ValueProfile::attachClusters` — already ruled on,
+             * already deduplicated across the two scopes, already
+             * named. A galaxy tag that did not come back as a cluster
+             * is not here, so the rail cannot offer a filter on
+             * something the table will not draw.
+             */
+            'galaxy' => array(),
             'state' => array(),
         );
         $deleted = 0;
@@ -523,6 +532,17 @@ class ValueStatsTool
                     array(
                         'tag' => $tag,
                         'local' => !empty($tag['local']) ? 1 : 0,
+                    )
+                );
+            }
+            foreach ($row['Cluster'] ?? array() as $cluster) {
+                self::bump(
+                    $groups['galaxy'],
+                    self::facetToken($cluster['tag_name']),
+                    $cluster['name'],
+                    array(
+                        'cluster' => $cluster['name'],
+                        'galaxy' => $cluster['galaxy'],
                     )
                 );
             }

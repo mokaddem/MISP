@@ -99,7 +99,7 @@ an occurrence and globally on its event is a globally attached tag.
 `CONTEXT_EVENT_GALAXY_CAP` (6) were height decisions for a section that
 no longer exists, so the event scope is read at `CONTEXT_TAG_CAP` /
 `CONTEXT_GALAXY_CAP` like the other one — free, because `eventTagsFor`
-is an indexed `IN` and §6 shows the endpoint got *cheaper*. The merged
+is an indexed `IN` and §7 shows the endpoint got *cheaper*. The merged
 list is then cut to the same 60, which is not what capping each read
 does: two reads of 60 fold to as many as 120.
 
@@ -123,7 +123,7 @@ a row whose attribute *and* whose event carry `tlp:white` is one row
 matching that filter rather than two bumps of one counter.
 
 That dedupe on both sides is the invariant the rail and the table share;
-§7 checks it on 131 facets across four values.
+§8 checks it on 131 facets across four values.
 
 ### 3.4 Clusters group under their galaxy
 
@@ -185,7 +185,84 @@ budgets.
 
 ---
 
-## 5. What the reader no longer sees
+## 5. Clusters reach the occurrences pane
+
+Asked immediately after the four above, once the card's grouping was
+seen:
+
+> Nice! What about clusters in the occurrences pane?
+
+**They were not there at all.** A galaxy tag reaches an occurrence row
+on either scope and every surface in that pane dropped it — the Tags
+column, the facet tokens and the rail's counter, three copies of
+`Fields/tag_list`'s rule that a cluster is not a label, inherited
+without being re-argued. What the rule missed is that the card and the
+table answer different questions: the card is *what is this value
+attributed to*, the table is *which occurrences*.
+
+What was being dropped, on the tab's table:
+
+| | `8.8.8.8` | `443` | `0.0.0.0` | `1.162.239.42` |
+|---|---|---|---|---|
+| rows | 26 | 300 | 300 | 1 |
+| rows carrying a cluster | **9** | 13 | **300** | 1 |
+| distinct clusters on the page | 26 | 5 | 1 | 4 |
+| …**nameable** by this reader | 24 | 4 | 1 | **2** |
+
+The last row is the reason the column cannot draw a galaxy tag
+directly. A tag carries no readable name and seeing a row is not
+permission to know its cluster, so `ValueProfile::attachClusters`
+rules on them through `fetchGalaxyClusters` exactly as the card's
+`galaxyClusters` does — and on `1.162.239.42` **half** of them do not
+come back. A tag with no cluster is absent, with nothing in its place
+and no count of what was withheld (§14.6).
+
+### 5.1 Three surfaces, in the order they had to arrive
+
+1. **`attachClusters`**, after both tag attaches, so a cluster on the
+   attribute *and* on its event is one entry. One query for the page —
+   the rows are capped, so their distinct galaxy tags are too: 26 on
+   the widest value, **11ms**. Each row's clusters are ordered by
+   galaxy then name, which is the card's order.
+2. **A `Galaxies` column**, last and with a floor. Beside Tags rather
+   than inside it: `tlp:amber` is a statement about handling and
+   *APT29* about who, and one cell would have to pick one `+N` over two
+   kinds of thing. The galaxy goes in the chip's title, not on the chip
+   — in a cell holding 1.2 clusters on average it would be small print
+   repeating down the column, which is what the card dropped in §3.4.
+3. **A `Galaxy cluster` facet group**, which could not have come first:
+   the rail's standing rule is that a filter on something invisible is
+   not a filter. Each row names its own galaxy rather than sitting
+   under a heading — a group's search box and its `N more` fold both
+   hide rows, so a heading would strand or vanish from what it heads.
+
+### 5.2 The column has a floor, for the Tags column's reason
+
+`table-layout: auto` gave Galaxies **101px** on a table whose widest
+cell is an ATT&CK technique — *Exfiltration Over Other Network Medium
+- T1438* is 46 characters — so three of them stacked vertically and
+took the tallest row to **443px**, which is the 388 the Tags floor had
+just bought back. At a 15rem floor with the chip capped at 14rem and
+ellipsised, the tallest row is **137px** — the number phase 32 landed
+on. The table is 1,789px in a 1,399px wrapper and scrolls inside it, as
+it already did.
+
+`forOccurrenceTable` goes from **7–9 queries to 8–10**; time is
+unchanged (`443` 214ms, `0.0.0.0` 162ms, both the row fetch).
+
+### 5.3 Checked live
+
+- The rail's count equals the rows carrying that token for **every**
+  cluster facet, on all four values — 24, 4, 1 and 2 facets.
+- `data-vp-sort-galaxies` equals the chips drawn, on every row.
+- Ticking *Exploit Public-Facing Application - T1190* takes `8.8.8.8`
+  from 26 rows to **5**, the count the rail shows, and unticking
+  restores 26; on `443` a technique takes 60 to 8.
+- No console or page errors.
+
+---
+
+## 6. What the reader no longer sees
 
 Stated because the page's rule is that a bound is said rather than
 inferred:
@@ -194,15 +271,16 @@ inferred:
   its report carries it. The context card's title still does, per tag;
   the occurrence tables do not, and that is the request.
 - **`×N` on the context card.** §2.
-- **Clusters past the sixth of a galaxy**, counted in words at the end
-  of the group.
+- **Clusters past the sixth of a galaxy** on the card, counted in words
+  at the end of the group, and past the third in a table cell, counted
+  behind a `+N` that opens.
 
 Nothing here is a permission. Every cap on this page is a drawing
 decision and §14.6 of the contract is why they are all written down.
 
 ---
 
-## 6. What it costs
+## 7. What it costs
 
 `forContext`, measured per value with the model re-initialised between
 calls:
@@ -223,7 +301,7 @@ is where [32 §5.3](32-tag-scope.md) found it and predates both phases:
 
 ---
 
-## 7. What was checked, live
+## 8. What was checked, live
 
 On the verification instance, signed in as the site admin:
 
