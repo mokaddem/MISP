@@ -1317,6 +1317,19 @@ tr.vp-occ-deleted td {
 .vp-reporter-seg {
     flex: 0 0 auto;
     height: 100%;
+    /*
+     * Separated rather than left to merge into one block, the rule
+     * `.vp-audit-mix` already follows on a bar of these dimensions:
+     * below the axis the red and the orange are each other's only
+     * neighbour, and two abutting fills read as one segment of an
+     * indeterminate hue long before the pair itself is confusable.
+     */
+    box-shadow: inset -1px 0 0 var(--bs-body-bg);
+}
+
+/* No notch in the bar's own right end. */
+.vp-reporter-seg:last-child {
+    box-shadow: none;
 }
 
 .vp-reporter-seg-yes {
