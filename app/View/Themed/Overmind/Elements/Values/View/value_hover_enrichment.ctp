@@ -40,15 +40,17 @@ $token = isset($this->request->params['_Token']['key'])
     : '';
 
 /*
- * Two chips, and the rest counted. The strip holds one line at 360px
- * and a second line costs as much as it says; `38-hover-card.md` §9 has
- * the measurements that put the cap here.
+ * Four chips, and the rest counted. The strip held one line at 360px
+ * until 2026-09-15, when the height allowed it was doubled; two rows
+ * of two is what that buys, and `38-hover-card.md` §13 carries the
+ * measurement.
  *
- * **Two and not three**, because module names are long — `ipasn` is the
- * short one and `circl_passivedns` is not — and a third chip put all
- * three into ellipses rather than fitting.
+ * The cap is the firing set as well as the drawn set — see `$names`
+ * below — so doubling it doubles the modules a hover may ask for. That
+ * is the real price of the second line, and it is why the cap moved
+ * with the height rather than the height alone.
  */
-$cap = 2;
+$cap = 4;
 $shown = array_slice($panel['modules'], 0, $cap);
 $more = max(0, count($panel['modules']) - $cap);
 

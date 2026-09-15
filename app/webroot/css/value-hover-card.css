@@ -537,38 +537,54 @@
 
 .vp-hc-enr-strip {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 5px;
+    align-content: flex-start;
+    column-gap: 5px;
+    row-gap: 3px;
+    overflow: hidden;
+    /*
+     * Two chip rows: 9.5px at 1.6 line-height plus 2px of border,
+     * twice, plus the row gap. The ceiling is the guard — the cap of
+     * four chips is what keeps the content inside it — and it is here
+     * rather than on the flow because the flow no longer has a box.
+     */
+    max-height: calc(2 * (9.5px * 1.6 + 2px) + 3px);
 }
 
 /*
- * The chips themselves, in a row that gives way before they do.
+ * The chips themselves, on two lines.
  *
- * One line, always: a second line costs as much as a module row and
- * says less, and what does not fit was counted server side where the
- * module list is known. What overflows is faded rather than cut, so an
- * edge a reader can see means *there is more* rather than looking like
- * a rendering fault — and the fade is short enough to be invisible on
- * the ordinary case where everything fits.
+ * One line was the rule until 2026-09-15; the height it was rationing
+ * is doubled now and the cap that fed it doubled with it. Chips wrap
+ * rather than overflowing, so the horizontal fade that used to say
+ * *there is more to the right* has nothing left to say and is gone —
+ * what is not shown is the `+N` outside this row, counted server side
+ * where the module list is known, which is where the design always
+ * preferred to carry it.
+ *
+ * `max-height` is two rows exactly, as the guard rather than the
+ * mechanism: four chips of at most 148px in ~290px of flow is two
+ * rows, and the ceiling only bites if a future cap outgrows it.
  */
 .vp-hc-enr-flow {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: baseline;
-    gap: 5px;
-    overflow: hidden;
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px),
-        transparent 100%);
-    mask-image: linear-gradient(to right, #000 calc(100% - 14px),
-        transparent 100%);
+    /*
+     * No box of its own: the chips wrap against the strip's full width
+     * rather than against whatever is left beside the label, which is
+     * what makes two rows hold four chips. The element stays in the
+     * DOM because the badge JS addresses the chips through it.
+     */
+    display: contents;
 }
 
 .vp-hc-enr-k {
     flex: none;
-    align-self: center;
+    /*
+     * Baseline, not centred: the flow is two rows tall now and a
+     * centred label would float between them instead of naming the
+     * strip from its first line. A wrapping flex container takes its
+     * baseline from its first row, which is exactly the row wanted.
+     */
     margin-right: 1px;
     font-size: 8.5px;
     font-weight: 700;
