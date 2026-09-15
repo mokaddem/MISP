@@ -69,26 +69,6 @@
     text-decoration-color: currentColor;
 }
 
-/*
- * The glyph form, used only where hover enrichment already owns the
- * value's own text. Two popovers racing for one gesture is worse than
- * a second affordance.
- */
-button.vp-hc-trigger {
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--bs-secondary-color, #6c757d);
-    font-size: 0.8em;
-    line-height: 1;
-    text-decoration: none;
-}
-
-button.vp-hc-trigger:hover,
-button.vp-hc-trigger:focus-visible {
-    color: var(--bs-body-color, #212529);
-}
-
 /* The failure the fetch can actually have, said in the card's own box. */
 .vp-hc-error {
     padding: 10px 12px;
